@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -39,17 +40,24 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
+  id: '/settings/profiles',
+  path: '/settings/profiles',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/': typeof AuthedIndexRoute
+  '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -58,19 +66,21 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/api/auth/$'
+  fullPaths: '/' | '/login' | '/register' | '/settings/profiles' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/register' | '/' | '/api/auth/$'
+  to: '/login' | '/register' | '/' | '/settings/profiles' | '/api/auth/$'
   id:
     | '__root__'
     | '/_authed'
     | '/login'
     | '/register'
     | '/_authed/'
+    | '/_authed/settings/profiles'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -118,15 +128,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/settings/profiles': {
+      id: '/_authed/settings/profiles'
+      path: '/settings/profiles'
+      fullPath: '/settings/profiles'
+      preLoaderRoute: typeof AuthedSettingsProfilesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
 }
 
 const AuthedRouteWithChildren =
