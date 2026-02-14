@@ -13,6 +13,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedLibraryRouteImport } from './routes/_authed/library'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
@@ -42,6 +43,11 @@ const AuthedRoute = AuthedRouteImport.update({
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedLibraryRoute = AuthedLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/library': typeof AuthedLibraryRoute
   '/add/author': typeof AuthedAddAuthorRoute
   '/add/book': typeof AuthedAddBookRoute
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/library': typeof AuthedLibraryRoute
   '/': typeof AuthedIndexRoute
   '/add/author': typeof AuthedAddAuthorRoute
   '/add/book': typeof AuthedAddBookRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/_authed/library': typeof AuthedLibraryRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/add/author': typeof AuthedAddAuthorRoute
   '/_authed/add/book': typeof AuthedAddBookRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/library'
     | '/add/author'
     | '/add/book'
     | '/authors/$authorId'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
+    | '/library'
     | '/'
     | '/add/author'
     | '/add/book'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
+    | '/_authed/library'
     | '/_authed/'
     | '/_authed/add/author'
     | '/_authed/add/book'
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/library': {
+      id: '/_authed/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthedLibraryRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/settings/': {
@@ -321,6 +340,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
+  AuthedLibraryRoute: typeof AuthedLibraryRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedAddAuthorRoute: typeof AuthedAddAuthorRoute
   AuthedAddBookRoute: typeof AuthedAddBookRoute
@@ -335,6 +355,7 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedLibraryRoute: AuthedLibraryRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedAddAuthorRoute: AuthedAddAuthorRoute,
   AuthedAddBookRoute: AuthedAddBookRoute,
