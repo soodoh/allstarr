@@ -14,10 +14,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
+import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
+import { Route as AuthedAddAuthorRouteImport } from './routes/_authed/add/author'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -43,6 +46,11 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAuthorsIndexRoute = AuthedAuthorsIndexRouteImport.update({
+  id: '/authors/',
+  path: '/authors/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -64,25 +72,41 @@ const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
   path: '/settings/general',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAuthorsAuthorIdRoute = AuthedAuthorsAuthorIdRouteImport.update({
+  id: '/authors/$authorId',
+  path: '/authors/$authorId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAddAuthorRoute = AuthedAddAuthorRouteImport.update({
+  id: '/add/author',
+  path: '/add/author',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/add/author': typeof AuthedAddAuthorRoute
+  '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/authors/': typeof AuthedAuthorsIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/': typeof AuthedIndexRoute
+  '/add/author': typeof AuthedAddAuthorRoute
+  '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/authors': typeof AuthedAuthorsIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -91,10 +115,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/add/author': typeof AuthedAddAuthorRoute
+  '/_authed/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -103,20 +130,26 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/add/author'
+    | '/authors/$authorId'
     | '/settings/general'
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/api/auth/$'
+    | '/authors/'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/register'
     | '/'
+    | '/add/author'
+    | '/authors/$authorId'
     | '/settings/general'
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/api/auth/$'
+    | '/authors'
     | '/settings'
   id:
     | '__root__'
@@ -124,10 +157,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/_authed/'
+    | '/_authed/add/author'
+    | '/_authed/authors/$authorId'
     | '/_authed/settings/general'
     | '/_authed/settings/profiles'
     | '/_authed/settings/root-folders'
     | '/api/auth/$'
+    | '/_authed/authors/'
     | '/_authed/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -175,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/authors/': {
+      id: '/_authed/authors/'
+      path: '/authors'
+      fullPath: '/authors/'
+      preLoaderRoute: typeof AuthedAuthorsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -203,22 +246,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsGeneralRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/authors/$authorId': {
+      id: '/_authed/authors/$authorId'
+      path: '/authors/$authorId'
+      fullPath: '/authors/$authorId'
+      preLoaderRoute: typeof AuthedAuthorsAuthorIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/add/author': {
+      id: '/_authed/add/author'
+      path: '/add/author'
+      fullPath: '/add/author'
+      preLoaderRoute: typeof AuthedAddAuthorRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedAddAuthorRoute: typeof AuthedAddAuthorRoute
+  AuthedAuthorsAuthorIdRoute: typeof AuthedAuthorsAuthorIdRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
+  AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedAddAuthorRoute: AuthedAddAuthorRoute,
+  AuthedAuthorsAuthorIdRoute: AuthedAuthorsAuthorIdRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
+  AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
 }
 
