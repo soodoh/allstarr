@@ -4,11 +4,13 @@ import { LibraryStats } from "~/components/dashboard/library-stats";
 import { RecentActivity } from "~/components/dashboard/recent-activity";
 import { CalendarWidget } from "~/components/dashboard/calendar-widget";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { DashboardSkeleton } from "~/components/shared/loading-skeleton";
 import { getDashboardStatsFn } from "~/server/dashboard";
 
 export const Route = createFileRoute("/_authed/")({
   loader: () => getDashboardStatsFn(),
   component: DashboardPage,
+  pendingComponent: DashboardSkeleton,
 });
 
 function formatBytes(bytes: number) {

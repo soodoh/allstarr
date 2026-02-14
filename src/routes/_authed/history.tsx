@@ -18,11 +18,13 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { PageHeader } from "~/components/shared/page-header";
+import { TableSkeleton } from "~/components/shared/loading-skeleton";
 import { getHistoryFn } from "~/server/history";
 
 export const Route = createFileRoute("/_authed/history")({
   loader: () => getHistoryFn({ data: {} }),
   component: HistoryPage,
+  pendingComponent: TableSkeleton,
 });
 
 const eventTypeLabels: Record<string, string> = {

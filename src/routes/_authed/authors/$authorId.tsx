@@ -32,6 +32,8 @@ import {
 } from "~/components/ui/table";
 import { PageHeader } from "~/components/shared/page-header";
 import { AuthorForm } from "~/components/authors/author-form";
+import { ConfirmDialog } from "~/components/shared/confirm-dialog";
+import { DetailSkeleton } from "~/components/shared/loading-skeleton";
 import { getAuthorFn, updateAuthorFn, deleteAuthorFn } from "~/server/authors";
 import { getQualityProfilesFn } from "~/server/quality-profiles";
 import { getRootFoldersFn } from "~/server/root-folders";
@@ -46,6 +48,7 @@ export const Route = createFileRoute("/_authed/authors/$authorId")({
     return { author, qualityProfiles, rootFolders };
   },
   component: AuthorDetailPage,
+  pendingComponent: DetailSkeleton,
 });
 
 function AuthorDetailPage() {
@@ -53,7 +56,9 @@ function AuthorDetailPage() {
   const router = useRouter();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleUpdate = async (values: {
     name: string;
@@ -78,12 +83,15 @@ function AuthorDetailPage() {
   };
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
       await deleteAuthorFn({ data: { id: author.id } });
       toast.success("Author deleted");
       navigate({ to: "/authors" });
     } catch {
       toast.error("Failed to delete author");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -107,7 +115,7 @@ function AuthorDetailPage() {
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
@@ -235,6 +243,15 @@ function AuthorDetailPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Author"
+        description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }
