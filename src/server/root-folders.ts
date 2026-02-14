@@ -26,7 +26,7 @@ export const getRootFoldersFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createRootFolderFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => createRootFolderSchema.parse(d))
+  .inputValidator((d: unknown) => createRootFolderSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     let freeSpace = 0;
@@ -46,7 +46,7 @@ export const createRootFolderFn = createServerFn({ method: "POST" })
   });
 
 export const deleteRootFolderFn = createServerFn({ method: "POST" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     db.delete(rootFolders).where(eq(rootFolders.id, data.id)).run();

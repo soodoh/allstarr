@@ -17,7 +17,7 @@ export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const getQualityProfileFn = createServerFn({ method: "GET" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const result = db
@@ -30,7 +30,7 @@ export const getQualityProfileFn = createServerFn({ method: "GET" })
   });
 
 export const createQualityProfileFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => createQualityProfileSchema.parse(d))
+  .inputValidator((d: unknown) => createQualityProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     return db
@@ -44,7 +44,7 @@ export const createQualityProfileFn = createServerFn({ method: "POST" })
   });
 
 export const updateQualityProfileFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateQualityProfileSchema.parse(d))
+  .inputValidator((d: unknown) => updateQualityProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;
@@ -60,7 +60,7 @@ export const updateQualityProfileFn = createServerFn({ method: "POST" })
   });
 
 export const deleteQualityProfileFn = createServerFn({ method: "POST" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     db.delete(qualityProfiles).where(eq(qualityProfiles.id, data.id)).run();
@@ -76,7 +76,7 @@ export const getQualityDefinitionsFn = createServerFn({
 });
 
 export const updateQualityDefinitionFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateQualityDefinitionSchema.parse(d))
+  .inputValidator((d: unknown) => updateQualityDefinitionSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;

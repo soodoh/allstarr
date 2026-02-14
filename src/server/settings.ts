@@ -18,7 +18,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const getSettingFn = createServerFn({ method: "GET" })
-  .validator((d: { key: string }) => d)
+  .inputValidator((d: { key: string }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const row = db
@@ -30,7 +30,7 @@ export const getSettingFn = createServerFn({ method: "GET" })
   });
 
 export const updateSettingFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateSettingSchema.parse(d))
+  .inputValidator((d: unknown) => updateSettingSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     db.insert(settings)

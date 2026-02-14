@@ -40,7 +40,7 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const getBookFn = createServerFn({ method: "GET" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const book = db
@@ -77,7 +77,7 @@ export const getBookFn = createServerFn({ method: "GET" })
   });
 
 export const createBookFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => createBookSchema.parse(d))
+  .inputValidator((d: unknown) => createBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const book = db.insert(books).values(data).returning().get();
@@ -95,7 +95,7 @@ export const createBookFn = createServerFn({ method: "POST" })
   });
 
 export const updateBookFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateBookSchema.parse(d))
+  .inputValidator((d: unknown) => updateBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;
@@ -119,7 +119,7 @@ export const updateBookFn = createServerFn({ method: "POST" })
   });
 
 export const deleteBookFn = createServerFn({ method: "POST" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const book = db.select().from(books).where(eq(books.id, data.id)).get();
@@ -141,14 +141,14 @@ export const deleteBookFn = createServerFn({ method: "POST" })
 
 // Editions
 export const createEditionFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => createEditionSchema.parse(d))
+  .inputValidator((d: unknown) => createEditionSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     return db.insert(editions).values(data).returning().get();
   });
 
 export const updateEditionFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateEditionSchema.parse(d))
+  .inputValidator((d: unknown) => updateEditionSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;

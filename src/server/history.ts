@@ -5,7 +5,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 
 export const getHistoryFn = createServerFn({ method: "GET" })
-  .validator(
+  .inputValidator(
     (d: { page?: number; limit?: number; eventType?: string }) => d
   )
   .handler(async ({ data }) => {
