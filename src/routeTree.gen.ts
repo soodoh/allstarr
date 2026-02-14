@@ -13,8 +13,11 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
+import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -35,14 +38,30 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedSettingsRootFoldersRoute =
+  AuthedSettingsRootFoldersRouteImport.update({
+    id: '/settings/root-folders',
+    path: '/settings/root-folders',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
   id: '/settings/profiles',
   path: '/settings/profiles',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
+  id: '/settings/general',
+  path: '/settings/general',
   getParentRoute: () => AuthedRoute,
 } as any)
 
@@ -50,15 +69,21 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/': typeof AuthedIndexRoute
+  '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/settings': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -66,22 +91,44 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authed/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/settings/profiles' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/settings/general'
+    | '/settings/profiles'
+    | '/settings/root-folders'
+    | '/api/auth/$'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/register' | '/' | '/settings/profiles' | '/api/auth/$'
+  to:
+    | '/login'
+    | '/register'
+    | '/'
+    | '/settings/general'
+    | '/settings/profiles'
+    | '/settings/root-folders'
+    | '/api/auth/$'
+    | '/settings'
   id:
     | '__root__'
     | '/_authed'
     | '/login'
     | '/register'
     | '/_authed/'
+    | '/_authed/settings/general'
     | '/_authed/settings/profiles'
+    | '/_authed/settings/root-folders'
     | '/api/auth/$'
+    | '/_authed/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -121,12 +168,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/': {
+      id: '/_authed/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/settings/root-folders': {
+      id: '/_authed/settings/root-folders'
+      path: '/settings/root-folders'
+      fullPath: '/settings/root-folders'
+      preLoaderRoute: typeof AuthedSettingsRootFoldersRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/settings/profiles': {
       id: '/_authed/settings/profiles'
@@ -135,17 +196,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsProfilesRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/general': {
+      id: '/_authed/settings/general'
+      path: '/settings/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthedSettingsGeneralRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
+  AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
+  AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
+  AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
+  AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
 }
 
 const AuthedRouteWithChildren =
