@@ -32,6 +32,8 @@ import {
 } from "~/components/ui/table";
 import { PageHeader } from "~/components/shared/page-header";
 import { BookForm } from "~/components/books/book-form";
+import { ConfirmDialog } from "~/components/shared/confirm-dialog";
+import { DetailSkeleton } from "~/components/shared/loading-skeleton";
 import { getBookFn, updateBookFn, deleteBookFn } from "~/server/books";
 import { getAuthorsFn } from "~/server/authors";
 
@@ -44,6 +46,7 @@ export const Route = createFileRoute("/_authed/books/$bookId")({
     return { book, authors };
   },
   component: BookDetailPage,
+  pendingComponent: DetailSkeleton,
 });
 
 function BookDetailPage() {
@@ -51,7 +54,9 @@ function BookDetailPage() {
   const router = useRouter();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleUpdate = async (values: {
     title: string;
@@ -76,12 +81,15 @@ function BookDetailPage() {
   };
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
       await deleteBookFn({ data: { id: book.id } });
       toast.success("Book deleted");
       navigate({ to: "/books" });
     } catch {
       toast.error("Failed to delete book");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -105,7 +113,7 @@ function BookDetailPage() {
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
@@ -248,6 +256,15 @@ function BookDetailPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Book"
+        description="Are you sure you want to delete this book? This cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }
