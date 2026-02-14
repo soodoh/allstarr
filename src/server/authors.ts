@@ -33,7 +33,7 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const getAuthorFn = createServerFn({ method: "GET" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const author = db
@@ -54,7 +54,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
   });
 
 export const createAuthorFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => createAuthorSchema.parse(d))
+  .inputValidator((d: unknown) => createAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const author = db.insert(authors).values(data).returning().get();
@@ -71,7 +71,7 @@ export const createAuthorFn = createServerFn({ method: "POST" })
   });
 
 export const updateAuthorFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => updateAuthorSchema.parse(d))
+  .inputValidator((d: unknown) => updateAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;
@@ -94,7 +94,7 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
   });
 
 export const deleteAuthorFn = createServerFn({ method: "POST" })
-  .validator((d: { id: number }) => d)
+  .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const author = db
