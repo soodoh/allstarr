@@ -10,6 +10,7 @@ import {
   Sliders,
   History,
   Library,
+  Search,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,7 @@ import {
 
 const libraryItems = [
   { title: "Dashboard", to: "/", icon: LayoutDashboard },
+  { title: "Search", to: "/search", icon: Search },
   { title: "Authors", to: "/authors", icon: Users },
   { title: "Books", to: "/books", icon: BookOpen },
   { title: "Library", to: "/library", icon: Library },

@@ -13,6 +13,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedSearchRouteImport } from './routes/_authed/search'
 import { Route as AuthedLibraryRouteImport } from './routes/_authed/library'
 import { Route as AuthedHistoryRouteImport } from './routes/_authed/history'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
@@ -26,6 +27,7 @@ import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$b
 import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
 import { Route as AuthedAddBookRouteImport } from './routes/_authed/add/book'
 import { Route as AuthedAddAuthorRouteImport } from './routes/_authed/add/author'
+import { Route as AuthedHardcoverAuthorsAuthorSlugRouteImport } from './routes/_authed/hardcover/authors/$authorSlug'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -44,6 +46,11 @@ const AuthedRoute = AuthedRouteImport.update({
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSearchRoute = AuthedSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedLibraryRoute = AuthedLibraryRouteImport.update({
@@ -112,6 +119,12 @@ const AuthedAddAuthorRoute = AuthedAddAuthorRouteImport.update({
   path: '/add/author',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedHardcoverAuthorsAuthorSlugRoute =
+  AuthedHardcoverAuthorsAuthorSlugRouteImport.update({
+    id: '/hardcover/authors/$authorSlug',
+    path: '/hardcover/authors/$authorSlug',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -119,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/history': typeof AuthedHistoryRoute
   '/library': typeof AuthedLibraryRoute
+  '/search': typeof AuthedSearchRoute
   '/add/author': typeof AuthedAddAuthorRoute
   '/add/book': typeof AuthedAddBookRoute
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
@@ -130,12 +144,14 @@ export interface FileRoutesByFullPath {
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
+  '/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/history': typeof AuthedHistoryRoute
   '/library': typeof AuthedLibraryRoute
+  '/search': typeof AuthedSearchRoute
   '/': typeof AuthedIndexRoute
   '/add/author': typeof AuthedAddAuthorRoute
   '/add/book': typeof AuthedAddBookRoute
@@ -148,6 +164,7 @@ export interface FileRoutesByTo {
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
+  '/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,6 +173,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_authed/history': typeof AuthedHistoryRoute
   '/_authed/library': typeof AuthedLibraryRoute
+  '/_authed/search': typeof AuthedSearchRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/add/author': typeof AuthedAddAuthorRoute
   '/_authed/add/book': typeof AuthedAddBookRoute
@@ -168,6 +186,7 @@ export interface FileRoutesById {
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
+  '/_authed/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -177,6 +196,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/history'
     | '/library'
+    | '/search'
     | '/add/author'
     | '/add/book'
     | '/authors/$authorId'
@@ -188,12 +208,14 @@ export interface FileRouteTypes {
     | '/authors/'
     | '/books/'
     | '/settings/'
+    | '/hardcover/authors/$authorSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/register'
     | '/history'
     | '/library'
+    | '/search'
     | '/'
     | '/add/author'
     | '/add/book'
@@ -206,6 +228,7 @@ export interface FileRouteTypes {
     | '/authors'
     | '/books'
     | '/settings'
+    | '/hardcover/authors/$authorSlug'
   id:
     | '__root__'
     | '/_authed'
@@ -213,6 +236,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_authed/history'
     | '/_authed/library'
+    | '/_authed/search'
     | '/_authed/'
     | '/_authed/add/author'
     | '/_authed/add/book'
@@ -225,6 +249,7 @@ export interface FileRouteTypes {
     | '/_authed/authors/'
     | '/_authed/books/'
     | '/_authed/settings/'
+    | '/_authed/hardcover/authors/$authorSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -262,6 +287,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/search': {
+      id: '/_authed/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthedSearchRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/library': {
@@ -355,12 +387,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAddAuthorRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/hardcover/authors/$authorSlug': {
+      id: '/_authed/hardcover/authors/$authorSlug'
+      path: '/hardcover/authors/$authorSlug'
+      fullPath: '/hardcover/authors/$authorSlug'
+      preLoaderRoute: typeof AuthedHardcoverAuthorsAuthorSlugRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedHistoryRoute: typeof AuthedHistoryRoute
   AuthedLibraryRoute: typeof AuthedLibraryRoute
+  AuthedSearchRoute: typeof AuthedSearchRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedAddAuthorRoute: typeof AuthedAddAuthorRoute
   AuthedAddBookRoute: typeof AuthedAddBookRoute
@@ -372,11 +412,13 @@ interface AuthedRouteChildren {
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
+  AuthedHardcoverAuthorsAuthorSlugRoute: typeof AuthedHardcoverAuthorsAuthorSlugRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedHistoryRoute: AuthedHistoryRoute,
   AuthedLibraryRoute: AuthedLibraryRoute,
+  AuthedSearchRoute: AuthedSearchRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedAddAuthorRoute: AuthedAddAuthorRoute,
   AuthedAddBookRoute: AuthedAddBookRoute,
@@ -388,6 +430,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
+  AuthedHardcoverAuthorsAuthorSlugRoute: AuthedHardcoverAuthorsAuthorSlugRoute,
 }
 
 const AuthedRouteWithChildren =
