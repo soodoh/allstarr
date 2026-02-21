@@ -19,6 +19,12 @@ export interface HardcoverSearchItem {
   hardcoverUrl: string | null;
 }
 
+export interface HardcoverAuthorBookSeries {
+  id: string;
+  title: string;
+  position: string | null;
+}
+
 export interface HardcoverAuthorBook {
   id: string;
   title: string;
@@ -31,6 +37,33 @@ export interface HardcoverAuthorBook {
   languageCode: string | null;
   languageName: string | null;
   hardcoverUrl: string | null;
+  series: HardcoverAuthorBookSeries[];
+}
+
+export interface HardcoverSeriesBook {
+  id: string;
+  title: string;
+  slug: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  coverUrl: string | null;
+  position: number | null;
+  hardcoverUrl: string | null;
+  isCompilation: boolean;
+}
+
+export interface HardcoverSeriesBooksResult {
+  seriesId: string;
+  seriesTitle: string;
+  books: HardcoverSeriesBook[];
+}
+
+export interface HardcoverAuthorSeries {
+  id: string;
+  name: string;
+  slug: string;
+  booksCount: number;
+  isCompleted: boolean | null;
 }
 
 export interface HardcoverLanguageOption {
@@ -55,6 +88,8 @@ export interface HardcoverAuthorDetail {
   totalPages: number;
   languages: HardcoverLanguageOption[];
   books: HardcoverAuthorBook[];
+  sortBy: "title" | "year" | "rating";
+  sortDir: "asc" | "desc";
 }
 
 const searchInputSchema = z.object({
@@ -66,13 +101,15 @@ const searchInputSchema = z.object({
 const authorDetailsInputSchema = z.object({
   slug: z.string().trim().min(1).max(160),
   page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(25),
+  pageSize: z.number().int().min(1).max(500).default(25),
   language: z
     .string()
     .trim()
     .toLowerCase()
     .regex(/^(all|[a-z]{2,3})$/)
     .default("en"),
+  sortBy: z.enum(["title", "year", "rating"]).default("year"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
 
 const searchQuery = `
@@ -116,17 +153,23 @@ query HardcoverAuthorMeta($slug: String!) {
 `;
 
 const authorBooksPageQuery = `
-query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!) {
-  books_aggregate(where: { contributions: { author: { slug: { _eq: $slug } } } }) {
+query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!, $orderBy: [books_order_by!]!) {
+  books_aggregate(where: {
+    contributions: { author: { slug: { _eq: $slug } } }
+    compilation: { _neq: true }
+  }) {
     aggregate {
       count
     }
   }
   books(
-    where: { contributions: { author: { slug: { _eq: $slug } } } }
+    where: {
+      contributions: { author: { slug: { _eq: $slug } } }
+      compilation: { _neq: true }
+    }
     limit: $limit
     offset: $offset
-    order_by: [{ release_year: desc_nulls_last }, { id: desc }]
+    order_by: $orderBy
   ) {
     id
     title
@@ -154,6 +197,13 @@ query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!) {
         language
       }
     }
+    book_series {
+      position
+      series {
+        id
+        name
+      }
+    }
   }
 }
 `;
@@ -164,11 +214,13 @@ query HardcoverAuthorBooksPageByLanguage(
   $limit: Int!
   $offset: Int!
   $languageCode: String!
+  $orderBy: [books_order_by!]!
 ) {
   books_aggregate(
     where: {
       contributions: { author: { slug: { _eq: $slug } } }
       editions: { language: { code2: { _eq: $languageCode } } }
+      compilation: { _neq: true }
     }
   ) {
     aggregate {
@@ -179,10 +231,11 @@ query HardcoverAuthorBooksPageByLanguage(
     where: {
       contributions: { author: { slug: { _eq: $slug } } }
       editions: { language: { code2: { _eq: $languageCode } } }
+      compilation: { _neq: true }
     }
     limit: $limit
     offset: $offset
-    order_by: [{ release_year: desc_nulls_last }, { id: desc }]
+    order_by: $orderBy
   ) {
     id
     title
@@ -210,9 +263,187 @@ query HardcoverAuthorBooksPageByLanguage(
         language
       }
     }
+    book_series {
+      position
+      series {
+        id
+        name
+      }
+    }
   }
 }
 `;
+
+const seriesBooksInputSchema = z.object({
+  seriesId: z.number().int().min(1),
+  language: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(all|[a-z]{2,3})$/)
+    .default("all"),
+});
+
+const seriesBooksQuery = `
+query HardcoverSeriesBooks($seriesId: Int!) {
+  series_by_pk(id: $seriesId) {
+    id
+    name
+  }
+  book_series(
+    where: {
+      series_id: { _eq: $seriesId }
+      compilation: { _neq: true }
+      book: { compilation: { _neq: true } }
+    }
+    order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
+  ) {
+    position
+    compilation
+    book {
+      id
+      title
+      slug
+      release_year
+      rating
+      users_count
+      image {
+        url
+      }
+    }
+  }
+}
+`;
+
+const seriesByLanguageBooksQuery = `
+query HardcoverSeriesBooksByLanguage($seriesId: Int!, $lang: String!) {
+  series_by_pk(id: $seriesId) {
+    id
+    name
+  }
+  book_series(
+    where: {
+      series_id: { _eq: $seriesId }
+      compilation: { _neq: true }
+      book: {
+        compilation: { _neq: true }
+        editions: { language: { code2: { _eq: $lang } } }
+      }
+    }
+    order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
+  ) {
+    position
+    compilation
+    book {
+      id
+      title
+      slug
+      release_year
+      rating
+      users_count
+      image {
+        url
+      }
+    }
+  }
+}
+`;
+
+interface GraphQLSeriesBooksResponse {
+  data?: {
+    series_by_pk?: unknown;
+    book_series?: unknown;
+  };
+  errors?: Array<{ message?: string }>;
+}
+
+async function fetchSeriesBooks(
+  seriesId: number,
+  language: string,
+  authorization: string
+): Promise<HardcoverSeriesBooksResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const hasLanguageFilter = language !== "all";
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: hasLanguageFilter ? seriesByLanguageBooksQuery : seriesBooksQuery,
+        variables: hasLanguageFilter
+          ? { seriesId, lang: language }
+          : { seriesId },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const body = (await response.json()) as GraphQLSeriesBooksResponse;
+    if (!response.ok) throw new Error("Hardcover series request failed.");
+    if (body.errors && body.errors.length > 0) {
+      throw new Error(body.errors[0]?.message || "Hardcover series request failed.");
+    }
+
+    const seriesRecord = toRecord(body.data?.series_by_pk);
+    if (!seriesRecord) throw new Error("Series not found on Hardcover.");
+
+    const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
+
+    const books: HardcoverSeriesBook[] = toRecordArray(body.data?.book_series)
+      .map((entry) => {
+        const bookRecord = toRecord(entry.book);
+        if (!bookRecord) return null;
+        const title = firstString(bookRecord, [["title"]]);
+        if (!title) return null;
+        const slug = firstString(bookRecord, [["slug"]]);
+        const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
+        const position = firstNumber(entry, [["position"]]);
+        const isCompilation = entry.compilation === true;
+        return {
+          id,
+          title,
+          slug,
+          releaseYear: firstNumber(bookRecord, [["release_year"]]),
+          rating: firstNumber(bookRecord, [["rating"]]),
+          coverUrl: getCoverUrl(bookRecord),
+          position,
+          hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+          isCompilation,
+        };
+      })
+      .filter((b): b is HardcoverSeriesBook => Boolean(b))
+      // Deduplicate: keep only the highest users_count entry per position.
+      // The query orders by position asc, users_count desc, so the first entry
+      // per position is always the most-tracked (canonical) book.
+      .filter((() => {
+        const seen = new Set<number>();
+        return (b: HardcoverSeriesBook) => {
+          if (b.position === null) return false;
+          if (seen.has(b.position)) return false;
+          seen.add(b.position);
+          return true;
+        };
+      })());
+
+    return {
+      seriesId: String(seriesId),
+      seriesTitle,
+      books,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Hardcover series request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 interface SearchHit {
   document?: unknown;
@@ -412,6 +643,22 @@ function toHardcoverAuthorBook(
     ? firstString(languageRecord, [["language"]])
     : null;
 
+  const bookSeriesEntries = toRecordArray(bookRecord.book_series);
+  const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
+    .map((entry) => {
+      const seriesRecord = toRecord(entry.series);
+      if (!seriesRecord) return null;
+      const seriesId = firstId(seriesRecord, [["id"]]);
+      const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
+      if (!seriesId || !seriesTitle) return null;
+      return {
+        id: seriesId,
+        title: seriesTitle,
+        position: firstString(entry, [["position"]]),
+      };
+    })
+    .filter((s): s is HardcoverAuthorBookSeries => Boolean(s));
+
   return {
     id,
     title,
@@ -426,6 +673,7 @@ function toHardcoverAuthorBook(
     languageCode,
     languageName,
     hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+    series,
   };
 }
 
@@ -565,11 +813,25 @@ async function fetchSearchResults(
   }
 }
 
+function buildOrderBy(
+  sortBy: "title" | "year" | "rating",
+  sortDir: "asc" | "desc"
+): Record<string, unknown>[] {
+  const dir = sortDir;
+  const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
+  if (sortBy === "title") return [{ title: dir }, { id: "asc" }];
+  if (sortBy === "rating") return [{ rating: dirNullsLast }, { id: "asc" }];
+  // year (default)
+  return [{ release_year: dirNullsLast }, { id: dir }];
+}
+
 async function fetchAuthorBooksPage(
   slug: string,
   page: number,
   pageSize: number,
   selectedLanguage: string,
+  sortBy: "title" | "year" | "rating",
+  sortDir: "asc" | "desc",
   authorization: string
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
   const controller = new AbortController();
@@ -592,6 +854,7 @@ async function fetchAuthorBooksPage(
           slug,
           limit: pageSize,
           offset,
+          orderBy: buildOrderBy(sortBy, sortDir),
           ...(hasLanguageFilter ? { languageCode: selectedLanguage } : {}),
         },
       }),
@@ -627,6 +890,8 @@ async function fetchAuthorDetails(
   page: number,
   pageSize: number,
   language: string,
+  sortBy: "title" | "year" | "rating",
+  sortDir: "asc" | "desc",
   authorization: string
 ): Promise<HardcoverAuthorDetail> {
   const controller = new AbortController();
@@ -687,6 +952,8 @@ async function fetchAuthorDetails(
       page,
       pageSize,
       selectedLanguage,
+      sortBy,
+      sortDir,
       authorization
     );
     const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
@@ -700,6 +967,8 @@ async function fetchAuthorDetails(
               safePage,
               pageSize,
               selectedLanguage,
+              sortBy,
+              sortDir,
               authorization
             )
           ).books;
@@ -738,6 +1007,8 @@ async function fetchAuthorDetails(
       totalPages,
       languages: languageOptions,
       books: pagedBooks,
+      sortBy,
+      sortDir,
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -795,6 +1066,143 @@ export const getHardcoverAuthorFn = createServerFn({ method: "GET" })
       data.page,
       data.pageSize,
       data.language,
+      data.sortBy,
+      data.sortDir,
       authorization
     );
   });
+
+export const getHardcoverSeriesBooksFn = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) => seriesBooksInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const authorization = getAuthorizationHeader();
+    return fetchSeriesBooks(data.seriesId, data.language, authorization);
+  });
+
+const authorSeriesInputSchema = z.object({
+  slug: z.string().trim().min(1).max(160),
+  language: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(all|[a-z]{2,3})$/)
+    .default("all"),
+});
+
+const authorSeriesQuery = `
+query HardcoverAuthorSeries($slug: String!) {
+  series(
+    where: {
+      canonical_id: { _is_null: true }
+      book_series: { book: { contributions: { author: { slug: { _eq: $slug } } } } }
+    }
+    order_by: [{ name: asc }]
+  ) {
+    id
+    name
+    slug
+    is_completed
+    booksCount: book_series_aggregate(
+      where: {
+        compilation: { _neq: true }
+        book: { compilation: { _neq: true } }
+      }
+    ) { aggregate { count } }
+  }
+}
+`;
+
+const authorSeriesByLanguageQuery = `
+query HardcoverAuthorSeriesByLanguage($slug: String!, $lang: String!) {
+  series(
+    where: {
+      canonical_id: { _is_null: true }
+      book_series: {
+        book: {
+          contributions: { author: { slug: { _eq: $slug } } }
+          editions: { language: { code2: { _eq: $lang } } }
+        }
+      }
+    }
+    order_by: [{ name: asc }]
+  ) {
+    id
+    name
+    slug
+    is_completed
+    booksCount: book_series_aggregate(
+      where: {
+        compilation: { _neq: true }
+        book: {
+          compilation: { _neq: true }
+          editions: { language: { code2: { _eq: $lang } } }
+        }
+      }
+    ) { aggregate { count } }
+  }
+}
+`;
+
+interface GraphQLAuthorSeriesResponse {
+  data?: { series?: unknown };
+  errors?: Array<{ message?: string }>;
+}
+
+async function fetchAuthorSeries(
+  slug: string,
+  language: string,
+  authorization: string
+): Promise<HardcoverAuthorSeries[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const hasLanguageFilter = language !== "all";
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: authorization },
+      body: JSON.stringify({
+        query: hasLanguageFilter ? authorSeriesByLanguageQuery : authorSeriesQuery,
+        variables: hasLanguageFilter ? { slug, lang: language } : { slug },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    const body = (await response.json()) as GraphQLAuthorSeriesResponse;
+    if (!response.ok) throw new Error("Hardcover series request failed.");
+    if (body.errors && body.errors.length > 0) {
+      throw new Error(body.errors[0]?.message || "Hardcover series request failed.");
+    }
+    return toRecordArray(body.data?.series).map((s) => {
+      const booksCountRecord = toRecord(s.booksCount);
+      const aggregateRecord = booksCountRecord ? toRecord(booksCountRecord.aggregate) : null;
+      const booksCount = aggregateRecord ? firstNumber(aggregateRecord, [["count"]]) ?? 0 : 0;
+      return {
+        id: String(firstId(s, [["id"]]) ?? ""),
+        name: firstString(s, [["name"]]) ?? "",
+        slug: firstString(s, [["slug"]]) ?? "",
+        booksCount,
+        isCompleted:
+          typeof s.is_completed === "boolean" ? s.is_completed : null,
+        hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
+      };
+    }).filter((s) => s.id && s.name && s.booksCount > 0);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Hardcover series request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export const getHardcoverAuthorSeriesFn = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) => authorSeriesInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const authorization = getAuthorizationHeader();
+    return fetchAuthorSeries(data.slug, data.language, authorization);
+  });
+
+

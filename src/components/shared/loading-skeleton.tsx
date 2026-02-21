@@ -67,6 +67,80 @@ export function TableSkeleton() {
   );
 }
 
+export function HardcoverAuthorSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Back button */}
+      <Skeleton className="h-8 w-32" />
+
+      {/* Page header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+
+      <div className="space-y-6">
+        {/* Photo + details + bio row */}
+        <div className="flex flex-col gap-6 xl:flex-row">
+          <Skeleton className="w-full xl:w-44 aspect-[2/3] xl:aspect-auto xl:h-48 rounded-lg shrink-0" />
+          <Card className="w-full xl:w-auto xl:shrink-0">
+            <CardHeader>
+              <Skeleton className="h-5 w-16" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex justify-between gap-4">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Card className="w-full xl:flex-1">
+            <CardHeader>
+              <Skeleton className="h-5 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Books card */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-12 mb-1" />
+            <Skeleton className="h-4 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-9 w-48" />
+            </div>
+            {/* Pagination bar */}
+            <Skeleton className="h-9 w-full" />
+            {/* Table */}
+            <div className="space-y-0">
+              <Skeleton className="h-10 w-full rounded-b-none" />
+              {Array.from({ length: 10 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-none border-t-0" />
+              ))}
+            </div>
+            {/* Bottom pagination */}
+            <Skeleton className="h-9 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export function DetailSkeleton() {
   return (
     <div className="space-y-6">
