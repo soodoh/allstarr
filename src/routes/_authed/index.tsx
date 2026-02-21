@@ -56,9 +56,9 @@ function DashboardPage() {
                   : 0;
               return (
                 <div key={folder.id} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-mono">{folder.path}</span>
-                    <span className="text-muted-foreground">
+                  <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between">
+                    <span className="font-mono break-all">{folder.path}</span>
+                    <span className="text-muted-foreground shrink-0">
                       {formatBytes(folder.freeSpace || 0)} free /{" "}
                       {formatBytes(folder.totalSpace || 0)} total
                     </span>
