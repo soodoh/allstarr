@@ -75,7 +75,7 @@ function HistoryPage() {
         description="Activity log for your library"
         actions={
           <Select value={eventType} onValueChange={handleFilterChange}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
             <SelectContent>

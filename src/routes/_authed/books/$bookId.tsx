@@ -195,38 +195,38 @@ function BookDetailPage() {
               <CardTitle>Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Author</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground shrink-0">Author</span>
                 {book.authorName && (
                   <Link
                     to="/authors/$authorId"
                     params={{ authorId: String(book.authorId) }}
-                    className="hover:underline"
+                    className="hover:underline text-right"
                   >
                     {book.authorName}
                   </Link>
                 )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Release Date</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground shrink-0">Release Date</span>
                 <span>{book.releaseDate || "Unknown"}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Monitored</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground shrink-0">Monitored</span>
                 <Badge variant={book.monitored ? "default" : "outline"}>
                   {book.monitored ? "Yes" : "No"}
                 </Badge>
               </div>
               {book.isbn && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">ISBN</span>
-                  <span className="font-mono text-xs">{book.isbn}</span>
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                  <span className="text-muted-foreground shrink-0">ISBN</span>
+                  <span className="font-mono text-xs break-all">{book.isbn}</span>
                 </div>
               )}
               {book.asin && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">ASIN</span>
-                  <span className="font-mono text-xs">{book.asin}</span>
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                  <span className="text-muted-foreground shrink-0">ASIN</span>
+                  <span className="font-mono text-xs break-all">{book.asin}</span>
                 </div>
               )}
             </CardContent>
