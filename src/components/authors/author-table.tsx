@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -26,7 +27,35 @@ interface AuthorTableProps {
 }
 
 export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
-  if (authors.length === 0) {
+  const [sortKey, setSortKey] = useState<keyof Author | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: keyof Author) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sorted = sortKey
+    ? [...authors].sort((a, b) => {
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        let cmp = 0;
+        if (typeof av === "string" && typeof bv === "string") {
+          cmp = av.localeCompare(bv);
+        } else if (typeof av === "number" && typeof bv === "number") {
+          cmp = av - bv;
+        } else if (typeof av === "boolean" && typeof bv === "boolean") {
+          cmp = Number(av) - Number(bv);
+        }
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : authors;
+
+  if (sorted.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         No authors found. Add one to get started.
@@ -34,19 +63,40 @@ export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
     );
   }
 
+  const SortIcon = ({ col }: { col: keyof Author }) => {
+    if (sortKey !== col)
+      return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
+      : <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />;
+  };
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Monitored</TableHead>
-          <TableHead>Books</TableHead>
+          {(
+            [
+              { key: "name", label: "Name" },
+              { key: "status", label: "Status" },
+              { key: "monitored", label: "Monitored" },
+              { key: "bookCount", label: "Books" },
+            ] as { key: keyof Author; label: string }[]
+          ).map(({ key, label }) => (
+            <TableHead
+              key={key}
+              className="cursor-pointer select-none hover:text-foreground"
+              onClick={() => handleSort(key)}
+            >
+              {label}
+              <SortIcon col={key} />
+            </TableHead>
+          ))}
           <TableHead className="w-24">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {authors.map((author) => (
+        {sorted.map((author) => (
           <TableRow key={author.id}>
             <TableCell>
               <Link
