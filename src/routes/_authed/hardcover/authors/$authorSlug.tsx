@@ -509,6 +509,8 @@ function SeriesRow({
 
   // toggle + series name + book count + status = 4 columns always
   const seriesColCount = 4;
+  // expanded sub-table: toggle + title + author + year + rating = 5 columns
+  const bookColCount = 5;
 
   return (
     <Fragment>
@@ -555,6 +557,13 @@ function SeriesRow({
             </TableRow>
           ) : (
             <>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="w-10" />
+                <TableHead className="pl-4">Title</TableHead>
+                <TableHead>Author</TableHead>
+                <TableHead>Year</TableHead>
+                <TableHead>Rating</TableHead>
+              </TableRow>
               {visibleBooks.map((book) => (
                 <TableRow key={book.id} className="bg-muted/20 hover:bg-muted/30">
                   <TableCell className="w-10">
@@ -599,6 +608,9 @@ function SeriesRow({
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
+                    {book.authorName ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
                     {book.releaseYear ?? "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -608,7 +620,7 @@ function SeriesRow({
               ))}
               {hasMore && (
                 <TableRow className="bg-muted/20">
-                  <TableCell colSpan={seriesColCount} className="pl-10 py-2">
+                  <TableCell colSpan={bookColCount} className="pl-10 py-2">
                     <Button
                       variant="ghost"
                       size="sm"
