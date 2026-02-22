@@ -50,6 +50,7 @@ export interface HardcoverSeriesBook {
   position: number | null;
   hardcoverUrl: string | null;
   isCompilation: boolean;
+  authorName: string | null;
 }
 
 export interface HardcoverSeriesBooksResult {
@@ -152,11 +153,121 @@ query HardcoverAuthorMeta($slug: String!) {
 }
 `;
 
-const authorBooksPageQuery = `
-query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!, $orderBy: [books_order_by!]!) {
+
+// ---------------------------------------------------------------------------
+// Filter fragment constants — single source of truth for shared Hasura filters
+// ---------------------------------------------------------------------------
+
+/** Excludes compilation books from the `books` table */
+const BOOK_COMPILATION_FILTER = "compilation: { _neq: true }";
+
+/** Excludes compilation entries from the `book_series` join table */
+const BOOK_SERIES_COMPILATION_FILTER = "compilation: { _neq: true }";
+
+/**
+ * Non-author contribution roles to exclude from the author's book listings.
+ * The `contribution` field is `null` for primary authors; these are the
+ * known secondary roles where the person did not originate the content.
+ * We use `_nin` (not-in) paired with `_is_null: true` so that:
+ *   - `null`  → primary author    → included
+ *   - "Writer" / "Contributor" / etc. → named author-like roles → included
+ *   - "Editor" / "Translator" / etc.  → non-originating roles   → excluded
+ */
+const NON_AUTHOR_CONTRIBUTION_ROLES = [
+  // Editorial
+  "Editor", "editor", "Series Editor", "Editor and Contributor",
+  "Editor/Introduction",
+  // Translation / adaptation
+  "Translator", "Adapted by", "Adapter", "Adaptor",
+  // Art / production
+  "Illustrator", "illustrator",
+  // Supplementary content
+  "Introduction", "Afterword",
+  // Other non-originating
+  "Compiler", "Pseudonym", "pseudonym", "Compilation",
+  "as \"Anonymous\"",
+];
+
+const NON_AUTHOR_CONTRIBUTION_FILTER =
+  `_or: [{ contribution: { _is_null: true } }, { contribution: { _nin: [${NON_AUTHOR_CONTRIBUTION_ROLES.map((r) => JSON.stringify(r)).join(", ")}] } }]`;
+
+// ---------------------------------------------------------------------------
+// Filter composition helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Composes the `where` clause for the top-level `books` / `books_aggregate`
+ * queries on the author books page.
+ */
+function bookWhereFilters(opts: { slug: string; hasLanguage: boolean }): string {
+  const parts: string[] = [
+    `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
+    BOOK_COMPILATION_FILTER,
+  ];
+  if (opts.hasLanguage) {
+    parts.push(`editions: { language: { code2: { _eq: $languageCode } } }`);
+  }
+  return parts.join("\n      ");
+}
+
+/**
+ * Composes the `where` clause for `book_series` queries (series books page).
+ * Uses only the entry-level compilation flag — the book-level flag is
+ * unreliable in series context (some legitimate volumes are miscategorised
+ * as compilations on Hardcover).
+ */
+function bookSeriesWhereFilters(opts: { hasLanguage: boolean }): string {
+  const parts: string[] = [
+    `series_id: { _eq: $seriesId }`,
+    BOOK_SERIES_COMPILATION_FILTER,
+  ];
+  if (opts.hasLanguage) {
+    parts.push(`book: { editions: { language: { code2: { _eq: $lang } } } }`);
+  }
+  return parts.join("\n      ");
+}
+
+/**
+ * Composes the `where` clause for the `book_series` positions fetch inside the
+ * author series listing. Only includes entries with a non-null position so the
+ * count of distinct positions matches what `deduplicateSeriesBooks` will display.
+ * Uses only the entry-level compilation flag for the same reason as above.
+ */
+function seriesPositionsWhereFilters(opts: { hasLanguage: boolean }): string {
+  const parts: string[] = [
+    BOOK_SERIES_COMPILATION_FILTER,
+    `position: { _is_null: false }`,
+  ];
+  if (opts.hasLanguage) {
+    parts.push(`book: { editions: { language: { code2: { _eq: $lang } } } }`);
+  }
+  return parts.join("\n        ");
+}
+
+// ---------------------------------------------------------------------------
+// Query builder functions — replace the 6 static query strings
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the author books page query. Accepts `hasLanguage` so that the same
+ * builder covers both the "all languages" and "specific language" variants.
+ */
+function buildAuthorBooksPageQuery(hasLanguage: boolean): string {
+  const varDefs = hasLanguage
+    ? `$slug: String!, $limit: Int!, $offset: Int!, $languageCode: String!, $orderBy: [books_order_by!]!`
+    : `$slug: String!, $limit: Int!, $offset: Int!, $orderBy: [books_order_by!]!`;
+  const queryName = hasLanguage
+    ? "HardcoverAuthorBooksPageByLanguage"
+    : "HardcoverAuthorBooksPage";
+  const where = bookWhereFilters({ slug: "$slug", hasLanguage });
+  const editionsWhere = hasLanguage
+    ? `where: { language: { code2: { _eq: $languageCode } } }`
+    : `where: { language: { code2: { _is_null: false } } }`;
+
+  return `
+query ${queryName}(${varDefs}) {
   books_aggregate(where: {
-    contributions: { author: { slug: { _eq: $slug } } }
-    compilation: { _neq: true }
+    ${where}
   }) {
     aggregate {
       count
@@ -164,8 +275,7 @@ query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!, $ord
   }
   books(
     where: {
-      contributions: { author: { slug: { _eq: $slug } } }
-      compilation: { _neq: true }
+      ${where}
     }
     limit: $limit
     offset: $offset
@@ -188,7 +298,7 @@ query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!, $ord
     }
     editions(
       limit: 1
-      where: { language: { code2: { _is_null: false } } }
+      ${editionsWhere}
       order_by: [{ id: asc }]
     ) {
       language {
@@ -207,72 +317,125 @@ query HardcoverAuthorBooksPage($slug: String!, $limit: Int!, $offset: Int!, $ord
   }
 }
 `;
+}
 
-const authorBooksPageByLanguageQuery = `
-query HardcoverAuthorBooksPageByLanguage(
-  $slug: String!
-  $limit: Int!
-  $offset: Int!
-  $languageCode: String!
-  $orderBy: [books_order_by!]!
-) {
-  books_aggregate(
-    where: {
-      contributions: { author: { slug: { _eq: $slug } } }
-      editions: { language: { code2: { _eq: $languageCode } } }
-      compilation: { _neq: true }
-    }
-  ) {
-    aggregate {
-      count
-    }
-  }
-  books(
-    where: {
-      contributions: { author: { slug: { _eq: $slug } } }
-      editions: { language: { code2: { _eq: $languageCode } } }
-      compilation: { _neq: true }
-    }
-    limit: $limit
-    offset: $offset
-    order_by: $orderBy
-  ) {
+/**
+ * Builds the series books query (used when expanding a series row).
+ */
+function buildSeriesBooksQuery(hasLanguage: boolean): string {
+  const varDefs = hasLanguage
+    ? `$seriesId: Int!, $lang: String!`
+    : `$seriesId: Int!`;
+  const queryName = hasLanguage
+    ? "HardcoverSeriesBooksByLanguage"
+    : "HardcoverSeriesBooks";
+  const where = bookSeriesWhereFilters({ hasLanguage });
+
+  return `
+query ${queryName}(${varDefs}) {
+  series_by_pk(id: $seriesId) {
     id
-    title
-    slug
-    release_date
-    release_year
-    rating
-    image {
-      url
+    name
+  }
+  book_series(
+    where: {
+      ${where}
     }
-    contributions(
-      where: { author: { slug: { _eq: $slug } } }
-      limit: 1
-    ) {
-      contribution
-    }
-    editions(
-      limit: 1
-      where: { language: { code2: { _eq: $languageCode } } }
-      order_by: [{ id: asc }]
-    ) {
-      language {
-        code2
-        code3
-        language
+    order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
+  ) {
+    position
+    compilation
+    book {
+      id
+      title
+      slug
+      release_year
+      rating
+      users_count
+      image {
+        url
       }
-    }
-    book_series {
-      position
-      series {
-        id
-        name
+      contributions(
+        where: { contribution: { _is_null: true } }
+        order_by: [{ id: asc }]
+        limit: 3
+      ) {
+        author {
+          name
+        }
       }
     }
   }
 }
 `;
+}
+
+/**
+ * Builds the author series listing query.
+ */
+function buildAuthorSeriesQuery(hasLanguage: boolean): string {
+  const varDefs = hasLanguage
+    ? `$slug: String!, $lang: String!`
+    : `$slug: String!`;
+  const queryName = hasLanguage
+    ? "HardcoverAuthorSeriesByLanguage"
+    : "HardcoverAuthorSeries";
+
+  const seriesWhere = hasLanguage
+    ? `canonical_id: { _is_null: true }
+      book_series: {
+        book: {
+          contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
+          editions: { language: { code2: { _eq: $lang } } }
+        }
+      }`
+    : `canonical_id: { _is_null: true }
+      book_series: { book: { contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} } } }`;
+
+  const positionsWhere = seriesPositionsWhereFilters({ hasLanguage });
+
+  return `
+query ${queryName}(${varDefs}) {
+  series(
+    where: {
+      ${seriesWhere}
+    }
+    order_by: [{ name: asc }]
+  ) {
+    id
+    name
+    slug
+    is_completed
+    positions: book_series(
+      where: {
+        ${positionsWhere}
+      }
+      order_by: [{ position: asc }]
+    ) { position }
+  }
+}
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Series books deduplication helper (extracted from inline IIFE)
+// ---------------------------------------------------------------------------
+
+/**
+ * Removes entries with null position and keeps only the first (highest
+ * users_count) entry per position. The query already orders by
+ * `position asc_nulls_last, users_count desc`, so the first entry per
+ * position is the canonical book.
+ */
+function deduplicateSeriesBooks(books: HardcoverSeriesBook[]): HardcoverSeriesBook[] {
+  const seen = new Set<number>();
+  return books.filter((b) => {
+    if (b.position === null) return false;
+    if (seen.has(b.position)) return false;
+    seen.add(b.position);
+    return true;
+  });
+}
 
 const seriesBooksInputSchema = z.object({
   seriesId: z.number().int().min(1),
@@ -283,71 +446,6 @@ const seriesBooksInputSchema = z.object({
     .regex(/^(all|[a-z]{2,3})$/)
     .default("all"),
 });
-
-const seriesBooksQuery = `
-query HardcoverSeriesBooks($seriesId: Int!) {
-  series_by_pk(id: $seriesId) {
-    id
-    name
-  }
-  book_series(
-    where: {
-      series_id: { _eq: $seriesId }
-      compilation: { _neq: true }
-      book: { compilation: { _neq: true } }
-    }
-    order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
-  ) {
-    position
-    compilation
-    book {
-      id
-      title
-      slug
-      release_year
-      rating
-      users_count
-      image {
-        url
-      }
-    }
-  }
-}
-`;
-
-const seriesByLanguageBooksQuery = `
-query HardcoverSeriesBooksByLanguage($seriesId: Int!, $lang: String!) {
-  series_by_pk(id: $seriesId) {
-    id
-    name
-  }
-  book_series(
-    where: {
-      series_id: { _eq: $seriesId }
-      compilation: { _neq: true }
-      book: {
-        compilation: { _neq: true }
-        editions: { language: { code2: { _eq: $lang } } }
-      }
-    }
-    order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
-  ) {
-    position
-    compilation
-    book {
-      id
-      title
-      slug
-      release_year
-      rating
-      users_count
-      image {
-        url
-      }
-    }
-  }
-}
-`;
 
 interface GraphQLSeriesBooksResponse {
   data?: {
@@ -374,7 +472,7 @@ async function fetchSeriesBooks(
         Authorization: authorization,
       },
       body: JSON.stringify({
-        query: hasLanguageFilter ? seriesByLanguageBooksQuery : seriesBooksQuery,
+        query: buildSeriesBooksQuery(hasLanguageFilter),
         variables: hasLanguageFilter
           ? { seriesId, lang: language }
           : { seriesId },
@@ -404,6 +502,14 @@ async function fetchSeriesBooks(
         const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
         const position = firstNumber(entry, [["position"]]);
         const isCompilation = entry.compilation === true;
+        const authorName =
+          toRecordArray(bookRecord.contributions)
+            .map((c) => {
+              const authorRecord = toRecord(c.author);
+              return authorRecord ? firstString(authorRecord, [["name"]]) : null;
+            })
+            .filter((n): n is string => n !== null)
+            .join(", ") || null;
         return {
           id,
           title,
@@ -414,26 +520,15 @@ async function fetchSeriesBooks(
           position,
           hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
           isCompilation,
+          authorName,
         };
       })
-      .filter((b): b is HardcoverSeriesBook => Boolean(b))
-      // Deduplicate: keep only the highest users_count entry per position.
-      // The query orders by position asc, users_count desc, so the first entry
-      // per position is always the most-tracked (canonical) book.
-      .filter((() => {
-        const seen = new Set<number>();
-        return (b: HardcoverSeriesBook) => {
-          if (b.position === null) return false;
-          if (seen.has(b.position)) return false;
-          seen.add(b.position);
-          return true;
-        };
-      })());
+      .filter((b): b is HardcoverSeriesBook => Boolean(b));
 
     return {
       seriesId: String(seriesId),
       seriesTitle,
-      books,
+      books: deduplicateSeriesBooks(books),
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -847,9 +942,7 @@ async function fetchAuthorBooksPage(
         Authorization: authorization,
       },
       body: JSON.stringify({
-        query: hasLanguageFilter
-          ? authorBooksPageByLanguageQuery
-          : authorBooksPageQuery,
+        query: buildAuthorBooksPageQuery(hasLanguageFilter),
         variables: {
           slug,
           limit: pageSize,
@@ -993,9 +1086,7 @@ async function fetchAuthorDetails(
       slug: authorSlug,
       name: authorName,
       bio: firstString(author, [["bio"], ["overview"]]),
-      booksCount:
-        firstNumber(author, [["books_count"], ["book_count"]]) ??
-        booksPage.totalBooks,
+      booksCount: booksPage.totalBooks,
       bornYear: firstNumber(author, [["born_year"]]),
       deathYear: firstNumber(author, [["death_year"]]),
       imageUrl: getCoverUrl(author),
@@ -1090,60 +1181,6 @@ const authorSeriesInputSchema = z.object({
     .default("all"),
 });
 
-const authorSeriesQuery = `
-query HardcoverAuthorSeries($slug: String!) {
-  series(
-    where: {
-      canonical_id: { _is_null: true }
-      book_series: { book: { contributions: { author: { slug: { _eq: $slug } } } } }
-    }
-    order_by: [{ name: asc }]
-  ) {
-    id
-    name
-    slug
-    is_completed
-    booksCount: book_series_aggregate(
-      where: {
-        compilation: { _neq: true }
-        book: { compilation: { _neq: true } }
-      }
-    ) { aggregate { count } }
-  }
-}
-`;
-
-const authorSeriesByLanguageQuery = `
-query HardcoverAuthorSeriesByLanguage($slug: String!, $lang: String!) {
-  series(
-    where: {
-      canonical_id: { _is_null: true }
-      book_series: {
-        book: {
-          contributions: { author: { slug: { _eq: $slug } } }
-          editions: { language: { code2: { _eq: $lang } } }
-        }
-      }
-    }
-    order_by: [{ name: asc }]
-  ) {
-    id
-    name
-    slug
-    is_completed
-    booksCount: book_series_aggregate(
-      where: {
-        compilation: { _neq: true }
-        book: {
-          compilation: { _neq: true }
-          editions: { language: { code2: { _eq: $lang } } }
-        }
-      }
-    ) { aggregate { count } }
-  }
-}
-`;
-
 interface GraphQLAuthorSeriesResponse {
   data?: { series?: unknown };
   errors?: Array<{ message?: string }>;
@@ -1162,7 +1199,7 @@ async function fetchAuthorSeries(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: authorization },
       body: JSON.stringify({
-        query: hasLanguageFilter ? authorSeriesByLanguageQuery : authorSeriesQuery,
+        query: buildAuthorSeriesQuery(hasLanguageFilter),
         variables: hasLanguageFilter ? { slug, lang: language } : { slug },
       }),
       signal: controller.signal,
@@ -1174,9 +1211,15 @@ async function fetchAuthorSeries(
       throw new Error(body.errors[0]?.message || "Hardcover series request failed.");
     }
     return toRecordArray(body.data?.series).map((s) => {
-      const booksCountRecord = toRecord(s.booksCount);
-      const aggregateRecord = booksCountRecord ? toRecord(booksCountRecord.aggregate) : null;
-      const booksCount = aggregateRecord ? firstNumber(aggregateRecord, [["count"]]) ?? 0 : 0;
+      // Count distinct non-null positions — mirrors the deduplicateSeriesBooks
+      // logic so this number matches exactly what the expanded view will show.
+      const positionRows = toRecordArray(s.positions);
+      const distinctPositions = new Set(
+        positionRows
+          .map((p) => firstNumber(p, [["position"]]))
+          .filter((p): p is number => p !== null)
+      );
+      const booksCount = distinctPositions.size;
       return {
         id: String(firstId(s, [["id"]]) ?? ""),
         name: firstString(s, [["name"]]) ?? "",
