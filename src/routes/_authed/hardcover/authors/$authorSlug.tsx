@@ -273,8 +273,8 @@ function BooksTab({
   const totalPages = isSearching ? searchTotalPages : author.totalPages;
   const isLoadingDisplay = isSearching ? searchLoading : loading;
 
-  // toggle column + title + year + role = 4 columns always
-  const colCount = 4;
+  // toggle column + title + year = 3 columns always
+  const colCount = 3;
 
   return (
     <div className="space-y-4">
@@ -359,7 +359,7 @@ function BooksTab({
                 )}
               </TableHead>
             ))}
-            <TableHead>Role</TableHead>
+
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -427,11 +427,7 @@ function BooksTab({
                       {book.releaseYear ||
                         (book.releaseDate ? book.releaseDate.slice(0, 4) : "Unknown")}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {book.contribution || "Contributor"}
-                      </Badge>
-                    </TableCell>
+
                   </TableRow>
                 ))}
               </Fragment>
@@ -507,10 +503,10 @@ function SeriesRow({
   const visibleBooks = books?.slice(0, visibleCount) ?? [];
   const hasMore = books !== null && visibleCount < books.length;
 
-  // toggle + series name + book count + status = 4 columns always
-  const seriesColCount = 4;
-  // expanded sub-table: toggle + title + author + year + rating = 5 columns
-  const bookColCount = 5;
+  // toggle + series name + book count = 3 columns always
+  const seriesColCount = 3;
+  // expanded sub-table: toggle + title + author + year = 4 columns
+  const bookColCount = 4;
 
   return (
     <Fragment>
@@ -533,15 +529,6 @@ function SeriesRow({
           </div>
         </TableCell>
         <TableCell>{series.booksCount}</TableCell>
-        <TableCell>
-          {series.isCompleted === true ? (
-            <Badge variant="outline">Completed</Badge>
-          ) : series.isCompleted === false ? (
-            <Badge variant="outline">Ongoing</Badge>
-          ) : (
-            <span className="text-muted-foreground text-sm">—</span>
-          )}
-        </TableCell>
       </TableRow>
 
       {expanded && books !== null && (
@@ -562,7 +549,6 @@ function SeriesRow({
                 <TableHead className="pl-4">Title</TableHead>
                 <TableHead>Author</TableHead>
                 <TableHead>Year</TableHead>
-                <TableHead>Rating</TableHead>
               </TableRow>
               {visibleBooks.map((book) => (
                 <TableRow key={book.id} className="bg-muted/20 hover:bg-muted/30">
@@ -612,9 +598,6 @@ function SeriesRow({
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {book.releaseYear ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {book.rating !== null ? book.rating.toFixed(2) : "—"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -713,8 +696,8 @@ function SeriesTab({
 
   const loaded = !loading && allSeries !== null;
 
-  // toggle + series + books + status = 4 columns always
-  const colCount = 4;
+  // toggle + series + books = 3 columns always
+  const colCount = 3;
 
   const SeriesPagination = () =>
     totalSeries > SERIES_PAGE_SIZE ? (
@@ -804,7 +787,6 @@ function SeriesTab({
             <TableHead className="w-10" />
             <TableHead>Series</TableHead>
             <TableHead>Books</TableHead>
-            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -814,7 +796,6 @@ function SeriesTab({
                 <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
               </TableRow>
             ))
           ) : loaded && filteredSeries.length === 0 ? (
