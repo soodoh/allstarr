@@ -116,3 +116,15 @@ export const deleteAuthorFn = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
+export const checkAuthorExistsFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { foreignAuthorId: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const author = db
+      .select({ id: authors.id, name: authors.name })
+      .from(authors)
+      .where(eq(authors.foreignAuthorId, data.foreignAuthorId))
+      .get();
+    return author ?? null;
+  });

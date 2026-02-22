@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "~/db";
 import { books, editions, authors, history } from "~/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createBookSchema,
@@ -158,4 +158,16 @@ export const updateEditionFn = createServerFn({ method: "POST" })
       .where(eq(editions.id, id))
       .returning()
       .get();
+  });
+
+export const checkBooksExistFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { foreignBookIds: string[] }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    if (data.foreignBookIds.length === 0) return [];
+    return db
+      .select({ id: books.id, foreignBookId: books.foreignBookId })
+      .from(books)
+      .where(inArray(books.foreignBookId, data.foreignBookIds))
+      .all();
   });

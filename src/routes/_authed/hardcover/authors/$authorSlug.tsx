@@ -8,6 +8,8 @@ import {
   ChevronUp,
   ChevronsUpDown,
   ExternalLink,
+  Library,
+  Plus,
   Search,
   X,
 } from "lucide-react";
@@ -51,6 +53,16 @@ import {
   type HardcoverAuthorSeries,
   type HardcoverSeriesBook,
 } from "~/server/search";
+import { checkAuthorExistsFn } from "~/server/authors";
+import { checkBooksExistFn } from "~/server/books";
+import { getQualityProfilesFn } from "~/server/quality-profiles";
+import { getRootFoldersFn } from "~/server/root-folders";
+import { AddAuthorDialog } from "~/components/hardcover/add-author-dialog";
+import {
+  BookMonitorToggle,
+  SeriesBookMonitorToggle,
+  type AuthorContext,
+} from "~/components/hardcover/add-book-button";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;
@@ -75,17 +87,28 @@ function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
 }
 
 export const Route = createFileRoute("/_authed/hardcover/authors/$authorSlug")({
-  loader: ({ params }) =>
-    getHardcoverAuthorFn({
-      data: {
-        slug: params.authorSlug,
-        page: 1,
-        pageSize: DEFAULT_PAGE_SIZE,
-        language: DEFAULT_LANGUAGE,
-        sortBy: "year",
-        sortDir: "desc",
-      },
-    }),
+  loader: async ({ params }) => {
+    const [authorData, qualityProfiles, rootFolders] = await Promise.all([
+      getHardcoverAuthorFn({
+        data: {
+          slug: params.authorSlug,
+          page: 1,
+          pageSize: DEFAULT_PAGE_SIZE,
+          language: DEFAULT_LANGUAGE,
+          sortBy: "year",
+          sortDir: "desc",
+        },
+      }),
+      getQualityProfilesFn(),
+      getRootFoldersFn(),
+    ]);
+
+    const localAuthor = await checkAuthorExistsFn({
+      data: { foreignAuthorId: authorData.id },
+    });
+
+    return { authorData, qualityProfiles, rootFolders, localAuthor };
+  },
   component: HardcoverAuthorPage,
   pendingComponent: HardcoverAuthorSkeleton,
 });
@@ -97,17 +120,26 @@ function BooksTab({
   author,
   setAuthor,
   onLanguageChange,
+  authorContext,
+  localAuthorId,
+  existingBookIds,
+  onBookAdded,
+  onAuthorCreated,
 }: {
   authorSlug: string;
   author: Awaited<ReturnType<typeof getHardcoverAuthorFn>>;
   setAuthor: (a: typeof author) => void;
   onLanguageChange: (language: string) => void;
+  authorContext: AuthorContext;
+  localAuthorId: number | null;
+  existingBookIds: Set<string>;
+  onBookAdded: (foreignBookId: string) => void;
+  onAuthorCreated: (id: number) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [optimisticPage, setOptimisticPage] = useState(author.page);
   const [optimisticPageSize, setOptimisticPageSize] = useState(author.pageSize);
 
-  // Search state
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [allBooks, setAllBooks] = useState<HardcoverAuthorBook[] | null>(null);
@@ -121,7 +153,6 @@ function BooksTab({
   const displayPage = isSearching ? searchPage : (loading ? optimisticPage : author.page);
   const displayPageSize = loading ? optimisticPageSize : author.pageSize;
 
-  // Filtered + paginated books when in search mode
   const filteredBooks = useMemo(() => {
     if (!isSearching || !allBooks) return null;
     const q = searchQuery.toLowerCase();
@@ -136,11 +167,9 @@ function BooksTab({
     return filteredBooks.slice(start, start + DEFAULT_PAGE_SIZE);
   }, [filteredBooks, searchPage]);
 
-  // Groups for display — either search results or normal server page
   const displayBooks = isSearching ? searchPagedBooks : author.books;
   const languageGroups = groupBooksByLanguage(displayBooks);
 
-  // Fetch all books for search mode
   const fetchAllBooks = async (lang: string) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
@@ -168,7 +197,6 @@ function BooksTab({
     }
   };
 
-  // Debounced search input handler
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     setSearchPage(1);
@@ -183,7 +211,6 @@ function BooksTab({
 
     debounceRef.current = setTimeout(() => {
       setSearchQuery(value.trim());
-      // Only fetch all books if we don't have them cached
       setAllBooks((prev) => {
         if (prev === null) fetchAllBooks(author.selectedLanguage);
         return prev;
@@ -199,7 +226,6 @@ function BooksTab({
     setSearchPage(1);
   };
 
-  // Clear search cache when language changes
   const handleSort = (key: "title" | "year" | "rating") => {
     const newDir =
       author.sortBy === key
@@ -222,7 +248,6 @@ function BooksTab({
     const sortDir = next.sortDir ?? author.sortDir;
     if (next.page !== undefined) setOptimisticPage(next.page);
     if (next.pageSize !== undefined) setOptimisticPageSize(next.pageSize);
-    // Invalidate search cache when language or sort changes
     if (next.language !== undefined || next.sortBy !== undefined || next.sortDir !== undefined) {
       fetchingRef.current = false;
       setAllBooks(null);
@@ -248,10 +273,12 @@ function BooksTab({
   const totalPages = isSearching ? searchTotalPages : author.totalPages;
   const isLoadingDisplay = isSearching ? searchLoading : loading;
 
+  // toggle column + title + year + role = 4 columns always
+  const colCount = 4;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search bar */}
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -309,6 +336,8 @@ function BooksTab({
       <Table>
         <TableHeader>
           <TableRow>
+            {/* Toggle column — always present */}
+            <TableHead className="w-10" />
             {(
               [
                 { key: "title", label: "Title" },
@@ -337,6 +366,7 @@ function BooksTab({
           {isLoadingDisplay ? (
             Array.from({ length: displayPageSize }).map((_, i) => (
               <TableRow key={i}>
+                <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-[55%]" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
@@ -344,13 +374,13 @@ function BooksTab({
             ))
           ) : isSearching && filteredBooks?.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="text-sm text-muted-foreground">
+              <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
                 No books match &ldquo;{searchQuery}&rdquo;.
               </TableCell>
             </TableRow>
           ) : !isSearching && author.books.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="text-sm text-muted-foreground">
+              <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
                 No books found for the selected language filter.
               </TableCell>
             </TableRow>
@@ -360,7 +390,7 @@ function BooksTab({
                 {author.selectedLanguage === "all" && (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={colCount}
                       className="bg-muted/40 font-medium text-muted-foreground"
                     >
                       {group.label}
@@ -369,6 +399,16 @@ function BooksTab({
                 )}
                 {group.books.map((book) => (
                   <TableRow key={`${group.key}-${book.id}`}>
+                    <TableCell>
+                      <BookMonitorToggle
+                        book={book}
+                        authorContext={authorContext}
+                        localAuthorId={localAuthorId}
+                        inLibrary={existingBookIds.has(book.id)}
+                        onAdded={onBookAdded}
+                        onAuthorCreated={onAuthorCreated}
+                      />
+                    </TableCell>
                     <TableCell>
                       {book.hardcoverUrl ? (
                         <a
@@ -418,13 +458,28 @@ function BooksTab({
 
 const SERIES_BOOKS_PAGE_SIZE = 10;
 
-function SeriesRow({ series, language }: { series: HardcoverAuthorSeries; language: string }) {
+function SeriesRow({
+  series,
+  language,
+  authorContext,
+  localAuthorId,
+  existingBookIds,
+  onBookAdded,
+  onAuthorCreated,
+}: {
+  series: HardcoverAuthorSeries;
+  language: string;
+  authorContext: AuthorContext;
+  localAuthorId: number | null;
+  existingBookIds: Set<string>;
+  onBookAdded: (foreignBookId: string) => void;
+  onAuthorCreated: (id: number) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [books, setBooks] = useState<HardcoverSeriesBook[] | null>(null);
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [visibleCount, setVisibleCount] = useState(SERIES_BOOKS_PAGE_SIZE);
 
-  // When language changes, collapse and clear cached books
   useEffect(() => {
     setExpanded(false);
     setBooks(null);
@@ -452,12 +507,17 @@ function SeriesRow({ series, language }: { series: HardcoverAuthorSeries; langua
   const visibleBooks = books?.slice(0, visibleCount) ?? [];
   const hasMore = books !== null && visibleCount < books.length;
 
+  // toggle + series name + book count + status = 4 columns always
+  const seriesColCount = 4;
+
   return (
     <Fragment>
       <TableRow
         className="cursor-pointer hover:bg-muted/50"
         onClick={handleToggle}
       >
+        {/* Spacer to align with toggle column in expanded book rows */}
+        <TableCell className="w-10" />
         <TableCell>
           <div className="flex items-center gap-2">
             {loadingBooks ? (
@@ -487,7 +547,7 @@ function SeriesRow({ series, language }: { series: HardcoverAuthorSeries; langua
           {books.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={3}
+                colSpan={seriesColCount}
                 className="pl-10 text-sm text-muted-foreground bg-muted/20"
               >
                 No books found in this series.
@@ -497,7 +557,21 @@ function SeriesRow({ series, language }: { series: HardcoverAuthorSeries; langua
             <>
               {visibleBooks.map((book) => (
                 <TableRow key={book.id} className="bg-muted/20 hover:bg-muted/30">
-                  <TableCell className="pl-10">
+                  <TableCell className="w-10">
+                    <SeriesBookMonitorToggle
+                      bookId={book.id}
+                      title={book.title}
+                      coverUrl={book.coverUrl}
+                      releaseYear={book.releaseYear}
+                      rating={book.rating}
+                      authorContext={authorContext}
+                      localAuthorId={localAuthorId}
+                      inLibrary={existingBookIds.has(book.id)}
+                      onAdded={onBookAdded}
+                      onAuthorCreated={onAuthorCreated}
+                    />
+                  </TableCell>
+                  <TableCell className="pl-4">
                     <div className="flex items-baseline gap-2">
                       {book.position !== null && (
                         <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">
@@ -534,7 +608,7 @@ function SeriesRow({ series, language }: { series: HardcoverAuthorSeries; langua
               ))}
               {hasMore && (
                 <TableRow className="bg-muted/20">
-                  <TableCell colSpan={3} className="pl-10 py-2">
+                  <TableCell colSpan={seriesColCount} className="pl-10 py-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -561,11 +635,21 @@ function SeriesTab({
   active,
   language,
   languages,
+  authorContext,
+  localAuthorId,
+  existingBookIds,
+  onBookAdded,
+  onAuthorCreated,
 }: {
   authorSlug: string;
   active: boolean;
   language: string;
   languages: { code: string; name: string }[];
+  authorContext: AuthorContext;
+  localAuthorId: number | null;
+  existingBookIds: Set<string>;
+  onBookAdded: (foreignBookId: string) => void;
+  onAuthorCreated: (id: number) => void;
 }) {
   const [allSeries, setAllSeries] = useState<HardcoverAuthorSeries[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -573,7 +657,6 @@ function SeriesTab({
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
 
-  // Sync language prop → local state (when Books tab language changes)
   useEffect(() => {
     setSelectedLanguage(language);
   }, [language]);
@@ -597,7 +680,6 @@ function SeriesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, selectedLanguage, authorSlug]);
 
-  // Client-side search filter
   const filteredSeries = useMemo(() => {
     if (!allSeries) return [];
     const q = searchInput.trim().toLowerCase();
@@ -608,7 +690,6 @@ function SeriesTab({
   const totalSeries = filteredSeries.length;
   const totalPages = Math.max(1, Math.ceil(totalSeries / SERIES_PAGE_SIZE));
 
-  // Reset to page 1 when search changes
   useEffect(() => {
     setPage(1);
   }, [searchInput]);
@@ -619,6 +700,9 @@ function SeriesTab({
   }, [filteredSeries, page]);
 
   const loaded = !loading && allSeries !== null;
+
+  // toggle + series + books + status = 4 columns always
+  const colCount = 4;
 
   const SeriesPagination = () =>
     totalSeries > SERIES_PAGE_SIZE ? (
@@ -656,7 +740,6 @@ function SeriesTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search bar */}
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -705,6 +788,8 @@ function SeriesTab({
       <Table>
         <TableHeader>
           <TableRow>
+            {/* Toggle column — always present */}
+            <TableHead className="w-10" />
             <TableHead>Series</TableHead>
             <TableHead>Books</TableHead>
             <TableHead>Status</TableHead>
@@ -714,6 +799,7 @@ function SeriesTab({
           {loading ? (
             Array.from({ length: 10 }).map((_, i) => (
               <TableRow key={i}>
+                <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
@@ -721,14 +807,25 @@ function SeriesTab({
             ))
           ) : loaded && filteredSeries.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="text-sm text-muted-foreground">
+              <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
                 {searchInput.trim()
                   ? `No series match "${searchInput.trim()}".`
                   : "No series found for the selected language."}
               </TableCell>
             </TableRow>
           ) : (
-            pagedSeries.map((s) => <SeriesRow key={s.id} series={s} language={selectedLanguage} />)
+            pagedSeries.map((s) => (
+              <SeriesRow
+                key={s.id}
+                series={s}
+                language={selectedLanguage}
+                authorContext={authorContext}
+                localAuthorId={localAuthorId}
+                existingBookIds={existingBookIds}
+                onBookAdded={onBookAdded}
+                onAuthorCreated={onAuthorCreated}
+              />
+            ))
           )}
         </TableBody>
       </Table>
@@ -742,10 +839,60 @@ function SeriesTab({
 
 function HardcoverAuthorPage() {
   const params = Route.useParams();
-  const initialAuthor = Route.useLoaderData();
+  const {
+    authorData: initialAuthor,
+    qualityProfiles,
+    rootFolders,
+    localAuthor: initialLocalAuthor,
+  } = Route.useLoaderData();
   const [author, setAuthor] = useState(initialAuthor);
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
   const [selectedLanguage, setSelectedLanguage] = useState(initialAuthor.selectedLanguage);
+  const [localAuthor, setLocalAuthor] = useState(initialLocalAuthor);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [existingBookIds, setExistingBookIds] = useState<Set<string>>(new Set());
+
+  // Build author context for toggles — pick first quality profile / root folder as defaults
+  const authorContext: AuthorContext = {
+    name: author.name,
+    foreignAuthorId: author.id,
+    imageUrl: author.imageUrl,
+    bio: author.bio,
+    deathYear: author.deathYear,
+    qualityProfileId: qualityProfiles[0]?.id ?? null,
+    rootFolderPath: rootFolders[0]?.path ?? null,
+  };
+
+  // Populate existingBookIds for visible books when author is in library
+  useEffect(() => {
+    if (!localAuthor) return;
+    const visibleIds = author.books.map((b) => b.id);
+    if (visibleIds.length === 0) return;
+
+    checkBooksExistFn({ data: { foreignBookIds: visibleIds } })
+      .then((found) => {
+        setExistingBookIds((prev) => {
+          const next = new Set(prev);
+          for (const b of found) {
+            if (b.foreignBookId) next.add(b.foreignBookId);
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, [localAuthor, author.books]);
+
+  const handleBookAdded = (foreignBookId: string) => {
+    setExistingBookIds((prev) => new Set([...prev, foreignBookId]));
+  };
+
+  const handleAuthorCreated = (authorId: number) => {
+    setLocalAuthor({ id: authorId, name: author.name });
+  };
+
+  const handleAuthorImported = (authorId: number) => {
+    setLocalAuthor({ id: authorId, name: author.name });
+  };
 
   const lifespan =
     author.bornYear || author.deathYear
@@ -767,14 +914,29 @@ function HardcoverAuthorPage() {
         title={author.name}
         description={lifespan || "Hardcover author profile"}
         actions={
-          author.hardcoverUrl ? (
-            <Button asChild variant="outline">
-              <a href={author.hardcoverUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open on Hardcover
-              </a>
-            </Button>
-          ) : null
+          <div className="flex items-center gap-2">
+            {localAuthor ? (
+              <Button variant="outline" asChild>
+                <Link to="/authors/$authorId" params={{ authorId: String(localAuthor.id) }}>
+                  <Library className="mr-2 h-4 w-4" />
+                  In Library
+                </Link>
+              </Button>
+            ) : (
+              <Button onClick={() => setAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add to Library
+              </Button>
+            )}
+            {author.hardcoverUrl && (
+              <Button asChild variant="outline">
+                <a href={author.hardcoverUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open on Hardcover
+                </a>
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -859,6 +1021,11 @@ function HardcoverAuthorPage() {
                   author={author}
                   setAuthor={setAuthor}
                   onLanguageChange={setSelectedLanguage}
+                  authorContext={authorContext}
+                  localAuthorId={localAuthor?.id ?? null}
+                  existingBookIds={existingBookIds}
+                  onBookAdded={handleBookAdded}
+                  onAuthorCreated={handleAuthorCreated}
                 />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
@@ -867,12 +1034,26 @@ function HardcoverAuthorPage() {
                   active={activeTab === "series"}
                   language={selectedLanguage}
                   languages={author.languages}
+                  authorContext={authorContext}
+                  localAuthorId={localAuthor?.id ?? null}
+                  existingBookIds={existingBookIds}
+                  onBookAdded={handleBookAdded}
+                  onAuthorCreated={handleAuthorCreated}
                 />
               </TabsContent>
             </CardContent>
           </Card>
         </Tabs>
       </div>
+
+      <AddAuthorDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        author={author}
+        qualityProfiles={qualityProfiles}
+        rootFolders={rootFolders}
+        onSuccess={handleAuthorImported}
+      />
     </div>
   );
 }
