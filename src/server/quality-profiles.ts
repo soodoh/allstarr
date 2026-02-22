@@ -37,7 +37,6 @@ export const createQualityProfileFn = createServerFn({ method: "POST" })
       .insert(qualityProfiles)
       .values({
         ...data,
-        items: JSON.stringify(data.items) as unknown as typeof qualityProfiles.$inferInsert.items,
       })
       .returning()
       .get();
@@ -52,7 +51,6 @@ export const updateQualityProfileFn = createServerFn({ method: "POST" })
       .update(qualityProfiles)
       .set({
         ...values,
-        items: JSON.stringify(values.items) as unknown as typeof qualityProfiles.$inferInsert.items,
       })
       .where(eq(qualityProfiles.id, id))
       .returning()
