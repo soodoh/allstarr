@@ -7,13 +7,15 @@ type RecentBook = {
   authorName: string | undefined;
   releaseDate: string | undefined;
   createdAt: Date;
-}
+};
 
 type RecentActivityProps = {
   recentBooks: RecentBook[];
-}
+};
 
-export default function RecentActivity({ recentBooks }: RecentActivityProps): React.JSX.Element {
+export default function RecentActivity({
+  recentBooks,
+}: RecentActivityProps): React.JSX.Element {
   return (
     <Card>
       <CardHeader>
@@ -21,9 +23,7 @@ export default function RecentActivity({ recentBooks }: RecentActivityProps): Re
       </CardHeader>
       <CardContent>
         {recentBooks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No recent additions.
-          </p>
+          <p className="text-sm text-muted-foreground">No recent additions.</p>
         ) : (
           <div className="space-y-3">
             {recentBooks.map((book) => (

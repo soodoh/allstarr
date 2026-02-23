@@ -14,13 +14,13 @@ export type TableState<TData> = {
   handleSort: (col: string) => void;
   paginatedData: TData[];
   totalPages: number;
-}
+};
 
 type UseTableStateOptions<TData> = {
   data: TData[];
   defaultPageSize?: number;
   comparators?: Partial<Record<string, (a: TData, b: TData) => number>>;
-}
+};
 
 export function useTableState<TData>({
   data,
@@ -29,8 +29,11 @@ export function useTableState<TData>({
 }: UseTableStateOptions<TData>): TableState<TData> {
   const [page, setPageRaw] = useState(1);
   const [pageSize, setPageSizeRaw] = useState(defaultPageSize);
-  const [sortColumn, setSortColumnRaw] = useState<string | undefined>(undefined);
-  const [sortDirection, setSortDirectionRaw] = useState<SortDirection>(undefined);
+  const [sortColumn, setSortColumnRaw] = useState<string | undefined>(
+    undefined,
+  );
+  const [sortDirection, setSortDirectionRaw] =
+    useState<SortDirection>(undefined);
 
   const setPage = (p: number) => setPageRaw(p);
 
@@ -66,9 +69,13 @@ export function useTableState<TData>({
   };
 
   const sortedData = useMemo(() => {
-    if (!sortColumn || !sortDirection) {return data;}
+    if (!sortColumn || !sortDirection) {
+      return data;
+    }
     const comparator = comparators[sortColumn];
-    if (!comparator) {return data;}
+    if (!comparator) {
+      return data;
+    }
     const sorted = [...data].toSorted(comparator);
     return sortDirection === "desc" ? sorted.toReversed() : sorted;
   }, [data, sortColumn, sortDirection, comparators]);

@@ -74,9 +74,7 @@ export const createBookSchema = z.object({
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
     .optional(),
-  ratings: z
-    .object({ value: z.number(), votes: z.number() })
-    .optional(),
+  ratings: z.object({ value: z.number(), votes: z.number() }).optional(),
   tags: z.array(z.number()).optional(),
 });
 

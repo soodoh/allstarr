@@ -35,7 +35,7 @@ const importBookSchema = z.object({
         foreignSeriesId: z.string(),
         title: z.string(),
         position: z.string().nullable().optional(),
-      })
+      }),
     )
     .optional(),
 });

@@ -131,7 +131,10 @@ export function HardcoverAuthorSkeleton(): React.JSX.Element {
             <div className="space-y-0">
               <Skeleton className="h-10 w-full rounded-b-none" />
               {Array.from({ length: 10 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-none border-t-0" />
+                <Skeleton
+                  key={i}
+                  className="h-12 w-full rounded-none border-t-0"
+                />
               ))}
             </div>
             {/* Bottom pagination */}

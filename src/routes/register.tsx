@@ -48,9 +48,7 @@ function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription>
-            Register for a new Allstarr account
-          </CardDescription>
+          <CardDescription>Register for a new Allstarr account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">

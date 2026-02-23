@@ -9,7 +9,7 @@ type SortableTableHeadProps = {
   sortDirection: SortDirection;
   onSort: (col: string) => void;
   children: React.ReactNode;
-} & React.ThHTMLAttributes<HTMLTableCellElement>
+} & React.ThHTMLAttributes<HTMLTableCellElement>;
 
 export default function SortableTableHead({
   column,
@@ -38,7 +38,7 @@ export default function SortableTableHead({
         <Icon
           className={cn(
             "h-3.5 w-3.5 shrink-0",
-            isActive ? "text-foreground" : "text-muted-foreground/60"
+            isActive ? "text-foreground" : "text-muted-foreground/60",
           )}
         />
       </span>

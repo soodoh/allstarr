@@ -30,18 +30,17 @@ function GeneralSettingsPage() {
   const settings = Route.useLoaderData();
   const router = useRouter();
   const [logLevel, setLogLevel] = useState(
-    (settings["general.logLevel"] as string) || "info"
+    (settings["general.logLevel"] as string) || "info",
   );
   const [authorFolder, setAuthorFolder] = useState(
-    (settings["naming.authorFolder"] as string) || "{Author Name}"
+    (settings["naming.authorFolder"] as string) || "{Author Name}",
   );
   const [bookFolder, setBookFolder] = useState(
     (settings["naming.bookFolder"] as string) ||
-      "{Book Title} ({Release Year})"
+      "{Book Title} ({Release Year})",
   );
   const [bookFile, setBookFile] = useState(
-    (settings["naming.bookFile"] as string) ||
-      "{Author Name} - {Book Title}"
+    (settings["naming.bookFile"] as string) || "{Author Name} - {Book Title}",
   );
   const [saving, setSaving] = useState(false);
 

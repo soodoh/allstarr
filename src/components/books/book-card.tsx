@@ -12,7 +12,7 @@ type BookCardProps = {
     monitored: boolean;
     overview?: string | undefined;
   };
-}
+};
 
 export default function BookCard({ book }: BookCardProps): React.JSX.Element {
   return (
@@ -36,9 +36,7 @@ export default function BookCard({ book }: BookCardProps): React.JSX.Element {
             <span>{book.authorName || "Unknown author"}</span>
           </div>
           {book.releaseDate && (
-            <p className="text-xs text-muted-foreground">
-              {book.releaseDate}
-            </p>
+            <p className="text-xs text-muted-foreground">{book.releaseDate}</p>
           )}
           {book.overview && (
             <p className="text-sm text-muted-foreground line-clamp-2 mt-2">

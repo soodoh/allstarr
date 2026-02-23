@@ -23,7 +23,7 @@ export const getRootFoldersFn = createServerFn({ method: "GET" }).handler(
       }
       return { ...folder, freeSpace, totalSpace };
     });
-  }
+  },
 );
 
 export const createRootFolderFn = createServerFn({ method: "POST" })

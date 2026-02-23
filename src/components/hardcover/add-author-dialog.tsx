@@ -29,7 +29,7 @@ type AddAuthorDialogProps = {
   qualityProfiles: Array<{ id: number; name: string }>;
   rootFolders: Array<{ id: number; path: string }>;
   onSuccess: (authorId: number) => void;
-}
+};
 
 export default function AddAuthorDialog({
   open,
@@ -40,10 +40,10 @@ export default function AddAuthorDialog({
   onSuccess,
 }: AddAuthorDialogProps): React.JSX.Element {
   const [qualityProfileId, setQualityProfileId] = useState<string>(
-    qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : ""
+    qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : "",
   );
   const [rootFolderPath, setRootFolderPath] = useState<string>(
-    rootFolders.length > 0 ? rootFolders[0].path : ""
+    rootFolders.length > 0 ? rootFolders[0].path : "",
   );
   const [monitored, setMonitored] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +58,9 @@ export default function AddAuthorDialog({
           overview: author.bio ?? undefined,
           status: author.deathYear ? "deceased" : "continuing",
           monitored,
-          qualityProfileId: qualityProfileId ? Number.parseInt(qualityProfileId, 10) : undefined,
+          qualityProfileId: qualityProfileId
+            ? Number.parseInt(qualityProfileId, 10)
+            : undefined,
           rootFolderPath: rootFolderPath || undefined,
           images: author.imageUrl
             ? [{ url: author.imageUrl, coverType: "poster" }]
@@ -72,7 +74,7 @@ export default function AddAuthorDialog({
       onOpenChange(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to add author."
+        error instanceof Error ? error.message : "Failed to add author.",
       );
     } finally {
       setSubmitting(false);
@@ -107,7 +109,10 @@ export default function AddAuthorDialog({
           {/* Quality profile */}
           <div className="space-y-1.5">
             <Label>Quality Profile</Label>
-            <Select value={qualityProfileId} onValueChange={setQualityProfileId}>
+            <Select
+              value={qualityProfileId}
+              onValueChange={setQualityProfileId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="None" />
               </SelectTrigger>

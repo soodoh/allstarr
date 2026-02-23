@@ -8,7 +8,7 @@ import Switch from "~/components/ui/switch";
 type QualityItem = {
   quality: { id: number; name: string };
   allowed: boolean;
-}
+};
 
 type QualityProfileFormProps = {
   initialValues?: {
@@ -26,7 +26,7 @@ type QualityProfileFormProps = {
   }) => void;
   onCancel: () => void;
   loading?: boolean;
-}
+};
 
 export default function QualityProfileForm({
   initialValues,
@@ -37,14 +37,14 @@ export default function QualityProfileForm({
 }: QualityProfileFormProps): React.JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [upgradeAllowed, setUpgradeAllowed] = useState(
-    initialValues?.upgradeAllowed || false
+    initialValues?.upgradeAllowed || false,
   );
   const [items, setItems] = useState<QualityItem[]>(
     initialValues?.items ||
       qualityDefinitions.map((def) => ({
         quality: { id: def.id, name: def.title },
         allowed: true,
-      }))
+      })),
   );
 
   const handleToggleItem = (qualityId: number) => {
@@ -52,8 +52,8 @@ export default function QualityProfileForm({
       prev.map((item) =>
         item.quality.id === qualityId
           ? { ...item, allowed: !item.allowed }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
@@ -88,10 +88,7 @@ export default function QualityProfileForm({
         <Label>Qualities</Label>
         <div className="space-y-2 rounded-md border border-border p-3">
           {items.map((item) => (
-            <div
-              key={item.quality.id}
-              className="flex items-center gap-2"
-            >
+            <div key={item.quality.id} className="flex items-center gap-2">
               <Checkbox
                 checked={item.allowed}
                 onCheckedChange={() => handleToggleItem(item.quality.id)}

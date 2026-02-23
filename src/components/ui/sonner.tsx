@@ -5,13 +5,13 @@ import {
   Loader2Icon,
   OctagonXIcon,
   TriangleAlertIcon,
-} from "lucide-react"
-import { useTheme } from "next-themes"
-import { Toaster as Sonner } from 'sonner';
-import type { ToasterProps } from 'sonner';
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { Toaster as Sonner } from "sonner";
+import type { ToasterProps } from "sonner";
 
 const Toaster = ({ ...props }: ToasterProps): React.JSX.Element => {
-  const { theme = "system" } = useTheme()
+  const { theme = "system" } = useTheme();
 
   return (
     <Sonner
@@ -46,7 +46,7 @@ const Toaster = ({ ...props }: ToasterProps): React.JSX.Element => {
       }
       {...props}
     />
-  )
-}
+  );
+};
 
 export default Toaster;

@@ -68,10 +68,7 @@ if (profiles.length === 0) {
 
 // Seed default settings
 for (const setting of defaultSettings) {
-  db.insert(schema.settings)
-    .values(setting)
-    .onConflictDoNothing()
-    .run();
+  db.insert(schema.settings).values(setting).onConflictDoNothing().run();
 }
 console.log("  Seeded default settings");
 

@@ -16,10 +16,7 @@ import { getBooksFn } from "~/server/books";
 
 export const Route = createFileRoute("/_authed/library")({
   loader: async () => {
-    const [authors, books] = await Promise.all([
-      getAuthorsFn(),
-      getBooksFn(),
-    ]);
+    const [authors, books] = await Promise.all([getAuthorsFn(), getBooksFn()]);
     return { authors, books };
   },
   component: LibraryPage,
@@ -38,9 +35,7 @@ function LibraryPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Authors
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Authors</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -135,9 +130,7 @@ function LibraryPage() {
                       </TableCell>
                       <TableCell>{book.authorName || "Unknown"}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={book.monitored ? "default" : "outline"}
-                        >
+                        <Badge variant={book.monitored ? "default" : "outline"}>
                           {book.monitored ? "Yes" : "No"}
                         </Badge>
                       </TableCell>

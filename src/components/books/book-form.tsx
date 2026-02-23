@@ -35,7 +35,7 @@ type BookFormProps = {
   onCancel?: () => void;
   loading?: boolean;
   submitLabel?: string;
-}
+};
 
 export default function BookForm({
   initialValues,
@@ -47,17 +47,15 @@ export default function BookForm({
 }: BookFormProps): React.JSX.Element {
   const [title, setTitle] = useState(initialValues?.title || "");
   const [authorId, setAuthorId] = useState<string>(
-    initialValues?.authorId?.toString() || ""
+    initialValues?.authorId?.toString() || "",
   );
   const [overview, setOverview] = useState(initialValues?.overview || "");
   const [isbn, setIsbn] = useState(initialValues?.isbn || "");
   const [asin, setAsin] = useState(initialValues?.asin || "");
   const [releaseDate, setReleaseDate] = useState(
-    initialValues?.releaseDate || ""
+    initialValues?.releaseDate || "",
   );
-  const [monitored, setMonitored] = useState(
-    initialValues?.monitored ?? true
-  );
+  const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

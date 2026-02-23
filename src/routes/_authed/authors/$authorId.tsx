@@ -190,7 +190,9 @@ function AuthorDetailPage() {
               </div>
               {author.rootFolderPath && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
-                  <span className="text-muted-foreground shrink-0">Root Folder</span>
+                  <span className="text-muted-foreground shrink-0">
+                    Root Folder
+                  </span>
                   <span className="font-mono text-xs break-all">
                     {author.rootFolderPath}
                   </span>

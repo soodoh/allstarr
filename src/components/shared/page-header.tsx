@@ -4,13 +4,19 @@ type PageHeaderProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
-}
+};
 
-export default function PageHeader({ title, description, actions }: PageHeaderProps): React.JSX.Element {
+export default function PageHeader({
+  title,
+  description,
+  actions,
+}: PageHeaderProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight break-words">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight break-words">
+          {title}
+        </h1>
         {description && (
           <p className="text-muted-foreground break-words">{description}</p>
         )}

@@ -30,12 +30,12 @@ bunx shadcn@latest add <component-name>
 
 Copy `.env.example` to `.env`:
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | Path to SQLite file (default: `data/sqlite.db`) |
-| `BETTER_AUTH_SECRET` | Secret key for better-auth session signing |
-| `BETTER_AUTH_URL` | Base URL of the app (e.g. `http://localhost:3000`) |
-| `HARDCOVER_TOKEN` | Hardcover API token (format: `Bearer <token>`) |
+| Variable             | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| `DATABASE_URL`       | Path to SQLite file (default: `data/sqlite.db`)    |
+| `BETTER_AUTH_SECRET` | Secret key for better-auth session signing         |
+| `BETTER_AUTH_URL`    | Base URL of the app (e.g. `http://localhost:3000`) |
+| `HARDCOVER_TOKEN`    | Hardcover API token (format: `Bearer <token>`)     |
 
 ## Architecture
 
@@ -87,6 +87,7 @@ After modifying routes, TanStack Router auto-generates `src/routeTree.gen.ts` �
 ### Hardcover Integration
 
 `src/server/search.ts` contains the full Hardcover GraphQL integration:
+
 - `searchHardcoverFn` — searches books/authors/both using Hardcover's search API
 - `getHardcoverAuthorFn` — fetches paginated author detail with language filtering
 

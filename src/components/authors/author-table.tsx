@@ -1,6 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -19,14 +25,17 @@ type Author = {
   status: string;
   monitored: boolean;
   bookCount: number;
-}
+};
 
 type AuthorTableProps = {
   authors: Author[];
   onDelete: (id: number) => void;
-}
+};
 
-export default function AuthorTable({ authors, onDelete }: AuthorTableProps): React.JSX.Element {
+export default function AuthorTable({
+  authors,
+  onDelete,
+}: AuthorTableProps): React.JSX.Element {
   const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -64,11 +73,16 @@ export default function AuthorTable({ authors, onDelete }: AuthorTableProps): Re
   }
 
   const SortIcon = ({ col }: { col: keyof Author }) => {
-    if (sortKey !== col)
-      {return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />;}
-    return sortDir === "asc"
-      ? <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
-      : <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />;
+    if (sortKey !== col) {
+      return (
+        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+      );
+    }
+    return sortDir === "asc" ? (
+      <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
+    ) : (
+      <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
+    );
   };
 
   return (

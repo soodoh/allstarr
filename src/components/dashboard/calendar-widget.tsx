@@ -7,13 +7,15 @@ type UpcomingBook = {
   title: string;
   authorName: string | undefined;
   releaseDate: string | undefined;
-}
+};
 
 type CalendarWidgetProps = {
   upcomingBooks: UpcomingBook[];
-}
+};
 
-export default function CalendarWidget({ upcomingBooks }: CalendarWidgetProps): React.JSX.Element {
+export default function CalendarWidget({
+  upcomingBooks,
+}: CalendarWidgetProps): React.JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -22,9 +24,7 @@ export default function CalendarWidget({ upcomingBooks }: CalendarWidgetProps): 
       </CardHeader>
       <CardContent>
         {upcomingBooks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No upcoming releases.
-          </p>
+          <p className="text-sm text-muted-foreground">No upcoming releases.</p>
         ) : (
           <div className="space-y-3">
             {upcomingBooks.map((book) => (
