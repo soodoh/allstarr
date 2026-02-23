@@ -7,81 +7,81 @@ const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 export type HardcoverSearchMode = "all" | "books" | "authors";
 type HardcoverQueryType = "Book" | "Author";
 
-export interface HardcoverSearchItem {
+export type HardcoverSearchItem = {
   id: string;
   type: "book" | "author";
-  slug: string | null;
+  slug: string | undefined;
   title: string;
-  subtitle: string | null;
-  description: string | null;
-  releaseYear: number | null;
-  coverUrl: string | null;
-  hardcoverUrl: string | null;
+  subtitle: string | undefined;
+  description: string | undefined;
+  releaseYear: number | undefined;
+  coverUrl: string | undefined;
+  hardcoverUrl: string | undefined;
 }
 
-export interface HardcoverAuthorBookSeries {
+export type HardcoverAuthorBookSeries = {
   id: string;
   title: string;
-  position: string | null;
+  position: string | undefined;
 }
 
-export interface HardcoverAuthorBook {
+export type HardcoverAuthorBook = {
   id: string;
   title: string;
-  slug: string | null;
-  releaseDate: string | null;
-  releaseYear: number | null;
-  rating: number | null;
-  coverUrl: string | null;
-  contribution: string | null;
-  languageCode: string | null;
-  languageName: string | null;
-  hardcoverUrl: string | null;
+  slug: string | undefined;
+  releaseDate: string | undefined;
+  releaseYear: number | undefined;
+  rating: number | undefined;
+  coverUrl: string | undefined;
+  contribution: string | undefined;
+  languageCode: string | undefined;
+  languageName: string | undefined;
+  hardcoverUrl: string | undefined;
   series: HardcoverAuthorBookSeries[];
 }
 
-export interface HardcoverSeriesBook {
+export type HardcoverSeriesBook = {
   id: string;
   title: string;
-  slug: string | null;
-  releaseYear: number | null;
-  rating: number | null;
-  coverUrl: string | null;
-  position: number | null;
-  hardcoverUrl: string | null;
+  slug: string | undefined;
+  releaseYear: number | undefined;
+  rating: number | undefined;
+  coverUrl: string | undefined;
+  position: number | undefined;
+  hardcoverUrl: string | undefined;
   isCompilation: boolean;
-  authorName: string | null;
+  authorName: string | undefined;
 }
 
-export interface HardcoverSeriesBooksResult {
+export type HardcoverSeriesBooksResult = {
   seriesId: string;
   seriesTitle: string;
   books: HardcoverSeriesBook[];
 }
 
-export interface HardcoverAuthorSeries {
+export type HardcoverAuthorSeries = {
   id: string;
   name: string;
   slug: string;
   booksCount: number;
-  isCompleted: boolean | null;
+  isCompleted: boolean | undefined;
 }
 
-export interface HardcoverLanguageOption {
+export type HardcoverLanguageOption = {
   code: string;
   name: string;
 }
 
-export interface HardcoverAuthorDetail {
+export type HardcoverAuthorDetail = {
   id: string;
   slug: string;
   name: string;
-  bio: string | null;
-  booksCount: number | null;
-  bornYear: number | null;
-  deathYear: number | null;
-  imageUrl: string | null;
-  hardcoverUrl: string | null;
+  bio: string | undefined;
+  booksCount: number | undefined;
+  bornYear: number | undefined;
+  deathYear: number | undefined;
+  imageUrl: string | undefined;
+  hardcoverUrl: string | undefined;
   selectedLanguage: string;
   page: number;
   pageSize: number;
@@ -430,8 +430,8 @@ query ${queryName}(${varDefs}) {
 function deduplicateSeriesBooks(books: HardcoverSeriesBook[]): HardcoverSeriesBook[] {
   const seen = new Set<number>();
   return books.filter((b) => {
-    if (b.position === null) return false;
-    if (seen.has(b.position)) return false;
+    if (b.position === undefined) {return false;}
+    if (seen.has(b.position)) {return false;}
     seen.add(b.position);
     return true;
   });
@@ -447,7 +447,7 @@ const seriesBooksInputSchema = z.object({
     .default("all"),
 });
 
-interface GraphQLSeriesBooksResponse {
+type GraphQLSeriesBooksResponse = {
   data?: {
     series_by_pk?: unknown;
     book_series?: unknown;
@@ -461,7 +461,7 @@ async function fetchSeriesBooks(
   authorization: string
 ): Promise<HardcoverSeriesBooksResult> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   const hasLanguageFilter = language !== "all";
 
   try {
@@ -482,22 +482,22 @@ async function fetchSeriesBooks(
     });
 
     const body = (await response.json()) as GraphQLSeriesBooksResponse;
-    if (!response.ok) throw new Error("Hardcover series request failed.");
+    if (!response.ok) {throw new Error("Hardcover series request failed.");}
     if (body.errors && body.errors.length > 0) {
       throw new Error(body.errors[0]?.message || "Hardcover series request failed.");
     }
 
     const seriesRecord = toRecord(body.data?.series_by_pk);
-    if (!seriesRecord) throw new Error("Series not found on Hardcover.");
+    if (!seriesRecord) {throw new Error("Series not found on Hardcover.");}
 
     const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
 
     const books: HardcoverSeriesBook[] = toRecordArray(body.data?.book_series)
       .map((entry) => {
         const bookRecord = toRecord(entry.book);
-        if (!bookRecord) return null;
+        if (!bookRecord) {return undefined;}
         const title = firstString(bookRecord, [["title"]]);
-        if (!title) return null;
+        if (!title) {return undefined;}
         const slug = firstString(bookRecord, [["slug"]]);
         const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
         const position = firstNumber(entry, [["position"]]);
@@ -506,10 +506,10 @@ async function fetchSeriesBooks(
           toRecordArray(bookRecord.contributions)
             .map((c) => {
               const authorRecord = toRecord(c.author);
-              return authorRecord ? firstString(authorRecord, [["name"]]) : null;
+              return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
             })
-            .filter((n): n is string => n !== null)
-            .join(", ") || null;
+            .filter((n): n is string => n !== undefined)
+            .join(", ") || undefined;
         return {
           id,
           title,
@@ -518,12 +518,12 @@ async function fetchSeriesBooks(
           rating: firstNumber(bookRecord, [["rating"]]),
           coverUrl: getCoverUrl(bookRecord),
           position,
-          hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+          hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
           isCompilation,
           authorName,
         };
       })
-      .filter((b): b is HardcoverSeriesBook => Boolean(b));
+      .filter(Boolean) as HardcoverSeriesBook[];
 
     return {
       seriesId: String(seriesId),
@@ -532,7 +532,7 @@ async function fetchSeriesBooks(
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover series request timed out.");
+      throw new Error("Hardcover series request timed out.", { cause: error });
     }
     throw error;
   } finally {
@@ -540,18 +540,18 @@ async function fetchSeriesBooks(
   }
 }
 
-interface SearchHit {
+type SearchHit = {
   document?: unknown;
 }
 
-interface SearchPayload {
+type SearchPayload = {
   hits?: unknown;
 }
 
-interface GraphQLSearchResponse {
+type GraphQLSearchResponse = {
   data?: {
     search?: {
-      error?: string | null;
+      error?: string | undefined;
       results?: unknown;
     };
   };
@@ -560,7 +560,7 @@ interface GraphQLSearchResponse {
   }>;
 }
 
-interface GraphQLAuthorDetailsResponse {
+type GraphQLAuthorDetailsResponse = {
   data?: {
     authors?: unknown;
     editions?: unknown;
@@ -580,11 +580,11 @@ function getAuthorizationHeader() {
   return rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`;
 }
 
-function toRecord(value: unknown): Record<string, unknown> | null {
+function toRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
-  return null;
+  return undefined;
 }
 
 function getNestedValue(
@@ -594,7 +594,7 @@ function getNestedValue(
   let current: unknown = record;
   for (const key of path) {
     const next = toRecord(current);
-    if (!next || !(key in next)) return null;
+    if (!next || !(key in next)) {return undefined;}
     current = next[key];
   }
   return current;
@@ -603,21 +603,21 @@ function getNestedValue(
 function firstString(
   record: Record<string, unknown>,
   paths: string[][]
-): string | null {
+): string | undefined {
   for (const path of paths) {
     const value = getNestedValue(record, path);
     if (typeof value === "string") {
       const trimmed = value.trim();
-      if (trimmed.length > 0) return trimmed;
+      if (trimmed.length > 0) {return trimmed;}
     }
   }
-  return null;
+  return undefined;
 }
 
 function firstNumber(
   record: Record<string, unknown>,
   paths: string[][]
-): number | null {
+): number | undefined {
   for (const path of paths) {
     const value = getNestedValue(record, path);
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -625,60 +625,61 @@ function firstNumber(
     }
     if (typeof value === "string") {
       const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
+      if (Number.isFinite(parsed)) {return parsed;}
     }
   }
-  return null;
+  return undefined;
 }
 
 function firstId(
   record: Record<string, unknown>,
   paths: string[][]
-): string | null {
+): string | undefined {
   const asString = firstString(record, paths);
-  if (asString) return asString;
+  if (asString) {return asString;}
   const asNumber = firstNumber(record, paths);
-  return asNumber !== null ? String(asNumber) : null;
+  if (asNumber === undefined) {return undefined;}
+  return String(asNumber);
 }
 
 function getStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {return [];}
   return value
     .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
     .filter((entry) => entry.length > 0);
 }
 
-function parseYear(value: string | null): number | null {
-  if (!value) return null;
+function parseYear(value: string | undefined): number | undefined {
+  if (!value) {return undefined;}
   const yearMatch = value.match(/\b(\d{4})\b/);
-  if (!yearMatch) return null;
+  if (!yearMatch) {return undefined;}
   const year = Number(yearMatch[1]);
-  return Number.isFinite(year) ? year : null;
+  return Number.isFinite(year) ? year : undefined;
 }
 
-function normalizeLanguageCode(value: string | null): string | null {
-  if (!value) return null;
+function normalizeLanguageCode(value: string | undefined): string | undefined {
+  if (!value) {return undefined;}
   const normalized = value.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
+  return normalized.length > 0 ? normalized : undefined;
 }
 
-function toRecordArray(value: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(value)) return [];
+function toRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {return [];}
   return value
     .map((entry) => toRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+    .filter(Boolean) as Array<Record<string, unknown>>;
 }
 
 function parseAggregateCount(value: unknown): number {
   const aggregate = toRecord(value);
-  const aggregateInner = aggregate ? toRecord(aggregate.aggregate) : null;
-  const count = aggregateInner ? firstNumber(aggregateInner, [["count"]]) : null;
+  const aggregateInner = aggregate ? toRecord(aggregate.aggregate) : undefined;
+  const count = aggregateInner ? firstNumber(aggregateInner, [["count"]]) : undefined;
   return count ?? 0;
 }
 
-function extractBookAuthorName(record: Record<string, unknown>): string | null {
+function extractBookAuthorName(record: Record<string, unknown>): string | undefined {
   const authorNames = getStringList(record.author_names);
-  if (authorNames.length > 0) return authorNames.join(", ");
+  if (authorNames.length > 0) {return authorNames.join(", ");}
 
   const contributions = Array.isArray(record.contributions)
     ? record.contributions
@@ -687,27 +688,27 @@ function extractBookAuthorName(record: Record<string, unknown>): string | null {
     const contributionRecord = toRecord(contribution);
     const authorRecord = contributionRecord
       ? toRecord(contributionRecord.author)
-      : null;
-    const name = authorRecord ? firstString(authorRecord, [["name"]]) : null;
-    if (name) return name;
+      : undefined;
+    const name = authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+    if (name) {return name;}
   }
 
   return firstString(record, [["authorName"], ["author_name"], ["author", "name"]]);
 }
 
-function getCoverUrl(record: Record<string, unknown>): string | null {
+function getCoverUrl(record: Record<string, unknown>): string | undefined {
   const imageRecord = toRecord(record.image);
   if (imageRecord) {
     const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
-    if (imageUrl) return imageUrl;
+    if (imageUrl) {return imageUrl;}
   }
 
   if (Array.isArray(record.images)) {
     for (const image of record.images) {
       const imageRecordFromList = toRecord(image);
-      if (!imageRecordFromList) continue;
+      if (!imageRecordFromList) {continue;}
       const imageUrl = firstString(imageRecordFromList, [["url"]]);
-      if (imageUrl) return imageUrl;
+      if (imageUrl) {return imageUrl;}
     }
   }
 
@@ -716,43 +717,43 @@ function getCoverUrl(record: Record<string, unknown>): string | null {
 
 function toHardcoverAuthorBook(
   bookRecord: Record<string, unknown>
-): HardcoverAuthorBook | null {
+): HardcoverAuthorBook | undefined {
   const title = firstString(bookRecord, [["title"], ["name"]]);
-  if (!title) return null;
+  if (!title) {return undefined;}
   const slug = firstString(bookRecord, [["slug"]]);
   const id = firstId(bookRecord, [["id"], ["book_id"], ["foreign_book_id"]]) ?? slug ?? title;
   const contributions = toRecordArray(bookRecord.contributions);
-  const contribution = contributions.length
+  const contribution = contributions.length > 0
     ? firstString(contributions[0], [["contribution"]])
-    : null;
+    : undefined;
   const editions = toRecordArray(bookRecord.editions);
-  const languageRecord = editions.length
+  const languageRecord = editions.length > 0
     ? toRecord(editions[0].language)
-    : null;
+    : undefined;
   const languageCode = languageRecord
     ? normalizeLanguageCode(
         firstString(languageRecord, [["code2"], ["code3"]])
       )
-    : null;
+    : undefined;
   const languageName = languageRecord
     ? firstString(languageRecord, [["language"]])
-    : null;
+    : undefined;
 
   const bookSeriesEntries = toRecordArray(bookRecord.book_series);
   const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
     .map((entry) => {
       const seriesRecord = toRecord(entry.series);
-      if (!seriesRecord) return null;
+      if (!seriesRecord) {return undefined;}
       const seriesId = firstId(seriesRecord, [["id"]]);
       const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
-      if (!seriesId || !seriesTitle) return null;
+      if (!seriesId || !seriesTitle) {return undefined;}
       return {
         id: seriesId,
         title: seriesTitle,
         position: firstString(entry, [["position"]]),
       };
     })
-    .filter((s): s is HardcoverAuthorBookSeries => Boolean(s));
+    .filter(Boolean) as HardcoverAuthorBookSeries[];
 
   return {
     id,
@@ -767,14 +768,14 @@ function toHardcoverAuthorBook(
     contribution,
     languageCode,
     languageName,
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
     series,
   };
 }
 
-function toBookResult(document: Record<string, unknown>): HardcoverSearchItem | null {
+function toBookResult(document: Record<string, unknown>): HardcoverSearchItem | undefined {
   const title = firstString(document, [["title"], ["name"]]);
-  if (!title) return null;
+  if (!title) {return undefined;}
 
   const subtitle = extractBookAuthorName(document);
   const releaseYear =
@@ -794,22 +795,22 @@ function toBookResult(document: Record<string, unknown>): HardcoverSearchItem | 
     description,
     releaseYear,
     coverUrl: getCoverUrl(document),
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
   };
 }
 
-function toAuthorResult(document: Record<string, unknown>): HardcoverSearchItem | null {
+function toAuthorResult(document: Record<string, unknown>): HardcoverSearchItem | undefined {
   const name = firstString(document, [["name"], ["title"]]);
-  if (!name) return null;
+  if (!name) {return undefined;}
 
   const booksCount = firstNumber(document, [["books_count"], ["book_count"]]);
   const personalName = firstString(document, [["name_personal"]]);
-  const subtitle =
-    booksCount !== null
-      ? `${booksCount} ${booksCount === 1 ? "book" : "books"}`
-      : personalName && personalName !== name
-        ? personalName
-        : null;
+  let subtitle: string | undefined;
+  if (booksCount !== undefined) {
+    subtitle = `${booksCount} ${booksCount === 1 ? "book" : "books"}`;
+  } else if (personalName && personalName !== name) {
+    subtitle = personalName;
+  }
   const description = firstString(document, [["description"], ["bio"], ["overview"]]);
   const slug = firstString(document, [["slug"]]);
   const rawId = firstId(document, [["id"], ["author_id"], ["foreign_author_id"]]);
@@ -822,15 +823,15 @@ function toAuthorResult(document: Record<string, unknown>): HardcoverSearchItem 
     title: name,
     subtitle,
     description,
-    releaseYear: null,
+    releaseYear: undefined,
     coverUrl: getCoverUrl(document),
-    hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
+    hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : undefined,
   };
 }
 
 function parseSearchPayload(payload: unknown): SearchHit[] {
-  const payloadRecord = toRecord(payload) as SearchPayload | null;
-  if (!payloadRecord) return [];
+  const payloadRecord = toRecord(payload) as SearchPayload | undefined;
+  if (!payloadRecord) {return [];}
   return Array.isArray(payloadRecord.hits)
     ? (payloadRecord.hits as SearchHit[])
     : [];
@@ -840,9 +841,9 @@ function interleave<T>(left: T[], right: T[], limit: number): T[] {
   const merged: T[] = [];
   const max = Math.max(left.length, right.length);
   for (let i = 0; i < max; i += 1) {
-    if (i < left.length) merged.push(left[i]);
-    if (i < right.length) merged.push(right[i]);
-    if (merged.length >= limit) break;
+    if (i < left.length) {merged.push(left[i]);}
+    if (i < right.length) {merged.push(right[i]);}
+    if (merged.length >= limit) {break;}
   }
   return merged.slice(0, limit);
 }
@@ -854,7 +855,7 @@ async function fetchSearchResults(
   authorization: string
 ): Promise<HardcoverSearchItem[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -886,21 +887,22 @@ async function fetchSearchResults(
     }
 
     const apiError = body.data?.search?.error;
-    if (apiError) throw new Error(apiError);
+    if (apiError) {throw new Error(apiError);}
 
     const hits = parseSearchPayload(body.data?.search?.results);
-    const mapped = hits
+    const documents = (hits
       .map((hit) => toRecord(hit.document))
-      .filter((document): document is Record<string, unknown> => Boolean(document))
+      .filter(Boolean) as Array<Record<string, unknown>>);
+    const mapped = (documents
       .map((document) =>
         queryType === "Book" ? toBookResult(document) : toAuthorResult(document)
       )
-      .filter((item): item is HardcoverSearchItem => Boolean(item));
+      .filter(Boolean) as HardcoverSearchItem[]);
 
     return mapped.slice(0, limit);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover search timed out.");
+      throw new Error("Hardcover search timed out.", { cause: error });
     }
     throw error;
   } finally {
@@ -911,11 +913,11 @@ async function fetchSearchResults(
 function buildOrderBy(
   sortBy: "title" | "year" | "rating",
   sortDir: "asc" | "desc"
-): Record<string, unknown>[] {
+): Array<Record<string, unknown>> {
   const dir = sortDir;
   const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
-  if (sortBy === "title") return [{ title: dir }, { id: "asc" }];
-  if (sortBy === "rating") return [{ rating: dirNullsLast }, { id: "asc" }];
+  if (sortBy === "title") {return [{ title: dir }, { id: "asc" }];}
+  if (sortBy === "rating") {return [{ rating: dirNullsLast }, { id: "asc" }];}
   // year (default)
   return [{ release_year: dirNullsLast }, { id: dir }];
 }
@@ -930,7 +932,7 @@ async function fetchAuthorBooksPage(
   authorization: string
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   const offset = (page - 1) * pageSize;
   const hasLanguageFilter = selectedLanguage !== "all";
 
@@ -965,12 +967,12 @@ async function fetchAuthorBooksPage(
 
     const books = toRecordArray(body.data?.books)
       .map((bookRecord) => toHardcoverAuthorBook(bookRecord))
-      .filter((book): book is HardcoverAuthorBook => Boolean(book));
+      .filter(Boolean) as HardcoverAuthorBook[];
     const totalBooks = parseAggregateCount(body.data?.books_aggregate);
     return { books, totalBooks };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover books request timed out.");
+      throw new Error("Hardcover books request timed out.", { cause: error });
     }
     throw error;
   } finally {
@@ -978,6 +980,7 @@ async function fetchAuthorBooksPage(
   }
 }
 
+// oxlint-disable-next-line complexity -- Complex data-fetching function with many validation steps
 async function fetchAuthorDetails(
   slug: string,
   page: number,
@@ -988,7 +991,7 @@ async function fetchAuthorDetails(
   authorization: string
 ): Promise<HardcoverAuthorDetail> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
     const metaResponse = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1014,7 +1017,7 @@ async function fetchAuthorDetails(
     }
 
     const authors = toRecordArray(metaBody.data?.authors);
-    const author = authors.length ? authors[0] : null;
+    const author = authors.length > 0 ? authors[0] : undefined;
     if (!author) {
       throw new Error("Author not found on Hardcover.");
     }
@@ -1022,13 +1025,13 @@ async function fetchAuthorDetails(
     const languagesMap = new Map<string, string>();
     for (const edition of toRecordArray(metaBody.data?.editions)) {
       const languageRecord = toRecord(edition.language);
-      if (!languageRecord) continue;
+      if (!languageRecord) {continue;}
       const code = normalizeLanguageCode(
         firstString(languageRecord, [["code2"], ["code3"]])
       );
       const name = firstString(languageRecord, [["language"]]);
-      if (!code || !name) continue;
-      if (!languagesMap.has(code)) languagesMap.set(code, name);
+      if (!code || !name) {continue;}
+      if (!languagesMap.has(code)) {languagesMap.set(code, name);}
     }
     if (!languagesMap.has("en")) {
       languagesMap.set("en", "English");
@@ -1051,20 +1054,21 @@ async function fetchAuthorDetails(
     );
     const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
     const safePage = Math.min(page, totalPages);
-    const pagedBooks =
-      safePage === page
-        ? booksPage.books
-        : (
-            await fetchAuthorBooksPage(
-              slug,
-              safePage,
-              pageSize,
-              selectedLanguage,
-              sortBy,
-              sortDir,
-              authorization
-            )
-          ).books;
+    let pagedBooks: HardcoverAuthorBook[];
+    if (safePage === page) {
+      pagedBooks = booksPage.books;
+    } else {
+      const safePageResult = await fetchAuthorBooksPage(
+        slug,
+        safePage,
+        pageSize,
+        selectedLanguage,
+        sortBy,
+        sortDir,
+        authorization
+      );
+      pagedBooks = safePageResult.books;
+    }
 
     const authorSlug = firstString(author, [["slug"]]) || slug;
     const authorName = firstString(author, [["name"], ["title"]]);
@@ -1074,9 +1078,9 @@ async function fetchAuthorDetails(
 
     const languageOptions: HardcoverLanguageOption[] = [
       { code: "all", name: "All Languages" },
-      ...Array.from(languagesMap.entries())
+      ...[...languagesMap.entries()]
         .map(([code, name]) => ({ code, name }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .toSorted((a, b) => a.name.localeCompare(b.name)),
     ];
 
     return {
@@ -1090,7 +1094,7 @@ async function fetchAuthorDetails(
       bornYear: firstNumber(author, [["born_year"]]),
       deathYear: firstNumber(author, [["death_year"]]),
       imageUrl: getCoverUrl(author),
-      hardcoverUrl: authorSlug ? `https://hardcover.app/authors/${authorSlug}` : null,
+      hardcoverUrl: authorSlug ? `https://hardcover.app/authors/${authorSlug}` : undefined,
       selectedLanguage,
       page: safePage,
       pageSize,
@@ -1103,7 +1107,7 @@ async function fetchAuthorDetails(
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover author request timed out.");
+      throw new Error("Hardcover author request timed out.", { cause: error });
     }
     throw error;
   } finally {
@@ -1181,7 +1185,7 @@ const authorSeriesInputSchema = z.object({
     .default("all"),
 });
 
-interface GraphQLAuthorSeriesResponse {
+type GraphQLAuthorSeriesResponse = {
   data?: { series?: unknown };
   errors?: Array<{ message?: string }>;
 }
@@ -1192,7 +1196,7 @@ async function fetchAuthorSeries(
   authorization: string
 ): Promise<HardcoverAuthorSeries[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   const hasLanguageFilter = language !== "all";
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1206,7 +1210,7 @@ async function fetchAuthorSeries(
       cache: "no-store",
     });
     const body = (await response.json()) as GraphQLAuthorSeriesResponse;
-    if (!response.ok) throw new Error("Hardcover series request failed.");
+    if (!response.ok) {throw new Error("Hardcover series request failed.");}
     if (body.errors && body.errors.length > 0) {
       throw new Error(body.errors[0]?.message || "Hardcover series request failed.");
     }
@@ -1217,7 +1221,7 @@ async function fetchAuthorSeries(
       const distinctPositions = new Set(
         positionRows
           .map((p) => firstNumber(p, [["position"]]))
-          .filter((p): p is number => p !== null)
+          .filter((p): p is number => p !== undefined)
       );
       const booksCount = distinctPositions.size;
       return {
@@ -1226,13 +1230,13 @@ async function fetchAuthorSeries(
         slug: firstString(s, [["slug"]]) ?? "",
         booksCount,
         isCompleted:
-          typeof s.is_completed === "boolean" ? s.is_completed : null,
+          typeof s.is_completed === "boolean" ? s.is_completed : undefined,
         hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
       };
     }).filter((s) => s.id && s.name && s.booksCount > 0);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover series request timed out.");
+      throw new Error("Hardcover series request timed out.", { cause: error });
     }
     throw error;
   } finally {

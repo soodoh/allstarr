@@ -29,13 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { PageHeader } from "~/components/shared/page-header";
-import { AuthorForm } from "~/components/authors/author-form";
-import { AuthorPhoto } from "~/components/authors/author-photo";
-import { ConfirmDialog } from "~/components/shared/confirm-dialog";
+import PageHeader from "~/components/shared/page-header";
+import AuthorForm from "~/components/authors/author-form";
+import AuthorPhoto from "~/components/authors/author-photo";
+import ConfirmDialog from "~/components/shared/confirm-dialog";
 import { DetailSkeleton } from "~/components/shared/loading-skeleton";
-import { SortableTableHead } from "~/components/shared/sortable-table-head";
-import { TablePagination } from "~/components/shared/table-pagination";
+import SortableTableHead from "~/components/shared/sortable-table-head";
+import TablePagination from "~/components/shared/table-pagination";
 import { getAuthorFn, updateAuthorFn, deleteAuthorFn } from "~/server/authors";
 import { getQualityProfilesFn } from "~/server/quality-profiles";
 import { getRootFoldersFn } from "~/server/root-folders";
@@ -44,7 +44,7 @@ import { useTableState } from "~/hooks/use-table-state";
 export const Route = createFileRoute("/_authed/authors/$authorId")({
   loader: async ({ params }) => {
     const [author, qualityProfiles, rootFolders] = await Promise.all([
-      getAuthorFn({ data: { id: parseInt(params.authorId) } }),
+      getAuthorFn({ data: { id: Number.parseInt(params.authorId, 10) } }),
       getQualityProfilesFn(),
       getRootFoldersFn(),
     ]);

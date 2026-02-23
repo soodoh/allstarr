@@ -3,11 +3,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { LayoutGrid, List, BookOpen } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { PageHeader } from "~/components/shared/page-header";
-import { BookTable } from "~/components/books/book-table";
-import { BookCard } from "~/components/books/book-card";
-import { ConfirmDialog } from "~/components/shared/confirm-dialog";
-import { EmptyState } from "~/components/shared/empty-state";
+import PageHeader from "~/components/shared/page-header";
+import BookTable from "~/components/books/book-table";
+import BookCard from "~/components/books/book-card";
+import ConfirmDialog from "~/components/shared/confirm-dialog";
+import EmptyState from "~/components/shared/empty-state";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
 import { getBooksFn, deleteBookFn } from "~/server/books";
 
@@ -21,16 +21,16 @@ function BooksPage() {
   const books = Route.useLoaderData();
   const router = useRouter();
   const [view, setView] = useState<"table" | "grid">("table");
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | undefined>(undefined);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId) {return;}
     setDeleting(true);
     try {
       await deleteBookFn({ data: { id: deleteId } });
       toast.success("Book deleted");
-      setDeleteId(null);
+      setDeleteId(undefined);
       router.invalidate();
     } catch {
       toast.error("Failed to delete book");
@@ -98,8 +98,8 @@ function BooksPage() {
       )}
 
       <ConfirmDialog
-        open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        open={deleteId !== undefined}
+        onOpenChange={(open) => !open && setDeleteId(undefined)}
         title="Delete Book"
         description="Are you sure you want to delete this book? This cannot be undone."
         onConfirm={handleDelete}

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
-import { Switch } from "~/components/ui/switch";
+import Input from "~/components/ui/input";
+import Label from "~/components/ui/label";
+import Textarea from "~/components/ui/textarea";
+import Switch from "~/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 
-interface BookFormProps {
+type BookFormProps = {
   initialValues?: {
     title: string;
     authorId: number;
@@ -22,7 +22,7 @@ interface BookFormProps {
     releaseDate?: string;
     monitored: boolean;
   };
-  authors: { id: number; name: string }[];
+  authors: Array<{ id: number; name: string }>;
   onSubmit: (values: {
     title: string;
     authorId: number;
@@ -37,14 +37,14 @@ interface BookFormProps {
   submitLabel?: string;
 }
 
-export function BookForm({
+export default function BookForm({
   initialValues,
   authors,
   onSubmit,
   onCancel,
   loading,
   submitLabel = "Save",
-}: BookFormProps) {
+}: BookFormProps): React.JSX.Element {
   const [title, setTitle] = useState(initialValues?.title || "");
   const [authorId, setAuthorId] = useState<string>(
     initialValues?.authorId?.toString() || ""
@@ -63,7 +63,7 @@ export function BookForm({
     e.preventDefault();
     onSubmit({
       title,
-      authorId: parseInt(authorId),
+      authorId: Number.parseInt(authorId, 10),
       overview: overview || undefined,
       isbn: isbn || undefined,
       asin: asin || undefined,

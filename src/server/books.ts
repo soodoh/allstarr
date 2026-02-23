@@ -65,7 +65,7 @@ export const getBookFn = createServerFn({ method: "GET" })
       .leftJoin(authors, eq(books.authorId, authors.id))
       .where(eq(books.id, data.id))
       .get();
-    if (!book) throw new Error("Book not found");
+    if (!book) {throw new Error("Book not found");}
 
     const bookEditions = db
       .select()
@@ -164,7 +164,7 @@ export const checkBooksExistFn = createServerFn({ method: "GET" })
   .inputValidator((d: { foreignBookIds: string[] }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
-    if (data.foreignBookIds.length === 0) return [];
+    if (data.foreignBookIds.length === 0) {return [];}
     return db
       .select({ id: books.id, foreignBookId: books.foreignBookId })
       .from(books)

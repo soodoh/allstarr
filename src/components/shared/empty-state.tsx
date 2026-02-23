@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
-import { type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-interface EmptyStateProps {
+type EmptyStateProps = {
   icon: LucideIcon;
   title: string;
   description: string;
   action?: ReactNode;
 }
 
-export function EmptyState({
+export default function EmptyState({
   icon: Icon,
   title,
   description,
   action,
-}: EmptyStateProps) {
+}: EmptyStateProps): React.JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <Icon className="h-12 w-12 text-muted-foreground/50 mb-4" />

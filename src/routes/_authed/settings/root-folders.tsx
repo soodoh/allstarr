@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
+import Input from "~/components/ui/input";
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { PageHeader } from "~/components/shared/page-header";
+import PageHeader from "~/components/shared/page-header";
 import {
   getRootFoldersFn,
   createRootFolderFn,
@@ -24,8 +24,8 @@ export const Route = createFileRoute("/_authed/settings/root-folders")({
   component: RootFoldersPage,
 });
 
-function formatBytes(bytes: number | null) {
-  if (!bytes) return "N/A";
+function formatBytes(bytes: number | undefined) {
+  if (!bytes) {return "N/A";}
   const gb = bytes / (1024 * 1024 * 1024);
   return `${gb.toFixed(1)} GB`;
 }
@@ -38,7 +38,7 @@ function RootFoldersPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPath.trim()) return;
+    if (!newPath.trim()) {return;}
     setAdding(true);
     try {
       await createRootFolderFn({ data: { path: newPath.trim() } });

@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 
-interface Author {
+type Author = {
   id: number;
   name: string;
   sortName: string;
@@ -21,13 +21,13 @@ interface Author {
   bookCount: number;
 }
 
-interface AuthorTableProps {
+type AuthorTableProps = {
   authors: Author[];
   onDelete: (id: number) => void;
 }
 
-export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
-  const [sortKey, setSortKey] = useState<keyof Author | null>(null);
+export default function AuthorTable({ authors, onDelete }: AuthorTableProps): React.JSX.Element {
+  const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const handleSort = (key: keyof Author) => {
@@ -40,7 +40,7 @@ export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
   };
 
   const sorted = sortKey
-    ? [...authors].sort((a, b) => {
+    ? [...authors].toSorted((a, b) => {
         const av = a[sortKey];
         const bv = b[sortKey];
         let cmp = 0;
@@ -65,7 +65,7 @@ export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
 
   const SortIcon = ({ col }: { col: keyof Author }) => {
     if (sortKey !== col)
-      return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />;
+      {return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />;}
     return sortDir === "asc"
       ? <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
       : <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />;
@@ -81,7 +81,7 @@ export function AuthorTable({ authors, onDelete }: AuthorTableProps) {
               { key: "status", label: "Status" },
               { key: "monitored", label: "Monitored" },
               { key: "bookCount", label: "Books" },
-            ] as { key: keyof Author; label: string }[]
+            ] as Array<{ key: keyof Author; label: string }>
           ).map(({ key, label }) => (
             <TableHead
               key={key}

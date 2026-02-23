@@ -1,3 +1,5 @@
+// oxlint-disable react/no-array-index-key -- Ellipsis placeholders in pagination have no unique identity
+import type React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
@@ -10,7 +12,7 @@ import {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-interface TablePaginationProps {
+type TablePaginationProps = {
   page: number;
   pageSize: number;
   totalItems: number;
@@ -19,21 +21,21 @@ interface TablePaginationProps {
   onPageSizeChange: (size: number) => void;
 }
 
-/** Returns the page numbers to render, inserting `null` for ellipsis gaps. */
-function getPageNumbers(page: number, totalPages: number): (number | null)[] {
+/** Returns the page numbers to render, inserting `undefined` for ellipsis gaps. */
+function getPageNumbers(page: number, totalPages: number): Array<number | undefined> {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
   }
 
-  const pages: (number | null)[] = [];
+  const pages: Array<number | undefined> = [];
   const around = new Set([1, totalPages, page - 1, page, page + 1].filter(
     (p) => p >= 1 && p <= totalPages
   ));
 
-  let prev: number | null = null;
-  for (const p of Array.from(around).sort((a, b) => a - b)) {
-    if (prev !== null && p - prev > 1) {
-      pages.push(null); // ellipsis
+  let prev: number | undefined = undefined;
+  for (const p of [...around].toSorted((a, b) => a - b)) {
+    if (prev !== undefined && p - prev > 1) {
+      pages.push(undefined); // ellipsis
     }
     pages.push(p);
     prev = p;
@@ -42,15 +44,15 @@ function getPageNumbers(page: number, totalPages: number): (number | null)[] {
   return pages;
 }
 
-export function TablePagination({
+export default function TablePagination({
   page,
   pageSize,
   totalItems,
   totalPages,
   onPageChange,
   onPageSizeChange,
-}: TablePaginationProps) {
-  if (totalItems === 0) return null;
+}: TablePaginationProps): React.ReactNode {
+  if (totalItems === 0) {return null;}
 
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
@@ -99,7 +101,7 @@ export function TablePagination({
         </Button>
 
         {pageNumbers.map((p, idx) =>
-          p === null ? (
+          p === undefined ? (
             <span
               key={`ellipsis-${idx}`}
               className="flex h-8 w-8 items-center justify-center text-muted-foreground"

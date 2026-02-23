@@ -5,8 +5,8 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "~/components/shared/page-header";
-import { AuthorForm } from "~/components/authors/author-form";
+import PageHeader from "~/components/shared/page-header";
+import AuthorForm from "~/components/authors/author-form";
 import { createAuthorFn } from "~/server/authors";
 import { getQualityProfilesFn } from "~/server/quality-profiles";
 import { getRootFoldersFn } from "~/server/root-folders";

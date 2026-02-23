@@ -10,6 +10,7 @@ export const getRootFoldersFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
     const folders = db.select().from(rootFolders).all();
+    // oxlint-disable-next-line oxc/no-map-spread -- Spreading DB result to override fields is necessary
     return folders.map((folder) => {
       let freeSpace = folder.freeSpace;
       let totalSpace = folder.totalSpace;

@@ -6,14 +6,14 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { Toaster } from "~/components/ui/sonner";
+import Toaster from "~/components/ui/sonner";
 
 import appCss from "~/styles/app.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
-      { charSet: "utf-8" },
+      { charSet: "utf8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Allstarr" },
     ],

@@ -3,18 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { BookOpen } from "lucide-react";
 
-interface BookCardProps {
+type BookCardProps = {
   book: {
     id: number;
     title: string;
-    authorName: string | null;
-    releaseDate: string | null;
+    authorName: string | undefined;
+    releaseDate: string | undefined;
     monitored: boolean;
-    overview?: string | null;
+    overview?: string | undefined;
   };
 }
 
-export function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book }: BookCardProps): React.JSX.Element {
   return (
     <Link
       to="/books/$bookId"

@@ -2,13 +2,13 @@ import { ImageOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "~/lib/utils";
 
-interface AuthorPhotoProps {
+type AuthorPhotoProps = {
   name: string;
-  imageUrl?: string | null;
+  imageUrl?: string | undefined;
   className?: string;
 }
 
-export function AuthorPhoto({ name, imageUrl, className }: AuthorPhotoProps) {
+export default function AuthorPhoto({ name, imageUrl, className }: AuthorPhotoProps): React.JSX.Element {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {

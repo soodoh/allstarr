@@ -11,20 +11,20 @@ import {
   TableRow,
 } from "~/components/ui/table";
 
-interface Book {
+type Book = {
   id: number;
   title: string;
-  authorName: string | null;
-  releaseDate: string | null;
+  authorName: string | undefined;
+  releaseDate: string | undefined;
   monitored: boolean;
 }
 
-interface BookTableProps {
+type BookTableProps = {
   books: Book[];
   onDelete: (id: number) => void;
 }
 
-export function BookTable({ books, onDelete }: BookTableProps) {
+export default function BookTable({ books, onDelete }: BookTableProps): React.JSX.Element {
   if (books.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">

@@ -3,16 +3,15 @@ import { TableHead } from "~/components/ui/table";
 import { cn } from "~/lib/utils";
 import type { SortDirection } from "~/hooks/use-table-state";
 
-interface SortableTableHeadProps
-  extends React.ThHTMLAttributes<HTMLTableCellElement> {
+type SortableTableHeadProps = {
   column: string;
-  sortColumn: string | null;
+  sortColumn: string | undefined;
   sortDirection: SortDirection;
   onSort: (col: string) => void;
   children: React.ReactNode;
-}
+} & React.ThHTMLAttributes<HTMLTableCellElement>
 
-export function SortableTableHead({
+export default function SortableTableHead({
   column,
   sortColumn,
   sortDirection,
@@ -20,14 +19,13 @@ export function SortableTableHead({
   children,
   className,
   ...props
-}: SortableTableHeadProps) {
+}: SortableTableHeadProps): React.JSX.Element {
   const isActive = sortColumn === column;
 
-  const Icon = isActive
-    ? sortDirection === "asc"
-      ? ArrowUp
-      : ArrowDown
-    : ArrowUpDown;
+  let Icon = ArrowUpDown;
+  if (isActive) {
+    Icon = sortDirection === "asc" ? ArrowUp : ArrowDown;
+  }
 
   return (
     <TableHead

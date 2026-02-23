@@ -1,3 +1,4 @@
+// oxlint-disable no-console -- Seed script intentionally uses console for output
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
@@ -47,35 +48,31 @@ const defaultSettings = [
   },
 ];
 
-async function seed() {
-  console.log("Seeding database...");
+console.log("Seeding database...");
 
-  // Seed quality definitions
-  const existing = db.select().from(schema.qualityDefinitions).all();
-  if (existing.length === 0) {
-    for (const def of defaultQualityDefinitions) {
-      db.insert(schema.qualityDefinitions).values(def).run();
-    }
-    console.log("  Seeded quality definitions");
+// Seed quality definitions
+const existing = db.select().from(schema.qualityDefinitions).all();
+if (existing.length === 0) {
+  for (const def of defaultQualityDefinitions) {
+    db.insert(schema.qualityDefinitions).values(def).run();
   }
-
-  // Seed default quality profile
-  const profiles = db.select().from(schema.qualityProfiles).all();
-  if (profiles.length === 0) {
-    db.insert(schema.qualityProfiles).values(defaultProfile).run();
-    console.log("  Seeded default quality profile");
-  }
-
-  // Seed default settings
-  for (const setting of defaultSettings) {
-    db.insert(schema.settings)
-      .values(setting)
-      .onConflictDoNothing()
-      .run();
-  }
-  console.log("  Seeded default settings");
-
-  console.log("Done!");
+  console.log("  Seeded quality definitions");
 }
 
-seed();
+// Seed default quality profile
+const profiles = db.select().from(schema.qualityProfiles).all();
+if (profiles.length === 0) {
+  db.insert(schema.qualityProfiles).values(defaultProfile).run();
+  console.log("  Seeded default quality profile");
+}
+
+// Seed default settings
+for (const setting of defaultSettings) {
+  db.insert(schema.settings)
+    .values(setting)
+    .onConflictDoNothing()
+    .run();
+}
+console.log("  Seeded default settings");
+
+console.log("Done!");

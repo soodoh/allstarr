@@ -1,22 +1,22 @@
 import { useState, useMemo, useEffect } from "react";
 
-export type SortDirection = "asc" | "desc" | null;
+export type SortDirection = "asc" | "desc" | undefined;
 
-export interface TableState<TData> {
+export type TableState<TData> = {
   page: number;
   pageSize: number;
-  sortColumn: string | null;
+  sortColumn: string | undefined;
   sortDirection: SortDirection;
   setPage: (page: number) => void;
   setPageSize: (size: number) => void;
-  setSortColumn: (col: string | null) => void;
+  setSortColumn: (col: string | undefined) => void;
   setSortDirection: (dir: SortDirection) => void;
   handleSort: (col: string) => void;
   paginatedData: TData[];
   totalPages: number;
 }
 
-interface UseTableStateOptions<TData> {
+type UseTableStateOptions<TData> = {
   data: TData[];
   defaultPageSize?: number;
   comparators?: Partial<Record<string, (a: TData, b: TData) => number>>;
@@ -29,8 +29,8 @@ export function useTableState<TData>({
 }: UseTableStateOptions<TData>): TableState<TData> {
   const [page, setPageRaw] = useState(1);
   const [pageSize, setPageSizeRaw] = useState(defaultPageSize);
-  const [sortColumn, setSortColumnRaw] = useState<string | null>(null);
-  const [sortDirection, setSortDirectionRaw] = useState<SortDirection>(null);
+  const [sortColumn, setSortColumnRaw] = useState<string | undefined>(undefined);
+  const [sortDirection, setSortDirectionRaw] = useState<SortDirection>(undefined);
 
   const setPage = (p: number) => setPageRaw(p);
 
@@ -39,7 +39,7 @@ export function useTableState<TData>({
     setPageRaw(1);
   };
 
-  const setSortColumn = (col: string | null) => {
+  const setSortColumn = (col: string | undefined) => {
     setSortColumnRaw(col);
     setPageRaw(1);
   };
@@ -59,18 +59,18 @@ export function useTableState<TData>({
       setSortDirectionRaw("desc");
       setPageRaw(1);
     } else if (sortDirection === "desc") {
-      setSortColumnRaw(null);
-      setSortDirectionRaw(null);
+      setSortColumnRaw(undefined);
+      setSortDirectionRaw(undefined);
       setPageRaw(1);
     }
   };
 
   const sortedData = useMemo(() => {
-    if (!sortColumn || !sortDirection) return data;
+    if (!sortColumn || !sortDirection) {return data;}
     const comparator = comparators[sortColumn];
-    if (!comparator) return data;
-    const sorted = [...data].sort(comparator);
-    return sortDirection === "desc" ? sorted.reverse() : sorted;
+    if (!comparator) {return data;}
+    const sorted = [...data].toSorted(comparator);
+    return sortDirection === "desc" ? sorted.toReversed() : sorted;
   }, [data, sortColumn, sortDirection, comparators]);
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));

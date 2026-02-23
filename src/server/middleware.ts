@@ -12,6 +12,7 @@ export const getAuthSessionFn = createServerFn({ method: "GET" }).handler(
   }
 );
 
+// oxlint-disable-next-line explicit-module-boundary-types
 export async function requireAuth() {
   const session = await getAuthSessionFn();
   if (!session) {

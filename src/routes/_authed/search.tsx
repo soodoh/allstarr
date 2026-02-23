@@ -1,11 +1,13 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState } from 'react';
+import type React from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { toast } from "sonner";
 import { Search, BookOpen, Users, ExternalLink } from "lucide-react";
-import { PageHeader } from "~/components/shared/page-header";
-import { EmptyState } from "~/components/shared/empty-state";
+import PageHeader from "~/components/shared/page-header";
+import EmptyState from "~/components/shared/empty-state";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
+import Input from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import {
   Card,
@@ -15,11 +17,8 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import {
-  searchHardcoverFn,
-  type HardcoverSearchItem,
-  type HardcoverSearchMode,
-} from "~/server/search";
+import { searchHardcoverFn } from '~/server/search';
+import type { HardcoverSearchItem, HardcoverSearchMode } from '~/server/search';
 
 export const Route = createFileRoute("/_authed/search")({
   component: SearchPage,
@@ -37,7 +36,47 @@ function SearchPage() {
   const [results, setResults] = useState<HardcoverSearchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchedQuery, setSearchedQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  let searchResultsContent: ReactNode;
+  if (loading) {
+    searchResultsContent = (
+      <Card>
+        <CardContent className="py-8">
+          <p className="text-sm text-muted-foreground">Searching Hardcover...</p>
+        </CardContent>
+      </Card>
+    );
+  } else if (searchedQuery.length === 0) {
+    searchResultsContent = (
+      <EmptyState
+        icon={Search}
+        title="Start searching"
+        description="Use the search bar to find books or authors from Hardcover."
+      />
+    );
+  } else if (results.length === 0) {
+    searchResultsContent = (
+      <EmptyState
+        icon={Search}
+        title="No results"
+        description={`No ${searchType === "all" ? "books or authors" : searchType} found for "${searchedQuery}".`}
+      />
+    );
+  } else {
+    searchResultsContent = (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Showing {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{searchedQuery}&rdquo;.
+        </p>
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          {results.map((result) => (
+            <ResultCard key={`${result.type}-${result.id}`} result={result} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,7 +87,7 @@ function SearchPage() {
     }
 
     setLoading(true);
-    setError(null);
+    setError(undefined);
     try {
       const response = await searchHardcoverFn({
         data: {
@@ -117,37 +156,7 @@ function SearchPage() {
         </CardContent>
       </Card>
 
-      {loading ? (
-        <Card>
-          <CardContent className="py-8">
-            <p className="text-sm text-muted-foreground">Searching Hardcover...</p>
-          </CardContent>
-        </Card>
-      ) : searchedQuery.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="Start searching"
-          description="Use the search bar to find books or authors from Hardcover."
-        />
-      ) : results.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No results"
-          description={`No ${searchType === "all" ? "books or authors" : searchType} found for "${searchedQuery}".`}
-        />
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Showing {results.length} result{results.length === 1 ? "" : "s"} for "
-            {searchedQuery}".
-          </p>
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-            {results.map((result) => (
-              <ResultCard key={`${result.type}-${result.id}`} result={result} />
-            ))}
-          </div>
-        </div>
-      )}
+      {searchResultsContent}
     </div>
   );
 }
@@ -160,7 +169,25 @@ function ResultCard({ result }: { result: HardcoverSearchItem }) {
           to: "/hardcover/authors/$authorSlug" as const,
           params: { authorSlug: result.slug },
         }
-      : null;
+      : undefined;
+
+  let actionButton: React.ReactNode = null;
+  if (authorDetailsLink) {
+    actionButton = (
+      <Button asChild variant="outline" size="sm">
+        <span>View Author Details</span>
+      </Button>
+    );
+  } else if (result.hardcoverUrl) {
+    actionButton = (
+      <Button asChild variant="outline" size="sm">
+        <a href={result.hardcoverUrl} target="_blank" rel="noreferrer">
+          <ExternalLink className="h-4 w-4" />
+          View on Hardcover
+        </a>
+      </Button>
+    );
+  }
 
   const content = (
     <Card
@@ -203,18 +230,7 @@ function ResultCard({ result }: { result: HardcoverSearchItem }) {
               </p>
             )}
 
-            {authorDetailsLink ? (
-              <Button asChild variant="outline" size="sm">
-                <span>View Author Details</span>
-              </Button>
-            ) : result.hardcoverUrl ? (
-              <Button asChild variant="outline" size="sm">
-                <a href={result.hardcoverUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                  View on Hardcover
-                </a>
-              </Button>
-            ) : null}
+            {actionButton}
           </div>
         </div>
       </CardContent>
