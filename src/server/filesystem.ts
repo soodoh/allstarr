@@ -1,6 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { requireAuth } from "./middleware";
 import { browseDirectorySchema } from "~/lib/validators";
 
@@ -15,14 +13,24 @@ type BrowseDirectoryResult = {
   directories: DirectoryEntry[];
 };
 
-export default createServerFn({ method: "GET" })
+// eslint-disable-next-line import/prefer-default-export
+export const browseDirectoryFn = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => browseDirectorySchema.parse(d))
   .handler(async ({ data }): Promise<BrowseDirectoryResult> => {
+    const fs = await import("node:fs");
+
     await requireAuth();
 
     const current = data.path;
-    const parsed = path.parse(current);
-    const parent = parsed.dir === current ? undefined : parsed.dir;
+
+    // Compute parent by stripping the last path segment (avoids node:path on client)
+    const normalized =
+      current.endsWith("/") && current !== "/"
+        ? current.slice(0, -1)
+        : current;
+    const lastSlash = normalized.lastIndexOf("/");
+    const parentRaw = lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
+    const parent = parentRaw === current ? undefined : parentRaw;
 
     const entries = fs.readdirSync(current, { withFileTypes: true });
     const directories: DirectoryEntry[] = entries
@@ -30,7 +38,7 @@ export default createServerFn({ method: "GET" })
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({
         name: entry.name,
-        path: path.join(current, entry.name),
+        path: `${normalized}/${entry.name}`,
       }));
 
     return { current, parent, directories };

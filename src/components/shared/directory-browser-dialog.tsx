@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import browseDirectoryFn from "~/server/filesystem";
+import { browseDirectoryFn } from "~/server/filesystem";
 
 type DirectoryEntry = {
   name: string;
