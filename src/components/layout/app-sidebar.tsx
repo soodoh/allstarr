@@ -11,6 +11,7 @@ import {
   History,
   Library,
   Search,
+  Download,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,11 @@ const settingsItems = [
   { title: "General", to: "/settings/general", icon: Settings },
   { title: "Profiles", to: "/settings/profiles", icon: Sliders },
   { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
+  {
+    title: "Download Clients",
+    to: "/settings/download-clients",
+    icon: Download,
+  },
 ];
 
 const systemItems = [{ title: "History", to: "/history", icon: History }];

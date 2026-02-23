@@ -10,3 +10,4 @@ export * from "./root-folders";
 export * from "./tags";
 export * from "./history";
 export * from "./settings";
+export * from "./download-clients";
