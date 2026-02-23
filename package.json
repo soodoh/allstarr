@@ -9,10 +9,20 @@
     "dev": "vite dev",
     "build": "vite build",
     "start": "node .output/server/index.mjs",
+    "lint": "bun x --bun oxlint . && prettier --check .",
+    "lint:fix": "bun x --bun oxlint --fix . && prettier --write .",
+    "lint-staged": "lint-staged",
+    "prepare": "husky",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "oxlint --fix"
+    ],
+    "*.{css,html,json,md,mdx,yaml,yml}": "prettier --write"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -37,12 +47,20 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/types": "^20.4.0",
+    "@standard-config/oxlint": "^1.2.0",
     "@tailwindcss/vite": "^4.1.18",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "drizzle-kit": "^0.31.9",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "oxlint": "^1.49.0",
+    "prettier": "^3.8.1",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
