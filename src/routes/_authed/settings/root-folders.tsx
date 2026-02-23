@@ -36,6 +36,13 @@ function RootFoldersPage() {
   const folders = Route.useLoaderData();
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [browseDialogOpen, setBrowseDialogOpen] = useState(false);
+  const [browseInitialPath, setBrowseInitialPath] = useState("/");
+
+  const handleRowClick = (path: string) => {
+    setBrowseInitialPath(path);
+    setBrowseDialogOpen(true);
+  };
 
   const handleSelect = async (path: string) => {
     try {
@@ -88,7 +95,15 @@ function RootFoldersPage() {
             </TableHeader>
             <TableBody>
               {folders.map((folder) => (
-                <TableRow key={folder.id}>
+                <TableRow
+                  key={folder.id}
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    // Avoid triggering row click when clicking the delete button
+                    if ((e.target as HTMLElement).closest("button")) {return;}
+                    handleRowClick(folder.path);
+                  }}
+                >
                   <TableCell className="font-mono text-sm">
                     {folder.path}
                   </TableCell>
@@ -114,6 +129,13 @@ function RootFoldersPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSelect={handleSelect}
+      />
+
+      <DirectoryBrowserDialog
+        open={browseDialogOpen}
+        onOpenChange={setBrowseDialogOpen}
+        initialPath={browseInitialPath}
+        onSelect={() => setBrowseDialogOpen(false)}
       />
     </div>
   );
