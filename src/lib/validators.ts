@@ -99,3 +99,48 @@ export const createEditionSchema = z.object({
 export const updateEditionSchema = createEditionSchema.extend({
   id: z.number(),
 });
+
+// Download Clients
+export const downloadClientImplementationEnum = z.enum([
+  "qBittorrent",
+  "Transmission",
+  "Deluge",
+  "rTorrent",
+  "SABnzbd",
+  "NZBGet",
+  "Blackhole",
+]);
+
+export const downloadClientProtocolEnum = z.enum(["torrent", "usenet"]);
+
+export const createDownloadClientSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  implementation: downloadClientImplementationEnum,
+  protocol: downloadClientProtocolEnum,
+  enabled: z.boolean().default(true),
+  priority: z.number().int().min(1).default(1),
+  host: z.string().default("localhost"),
+  port: z.number().int().min(1).max(65_535),
+  useSsl: z.boolean().default(false),
+  urlBase: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  apiKey: z.string().optional(),
+  category: z.string().default("allstarr"),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const updateDownloadClientSchema = createDownloadClientSchema.extend({
+  id: z.number(),
+});
+
+export const testDownloadClientSchema = z.object({
+  implementation: downloadClientImplementationEnum,
+  host: z.string().default("localhost"),
+  port: z.number().int().min(1).max(65_535),
+  useSsl: z.boolean().default(false),
+  urlBase: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  apiKey: z.string().optional(),
+});
