@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { PageHeader } from "~/components/shared/page-header";
+import PageHeader from "~/components/shared/page-header";
 import { getAuthorsFn } from "~/server/authors";
 import { getBooksFn } from "~/server/books";
 

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -5,30 +6,30 @@ import { cn } from "~/lib/utils";
 import { importHardcoverAuthorFn, importHardcoverBookFn } from "~/server/import";
 import type { HardcoverAuthorBook } from "~/server/search";
 
-export interface AuthorContext {
+export type AuthorContext = {
   name: string;
   foreignAuthorId: string;
-  imageUrl: string | null;
-  bio: string | null;
-  deathYear: number | null;
-  qualityProfileId: number | null;
-  rootFolderPath: string | null;
+  imageUrl: string | undefined;
+  bio: string | undefined;
+  deathYear: number | undefined;
+  qualityProfileId: number | undefined;
+  rootFolderPath: string | undefined;
 }
 
 // Ensures the author exists in the local library, creating it if needed.
 // Returns the local author id.
 async function ensureAuthor(
   authorContext: AuthorContext,
-  localAuthorId: number | null,
+  localAuthorId: number | undefined,
   onAuthorCreated: (id: number) => void
 ): Promise<number> {
-  if (localAuthorId !== null) return localAuthorId;
+  if (localAuthorId !== undefined) {return localAuthorId;}
 
   const result = await importHardcoverAuthorFn({
     data: {
       name: authorContext.name,
       foreignAuthorId: authorContext.foreignAuthorId,
-      overview: authorContext.bio ?? null,
+      overview: authorContext.bio ?? undefined,
       status: authorContext.deathYear ? "deceased" : "continuing",
       monitored: true,
       qualityProfileId: authorContext.qualityProfileId,
@@ -44,10 +45,10 @@ async function ensureAuthor(
   return result.authorId;
 }
 
-interface BookMonitorToggleProps {
+type BookMonitorToggleProps = {
   book: HardcoverAuthorBook;
   authorContext: AuthorContext;
-  localAuthorId: number | null;
+  localAuthorId: number | undefined;
   inLibrary: boolean;
   onAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
@@ -60,12 +61,12 @@ export function BookMonitorToggle({
   inLibrary: initialInLibrary,
   onAdded,
   onAuthorCreated,
-}: BookMonitorToggleProps) {
+}: BookMonitorToggleProps): React.JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
-    if (inLibrary || loading) return;
+    if (inLibrary || loading) {return;}
     setLoading(true);
     try {
       const authorId = await ensureAuthor(authorContext, localAuthorId, onAuthorCreated);
@@ -75,13 +76,13 @@ export function BookMonitorToggle({
           authorId,
           title: book.title,
           foreignBookId: book.id,
-          releaseDate: book.releaseDate ?? null,
+          releaseDate: book.releaseDate ?? undefined,
           monitored: true,
           images: book.coverUrl
             ? [{ url: book.coverUrl, coverType: "cover" }]
             : undefined,
           ratings:
-            book.rating != null ? { value: book.rating, votes: 0 } : null,
+            book.rating === undefined ? undefined : { value: book.rating, votes: 0 },
           series: book.series.map((s) => ({
             foreignSeriesId: s.id,
             title: s.title,
@@ -125,14 +126,14 @@ export function BookMonitorToggle({
 }
 
 // Variant for series book rows — takes simpler book data shape
-interface SeriesBookMonitorToggleProps {
+type SeriesBookMonitorToggleProps = {
   bookId: string;
   title: string;
-  coverUrl: string | null;
-  releaseYear: number | null;
-  rating: number | null;
+  coverUrl: string | undefined;
+  releaseYear: number | undefined;
+  rating: number | undefined;
   authorContext: AuthorContext;
-  localAuthorId: number | null;
+  localAuthorId: number | undefined;
   inLibrary: boolean;
   onAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
@@ -149,13 +150,13 @@ export function SeriesBookMonitorToggle({
   inLibrary: initialInLibrary,
   onAdded,
   onAuthorCreated,
-}: SeriesBookMonitorToggleProps) {
+}: SeriesBookMonitorToggleProps): React.JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
   const [loading, setLoading] = useState(false);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation(); // don't collapse the series row
-    if (inLibrary || loading) return;
+    if (inLibrary || loading) {return;}
     setLoading(true);
     try {
       const authorId = await ensureAuthor(authorContext, localAuthorId, onAuthorCreated);
@@ -165,12 +166,12 @@ export function SeriesBookMonitorToggle({
           authorId,
           title,
           foreignBookId: bookId,
-          releaseDate: releaseYear ? `${releaseYear}-01-01` : null,
+          releaseDate: releaseYear ? `${releaseYear}-01-01` : undefined,
           monitored: true,
           images: coverUrl
             ? [{ url: coverUrl, coverType: "cover" }]
             : undefined,
-          ratings: rating != null ? { value: rating, votes: 0 } : null,
+          ratings: rating === undefined ? undefined : { value: rating, votes: 0 },
           series: [],
         },
       });

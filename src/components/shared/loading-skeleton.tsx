@@ -1,7 +1,9 @@
-import { Skeleton } from "~/components/ui/skeleton";
+// oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
+import type React from "react";
+import Skeleton from "~/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
-export function DashboardSkeleton() {
+export function DashboardSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-6">
       <div>
@@ -47,7 +49,7 @@ export function DashboardSkeleton() {
   );
 }
 
-export function TableSkeleton() {
+export function TableSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
@@ -67,7 +69,7 @@ export function TableSkeleton() {
   );
 }
 
-export function HardcoverAuthorSkeleton() {
+export function HardcoverAuthorSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Back button */}
@@ -141,7 +143,7 @@ export function HardcoverAuthorSkeleton() {
   );
 }
 
-export function DetailSkeleton() {
+export function DetailSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-6">
       <Skeleton className="h-8 w-32" />

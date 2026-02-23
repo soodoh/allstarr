@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "~/components/shared/page-header";
-import { LibraryStats } from "~/components/dashboard/library-stats";
-import { RecentActivity } from "~/components/dashboard/recent-activity";
-import { CalendarWidget } from "~/components/dashboard/calendar-widget";
+import PageHeader from "~/components/shared/page-header";
+import LibraryStats from "~/components/dashboard/library-stats";
+import RecentActivity from "~/components/dashboard/recent-activity";
+import CalendarWidget from "~/components/dashboard/calendar-widget";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { DashboardSkeleton } from "~/components/shared/loading-skeleton";
 import { getDashboardStatsFn } from "~/server/dashboard";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authed/")({
 });
 
 function formatBytes(bytes: number) {
-  if (!bytes) return "0 GB";
+  if (!bytes) {return "0 GB";}
   const gb = bytes / (1024 * 1024 * 1024);
   return `${gb.toFixed(1)} GB`;
 }

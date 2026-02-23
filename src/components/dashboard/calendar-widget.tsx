@@ -2,18 +2,18 @@ import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { CalendarDays } from "lucide-react";
 
-interface UpcomingBook {
+type UpcomingBook = {
   id: number;
   title: string;
-  authorName: string | null;
-  releaseDate: string | null;
+  authorName: string | undefined;
+  releaseDate: string | undefined;
 }
 
-interface CalendarWidgetProps {
+type CalendarWidgetProps = {
   upcomingBooks: UpcomingBook[];
 }
 
-export function CalendarWidget({ upcomingBooks }: CalendarWidgetProps) {
+export default function CalendarWidget({ upcomingBooks }: CalendarWidgetProps): React.JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">

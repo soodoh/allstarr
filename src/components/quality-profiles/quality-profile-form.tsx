@@ -1,23 +1,23 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Checkbox } from "~/components/ui/checkbox";
-import { Switch } from "~/components/ui/switch";
+import Input from "~/components/ui/input";
+import Label from "~/components/ui/label";
+import Checkbox from "~/components/ui/checkbox";
+import Switch from "~/components/ui/switch";
 
-interface QualityItem {
+type QualityItem = {
   quality: { id: number; name: string };
   allowed: boolean;
 }
 
-interface QualityProfileFormProps {
+type QualityProfileFormProps = {
   initialValues?: {
     name: string;
     cutoff: number;
     items: QualityItem[];
     upgradeAllowed: boolean;
   };
-  qualityDefinitions: { id: number; title: string }[];
+  qualityDefinitions: Array<{ id: number; title: string }>;
   onSubmit: (values: {
     name: string;
     cutoff: number;
@@ -28,13 +28,13 @@ interface QualityProfileFormProps {
   loading?: boolean;
 }
 
-export function QualityProfileForm({
+export default function QualityProfileForm({
   initialValues,
   qualityDefinitions,
   onSubmit,
   onCancel,
   loading,
-}: QualityProfileFormProps) {
+}: QualityProfileFormProps): React.JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [upgradeAllowed, setUpgradeAllowed] = useState(
     initialValues?.upgradeAllowed || false

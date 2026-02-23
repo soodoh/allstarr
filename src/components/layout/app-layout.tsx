@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { SidebarProvider } from "~/components/ui/sidebar";
 import { TooltipProvider } from "~/components/ui/tooltip";
-import { AppSidebar } from "./app-sidebar";
-import { Header } from "./header";
+import AppSidebar from "./app-sidebar";
+import Header from "./header";
 
-interface AppLayoutProps {
+type AppLayoutProps = {
   children: ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children }: AppLayoutProps): React.JSX.Element {
   return (
     <TooltipProvider>
       <SidebarProvider>

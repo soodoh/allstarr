@@ -8,7 +8,7 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 
-interface ConfirmDialogProps {
+type ConfirmDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -18,7 +18,7 @@ interface ConfirmDialogProps {
   variant?: "default" | "destructive";
 }
 
-export function ConfirmDialog({
+export default function ConfirmDialog({
   open,
   onOpenChange,
   title,
@@ -26,7 +26,7 @@ export function ConfirmDialog({
   onConfirm,
   loading,
   variant = "destructive",
-}: ConfirmDialogProps) {
+}: ConfirmDialogProps): React.JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

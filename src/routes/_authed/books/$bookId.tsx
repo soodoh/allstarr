@@ -30,9 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { PageHeader } from "~/components/shared/page-header";
-import { BookForm } from "~/components/books/book-form";
-import { ConfirmDialog } from "~/components/shared/confirm-dialog";
+import PageHeader from "~/components/shared/page-header";
+import BookForm from "~/components/books/book-form";
+import ConfirmDialog from "~/components/shared/confirm-dialog";
 import { DetailSkeleton } from "~/components/shared/loading-skeleton";
 import { getBookFn, updateBookFn, deleteBookFn } from "~/server/books";
 import { getAuthorsFn } from "~/server/authors";
@@ -40,7 +40,7 @@ import { getAuthorsFn } from "~/server/authors";
 export const Route = createFileRoute("/_authed/books/$bookId")({
   loader: async ({ params }) => {
     const [book, authors] = await Promise.all([
-      getBookFn({ data: { id: parseInt(params.bookId) } }),
+      getBookFn({ data: { id: Number.parseInt(params.bookId, 10) } }),
       getAuthorsFn(),
     ]);
     return { book, authors };

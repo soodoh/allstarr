@@ -10,7 +10,7 @@ import { requireAuth } from "./middleware";
 function deriveSortName(name: string): string {
   const parts = name.trim().split(" ");
   if (parts.length > 1) {
-    return `${parts.slice(-1)[0]}, ${parts.slice(0, -1).join(" ")}`;
+    return `${parts.at(-1)}, ${parts.slice(0, -1).join(" ")}`;
   }
   return name;
 }
@@ -131,7 +131,7 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
           })
           .run();
 
-        booksAdded++;
+        booksAdded += 1;
 
         // Series links
         for (const s of bookData.series ?? []) {

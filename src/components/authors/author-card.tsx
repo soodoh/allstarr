@@ -3,18 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Users } from "lucide-react";
 
-interface AuthorCardProps {
+type AuthorCardProps = {
   author: {
     id: number;
     name: string;
     status: string;
     monitored: boolean;
     bookCount: number;
-    overview?: string | null;
+    overview?: string | undefined;
   };
 }
 
-export function AuthorCard({ author }: AuthorCardProps) {
+export default function AuthorCard({ author }: AuthorCardProps): React.JSX.Element {
   return (
     <Link
       to="/authors/$authorId"

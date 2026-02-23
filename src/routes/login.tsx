@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { signIn } from "~/lib/auth-client";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import Input from "~/components/ui/input";
+import Label from "~/components/ui/label";
 import {
   Card,
   CardContent,
@@ -78,7 +78,7 @@ function LoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link to="/register" className="text-primary underline">
                 Register
               </Link>

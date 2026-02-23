@@ -1,19 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 
-interface RecentBook {
+type RecentBook = {
   id: number;
   title: string;
-  authorName: string | null;
-  releaseDate: string | null;
+  authorName: string | undefined;
+  releaseDate: string | undefined;
   createdAt: Date;
 }
 
-interface RecentActivityProps {
+type RecentActivityProps = {
   recentBooks: RecentBook[];
 }
 
-export function RecentActivity({ recentBooks }: RecentActivityProps) {
+export default function RecentActivity({ recentBooks }: RecentActivityProps): React.JSX.Element {
   return (
     <Card>
       <CardHeader>

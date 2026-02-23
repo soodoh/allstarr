@@ -1,3 +1,4 @@
+import type React from "react";
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -6,9 +7,10 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { Toaster as Sonner } from 'sonner';
+import type { ToasterProps } from 'sonner';
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ ...props }: ToasterProps): React.JSX.Element => {
   const { theme = "system" } = useTheme()
 
   return (
@@ -47,4 +49,4 @@ const Toaster = ({ ...props }: ToasterProps) => {
   )
 }
 
-export { Toaster }
+export default Toaster;

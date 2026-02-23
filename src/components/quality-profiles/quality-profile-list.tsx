@@ -10,25 +10,25 @@ import {
 } from "~/components/ui/table";
 import { Badge } from "~/components/ui/badge";
 
-interface QualityProfile {
+type QualityProfile = {
   id: number;
   name: string;
   cutoff: number;
-  items: { quality: { id: number; name: string }; allowed: boolean }[] | null;
+  items: { quality: { id: number; name: string }; allowed: boolean }[] | undefined;
   upgradeAllowed: boolean;
 }
 
-interface QualityProfileListProps {
+type QualityProfileListProps = {
   profiles: QualityProfile[];
   onEdit: (profile: QualityProfile) => void;
   onDelete: (id: number) => void;
 }
 
-export function QualityProfileList({
+export default function QualityProfileList({
   profiles,
   onEdit,
   onDelete,
-}: QualityProfileListProps) {
+}: QualityProfileListProps): React.JSX.Element {
   if (profiles.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">

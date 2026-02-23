@@ -2,8 +2,8 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import Input from "~/components/ui/input";
+import Label from "~/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { PageHeader } from "~/components/shared/page-header";
+import PageHeader from "~/components/shared/page-header";
 import { getSettingsFn, updateSettingFn } from "~/server/settings";
 
 export const Route = createFileRoute("/_authed/settings/general")({

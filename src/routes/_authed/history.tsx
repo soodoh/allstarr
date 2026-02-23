@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { PageHeader } from "~/components/shared/page-header";
+import PageHeader from "~/components/shared/page-header";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
 import { getHistoryFn } from "~/server/history";
 

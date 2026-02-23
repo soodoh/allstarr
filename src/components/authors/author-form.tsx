@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
-import { Switch } from "~/components/ui/switch";
+import Input from "~/components/ui/input";
+import Label from "~/components/ui/label";
+import Textarea from "~/components/ui/textarea";
+import Switch from "~/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 
-interface AuthorFormProps {
+type AuthorFormProps = {
   initialValues?: {
     name: string;
     sortName: string;
@@ -22,8 +22,8 @@ interface AuthorFormProps {
     qualityProfileId?: number;
     rootFolderPath?: string;
   };
-  qualityProfiles: { id: number; name: string }[];
-  rootFolders: { id: number; path: string }[];
+  qualityProfiles: Array<{ id: number; name: string }>;
+  rootFolders: Array<{ id: number; path: string }>;
   onSubmit: (values: {
     name: string;
     sortName: string;
@@ -38,7 +38,7 @@ interface AuthorFormProps {
   submitLabel?: string;
 }
 
-export function AuthorForm({
+export default function AuthorForm({
   initialValues,
   qualityProfiles,
   rootFolders,
@@ -46,7 +46,7 @@ export function AuthorForm({
   onCancel,
   loading,
   submitLabel = "Save",
-}: AuthorFormProps) {
+}: AuthorFormProps): React.JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
   const [overview, setOverview] = useState(initialValues?.overview || "");
@@ -66,7 +66,7 @@ export function AuthorForm({
     if (!initialValues) {
       const parts = value.split(" ");
       if (parts.length > 1) {
-        setSortName(`${parts.slice(-1)[0]}, ${parts.slice(0, -1).join(" ")}`);
+        setSortName(`${parts.at(-1)}, ${parts.slice(0, -1).join(" ")}`);
       } else {
         setSortName(value);
       }
@@ -82,7 +82,7 @@ export function AuthorForm({
       status,
       monitored,
       qualityProfileId: qualityProfileId
-        ? parseInt(qualityProfileId)
+        ? Number.parseInt(qualityProfileId, 10)
         : undefined,
       rootFolderPath: rootFolderPath || undefined,
     });

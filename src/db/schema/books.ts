@@ -14,7 +14,7 @@ export const books = sqliteTable("books", {
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   foreignBookId: text("foreign_book_id"),
   images: text("images", { mode: "json" }).$type<
-    { url: string; coverType: string }[]
+    Array<{ url: string; coverType: string }>
   >(),
   ratings: text("ratings", { mode: "json" }).$type<{
     value: number;
@@ -43,7 +43,7 @@ export const editions = sqliteTable("editions", {
   releaseDate: text("release_date"),
   foreignEditionId: text("foreign_edition_id"),
   images: text("images", { mode: "json" }).$type<
-    { url: string; coverType: string }[]
+    Array<{ url: string; coverType: string }>
   >(),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" })

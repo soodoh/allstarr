@@ -8,9 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { PageHeader } from "~/components/shared/page-header";
-import { QualityProfileList } from "~/components/quality-profiles/quality-profile-list";
-import { QualityProfileForm } from "~/components/quality-profiles/quality-profile-form";
+import PageHeader from "~/components/shared/page-header";
+import QualityProfileList from "~/components/quality-profiles/quality-profile-list";
+import QualityProfileForm from "~/components/quality-profiles/quality-profile-form";
 import {
   getQualityProfilesFn,
   getQualityDefinitionsFn,
@@ -34,15 +34,15 @@ function ProfilesPage() {
   const { profiles, definitions } = Route.useLoaderData();
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<(typeof profiles)[number] | null>(
-    null
+  const [editing, setEditing] = useState<(typeof profiles)[number] | undefined>(
+    undefined
   );
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async (values: {
     name: string;
     cutoff: number;
-    items: { quality: { id: number; name: string }; allowed: boolean }[];
+    items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
     setLoading(true);
@@ -61,17 +61,17 @@ function ProfilesPage() {
   const handleUpdate = async (values: {
     name: string;
     cutoff: number;
-    items: { quality: { id: number; name: string }; allowed: boolean }[];
+    items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    if (!editing) return;
+    if (!editing) {return;}
     setLoading(true);
     try {
       await updateQualityProfileFn({
         data: { ...values, id: editing.id },
       });
       toast.success("Profile updated");
-      setEditing(null);
+      setEditing(undefined);
       setDialogOpen(false);
       router.invalidate();
     } catch {
@@ -104,7 +104,7 @@ function ProfilesPage() {
         actions={
           <Button
             onClick={() => {
-              setEditing(null);
+              setEditing(undefined);
               setDialogOpen(true);
             }}
           >
@@ -132,7 +132,7 @@ function ProfilesPage() {
                 ? {
                     name: editing.name,
                     cutoff: editing.cutoff,
-                    items: (editing.items as { quality: { id: number; name: string }; allowed: boolean }[]) || [],
+                    items: (editing.items as Array<{ quality: { id: number; name: string }; allowed: boolean }>) || [],
                     upgradeAllowed: editing.upgradeAllowed,
                   }
                 : undefined

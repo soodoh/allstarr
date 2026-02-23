@@ -12,7 +12,7 @@ import {
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { toast } from "sonner";
 
-export function Header() {
+export default function Header(): React.JSX.Element {
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 

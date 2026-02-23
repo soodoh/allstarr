@@ -68,6 +68,7 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       .all();
 
     const folders = db.select().from(rootFolders).all();
+    // oxlint-disable-next-line oxc/no-map-spread -- Spreading DB result to override fields is necessary
     const folderStats = folders.map((folder) => {
       let freeSpace = folder.freeSpace || 0;
       let totalSpace = folder.totalSpace || 0;

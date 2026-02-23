@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { AuthorPhoto } from "~/components/authors/author-photo";
+import AuthorPhoto from "~/components/authors/author-photo";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { Label } from "~/components/ui/label";
+import Label from "~/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,27 +18,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Switch } from "~/components/ui/switch";
+import Switch from "~/components/ui/switch";
 import { importHardcoverAuthorFn } from "~/server/import";
 import type { HardcoverAuthorDetail } from "~/server/search";
 
-interface AddAuthorDialogProps {
+type AddAuthorDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   author: HardcoverAuthorDetail;
-  qualityProfiles: { id: number; name: string }[];
-  rootFolders: { id: number; path: string }[];
+  qualityProfiles: Array<{ id: number; name: string }>;
+  rootFolders: Array<{ id: number; path: string }>;
   onSuccess: (authorId: number) => void;
 }
 
-export function AddAuthorDialog({
+export default function AddAuthorDialog({
   open,
   onOpenChange,
   author,
   qualityProfiles,
   rootFolders,
   onSuccess,
-}: AddAuthorDialogProps) {
+}: AddAuthorDialogProps): React.JSX.Element {
   const [qualityProfileId, setQualityProfileId] = useState<string>(
     qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : ""
   );
@@ -55,11 +55,11 @@ export function AddAuthorDialog({
         data: {
           name: author.name,
           foreignAuthorId: author.id,
-          overview: author.bio ?? null,
+          overview: author.bio ?? undefined,
           status: author.deathYear ? "deceased" : "continuing",
           monitored,
-          qualityProfileId: qualityProfileId ? parseInt(qualityProfileId) : null,
-          rootFolderPath: rootFolderPath || null,
+          qualityProfileId: qualityProfileId ? Number.parseInt(qualityProfileId, 10) : undefined,
+          rootFolderPath: rootFolderPath || undefined,
           images: author.imageUrl
             ? [{ url: author.imageUrl, coverType: "poster" }]
             : undefined,
@@ -96,7 +96,7 @@ export function AddAuthorDialog({
             />
             <div className="min-w-0">
               <p className="font-semibold truncate">{author.name}</p>
-              {author.booksCount != null && (
+              {author.booksCount !== undefined && (
                 <p className="text-sm text-muted-foreground">
                   {author.booksCount} book{author.booksCount === 1 ? "" : "s"}
                 </p>

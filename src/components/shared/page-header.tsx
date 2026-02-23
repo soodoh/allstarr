@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
-interface PageHeaderProps {
+type PageHeaderProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export default function PageHeader({ title, description, actions }: PageHeaderProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
