@@ -6,7 +6,7 @@ import { requireAuth } from "./middleware";
 
 export const getHistoryFn = createServerFn({ method: "GET" })
   .inputValidator(
-    (d: { page?: number; limit?: number; eventType?: string }) => d
+    (d: { page?: number; limit?: number; eventType?: string }) => d,
   )
   .handler(async ({ data }) => {
     await requireAuth();

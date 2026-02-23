@@ -17,14 +17,17 @@ type Book = {
   authorName: string | undefined;
   releaseDate: string | undefined;
   monitored: boolean;
-}
+};
 
 type BookTableProps = {
   books: Book[];
   onDelete: (id: number) => void;
-}
+};
 
-export default function BookTable({ books, onDelete }: BookTableProps): React.JSX.Element {
+export default function BookTable({
+  books,
+  onDelete,
+}: BookTableProps): React.JSX.Element {
   if (books.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">

@@ -14,15 +14,17 @@ type QualityProfile = {
   id: number;
   name: string;
   cutoff: number;
-  items: { quality: { id: number; name: string }; allowed: boolean }[] | undefined;
+  items:
+    | { quality: { id: number; name: string }; allowed: boolean }[]
+    | undefined;
   upgradeAllowed: boolean;
-}
+};
 
 type QualityProfileListProps = {
   profiles: QualityProfile[];
   onEdit: (profile: QualityProfile) => void;
   onDelete: (id: number) => void;
-}
+};
 
 export default function QualityProfileList({
   profiles,
@@ -62,9 +64,7 @@ export default function QualityProfileList({
                   ))}
                 </div>
               </TableCell>
-              <TableCell>
-                {profile.upgradeAllowed ? "Yes" : "No"}
-              </TableCell>
+              <TableCell>{profile.upgradeAllowed ? "Yes" : "No"}</TableCell>
               <TableCell>
                 <div className="flex gap-1">
                   <Button

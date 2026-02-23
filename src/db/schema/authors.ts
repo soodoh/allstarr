@@ -9,7 +9,7 @@ export const authors = sqliteTable("authors", {
   status: text("status").notNull().default("continuing"),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   qualityProfileId: integer("quality_profile_id").references(
-    () => qualityProfiles.id
+    () => qualityProfiles.id,
   ),
   rootFolderPath: text("root_folder_path"),
   foreignAuthorId: text("foreign_author_id"),

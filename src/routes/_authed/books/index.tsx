@@ -25,7 +25,9 @@ function BooksPage() {
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!deleteId) {return;}
+    if (!deleteId) {
+      return;
+    }
     setDeleting(true);
     try {
       await deleteBookFn({ data: { id: deleteId } });

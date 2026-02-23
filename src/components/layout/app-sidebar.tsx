@@ -43,16 +43,16 @@ const settingsItems = [
   { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
 ];
 
-const systemItems = [
-  { title: "History", to: "/history", icon: History },
-];
+const systemItems = [{ title: "History", to: "/history", icon: History }];
 
 export default function AppSidebar(): React.JSX.Element {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
   const isActive = (to: string) => {
-    if (to === "/") {return currentPath === "/";}
+    if (to === "/") {
+      return currentPath === "/";
+    }
     return currentPath.startsWith(to);
   };
 

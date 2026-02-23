@@ -25,7 +25,9 @@ function AuthorsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!deleteId) {return;}
+    if (!deleteId) {
+      return;
+    }
     setDeleting(true);
     try {
       await deleteAuthorFn({ data: { id: deleteId } });
@@ -88,10 +90,7 @@ function AuthorsPage() {
       />
 
       {view === "table" ? (
-        <AuthorTable
-          authors={authors}
-          onDelete={(id) => setDeleteId(id)}
-        />
+        <AuthorTable authors={authors} onDelete={(id) => setDeleteId(id)} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {authors.map((author) => (

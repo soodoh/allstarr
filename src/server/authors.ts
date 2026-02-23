@@ -29,7 +29,7 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
       .orderBy(authors.sortName)
       .all();
     return result;
-  }
+  },
 );
 
 export const getAuthorFn = createServerFn({ method: "GET" })
@@ -41,7 +41,9 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       .from(authors)
       .where(eq(authors.id, data.id))
       .get();
-    if (!author) {throw new Error("Author not found");}
+    if (!author) {
+      throw new Error("Author not found");
+    }
 
     const authorBooks = db
       .select()

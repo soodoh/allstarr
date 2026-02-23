@@ -25,7 +25,9 @@ export const Route = createFileRoute("/_authed/settings/root-folders")({
 });
 
 function formatBytes(bytes: number | undefined) {
-  if (!bytes) {return "N/A";}
+  if (!bytes) {
+    return "N/A";
+  }
   const gb = bytes / (1024 * 1024 * 1024);
   return `${gb.toFixed(1)} GB`;
 }
@@ -38,7 +40,9 @@ function RootFoldersPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPath.trim()) {return;}
+    if (!newPath.trim()) {
+      return;
+    }
     setAdding(true);
     try {
       await createRootFolderFn({ data: { path: newPath.trim() } });

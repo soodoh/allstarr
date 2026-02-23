@@ -35,7 +35,7 @@ function ProfilesPage() {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<(typeof profiles)[number] | undefined>(
-    undefined
+    undefined,
   );
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +64,9 @@ function ProfilesPage() {
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    if (!editing) {return;}
+    if (!editing) {
+      return;
+    }
     setLoading(true);
     try {
       await updateQualityProfileFn({
@@ -132,7 +134,11 @@ function ProfilesPage() {
                 ? {
                     name: editing.name,
                     cutoff: editing.cutoff,
-                    items: (editing.items as Array<{ quality: { id: number; name: string }; allowed: boolean }>) || [],
+                    items:
+                      (editing.items as Array<{
+                        quality: { id: number; name: string };
+                        allowed: boolean;
+                      }>) || [],
                     upgradeAllowed: editing.upgradeAllowed,
                   }
                 : undefined

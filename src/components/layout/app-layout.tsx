@@ -6,9 +6,11 @@ import Header from "./header";
 
 type AppLayoutProps = {
   children: ReactNode;
-}
+};
 
-export default function AppLayout({ children }: AppLayoutProps): React.JSX.Element {
+export default function AppLayout({
+  children,
+}: AppLayoutProps): React.JSX.Element {
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -16,7 +18,9 @@ export default function AppLayout({ children }: AppLayoutProps): React.JSX.Eleme
           <AppSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <Header />
-            <main className="flex-1 overflow-x-hidden p-4 sm:p-6">{children}</main>
+            <main className="flex-1 overflow-x-hidden p-4 sm:p-6">
+              {children}
+            </main>
           </div>
         </div>
       </SidebarProvider>

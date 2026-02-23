@@ -168,14 +168,10 @@ function BookDetailPage() {
                         </TableCell>
                         <TableCell>{edition.format || "N/A"}</TableCell>
                         <TableCell>{edition.isbn || "N/A"}</TableCell>
-                        <TableCell>
-                          {edition.publisher || "N/A"}
-                        </TableCell>
+                        <TableCell>{edition.publisher || "N/A"}</TableCell>
                         <TableCell>
                           <Badge
-                            variant={
-                              edition.monitored ? "default" : "outline"
-                            }
+                            variant={edition.monitored ? "default" : "outline"}
                           >
                             {edition.monitored ? "Yes" : "No"}
                           </Badge>
@@ -208,11 +204,15 @@ function BookDetailPage() {
                 )}
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground shrink-0">Release Date</span>
+                <span className="text-muted-foreground shrink-0">
+                  Release Date
+                </span>
                 <span>{book.releaseDate || "Unknown"}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground shrink-0">Monitored</span>
+                <span className="text-muted-foreground shrink-0">
+                  Monitored
+                </span>
                 <Badge variant={book.monitored ? "default" : "outline"}>
                   {book.monitored ? "Yes" : "No"}
                 </Badge>
@@ -220,13 +220,17 @@ function BookDetailPage() {
               {book.isbn && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                   <span className="text-muted-foreground shrink-0">ISBN</span>
-                  <span className="font-mono text-xs break-all">{book.isbn}</span>
+                  <span className="font-mono text-xs break-all">
+                    {book.isbn}
+                  </span>
                 </div>
               )}
               {book.asin && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                   <span className="text-muted-foreground shrink-0">ASIN</span>
-                  <span className="font-mono text-xs break-all">{book.asin}</span>
+                  <span className="font-mono text-xs break-all">
+                    {book.asin}
+                  </span>
                 </div>
               )}
             </CardContent>

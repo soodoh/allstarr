@@ -14,7 +14,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
       map[row.key] = row.value;
     }
     return map;
-  }
+  },
 );
 
 export const getSettingFn = createServerFn({ method: "GET" })

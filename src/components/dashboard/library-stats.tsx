@@ -7,7 +7,7 @@ type LibraryStatsProps = {
   monitoredAuthors: number;
   monitoredBooks: number;
   editionCount: number;
-}
+};
 
 export default function LibraryStats({
   authorCount,

@@ -92,5 +92,5 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       upcomingBooks,
       rootFolders: folderStats,
     };
-  }
+  },
 );

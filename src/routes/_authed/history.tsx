@@ -115,9 +115,7 @@ function HistoryPage() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={
-                        eventTypeVariants[item.eventType] || "secondary"
-                      }
+                      variant={eventTypeVariants[item.eventType] || "secondary"}
                     >
                       {eventTypeLabels[item.eventType] || item.eventType}
                     </Badge>
@@ -150,9 +148,7 @@ function HistoryPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {item.data
-                      ? Object.entries(
-                          item.data as Record<string, unknown>
-                        )
+                      ? Object.entries(item.data as Record<string, unknown>)
                           .map(([k, v]) => `${k}: ${v}`)
                           .join(", ")
                       : "-"}

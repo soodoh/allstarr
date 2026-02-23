@@ -9,7 +9,7 @@ export const getAuthSessionFn = createServerFn({ method: "GET" }).handler(
       headers: request.headers,
     });
     return session;
-  }
+  },
 );
 
 // oxlint-disable-next-line explicit-module-boundary-types

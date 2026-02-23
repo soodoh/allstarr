@@ -36,7 +36,7 @@ type AuthorFormProps = {
   onCancel?: () => void;
   loading?: boolean;
   submitLabel?: string;
-}
+};
 
 export default function AuthorForm({
   initialValues,
@@ -51,14 +51,12 @@ export default function AuthorForm({
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
   const [overview, setOverview] = useState(initialValues?.overview || "");
   const [status, setStatus] = useState(initialValues?.status || "continuing");
-  const [monitored, setMonitored] = useState(
-    initialValues?.monitored ?? true
-  );
+  const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
   const [qualityProfileId, setQualityProfileId] = useState<string>(
-    initialValues?.qualityProfileId?.toString() || ""
+    initialValues?.qualityProfileId?.toString() || "",
   );
   const [rootFolderPath, setRootFolderPath] = useState(
-    initialValues?.rootFolderPath || ""
+    initialValues?.rootFolderPath || "",
   );
 
   const handleNameChange = (value: string) => {

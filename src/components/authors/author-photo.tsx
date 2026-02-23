@@ -6,9 +6,13 @@ type AuthorPhotoProps = {
   name: string;
   imageUrl?: string | undefined;
   className?: string;
-}
+};
 
-export default function AuthorPhoto({ name, imageUrl, className }: AuthorPhotoProps): React.JSX.Element {
+export default function AuthorPhoto({
+  name,
+  imageUrl,
+  className,
+}: AuthorPhotoProps): React.JSX.Element {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
@@ -19,7 +23,7 @@ export default function AuthorPhoto({ name, imageUrl, className }: AuthorPhotoPr
     <div
       className={cn(
         "mx-auto aspect-[3/4] w-full max-w-56 overflow-hidden rounded-xl border bg-muted shadow-sm",
-        className
+        className,
       )}
     >
       {imageUrl && !imageFailed ? (

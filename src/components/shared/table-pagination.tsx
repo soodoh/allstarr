@@ -19,18 +19,23 @@ type TablePaginationProps = {
   totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-}
+};
 
 /** Returns the page numbers to render, inserting `undefined` for ellipsis gaps. */
-function getPageNumbers(page: number, totalPages: number): Array<number | undefined> {
+function getPageNumbers(
+  page: number,
+  totalPages: number,
+): Array<number | undefined> {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
   }
 
   const pages: Array<number | undefined> = [];
-  const around = new Set([1, totalPages, page - 1, page, page + 1].filter(
-    (p) => p >= 1 && p <= totalPages
-  ));
+  const around = new Set(
+    [1, totalPages, page - 1, page, page + 1].filter(
+      (p) => p >= 1 && p <= totalPages,
+    ),
+  );
 
   let prev: number | undefined = undefined;
   for (const p of [...around].toSorted((a, b) => a - b)) {
@@ -52,7 +57,9 @@ export default function TablePagination({
   onPageChange,
   onPageSizeChange,
 }: TablePaginationProps): React.ReactNode {
-  if (totalItems === 0) {return null;}
+  if (totalItems === 0) {
+    return null;
+  }
 
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
@@ -119,7 +126,7 @@ export default function TablePagination({
             >
               {p}
             </Button>
-          )
+          ),
         )}
 
         <Button

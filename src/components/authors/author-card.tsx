@@ -12,9 +12,11 @@ type AuthorCardProps = {
     bookCount: number;
     overview?: string | undefined;
   };
-}
+};
 
-export default function AuthorCard({ author }: AuthorCardProps): React.JSX.Element {
+export default function AuthorCard({
+  author,
+}: AuthorCardProps): React.JSX.Element {
   return (
     <Link
       to="/authors/$authorId"

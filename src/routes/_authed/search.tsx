@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState } from 'react';
-import type React from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useState } from "react";
+import type React from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { Search, BookOpen, Users, ExternalLink } from "lucide-react";
 import PageHeader from "~/components/shared/page-header";
@@ -17,8 +17,8 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { searchHardcoverFn } from '~/server/search';
-import type { HardcoverSearchItem, HardcoverSearchMode } from '~/server/search';
+import { searchHardcoverFn } from "~/server/search";
+import type { HardcoverSearchItem, HardcoverSearchMode } from "~/server/search";
 
 export const Route = createFileRoute("/_authed/search")({
   component: SearchPage,
@@ -43,7 +43,9 @@ function SearchPage() {
     searchResultsContent = (
       <Card>
         <CardContent className="py-8">
-          <p className="text-sm text-muted-foreground">Searching Hardcover...</p>
+          <p className="text-sm text-muted-foreground">
+            Searching Hardcover...
+          </p>
         </CardContent>
       </Card>
     );
@@ -67,7 +69,8 @@ function SearchPage() {
     searchResultsContent = (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Showing {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{searchedQuery}&rdquo;.
+          Showing {results.length} result{results.length === 1 ? "" : "s"} for
+          &ldquo;{searchedQuery}&rdquo;.
         </p>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           {results.map((result) => (
@@ -127,7 +130,9 @@ function SearchPage() {
         <CardContent className="space-y-4">
           <Tabs
             value={searchType}
-            onValueChange={(value) => setSearchType(value as HardcoverSearchMode)}
+            onValueChange={(value) =>
+              setSearchType(value as HardcoverSearchMode)
+            }
           >
             <TabsList>
               {Object.entries(resultTypeConfig).map(([value, config]) => (

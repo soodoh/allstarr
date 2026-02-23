@@ -13,7 +13,7 @@ export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
     return db.select().from(qualityProfiles).all();
-  }
+  },
 );
 
 export const getQualityProfileFn = createServerFn({ method: "GET" })
@@ -25,7 +25,9 @@ export const getQualityProfileFn = createServerFn({ method: "GET" })
       .from(qualityProfiles)
       .where(eq(qualityProfiles.id, data.id))
       .get();
-    if (!result) {throw new Error("Quality profile not found");}
+    if (!result) {
+      throw new Error("Quality profile not found");
+    }
     return result;
   });
 

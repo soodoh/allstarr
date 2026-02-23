@@ -16,7 +16,7 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   loading?: boolean;
   variant?: "default" | "destructive";
-}
+};
 
 export default function ConfirmDialog({
   open,
@@ -38,11 +38,7 @@ export default function ConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            variant={variant}
-            onClick={onConfirm}
-            disabled={loading}
-          >
+          <Button variant={variant} onClick={onConfirm} disabled={loading}>
             {loading ? "Deleting..." : "Confirm"}
           </Button>
         </DialogFooter>

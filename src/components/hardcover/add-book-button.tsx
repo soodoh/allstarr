@@ -3,7 +3,10 @@ import { useState } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "~/lib/utils";
-import { importHardcoverAuthorFn, importHardcoverBookFn } from "~/server/import";
+import {
+  importHardcoverAuthorFn,
+  importHardcoverBookFn,
+} from "~/server/import";
 import type { HardcoverAuthorBook } from "~/server/search";
 
 export type AuthorContext = {
@@ -14,16 +17,18 @@ export type AuthorContext = {
   deathYear: number | undefined;
   qualityProfileId: number | undefined;
   rootFolderPath: string | undefined;
-}
+};
 
 // Ensures the author exists in the local library, creating it if needed.
 // Returns the local author id.
 async function ensureAuthor(
   authorContext: AuthorContext,
   localAuthorId: number | undefined,
-  onAuthorCreated: (id: number) => void
+  onAuthorCreated: (id: number) => void,
 ): Promise<number> {
-  if (localAuthorId !== undefined) {return localAuthorId;}
+  if (localAuthorId !== undefined) {
+    return localAuthorId;
+  }
 
   const result = await importHardcoverAuthorFn({
     data: {
@@ -52,7 +57,7 @@ type BookMonitorToggleProps = {
   inLibrary: boolean;
   onAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
-}
+};
 
 export function BookMonitorToggle({
   book,
@@ -66,10 +71,16 @@ export function BookMonitorToggle({
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
-    if (inLibrary || loading) {return;}
+    if (inLibrary || loading) {
+      return;
+    }
     setLoading(true);
     try {
-      const authorId = await ensureAuthor(authorContext, localAuthorId, onAuthorCreated);
+      const authorId = await ensureAuthor(
+        authorContext,
+        localAuthorId,
+        onAuthorCreated,
+      );
 
       await importHardcoverBookFn({
         data: {
@@ -82,7 +93,9 @@ export function BookMonitorToggle({
             ? [{ url: book.coverUrl, coverType: "cover" }]
             : undefined,
           ratings:
-            book.rating === undefined ? undefined : { value: book.rating, votes: 0 },
+            book.rating === undefined
+              ? undefined
+              : { value: book.rating, votes: 0 },
           series: book.series.map((s) => ({
             foreignSeriesId: s.id,
             title: s.title,
@@ -96,7 +109,7 @@ export function BookMonitorToggle({
       toast.success(`"${book.title}" added to library.`);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to add book."
+        error instanceof Error ? error.message : "Failed to add book.",
       );
     } finally {
       setLoading(false);
@@ -113,7 +126,7 @@ export function BookMonitorToggle({
         "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
         inLibrary
           ? "bg-primary/15 text-primary cursor-default"
-          : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer"
+          : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
       )}
     >
       {loading ? (
@@ -137,7 +150,7 @@ type SeriesBookMonitorToggleProps = {
   inLibrary: boolean;
   onAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
-}
+};
 
 export function SeriesBookMonitorToggle({
   bookId,
@@ -156,10 +169,16 @@ export function SeriesBookMonitorToggle({
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation(); // don't collapse the series row
-    if (inLibrary || loading) {return;}
+    if (inLibrary || loading) {
+      return;
+    }
     setLoading(true);
     try {
-      const authorId = await ensureAuthor(authorContext, localAuthorId, onAuthorCreated);
+      const authorId = await ensureAuthor(
+        authorContext,
+        localAuthorId,
+        onAuthorCreated,
+      );
 
       await importHardcoverBookFn({
         data: {
@@ -171,7 +190,8 @@ export function SeriesBookMonitorToggle({
           images: coverUrl
             ? [{ url: coverUrl, coverType: "cover" }]
             : undefined,
-          ratings: rating === undefined ? undefined : { value: rating, votes: 0 },
+          ratings:
+            rating === undefined ? undefined : { value: rating, votes: 0 },
           series: [],
         },
       });
@@ -181,7 +201,7 @@ export function SeriesBookMonitorToggle({
       toast.success(`"${title}" added to library.`);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to add book."
+        error instanceof Error ? error.message : "Failed to add book.",
       );
     } finally {
       setLoading(false);
@@ -198,7 +218,7 @@ export function SeriesBookMonitorToggle({
         "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
         inLibrary
           ? "bg-primary/15 text-primary cursor-default"
-          : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer"
+          : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
       )}
     >
       {loading ? (

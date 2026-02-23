@@ -1,7 +1,9 @@
-import { ErrorComponent } from '@tanstack/react-router';
-import type { ErrorComponentProps } from '@tanstack/react-router';
+import { ErrorComponent } from "@tanstack/react-router";
+import type { ErrorComponentProps } from "@tanstack/react-router";
 
-export default function DefaultCatchBoundary({ error }: ErrorComponentProps): React.JSX.Element {
+export default function DefaultCatchBoundary({
+  error,
+}: ErrorComponentProps): React.JSX.Element {
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="max-w-md text-center">

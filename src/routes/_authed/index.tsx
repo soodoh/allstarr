@@ -14,7 +14,9 @@ export const Route = createFileRoute("/_authed/")({
 });
 
 function formatBytes(bytes: number) {
-  if (!bytes) {return "0 GB";}
+  if (!bytes) {
+    return "0 GB";
+  }
   const gb = bytes / (1024 * 1024 * 1024);
   return `${gb.toFixed(1)} GB`;
 }
@@ -24,10 +26,7 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Welcome to Allstarr"
-      />
+      <PageHeader title="Dashboard" description="Welcome to Allstarr" />
 
       <LibraryStats
         authorCount={stats.authorCount}
