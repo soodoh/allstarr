@@ -1,9 +1,8 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { FolderOpen, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,6 +12,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import PageHeader from "~/components/shared/page-header";
+import DirectoryBrowserDialog from "~/components/shared/directory-browser-dialog";
 import {
   getRootFoldersFn,
   createRootFolderFn,
@@ -35,24 +35,16 @@ function formatBytes(bytes: number | undefined) {
 function RootFoldersPage() {
   const folders = Route.useLoaderData();
   const router = useRouter();
-  const [newPath, setNewPath] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPath.trim()) {
-      return;
-    }
-    setAdding(true);
+  const handleSelect = async (path: string) => {
     try {
-      await createRootFolderFn({ data: { path: newPath.trim() } });
+      await createRootFolderFn({ data: { path } });
       toast.success("Root folder added");
-      setNewPath("");
+      setDialogOpen(false);
       router.invalidate();
     } catch {
       toast.error("Failed to add root folder");
-    } finally {
-      setAdding(false);
     }
   };
 
@@ -71,21 +63,15 @@ function RootFoldersPage() {
       <PageHeader
         title="Root Folders"
         description="Manage root folders for your library"
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <FolderOpen className="mr-2 h-4 w-4" />
+            Add Folder
+          </Button>
+        }
       />
 
       <div className="space-y-6 max-w-2xl">
-        <form onSubmit={handleAdd} className="flex gap-2">
-          <Input
-            placeholder="/path/to/books"
-            value={newPath}
-            onChange={(e) => setNewPath(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={adding}>
-            {adding ? "Adding..." : "Add"}
-          </Button>
-        </form>
-
         {folders.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No root folders configured. Add one above.
@@ -123,6 +109,12 @@ function RootFoldersPage() {
           </Table>
         )}
       </div>
+
+      <DirectoryBrowserDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSelect={handleSelect}
+      />
     </div>
   );
 }

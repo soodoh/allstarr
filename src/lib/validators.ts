@@ -35,6 +35,10 @@ export const createRootFolderSchema = z.object({
   path: z.string().min(1, "Path is required"),
 });
 
+export const browseDirectorySchema = z.object({
+  path: z.string().min(1, "Path is required"),
+});
+
 // Settings
 export const updateSettingSchema = z.object({
   key: z.string().min(1),
