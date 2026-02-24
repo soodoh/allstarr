@@ -1100,7 +1100,7 @@ function buildAuthorBookCountsQuery(
   const fragments = slugs
     .map((slug, i) => {
       // Escape any quotes in slug for safe embedding in GraphQL string literal
-      const safeSlug = slug.replaceAll(/\\/g, String.raw`\\`).replaceAll(/"/g, String.raw`\"`);
+      const safeSlug = slug.replaceAll("\\", String.raw`\\`).replaceAll('"', String.raw`\"`);
       return `  a${i}: books_aggregate(where: {
       contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
       ${BOOK_COMPILATION_FILTER}${languageFilter}

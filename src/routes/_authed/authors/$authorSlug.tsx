@@ -68,6 +68,7 @@ import type {
   HardcoverAuthorBook,
   HardcoverAuthorSeries,
 } from "~/server/search";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 import AddAuthorDialog from "~/components/hardcover/add-author-dialog";
 import {
   BookMonitorToggle,
@@ -160,7 +161,7 @@ function BooksTab({
   setAuthorParams,
   authorContext,
   localAuthorId,
-  existingBookIds,
+  existingBookMap,
   onBookAdded,
   onAuthorCreated,
 }: {
@@ -171,10 +172,11 @@ function BooksTab({
   ) => void;
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
-  existingBookIds: Set<string>;
-  onBookAdded: (foreignBookId: string) => void;
+  existingBookMap: Map<string, number>;
+  onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
+  const { openBookModal } = useBookDetailModal();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchPage, setSearchPage] = useState(1);
@@ -317,38 +319,46 @@ function BooksTab({
             </TableCell>
           </TableRow>
         )}
-        {group.books.map((book) => (
-          <TableRow key={`${group.key}-${book.id}`}>
-            <TableCell>
-              <BookMonitorToggle
-                book={book}
-                authorContext={authorContext}
-                localAuthorId={localAuthorId}
-                inLibrary={existingBookIds.has(book.id)}
-                onAdded={onBookAdded}
-                onAuthorCreated={onAuthorCreated}
-              />
-            </TableCell>
-            <TableCell>
-              {book.hardcoverUrl ? (
-                <a
-                  href={book.hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium hover:underline"
-                >
-                  {book.title}
-                </a>
-              ) : (
-                <span className="font-medium">{book.title}</span>
-              )}
-            </TableCell>
-            <TableCell>
-              {book.releaseYear ||
-                (book.releaseDate ? book.releaseDate.slice(0, 4) : "Unknown")}
-            </TableCell>
-          </TableRow>
-        ))}
+        {group.books.map((book) => {
+          const localBookId = existingBookMap.get(book.id);
+          return (
+            <TableRow
+              key={`${group.key}-${book.id}`}
+              className={localBookId === undefined ? undefined : "cursor-pointer"}
+              onClick={localBookId === undefined ? undefined : () => openBookModal(localBookId)}
+            >
+              <TableCell>
+                <BookMonitorToggle
+                  book={book}
+                  authorContext={authorContext}
+                  localAuthorId={localAuthorId}
+                  inLibrary={existingBookMap.has(book.id)}
+                  onAdded={onBookAdded}
+                  onAuthorCreated={onAuthorCreated}
+                />
+              </TableCell>
+              <TableCell>
+                {book.hardcoverUrl ? (
+                  <a
+                    href={book.hardcoverUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {book.title}
+                  </a>
+                ) : (
+                  <span className="font-medium">{book.title}</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {book.releaseYear ||
+                  (book.releaseDate ? book.releaseDate.slice(0, 4) : "Unknown")}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </Fragment>
     ));
   }
@@ -481,7 +491,7 @@ function SeriesRow({
   language,
   authorContext,
   localAuthorId,
-  existingBookIds,
+  existingBookMap,
   onBookAdded,
   onAuthorCreated,
 }: {
@@ -489,10 +499,11 @@ function SeriesRow({
   language: string;
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
-  existingBookIds: Set<string>;
-  onBookAdded: (foreignBookId: string) => void;
+  existingBookMap: Map<string, number>;
+  onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
+  const { openBookModal } = useBookDetailModal();
   const [expanded, setExpanded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(SERIES_BOOKS_PAGE_SIZE);
 
@@ -560,57 +571,64 @@ function SeriesRow({
               <TableHead>Author</TableHead>
               <TableHead>Year</TableHead>
             </TableRow>
-            {visibleBooks.map((book) => (
-              <TableRow key={book.id} className="bg-muted/20 hover:bg-muted/30">
-                <TableCell className="w-10">
-                  <SeriesBookMonitorToggle
-                    bookId={book.id}
-                    title={book.title}
-                    coverUrl={book.coverUrl}
-                    releaseYear={book.releaseYear}
-                    rating={book.rating}
-                    authorContext={authorContext}
-                    localAuthorId={localAuthorId}
-                    inLibrary={existingBookIds.has(book.id)}
-                    onAdded={onBookAdded}
-                    onAuthorCreated={onAuthorCreated}
-                  />
-                </TableCell>
-                <TableCell className="pl-4">
-                  <div className="flex items-baseline gap-2">
-                    {book.position !== undefined && (
-                      <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">
-                        {book.position}
-                      </span>
-                    )}
-                    {book.hardcoverUrl ? (
-                      <a
-                        href={book.hardcoverUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {book.title}
-                      </a>
-                    ) : (
-                      <span>{book.title}</span>
-                    )}
-                    {book.isCompilation && (
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        Boxed Set
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {book.authorName ?? "—"}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {book.releaseYear ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
+            {visibleBooks.map((book) => {
+              const localBookId = existingBookMap.get(book.id);
+              return (
+                <TableRow
+                  key={book.id}
+                  className={`bg-muted/20 hover:bg-muted/30${localBookId === undefined ? "" : " cursor-pointer"}`}
+                  onClick={localBookId === undefined ? undefined : (e) => { e.stopPropagation(); openBookModal(localBookId); }}
+                >
+                  <TableCell className="w-10">
+                    <SeriesBookMonitorToggle
+                      bookId={book.id}
+                      title={book.title}
+                      coverUrl={book.coverUrl}
+                      releaseYear={book.releaseYear}
+                      rating={book.rating}
+                      authorContext={authorContext}
+                      localAuthorId={localAuthorId}
+                      inLibrary={existingBookMap.has(book.id)}
+                      onAdded={onBookAdded}
+                      onAuthorCreated={onAuthorCreated}
+                    />
+                  </TableCell>
+                  <TableCell className="pl-4">
+                    <div className="flex items-baseline gap-2">
+                      {book.position !== undefined && (
+                        <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">
+                          {book.position}
+                        </span>
+                      )}
+                      {book.hardcoverUrl ? (
+                        <a
+                          href={book.hardcoverUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {book.title}
+                        </a>
+                      ) : (
+                        <span>{book.title}</span>
+                      )}
+                      {book.isCompilation && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          Boxed Set
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {book.authorName ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {book.releaseYear ?? "—"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {hasMore && (
               <TableRow className="bg-muted/20">
                 <TableCell colSpan={bookColCount} className="pl-10 py-2">
@@ -640,7 +658,7 @@ function SeriesTab({
   languages,
   authorContext,
   localAuthorId,
-  existingBookIds,
+  existingBookMap,
   onBookAdded,
   onAuthorCreated,
 }: {
@@ -650,8 +668,8 @@ function SeriesTab({
   languages: Array<{ code: string; name: string }>;
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
-  existingBookIds: Set<string>;
-  onBookAdded: (foreignBookId: string) => void;
+  existingBookMap: Map<string, number>;
+  onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
   const [selectedLanguage, setSelectedLanguage] = useState(language);
@@ -722,7 +740,7 @@ function SeriesTab({
         language={selectedLanguage}
         authorContext={authorContext}
         localAuthorId={localAuthorId}
-        existingBookIds={existingBookIds}
+        existingBookMap={existingBookMap}
         onBookAdded={onBookAdded}
         onAuthorCreated={onAuthorCreated}
       />
@@ -850,7 +868,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<
     number | undefined
   >(undefined);
-  const [addedBookIds, setAddedBookIds] = useState<Set<string>>(new Set());
+  const [addedBookIds, setAddedBookIds] = useState<Map<string, number>>(new Map());
 
   const navigate = useNavigate();
 
@@ -883,16 +901,16 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
     enabled: Boolean(localAuthor) && visibleBookIds.length > 0,
   });
 
-  const existingBookIds = useMemo(() => {
-    const ids = new Set<string>(addedBookIds);
+  const existingBookMap = useMemo(() => {
+    const map = new Map<string, number>(addedBookIds);
     if (existingBooksData) {
       for (const b of existingBooksData) {
         if (b.foreignBookId) {
-          ids.add(b.foreignBookId);
+          map.set(b.foreignBookId, b.id);
         }
       }
     }
-    return ids;
+    return map;
   }, [existingBooksData, addedBookIds]);
 
   const authorContext: AuthorContext = {
@@ -909,8 +927,8 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const updateAuthor = useUpdateAuthor();
   const deleteAuthor = useDeleteAuthor();
 
-  const handleBookAdded = (foreignBookId: string) => {
-    setAddedBookIds((prev) => new Set([...prev, foreignBookId]));
+  const handleBookAdded = (foreignBookId: string, localBookId: number) => {
+    setAddedBookIds((prev) => new Map([...prev, [foreignBookId, localBookId]]));
   };
 
   const handleAuthorCreated = (authorId: number) => {
@@ -1088,7 +1106,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                   setAuthorParams={setAuthorParams}
                   authorContext={authorContext}
                   localAuthorId={localAuthor?.id}
-                  existingBookIds={existingBookIds}
+                  existingBookMap={existingBookMap}
                   onBookAdded={handleBookAdded}
                   onAuthorCreated={handleAuthorCreated}
                 />
@@ -1101,7 +1119,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                   languages={author.languages}
                   authorContext={authorContext}
                   localAuthorId={localAuthor?.id}
-                  existingBookIds={existingBookIds}
+                  existingBookMap={existingBookMap}
                   onBookAdded={handleBookAdded}
                   onAuthorCreated={handleAuthorCreated}
                 />
