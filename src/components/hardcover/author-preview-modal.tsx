@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import Skeleton from "~/components/ui/skeleton";
-import Switch from "~/components/ui/switch";
 import type {
   HardcoverAuthorDetail,
   HardcoverSearchItem,
@@ -58,8 +57,6 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   const [rootFolderPath, setRootFolderPath] = useState<string>(
     rootFolders[0]?.path ?? "",
   );
-  const [monitored, setMonitored] = useState(true);
-
   const importAuthor = useImportHardcoverAuthor();
 
   const handleSubmit = () => {
@@ -70,7 +67,6 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
         slug: fullAuthor.slug,
         overview: fullAuthor.bio ?? undefined,
         status: fullAuthor.deathYear ? "deceased" : "continuing",
-        monitored,
         qualityProfileId: qualityProfileId
           ? Number.parseInt(qualityProfileId, 10)
           : undefined,
@@ -118,15 +114,6 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Switch
-          id="preview-author-monitored"
-          checked={monitored}
-          onCheckedChange={setMonitored}
-        />
-        <Label htmlFor="preview-author-monitored">Monitored</Label>
       </div>
 
       <div className="flex gap-2">

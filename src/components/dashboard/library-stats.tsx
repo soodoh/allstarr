@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 type LibraryStatsProps = {
   authorCount: number;
   bookCount: number;
-  monitoredAuthors: number;
   monitoredBooks: number;
   editionCount: number;
 };
@@ -12,7 +11,6 @@ type LibraryStatsProps = {
 export default function LibraryStats({
   authorCount,
   bookCount,
-  monitoredAuthors,
   monitoredBooks,
   editionCount,
 }: LibraryStatsProps): React.JSX.Element {
@@ -20,7 +18,7 @@ export default function LibraryStats({
     {
       title: "Total Authors",
       value: authorCount,
-      subtitle: `${monitoredAuthors} monitored`,
+      subtitle: "in your library",
       icon: Users,
     },
     {
@@ -31,8 +29,8 @@ export default function LibraryStats({
     },
     {
       title: "Monitored",
-      value: monitoredAuthors + monitoredBooks,
-      subtitle: "authors + books",
+      value: monitoredBooks,
+      subtitle: "books",
       icon: Eye,
     },
     {

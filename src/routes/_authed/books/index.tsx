@@ -124,6 +124,7 @@ function BooksPage() {
                 authorName: book.authorName ?? undefined,
                 releaseDate: book.releaseDate ?? undefined,
                 overview: book.overview ?? undefined,
+                images: book.images ?? undefined,
               }}
             />
           ))}

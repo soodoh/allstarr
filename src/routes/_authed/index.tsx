@@ -54,7 +54,6 @@ function DashboardPage() {
       <LibraryStats
         authorCount={stats.authorCount}
         bookCount={stats.bookCount}
-        monitoredAuthors={stats.monitoredAuthors}
         monitoredBooks={stats.monitoredBooks}
         editionCount={stats.editionCount}
       />

@@ -11,7 +11,7 @@ type BookEntry = {
   title: string;
   foreignBookId: string;
   releaseDate?: string | undefined;
-  monitored: boolean;
+  monitored?: boolean;
   images?: Array<{ url: string; coverType: string }>;
   ratings?: { value: number; votes: number } | undefined;
   series?: Array<{
@@ -27,7 +27,6 @@ export type ImportAuthorData = {
   slug?: string | undefined;
   overview?: string | undefined;
   status: string;
-  monitored: boolean;
   qualityProfileId?: number | undefined;
   rootFolderPath?: string | undefined;
   images?: Array<{ url: string; coverType: string }>;

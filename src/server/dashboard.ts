@@ -14,12 +14,6 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       .from(authors)
       .get()!.count;
 
-    const monitoredAuthors = db
-      .select({ count: sql<number>`count(*)` })
-      .from(authors)
-      .where(sql`${authors.monitored} = 1`)
-      .get()!.count;
-
     const bookCount = db
       .select({ count: sql<number>`count(*)` })
       .from(books)
@@ -84,7 +78,6 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
 
     return {
       authorCount,
-      monitoredAuthors,
       bookCount,
       monitoredBooks,
       editionCount,

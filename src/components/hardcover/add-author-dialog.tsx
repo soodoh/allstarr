@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import Switch from "~/components/ui/switch";
 import type { HardcoverAuthorDetail } from "~/server/search";
 import { useImportHardcoverAuthor } from "~/hooks/mutations";
 
@@ -44,8 +43,6 @@ export default function AddAuthorDialog({
   const [rootFolderPath, setRootFolderPath] = useState<string>(
     rootFolders.length > 0 ? rootFolders[0].path : "",
   );
-  const [monitored, setMonitored] = useState(true);
-
   const importAuthor = useImportHardcoverAuthor();
 
   const handleSubmit = () => {
@@ -56,7 +53,6 @@ export default function AddAuthorDialog({
         slug: author.slug,
         overview: author.bio ?? undefined,
         status: author.deathYear ? "deceased" : "continuing",
-        monitored,
         qualityProfileId: qualityProfileId
           ? Number.parseInt(qualityProfileId, 10)
           : undefined,
@@ -137,15 +133,6 @@ export default function AddAuthorDialog({
             </Select>
           </div>
 
-          {/* Monitored */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="author-monitored"
-              checked={monitored}
-              onCheckedChange={setMonitored}
-            />
-            <Label htmlFor="author-monitored">Monitored</Label>
-          </div>
         </div>
 
         <DialogFooter>

@@ -57,7 +57,6 @@ export function BookMonitorToggle({
           slug: authorContext.slug,
           overview: authorContext.bio,
           status: authorContext.deathYear ? "deceased" : "continuing",
-          monitored: true,
           qualityProfileId: authorContext.qualityProfileId,
           rootFolderPath: authorContext.rootFolderPath,
           images: authorContext.imageUrl
@@ -166,7 +165,6 @@ export function SeriesBookMonitorToggle({
           slug: authorContext.slug,
           overview: authorContext.bio,
           status: authorContext.deathYear ? "deceased" : "continuing",
-          monitored: true,
           qualityProfileId: authorContext.qualityProfileId,
           rootFolderPath: authorContext.rootFolderPath,
           images: authorContext.imageUrl

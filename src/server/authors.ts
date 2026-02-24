@@ -15,7 +15,6 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
         sortName: authors.sortName,
         overview: authors.overview,
         status: authors.status,
-        monitored: authors.monitored,
         qualityProfileId: authors.qualityProfileId,
         rootFolderPath: authors.rootFolderPath,
         foreignAuthorId: authors.foreignAuthorId,
