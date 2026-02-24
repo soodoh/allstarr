@@ -124,7 +124,7 @@ export default function AppSidebar(): React.JSX.Element {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-4">
         <Link to="/" className="flex items-center gap-2">
           <BookOpen className="h-6 w-6" />
           <span className="text-lg font-bold">Allstarr</span>
