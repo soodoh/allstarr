@@ -110,6 +110,7 @@ type DownloadClientFormProps = {
   };
   onSubmit: (values: DownloadClientFormValues) => void;
   onCancel: () => void;
+  cancelLabel?: string;
   loading?: boolean;
 };
 
@@ -289,6 +290,7 @@ export default function DownloadClientForm({
   initialValues,
   onSubmit,
   onCancel,
+  cancelLabel = "Cancel",
   loading,
 }: DownloadClientFormProps): React.JSX.Element {
   const impl = initialValues?.implementation ?? "qBittorrent";
@@ -447,7 +449,7 @@ export default function DownloadClientForm({
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save"}
