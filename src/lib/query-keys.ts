@@ -77,6 +77,12 @@ export const queryKeys = {
     lists: () => ["indexers", "list"] as const,
   },
 
+  // ─── Synced Indexers (pushed from Prowlarr) ───────────────────────────────
+  syncedIndexers: {
+    all: ["syncedIndexers"] as const,
+    lists: () => ["syncedIndexers", "list"] as const,
+  },
+
   // ─── Hardcover ───────────────────────────────────────────────────────────
   hardcover: {
     all: ["hardcover"] as const,

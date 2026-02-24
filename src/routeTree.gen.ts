@@ -31,6 +31,11 @@ import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$b
 import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
 import { Route as AuthedAddBookRouteImport } from './routes/_authed/add/book'
 import { Route as AuthedAddAuthorRouteImport } from './routes/_authed/add/author'
+import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
+import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
+import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
+import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
+import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
 import { Route as AuthedHardcoverAuthorsAuthorSlugRouteImport } from './routes/_authed/hardcover/authors/$authorSlug'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -144,6 +149,31 @@ const AuthedAddAuthorRoute = AuthedAddAuthorRouteImport.update({
   path: '/add/author',
   getParentRoute: () => AuthedRoute,
 } as any)
+const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
+  id: '/api/v1/indexer/',
+  path: '/api/v1/indexer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1SystemStatusRoute = ApiV1SystemStatusRouteImport.update({
+  id: '/api/v1/system/status',
+  path: '/api/v1/system/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1IndexerTestRoute = ApiV1IndexerTestRouteImport.update({
+  id: '/api/v1/indexer/test',
+  path: '/api/v1/indexer/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1IndexerSchemaRoute = ApiV1IndexerSchemaRouteImport.update({
+  id: '/api/v1/indexer/schema',
+  path: '/api/v1/indexer/schema',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1IndexerIdRoute = ApiV1IndexerIdRouteImport.update({
+  id: '/api/v1/indexer/$id',
+  path: '/api/v1/indexer/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthedHardcoverAuthorsAuthorSlugRoute =
   AuthedHardcoverAuthorsAuthorSlugRouteImport.update({
     id: '/hardcover/authors/$authorSlug',
@@ -174,6 +204,11 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
   '/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
+  '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
+  '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
+  '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
+  '/api/v1/system/status': typeof ApiV1SystemStatusRoute
+  '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -198,6 +233,11 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
   '/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
+  '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
+  '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
+  '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
+  '/api/v1/system/status': typeof ApiV1SystemStatusRoute
+  '/api/v1/indexer': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -224,6 +264,11 @@ export interface FileRoutesById {
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
   '/_authed/hardcover/authors/$authorSlug': typeof AuthedHardcoverAuthorsAuthorSlugRoute
+  '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
+  '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
+  '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
+  '/api/v1/system/status': typeof ApiV1SystemStatusRoute
+  '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -250,6 +295,11 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/system/'
     | '/hardcover/authors/$authorSlug'
+    | '/api/v1/indexer/$id'
+    | '/api/v1/indexer/schema'
+    | '/api/v1/indexer/test'
+    | '/api/v1/system/status'
+    | '/api/v1/indexer/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -274,6 +324,11 @@ export interface FileRouteTypes {
     | '/settings'
     | '/system'
     | '/hardcover/authors/$authorSlug'
+    | '/api/v1/indexer/$id'
+    | '/api/v1/indexer/schema'
+    | '/api/v1/indexer/test'
+    | '/api/v1/system/status'
+    | '/api/v1/indexer'
   id:
     | '__root__'
     | '/_authed'
@@ -299,6 +354,11 @@ export interface FileRouteTypes {
     | '/_authed/settings/'
     | '/_authed/system/'
     | '/_authed/hardcover/authors/$authorSlug'
+    | '/api/v1/indexer/$id'
+    | '/api/v1/indexer/schema'
+    | '/api/v1/indexer/test'
+    | '/api/v1/system/status'
+    | '/api/v1/indexer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -306,6 +366,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1IndexerIdRoute: typeof ApiV1IndexerIdRoute
+  ApiV1IndexerSchemaRoute: typeof ApiV1IndexerSchemaRoute
+  ApiV1IndexerTestRoute: typeof ApiV1IndexerTestRoute
+  ApiV1SystemStatusRoute: typeof ApiV1SystemStatusRoute
+  ApiV1IndexerIndexRoute: typeof ApiV1IndexerIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -464,6 +529,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAddAuthorRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/api/v1/indexer/': {
+      id: '/api/v1/indexer/'
+      path: '/api/v1/indexer'
+      fullPath: '/api/v1/indexer/'
+      preLoaderRoute: typeof ApiV1IndexerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/system/status': {
+      id: '/api/v1/system/status'
+      path: '/api/v1/system/status'
+      fullPath: '/api/v1/system/status'
+      preLoaderRoute: typeof ApiV1SystemStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/indexer/test': {
+      id: '/api/v1/indexer/test'
+      path: '/api/v1/indexer/test'
+      fullPath: '/api/v1/indexer/test'
+      preLoaderRoute: typeof ApiV1IndexerTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/indexer/schema': {
+      id: '/api/v1/indexer/schema'
+      path: '/api/v1/indexer/schema'
+      fullPath: '/api/v1/indexer/schema'
+      preLoaderRoute: typeof ApiV1IndexerSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/indexer/$id': {
+      id: '/api/v1/indexer/$id'
+      path: '/api/v1/indexer/$id'
+      fullPath: '/api/v1/indexer/$id'
+      preLoaderRoute: typeof ApiV1IndexerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed/hardcover/authors/$authorSlug': {
       id: '/_authed/hardcover/authors/$authorSlug'
       path: '/hardcover/authors/$authorSlug'
@@ -526,6 +626,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1IndexerIdRoute: ApiV1IndexerIdRoute,
+  ApiV1IndexerSchemaRoute: ApiV1IndexerSchemaRoute,
+  ApiV1IndexerTestRoute: ApiV1IndexerTestRoute,
+  ApiV1SystemStatusRoute: ApiV1SystemStatusRoute,
+  ApiV1IndexerIndexRoute: ApiV1IndexerIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

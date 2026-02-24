@@ -11,7 +11,20 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
     const rows = db.select().from(settings).all();
     const map: Record<string, unknown> = {};
     for (const row of rows) {
-      map[row.key] = row.value;
+      // Values are stored with an extra JSON.stringify wrap (see updateSettingFn).
+      // Drizzle's json-mode column deserializes once on read, so string values
+      // come back as `"\"actual value\""` — parse once more to unwrap.
+      const v = row.value;
+      map[row.key] =
+        typeof v === "string"
+          ? (() => {
+              try {
+                return JSON.parse(v);
+              } catch {
+                return v;
+              }
+            })()
+          : v;
     }
     return map;
   },
