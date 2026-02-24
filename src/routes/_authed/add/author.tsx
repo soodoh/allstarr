@@ -27,7 +27,6 @@ function AddAuthorPage() {
   const handleSubmit = (values: {
     name: string;
     sortName: string;
-    overview?: string;
     status: string;
     monitored: boolean;
     qualityProfileId?: number;

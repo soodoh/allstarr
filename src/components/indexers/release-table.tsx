@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Download, Loader2, ArrowUpDown } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -11,10 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import SortableTableHead from "~/components/shared/sortable-table-head";
+import { useTableState } from "~/hooks/use-table-state";
 import type { IndexerRelease } from "~/server/indexers/types";
-
-type SortKey = "quality" | "size";
-type SortDir = "asc" | "desc";
 
 type ReleaseTableProps = {
   releases: IndexerRelease[];
@@ -30,13 +28,31 @@ const QUALITY_BADGE_CLASS: Record<string, string> = {
   gray: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
 };
 
+const comparators: Partial<
+  Record<string, (a: IndexerRelease, b: IndexerRelease) => number>
+> = {
+  quality: (a, b) => a.quality.weight - b.quality.weight,
+  title: (a, b) => a.title.localeCompare(b.title),
+  indexer: (a, b) => (a.indexer ?? "").localeCompare(b.indexer ?? ""),
+  size: (a, b) => a.size - b.size,
+  protocol: (a, b) => a.protocol.localeCompare(b.protocol),
+  peers: (a, b) => (a.seeders ?? 0) - (b.seeders ?? 0),
+  age: (a, b) => (a.age ?? 0) - (b.age ?? 0),
+};
+
 export default function ReleaseTable({
   releases,
   grabbingGuid,
   onGrab,
 }: ReleaseTableProps): React.JSX.Element {
-  const [sortKey, setSortKey] = useState<SortKey>("quality");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const { sortColumn, sortDirection, handleSort, paginatedData } =
+    useTableState({
+      data: releases,
+      comparators,
+      defaultPageSize: 100,
+      defaultSortColumn: "quality",
+      defaultSortDirection: "desc",
+    });
 
   if (releases.length === 0) {
     return (
@@ -56,58 +72,43 @@ export default function ReleaseTable({
     );
   }
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
-
-  const sorted = [...releases].toSorted((a, b) => {
-    let diff = 0;
-    if (sortKey === "quality") {
-      diff = a.quality.weight - b.quality.weight;
-    } else {
-      diff = a.size - b.size;
-    }
-    return sortDir === "asc" ? diff : -diff;
-  });
+  const sortProps = { sortColumn, sortDirection, onSort: handleSort };
 
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead
-              className="w-24 cursor-pointer select-none"
-              onClick={() => handleSort("quality")}
+            <SortableTableHead column="quality" className="w-24" {...sortProps}>
+              Quality
+            </SortableTableHead>
+            <SortableTableHead column="title" {...sortProps}>
+              Title
+            </SortableTableHead>
+            <SortableTableHead column="indexer" className="w-28" {...sortProps}>
+              Indexer
+            </SortableTableHead>
+            <SortableTableHead column="size" className="w-24" {...sortProps}>
+              Size
+            </SortableTableHead>
+            <SortableTableHead
+              column="protocol"
+              className="w-20"
+              {...sortProps}
             >
-              <div className="flex items-center gap-1">
-                Quality
-                <ArrowUpDown className="h-3 w-3 opacity-50" />
-              </div>
-            </TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead className="w-28">Indexer</TableHead>
-            <TableHead
-              className="w-24 cursor-pointer select-none"
-              onClick={() => handleSort("size")}
-            >
-              <div className="flex items-center gap-1">
-                Size
-                <ArrowUpDown className="h-3 w-3 opacity-50" />
-              </div>
-            </TableHead>
-            <TableHead className="w-20">Protocol</TableHead>
-            <TableHead className="w-20">Peers</TableHead>
-            <TableHead className="w-28">Age</TableHead>
+              Protocol
+            </SortableTableHead>
+            <SortableTableHead column="peers" className="w-20" {...sortProps}>
+              Peers
+            </SortableTableHead>
+            <SortableTableHead column="age" className="w-28" {...sortProps}>
+              Age
+            </SortableTableHead>
             <TableHead className="w-16">Grab</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map((release) => {
+          {paginatedData.map((release) => {
             const isGrabbing = grabbingGuid === release.guid;
             const qualityClass =
               QUALITY_BADGE_CLASS[release.quality.color] ??
