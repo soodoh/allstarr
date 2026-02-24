@@ -109,7 +109,7 @@ export async function searchProwlarr(
   const res = await fetchWithTimeout(
     `${base}/api/v1/search?${params.toString()}`,
     { headers: makeHeaders(config.apiKey) },
-    30_000,
+    60_000,
   );
 
   if (!res.ok) {

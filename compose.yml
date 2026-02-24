@@ -68,7 +68,10 @@ services:
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
       - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES:-United States}
     networks:
-      - app-net
+      app-net:
+        aliases:
+          - prowlarr
+          - qbittorrent
     healthcheck:
       test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
       interval: 10s
