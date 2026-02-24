@@ -53,6 +53,7 @@ export default function AddAuthorDialog({
       {
         name: author.name,
         foreignAuthorId: author.id,
+        slug: author.slug,
         overview: author.bio ?? undefined,
         status: author.deathYear ? "deceased" : "continuing",
         monitored,

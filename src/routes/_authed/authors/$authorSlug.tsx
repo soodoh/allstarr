@@ -1,7 +1,12 @@
 // oxlint-disable react/no-array-index-key -- Skeleton rows in this file have no meaningful identity
 import { Fragment, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   ArrowLeft,
   ChevronDown,
@@ -10,9 +15,10 @@ import {
   ChevronUp,
   ChevronsUpDown,
   ExternalLink,
-  Library,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -20,11 +26,13 @@ import {
   useSuspenseQuery,
   keepPreviousData,
 } from "@tanstack/react-query";
+import { z } from "zod";
 import PageHeader from "~/components/shared/page-header";
 import { HardcoverAuthorSkeleton } from "~/components/shared/loading-skeleton";
 import Skeleton from "~/components/ui/skeleton";
 import AuthorPhoto from "~/components/authors/author-photo";
 import TablePagination from "~/components/shared/table-pagination";
+import SortableTableHead from "~/components/shared/sortable-table-head";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import Input from "~/components/ui/input";
@@ -35,6 +43,12 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -61,6 +75,8 @@ import {
   SeriesBookMonitorToggle,
 } from "~/components/hardcover/add-book-button";
 import type { AuthorContext } from "~/components/hardcover/add-book-button";
+import AuthorForm from "~/components/authors/author-form";
+import ConfirmDialog from "~/components/shared/confirm-dialog";
 import {
   hardcoverAuthorQuery,
   hardcoverAuthorSeriesQuery,
@@ -69,13 +85,21 @@ import {
   rootFoldersListQuery,
   authorExistsQuery,
   booksExistQuery,
+  authorDetailQuery,
 } from "~/lib/queries";
+import { useUpdateAuthor, useDeleteAuthor } from "~/hooks/mutations";
+import { useTableState } from "~/hooks/use-table-state";
+import type { getAuthorFn as GetAuthorFnType } from "~/server/authors";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;
 const SERIES_PAGE_SIZE = 25;
 const SEARCH_ALL_PAGE_SIZE = 500;
 const SEARCH_DEBOUNCE_MS = 300;
+
+function isNumericId(param: string): boolean {
+  return /^\d+$/.test(param);
+}
 
 function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
   const groups = new Map<
@@ -93,11 +117,36 @@ function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
   return [...groups.values()];
 }
 
-export const Route = createFileRoute("/_authed/hardcover/authors/$authorSlug")({
+export const Route = createFileRoute("/_authed/authors/$authorSlug")({
+  validateSearch: z.object({
+    from: z.enum(["search"]).optional(),
+  }),
   loader: async ({ params, context }) => {
+    const param = params.authorSlug;
+
+    if (isNumericId(param)) {
+      // Numeric ID: look up local author and redirect to slug if available
+      const id = Number.parseInt(param, 10);
+      const author = await context.queryClient.fetchQuery(authorDetailQuery(id));
+      if (author.slug) {
+        throw redirect({
+          to: "/authors/$authorSlug",
+          params: { authorSlug: author.slug },
+        });
+      }
+      // Local-only author (no slug) — load detail data for fallback view
+      await Promise.all([
+        context.queryClient.ensureQueryData(authorDetailQuery(id)),
+        context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+        context.queryClient.ensureQueryData(rootFoldersListQuery()),
+      ]);
+      return { mode: "local" as const, localId: id };
+    }
+
+    // Slug-based: fetch from Hardcover
     await Promise.all([
       context.queryClient.ensureQueryData(
-        hardcoverAuthorQuery(params.authorSlug, {
+        hardcoverAuthorQuery(param, {
           page: 1,
           pageSize: DEFAULT_PAGE_SIZE,
           language: DEFAULT_LANGUAGE,
@@ -108,12 +157,17 @@ export const Route = createFileRoute("/_authed/hardcover/authors/$authorSlug")({
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
+    return { mode: "hardcover" as const };
   },
-  component: HardcoverAuthorPage,
-  pendingComponent: HardcoverAuthorSkeleton,
+  component: AuthorPage,
+  pendingComponent: () => {
+    // We can't know which skeleton to show before the loader resolves,
+    // so default to the richer Hardcover skeleton.
+    return <HardcoverAuthorSkeleton />;
+  },
 });
 
-// ---------- Books tab ----------
+// ---------- Hardcover Books tab ----------
 
 type AuthorParams = {
   page: number;
@@ -149,13 +203,11 @@ function BooksTab({
 
   const isSearching = searchQuery !== "";
 
-  // Main paginated query — keepPreviousData prevents flash on page/sort change
   const { data: author, isFetching } = useSuspenseQuery({
     ...hardcoverAuthorQuery(authorSlug, authorParams),
     placeholderData: keepPreviousData,
   });
 
-  // Search query — fetches all books for client-side filtering
   const { data: allBooksData, isFetching: searchLoading } = useQuery({
     ...hardcoverAuthorQuery(authorSlug, {
       ...authorParams,
@@ -221,7 +273,6 @@ function BooksTab({
     setAuthorParams((prev) => ({ ...prev, sortBy: key, sortDir: newDir, page: 1 }));
   };
 
-  // toggle column + title + year = 3 columns always
   const colCount = 3;
 
   let booksTableBody: React.ReactNode;
@@ -232,7 +283,6 @@ function BooksTab({
         <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
         <TableCell><Skeleton className="h-4 w-[55%]" /></TableCell>
         <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-        <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
       </TableRow>
     ));
   } else if (isSearching && filteredBooks?.length === 0) {
@@ -367,7 +417,6 @@ function BooksTab({
       <Table>
         <TableHeader>
           <TableRow>
-            {/* Toggle column — always present */}
             <TableHead className="w-10" />
             {(
               [
@@ -439,7 +488,6 @@ function SeriesRow({
   const [expanded, setExpanded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(SERIES_BOOKS_PAGE_SIZE);
 
-  // Lazy-load series books only when row is expanded
   const { data, isFetching: loadingBooks } = useQuery({
     ...hardcoverSeriesBooksQuery(Number(series.id), language),
     enabled: expanded,
@@ -462,9 +510,7 @@ function SeriesRow({
     SeriesExpandIcon = ChevronDown;
   }
 
-  // toggle + series name + book count = 3 columns always
   const seriesColCount = 3;
-  // expanded sub-table: toggle + title + author + year = 4 columns
   const bookColCount = 4;
 
   return (
@@ -473,7 +519,6 @@ function SeriesRow({
         className="cursor-pointer hover:bg-muted/50"
         onClick={handleToggle}
       >
-        {/* Spacer to align with toggle column in expanded book rows */}
         <TableCell className="w-10" />
         <TableCell>
           <div className="flex items-center gap-2">
@@ -605,7 +650,6 @@ function SeriesTab({
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
 
-  // Lazy-load series only when tab is active
   const { data: seriesData, isFetching: loading } = useQuery({
     ...hardcoverAuthorSeriesQuery(authorSlug, selectedLanguage),
     enabled: active,
@@ -630,7 +674,6 @@ function SeriesTab({
 
   const loaded = !loading && allSeries !== undefined;
 
-  // toggle + series + books = 3 columns always
   const colCount = 3;
 
   let seriesTableBody: React.ReactNode;
@@ -754,7 +797,6 @@ function SeriesTab({
       <Table>
         <TableHeader>
           <TableRow>
-            {/* Toggle column — always present */}
             <TableHead className="w-10" />
             <TableHead>Series</TableHead>
             <TableHead>Books</TableHead>
@@ -768,12 +810,12 @@ function SeriesTab({
   );
 }
 
-// ---------- Page ----------
+// ---------- Hardcover-mode page ----------
 
 // oxlint-disable-next-line complexity -- Page component manages multiple state variables
-function HardcoverAuthorPage() {
-  const params = Route.useParams();
-  const authorSlug = params.authorSlug;
+function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
+  const search = Route.useSearch();
+  const fromSearch = search.from === "search";
 
   const [authorParams, setAuthorParams] = useState<AuthorParams>({
     page: 1,
@@ -785,15 +827,17 @@ function HardcoverAuthorPage() {
 
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<number | undefined>(undefined);
   const [addedBookIds, setAddedBookIds] = useState<Set<string>>(new Set());
 
-  // These were preloaded in the loader — suspense is instant
+  const navigate = useNavigate();
+
   const { data: author } = useSuspenseQuery(hardcoverAuthorQuery(authorSlug, authorParams));
   const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
-  // Check if this author already exists in the local library
   const { data: localAuthorData } = useQuery({
     ...authorExistsQuery(author.id),
     enabled: Boolean(author.id),
@@ -803,7 +847,12 @@ function HardcoverAuthorPage() {
     ? { id: localAuthorIdOverride, name: author.name }
     : localAuthorData ?? null;
 
-  // Check which visible books already exist in the local library
+  // Fetch local author detail when in-library (for edit form)
+  const { data: localAuthorDetail } = useQuery({
+    ...authorDetailQuery(localAuthor?.id ?? 0),
+    enabled: Boolean(localAuthor?.id),
+  });
+
   const visibleBookIds = author.books.map((b) => b.id);
   const { data: existingBooksData } = useQuery({
     ...booksExistQuery(visibleBookIds),
@@ -820,10 +869,10 @@ function HardcoverAuthorPage() {
     return ids;
   }, [existingBooksData, addedBookIds]);
 
-  // Build author context for toggles — pick first quality profile / root folder as defaults
   const authorContext: AuthorContext = {
     name: author.name,
     foreignAuthorId: author.id,
+    slug: author.slug,
     imageUrl: author.imageUrl,
     bio: author.bio,
     deathYear: author.deathYear,
@@ -831,12 +880,38 @@ function HardcoverAuthorPage() {
     rootFolderPath: rootFolders[0]?.path ?? undefined,
   };
 
+  const updateAuthor = useUpdateAuthor();
+  const deleteAuthor = useDeleteAuthor();
+
   const handleBookAdded = (foreignBookId: string) => {
     setAddedBookIds((prev) => new Set([...prev, foreignBookId]));
   };
 
   const handleAuthorCreated = (authorId: number) => {
     setLocalAuthorIdOverride(authorId);
+  };
+
+  const handleUpdate = (values: {
+    name: string;
+    sortName: string;
+    overview?: string;
+    status: string;
+    monitored: boolean;
+    qualityProfileId?: number;
+    rootFolderPath?: string;
+  }) => {
+    if (!localAuthor) {return;}
+    updateAuthor.mutate(
+      { ...values, id: localAuthor.id },
+      { onSuccess: () => setEditOpen(false) },
+    );
+  };
+
+  const handleDelete = () => {
+    if (!localAuthor) {return;}
+    deleteAuthor.mutate(localAuthor.id, {
+      onSuccess: () => navigate({ to: "/authors" }),
+    });
   };
 
   const lifespan =
@@ -848,10 +923,17 @@ function HardcoverAuthorPage() {
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/search">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Search
-          </Link>
+          {fromSearch ? (
+            <Link to="/search">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Search
+            </Link>
+          ) : (
+            <Link to="/authors">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Authors
+            </Link>
+          )}
         </Button>
       </div>
 
@@ -861,15 +943,16 @@ function HardcoverAuthorPage() {
         actions={
           <div className="flex items-center gap-2">
             {localAuthor ? (
-              <Button variant="outline" asChild>
-                <Link
-                  to="/authors/$authorId"
-                  params={{ authorId: String(localAuthor.id) }}
-                >
-                  <Library className="mr-2 h-4 w-4" />
-                  In Library
-                </Link>
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </>
             ) : (
               <Button onClick={() => setAddDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -1005,6 +1088,335 @@ function HardcoverAuthorPage() {
         rootFolders={rootFolders}
         onSuccess={handleAuthorCreated}
       />
+
+      {localAuthor && localAuthorDetail && (
+        <>
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Author</DialogTitle>
+              </DialogHeader>
+              <AuthorForm
+                initialValues={{
+                  name: localAuthorDetail.name,
+                  sortName: localAuthorDetail.sortName,
+                  overview: localAuthorDetail.overview || undefined,
+                  status: localAuthorDetail.status,
+                  monitored: localAuthorDetail.monitored,
+                  qualityProfileId: localAuthorDetail.qualityProfileId || undefined,
+                  rootFolderPath: localAuthorDetail.rootFolderPath || undefined,
+                }}
+                qualityProfiles={qualityProfiles}
+                rootFolders={rootFolders}
+                onSubmit={handleUpdate}
+                onCancel={() => setEditOpen(false)}
+                loading={updateAuthor.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <ConfirmDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            title="Delete Author"
+            description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
+            onConfirm={handleDelete}
+            loading={deleteAuthor.isPending}
+          />
+        </>
+      )}
     </div>
   );
+}
+
+// ---------- Local-only fallback page ----------
+
+type LocalAuthorDetail = Awaited<ReturnType<typeof GetAuthorFnType>>;
+type LocalBook = LocalAuthorDetail["books"][number];
+
+const bookComparators: Partial<Record<string, (a: LocalBook, b: LocalBook) => number>> = {
+  title: (a, b) => (a.title ?? "").localeCompare(b.title ?? ""),
+  releaseDate: (a, b) => {
+    const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
+    const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 0;
+    return da - db;
+  },
+  monitored: (a, b) => Number(a.monitored) - Number(b.monitored),
+};
+
+function LocalAuthorPage({ localId }: { localId: number }) {
+  const navigate = useNavigate();
+
+  const { data: author } = useSuspenseQuery(authorDetailQuery(localId));
+  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
+
+  const updateAuthor = useUpdateAuthor();
+  const deleteAuthor = useDeleteAuthor();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const authorImageUrl =
+    author.images?.find((image) => image.coverType.toLowerCase() === "poster")
+      ?.url ??
+    author.images?.find((image) => image.coverType.toLowerCase() === "fanart")
+      ?.url ??
+    author.images?.[0]?.url ??
+    null;
+
+  const {
+    page,
+    pageSize,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    setPage,
+    setPageSize,
+    paginatedData: paginatedBooks,
+    totalPages,
+  } = useTableState({
+    data: author.books,
+    defaultPageSize: 25,
+    comparators: bookComparators,
+  });
+
+  const handleUpdate = (values: {
+    name: string;
+    sortName: string;
+    overview?: string;
+    status: string;
+    monitored: boolean;
+    qualityProfileId?: number;
+    rootFolderPath?: string;
+  }) => {
+    updateAuthor.mutate(
+      { ...values, id: author.id },
+      { onSuccess: () => setEditOpen(false) },
+    );
+  };
+
+  const handleDelete = () => {
+    deleteAuthor.mutate(author.id, {
+      onSuccess: () => navigate({ to: "/authors" }),
+    });
+  };
+
+  return (
+    <div>
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/authors">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Authors
+          </Link>
+        </Button>
+      </div>
+
+      <PageHeader
+        title={author.name}
+        description={author.sortName}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="space-y-6">
+        <div className="flex flex-col gap-6 xl:flex-row">
+          <div className="w-full xl:w-auto xl:shrink-0">
+            <AuthorPhoto
+              name={author.name}
+              imageUrl={authorImageUrl ?? undefined}
+              className="xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
+            />
+          </div>
+
+          <Card className="w-full xl:w-auto xl:shrink-0">
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Status</span>
+                <Badge variant="secondary">{author.status}</Badge>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Monitored</span>
+                <Badge variant={author.monitored ? "default" : "outline"}>
+                  {author.monitored ? "Yes" : "No"}
+                </Badge>
+              </div>
+              {author.rootFolderPath && (
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                  <span className="text-muted-foreground shrink-0">
+                    Root Folder
+                  </span>
+                  <span className="font-mono text-xs break-all">
+                    {author.rootFolderPath}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {author.overview && (
+            <Card className="w-full xl:min-w-0 xl:flex-1">
+              <CardHeader>
+                <CardTitle>Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {author.overview}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Books</CardTitle>
+            <CardDescription>
+              {author.books.length}{" "}
+              {author.books.length === 1 ? "book" : "books"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {author.books.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No books found for this author.
+              </p>
+            ) : (
+              <>
+                <TablePagination
+                  page={page}
+                  pageSize={pageSize}
+                  totalItems={author.books.length}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableTableHead
+                        column="title"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                      >
+                        Title
+                      </SortableTableHead>
+                      <SortableTableHead
+                        column="releaseDate"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                      >
+                        Release Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        column="monitored"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                      >
+                        Monitored
+                      </SortableTableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedBooks.map((book) => (
+                      <TableRow key={book.id}>
+                        <TableCell>
+                          <Link
+                            to="/books/$bookId"
+                            params={{ bookId: String(book.id) }}
+                            className="font-medium hover:underline"
+                          >
+                            {book.title}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{book.releaseDate || "Unknown"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={book.monitored ? "default" : "outline"}
+                          >
+                            {book.monitored ? "Yes" : "No"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={page}
+                  pageSize={pageSize}
+                  totalItems={author.books.length}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Author</DialogTitle>
+          </DialogHeader>
+          <AuthorForm
+            initialValues={{
+              name: author.name,
+              sortName: author.sortName,
+              overview: author.overview || undefined,
+              status: author.status,
+              monitored: author.monitored,
+              qualityProfileId: author.qualityProfileId || undefined,
+              rootFolderPath: author.rootFolderPath || undefined,
+            }}
+            qualityProfiles={qualityProfiles}
+            rootFolders={rootFolders}
+            onSubmit={handleUpdate}
+            onCancel={() => setEditOpen(false)}
+            loading={updateAuthor.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Author"
+        description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleteAuthor.isPending}
+      />
+    </div>
+  );
+}
+
+// ---------- Root component (dispatches based on loader mode) ----------
+
+function AuthorPage() {
+  const loaderData = Route.useLoaderData();
+  const params = Route.useParams();
+
+  if (loaderData.mode === "local") {
+    return <LocalAuthorPage localId={loaderData.localId} />;
+  }
+
+  return <HardcoverAuthorPage authorSlug={params.authorSlug} />;
 }

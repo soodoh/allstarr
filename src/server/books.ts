@@ -49,6 +49,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         title: books.title,
         authorId: books.authorId,
         authorName: authors.name,
+        authorSlug: authors.slug,
         overview: books.overview,
         isbn: books.isbn,
         asin: books.asin,
