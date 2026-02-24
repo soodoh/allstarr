@@ -17,6 +17,13 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { searchHardcoverFn } from "~/server/search";
 import type { HardcoverSearchItem, HardcoverSearchMode } from "~/server/search";
 import AuthorPreviewModal from "~/components/hardcover/author-preview-modal";
@@ -32,9 +39,34 @@ const resultTypeConfig = {
   authors: { label: "Authors", description: "Only authors" },
 } satisfies Record<HardcoverSearchMode, { label: string; description: string }>;
 
+const languageOptions = [
+  { code: "all", name: "All Languages" },
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "nl", name: "Dutch" },
+  { code: "ru", name: "Russian" },
+  { code: "ja", name: "Japanese" },
+  { code: "zh", name: "Chinese" },
+  { code: "ko", name: "Korean" },
+  { code: "sv", name: "Swedish" },
+  { code: "pl", name: "Polish" },
+  { code: "ar", name: "Arabic" },
+  { code: "tr", name: "Turkish" },
+  { code: "cs", name: "Czech" },
+  { code: "da", name: "Danish" },
+  { code: "fi", name: "Finnish" },
+  { code: "no", name: "Norwegian" },
+  { code: "he", name: "Hebrew" },
+];
+
 function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
+  const [language, setLanguage] = useState("en");
   const [error, setError] = useState<string | undefined>(undefined);
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined
@@ -44,9 +76,18 @@ function SearchPage() {
   >(undefined);
 
   const searchMutation = useMutation({
-    mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
+    mutationFn: (params: {
+      query: string;
+      type: HardcoverSearchMode;
+      language: string;
+    }) =>
       searchHardcoverFn({
-        data: { query: params.query, type: params.type, limit: 20 },
+        data: {
+          query: params.query,
+          type: params.type,
+          limit: 20,
+          language: params.language,
+        },
       }),
     onError: (err) => {
       const message =
@@ -114,7 +155,7 @@ function SearchPage() {
       return;
     }
     setError(undefined);
-    searchMutation.mutate({ query: trimmed, type: searchType });
+    searchMutation.mutate({ query: trimmed, type: searchType, language });
   };
 
   return (
@@ -160,6 +201,27 @@ function SearchPage() {
               {searchMutation.isPending ? "Searching..." : "Search"}
             </Button>
           </form>
+
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor="language-filter"
+              className="text-sm text-muted-foreground shrink-0"
+            >
+              Language
+            </label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                {languageOptions.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
@@ -258,7 +320,7 @@ function ResultCard({
             {result.subtitle && (
               <p className="text-sm text-muted-foreground">{result.subtitle}</p>
             )}
-            {result.description && (
+            {result.type === "author" && result.description && (
               <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
                 {result.description}
               </p>

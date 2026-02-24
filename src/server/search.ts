@@ -97,6 +97,12 @@ const searchInputSchema = z.object({
   query: z.string().trim().min(2).max(120),
   type: z.enum(["all", "books", "authors"]).default("all"),
   limit: z.number().int().min(1).max(50).default(20),
+  language: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(all|[a-z]{2,3})$/)
+    .default("all"),
 });
 
 const authorDetailsInputSchema = z.object({
@@ -118,6 +124,24 @@ query Search($query: String!, $queryType: String, $perPage: Int!, $page: Int!) {
   search(query: $query, query_type: $queryType, per_page: $perPage, page: $page) {
     error
     results
+  }
+}
+`;
+
+const bookLanguagesQuery = `
+query BookLanguages($ids: [Int!]!) {
+  books(where: { id: { _in: $ids } }) {
+    id
+    default_physical_edition {
+      language {
+        code2
+      }
+    }
+    editions(limit: 1, order_by: { id: asc }, where: { language_id: { _is_null: false } }) {
+      language {
+        code2
+      }
+    }
   }
 }
 `;
@@ -870,7 +894,16 @@ function toBookResult(
     return undefined;
   }
 
+  // Filter out compilation books (matches BOOK_COMPILATION_FILTER used on author pages)
+  if (document.compilation === true) {
+    return undefined;
+  }
+
+  // Filter out books without an author
   const subtitle = extractBookAuthorName(document);
+  if (!subtitle) {
+    return undefined;
+  }
   const releaseYear =
     firstNumber(document, [["release_year"], ["published_year"], ["year"]]) ??
     parseYear(firstString(document, [["release_date"], ["published_date"]]));
@@ -965,12 +998,207 @@ function interleave<T>(left: T[], right: T[], limit: number): T[] {
   return merged.slice(0, limit);
 }
 
+/**
+ * Fetches the default edition language for a batch of books via a secondary
+ * GraphQL query, then filters out books whose language doesn't match.
+ * The Hardcover search index doesn't include language data, so this is the
+ * only reliable way to filter by language.
+ */
+async function applyLanguageFilter(
+  items: HardcoverSearchItem[],
+  language: string,
+  authorization: string,
+): Promise<HardcoverSearchItem[]> {
+  const bookIds = items
+    .map((item) => Number(item.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  if (bookIds.length === 0) {
+    return items;
+  }
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: bookLanguagesQuery,
+        variables: { ids: bookIds },
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return items;
+    }
+
+    const body = (await response.json()) as {
+      data?: { books?: unknown[] };
+      errors?: Array<{ message: string }>;
+    };
+    if (body.errors && body.errors.length > 0) {
+      return items;
+    }
+
+    const languageByBookId = new Map<string, string>();
+    for (const book of toRecordArray(body.data?.books)) {
+      const bookId = firstId(book, [["id"]]);
+      if (!bookId) {continue;}
+
+      // Try default_physical_edition first, fall back to first edition
+      const defaultEdition = toRecord(book.default_physical_edition);
+      const defaultLang = defaultEdition
+        ? toRecord(defaultEdition.language)
+        : undefined;
+      let code = defaultLang
+        ? normalizeLanguageCode(firstString(defaultLang, [["code2"]]))
+        : undefined;
+
+      if (!code) {
+        const editions = toRecordArray(book.editions);
+        if (editions.length > 0) {
+          const editionLang = toRecord(editions[0].language);
+          code = editionLang
+            ? normalizeLanguageCode(firstString(editionLang, [["code2"]]))
+            : undefined;
+        }
+      }
+
+      if (code) {
+        languageByBookId.set(bookId, code);
+      }
+    }
+
+    return items.filter((item) => {
+      const bookLang = languageByBookId.get(item.id);
+      // Keep books whose language matches or whose language couldn't be resolved
+      return !bookLang || bookLang === language;
+    });
+  } catch {
+    // If the language lookup fails, return unfiltered rather than breaking search
+    return items;
+  }
+}
+
+/**
+ * Builds a batched GraphQL query that fetches the filtered book count for
+ * multiple authors in a single request. Uses the same filters as the author
+ * detail page: non-compilation, non-editor/translator contributions, and
+ * optionally by language.
+ */
+function buildAuthorBookCountsQuery(
+  slugs: string[],
+  hasLanguage: boolean,
+): string {
+  const varDefs = hasLanguage ? `($languageCode: String!)` : "";
+  const languageFilter = hasLanguage
+    ? `\n        editions: { language: { code2: { _eq: $languageCode } } }`
+    : "";
+
+  const fragments = slugs
+    .map((slug, i) => {
+      // Escape any quotes in slug for safe embedding in GraphQL string literal
+      const safeSlug = slug.replaceAll(/\\/g, String.raw`\\`).replaceAll(/"/g, String.raw`\"`);
+      return `  a${i}: books_aggregate(where: {
+      contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
+      ${BOOK_COMPILATION_FILTER}${languageFilter}
+    }) {
+      aggregate { count }
+    }`;
+    })
+    .join("\n  ");
+
+  return `query AuthorBookCounts${varDefs} {\n  ${fragments}\n}`;
+}
+
+/**
+ * Fetches the filtered book count for each author result and updates their
+ * subtitle. Uses the same filters as the author detail page (non-compilation,
+ * non-editor contributions, language).
+ */
+async function applyAuthorBookCounts(
+  items: HardcoverSearchItem[],
+  language: string,
+  authorization: string,
+): Promise<HardcoverSearchItem[]> {
+  const authorSlugs = items
+    .filter((item) => item.slug)
+    .map((item) => item.slug as string);
+  if (authorSlugs.length === 0) {
+    return items;
+  }
+
+  const hasLanguage = language !== "all";
+
+  try {
+    const query = buildAuthorBookCountsQuery(authorSlugs, hasLanguage);
+    const variables: Record<string, string> = {};
+    if (hasLanguage) {
+      variables.languageCode = language;
+    }
+
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({ query, variables }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return items;
+    }
+
+    const body = (await response.json()) as {
+      data?: Record<string, unknown>;
+      errors?: Array<{ message: string }>;
+    };
+    if (body.errors && body.errors.length > 0) {
+      return items;
+    }
+
+    // Build a slug → count map from the aliased results
+    const countBySlug = new Map<string, number>();
+    for (let i = 0; i < authorSlugs.length; i += 1) {
+      const count = parseAggregateCount(body.data?.[`a${i}`]);
+      countBySlug.set(authorSlugs[i], count);
+    }
+
+    const filtered = items.filter((item) => {
+      if (!item.slug || !countBySlug.has(item.slug)) {return true;}
+      return countBySlug.get(item.slug)! > 0;
+    });
+
+    for (const item of filtered) {
+      if (item.slug && countBySlug.has(item.slug)) {
+        const count = countBySlug.get(item.slug)!;
+        item.subtitle = `${count} ${count === 1 ? "book" : "books"}`;
+      }
+    }
+
+    return filtered;
+  } catch {
+    // If the count lookup fails, return items with original subtitles
+    return items;
+  }
+}
+
 async function fetchSearchResults(
   query: string,
   queryType: HardcoverQueryType,
   limit: number,
   authorization: string,
+  language?: string,
 ): Promise<HardcoverSearchItem[]> {
+  const filterByLanguage = language && language !== "all";
+  // Request extra results when filtering by language to compensate for
+  // books that will be removed, so we can still fill up to `limit`.
+  const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
@@ -986,7 +1214,7 @@ async function fetchSearchResults(
         variables: {
           query,
           queryType,
-          perPage: limit,
+          perPage: requestLimit,
           page: 1,
         },
       }),
@@ -1012,13 +1240,21 @@ async function fetchSearchResults(
     const documents = hits
       .map((hit) => toRecord(hit.document))
       .filter(Boolean) as Array<Record<string, unknown>>;
-    const mapped = documents
+    let mapped = documents
       .map((document) =>
         queryType === "Book"
           ? toBookResult(document)
           : toAuthorResult(document),
       )
       .filter(Boolean) as HardcoverSearchItem[];
+
+    if (filterByLanguage && queryType === "Book") {
+      mapped = await applyLanguageFilter(mapped, language, authorization);
+    }
+
+    if (queryType === "Author" && language) {
+      mapped = await applyAuthorBookCounts(mapped, language, authorization);
+    }
 
     return mapped.slice(0, limit);
   } catch (error) {
@@ -1258,7 +1494,7 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requireAuth();
     const authorization = getAuthorizationHeader();
-    const { query, type, limit } = data;
+    const { query, type, limit, language } = data;
 
     if (type === "books") {
       const results = await fetchSearchResults(
@@ -1266,6 +1502,7 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
         "Book",
         limit,
         authorization,
+        language,
       );
       return { query, type, results, total: results.length };
     }
@@ -1276,13 +1513,14 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
         "Author",
         limit,
         authorization,
+        language,
       );
       return { query, type, results, total: results.length };
     }
 
     const [bookResults, authorResults] = await Promise.all([
-      fetchSearchResults(query, "Book", limit, authorization),
-      fetchSearchResults(query, "Author", limit, authorization),
+      fetchSearchResults(query, "Book", limit, authorization, language),
+      fetchSearchResults(query, "Author", limit, authorization, language),
     ]);
     const results = interleave(bookResults, authorResults, limit);
 
