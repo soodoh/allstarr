@@ -1,36 +1,54 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Pencil, Search, Trash2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
+import { useMemo } from "react";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import InteractiveSearchModal from "~/components/books/interactive-search-modal";
+import SortableTableHead from "~/components/shared/sortable-table-head";
+import TablePagination from "~/components/shared/table-pagination";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+import { useTableState } from "~/hooks/use-table-state";
 
 type Book = {
   id: number;
   title: string;
   authorName: string | undefined;
   releaseDate: string | undefined;
-  monitored: boolean;
 };
 
 type BookTableProps = {
   books: Book[];
-  onDelete: (id: number) => void;
 };
 
 export default function BookTable({
   books,
-  onDelete,
 }: BookTableProps): React.JSX.Element {
-  const [searchBook, setSearchBook] = useState<Book | undefined>(undefined);
+  const { openBookModal } = useBookDetailModal();
+
+  const comparators = useMemo(
+    () => ({
+      title: (a: Book, b: Book) => a.title.localeCompare(b.title),
+      author: (a: Book, b: Book) =>
+        (a.authorName ?? "").localeCompare(b.authorName ?? ""),
+      releaseDate: (a: Book, b: Book) =>
+        (a.releaseDate ?? "").localeCompare(b.releaseDate ?? ""),
+    }),
+    [],
+  );
+
+  const {
+    page,
+    pageSize,
+    sortColumn,
+    sortDirection,
+    setPage,
+    setPageSize,
+    handleSort,
+    paginatedData,
+    totalPages,
+  } = useTableState({ data: books, comparators });
 
   if (books.length === 0) {
     return (
@@ -45,73 +63,57 @@ export default function BookTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Author</TableHead>
-            <TableHead>Release Date</TableHead>
-            <TableHead>Monitored</TableHead>
-            <TableHead className="w-32">Actions</TableHead>
+            <SortableTableHead
+              column="title"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Title
+            </SortableTableHead>
+            <SortableTableHead
+              column="author"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Author
+            </SortableTableHead>
+            <SortableTableHead
+              column="releaseDate"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Release Date
+            </SortableTableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {books.map((book) => (
-            <TableRow key={book.id}>
-              <TableCell>
-                <Link
-                  to="/books/$bookId"
-                  params={{ bookId: String(book.id) }}
-                  className="font-medium hover:underline"
-                >
-                  {book.title}
-                </Link>
-              </TableCell>
+          {paginatedData.map((book) => (
+            <TableRow
+              key={book.id}
+              className="cursor-pointer"
+              onClick={() => openBookModal(book.id)}
+            >
+              <TableCell className="font-medium">{book.title}</TableCell>
               <TableCell>{book.authorName || "Unknown"}</TableCell>
               <TableCell>{book.releaseDate || "Unknown"}</TableCell>
-              <TableCell>
-                <Badge variant={book.monitored ? "default" : "outline"}>
-                  {book.monitored ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSearchBook(book)}
-                    title="Interactive search"
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link
-                      to="/books/$bookId"
-                      params={{ bookId: String(book.id) }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete(book.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
 
-      {searchBook && (
-        <InteractiveSearchModal
-          book={searchBook}
-          open={Boolean(searchBook)}
-          onOpenChange={(open) => {
-            if (!open) {setSearchBook(undefined);}
-          }}
+      <div className="mt-4">
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={books.length}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
         />
-      )}
+      </div>
     </>
   );
 }

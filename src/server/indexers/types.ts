@@ -51,7 +51,10 @@ export type ReleaseQuality = {
 };
 
 /** Normalized release for the UI, enriched with quality info */
-export type IndexerRelease = Omit<ProwlarrSearchResult, "downloadUrl" | "magnetUrl"> & {
+export type IndexerRelease = Omit<
+  ProwlarrSearchResult,
+  "downloadUrl" | "magnetUrl"
+> & {
   /** Always present: coalesced from downloadUrl ?? magnetUrl at the HTTP layer. */
   downloadUrl: string;
   allstarrIndexerId: number;

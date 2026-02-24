@@ -160,9 +160,7 @@ export const createIndexerSchema = z.object({
   useSsl: z.boolean().default(false),
   urlBase: z.string().optional(),
   apiKey: z.string().min(1, "API Key is required"),
-  settings: z
-    .object({ categories: z.array(z.number()).optional() })
-    .optional(),
+  settings: z.object({ categories: z.array(z.number()).optional() }).optional(),
 });
 
 export const updateIndexerSchema = createIndexerSchema.extend({

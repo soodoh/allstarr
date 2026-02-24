@@ -20,7 +20,10 @@ import {
 } from "~/components/ui/select";
 import Skeleton from "~/components/ui/skeleton";
 import Switch from "~/components/ui/switch";
-import type { HardcoverAuthorDetail, HardcoverSearchItem } from "~/server/search";
+import type {
+  HardcoverAuthorDetail,
+  HardcoverSearchItem,
+} from "~/server/search";
 import {
   hardcoverAuthorQuery,
   qualityProfilesListQuery,

@@ -147,7 +147,9 @@ export default function ReleaseTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {release.protocol === "torrent" && release.seeders !== null && release.seeders !== undefined
+                  {release.protocol === "torrent" &&
+                  release.seeders !== null &&
+                  release.seeders !== undefined
                     ? `${release.seeders}S / ${release.leechers ?? 0}L`
                     : "—"}
                 </TableCell>

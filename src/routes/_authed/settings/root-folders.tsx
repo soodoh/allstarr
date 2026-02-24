@@ -89,15 +89,21 @@ function RootFoldersPage() {
                   className="cursor-pointer"
                   onClick={(e) => {
                     // Avoid triggering row click when clicking the delete button
-                    if ((e.target as HTMLElement).closest("button")) {return;}
+                    if ((e.target as HTMLElement).closest("button")) {
+                      return;
+                    }
                     handleRowClick(folder.path);
                   }}
                 >
                   <TableCell className="font-mono text-sm">
                     {folder.path}
                   </TableCell>
-                  <TableCell>{formatBytes(folder.freeSpace ?? undefined)}</TableCell>
-                  <TableCell>{formatBytes(folder.totalSpace ?? undefined)}</TableCell>
+                  <TableCell>
+                    {formatBytes(folder.freeSpace ?? undefined)}
+                  </TableCell>
+                  <TableCell>
+                    {formatBytes(folder.totalSpace ?? undefined)}
+                  </TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"

@@ -1,6 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "~/db";
-import { indexers, syncedIndexers, downloadClients, history, books, authors } from "~/db/schema";
+import {
+  indexers,
+  syncedIndexers,
+  downloadClients,
+  history,
+  books,
+  authors,
+} from "~/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -84,7 +91,11 @@ export const deleteIndexerFn = createServerFn({ method: "POST" })
 export const getSyncedIndexersFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
-    return db.select().from(syncedIndexers).orderBy(asc(syncedIndexers.name)).all();
+    return db
+      .select()
+      .from(syncedIndexers)
+      .orderBy(asc(syncedIndexers.name))
+      .all();
   },
 );
 
@@ -211,7 +222,9 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
     // Sort by quality weight descending, then by size descending
     unique.sort((a, b) => {
       const qualityDiff = b.quality.weight - a.quality.weight;
-      if (qualityDiff !== 0) {return qualityDiff;}
+      if (qualityDiff !== 0) {
+        return qualityDiff;
+      }
       return b.size - a.size;
     });
 
@@ -257,7 +270,8 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
 
     const provider = getProvider(client.implementation);
     const config: ConnectionConfig = {
-      implementation: client.implementation as ConnectionConfig["implementation"],
+      implementation:
+        client.implementation as ConnectionConfig["implementation"],
       host: client.host,
       port: client.port,
       useSsl: client.useSsl,

@@ -1,44 +1,17 @@
 services:
   # Production build — comment this out during local development (use allstarr-dev below)
-  # allstarr:
-  #   image: allstarr
-  #   container_name: allstarr
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - allstarr-data:/app/data
-  #     - books:/books
-  #   env_file: ".env"
-  #   networks:
-  #     - app-net
-  #   depends_on:
-  #     - gluetun
-
-  # Dev server with hot reloading — mounts the host source tree into the container.
-  # Any change to src/ is picked up immediately by Vite's HMR.
   allstarr:
+    image: allstarr
+    container_name: allstarr
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    container_name: allstarr
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      # Mount the entire project directory so Vite/HMR sees every source change
-      - .:/app
-      # Persist node_modules in a named volume (Linux binaries, separate from
-      # the macOS node_modules on the host) so we don't reinstall every time
-      - allstarr-dev-modules:/app/node_modules
-      # Persist the SQLite database across restarts
       - allstarr-data:/app/data
       - books:/books
     env_file: ".env"
-    environment:
-      - NODE_ENV=development
-      - DATABASE_URL=/app/data/sqlite.db
     networks:
       - app-net
     depends_on:
@@ -105,7 +78,6 @@ services:
 
 volumes:
   allstarr-data:
-  allstarr-dev-modules:
   qbittorrent-config:
   prowlarr-config:
   gluetun-data:

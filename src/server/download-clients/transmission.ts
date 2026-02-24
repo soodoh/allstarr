@@ -41,14 +41,7 @@ async function rpcCall(
   if (response.status === 409) {
     const newSessionId =
       response.headers.get("X-Transmission-Session-Id") ?? "";
-    return rpcCall(
-      baseUrl,
-      method,
-      args,
-      newSessionId,
-      username,
-      password,
-    );
+    return rpcCall(baseUrl, method, args, newSessionId, username, password);
   }
 
   if (!response.ok) {
@@ -168,9 +161,8 @@ const transmissionProvider: DownloadClientProvider = {
       config.password,
     );
 
-    const torrents = (result.arguments?.torrents as Array<
-      Record<string, unknown>
-    >) ?? [];
+    const torrents =
+      (result.arguments?.torrents as Array<Record<string, unknown>>) ?? [];
     return torrents.map((t) => ({
       id: String(t.id ?? ""),
       name: String(t.name ?? ""),

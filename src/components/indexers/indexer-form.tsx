@@ -111,7 +111,11 @@ export default function IndexerForm({
           />
         </div>
         <div className="flex items-center gap-2 pb-2">
-          <Switch id="ix-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          <Switch
+            id="ix-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
           <Label htmlFor="ix-enabled">Enabled</Label>
         </div>
       </div>

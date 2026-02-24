@@ -66,7 +66,9 @@ function IndexersPage() {
   }) => {
     // Find the full indexer from the list to include all fields (e.g., apiKey)
     const fullIndexer = indexersList.find((i) => i.id === indexer.id);
-    if (!fullIndexer) {return;}
+    if (!fullIndexer) {
+      return;
+    }
     setEditing(fullIndexer);
     setDialogOpen(true);
   };
@@ -93,7 +95,9 @@ function IndexersPage() {
   };
 
   const handleUpdate = (values: IndexerFormValues) => {
-    if (!editing) {return;}
+    if (!editing) {
+      return;
+    }
     updateIndexer.mutate(
       {
         id: editing.id,
@@ -183,9 +187,7 @@ function IndexersPage() {
                   </TableCell>
                   <TableCell>{indexer.priority}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={indexer.enableRss ? "default" : "outline"}
-                    >
+                    <Badge variant={indexer.enableRss ? "default" : "outline"}>
                       {indexer.enableRss ? "On" : "Off"}
                     </Badge>
                   </TableCell>
@@ -224,4 +226,3 @@ function IndexersPage() {
     </div>
   );
 }
-

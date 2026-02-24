@@ -32,12 +32,22 @@ const CLIENT_CONFIGS: Record<ImplementationType, ClientConfigEntry> = {
   qBittorrent: {
     protocol: "torrent",
     defaultPort: 8080,
-    fields: { username: true, password: true, apiKey: false, watchFolder: false },
+    fields: {
+      username: true,
+      password: true,
+      apiKey: false,
+      watchFolder: false,
+    },
   },
   Transmission: {
     protocol: "torrent",
     defaultPort: 9091,
-    fields: { username: true, password: true, apiKey: false, watchFolder: false },
+    fields: {
+      username: true,
+      password: true,
+      apiKey: false,
+      watchFolder: false,
+    },
   },
   Deluge: {
     protocol: "torrent",
@@ -52,7 +62,12 @@ const CLIENT_CONFIGS: Record<ImplementationType, ClientConfigEntry> = {
   rTorrent: {
     protocol: "torrent",
     defaultPort: 8080,
-    fields: { username: true, password: true, apiKey: false, watchFolder: false },
+    fields: {
+      username: true,
+      password: true,
+      apiKey: false,
+      watchFolder: false,
+    },
   },
   SABnzbd: {
     protocol: "usenet",
@@ -67,7 +82,12 @@ const CLIENT_CONFIGS: Record<ImplementationType, ClientConfigEntry> = {
   NZBGet: {
     protocol: "usenet",
     defaultPort: 6789,
-    fields: { username: true, password: true, apiKey: false, watchFolder: false },
+    fields: {
+      username: true,
+      password: true,
+      apiKey: false,
+      watchFolder: false,
+    },
   },
   Blackhole: {
     protocol: "torrent",
@@ -184,7 +204,11 @@ function ConnectionFields({
   );
 }
 
-function TestResultBanner({ result }: { result: TestResult }): React.JSX.Element {
+function TestResultBanner({
+  result,
+}: {
+  result: TestResult;
+}): React.JSX.Element {
   const isSuccess = result.success;
   return (
     <div
@@ -300,14 +324,20 @@ export default function DownloadClientForm({
   const [name, setName] = useState(initialValues?.name ?? "");
   const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
   const [host, setHost] = useState(initialValues?.host ?? "localhost");
-  const [port, setPort] = useState(initialValues?.port ?? clientConfig.defaultPort);
+  const [port, setPort] = useState(
+    initialValues?.port ?? clientConfig.defaultPort,
+  );
   const [useSsl, setUseSsl] = useState(initialValues?.useSsl ?? false);
   const [urlBase, setUrlBase] = useState(initialValues?.urlBase ?? "");
   const [username, setUsername] = useState(initialValues?.username ?? "");
   const [password, setPassword] = useState(initialValues?.password ?? "");
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? "");
-  const [category, setCategory] = useState(initialValues?.category ?? "allstarr");
-  const [watchFolder, setWatchFolder] = useState(initialValues?.watchFolder ?? "");
+  const [category, setCategory] = useState(
+    initialValues?.category ?? "allstarr",
+  );
+  const [watchFolder, setWatchFolder] = useState(
+    initialValues?.watchFolder ?? "",
+  );
   const [priority, setPriority] = useState(initialValues?.priority ?? 1);
 
   const testMutation = useMutation({
@@ -364,7 +394,11 @@ export default function DownloadClientForm({
           />
         </div>
         <div className="flex items-center gap-2 pb-2">
-          <Switch id="dc-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          <Switch
+            id="dc-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
           <Label htmlFor="dc-enabled">Enabled</Label>
         </div>
       </div>

@@ -61,7 +61,9 @@ export default function DownloadClientList({
             </TableCell>
             <TableCell>
               <Badge
-                variant={client.protocol === "torrent" ? "default" : "secondary"}
+                variant={
+                  client.protocol === "torrent" ? "default" : "secondary"
+                }
               >
                 {client.protocol}
               </Badge>

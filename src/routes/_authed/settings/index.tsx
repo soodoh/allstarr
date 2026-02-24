@@ -18,7 +18,8 @@ const settingsItems = [
     title: "General",
     to: "/settings/general" as const,
     icon: Settings,
-    description: "Configure naming templates, log levels, and global app behavior.",
+    description:
+      "Configure naming templates, log levels, and global app behavior.",
   },
   {
     title: "Profiles",

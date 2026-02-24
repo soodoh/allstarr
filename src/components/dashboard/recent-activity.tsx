@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 
 type RecentBook = {
   id: number;
@@ -16,6 +16,8 @@ type RecentActivityProps = {
 export default function RecentActivity({
   recentBooks,
 }: RecentActivityProps): React.JSX.Element {
+  const { openBookModal } = useBookDetailModal();
+
   return (
     <Card>
       <CardHeader>
@@ -32,13 +34,13 @@ export default function RecentActivity({
                 className="flex items-center justify-between text-sm"
               >
                 <div>
-                  <Link
-                    to="/books/$bookId"
-                    params={{ bookId: String(book.id) }}
-                    className="font-medium hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => openBookModal(book.id)}
+                    className="font-medium hover:underline text-left"
                   >
                     {book.title}
-                  </Link>
+                  </button>
                   <p className="text-xs text-muted-foreground">
                     {book.authorName || "Unknown author"}
                   </p>

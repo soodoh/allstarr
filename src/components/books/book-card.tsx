@@ -1,7 +1,7 @@
-import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { BookOpen } from "lucide-react";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 
 type BookCardProps = {
   book: {
@@ -15,11 +15,13 @@ type BookCardProps = {
 };
 
 export default function BookCard({ book }: BookCardProps): React.JSX.Element {
+  const { openBookModal } = useBookDetailModal();
+
   return (
-    <Link
-      to="/books/$bookId"
-      params={{ bookId: String(book.id) }}
-      className="block"
+    <button
+      type="button"
+      className="block cursor-pointer w-full text-left"
+      onClick={() => openBookModal(book.id)}
     >
       <Card className="hover:bg-accent/50 transition-colors">
         <CardHeader className="pb-2">
@@ -45,6 +47,6 @@ export default function BookCard({ book }: BookCardProps): React.JSX.Element {
           )}
         </CardContent>
       </Card>
-    </Link>
+    </button>
   );
 }

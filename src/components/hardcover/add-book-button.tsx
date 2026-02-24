@@ -3,7 +3,10 @@ import { useState } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import type { HardcoverAuthorBook } from "~/server/search";
-import { useImportHardcoverAuthor, useImportHardcoverBook } from "~/hooks/mutations";
+import {
+  useImportHardcoverAuthor,
+  useImportHardcoverBook,
+} from "~/hooks/mutations";
 
 export type AuthorContext = {
   name: string;
@@ -41,7 +44,9 @@ export function BookMonitorToggle({
   const loading = importAuthor.isPending || importBook.isPending;
 
   const handleClick = async () => {
-    if (inLibrary || loading) {return;}
+    if (inLibrary || loading) {
+      return;
+    }
 
     try {
       let authorId = localAuthorId;
@@ -148,7 +153,9 @@ export function SeriesBookMonitorToggle({
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation(); // don't collapse the series row
-    if (inLibrary || loading) {return;}
+    if (inLibrary || loading) {
+      return;
+    }
 
     try {
       let authorId = localAuthorId;
@@ -177,11 +184,8 @@ export function SeriesBookMonitorToggle({
         foreignBookId: bookId,
         releaseDate: releaseYear ? `${releaseYear}-01-01` : undefined,
         monitored: true,
-        images: coverUrl
-          ? [{ url: coverUrl, coverType: "cover" }]
-          : undefined,
-        ratings:
-          rating === undefined ? undefined : { value: rating, votes: 0 },
+        images: coverUrl ? [{ url: coverUrl, coverType: "cover" }] : undefined,
+        ratings: rating === undefined ? undefined : { value: rating, votes: 0 },
         series: [],
       });
 

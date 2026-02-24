@@ -1,7 +1,4 @@
-import {
-  createFileRoute,
-  useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import PageHeader from "~/components/shared/page-header";
 import AuthorForm from "~/components/authors/author-form";
@@ -19,7 +16,9 @@ export const Route = createFileRoute("/_authed/add/author")({
 });
 
 function AddAuthorPage() {
-  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: qualityProfiles } = useSuspenseQuery(
+    qualityProfilesListQuery(),
+  );
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
   const navigate = useNavigate();
   const createAuthor = useCreateAuthor();

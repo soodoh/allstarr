@@ -2,8 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { db } from "~/db";
 import { syncedIndexers } from "~/db/schema";
 import requireApiKey from "~/server/api-key-auth";
-import { toReadarrResource, fromReadarrResource } from '~/server/synced-indexers/mapper';
-import type { ReadarrIndexerResource } from '~/server/synced-indexers/mapper';
+import {
+  toReadarrResource,
+  fromReadarrResource,
+} from "~/server/synced-indexers/mapper";
+import type { ReadarrIndexerResource } from "~/server/synced-indexers/mapper";
 
 export const Route = createFileRoute("/api/v1/indexer/")({
   server: {

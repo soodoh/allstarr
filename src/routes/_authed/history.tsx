@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge } from "~/components/ui/badge";
@@ -20,8 +21,8 @@ import {
 } from "~/components/ui/table";
 import PageHeader from "~/components/shared/page-header";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { historyListQuery } from '~/lib/queries';
-import type { HistoryResult } from '~/lib/queries';
+import { historyListQuery } from "~/lib/queries";
+import type { HistoryResult } from "~/lib/queries";
 
 export const Route = createFileRoute("/_authed/history")({
   loader: ({ context }) =>
@@ -52,15 +53,14 @@ const eventTypeVariants: Record<
 };
 
 function HistoryPage() {
+  const { openBookModal } = useBookDetailModal();
   const [eventType, setEventType] = useState<string>("all");
   const [page, setPage] = useState(1);
 
   // Derive query params from UI state — changing them triggers a fresh fetch
   // (or cache hit if the same params were used recently)
   const queryParams: { page: number; eventType?: string } =
-    eventType === "all"
-      ? { page }
-      : { page, eventType };
+    eventType === "all" ? { page } : { page, eventType };
 
   const queryResult = useSuspenseQuery(historyListQuery(queryParams));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +127,9 @@ function HistoryPage() {
                     {item.authorId ? (
                       <Link
                         to="/authors/$authorSlug"
-                        params={{ authorSlug: item.authorSlug || String(item.authorId) }}
+                        params={{
+                          authorSlug: item.authorSlug || String(item.authorId),
+                        }}
                         className="hover:underline"
                       >
                         {item.authorName || `Author #${item.authorId}`}
@@ -138,13 +140,13 @@ function HistoryPage() {
                   </TableCell>
                   <TableCell>
                     {item.bookId ? (
-                      <Link
-                        to="/books/$bookId"
-                        params={{ bookId: String(item.bookId) }}
-                        className="hover:underline"
+                      <button
+                        type="button"
+                        onClick={() => openBookModal(item.bookId!)}
+                        className="hover:underline text-left"
                       >
                         {item.bookTitle || `Book #${item.bookId}`}
-                      </Link>
+                      </button>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}

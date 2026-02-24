@@ -25,9 +25,7 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
 
     // Compute parent by stripping the last path segment (avoids node:path on client)
     const normalized =
-      current.endsWith("/") && current !== "/"
-        ? current.slice(0, -1)
-        : current;
+      current.endsWith("/") && current !== "/" ? current.slice(0, -1) : current;
     const lastSlash = normalized.lastIndexOf("/");
     const parentRaw = lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
     const parent = parentRaw === current ? undefined : parentRaw;

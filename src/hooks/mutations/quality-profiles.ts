@@ -22,7 +22,9 @@ export function useCreateQualityProfile() {
       createQualityProfileFn({ data }),
     onSuccess: () => {
       toast.success("Profile created");
-      queryClient.invalidateQueries({ queryKey: queryKeys.qualityProfiles.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
     },
     onError: () => toast.error("Failed to create profile"),
   });
@@ -35,7 +37,9 @@ export function useUpdateQualityProfile() {
       updateQualityProfileFn({ data }),
     onSuccess: () => {
       toast.success("Profile updated");
-      queryClient.invalidateQueries({ queryKey: queryKeys.qualityProfiles.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
     },
     onError: () => toast.error("Failed to update profile"),
   });
@@ -47,7 +51,9 @@ export function useDeleteQualityProfile() {
     mutationFn: (id: number) => deleteQualityProfileFn({ data: { id } }),
     onSuccess: () => {
       toast.success("Profile deleted");
-      queryClient.invalidateQueries({ queryKey: queryKeys.qualityProfiles.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
     },
     onError: () => toast.error("Failed to delete profile"),
   });

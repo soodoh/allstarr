@@ -1,7 +1,4 @@
-import {
-  createFileRoute,
-  useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import PageHeader from "~/components/shared/page-header";
 import BookForm from "~/components/books/book-form";
@@ -29,11 +26,8 @@ function AddBookPage() {
     monitored: boolean;
   }) => {
     createBook.mutate(values, {
-      onSuccess: (book) => {
-        navigate({
-          to: "/books/$bookId",
-          params: { bookId: String(book.id) },
-        });
+      onSuccess: () => {
+        navigate({ to: "/books" });
       },
     });
   };

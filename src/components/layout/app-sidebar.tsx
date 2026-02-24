@@ -50,7 +50,14 @@ const navGroups: NavGroup[] = [
     title: "Library",
     to: "/library",
     icon: Library,
-    matchPrefixes: ["/", "/search", "/authors", "/books", "/library", "/hardcover"],
+    matchPrefixes: [
+      "/",
+      "/search",
+      "/authors",
+      "/books",
+      "/library",
+      "/hardcover",
+    ],
     children: [
       { title: "Dashboard", to: "/", icon: LayoutDashboard },
       { title: "Search", to: "/search", icon: Search },
@@ -77,7 +84,11 @@ const navGroups: NavGroup[] = [
       { title: "General", to: "/settings/general", icon: Settings },
       { title: "Profiles", to: "/settings/profiles", icon: Sliders },
       { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
-      { title: "Download Clients", to: "/settings/download-clients", icon: Download },
+      {
+        title: "Download Clients",
+        to: "/settings/download-clients",
+        icon: Download,
+      },
       { title: "Indexers", to: "/settings/indexers", icon: Radar },
     ],
   },
@@ -100,13 +111,17 @@ function getActiveGroup(currentPath: string, groups: NavGroup[]): NavGroup {
       .filter((p) => p !== "/")
       .some((prefix) => currentPath.startsWith(prefix)),
   );
-  if (nonRootMatch) {return nonRootMatch;}
+  if (nonRootMatch) {
+    return nonRootMatch;
+  }
 
   // Check exact root match
-  const rootMatch = groups.find((group) =>
-    group.matchPrefixes.includes("/") && currentPath === "/",
+  const rootMatch = groups.find(
+    (group) => group.matchPrefixes.includes("/") && currentPath === "/",
   );
-  if (rootMatch) {return rootMatch;}
+  if (rootMatch) {
+    return rootMatch;
+  }
 
   // Fallback to Library
   return groups[0];

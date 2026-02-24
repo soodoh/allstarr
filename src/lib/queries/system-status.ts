@@ -4,7 +4,12 @@ import { queryOptions } from "@tanstack/react-query";
 import { getSystemStatusFn } from "~/server/system-status";
 import { queryKeys } from "../query-keys";
 
-export type { SystemStatus, HealthCheck, DiskSpaceEntry, SystemAbout } from "~/server/system-status";
+export type {
+  SystemStatus,
+  HealthCheck,
+  DiskSpaceEntry,
+  SystemAbout,
+} from "~/server/system-status";
 
 export const systemStatusQuery = () =>
   queryOptions({
