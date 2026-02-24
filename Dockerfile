@@ -32,14 +32,20 @@ RUN apk add --no-cache python3 make g++
 # Copy Nitro server output
 COPY --from=builder /app/.output ./.output
 
-# Copy production node_modules (includes better-sqlite3 native bindings)
+# Copy production node_modules and rebuild native addons for Node.js
+# (bun compiles better-sqlite3 for its own ABI; we need the Node.js build)
+# Must rebuild in both locations: /app/node_modules (used by seed/drizzle)
+# and .output/server/node_modules (bundled by Nitro for the runtime server)
 COPY --from=builder /app/node_modules ./node_modules
+RUN npm rebuild better-sqlite3 && \
+    cd .output/server && npm rebuild better-sqlite3
 
-# Copy package files and db config for seed script
+# Copy package files, db config, migrations, and seed script
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src/db ./src/db
+COPY --from=builder /app/drizzle ./drizzle
 
 # Copy entrypoint
 COPY scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
