@@ -130,7 +130,7 @@ function AuthorsPage() {
           {paginatedAuthors.map((author) => (
             <AuthorCard
               key={author.id}
-              author={{ ...author, overview: author.overview ?? undefined }}
+              author={{ ...author, overview: author.overview ?? undefined, images: author.images ?? undefined }}
             />
           ))}
         </div>

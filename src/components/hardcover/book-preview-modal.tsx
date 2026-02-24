@@ -89,7 +89,6 @@ function AddBookForm({
           slug: fullAuthor.slug,
           overview: fullAuthor.bio ?? undefined,
           status: fullAuthor.deathYear ? "deceased" : "continuing",
-          monitored,
           qualityProfileId: qualityProfileId
             ? Number.parseInt(qualityProfileId, 10)
             : undefined,

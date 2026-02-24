@@ -17,7 +17,6 @@ type Author = {
   slug?: string | undefined;
   sortName: string;
   status: string;
-  monitored: boolean;
   bookCount: number;
 };
 
@@ -86,7 +85,6 @@ export default function AuthorTable({
             [
               { key: "name", label: "Name" },
               { key: "status", label: "Status" },
-              { key: "monitored", label: "Monitored" },
               { key: "bookCount", label: "Books" },
             ] as Array<{ key: keyof Author; label: string }>
           ).map(({ key, label }) => (
@@ -125,11 +123,6 @@ export default function AuthorTable({
             </TableCell>
             <TableCell>
               <Badge variant="secondary">{author.status}</Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={author.monitored ? "default" : "outline"}>
-                {author.monitored ? "Yes" : "No"}
-              </Badge>
             </TableCell>
             <TableCell>{author.bookCount}</TableCell>
           </TableRow>

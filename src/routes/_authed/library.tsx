@@ -45,9 +45,6 @@ function LibraryPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{authors.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {authors.filter((a) => a.monitored).length} monitored
-            </p>
           </CardContent>
         </Card>
         <Card>

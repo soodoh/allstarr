@@ -46,7 +46,6 @@ const importAuthorSchema = z.object({
   slug: z.string().optional(),
   overview: z.string().nullable().optional(),
   status: z.string().default("continuing"),
-  monitored: z.boolean().default(true),
   qualityProfileId: z.number().nullable().optional(),
   rootFolderPath: z.string().nullable().optional(),
   images: z
@@ -85,7 +84,6 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
           sortName: deriveSortName(data.name),
           overview: data.overview ?? undefined,
           status: data.status,
-          monitored: data.monitored,
           qualityProfileId: data.qualityProfileId ?? undefined,
           rootFolderPath: data.rootFolderPath ?? undefined,
           foreignAuthorId: data.foreignAuthorId,

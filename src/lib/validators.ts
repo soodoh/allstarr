@@ -51,7 +51,6 @@ export const createAuthorSchema = z.object({
   sortName: z.string().min(1),
   overview: z.string().optional(),
   status: z.string().default("continuing"),
-  monitored: z.boolean().default(true),
   qualityProfileId: z.number().optional(),
   rootFolderPath: z.string().optional(),
   foreignAuthorId: z.string().optional(),

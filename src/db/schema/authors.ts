@@ -7,7 +7,6 @@ export const authors = sqliteTable("authors", {
   sortName: text("sort_name").notNull(),
   overview: text("overview"),
   status: text("status").notNull().default("continuing"),
-  monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   qualityProfileId: integer("quality_profile_id").references(
     () => qualityProfiles.id,
   ),

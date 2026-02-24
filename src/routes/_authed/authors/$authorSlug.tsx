@@ -921,7 +921,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
     name: string;
     sortName: string;
     status: string;
-    monitored: boolean;
     qualityProfileId?: number;
     rootFolderPath?: string;
   }) => {
@@ -1133,7 +1132,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                   name: localAuthorDetail.name,
                   sortName: localAuthorDetail.sortName,
                   status: localAuthorDetail.status,
-                  monitored: localAuthorDetail.monitored,
                   qualityProfileId:
                     localAuthorDetail.qualityProfileId || undefined,
                   rootFolderPath: localAuthorDetail.rootFolderPath || undefined,

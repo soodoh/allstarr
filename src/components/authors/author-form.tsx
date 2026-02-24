@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import Input from "~/components/ui/input";
 import Label from "~/components/ui/label";
-import Switch from "~/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -16,7 +15,6 @@ type AuthorFormProps = {
     name: string;
     sortName: string;
     status: string;
-    monitored: boolean;
     qualityProfileId?: number;
     rootFolderPath?: string;
   };
@@ -26,7 +24,6 @@ type AuthorFormProps = {
     name: string;
     sortName: string;
     status: string;
-    monitored: boolean;
     qualityProfileId?: number;
     rootFolderPath?: string;
   }) => void;
@@ -47,7 +44,6 @@ export default function AuthorForm({
   const [name, setName] = useState(initialValues?.name || "");
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
   const [status, setStatus] = useState(initialValues?.status || "continuing");
-  const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
   const [qualityProfileId, setQualityProfileId] = useState<string>(
     initialValues?.qualityProfileId?.toString() || "",
   );
@@ -73,7 +69,6 @@ export default function AuthorForm({
       name,
       sortName,
       status,
-      monitored,
       qualityProfileId: qualityProfileId
         ? Number.parseInt(qualityProfileId, 10)
         : undefined,
@@ -151,15 +146,6 @@ export default function AuthorForm({
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Switch
-          id="monitored"
-          checked={monitored}
-          onCheckedChange={setMonitored}
-        />
-        <Label htmlFor="monitored">Monitored</Label>
       </div>
 
       <div className="flex gap-2">
