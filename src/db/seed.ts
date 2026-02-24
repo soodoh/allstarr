@@ -19,13 +19,13 @@ const defaultQualityDefinitions = [
 const defaultProfile = {
   name: "Any",
   cutoff: 0,
-  items: JSON.stringify([
+  items: [
     { quality: { id: 1, name: "Unknown" }, allowed: true },
     { quality: { id: 2, name: "PDF" }, allowed: true },
     { quality: { id: 3, name: "MOBI" }, allowed: true },
     { quality: { id: 4, name: "EPUB" }, allowed: true },
     { quality: { id: 5, name: "AZW3" }, allowed: true },
-  ]),
+  ],
   upgradeAllowed: false,
 };
 

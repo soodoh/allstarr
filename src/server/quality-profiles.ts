@@ -12,7 +12,14 @@ import {
 export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
-    return db.select().from(qualityProfiles).all();
+    const rows = db.select().from(qualityProfiles).all();
+    // Fix double-stringified items from legacy seed data
+    for (const row of rows) {
+      if (typeof row.items === "string") {
+        row.items = JSON.parse(row.items);
+      }
+    }
+    return rows;
   },
 );
 
@@ -27,6 +34,10 @@ export const getQualityProfileFn = createServerFn({ method: "GET" })
       .get();
     if (!result) {
       throw new Error("Quality profile not found");
+    }
+    // Fix double-stringified items from legacy seed data
+    if (typeof result.items === "string") {
+      result.items = JSON.parse(result.items);
     }
     return result;
   });
