@@ -6,6 +6,10 @@ echo "Allstarr - Starting up..."
 # Ensure data directory exists
 mkdir -p /app/data
 
+# Apply database migrations
+echo "Running database migrations..."
+node_modules/.bin/drizzle-kit migrate
+
 # Run database seed (idempotent — skips if data already exists)
 echo "Seeding database..."
 node --import tsx/esm /app/src/db/seed.ts
