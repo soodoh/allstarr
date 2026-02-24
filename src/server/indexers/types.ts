@@ -17,7 +17,10 @@ export type ProwlarrSearchResult = {
   guid: string;
   title: string;
   size: number;
-  downloadUrl: string;
+  /** Direct download URL. May be absent for torrent results — use magnetUrl instead. */
+  downloadUrl?: string;
+  /** Magnet/torrent download URL, used when downloadUrl is absent (common for public trackers). */
+  magnetUrl?: string;
   infoUrl?: string;
   publishDate?: string;
   indexerId: number;
@@ -48,7 +51,9 @@ export type ReleaseQuality = {
 };
 
 /** Normalized release for the UI, enriched with quality info */
-export type IndexerRelease = ProwlarrSearchResult & {
+export type IndexerRelease = Omit<ProwlarrSearchResult, "downloadUrl" | "magnetUrl"> & {
+  /** Always present: coalesced from downloadUrl ?? magnetUrl at the HTTP layer. */
+  downloadUrl: string;
   allstarrIndexerId: number;
   quality: ReleaseQuality;
   sizeFormatted: string;

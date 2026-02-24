@@ -1,0 +1,23 @@
+# Dev image: bun + native build toolchain pre-installed.
+# Source code is mounted at runtime via a volume — nothing is COPY-ed here.
+# node_modules are persisted in a separate named volume so Linux binaries
+# (better-sqlite3, etc.) don't collide with the macOS host node_modules.
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Install build toolchain required by better-sqlite3 and bun install
+RUN apk add --no-cache curl bash python3 make g++
+
+# Install bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+# Default command: install deps, run migrations/seed, then start Vite dev server.
+# Runs every time the container starts; bun install is fast on subsequent runs
+# because node_modules/ is a persisted volume.
+CMD ["sh", "-c", \
+  "bun install && \
+   node_modules/.bin/drizzle-kit migrate && \
+   node --import tsx/esm /app/src/db/seed.ts && \
+   bun run dev"]

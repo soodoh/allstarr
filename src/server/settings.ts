@@ -42,3 +42,18 @@ export const updateSettingFn = createServerFn({ method: "POST" })
       .run();
     return { success: true };
   });
+
+export const regenerateApiKeyFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAuth();
+    const newKey = crypto.randomUUID();
+    db.insert(settings)
+      .values({ key: "general.apiKey", value: JSON.stringify(newKey) })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: JSON.stringify(newKey) },
+      })
+      .run();
+    return { apiKey: newKey };
+  },
+);
