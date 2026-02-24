@@ -126,11 +126,11 @@ function AuthorsPage() {
       {view === "table" ? (
         <AuthorTable authors={paginatedAuthors} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {paginatedAuthors.map((author) => (
             <AuthorCard
               key={author.id}
-              author={{ ...author, overview: author.overview ?? undefined, images: author.images ?? undefined }}
+              author={{ ...author, images: author.images ?? undefined }}
             />
           ))}
         </div>

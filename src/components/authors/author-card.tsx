@@ -1,6 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Users } from "lucide-react";
 import AuthorPhoto from "~/components/authors/author-photo";
 
 type AuthorCardProps = {
@@ -8,9 +6,7 @@ type AuthorCardProps = {
     id: number;
     name: string;
     slug?: string | undefined;
-    status: string;
     bookCount: number;
-    overview?: string | undefined;
     images?: Array<{ url: string; coverType: string }> | undefined;
   };
 };
@@ -26,37 +22,21 @@ export default function AuthorCard({
     <Link
       to="/authors/$authorSlug"
       params={{ authorSlug: author.slug || String(author.id) }}
-      className="block"
+      className="block group"
     >
-      <Card className="hover:bg-accent/50 transition-colors overflow-hidden">
-        <div className="flex">
-          <div className="w-20 shrink-0">
-            <AuthorPhoto
-              name={author.name}
-              imageUrl={imageUrl}
-              className="h-full w-full max-w-none rounded-none border-0 shadow-none"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base truncate">{author.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {author.overview && (
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                  {author.overview}
-                </p>
-              )}
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Users className="h-3 w-3" />
-                <span>
-                  {author.bookCount} {author.bookCount === 1 ? "book" : "books"}
-                </span>
-              </div>
-            </CardContent>
-          </div>
-        </div>
-      </Card>
+      <div className="flex flex-col items-center gap-2 text-center">
+        <AuthorPhoto
+          name={author.name}
+          imageUrl={imageUrl}
+          className="w-full transition-shadow group-hover:shadow-lg"
+        />
+        <p className="text-sm font-medium leading-tight truncate w-full">
+          {author.name}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {author.bookCount} {author.bookCount === 1 ? "book" : "books"}
+        </p>
+      </div>
     </Link>
   );
 }
