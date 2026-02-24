@@ -104,6 +104,12 @@ export const queryKeys = {
       ["hardcover", "seriesBooks", id, lang] as const,
   },
 
+  // ─── System Status ──────────────────────────────────────────────────────
+  systemStatus: {
+    all: ["systemStatus"] as const,
+    detail: () => ["systemStatus", "detail"] as const,
+  },
+
   // ─── Filesystem ──────────────────────────────────────────────────────────
   filesystem: {
     all: ["filesystem"] as const,
