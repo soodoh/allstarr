@@ -126,8 +126,8 @@ function HistoryPage() {
                   <TableCell>
                     {item.authorId ? (
                       <Link
-                        to="/authors/$authorId"
-                        params={{ authorId: String(item.authorId) }}
+                        to="/authors/$authorSlug"
+                        params={{ authorSlug: item.authorSlug || String(item.authorId) }}
                         className="hover:underline"
                       >
                         {item.authorName || `Author #${item.authorId}`}

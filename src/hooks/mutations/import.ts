@@ -24,6 +24,7 @@ type BookEntry = {
 export type ImportAuthorData = {
   name: string;
   foreignAuthorId: string;
+  slug?: string | undefined;
   overview?: string | undefined;
   status: string;
   monitored: boolean;

@@ -55,6 +55,7 @@ export const createAuthorSchema = z.object({
   qualityProfileId: z.number().optional(),
   rootFolderPath: z.string().optional(),
   foreignAuthorId: z.string().optional(),
+  slug: z.string().optional(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
     .optional(),

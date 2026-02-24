@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import type React from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { searchHardcoverFn } from "~/server/search";
 import type { HardcoverSearchItem, HardcoverSearchMode } from "~/server/search";
+import AuthorPreviewModal from "~/components/hardcover/author-preview-modal";
 
 export const Route = createFileRoute("/_authed/search")({
   component: SearchPage,
@@ -34,6 +35,7 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
   const [error, setError] = useState<string | undefined>(undefined);
+  const [previewAuthor, setPreviewAuthor] = useState<HardcoverSearchItem | undefined>(undefined);
 
   const searchMutation = useMutation({
     mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
@@ -83,7 +85,11 @@ function SearchPage() {
         </p>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           {results.map((result) => (
-            <ResultCard key={`${result.type}-${result.id}`} result={result} />
+            <ResultCard
+              key={`${result.type}-${result.id}`}
+              result={result}
+              onAuthorClick={setPreviewAuthor}
+            />
           ))}
         </div>
       </div>
@@ -150,25 +156,33 @@ function SearchPage() {
       </Card>
 
       {searchResultsContent}
+
+      {previewAuthor && (
+        <AuthorPreviewModal
+          author={previewAuthor}
+          open={Boolean(previewAuthor)}
+          onOpenChange={(open) => { if (!open) {setPreviewAuthor(undefined);} }}
+        />
+      )}
     </div>
   );
 }
 
-function ResultCard({ result }: { result: HardcoverSearchItem }) {
+function ResultCard({
+  result,
+  onAuthorClick,
+}: {
+  result: HardcoverSearchItem;
+  onAuthorClick: (author: HardcoverSearchItem) => void;
+}) {
   const ItemIcon = result.type === "book" ? BookOpen : Users;
-  const authorDetailsLink =
-    result.type === "author" && result.slug
-      ? {
-          to: "/hardcover/authors/$authorSlug" as const,
-          params: { authorSlug: result.slug },
-        }
-      : undefined;
+  const isAuthor = result.type === "author" && Boolean(result.slug);
 
   let actionButton: React.ReactNode = null;
-  if (authorDetailsLink) {
+  if (isAuthor) {
     actionButton = (
-      <Button asChild variant="outline" size="sm">
-        <span>View Author Details</span>
+      <Button variant="outline" size="sm">
+        View Author Details
       </Button>
     );
   } else if (result.hardcoverUrl) {
@@ -184,7 +198,7 @@ function ResultCard({ result }: { result: HardcoverSearchItem }) {
 
   const content = (
     <Card
-      className={`py-0 overflow-hidden ${authorDetailsLink ? "hover:bg-accent/50 transition-colors" : ""}`}
+      className={`py-0 overflow-hidden${isAuthor ? " hover:bg-accent/50 transition-colors cursor-pointer" : ""}`}
     >
       <CardContent className="p-4">
         <div className="flex gap-4">
@@ -230,15 +244,15 @@ function ResultCard({ result }: { result: HardcoverSearchItem }) {
     </Card>
   );
 
-  if (authorDetailsLink) {
+  if (isAuthor) {
     return (
-      <Link
-        to={authorDetailsLink.to}
-        params={authorDetailsLink.params}
-        className="block"
+      <button
+        type="button"
+        className="block w-full text-left"
+        onClick={() => onAuthorClick(result)}
       >
         {content}
-      </Link>
+      </button>
     );
   }
 

@@ -84,8 +84,8 @@ function LibraryPage() {
                     <TableRow key={author.id}>
                       <TableCell>
                         <Link
-                          to="/authors/$authorId"
-                          params={{ authorId: String(author.id) }}
+                          to="/authors/$authorSlug"
+                          params={{ authorSlug: author.slug || String(author.id) }}
                           className="hover:underline"
                         >
                           {author.name}

@@ -7,6 +7,7 @@ type AuthorCardProps = {
   author: {
     id: number;
     name: string;
+    slug?: string | undefined;
     status: string;
     monitored: boolean;
     bookCount: number;
@@ -19,8 +20,8 @@ export default function AuthorCard({
 }: AuthorCardProps): React.JSX.Element {
   return (
     <Link
-      to="/authors/$authorId"
-      params={{ authorId: String(author.id) }}
+      to="/authors/$authorSlug"
+      params={{ authorSlug: author.slug || String(author.id) }}
       className="block"
     >
       <Card className="hover:bg-accent/50 transition-colors">

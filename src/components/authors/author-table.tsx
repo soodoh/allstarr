@@ -1,13 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
-  Pencil,
-  Trash2,
 } from "lucide-react";
-import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
   Table,
@@ -21,6 +18,7 @@ import {
 type Author = {
   id: number;
   name: string;
+  slug?: string | undefined;
   sortName: string;
   status: string;
   monitored: boolean;
@@ -29,13 +27,12 @@ type Author = {
 
 type AuthorTableProps = {
   authors: Author[];
-  onDelete: (id: number) => void;
 };
 
 export default function AuthorTable({
   authors,
-  onDelete,
 }: AuthorTableProps): React.JSX.Element {
+  const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -106,51 +103,41 @@ export default function AuthorTable({
               <SortIcon col={key} />
             </TableHead>
           ))}
-          <TableHead className="w-24">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {sorted.map((author) => (
-          <TableRow key={author.id}>
-            <TableCell>
-              <Link
-                to="/authors/$authorId"
-                params={{ authorId: String(author.id) }}
-                className="font-medium hover:underline"
-              >
-                {author.name}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary">{author.status}</Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={author.monitored ? "default" : "outline"}>
-                {author.monitored ? "Yes" : "No"}
-              </Badge>
-            </TableCell>
-            <TableCell>{author.bookCount}</TableCell>
-            <TableCell>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon" asChild>
-                  <Link
-                    to="/authors/$authorId"
-                    params={{ authorId: String(author.id) }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(author.id)}
+            <TableRow
+              key={author.id}
+              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              onClick={() =>
+                navigate({
+                  to: "/authors/$authorSlug",
+                  params: { authorSlug: author.slug || String(author.id) },
+                })
+              }
+            >
+              <TableCell>
+                <Link
+                  to="/authors/$authorSlug"
+                  params={{ authorSlug: author.slug || String(author.id) }}
+                  className="font-medium hover:underline"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+                  {author.name}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{author.status}</Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={author.monitored ? "default" : "outline"}>
+                  {author.monitored ? "Yes" : "No"}
+                </Badge>
+              </TableCell>
+              <TableCell>{author.bookCount}</TableCell>
+            </TableRow>
+          ))}
       </TableBody>
     </Table>
   );

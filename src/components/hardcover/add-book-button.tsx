@@ -8,6 +8,7 @@ import { useImportHardcoverAuthor, useImportHardcoverBook } from "~/hooks/mutati
 export type AuthorContext = {
   name: string;
   foreignAuthorId: string;
+  slug: string | undefined;
   imageUrl: string | undefined;
   bio: string | undefined;
   deathYear: number | undefined;
@@ -48,6 +49,7 @@ export function BookMonitorToggle({
         const result = await importAuthor.mutateAsync({
           name: authorContext.name,
           foreignAuthorId: authorContext.foreignAuthorId,
+          slug: authorContext.slug,
           overview: authorContext.bio,
           status: authorContext.deathYear ? "deceased" : "continuing",
           monitored: true,
@@ -154,6 +156,7 @@ export function SeriesBookMonitorToggle({
         const result = await importAuthor.mutateAsync({
           name: authorContext.name,
           foreignAuthorId: authorContext.foreignAuthorId,
+          slug: authorContext.slug,
           overview: authorContext.bio,
           status: authorContext.deathYear ? "deceased" : "continuing",
           monitored: true,

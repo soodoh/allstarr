@@ -18,6 +18,7 @@ export type HistoryItem = {
   data: Record<string, unknown> | undefined;
   date: string;
   authorName: string | undefined;
+  authorSlug: string | undefined;
   bookTitle: string | undefined;
 };
 

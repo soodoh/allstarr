@@ -36,8 +36,8 @@ function AddAuthorPage() {
     createAuthor.mutate(values, {
       onSuccess: (author) => {
         navigate({
-          to: "/authors/$authorId",
-          params: { authorId: String(author.id) },
+          to: "/authors/$authorSlug",
+          params: { authorSlug: author.slug || String(author.id) },
         });
       },
     });

@@ -19,6 +19,7 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
         qualityProfileId: authors.qualityProfileId,
         rootFolderPath: authors.rootFolderPath,
         foreignAuthorId: authors.foreignAuthorId,
+        slug: authors.slug,
         images: authors.images,
         tags: authors.tags,
         createdAt: authors.createdAt,

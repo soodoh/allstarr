@@ -242,8 +242,8 @@ function BookDetailPage() {
                 <span className="text-muted-foreground shrink-0">Author</span>
                 {book.authorName && (
                   <Link
-                    to="/authors/$authorId"
-                    params={{ authorId: String(book.authorId) }}
+                    to="/authors/$authorSlug"
+                    params={{ authorSlug: book.authorSlug || String(book.authorId) }}
                     className="hover:underline text-right"
                   >
                     {book.authorName}

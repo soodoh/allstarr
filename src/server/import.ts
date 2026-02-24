@@ -43,6 +43,7 @@ const importBookSchema = z.object({
 const importAuthorSchema = z.object({
   name: z.string().min(1),
   foreignAuthorId: z.string().min(1),
+  slug: z.string().optional(),
   overview: z.string().nullable().optional(),
   status: z.string().default("continuing"),
   monitored: z.boolean().default(true),
@@ -88,6 +89,7 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
           qualityProfileId: data.qualityProfileId ?? undefined,
           rootFolderPath: data.rootFolderPath ?? undefined,
           foreignAuthorId: data.foreignAuthorId,
+          slug: data.slug ?? undefined,
           images: data.images,
         })
         .returning()
