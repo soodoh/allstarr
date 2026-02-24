@@ -8,6 +8,7 @@ import { nitro } from "nitro/vite";
 export default defineConfig({
   server: {
     port: 3000,
+    host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
   },
   plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), nitro(), viteReact()],
 });

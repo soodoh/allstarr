@@ -46,6 +46,10 @@ const defaultSettings = [
     key: "general.logLevel",
     value: JSON.stringify("info"),
   },
+  {
+    key: "general.apiKey",
+    value: JSON.stringify(crypto.randomUUID()),
+  },
 ];
 
 console.log("Seeding database...");

@@ -91,7 +91,7 @@ export async function searchProwlarr(
   config: IndexerConnectionConfig,
   query: string,
   categories: number[] = [7020],
-): Promise<ProwlarrSearchResult[]> {
+): Promise<Array<Omit<ProwlarrSearchResult, "downloadUrl"> & { downloadUrl: string }>> {
   const base = buildBaseUrl(
     config.host,
     config.port,
@@ -119,5 +119,17 @@ export async function searchProwlarr(
     );
   }
 
-  return (await res.json()) as ProwlarrSearchResult[];
+  const raw = (await res.json()) as ProwlarrSearchResult[];
+
+  // Coalesce downloadUrl ?? magnetUrl — Prowlarr returns magnetUrl for many
+  // public torrent trackers and omits downloadUrl entirely.
+  return raw.flatMap((r) => {
+    const url = r.downloadUrl ?? r.magnetUrl;
+    if (!url) {
+      // Skip results with no usable download URL
+      return [];
+    }
+    const { magnetUrl: _mag, ...rest } = r;
+    return [{ ...rest, downloadUrl: url }];
+  });
 }
