@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import Toaster from "~/components/ui/sonner";
+import NotFound from "~/components/NotFound";
 
 import appCss from "~/styles/app.css?url";
 
@@ -22,6 +23,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       links: [{ rel: "stylesheet", href: appCss }],
     }),
     component: RootComponent,
+    notFoundComponent: NotFound,
   },
 );
 

@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { getAuthSessionFn } from "~/server/middleware";
 import AppLayout from "~/components/layout/app-layout";
 import BookDetailModalProvider from "~/components/books/book-detail-modal-provider";
+import NotFound from "~/components/NotFound";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ location }) => {
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_authed")({
     return { session };
   },
   component: AuthedLayout,
+  notFoundComponent: NotFound,
 });
 
 function AuthedLayout() {
