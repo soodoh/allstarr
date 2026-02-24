@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Users } from "lucide-react";
@@ -29,12 +29,7 @@ function AuthorsPage() {
         <EmptyState
           icon={Users}
           title="No authors yet"
-          description="Add your first author to start building your library."
-          action={
-            <Button asChild>
-              <Link to="/add/author">Add Author</Link>
-            </Button>
-          }
+          description="Search Hardcover to add your first author."
         />
       </div>
     );
@@ -63,9 +58,6 @@ function AuthorsPage() {
                 <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
-            <Button asChild>
-              <Link to="/add/author">Add Author</Link>
-            </Button>
           </div>
         }
       />
