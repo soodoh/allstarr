@@ -76,6 +76,11 @@ function DownloadClientsPage() {
     setSelectingImpl(false);
   };
 
+  const handleBackToImplSelect = () => {
+    setSelectedImpl(undefined);
+    setSelectingImpl(true);
+  };
+
   const handleCreate = async (values: DownloadClientFormValues) => {
     setLoading(true);
     try {
@@ -218,7 +223,8 @@ function DownloadClientsPage() {
             <DownloadClientForm
               initialValues={editingInitialValues ?? { implementation: selectedImpl }}
               onSubmit={editing ? handleUpdate : handleCreate}
-              onCancel={handleCloseDialog}
+              onCancel={editing ? handleCloseDialog : handleBackToImplSelect}
+              cancelLabel={editing ? "Cancel" : "Back"}
               loading={loading}
             />
           )}
