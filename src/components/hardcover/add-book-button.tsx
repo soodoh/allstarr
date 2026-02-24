@@ -24,7 +24,7 @@ type BookMonitorToggleProps = {
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
   inLibrary: boolean;
-  onAdded: (foreignBookId: string) => void;
+  onAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 };
 
@@ -43,7 +43,8 @@ export function BookMonitorToggle({
 
   const loading = importAuthor.isPending || importBook.isPending;
 
-  const handleClick = async () => {
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (inLibrary || loading) {
       return;
     }
@@ -68,7 +69,7 @@ export function BookMonitorToggle({
         onAuthorCreated(authorId);
       }
 
-      await importBook.mutateAsync({
+      const importedBook = await importBook.mutateAsync({
         authorId,
         title: book.title,
         foreignBookId: book.id,
@@ -89,7 +90,7 @@ export function BookMonitorToggle({
       });
 
       setInLibrary(true);
-      onAdded(book.id);
+      onAdded(book.id, importedBook.id);
     } catch {
       // Errors are handled by the mutation hooks (toast notifications)
     }
@@ -127,7 +128,7 @@ type SeriesBookMonitorToggleProps = {
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
   inLibrary: boolean;
-  onAdded: (foreignBookId: string) => void;
+  onAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 };
 
@@ -176,7 +177,7 @@ export function SeriesBookMonitorToggle({
         onAuthorCreated(authorId);
       }
 
-      await importBook.mutateAsync({
+      const importedBook = await importBook.mutateAsync({
         authorId,
         title,
         foreignBookId: bookId,
@@ -188,7 +189,7 @@ export function SeriesBookMonitorToggle({
       });
 
       setInLibrary(true);
-      onAdded(bookId);
+      onAdded(bookId, importedBook.id);
     } catch {
       // Errors are handled by the mutation hooks (toast notifications)
     }
