@@ -139,12 +139,50 @@ export const listProwlarrIndexersFn = createServerFn({ method: "POST" })
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
+type SearchSource = {
+  config: {
+    host: string;
+    port: number;
+    useSsl: boolean;
+    urlBase?: string;
+    apiKey: string;
+  };
+  id: number;
+};
+
+/**
+ * Parse a synced indexer's baseUrl (e.g. "http://prowlarr:9696/1/") to extract
+ * the Prowlarr connection config (host, port, ssl).
+ */
+function parseSyncedBaseUrl(
+  baseUrl: string,
+  apiKey: string,
+): SearchSource["config"] | undefined {
+  try {
+    const url = new URL(baseUrl);
+    let port = 80;
+    if (url.port) {
+      port = Number.parseInt(url.port, 10);
+    } else if (url.protocol === "https:") {
+      port = 443;
+    }
+    return {
+      host: url.hostname,
+      port,
+      useSsl: url.protocol === "https:",
+      apiKey,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export const searchIndexersFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => searchIndexersSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
 
-    // Get all enabled indexers sorted by priority (lower number = higher priority)
+    // Get all enabled manual indexers sorted by priority
     const enabledIndexers = db
       .select()
       .from(indexers)
@@ -152,14 +190,51 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       .orderBy(asc(indexers.priority))
       .all();
 
-    if (enabledIndexers.length === 0) {
+    // Also get synced indexers with search enabled
+    const enabledSynced = db
+      .select()
+      .from(syncedIndexers)
+      .where(eq(syncedIndexers.enableSearch, true))
+      .orderBy(asc(syncedIndexers.priority))
+      .all();
+
+    // Build unified search sources, de-duplicating by Prowlarr base (host:port)
+    const searchSources: SearchSource[] = [];
+    const seenBases = new Set<string>();
+
+    for (const ix of enabledIndexers) {
+      const key = `${ix.host}:${ix.port}`;
+      seenBases.add(key);
+      searchSources.push({
+        config: {
+          host: ix.host,
+          port: ix.port,
+          useSsl: ix.useSsl,
+          urlBase: ix.urlBase ?? undefined,
+          apiKey: ix.apiKey,
+        },
+        id: ix.id,
+      });
+    }
+
+    for (const synced of enabledSynced) {
+      if (!synced.apiKey) {continue;}
+      const config = parseSyncedBaseUrl(synced.baseUrl, synced.apiKey);
+      if (!config) {continue;}
+      const key = `${config.host}:${config.port}`;
+      if (seenBases.has(key)) {continue;}
+      seenBases.add(key);
+      searchSources.push({ config, id: synced.id });
+    }
+
+    if (searchSources.length === 0) {
       return [] as IndexerRelease[];
     }
 
     let query = data.query;
 
-    // If bookId provided, build a better query using book + author info
-    if (data.bookId) {
+    // If bookId provided and no explicit query, build a default query from book info
+    if (data.bookId && !data.query) {
       const book = db
         .select({
           title: books.title,
@@ -177,17 +252,11 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
 
     const categories = data.categories ?? [7020];
 
-    // Fan out to all enabled indexers in parallel
+    // Fan out to all search sources in parallel
     const results = await Promise.allSettled(
-      enabledIndexers.map(async (indexer) => {
+      searchSources.map(async ({ config, id }) => {
         const rawResults = await prowlarrHttp.searchProwlarr(
-          {
-            host: indexer.host,
-            port: indexer.port,
-            useSsl: indexer.useSsl,
-            urlBase: indexer.urlBase ?? undefined,
-            apiKey: indexer.apiKey,
-          },
+          config,
           query,
           categories,
         );
@@ -195,13 +264,13 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
         return rawResults.map((r) =>
           enrichRelease({
             ...r,
-            allstarrIndexerId: indexer.id,
+            allstarrIndexerId: id,
           }),
         );
       }),
     );
 
-    // Flatten results, ignore failures
+    // Flatten results, log failures
     const allReleases: IndexerRelease[] = [];
     for (const result of results) {
       if (result.status === "fulfilled") {
