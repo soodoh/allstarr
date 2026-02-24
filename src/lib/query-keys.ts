@@ -16,6 +16,8 @@ export const queryKeys = {
     detail: (id: number) => ["authors", "detail", id] as const,
     existence: (foreignId: string) =>
       ["authors", "existence", foreignId] as const,
+    existenceBySlug: (slug: string) =>
+      ["authors", "existenceBySlug", slug] as const,
   },
 
   // ─── Books ───────────────────────────────────────────────────────────────
