@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import Input from "~/components/ui/input";
 import Label from "~/components/ui/label";
-import Textarea from "~/components/ui/textarea";
 import Switch from "~/components/ui/switch";
 import {
   Select,
@@ -16,7 +15,6 @@ type AuthorFormProps = {
   initialValues?: {
     name: string;
     sortName: string;
-    overview?: string;
     status: string;
     monitored: boolean;
     qualityProfileId?: number;
@@ -27,7 +25,6 @@ type AuthorFormProps = {
   onSubmit: (values: {
     name: string;
     sortName: string;
-    overview?: string;
     status: string;
     monitored: boolean;
     qualityProfileId?: number;
@@ -49,7 +46,6 @@ export default function AuthorForm({
 }: AuthorFormProps): React.JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
-  const [overview, setOverview] = useState(initialValues?.overview || "");
   const [status, setStatus] = useState(initialValues?.status || "continuing");
   const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
   const [qualityProfileId, setQualityProfileId] = useState<string>(
@@ -76,7 +72,6 @@ export default function AuthorForm({
     onSubmit({
       name,
       sortName,
-      overview: overview || undefined,
       status,
       monitored,
       qualityProfileId: qualityProfileId
@@ -109,17 +104,6 @@ export default function AuthorForm({
             required
           />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="overview">Overview</Label>
-        <Textarea
-          id="overview"
-          value={overview}
-          onChange={(e) => setOverview(e.target.value)}
-          placeholder="Author biography..."
-          rows={4}
-        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">

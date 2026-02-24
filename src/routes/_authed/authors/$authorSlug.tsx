@@ -894,7 +894,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const handleUpdate = (values: {
     name: string;
     sortName: string;
-    overview?: string;
     status: string;
     monitored: boolean;
     qualityProfileId?: number;
@@ -1100,7 +1099,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                 initialValues={{
                   name: localAuthorDetail.name,
                   sortName: localAuthorDetail.sortName,
-                  overview: localAuthorDetail.overview || undefined,
                   status: localAuthorDetail.status,
                   monitored: localAuthorDetail.monitored,
                   qualityProfileId: localAuthorDetail.qualityProfileId || undefined,
@@ -1184,7 +1182,6 @@ function LocalAuthorPage({ localId }: { localId: number }) {
   const handleUpdate = (values: {
     name: string;
     sortName: string;
-    overview?: string;
     status: string;
     monitored: boolean;
     qualityProfileId?: number;
@@ -1381,7 +1378,6 @@ function LocalAuthorPage({ localId }: { localId: number }) {
             initialValues={{
               name: author.name,
               sortName: author.sortName,
-              overview: author.overview || undefined,
               status: author.status,
               monitored: author.monitored,
               qualityProfileId: author.qualityProfileId || undefined,

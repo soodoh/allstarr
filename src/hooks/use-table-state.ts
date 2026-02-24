@@ -19,21 +19,25 @@ export type TableState<TData> = {
 type UseTableStateOptions<TData> = {
   data: TData[];
   defaultPageSize?: number;
+  defaultSortColumn?: string;
+  defaultSortDirection?: SortDirection;
   comparators?: Partial<Record<string, (a: TData, b: TData) => number>>;
 };
 
 export function useTableState<TData>({
   data,
   defaultPageSize = 25,
+  defaultSortColumn,
+  defaultSortDirection,
   comparators = {},
 }: UseTableStateOptions<TData>): TableState<TData> {
   const [page, setPageRaw] = useState(1);
   const [pageSize, setPageSizeRaw] = useState(defaultPageSize);
   const [sortColumn, setSortColumnRaw] = useState<string | undefined>(
-    undefined,
+    defaultSortColumn,
   );
   const [sortDirection, setSortDirectionRaw] =
-    useState<SortDirection>(undefined);
+    useState<SortDirection>(defaultSortDirection);
 
   const setPage = (p: number) => setPageRaw(p);
 
