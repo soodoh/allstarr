@@ -3,7 +3,7 @@ import { useState } from "react";
 import type React from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Search, BookOpen, Users, ExternalLink } from "lucide-react";
+import { Search, BookOpen, Users } from "lucide-react";
 import PageHeader from "~/components/shared/page-header";
 import EmptyState from "~/components/shared/empty-state";
 import { Button } from "~/components/ui/button";
@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { searchHardcoverFn } from "~/server/search";
 import type { HardcoverSearchItem, HardcoverSearchMode } from "~/server/search";
 import AuthorPreviewModal from "~/components/hardcover/author-preview-modal";
+import BookPreviewModal from "~/components/hardcover/book-preview-modal";
 
 export const Route = createFileRoute("/_authed/search")({
   component: SearchPage,
@@ -36,6 +37,9 @@ function SearchPage() {
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
   const [error, setError] = useState<string | undefined>(undefined);
   const [previewAuthor, setPreviewAuthor] = useState<
+    HardcoverSearchItem | undefined
+  >(undefined);
+  const [previewBook, setPreviewBook] = useState<
     HardcoverSearchItem | undefined
   >(undefined);
 
@@ -94,6 +98,7 @@ function SearchPage() {
               key={`${result.type}-${result.id}`}
               result={result}
               onAuthorClick={setPreviewAuthor}
+              onBookClick={setPreviewBook}
             />
           ))}
         </div>
@@ -173,6 +178,18 @@ function SearchPage() {
           }}
         />
       )}
+
+      {previewBook && (
+        <BookPreviewModal
+          book={previewBook}
+          open={Boolean(previewBook)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPreviewBook(undefined);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -180,12 +197,16 @@ function SearchPage() {
 function ResultCard({
   result,
   onAuthorClick,
+  onBookClick,
 }: {
   result: HardcoverSearchItem;
   onAuthorClick: (author: HardcoverSearchItem) => void;
+  onBookClick: (book: HardcoverSearchItem) => void;
 }) {
   const ItemIcon = result.type === "book" ? BookOpen : Users;
   const isAuthor = result.type === "author" && Boolean(result.slug);
+  const isBook = result.type === "book";
+  const isClickable = isAuthor || isBook;
 
   let actionButton: React.ReactNode = null;
   if (isAuthor) {
@@ -194,20 +215,17 @@ function ResultCard({
         View Author Details
       </Button>
     );
-  } else if (result.hardcoverUrl) {
+  } else if (isBook) {
     actionButton = (
-      <Button asChild variant="outline" size="sm">
-        <a href={result.hardcoverUrl} target="_blank" rel="noreferrer">
-          <ExternalLink className="h-4 w-4" />
-          View on Hardcover
-        </a>
+      <Button variant="outline" size="sm">
+        View Book Details
       </Button>
     );
   }
 
   const content = (
     <Card
-      className={`py-0 overflow-hidden${isAuthor ? " hover:bg-accent/50 transition-colors cursor-pointer" : ""}`}
+      className={`py-0 overflow-hidden${isClickable ? " hover:bg-accent/50 transition-colors cursor-pointer" : ""}`}
     >
       <CardContent className="p-4">
         <div className="flex gap-4">
@@ -259,6 +277,18 @@ function ResultCard({
         type="button"
         className="block w-full text-left"
         onClick={() => onAuthorClick(result)}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  if (isBook) {
+    return (
+      <button
+        type="button"
+        className="block w-full text-left"
+        onClick={() => onBookClick(result)}
       >
         {content}
       </button>
