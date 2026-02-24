@@ -34,8 +34,12 @@ import PageHeader from "~/components/shared/page-header";
 import BookForm from "~/components/books/book-form";
 import ConfirmDialog from "~/components/shared/confirm-dialog";
 import { DetailSkeleton } from "~/components/shared/loading-skeleton";
+import SearchToolbar from "~/components/indexers/search-toolbar";
+import ReleaseTable from "~/components/indexers/release-table";
 import { getBookFn, updateBookFn, deleteBookFn } from "~/server/books";
 import { getAuthorsFn } from "~/server/authors";
+import { searchIndexersFn, grabReleaseFn } from "~/server/indexers";
+import type { IndexerRelease } from "~/server/indexers/types";
 
 export const Route = createFileRoute("/_authed/books/$bookId")({
   loader: async ({ params }) => {
@@ -57,6 +61,14 @@ function BookDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Search/Grab state
+  const [releases, setReleases] = useState<IndexerRelease[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [grabbingGuid, setGrabbingGuid] = useState<string | undefined>(
+    undefined,
+  );
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleUpdate = async (values: {
     title: string;
@@ -90,6 +102,48 @@ function BookDetailPage() {
       toast.error("Failed to delete book");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearching(true);
+    setReleases([]);
+    setHasSearched(true);
+    try {
+      const results = await searchIndexersFn({
+        data: { query, bookId: book.id },
+      });
+      setReleases(results);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Search failed",
+      );
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleGrab = async (release: IndexerRelease) => {
+    setGrabbingGuid(release.guid);
+    try {
+      const result = await grabReleaseFn({
+        data: {
+          guid: release.guid,
+          indexerId: release.allstarrIndexerId,
+          title: release.title,
+          downloadUrl: release.downloadUrl,
+          protocol: release.protocol,
+          size: release.size,
+          bookId: book.id,
+        },
+      });
+      toast.success(`Sent to ${result.downloadClientName}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to grab release",
+      );
+    } finally {
+      setGrabbingGuid(undefined);
     }
   };
 
@@ -180,6 +234,29 @@ function BookDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Search Releases</CardTitle>
+              <CardDescription>
+                Find releases via your configured indexers
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <SearchToolbar
+                defaultQuery={`${book.authorName ? `${book.authorName} ` : ""}${book.title}`}
+                onSearch={handleSearch}
+                searching={searching}
+              />
+              {hasSearched && (
+                <ReleaseTable
+                  releases={releases}
+                  grabbingGuid={grabbingGuid}
+                  onGrab={handleGrab}
+                />
               )}
             </CardContent>
           </Card>
