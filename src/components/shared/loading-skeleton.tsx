@@ -146,6 +146,65 @@ export function HardcoverAuthorSkeleton(): React.JSX.Element {
   );
 }
 
+export function SystemStatusSkeleton(): React.JSX.Element {
+  return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      {/* Health card */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-24" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      {/* Disk space card */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-28" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="space-y-1">
+              <div className="flex justify-between">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      {/* About card */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-16" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} className="flex justify-between gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function DetailSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-6">

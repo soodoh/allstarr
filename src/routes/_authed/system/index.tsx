@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { History } from "lucide-react";
+import { Activity, History } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -14,6 +14,13 @@ export const Route = createFileRoute("/_authed/system/")({
 });
 
 const systemItems = [
+  {
+    title: "Status",
+    to: "/system/status" as const,
+    icon: Activity,
+    description:
+      "Health checks, disk space, and system information at a glance.",
+  },
   {
     title: "History",
     to: "/history" as const,

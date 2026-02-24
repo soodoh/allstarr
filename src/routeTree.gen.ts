@@ -22,6 +22,7 @@ import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/ind
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as AuthedAddIndexRouteImport } from './routes/_authed/add/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
@@ -100,6 +101,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
+  id: '/system/status',
+  path: '/system/status',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsRootFoldersRoute =
   AuthedSettingsRootFoldersRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
+  '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/add/': typeof AuthedAddIndexRoute
   '/authors/': typeof AuthedAuthorsIndexRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
+  '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/add': typeof AuthedAddIndexRoute
   '/authors': typeof AuthedAuthorsIndexRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
+  '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/add/': typeof AuthedAddIndexRoute
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | '/settings/indexers'
     | '/settings/profiles'
     | '/settings/root-folders'
+    | '/system/status'
     | '/api/auth/$'
     | '/add/'
     | '/authors/'
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/settings/indexers'
     | '/settings/profiles'
     | '/settings/root-folders'
+    | '/system/status'
     | '/api/auth/$'
     | '/add'
     | '/authors'
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/indexers'
     | '/_authed/settings/profiles'
     | '/_authed/settings/root-folders'
+    | '/_authed/system/status'
     | '/api/auth/$'
     | '/_authed/add/'
     | '/_authed/authors/'
@@ -453,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/system/status': {
+      id: '/_authed/system/status'
+      path: '/system/status'
+      fullPath: '/system/status'
+      preLoaderRoute: typeof AuthedSystemStatusRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/root-folders': {
       id: '/_authed/settings/root-folders'
       path: '/settings/root-folders'
@@ -568,6 +587,7 @@ interface AuthedRouteChildren {
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
+  AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedAddIndexRoute: typeof AuthedAddIndexRoute
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
@@ -589,6 +609,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
+  AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedAddIndexRoute: AuthedAddIndexRoute,
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
