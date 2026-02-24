@@ -10,6 +10,9 @@ export default defineConfig({
     port: 3000,
     host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
     allowedHosts: ["allstarr"], // allow Prowlarr (via gluetun Docker network) to reach this dev server
+    watch: {
+      usePolling: true, // macOS bind mounts don't propagate inotify events to Docker
+    },
   },
   plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), nitro(), viteReact()],
 });
