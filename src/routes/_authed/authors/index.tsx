@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Users } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import PageHeader from "~/components/shared/page-header";
@@ -9,36 +9,28 @@ import AuthorCard from "~/components/authors/author-card";
 import ConfirmDialog from "~/components/shared/confirm-dialog";
 import EmptyState from "~/components/shared/empty-state";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { getAuthorsFn, deleteAuthorFn } from "~/server/authors";
+import { authorsListQuery } from "~/lib/queries";
+import { useDeleteAuthor } from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/authors/")({
-  loader: () => getAuthorsFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(authorsListQuery()),
   component: AuthorsPage,
   pendingComponent: TableSkeleton,
 });
 
 function AuthorsPage() {
-  const authors = Route.useLoaderData();
-  const router = useRouter();
+  const { data: authors } = useSuspenseQuery(authorsListQuery());
+  const deleteAuthor = useDeleteAuthor();
+
   const [view, setView] = useState<"table" | "grid">("table");
   const [deleteId, setDeleteId] = useState<number | undefined>(undefined);
-  const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = async () => {
-    if (!deleteId) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await deleteAuthorFn({ data: { id: deleteId } });
-      toast.success("Author deleted");
-      setDeleteId(undefined);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to delete author");
-    } finally {
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    if (!deleteId) {return;}
+    deleteAuthor.mutate(deleteId, {
+      onSuccess: () => setDeleteId(undefined),
+    });
   };
 
   if (authors.length === 0) {
@@ -94,7 +86,10 @@ function AuthorsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {authors.map((author) => (
-            <AuthorCard key={author.id} author={author} />
+            <AuthorCard
+              key={author.id}
+              author={{ ...author, overview: author.overview ?? undefined }}
+            />
           ))}
         </div>
       )}
@@ -105,7 +100,7 @@ function AuthorsPage() {
         title="Delete Author"
         description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
         onConfirm={handleDelete}
-        loading={deleting}
+        loading={deleteAuthor.isPending}
       />
     </div>
   );

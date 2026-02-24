@@ -1,6 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { FolderOpen, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
@@ -13,14 +13,12 @@ import {
 } from "~/components/ui/table";
 import PageHeader from "~/components/shared/page-header";
 import DirectoryBrowserDialog from "~/components/shared/directory-browser-dialog";
-import {
-  getRootFoldersFn,
-  createRootFolderFn,
-  deleteRootFolderFn,
-} from "~/server/root-folders";
+import { rootFoldersListQuery } from "~/lib/queries";
+import { useCreateRootFolder, useDeleteRootFolder } from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/root-folders")({
-  loader: () => getRootFoldersFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(rootFoldersListQuery()),
   component: RootFoldersPage,
 });
 
@@ -33,8 +31,10 @@ function formatBytes(bytes: number | undefined) {
 }
 
 function RootFoldersPage() {
-  const folders = Route.useLoaderData();
-  const router = useRouter();
+  const { data: folders } = useSuspenseQuery(rootFoldersListQuery());
+  const createRootFolder = useCreateRootFolder();
+  const deleteRootFolder = useDeleteRootFolder();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [browseDialogOpen, setBrowseDialogOpen] = useState(false);
   const [browseInitialPath, setBrowseInitialPath] = useState("/");
@@ -44,25 +44,14 @@ function RootFoldersPage() {
     setBrowseDialogOpen(true);
   };
 
-  const handleSelect = async (path: string) => {
-    try {
-      await createRootFolderFn({ data: { path } });
-      toast.success("Root folder added");
-      setDialogOpen(false);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to add root folder");
-    }
+  const handleSelect = (path: string) => {
+    createRootFolder.mutate(path, {
+      onSuccess: () => setDialogOpen(false),
+    });
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteRootFolderFn({ data: { id } });
-      toast.success("Root folder removed");
-      router.invalidate();
-    } catch {
-      toast.error("Failed to remove root folder");
-    }
+  const handleDelete = (id: number) => {
+    deleteRootFolder.mutate(id);
   };
 
   return (
@@ -107,13 +96,14 @@ function RootFoldersPage() {
                   <TableCell className="font-mono text-sm">
                     {folder.path}
                   </TableCell>
-                  <TableCell>{formatBytes(folder.freeSpace)}</TableCell>
-                  <TableCell>{formatBytes(folder.totalSpace)}</TableCell>
+                  <TableCell>{formatBytes(folder.freeSpace ?? undefined)}</TableCell>
+                  <TableCell>{formatBytes(folder.totalSpace ?? undefined)}</TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(folder.id)}
+                      disabled={deleteRootFolder.isPending}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

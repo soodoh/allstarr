@@ -1,6 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -12,37 +12,50 @@ import PageHeader from "~/components/shared/page-header";
 import IndexerList from "~/components/indexers/indexer-list";
 import IndexerForm from "~/components/indexers/indexer-form";
 import type { IndexerFormValues } from "~/components/indexers/indexer-form";
+import { indexersListQuery } from "~/lib/queries";
 import {
-  getIndexersFn,
-  createIndexerFn,
-  updateIndexerFn,
-  deleteIndexerFn,
-} from "~/server/indexers";
+  useCreateIndexer,
+  useUpdateIndexer,
+  useDeleteIndexer,
+} from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/indexers")({
-  loader: async () => {
-    return getIndexersFn();
-  },
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(indexersListQuery()),
   component: IndexersPage,
 });
 
 function IndexersPage() {
-  const indexersList = Route.useLoaderData();
-  const router = useRouter();
+  const { data: indexersList } = useSuspenseQuery(indexersListQuery());
+
+  const createIndexer = useCreateIndexer();
+  const updateIndexer = useUpdateIndexer();
+  const deleteIndexer = useDeleteIndexer();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<
     (typeof indexersList)[number] | undefined
   >(undefined);
-  const [loading, setLoading] = useState(false);
+
+  const loading = createIndexer.isPending || updateIndexer.isPending;
 
   const handleOpenAdd = () => {
     setEditing(undefined);
     setDialogOpen(true);
   };
 
-  const handleEdit = (indexer: (typeof indexersList)[number]) => {
-    setEditing(indexer);
+  const handleEdit = (indexer: {
+    id: number;
+    name: string;
+    host: string;
+    port: number;
+    priority: number;
+    enabled: boolean;
+  }) => {
+    // Find the full indexer from the list to include all fields (e.g., apiKey)
+    const fullIndexer = indexersList.find((i) => i.id === indexer.id);
+    if (!fullIndexer) {return;}
+    setEditing(fullIndexer);
     setDialogOpen(true);
   };
 
@@ -51,66 +64,42 @@ function IndexersPage() {
     setEditing(undefined);
   };
 
-  const handleCreate = async (values: IndexerFormValues) => {
-    setLoading(true);
-    try {
-      await createIndexerFn({
-        data: {
-          name: values.name,
-          enabled: values.enabled,
-          priority: values.priority,
-          host: values.host,
-          port: values.port,
-          useSsl: values.useSsl,
-          urlBase: values.urlBase || undefined,
-          apiKey: values.apiKey,
-        },
-      });
-      toast.success("Indexer added");
-      handleCloseDialog();
-      router.invalidate();
-    } catch {
-      toast.error("Failed to add indexer");
-    } finally {
-      setLoading(false);
-    }
+  const handleCreate = (values: IndexerFormValues) => {
+    createIndexer.mutate(
+      {
+        name: values.name,
+        enabled: values.enabled,
+        priority: values.priority,
+        host: values.host,
+        port: values.port,
+        useSsl: values.useSsl,
+        urlBase: values.urlBase || undefined,
+        apiKey: values.apiKey,
+      },
+      { onSuccess: handleCloseDialog },
+    );
   };
 
-  const handleUpdate = async (values: IndexerFormValues) => {
+  const handleUpdate = (values: IndexerFormValues) => {
     if (!editing) {return;}
-    setLoading(true);
-    try {
-      await updateIndexerFn({
-        data: {
-          id: editing.id,
-          name: values.name,
-          enabled: values.enabled,
-          priority: values.priority,
-          host: values.host,
-          port: values.port,
-          useSsl: values.useSsl,
-          urlBase: values.urlBase || undefined,
-          apiKey: values.apiKey,
-        },
-      });
-      toast.success("Indexer updated");
-      handleCloseDialog();
-      router.invalidate();
-    } catch {
-      toast.error("Failed to update indexer");
-    } finally {
-      setLoading(false);
-    }
+    updateIndexer.mutate(
+      {
+        id: editing.id,
+        name: values.name,
+        enabled: values.enabled,
+        priority: values.priority,
+        host: values.host,
+        port: values.port,
+        useSsl: values.useSsl,
+        urlBase: values.urlBase || undefined,
+        apiKey: values.apiKey,
+      },
+      { onSuccess: handleCloseDialog },
+    );
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteIndexerFn({ data: { id } });
-      toast.success("Indexer deleted");
-      router.invalidate();
-    } catch {
-      toast.error("Failed to delete indexer");
-    }
+  const handleDelete = (id: number) => {
+    deleteIndexer.mutate(id);
   };
 
   const editingInitialValues = editing

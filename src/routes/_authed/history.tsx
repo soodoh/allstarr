@@ -1,5 +1,6 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -19,10 +20,12 @@ import {
 } from "~/components/ui/table";
 import PageHeader from "~/components/shared/page-header";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { getHistoryFn } from "~/server/history";
+import { historyListQuery } from '~/lib/queries';
+import type { HistoryResult } from '~/lib/queries';
 
 export const Route = createFileRoute("/_authed/history")({
-  loader: () => getHistoryFn({ data: {} }),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(historyListQuery()),
   component: HistoryPage,
   pendingComponent: TableSkeleton,
 });
@@ -49,24 +52,24 @@ const eventTypeVariants: Record<
 };
 
 function HistoryPage() {
-  const data = Route.useLoaderData();
-  const router = useRouter();
   const [eventType, setEventType] = useState<string>("all");
   const [page, setPage] = useState(1);
 
-  const handleFilterChange = async (value: string) => {
+  // Derive query params from UI state — changing them triggers a fresh fetch
+  // (or cache hit if the same params were used recently)
+  const queryParams: { page: number; eventType?: string } =
+    eventType === "all"
+      ? { page }
+      : { page, eventType };
+
+  const queryResult = useSuspenseQuery(historyListQuery(queryParams));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedData = queryResult.data as unknown as HistoryResult;
+
+  const handleFilterChange = (value: string) => {
     setEventType(value);
     setPage(1);
-    router.invalidate();
   };
-
-  const currentData =
-    eventType === "all"
-      ? data
-      : {
-          ...data,
-          items: data.items.filter((item) => item.eventType === eventType),
-        };
 
   return (
     <div>
@@ -91,7 +94,7 @@ function HistoryPage() {
         }
       />
 
-      {currentData.items.length === 0 ? (
+      {typedData.items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           No history events found.
         </div>
@@ -108,7 +111,7 @@ function HistoryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentData.items.map((item) => (
+              {typedData.items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-sm">
                     {new Date(item.date).toLocaleString()}
@@ -158,7 +161,7 @@ function HistoryPage() {
             </TableBody>
           </Table>
 
-          {data.totalPages > 1 && (
+          {typedData.totalPages > 1 && (
             <div className="flex justify-center gap-2 mt-4">
               <Button
                 variant="outline"
@@ -169,12 +172,12 @@ function HistoryPage() {
                 Previous
               </Button>
               <span className="flex items-center text-sm text-muted-foreground">
-                Page {page} of {data.totalPages}
+                Page {page} of {typedData.totalPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page >= data.totalPages}
+                disabled={page >= typedData.totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Next

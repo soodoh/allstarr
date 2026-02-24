@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import Input from "~/components/ui/input";
@@ -77,16 +78,9 @@ export default function IndexerForm({
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? "");
   const [priority, setPriority] = useState(initialValues?.priority ?? 25);
 
-  const [testResult, setTestResult] = useState<TestResult | undefined>(
-    undefined,
-  );
-  const [testing, setTesting] = useState(false);
-
-  const handleTest = async () => {
-    setTesting(true);
-    setTestResult(undefined);
-    try {
-      const result = await testIndexerFn({
+  const testMutation = useMutation({
+    mutationFn: () =>
+      testIndexerFn({
         data: {
           host,
           port,
@@ -94,18 +88,8 @@ export default function IndexerForm({
           urlBase: urlBase || undefined,
           apiKey,
         },
-      });
-      setTestResult(result);
-    } catch (error) {
-      setTestResult({
-        success: false,
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
-      });
-    } finally {
-      setTesting(false);
-    }
-  };
+      }),
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,13 +189,26 @@ export default function IndexerForm({
         <Button
           type="button"
           variant="outline"
-          onClick={handleTest}
-          disabled={testing || !apiKey}
+          onClick={() => testMutation.mutate()}
+          disabled={testMutation.isPending || !apiKey}
         >
-          {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {testMutation.isPending && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
           Test Connection
         </Button>
-        {testResult && <TestResultBanner result={testResult} />}
+        {testMutation.data && <TestResultBanner result={testMutation.data} />}
+        {testMutation.error && (
+          <TestResultBanner
+            result={{
+              success: false,
+              message:
+                testMutation.error instanceof Error
+                  ? testMutation.error.message
+                  : "Unknown error occurred",
+            }}
+          />
+        )}
       </div>
 
       {/* Actions */}

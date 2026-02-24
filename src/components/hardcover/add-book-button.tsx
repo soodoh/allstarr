@@ -1,13 +1,9 @@
 import type React from "react";
 import { useState } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "~/lib/utils";
-import {
-  importHardcoverAuthorFn,
-  importHardcoverBookFn,
-} from "~/server/import";
 import type { HardcoverAuthorBook } from "~/server/search";
+import { useImportHardcoverAuthor, useImportHardcoverBook } from "~/hooks/mutations";
 
 export type AuthorContext = {
   name: string;
@@ -18,37 +14,6 @@ export type AuthorContext = {
   qualityProfileId: number | undefined;
   rootFolderPath: string | undefined;
 };
-
-// Ensures the author exists in the local library, creating it if needed.
-// Returns the local author id.
-async function ensureAuthor(
-  authorContext: AuthorContext,
-  localAuthorId: number | undefined,
-  onAuthorCreated: (id: number) => void,
-): Promise<number> {
-  if (localAuthorId !== undefined) {
-    return localAuthorId;
-  }
-
-  const result = await importHardcoverAuthorFn({
-    data: {
-      name: authorContext.name,
-      foreignAuthorId: authorContext.foreignAuthorId,
-      overview: authorContext.bio ?? undefined,
-      status: authorContext.deathYear ? "deceased" : "continuing",
-      monitored: true,
-      qualityProfileId: authorContext.qualityProfileId,
-      rootFolderPath: authorContext.rootFolderPath,
-      images: authorContext.imageUrl
-        ? [{ url: authorContext.imageUrl, coverType: "poster" }]
-        : undefined,
-      books: [],
-    },
-  });
-
-  onAuthorCreated(result.authorId);
-  return result.authorId;
-}
 
 type BookMonitorToggleProps = {
   book: HardcoverAuthorBook;
@@ -68,51 +33,59 @@ export function BookMonitorToggle({
   onAuthorCreated,
 }: BookMonitorToggleProps): React.JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
-  const [loading, setLoading] = useState(false);
+
+  const importAuthor = useImportHardcoverAuthor();
+  const importBook = useImportHardcoverBook();
+
+  const loading = importAuthor.isPending || importBook.isPending;
 
   const handleClick = async () => {
-    if (inLibrary || loading) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const authorId = await ensureAuthor(
-        authorContext,
-        localAuthorId,
-        onAuthorCreated,
-      );
+    if (inLibrary || loading) {return;}
 
-      await importHardcoverBookFn({
-        data: {
-          authorId,
-          title: book.title,
-          foreignBookId: book.id,
-          releaseDate: book.releaseDate ?? undefined,
+    try {
+      let authorId = localAuthorId;
+      if (authorId === undefined) {
+        const result = await importAuthor.mutateAsync({
+          name: authorContext.name,
+          foreignAuthorId: authorContext.foreignAuthorId,
+          overview: authorContext.bio,
+          status: authorContext.deathYear ? "deceased" : "continuing",
           monitored: true,
-          images: book.coverUrl
-            ? [{ url: book.coverUrl, coverType: "cover" }]
+          qualityProfileId: authorContext.qualityProfileId,
+          rootFolderPath: authorContext.rootFolderPath,
+          images: authorContext.imageUrl
+            ? [{ url: authorContext.imageUrl, coverType: "poster" }]
             : undefined,
-          ratings:
-            book.rating === undefined
-              ? undefined
-              : { value: book.rating, votes: 0 },
-          series: book.series.map((s) => ({
-            foreignSeriesId: s.id,
-            title: s.title,
-            position: s.position,
-          })),
-        },
+          books: [],
+        });
+        authorId = result.authorId;
+        onAuthorCreated(authorId);
+      }
+
+      await importBook.mutateAsync({
+        authorId,
+        title: book.title,
+        foreignBookId: book.id,
+        releaseDate: book.releaseDate ?? undefined,
+        monitored: true,
+        images: book.coverUrl
+          ? [{ url: book.coverUrl, coverType: "cover" }]
+          : undefined,
+        ratings:
+          book.rating === undefined
+            ? undefined
+            : { value: book.rating, votes: 0 },
+        series: book.series.map((s) => ({
+          foreignSeriesId: s.id,
+          title: s.title,
+          position: s.position,
+        })),
       });
 
       setInLibrary(true);
       onAdded(book.id);
-      toast.success(`"${book.title}" added to library.`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to add book.",
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      // Errors are handled by the mutation hooks (toast notifications)
     }
   };
 
@@ -165,46 +138,54 @@ export function SeriesBookMonitorToggle({
   onAuthorCreated,
 }: SeriesBookMonitorToggleProps): React.JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
-  const [loading, setLoading] = useState(false);
+
+  const importAuthor = useImportHardcoverAuthor();
+  const importBook = useImportHardcoverBook();
+
+  const loading = importAuthor.isPending || importBook.isPending;
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation(); // don't collapse the series row
-    if (inLibrary || loading) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const authorId = await ensureAuthor(
-        authorContext,
-        localAuthorId,
-        onAuthorCreated,
-      );
+    if (inLibrary || loading) {return;}
 
-      await importHardcoverBookFn({
-        data: {
-          authorId,
-          title,
-          foreignBookId: bookId,
-          releaseDate: releaseYear ? `${releaseYear}-01-01` : undefined,
+    try {
+      let authorId = localAuthorId;
+      if (authorId === undefined) {
+        const result = await importAuthor.mutateAsync({
+          name: authorContext.name,
+          foreignAuthorId: authorContext.foreignAuthorId,
+          overview: authorContext.bio,
+          status: authorContext.deathYear ? "deceased" : "continuing",
           monitored: true,
-          images: coverUrl
-            ? [{ url: coverUrl, coverType: "cover" }]
+          qualityProfileId: authorContext.qualityProfileId,
+          rootFolderPath: authorContext.rootFolderPath,
+          images: authorContext.imageUrl
+            ? [{ url: authorContext.imageUrl, coverType: "poster" }]
             : undefined,
-          ratings:
-            rating === undefined ? undefined : { value: rating, votes: 0 },
-          series: [],
-        },
+          books: [],
+        });
+        authorId = result.authorId;
+        onAuthorCreated(authorId);
+      }
+
+      await importBook.mutateAsync({
+        authorId,
+        title,
+        foreignBookId: bookId,
+        releaseDate: releaseYear ? `${releaseYear}-01-01` : undefined,
+        monitored: true,
+        images: coverUrl
+          ? [{ url: coverUrl, coverType: "cover" }]
+          : undefined,
+        ratings:
+          rating === undefined ? undefined : { value: rating, votes: 0 },
+        series: [],
       });
 
       setInLibrary(true);
       onAdded(bookId);
-      toast.success(`"${title}" added to library.`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to add book.",
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      // Errors are handled by the mutation hooks (toast notifications)
     }
   };
 

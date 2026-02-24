@@ -2,9 +2,9 @@ import {
   createFileRoute,
   Link,
   useNavigate,
-  useRouter,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -36,41 +36,45 @@ import ConfirmDialog from "~/components/shared/confirm-dialog";
 import { DetailSkeleton } from "~/components/shared/loading-skeleton";
 import SearchToolbar from "~/components/indexers/search-toolbar";
 import ReleaseTable from "~/components/indexers/release-table";
-import { getBookFn, updateBookFn, deleteBookFn } from "~/server/books";
-import { getAuthorsFn } from "~/server/authors";
-import { searchIndexersFn, grabReleaseFn } from "~/server/indexers";
+import { bookDetailQuery, authorsListQuery } from "~/lib/queries";
+import { useUpdateBook, useDeleteBook, useSearchIndexers, useGrabRelease } from "~/hooks/mutations";
 import type { IndexerRelease } from "~/server/indexers/types";
 
 export const Route = createFileRoute("/_authed/books/$bookId")({
-  loader: async ({ params }) => {
-    const [book, authors] = await Promise.all([
-      getBookFn({ data: { id: Number.parseInt(params.bookId, 10) } }),
-      getAuthorsFn(),
+  loader: async ({ params, context }) => {
+    const id = Number.parseInt(params.bookId, 10);
+    await Promise.all([
+      context.queryClient.ensureQueryData(bookDetailQuery(id)),
+      context.queryClient.ensureQueryData(authorsListQuery()),
     ]);
-    return { book, authors };
   },
   component: BookDetailPage,
   pendingComponent: DetailSkeleton,
 });
 
 function BookDetailPage() {
-  const { book, authors } = Route.useLoaderData();
-  const router = useRouter();
+  const params = Route.useParams();
+  const bookId = Number.parseInt(params.bookId, 10);
   const navigate = useNavigate();
+
+  const { data: book } = useSuspenseQuery(bookDetailQuery(bookId));
+  const { data: authors } = useSuspenseQuery(authorsListQuery());
+
+  const updateBook = useUpdateBook();
+  const deleteBook = useDeleteBook();
+  const searchIndexers = useSearchIndexers();
+  const grabRelease = useGrabRelease();
+
+  const releases = useMemo(
+    () => searchIndexers.data ?? [],
+    [searchIndexers.data],
+  );
+
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  // Search/Grab state
-  const [releases, setReleases] = useState<IndexerRelease[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [grabbingGuid, setGrabbingGuid] = useState<string | undefined>(
-    undefined,
-  );
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleUpdate = async (values: {
+  const handleUpdate = (values: {
     title: string;
     authorId: number;
     overview?: string;
@@ -79,72 +83,38 @@ function BookDetailPage() {
     releaseDate?: string;
     monitored: boolean;
   }) => {
-    setLoading(true);
-    try {
-      await updateBookFn({ data: { ...values, id: book.id } });
-      toast.success("Book updated");
-      setEditOpen(false);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to update book");
-    } finally {
-      setLoading(false);
-    }
+    updateBook.mutate(
+      { ...values, id: book.id },
+      { onSuccess: () => setEditOpen(false) },
+    );
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteBookFn({ data: { id: book.id } });
-      toast.success("Book deleted");
-      navigate({ to: "/books" });
-    } catch {
-      toast.error("Failed to delete book");
-    } finally {
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    deleteBook.mutate(book.id, {
+      onSuccess: () => navigate({ to: "/books" }),
+    });
   };
 
-  const handleSearch = async (query: string) => {
-    setSearching(true);
-    setReleases([]);
+  const handleSearch = (query: string) => {
     setHasSearched(true);
-    try {
-      const results = await searchIndexersFn({
-        data: { query, bookId: book.id },
-      });
-      setReleases(results);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Search failed",
-      );
-    } finally {
-      setSearching(false);
-    }
+    searchIndexers.mutate({ query, bookId: book.id });
   };
 
-  const handleGrab = async (release: IndexerRelease) => {
-    setGrabbingGuid(release.guid);
-    try {
-      const result = await grabReleaseFn({
-        data: {
-          guid: release.guid,
-          indexerId: release.allstarrIndexerId,
-          title: release.title,
-          downloadUrl: release.downloadUrl,
-          protocol: release.protocol,
-          size: release.size,
-          bookId: book.id,
-        },
-      });
-      toast.success(`Sent to ${result.downloadClientName}`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to grab release",
-      );
-    } finally {
-      setGrabbingGuid(undefined);
-    }
+  const handleGrab = (release: IndexerRelease) => {
+    grabRelease.mutate(
+      {
+        guid: release.guid,
+        indexerId: release.allstarrIndexerId,
+        title: release.title,
+        downloadUrl: release.downloadUrl,
+        protocol: release.protocol,
+        size: release.size,
+        bookId: book.id,
+      },
+      {
+        onSuccess: (result) => toast.success(`Sent to ${result.downloadClientName}`),
+      },
+    );
   };
 
   return (
@@ -249,12 +219,12 @@ function BookDetailPage() {
               <SearchToolbar
                 defaultQuery={`${book.authorName ? `${book.authorName} ` : ""}${book.title}`}
                 onSearch={handleSearch}
-                searching={searching}
+                searching={searchIndexers.isPending}
               />
               {hasSearched && (
                 <ReleaseTable
                   releases={releases}
-                  grabbingGuid={grabbingGuid}
+                  grabbingGuid={grabRelease.isPending ? grabRelease.variables?.guid : undefined}
                   onGrab={handleGrab}
                 />
               )}
@@ -333,7 +303,7 @@ function BookDetailPage() {
             authors={authors}
             onSubmit={handleUpdate}
             onCancel={() => setEditOpen(false)}
-            loading={loading}
+            loading={updateBook.isPending}
           />
         </DialogContent>
       </Dialog>
@@ -344,7 +314,7 @@ function BookDetailPage() {
         title="Delete Book"
         description="Are you sure you want to delete this book? This cannot be undone."
         onConfirm={handleDelete}
-        loading={deleting}
+        loading={deleteBook.isPending}
       />
     </div>
   );

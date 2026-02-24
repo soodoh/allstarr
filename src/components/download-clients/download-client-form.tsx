@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import Input from "~/components/ui/input";
@@ -309,16 +310,9 @@ export default function DownloadClientForm({
   const [watchFolder, setWatchFolder] = useState(initialValues?.watchFolder ?? "");
   const [priority, setPriority] = useState(initialValues?.priority ?? 1);
 
-  const [testResult, setTestResult] = useState<TestResult | undefined>(undefined);
-  const [testing, setTesting] = useState(false);
-
-  const { fields, hideHostPort } = clientConfig;
-
-  const handleTest = async () => {
-    setTesting(true);
-    setTestResult(undefined);
-    try {
-      const result = await testDownloadClientFn({
+  const testMutation = useMutation({
+    mutationFn: () =>
+      testDownloadClientFn({
         data: {
           implementation: impl,
           host: hideHostPort ? "localhost" : host,
@@ -330,17 +324,10 @@ export default function DownloadClientForm({
           apiKey: apiKey || undefined,
           ...(impl === "Blackhole" ? { settings: { watchFolder } } : {}),
         },
-      });
-      setTestResult(result);
-    } catch (error) {
-      setTestResult({
-        success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred",
-      });
-    } finally {
-      setTesting(false);
-    }
-  };
+      }),
+  });
+
+  const { fields, hideHostPort } = clientConfig;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,13 +424,26 @@ export default function DownloadClientForm({
         <Button
           type="button"
           variant="outline"
-          onClick={handleTest}
-          disabled={testing}
+          onClick={() => testMutation.mutate()}
+          disabled={testMutation.isPending}
         >
-          {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {testMutation.isPending && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
           Test Connection
         </Button>
-        {testResult && <TestResultBanner result={testResult} />}
+        {testMutation.data && <TestResultBanner result={testMutation.data} />}
+        {testMutation.error && (
+          <TestResultBanner
+            result={{
+              success: false,
+              message:
+                testMutation.error instanceof Error
+                  ? testMutation.error.message
+                  : "Unknown error occurred",
+            }}
+          />
+        )}
       </div>
 
       {/* Actions */}

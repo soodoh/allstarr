@@ -1,6 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -10,15 +10,15 @@ import {
 } from "~/components/ui/dialog";
 import PageHeader from "~/components/shared/page-header";
 import DownloadClientList from "~/components/download-clients/download-client-list";
-import DownloadClientForm from '~/components/download-clients/download-client-form';
-import type { DownloadClientFormValues } from '~/components/download-clients/download-client-form';
+import DownloadClientForm from "~/components/download-clients/download-client-form";
+import type { DownloadClientFormValues } from "~/components/download-clients/download-client-form";
 import ImplementationSelect from "~/components/download-clients/implementation-select";
+import { downloadClientsListQuery } from "~/lib/queries";
 import {
-  getDownloadClientsFn,
-  createDownloadClientFn,
-  updateDownloadClientFn,
-  deleteDownloadClientFn,
-} from "~/server/download-clients";
+  useCreateDownloadClient,
+  useUpdateDownloadClient,
+  useDeleteDownloadClient,
+} from "~/hooks/mutations";
 
 type ImplementationType =
   | "qBittorrent"
@@ -30,15 +30,17 @@ type ImplementationType =
   | "Blackhole";
 
 export const Route = createFileRoute("/_authed/settings/download-clients")({
-  loader: async () => {
-    return getDownloadClientsFn();
-  },
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(downloadClientsListQuery()),
   component: DownloadClientsPage,
 });
 
 function DownloadClientsPage() {
-  const clients = Route.useLoaderData();
-  const router = useRouter();
+  const { data: clients } = useSuspenseQuery(downloadClientsListQuery());
+
+  const createClient = useCreateDownloadClient();
+  const updateClient = useUpdateDownloadClient();
+  const deleteClient = useDeleteDownloadClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectingImpl, setSelectingImpl] = useState(false);
@@ -48,7 +50,8 @@ function DownloadClientsPage() {
   const [editing, setEditing] = useState<
     (typeof clients)[number] | undefined
   >(undefined);
-  const [loading, setLoading] = useState(false);
+
+  const loading = createClient.isPending || updateClient.isPending;
 
   const handleOpenAdd = () => {
     setEditing(undefined);
@@ -81,86 +84,58 @@ function DownloadClientsPage() {
     setSelectingImpl(true);
   };
 
-  const handleCreate = async (values: DownloadClientFormValues) => {
-    setLoading(true);
-    try {
-      await createDownloadClientFn({
-        data: {
-          name: values.name,
-          implementation: values.implementation,
-          protocol: values.protocol,
-          enabled: values.enabled,
-          priority: values.priority,
-          host: values.host,
-          port: values.port,
-          useSsl: values.useSsl,
-          urlBase: values.urlBase || undefined,
-          username: values.username || undefined,
-          password: values.password || undefined,
-          apiKey: values.apiKey || undefined,
-          category: values.category,
-          settings:
-            values.watchFolder
-              ? { watchFolder: values.watchFolder }
-              : undefined,
-        },
-      });
-      toast.success("Download client added");
-      handleCloseDialog();
-      router.invalidate();
-    } catch {
-      toast.error("Failed to add download client");
-    } finally {
-      setLoading(false);
-    }
+  const handleCreate = (values: DownloadClientFormValues) => {
+    createClient.mutate(
+      {
+        name: values.name,
+        implementation: values.implementation,
+        protocol: values.protocol,
+        enabled: values.enabled,
+        priority: values.priority,
+        host: values.host,
+        port: values.port,
+        useSsl: values.useSsl,
+        urlBase: values.urlBase || undefined,
+        username: values.username || undefined,
+        password: values.password || undefined,
+        apiKey: values.apiKey || undefined,
+        category: values.category,
+        settings: values.watchFolder
+          ? { watchFolder: values.watchFolder }
+          : undefined,
+      },
+      { onSuccess: handleCloseDialog },
+    );
   };
 
-  const handleUpdate = async (values: DownloadClientFormValues) => {
-    if (!editing) {
-      return;
-    }
-    setLoading(true);
-    try {
-      await updateDownloadClientFn({
-        data: {
-          id: editing.id,
-          name: values.name,
-          implementation: values.implementation,
-          protocol: values.protocol,
-          enabled: values.enabled,
-          priority: values.priority,
-          host: values.host,
-          port: values.port,
-          useSsl: values.useSsl,
-          urlBase: values.urlBase || undefined,
-          username: values.username || undefined,
-          password: values.password || undefined,
-          apiKey: values.apiKey || undefined,
-          category: values.category,
-          settings:
-            values.watchFolder
-              ? { watchFolder: values.watchFolder }
-              : undefined,
-        },
-      });
-      toast.success("Download client updated");
-      handleCloseDialog();
-      router.invalidate();
-    } catch {
-      toast.error("Failed to update download client");
-    } finally {
-      setLoading(false);
-    }
+  const handleUpdate = (values: DownloadClientFormValues) => {
+    if (!editing) {return;}
+    updateClient.mutate(
+      {
+        id: editing.id,
+        name: values.name,
+        implementation: values.implementation,
+        protocol: values.protocol,
+        enabled: values.enabled,
+        priority: values.priority,
+        host: values.host,
+        port: values.port,
+        useSsl: values.useSsl,
+        urlBase: values.urlBase || undefined,
+        username: values.username || undefined,
+        password: values.password || undefined,
+        apiKey: values.apiKey || undefined,
+        category: values.category,
+        settings: values.watchFolder
+          ? { watchFolder: values.watchFolder }
+          : undefined,
+      },
+      { onSuccess: handleCloseDialog },
+    );
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteDownloadClientFn({ data: { id } });
-      toast.success("Download client deleted");
-      router.invalidate();
-    } catch {
-      toast.error("Failed to delete download client");
-    }
+  const handleDelete = (id: number) => {
+    deleteClient.mutate(id);
   };
 
   const editingInitialValues = editing
