@@ -1,14 +1,17 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import PageHeader from "~/components/shared/page-header";
 import LibraryStats from "~/components/dashboard/library-stats";
 import RecentActivity from "~/components/dashboard/recent-activity";
 import CalendarWidget from "~/components/dashboard/calendar-widget";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { DashboardSkeleton } from "~/components/shared/loading-skeleton";
-import { getDashboardStatsFn } from "~/server/dashboard";
+import { dashboardStatsQuery } from "~/lib/queries";
 
 export const Route = createFileRoute("/_authed/")({
-  loader: () => getDashboardStatsFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(dashboardStatsQuery()),
   component: DashboardPage,
   pendingComponent: DashboardSkeleton,
 });
@@ -22,7 +25,27 @@ function formatBytes(bytes: number) {
 }
 
 function DashboardPage() {
-  const stats = Route.useLoaderData();
+  const { data: stats } = useSuspenseQuery(dashboardStatsQuery());
+
+  const recentBooks = useMemo(
+    () =>
+      stats.recentBooks.map((b) => ({
+        ...b,
+        authorName: b.authorName ?? undefined,
+        releaseDate: b.releaseDate ?? undefined,
+      })),
+    [stats.recentBooks],
+  );
+
+  const upcomingBooks = useMemo(
+    () =>
+      stats.upcomingBooks.map((b) => ({
+        ...b,
+        authorName: b.authorName ?? undefined,
+        releaseDate: b.releaseDate ?? undefined,
+      })),
+    [stats.upcomingBooks],
+  );
 
   return (
     <div className="space-y-6">
@@ -37,8 +60,8 @@ function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecentActivity recentBooks={stats.recentBooks} />
-        <CalendarWidget upcomingBooks={stats.upcomingBooks} />
+        <RecentActivity recentBooks={recentBooks} />
+        <CalendarWidget upcomingBooks={upcomingBooks} />
       </div>
 
       {stats.rootFolders.length > 0 && (

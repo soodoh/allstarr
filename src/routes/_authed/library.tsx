@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -11,19 +12,21 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import PageHeader from "~/components/shared/page-header";
-import { getAuthorsFn } from "~/server/authors";
-import { getBooksFn } from "~/server/books";
+import { authorsListQuery, booksListQuery } from "~/lib/queries";
 
 export const Route = createFileRoute("/_authed/library")({
-  loader: async () => {
-    const [authors, books] = await Promise.all([getAuthorsFn(), getBooksFn()]);
-    return { authors, books };
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(authorsListQuery()),
+      context.queryClient.ensureQueryData(booksListQuery()),
+    ]);
   },
   component: LibraryPage,
 });
 
 function LibraryPage() {
-  const { authors, books } = Route.useLoaderData();
+  const { data: authors } = useSuspenseQuery(authorsListQuery());
+  const { data: books } = useSuspenseQuery(booksListQuery());
 
   return (
     <div>

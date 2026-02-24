@@ -1,6 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -11,86 +11,77 @@ import {
 import PageHeader from "~/components/shared/page-header";
 import QualityProfileList from "~/components/quality-profiles/quality-profile-list";
 import QualityProfileForm from "~/components/quality-profiles/quality-profile-form";
+import { qualityProfilesListQuery, qualityDefinitionsListQuery } from "~/lib/queries";
 import {
-  getQualityProfilesFn,
-  getQualityDefinitionsFn,
-  createQualityProfileFn,
-  updateQualityProfileFn,
-  deleteQualityProfileFn,
-} from "~/server/quality-profiles";
+  useCreateQualityProfile,
+  useUpdateQualityProfile,
+  useDeleteQualityProfile,
+} from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
-  loader: async () => {
-    const [profiles, definitions] = await Promise.all([
-      getQualityProfilesFn(),
-      getQualityDefinitionsFn(),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+      context.queryClient.ensureQueryData(qualityDefinitionsListQuery()),
     ]);
-    return { profiles, definitions };
   },
   component: ProfilesPage,
 });
 
 function ProfilesPage() {
-  const { profiles, definitions } = Route.useLoaderData();
-  const router = useRouter();
+  const { data: profiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: definitions } = useSuspenseQuery(qualityDefinitionsListQuery());
+
+  const createProfile = useCreateQualityProfile();
+  const updateProfile = useUpdateQualityProfile();
+  const deleteProfile = useDeleteQualityProfile();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<(typeof profiles)[number] | undefined>(
     undefined,
   );
-  const [loading, setLoading] = useState(false);
 
-  const handleCreate = async (values: {
+  const loading =
+    createProfile.isPending || updateProfile.isPending;
+
+  const mappedProfiles = useMemo(
+    () => profiles.map((p) => ({ ...p, items: p.items ?? undefined })),
+    [profiles],
+  );
+
+  const handleCreate = (values: {
     name: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    setLoading(true);
-    try {
-      await createQualityProfileFn({ data: values });
-      toast.success("Profile created");
-      setDialogOpen(false);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to create profile");
-    } finally {
-      setLoading(false);
-    }
+    createProfile.mutate(values, {
+      onSuccess: () => {
+        setDialogOpen(false);
+      },
+    });
   };
 
-  const handleUpdate = async (values: {
+  const handleUpdate = (values: {
     name: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    if (!editing) {
-      return;
-    }
-    setLoading(true);
-    try {
-      await updateQualityProfileFn({
-        data: { ...values, id: editing.id },
-      });
-      toast.success("Profile updated");
-      setEditing(undefined);
-      setDialogOpen(false);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
+    if (!editing) {return;}
+    updateProfile.mutate(
+      { ...values, id: editing.id },
+      {
+        onSuccess: () => {
+          setEditing(undefined);
+          setDialogOpen(false);
+        },
+      },
+    );
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteQualityProfileFn({ data: { id } });
-      toast.success("Profile deleted");
-      router.invalidate();
-    } catch {
-      toast.error("Failed to delete profile");
-    }
+  const handleDelete = (id: number) => {
+    deleteProfile.mutate(id);
   };
 
   const handleEdit = (profile: (typeof profiles)[number]) => {
@@ -116,8 +107,8 @@ function ProfilesPage() {
       />
 
       <QualityProfileList
-        profiles={profiles}
-        onEdit={handleEdit}
+        profiles={mappedProfiles}
+        onEdit={(profile) => handleEdit(profiles.find((p) => p.id === profile.id)!)}
         onDelete={handleDelete}
       />
 

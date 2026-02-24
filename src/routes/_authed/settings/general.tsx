@@ -1,6 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import Input from "~/components/ui/input";
 import Label from "~/components/ui/label";
@@ -19,16 +19,19 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import PageHeader from "~/components/shared/page-header";
-import { getSettingsFn, updateSettingFn } from "~/server/settings";
+import { settingsMapQuery } from "~/lib/queries";
+import { useUpdateSettings } from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/general")({
-  loader: () => getSettingsFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(settingsMapQuery()),
   component: GeneralSettingsPage,
 });
 
 function GeneralSettingsPage() {
-  const settings = Route.useLoaderData();
-  const router = useRouter();
+  const { data: settings } = useSuspenseQuery(settingsMapQuery());
+  const updateSettings = useUpdateSettings();
+
   const [logLevel, setLogLevel] = useState(
     (settings["general.logLevel"] as string) || "info",
   );
@@ -42,30 +45,14 @@ function GeneralSettingsPage() {
   const [bookFile, setBookFile] = useState(
     (settings["naming.bookFile"] as string) || "{Author Name} - {Book Title}",
   );
-  const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await Promise.all([
-        updateSettingFn({ data: { key: "general.logLevel", value: logLevel } }),
-        updateSettingFn({
-          data: { key: "naming.authorFolder", value: authorFolder },
-        }),
-        updateSettingFn({
-          data: { key: "naming.bookFolder", value: bookFolder },
-        }),
-        updateSettingFn({
-          data: { key: "naming.bookFile", value: bookFile },
-        }),
-      ]);
-      toast.success("Settings saved");
-      router.invalidate();
-    } catch {
-      toast.error("Failed to save settings");
-    } finally {
-      setSaving(false);
-    }
+  const handleSave = () => {
+    updateSettings.mutate([
+      { key: "general.logLevel", value: logLevel },
+      { key: "naming.authorFolder", value: authorFolder },
+      { key: "naming.bookFolder", value: bookFolder },
+      { key: "naming.bookFile", value: bookFile },
+    ]);
   };
 
   return (
@@ -128,8 +115,8 @@ function GeneralSettingsPage() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Settings"}
+        <Button onClick={handleSave} disabled={updateSettings.isPending}>
+          {updateSettings.isPending ? "Saving..." : "Save Settings"}
         </Button>
       </div>
     </div>

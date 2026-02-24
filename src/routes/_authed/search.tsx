@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import type React from "react";
 import type { FormEvent, ReactNode } from "react";
-import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 import { Search, BookOpen, Users, ExternalLink } from "lucide-react";
 import PageHeader from "~/components/shared/page-header";
 import EmptyState from "~/components/shared/empty-state";
@@ -33,13 +33,22 @@ const resultTypeConfig = {
 function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
-  const [results, setResults] = useState<HardcoverSearchItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchedQuery, setSearchedQuery] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
 
+  const searchMutation = useMutation({
+    mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
+      searchHardcoverFn({ data: { query: params.query, type: params.type, limit: 20 } }),
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Search request failed.";
+      setError(message);
+    },
+  });
+
+  const results = searchMutation.data?.results ?? [];
+  const searchedQuery = searchMutation.data?.query ?? "";
+
   let searchResultsContent: ReactNode;
-  if (loading) {
+  if (searchMutation.isPending) {
     searchResultsContent = (
       <Card>
         <CardContent className="py-8">
@@ -49,7 +58,7 @@ function SearchPage() {
         </CardContent>
       </Card>
     );
-  } else if (searchedQuery.length === 0) {
+  } else if (!searchMutation.isSuccess) {
     searchResultsContent = (
       <EmptyState
         icon={Search}
@@ -81,36 +90,15 @@ function SearchPage() {
     );
   }
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = query.trim();
     if (trimmed.length < 2) {
       setError("Enter at least 2 characters.");
       return;
     }
-
-    setLoading(true);
     setError(undefined);
-    try {
-      const response = await searchHardcoverFn({
-        data: {
-          query: trimmed,
-          type: searchType,
-          limit: 20,
-        },
-      });
-      setSearchedQuery(response.query);
-      setResults(response.results);
-    } catch (submitError) {
-      const message =
-        submitError instanceof Error
-          ? submitError.message
-          : "Search request failed.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+    searchMutation.mutate({ query: trimmed, type: searchType });
   };
 
   return (
@@ -151,9 +139,9 @@ function SearchPage() {
               autoComplete="off"
               aria-label="Search query"
             />
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={searchMutation.isPending}>
               <Search className="h-4 w-4" />
-              {loading ? "Searching..." : "Search"}
+              {searchMutation.isPending ? "Searching..." : "Search"}
             </Button>
           </form>
 

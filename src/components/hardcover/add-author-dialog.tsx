@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import AuthorPhoto from "~/components/authors/author-photo";
 import { Button } from "~/components/ui/button";
 import {
@@ -19,8 +18,8 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import Switch from "~/components/ui/switch";
-import { importHardcoverAuthorFn } from "~/server/import";
 import type { HardcoverAuthorDetail } from "~/server/search";
+import { useImportHardcoverAuthor } from "~/hooks/mutations";
 
 type AddAuthorDialogProps = {
   open: boolean;
@@ -46,39 +45,33 @@ export default function AddAuthorDialog({
     rootFolders.length > 0 ? rootFolders[0].path : "",
   );
   const [monitored, setMonitored] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      const result = await importHardcoverAuthorFn({
-        data: {
-          name: author.name,
-          foreignAuthorId: author.id,
-          overview: author.bio ?? undefined,
-          status: author.deathYear ? "deceased" : "continuing",
-          monitored,
-          qualityProfileId: qualityProfileId
-            ? Number.parseInt(qualityProfileId, 10)
-            : undefined,
-          rootFolderPath: rootFolderPath || undefined,
-          images: author.imageUrl
-            ? [{ url: author.imageUrl, coverType: "poster" }]
-            : undefined,
-          books: [],
+  const importAuthor = useImportHardcoverAuthor();
+
+  const handleSubmit = () => {
+    importAuthor.mutate(
+      {
+        name: author.name,
+        foreignAuthorId: author.id,
+        overview: author.bio ?? undefined,
+        status: author.deathYear ? "deceased" : "continuing",
+        monitored,
+        qualityProfileId: qualityProfileId
+          ? Number.parseInt(qualityProfileId, 10)
+          : undefined,
+        rootFolderPath: rootFolderPath || undefined,
+        images: author.imageUrl
+          ? [{ url: author.imageUrl, coverType: "poster" }]
+          : undefined,
+        books: [],
+      },
+      {
+        onSuccess: (result) => {
+          onSuccess(result.authorId);
+          onOpenChange(false);
         },
-      });
-
-      toast.success(`${author.name} added to library.`);
-      onSuccess(result.authorId);
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to add author.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
+      },
+    );
   };
 
   return (
@@ -158,12 +151,12 @@ export default function AddAuthorDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={submitting}
+            disabled={importAuthor.isPending}
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? (
+          <Button onClick={handleSubmit} disabled={importAuthor.isPending}>
+            {importAuthor.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Adding…

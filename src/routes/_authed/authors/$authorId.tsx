@@ -2,10 +2,9 @@ import {
   createFileRoute,
   Link,
   useNavigate,
-  useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -36,27 +35,30 @@ import ConfirmDialog from "~/components/shared/confirm-dialog";
 import { DetailSkeleton } from "~/components/shared/loading-skeleton";
 import SortableTableHead from "~/components/shared/sortable-table-head";
 import TablePagination from "~/components/shared/table-pagination";
-import { getAuthorFn, updateAuthorFn, deleteAuthorFn } from "~/server/authors";
-import { getQualityProfilesFn } from "~/server/quality-profiles";
-import { getRootFoldersFn } from "~/server/root-folders";
+import {
+  authorDetailQuery,
+  qualityProfilesListQuery,
+  rootFoldersListQuery,
+} from "~/lib/queries";
+import { useUpdateAuthor, useDeleteAuthor } from "~/hooks/mutations";
 import { useTableState } from "~/hooks/use-table-state";
+import type { getAuthorFn } from "~/server/authors";
 
 export const Route = createFileRoute("/_authed/authors/$authorId")({
-  loader: async ({ params }) => {
-    const [author, qualityProfiles, rootFolders] = await Promise.all([
-      getAuthorFn({ data: { id: Number.parseInt(params.authorId, 10) } }),
-      getQualityProfilesFn(),
-      getRootFoldersFn(),
+  loader: async ({ params, context }) => {
+    const id = Number.parseInt(params.authorId, 10);
+    await Promise.all([
+      context.queryClient.ensureQueryData(authorDetailQuery(id)),
+      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+      context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
-    return { author, qualityProfiles, rootFolders };
   },
   component: AuthorDetailPage,
   pendingComponent: DetailSkeleton,
 });
 
-type Book = NonNullable<
-  Awaited<ReturnType<typeof getAuthorFn>>
->["books"][number];
+type AuthorDetail = Awaited<ReturnType<typeof getAuthorFn>>;
+type Book = AuthorDetail["books"][number];
 
 const bookComparators: Partial<Record<string, (a: Book, b: Book) => number>> = {
   title: (a, b) => (a.title ?? "").localeCompare(b.title ?? ""),
@@ -69,13 +71,20 @@ const bookComparators: Partial<Record<string, (a: Book, b: Book) => number>> = {
 };
 
 function AuthorDetailPage() {
-  const { author, qualityProfiles, rootFolders } = Route.useLoaderData();
-  const router = useRouter();
+  const params = Route.useParams();
+  const authorId = Number.parseInt(params.authorId, 10);
   const navigate = useNavigate();
+
+  const { data: author } = useSuspenseQuery(authorDetailQuery(authorId));
+  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
+
+  const updateAuthor = useUpdateAuthor();
+  const deleteAuthor = useDeleteAuthor();
+
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+
   const authorImageUrl =
     author.images?.find((image) => image.coverType.toLowerCase() === "poster")
       ?.url ??
@@ -100,7 +109,7 @@ function AuthorDetailPage() {
     comparators: bookComparators,
   });
 
-  const handleUpdate = async (values: {
+  const handleUpdate = (values: {
     name: string;
     sortName: string;
     overview?: string;
@@ -109,30 +118,16 @@ function AuthorDetailPage() {
     qualityProfileId?: number;
     rootFolderPath?: string;
   }) => {
-    setLoading(true);
-    try {
-      await updateAuthorFn({ data: { ...values, id: author.id } });
-      toast.success("Author updated");
-      setEditOpen(false);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to update author");
-    } finally {
-      setLoading(false);
-    }
+    updateAuthor.mutate(
+      { ...values, id: author.id },
+      { onSuccess: () => setEditOpen(false) },
+    );
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteAuthorFn({ data: { id: author.id } });
-      toast.success("Author deleted");
-      navigate({ to: "/authors" });
-    } catch {
-      toast.error("Failed to delete author");
-    } finally {
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    deleteAuthor.mutate(author.id, {
+      onSuccess: () => navigate({ to: "/authors" }),
+    });
   };
 
   return (
@@ -168,7 +163,7 @@ function AuthorDetailPage() {
           <div className="w-full xl:w-auto xl:shrink-0">
             <AuthorPhoto
               name={author.name}
-              imageUrl={authorImageUrl}
+              imageUrl={authorImageUrl ?? undefined}
               className="xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
             />
           </div>
@@ -324,7 +319,7 @@ function AuthorDetailPage() {
             rootFolders={rootFolders}
             onSubmit={handleUpdate}
             onCancel={() => setEditOpen(false)}
-            loading={loading}
+            loading={updateAuthor.isPending}
           />
         </DialogContent>
       </Dialog>
@@ -335,7 +330,7 @@ function AuthorDetailPage() {
         title="Delete Author"
         description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
         onConfirm={handleDelete}
-        loading={deleting}
+        loading={deleteAuthor.isPending}
       />
     </div>
   );

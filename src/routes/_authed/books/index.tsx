@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, BookOpen } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import PageHeader from "~/components/shared/page-header";
@@ -9,36 +9,38 @@ import BookCard from "~/components/books/book-card";
 import ConfirmDialog from "~/components/shared/confirm-dialog";
 import EmptyState from "~/components/shared/empty-state";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { getBooksFn, deleteBookFn } from "~/server/books";
+import { booksListQuery } from "~/lib/queries";
+import { useDeleteBook } from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/books/")({
-  loader: () => getBooksFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(booksListQuery()),
   component: BooksPage,
   pendingComponent: TableSkeleton,
 });
 
 function BooksPage() {
-  const books = Route.useLoaderData();
-  const router = useRouter();
+  const { data: books } = useSuspenseQuery(booksListQuery());
+  const deleteBook = useDeleteBook();
+
   const [view, setView] = useState<"table" | "grid">("table");
   const [deleteId, setDeleteId] = useState<number | undefined>(undefined);
-  const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = async () => {
-    if (!deleteId) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await deleteBookFn({ data: { id: deleteId } });
-      toast.success("Book deleted");
-      setDeleteId(undefined);
-      router.invalidate();
-    } catch {
-      toast.error("Failed to delete book");
-    } finally {
-      setDeleting(false);
-    }
+  const tableBooks = useMemo(
+    () =>
+      books.map((b) => ({
+        ...b,
+        authorName: b.authorName ?? undefined,
+        releaseDate: b.releaseDate ?? undefined,
+      })),
+    [books],
+  );
+
+  const handleDelete = () => {
+    if (!deleteId) {return;}
+    deleteBook.mutate(deleteId, {
+      onSuccess: () => setDeleteId(undefined),
+    });
   };
 
   if (books.length === 0) {
@@ -90,11 +92,22 @@ function BooksPage() {
       />
 
       {view === "table" ? (
-        <BookTable books={books} onDelete={(id) => setDeleteId(id)} />
+        <BookTable
+          books={tableBooks}
+          onDelete={(id) => setDeleteId(id)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {books.map((book) => (
-            <BookCard key={book.id} book={book} />
+            <BookCard
+              key={book.id}
+              book={{
+                ...book,
+                authorName: book.authorName ?? undefined,
+                releaseDate: book.releaseDate ?? undefined,
+                overview: book.overview ?? undefined,
+              }}
+            />
           ))}
         </div>
       )}
@@ -105,7 +118,7 @@ function BooksPage() {
         title="Delete Book"
         description="Are you sure you want to delete this book? This cannot be undone."
         onConfirm={handleDelete}
-        loading={deleting}
+        loading={deleteBook.isPending}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 // oxlint-disable react/no-array-index-key -- Skeleton rows in this file have no meaningful identity
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -15,7 +15,11 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import {
+  useQuery,
+  useSuspenseQuery,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import PageHeader from "~/components/shared/page-header";
 import { HardcoverAuthorSkeleton } from "~/components/shared/loading-skeleton";
 import Skeleton from "~/components/ui/skeleton";
@@ -47,26 +51,25 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import {
-  getHardcoverAuthorFn,
-  getHardcoverAuthorSeriesFn,
-  getHardcoverSeriesBooksFn,
-} from "~/server/search";
 import type {
   HardcoverAuthorBook,
   HardcoverAuthorSeries,
-  HardcoverSeriesBook,
 } from "~/server/search";
-import { checkAuthorExistsFn } from "~/server/authors";
-import { checkBooksExistFn } from "~/server/books";
-import { getQualityProfilesFn } from "~/server/quality-profiles";
-import { getRootFoldersFn } from "~/server/root-folders";
 import AddAuthorDialog from "~/components/hardcover/add-author-dialog";
 import {
   BookMonitorToggle,
   SeriesBookMonitorToggle,
 } from "~/components/hardcover/add-book-button";
 import type { AuthorContext } from "~/components/hardcover/add-book-button";
+import {
+  hardcoverAuthorQuery,
+  hardcoverAuthorSeriesQuery,
+  hardcoverSeriesBooksQuery,
+  qualityProfilesListQuery,
+  rootFoldersListQuery,
+  authorExistsQuery,
+  booksExistQuery,
+} from "~/lib/queries";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;
@@ -91,27 +94,20 @@ function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
 }
 
 export const Route = createFileRoute("/_authed/hardcover/authors/$authorSlug")({
-  loader: async ({ params }) => {
-    const [authorData, qualityProfiles, rootFolders] = await Promise.all([
-      getHardcoverAuthorFn({
-        data: {
-          slug: params.authorSlug,
+  loader: async ({ params, context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(
+        hardcoverAuthorQuery(params.authorSlug, {
           page: 1,
           pageSize: DEFAULT_PAGE_SIZE,
           language: DEFAULT_LANGUAGE,
           sortBy: "year",
           sortDir: "desc",
-        },
-      }),
-      getQualityProfilesFn(),
-      getRootFoldersFn(),
+        }),
+      ),
+      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+      context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
-
-    const localAuthor = await checkAuthorExistsFn({
-      data: { foreignAuthorId: authorData.id },
-    });
-
-    return { authorData, qualityProfiles, rootFolders, localAuthor };
   },
   component: HardcoverAuthorPage,
   pendingComponent: HardcoverAuthorSkeleton,
@@ -119,11 +115,18 @@ export const Route = createFileRoute("/_authed/hardcover/authors/$authorSlug")({
 
 // ---------- Books tab ----------
 
+type AuthorParams = {
+  page: number;
+  pageSize: number;
+  language: string;
+  sortBy: "title" | "year" | "rating";
+  sortDir: "asc" | "desc";
+};
+
 function BooksTab({
   authorSlug,
-  author,
-  setAuthor,
-  onLanguageChange,
+  authorParams,
+  setAuthorParams,
   authorContext,
   localAuthorId,
   existingBookIds,
@@ -131,58 +134,50 @@ function BooksTab({
   onAuthorCreated,
 }: {
   authorSlug: string;
-  author: Awaited<ReturnType<typeof getHardcoverAuthorFn>>;
-  setAuthor: (a: typeof author) => void;
-  onLanguageChange: (language: string) => void;
+  authorParams: AuthorParams;
+  setAuthorParams: (p: AuthorParams | ((prev: AuthorParams) => AuthorParams)) => void;
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
   existingBookIds: Set<string>;
   onBookAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [optimisticPage, setOptimisticPage] = useState(author.page);
-  const [optimisticPageSize, setOptimisticPageSize] = useState(author.pageSize);
-
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [allBooks, setAllBooks] = useState<HardcoverAuthorBook[] | undefined>(
-    undefined,
-  );
-  const [searchLoading, setSearchLoading] = useState(false);
   const [searchPage, setSearchPage] = useState(1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const fetchingRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const isSearching = searchQuery !== "";
 
-  let displayPage: number;
-  if (isSearching) {
-    displayPage = searchPage;
-  } else {
-    displayPage = loading ? optimisticPage : author.page;
-  }
-  const displayPageSize = loading ? optimisticPageSize : author.pageSize;
+  // Main paginated query — keepPreviousData prevents flash on page/sort change
+  const { data: author, isFetching } = useSuspenseQuery({
+    ...hardcoverAuthorQuery(authorSlug, authorParams),
+    placeholderData: keepPreviousData,
+  });
+
+  // Search query — fetches all books for client-side filtering
+  const { data: allBooksData, isFetching: searchLoading } = useQuery({
+    ...hardcoverAuthorQuery(authorSlug, {
+      ...authorParams,
+      page: 1,
+      pageSize: SEARCH_ALL_PAGE_SIZE,
+    }),
+    enabled: isSearching,
+  });
+
+  const loading = isFetching;
+  const allBooks = allBooksData?.books;
 
   const filteredBooks = useMemo(() => {
-    if (!isSearching || !allBooks) {
-      return null;
-    }
+    if (!isSearching || !allBooks) {return null;}
     const q = searchQuery.toLowerCase();
     return allBooks.filter((b) => b.title.toLowerCase().includes(q));
   }, [allBooks, isSearching, searchQuery]);
 
   const searchTotalBooks = filteredBooks?.length ?? 0;
-  const searchTotalPages = Math.max(
-    1,
-    Math.ceil(searchTotalBooks / DEFAULT_PAGE_SIZE),
-  );
+  const searchTotalPages = Math.max(1, Math.ceil(searchTotalBooks / DEFAULT_PAGE_SIZE));
   const searchPagedBooks = useMemo(() => {
-    if (!filteredBooks) {
-      return [];
-    }
+    if (!filteredBooks) {return [];}
     const start = (searchPage - 1) * DEFAULT_PAGE_SIZE;
     return filteredBooks.slice(start, start + DEFAULT_PAGE_SIZE);
   }, [filteredBooks, searchPage]);
@@ -190,134 +185,41 @@ function BooksTab({
   const displayBooks = isSearching ? searchPagedBooks : author.books;
   const languageGroups = groupBooksByLanguage(displayBooks);
 
-  const fetchAllBooks = async (lang: string) => {
-    if (fetchingRef.current) {
-      return;
-    }
-    fetchingRef.current = true;
-    setSearchLoading(true);
-    setAllBooks(undefined);
-    try {
-      const data = await getHardcoverAuthorFn({
-        data: {
-          slug: authorSlug,
-          page: 1,
-          pageSize: SEARCH_ALL_PAGE_SIZE,
-          language: lang,
-          sortBy: author.sortBy,
-          sortDir: author.sortDir,
-        },
-      });
-      setAllBooks(data.books);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to search books.",
-      );
-      setSearchInput("");
-      setSearchQuery("");
-    } finally {
-      setSearchLoading(false);
-      fetchingRef.current = false;
-    }
-  };
+  const displayPage = isSearching ? searchPage : authorParams.page;
+  const displayPageSize = authorParams.pageSize;
+  const totalItems = isSearching ? searchTotalBooks : author.totalBooks;
+  const totalPages = isSearching ? searchTotalPages : author.totalPages;
+  const isLoadingDisplay = isSearching ? searchLoading : loading;
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     setSearchPage(1);
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+    if (debounceRef.current) {clearTimeout(debounceRef.current);}
 
     if (value.trim() === "") {
       setSearchQuery("");
-      setAllBooks(undefined);
-      fetchingRef.current = false;
       return;
     }
 
     debounceRef.current = setTimeout(() => {
       setSearchQuery(value.trim());
-      setAllBooks((prev) => {
-        if (prev === undefined) {
-          fetchAllBooks(author.selectedLanguage);
-        }
-        return prev;
-      });
     }, SEARCH_DEBOUNCE_MS);
   };
 
   const clearSearch = () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+    if (debounceRef.current) {clearTimeout(debounceRef.current);}
     setSearchInput("");
     setSearchQuery("");
-    setAllBooks(undefined);
     setSearchPage(1);
   };
 
   const handleSort = (key: "title" | "year" | "rating") => {
-    let newDir: "asc" | "desc";
-    if (author.sortBy === key) {
-      newDir = author.sortDir === "asc" ? "desc" : "asc";
-    } else {
-      newDir = "asc";
+    let newDir: "asc" | "desc" = "asc";
+    if (authorParams.sortBy === key && authorParams.sortDir === "asc") {
+      newDir = "desc";
     }
-    loadAuthor({ sortBy: key, sortDir: newDir, page: 1 });
+    setAuthorParams((prev) => ({ ...prev, sortBy: key, sortDir: newDir, page: 1 }));
   };
-
-  const loadAuthor = async (next: {
-    page?: number;
-    language?: string;
-    pageSize?: number;
-    sortBy?: "title" | "year" | "rating";
-    sortDir?: "asc" | "desc";
-  }) => {
-    const page = next.page ?? author.page;
-    const language = next.language ?? author.selectedLanguage;
-    const pageSize = next.pageSize ?? author.pageSize;
-    const sortBy = next.sortBy ?? author.sortBy;
-    const sortDir = next.sortDir ?? author.sortDir;
-    if (next.page !== undefined) {
-      setOptimisticPage(next.page);
-    }
-    if (next.pageSize !== undefined) {
-      setOptimisticPageSize(next.pageSize);
-    }
-    if (
-      next.language !== undefined ||
-      next.sortBy !== undefined ||
-      next.sortDir !== undefined
-    ) {
-      fetchingRef.current = false;
-      setAllBooks(undefined);
-      if (isSearching) {
-        fetchAllBooks(language);
-      }
-    }
-    setLoading(true);
-    try {
-      const data = await getHardcoverAuthorFn({
-        data: { slug: authorSlug, page, pageSize, language, sortBy, sortDir },
-      });
-      setAuthor(data);
-      if (next.language !== undefined) {
-        onLanguageChange(next.language);
-      }
-    } catch (error) {
-      setOptimisticPage(author.page);
-      setOptimisticPageSize(author.pageSize);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load author data.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const totalItems = isSearching ? searchTotalBooks : author.totalBooks;
-  const totalPages = isSearching ? searchTotalPages : author.totalPages;
-  const isLoadingDisplay = isSearching ? searchLoading : loading;
 
   // toggle column + title + year = 3 columns always
   const colCount = 3;
@@ -327,18 +229,10 @@ function BooksTab({
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     booksTableBody = Array.from({ length: displayPageSize }).map((_, i) => (
       <TableRow key={i}>
-        <TableCell>
-          <Skeleton className="h-6 w-6 rounded" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-[55%]" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-10" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-5 w-20 rounded-full" />
-        </TableCell>
+        <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[55%]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
       </TableRow>
     ));
   } else if (isSearching && filteredBooks?.length === 0) {
@@ -360,7 +254,7 @@ function BooksTab({
   } else {
     booksTableBody = languageGroups.map((group) => (
       <Fragment key={group.key}>
-        {author.selectedLanguage === "all" && (
+        {authorParams.language === "all" && (
           <TableRow>
             <TableCell
               colSpan={colCount}
@@ -432,10 +326,10 @@ function BooksTab({
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Language</span>
           <Select
-            value={author.selectedLanguage}
+            value={authorParams.language}
             onValueChange={(value) => {
               clearSearch();
-              loadAuthor({ language: value, page: 1 });
+              setAuthorParams((prev) => ({ ...prev, language: value, page: 1 }));
             }}
             disabled={loading}
           >
@@ -460,9 +354,13 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={(p) =>
-            isSearching ? setSearchPage(p) : loadAuthor({ page: p })
+            isSearching
+              ? setSearchPage(p)
+              : setAuthorParams((prev) => ({ ...prev, page: p }))
           }
-          onPageSizeChange={(size) => loadAuthor({ page: 1, pageSize: size })}
+          onPageSizeChange={(size) =>
+            setAuthorParams((prev) => ({ ...prev, page: 1, pageSize: size }))
+          }
         />
       )}
 
@@ -478,8 +376,8 @@ function BooksTab({
               ] as Array<{ key: "title" | "year" | "rating"; label: string }>
             ).map(({ key, label }) => {
               let SortIcon = ChevronsUpDown;
-              if (author.sortBy === key) {
-                SortIcon = author.sortDir === "asc" ? ChevronUp : ChevronDown;
+              if (authorParams.sortBy === key) {
+                SortIcon = authorParams.sortDir === "asc" ? ChevronUp : ChevronDown;
               }
               return (
                 <TableHead
@@ -504,9 +402,13 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={(p) =>
-            isSearching ? setSearchPage(p) : loadAuthor({ page: p })
+            isSearching
+              ? setSearchPage(p)
+              : setAuthorParams((prev) => ({ ...prev, page: p }))
           }
-          onPageSizeChange={(size) => loadAuthor({ page: 1, pageSize: size })}
+          onPageSizeChange={(size) =>
+            setAuthorParams((prev) => ({ ...prev, page: 1, pageSize: size }))
+          }
         />
       )}
     </div>
@@ -535,47 +437,26 @@ function SeriesRow({
   onAuthorCreated: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [books, setBooks] = useState<HardcoverSeriesBook[] | undefined>(
-    undefined,
-  );
-  const [loadingBooks, setLoadingBooks] = useState(false);
   const [visibleCount, setVisibleCount] = useState(SERIES_BOOKS_PAGE_SIZE);
 
-  useEffect(() => {
-    setExpanded(false);
-    setBooks(undefined);
-    setVisibleCount(SERIES_BOOKS_PAGE_SIZE);
-  }, [language]);
+  // Lazy-load series books only when row is expanded
+  const { data, isFetching: loadingBooks } = useQuery({
+    ...hardcoverSeriesBooksQuery(Number(series.id), language),
+    enabled: expanded,
+  });
 
-  const handleToggle = async () => {
-    if (!expanded && books === undefined) {
-      setLoadingBooks(true);
-      try {
-        const result = await getHardcoverSeriesBooksFn({
-          data: { seriesId: Number(series.id), language },
-        });
-        setBooks(result.books);
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to load series books.",
-        );
-        return;
-      } finally {
-        setLoadingBooks(false);
-      }
-    }
+  const books = data?.books;
+
+  const handleToggle = () => {
     setExpanded((v) => !v);
+    setVisibleCount(SERIES_BOOKS_PAGE_SIZE);
   };
 
   const visibleBooks = books?.slice(0, visibleCount) ?? [];
   const hasMore = books !== undefined && visibleCount < books.length;
 
-  let SeriesExpandIcon: typeof ChevronUp | typeof ChevronDown | typeof Skeleton;
-  if (loadingBooks) {
-    SeriesExpandIcon = Skeleton;
-  } else if (expanded) {
+  let SeriesExpandIcon: typeof ChevronUp | typeof ChevronDown;
+  if (expanded) {
     SeriesExpandIcon = ChevronUp;
   } else {
     SeriesExpandIcon = ChevronDown;
@@ -596,7 +477,11 @@ function SeriesRow({
         <TableCell className="w-10" />
         <TableCell>
           <div className="flex items-center gap-2">
-            <SeriesExpandIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {loadingBooks ? (
+              <Skeleton className="h-4 w-4 rounded" />
+            ) : (
+              <SeriesExpandIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
             <span className="font-medium">{series.name}</span>
           </div>
         </TableCell>
@@ -716,62 +601,27 @@ function SeriesTab({
   onBookAdded: (foreignBookId: string) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  const [allSeries, setAllSeries] = useState<
-    HardcoverAuthorSeries[] | undefined
-  >(undefined);
-  const [loading, setLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(language);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
 
-  useEffect(() => {
-    setSelectedLanguage(language);
-  }, [language]);
+  // Lazy-load series only when tab is active
+  const { data: seriesData, isFetching: loading } = useQuery({
+    ...hardcoverAuthorSeriesQuery(authorSlug, selectedLanguage),
+    enabled: active,
+  });
 
-  const loadSeries = async (lang: string) => {
-    setLoading(true);
-    setAllSeries(undefined);
-    setPage(1);
-    setSearchInput("");
-    try {
-      const data = await getHardcoverAuthorSeriesFn({
-        data: { slug: authorSlug, language: lang },
-      });
-      setAllSeries(data);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load series.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    loadSeries(selectedLanguage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, selectedLanguage, authorSlug]);
+  const allSeries = seriesData ?? undefined;
 
   const filteredSeries = useMemo(() => {
-    if (!allSeries) {
-      return [];
-    }
+    if (!allSeries) {return [];}
     const q = searchInput.trim().toLowerCase();
-    if (!q) {
-      return allSeries;
-    }
+    if (!q) {return allSeries;}
     return allSeries.filter((s) => s.name.toLowerCase().includes(q));
   }, [allSeries, searchInput]);
 
   const totalSeries = filteredSeries.length;
   const totalPages = Math.max(1, Math.ceil(totalSeries / SERIES_PAGE_SIZE));
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchInput]);
 
   const pagedSeries = useMemo(() => {
     const start = (page - 1) * SERIES_PAGE_SIZE;
@@ -788,15 +638,9 @@ function SeriesTab({
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     seriesTableBody = Array.from({ length: 10 }).map((_, i) => (
       <TableRow key={i}>
-        <TableCell>
-          <Skeleton className="h-6 w-6 rounded" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-48" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-10" />
-        </TableCell>
+        <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
       </TableRow>
     ));
   } else if (loaded && filteredSeries.length === 0) {
@@ -887,6 +731,7 @@ function SeriesTab({
             value={selectedLanguage}
             onValueChange={(value) => {
               setSelectedLanguage(value);
+              setPage(1);
             }}
             disabled={loading}
           >
@@ -928,22 +773,52 @@ function SeriesTab({
 // oxlint-disable-next-line complexity -- Page component manages multiple state variables
 function HardcoverAuthorPage() {
   const params = Route.useParams();
-  const {
-    authorData: initialAuthor,
-    qualityProfiles,
-    rootFolders,
-    localAuthor: initialLocalAuthor,
-  } = Route.useLoaderData();
-  const [author, setAuthor] = useState(initialAuthor);
+  const authorSlug = params.authorSlug;
+
+  const [authorParams, setAuthorParams] = useState<AuthorParams>({
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    language: DEFAULT_LANGUAGE,
+    sortBy: "year",
+    sortDir: "desc",
+  });
+
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
-  const [selectedLanguage, setSelectedLanguage] = useState(
-    initialAuthor.selectedLanguage,
-  );
-  const [localAuthor, setLocalAuthor] = useState(initialLocalAuthor);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [existingBookIds, setExistingBookIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<number | undefined>(undefined);
+  const [addedBookIds, setAddedBookIds] = useState<Set<string>>(new Set());
+
+  // These were preloaded in the loader — suspense is instant
+  const { data: author } = useSuspenseQuery(hardcoverAuthorQuery(authorSlug, authorParams));
+  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
+
+  // Check if this author already exists in the local library
+  const { data: localAuthorData } = useQuery({
+    ...authorExistsQuery(author.id),
+    enabled: Boolean(author.id),
+  });
+
+  const localAuthor = localAuthorIdOverride
+    ? { id: localAuthorIdOverride, name: author.name }
+    : localAuthorData ?? null;
+
+  // Check which visible books already exist in the local library
+  const visibleBookIds = author.books.map((b) => b.id);
+  const { data: existingBooksData } = useQuery({
+    ...booksExistQuery(visibleBookIds),
+    enabled: Boolean(localAuthor) && visibleBookIds.length > 0,
+  });
+
+  const existingBookIds = useMemo(() => {
+    const ids = new Set<string>(addedBookIds);
+    if (existingBooksData) {
+      for (const b of existingBooksData) {
+        if (b.foreignBookId) {ids.add(b.foreignBookId);}
+      }
+    }
+    return ids;
+  }, [existingBooksData, addedBookIds]);
 
   // Build author context for toggles — pick first quality profile / root folder as defaults
   const authorContext: AuthorContext = {
@@ -956,47 +831,12 @@ function HardcoverAuthorPage() {
     rootFolderPath: rootFolders[0]?.path ?? undefined,
   };
 
-  // Populate existingBookIds for visible books when author is in library
-  useEffect(() => {
-    if (!localAuthor) {
-      return;
-    }
-    const visibleIds = author.books.map((b) => b.id);
-    if (visibleIds.length === 0) {
-      return;
-    }
-
-    const updateExisting = async () => {
-      try {
-        const found = await checkBooksExistFn({
-          data: { foreignBookIds: visibleIds },
-        });
-        setExistingBookIds((prev) => {
-          const next = new Set(prev);
-          for (const b of found) {
-            if (b.foreignBookId) {
-              next.add(b.foreignBookId);
-            }
-          }
-          return next;
-        });
-      } catch {
-        // Silently ignore errors checking existing books
-      }
-    };
-    void updateExisting();
-  }, [localAuthor, author.books]);
-
   const handleBookAdded = (foreignBookId: string) => {
-    setExistingBookIds((prev) => new Set([...prev, foreignBookId]));
+    setAddedBookIds((prev) => new Set([...prev, foreignBookId]));
   };
 
   const handleAuthorCreated = (authorId: number) => {
-    setLocalAuthor({ id: authorId, name: author.name });
-  };
-
-  const handleAuthorImported = (authorId: number) => {
-    setLocalAuthor({ id: authorId, name: author.name });
+    setLocalAuthorIdOverride(authorId);
   };
 
   const lifespan =
@@ -1067,13 +907,13 @@ function HardcoverAuthorPage() {
                 <span className="text-muted-foreground">Total books</span>
                 <span>{author.booksCount ?? author.totalBooks}</span>
               </div>
-              {author.selectedLanguage !== "all" && (
+              {authorParams.language !== "all" && (
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">
                     In{" "}
                     {author.languages.find(
-                      (l) => l.code === author.selectedLanguage,
-                    )?.name ?? author.selectedLanguage}
+                      (l) => l.code === authorParams.language,
+                    )?.name ?? authorParams.language}
                   </span>
                   <span>{author.totalBooks}</span>
                 </div>
@@ -1129,10 +969,9 @@ function HardcoverAuthorPage() {
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
                 <BooksTab
-                  authorSlug={params.authorSlug}
-                  author={author}
-                  setAuthor={setAuthor}
-                  onLanguageChange={setSelectedLanguage}
+                  authorSlug={authorSlug}
+                  authorParams={authorParams}
+                  setAuthorParams={setAuthorParams}
                   authorContext={authorContext}
                   localAuthorId={localAuthor?.id}
                   existingBookIds={existingBookIds}
@@ -1142,9 +981,9 @@ function HardcoverAuthorPage() {
               </TabsContent>
               <TabsContent value="series" className="mt-0">
                 <SeriesTab
-                  authorSlug={params.authorSlug}
+                  authorSlug={authorSlug}
                   active={activeTab === "series"}
-                  language={selectedLanguage}
+                  language={authorParams.language}
                   languages={author.languages}
                   authorContext={authorContext}
                   localAuthorId={localAuthor?.id}
@@ -1164,7 +1003,7 @@ function HardcoverAuthorPage() {
         author={author}
         qualityProfiles={qualityProfiles}
         rootFolders={rootFolders}
-        onSuccess={handleAuthorImported}
+        onSuccess={handleAuthorCreated}
       />
     </div>
   );
