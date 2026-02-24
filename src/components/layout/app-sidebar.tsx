@@ -13,55 +13,109 @@ import {
   Search,
   Download,
   Radar,
+  Plus,
+  Monitor,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
 } from "~/components/ui/sidebar";
 
-const libraryItems = [
-  { title: "Dashboard", to: "/", icon: LayoutDashboard },
-  { title: "Search", to: "/search", icon: Search },
-  { title: "Authors", to: "/authors", icon: Users },
-  { title: "Books", to: "/books", icon: BookOpen },
-  { title: "Library", to: "/library", icon: Library },
-];
+type NavChild = {
+  title: string;
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
 
-const addItems = [
-  { title: "Add Author", to: "/add/author", icon: UserPlus },
-  { title: "Add Book", to: "/add/book", icon: BookPlus },
-];
+type NavGroup = {
+  title: string;
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  matchPrefixes: string[];
+  children: NavChild[];
+};
 
-const settingsItems = [
-  { title: "General", to: "/settings/general", icon: Settings },
-  { title: "Profiles", to: "/settings/profiles", icon: Sliders },
-  { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
+const navGroups: NavGroup[] = [
   {
-    title: "Download Clients",
-    to: "/settings/download-clients",
-    icon: Download,
+    title: "Library",
+    to: "/library",
+    icon: Library,
+    matchPrefixes: ["/", "/search", "/authors", "/books", "/library", "/hardcover"],
+    children: [
+      { title: "Dashboard", to: "/", icon: LayoutDashboard },
+      { title: "Search", to: "/search", icon: Search },
+      { title: "Authors", to: "/authors", icon: Users },
+      { title: "Books", to: "/books", icon: BookOpen },
+    ],
   },
   {
-    title: "Indexers",
-    to: "/settings/indexers",
-    icon: Radar,
+    title: "Add New",
+    to: "/add",
+    icon: Plus,
+    matchPrefixes: ["/add"],
+    children: [
+      { title: "Add Author", to: "/add/author", icon: UserPlus },
+      { title: "Add Book", to: "/add/book", icon: BookPlus },
+    ],
+  },
+  {
+    title: "Settings",
+    to: "/settings",
+    icon: Settings,
+    matchPrefixes: ["/settings"],
+    children: [
+      { title: "General", to: "/settings/general", icon: Settings },
+      { title: "Profiles", to: "/settings/profiles", icon: Sliders },
+      { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
+      { title: "Download Clients", to: "/settings/download-clients", icon: Download },
+      { title: "Indexers", to: "/settings/indexers", icon: Radar },
+    ],
+  },
+  {
+    title: "System",
+    to: "/system",
+    icon: Monitor,
+    matchPrefixes: ["/system", "/history"],
+    children: [
+      { title: "History", to: "/history", icon: History },
+    ],
   },
 ];
 
-const systemItems = [{ title: "History", to: "/history", icon: History }];
+function getActiveGroup(currentPath: string, groups: NavGroup[]): NavGroup {
+  // Check non-root prefixes first to avoid false "/" matches
+  const nonRootMatch = groups.find((group) =>
+    group.matchPrefixes
+      .filter((p) => p !== "/")
+      .some((prefix) => currentPath.startsWith(prefix)),
+  );
+  if (nonRootMatch) {return nonRootMatch;}
+
+  // Check exact root match
+  const rootMatch = groups.find((group) =>
+    group.matchPrefixes.includes("/") && currentPath === "/",
+  );
+  if (rootMatch) {return rootMatch;}
+
+  // Fallback to Library
+  return groups[0];
+}
 
 export default function AppSidebar(): React.JSX.Element {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const activeGroup = getActiveGroup(currentPath, navGroups);
 
-  const isActive = (to: string) => {
+  const isChildActive = (to: string) => {
     if (to === "/") {
       return currentPath === "/";
     }
@@ -78,73 +132,47 @@ export default function AppSidebar(): React.JSX.Element {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Library</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {libraryItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.to)}>
-                    <Link to={item.to}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              {navGroups.map((group) => {
+                const isActive = group.title === activeGroup.title;
+                return (
+                  <SidebarMenuItem key={group.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      className={
+                        isActive
+                          ? "relative before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-primary"
+                          : ""
+                      }
+                    >
+                      <Link to={group.to}>
+                        <group.icon className="h-4 w-4" />
+                        <span>{group.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Add New</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {addItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.to)}>
-                    <Link to={item.to}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.to)}>
-                    <Link to={item.to}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {systemItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.to)}>
-                    <Link to={item.to}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    {isActive && (
+                      <SidebarMenuSub>
+                        {group.children.map((child) => (
+                          <SidebarMenuSubItem key={child.title}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isChildActive(child.to)}
+                            >
+                              <Link to={child.to}>
+                                <child.icon className="h-4 w-4" />
+                                <span>{child.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
