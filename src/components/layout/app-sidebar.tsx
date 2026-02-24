@@ -12,6 +12,7 @@ import {
   Library,
   Search,
   Download,
+  Radar,
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,6 +47,11 @@ const settingsItems = [
     title: "Download Clients",
     to: "/settings/download-clients",
     icon: Download,
+  },
+  {
+    title: "Indexers",
+    to: "/settings/indexers",
+    icon: Radar,
   },
 ];
 

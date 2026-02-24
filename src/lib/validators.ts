@@ -148,3 +148,47 @@ export const testDownloadClientSchema = z.object({
   password: z.string().optional(),
   apiKey: z.string().optional(),
 });
+
+// Indexers
+export const createIndexerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  enabled: z.boolean().default(true),
+  priority: z.number().int().min(1).default(25),
+  host: z.string().default("localhost"),
+  port: z.number().int().min(1).max(65_535).default(9696),
+  useSsl: z.boolean().default(false),
+  urlBase: z.string().optional(),
+  apiKey: z.string().min(1, "API Key is required"),
+  settings: z
+    .object({ categories: z.array(z.number()).optional() })
+    .optional(),
+});
+
+export const updateIndexerSchema = createIndexerSchema.extend({
+  id: z.number(),
+});
+
+export const testIndexerSchema = z.object({
+  host: z.string().default("localhost"),
+  port: z.number().int().min(1).max(65_535).default(9696),
+  useSsl: z.boolean().default(false),
+  urlBase: z.string().optional(),
+  apiKey: z.string().min(1, "API Key is required"),
+});
+
+export const searchIndexersSchema = z.object({
+  query: z.string().min(1, "Query is required"),
+  bookId: z.number().optional(),
+  categories: z.array(z.number()).optional(),
+});
+
+export const grabReleaseSchema = z.object({
+  guid: z.string().min(1),
+  indexerId: z.number(),
+  title: z.string().min(1),
+  downloadUrl: z.string().min(1),
+  protocol: z.enum(["torrent", "usenet"]),
+  size: z.number(),
+  bookId: z.number().optional(),
+  downloadClientId: z.number().optional(),
+});

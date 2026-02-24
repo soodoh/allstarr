@@ -11,3 +11,4 @@ export * from "./tags";
 export * from "./history";
 export * from "./settings";
 export * from "./download-clients";
+export * from "./indexers";
