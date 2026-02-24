@@ -1,16 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { LayoutGrid, List, BookOpen } from "lucide-react";
+import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import Input from "~/components/ui/input";
 import PageHeader from "~/components/shared/page-header";
 import BookTable from "~/components/books/book-table";
 import BookCard from "~/components/books/book-card";
-import ConfirmDialog from "~/components/shared/confirm-dialog";
 import EmptyState from "~/components/shared/empty-state";
 import { TableSkeleton } from "~/components/shared/loading-skeleton";
 import { booksListQuery } from "~/lib/queries";
-import { useDeleteBook } from "~/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/books/")({
   loader: ({ context }) =>
@@ -21,27 +20,41 @@ export const Route = createFileRoute("/_authed/books/")({
 
 function BooksPage() {
   const { data: books } = useSuspenseQuery(booksListQuery());
-  const deleteBook = useDeleteBook();
 
   const [view, setView] = useState<"table" | "grid">("table");
-  const [deleteId, setDeleteId] = useState<number | undefined>(undefined);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchInput]);
+
+  const filteredBooks = useMemo(() => {
+    if (!searchQuery) {
+      return books;
+    }
+    const q = searchQuery.toLowerCase();
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) ||
+        (b.authorName?.toLowerCase().includes(q) ?? false),
+    );
+  }, [books, searchQuery]);
 
   const tableBooks = useMemo(
     () =>
-      books.map((b) => ({
+      filteredBooks.map((b) => ({
         ...b,
         authorName: b.authorName ?? undefined,
         releaseDate: b.releaseDate ?? undefined,
       })),
-    [books],
+    [filteredBooks],
   );
-
-  const handleDelete = () => {
-    if (!deleteId) {return;}
-    deleteBook.mutate(deleteId, {
-      onSuccess: () => setDeleteId(undefined),
-    });
-  };
 
   if (books.length === 0) {
     return (
@@ -61,11 +74,15 @@ function BooksPage() {
     );
   }
 
+  const description = searchQuery
+    ? `${filteredBooks.length} of ${books.length} books`
+    : `${books.length} books in your library`;
+
   return (
     <div>
       <PageHeader
         title="Books"
-        description={`${books.length} books in your library`}
+        description={description}
         actions={
           <div className="flex gap-2">
             <div className="flex border border-border rounded-md">
@@ -91,14 +108,23 @@ function BooksPage() {
         }
       />
 
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by title or author..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
       {view === "table" ? (
-        <BookTable
-          books={tableBooks}
-          onDelete={(id) => setDeleteId(id)}
-        />
+        <BookTable books={tableBooks} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {books.map((book) => (
+          {filteredBooks.map((book) => (
             <BookCard
               key={book.id}
               book={{
@@ -111,15 +137,6 @@ function BooksPage() {
           ))}
         </div>
       )}
-
-      <ConfirmDialog
-        open={deleteId !== undefined}
-        onOpenChange={(open) => !open && setDeleteId(undefined)}
-        title="Delete Book"
-        description="Are you sure you want to delete this book? This cannot be undone."
-        onConfirm={handleDelete}
-        loading={deleteBook.isPending}
-      />
     </div>
   );
 }

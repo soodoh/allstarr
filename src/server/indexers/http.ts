@@ -1,7 +1,4 @@
-import {
-  buildBaseUrl,
-  fetchWithTimeout,
-} from "../download-clients/http";
+import { buildBaseUrl, fetchWithTimeout } from "../download-clients/http";
 import type {
   IndexerConnectionConfig,
   TestResult,
@@ -91,7 +88,9 @@ export async function searchProwlarr(
   config: IndexerConnectionConfig,
   query: string,
   categories: number[] = [7020],
-): Promise<Array<Omit<ProwlarrSearchResult, "downloadUrl"> & { downloadUrl: string }>> {
+): Promise<
+  Array<Omit<ProwlarrSearchResult, "downloadUrl"> & { downloadUrl: string }>
+> {
   const base = buildBaseUrl(
     config.host,
     config.port,

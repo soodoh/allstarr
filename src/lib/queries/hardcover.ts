@@ -34,12 +34,8 @@ export const hardcoverAuthorSeriesQuery = (slug: string, lang: string) =>
       getHardcoverAuthorSeriesFn({ data: { slug, language: lang } }),
   });
 
-export const hardcoverSeriesBooksQuery = (
-  seriesId: number,
-  language: string,
-) =>
+export const hardcoverSeriesBooksQuery = (seriesId: number, language: string) =>
   queryOptions({
     queryKey: queryKeys.hardcover.seriesBooks(seriesId, language),
-    queryFn: () =>
-      getHardcoverSeriesBooksFn({ data: { seriesId, language } }),
+    queryFn: () => getHardcoverSeriesBooksFn({ data: { seriesId, language } }),
   });

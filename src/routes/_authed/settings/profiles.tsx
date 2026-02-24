@@ -11,7 +11,10 @@ import {
 import PageHeader from "~/components/shared/page-header";
 import QualityProfileList from "~/components/quality-profiles/quality-profile-list";
 import QualityProfileForm from "~/components/quality-profiles/quality-profile-form";
-import { qualityProfilesListQuery, qualityDefinitionsListQuery } from "~/lib/queries";
+import {
+  qualityProfilesListQuery,
+  qualityDefinitionsListQuery,
+} from "~/lib/queries";
 import {
   useCreateQualityProfile,
   useUpdateQualityProfile,
@@ -41,8 +44,7 @@ function ProfilesPage() {
     undefined,
   );
 
-  const loading =
-    createProfile.isPending || updateProfile.isPending;
+  const loading = createProfile.isPending || updateProfile.isPending;
 
   const mappedProfiles = useMemo(
     () => profiles.map((p) => ({ ...p, items: p.items ?? undefined })),
@@ -68,7 +70,9 @@ function ProfilesPage() {
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    if (!editing) {return;}
+    if (!editing) {
+      return;
+    }
     updateProfile.mutate(
       { ...values, id: editing.id },
       {
@@ -108,7 +112,9 @@ function ProfilesPage() {
 
       <QualityProfileList
         profiles={mappedProfiles}
-        onEdit={(profile) => handleEdit(profiles.find((p) => p.id === profile.id)!)}
+        onEdit={(profile) =>
+          handleEdit(profiles.find((p) => p.id === profile.id)!)
+        }
         onDelete={handleDelete}
       />
 

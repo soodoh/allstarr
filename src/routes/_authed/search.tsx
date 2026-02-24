@@ -35,13 +35,18 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
   const [error, setError] = useState<string | undefined>(undefined);
-  const [previewAuthor, setPreviewAuthor] = useState<HardcoverSearchItem | undefined>(undefined);
+  const [previewAuthor, setPreviewAuthor] = useState<
+    HardcoverSearchItem | undefined
+  >(undefined);
 
   const searchMutation = useMutation({
     mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
-      searchHardcoverFn({ data: { query: params.query, type: params.type, limit: 20 } }),
+      searchHardcoverFn({
+        data: { query: params.query, type: params.type, limit: 20 },
+      }),
     onError: (err) => {
-      const message = err instanceof Error ? err.message : "Search request failed.";
+      const message =
+        err instanceof Error ? err.message : "Search request failed.";
       setError(message);
     },
   });
@@ -161,7 +166,11 @@ function SearchPage() {
         <AuthorPreviewModal
           author={previewAuthor}
           open={Boolean(previewAuthor)}
-          onOpenChange={(open) => { if (!open) {setPreviewAuthor(undefined);} }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPreviewAuthor(undefined);
+            }
+          }}
         />
       )}
     </div>

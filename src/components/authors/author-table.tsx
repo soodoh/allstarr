@@ -1,10 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import {
   Table,
@@ -107,37 +103,37 @@ export default function AuthorTable({
       </TableHeader>
       <TableBody>
         {sorted.map((author) => (
-            <TableRow
-              key={author.id}
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() =>
-                navigate({
-                  to: "/authors/$authorSlug",
-                  params: { authorSlug: author.slug || String(author.id) },
-                })
-              }
-            >
-              <TableCell>
-                <Link
-                  to="/authors/$authorSlug"
-                  params={{ authorSlug: author.slug || String(author.id) }}
-                  className="font-medium hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {author.name}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Badge variant="secondary">{author.status}</Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant={author.monitored ? "default" : "outline"}>
-                  {author.monitored ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell>{author.bookCount}</TableCell>
-            </TableRow>
-          ))}
+          <TableRow
+            key={author.id}
+            className="cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() =>
+              navigate({
+                to: "/authors/$authorSlug",
+                params: { authorSlug: author.slug || String(author.id) },
+              })
+            }
+          >
+            <TableCell>
+              <Link
+                to="/authors/$authorSlug"
+                params={{ authorSlug: author.slug || String(author.id) }}
+                className="font-medium hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {author.name}
+              </Link>
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary">{author.status}</Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant={author.monitored ? "default" : "outline"}>
+                {author.monitored ? "Yes" : "No"}
+              </Badge>
+            </TableCell>
+            <TableCell>{author.bookCount}</TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );

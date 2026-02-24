@@ -84,7 +84,9 @@ function ClientButton({
       onClick={() => onSelect(option.implementation)}
     >
       <span className="font-semibold text-sm">{option.label}</span>
-      <span className="text-xs text-muted-foreground">{option.description}</span>
+      <span className="text-xs text-muted-foreground">
+        {option.description}
+      </span>
     </Button>
   );
 }

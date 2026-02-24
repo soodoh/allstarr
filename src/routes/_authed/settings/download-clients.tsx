@@ -47,9 +47,9 @@ function DownloadClientsPage() {
   const [selectedImpl, setSelectedImpl] = useState<
     ImplementationType | undefined
   >(undefined);
-  const [editing, setEditing] = useState<
-    (typeof clients)[number] | undefined
-  >(undefined);
+  const [editing, setEditing] = useState<(typeof clients)[number] | undefined>(
+    undefined,
+  );
 
   const loading = createClient.isPending || updateClient.isPending;
 
@@ -109,7 +109,9 @@ function DownloadClientsPage() {
   };
 
   const handleUpdate = (values: DownloadClientFormValues) => {
-    if (!editing) {return;}
+    if (!editing) {
+      return;
+    }
     updateClient.mutate(
       {
         id: editing.id,
@@ -153,11 +155,8 @@ function DownloadClientsPage() {
         category: editing.category,
         priority: editing.priority,
         watchFolder:
-          (
-            editing.settings as
-              | { watchFolder?: string }
-              | undefined
-          )?.watchFolder ?? "",
+          (editing.settings as { watchFolder?: string } | undefined)
+            ?.watchFolder ?? "",
       }
     : undefined;
 
@@ -196,7 +195,9 @@ function DownloadClientsPage() {
           )}
           {!selectingImpl && selectedImpl && (
             <DownloadClientForm
-              initialValues={editingInitialValues ?? { implementation: selectedImpl }}
+              initialValues={
+                editingInitialValues ?? { implementation: selectedImpl }
+              }
               onSubmit={editing ? handleUpdate : handleCreate}
               onCancel={editing ? handleCloseDialog : handleBackToImplSelect}
               cancelLabel={editing ? "Cancel" : "Back"}

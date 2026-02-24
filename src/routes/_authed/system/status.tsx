@@ -10,12 +10,7 @@ import PageHeader from "~/components/shared/page-header";
 import { SystemStatusSkeleton } from "~/components/shared/loading-skeleton";
 import { systemStatusQuery } from "~/lib/queries";
 import type { HealthCheck, DiskSpaceEntry } from "~/lib/queries";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 
 export const Route = createFileRoute("/_authed/system/status")({
@@ -26,7 +21,9 @@ export const Route = createFileRoute("/_authed/system/status")({
 });
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) {return "0 B";}
+  if (bytes === 0) {
+    return "0 B";
+  }
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   const value = bytes / 1024 ** i;
@@ -38,8 +35,12 @@ function formatUptime(seconds: number): string {
   const hours = Math.floor((seconds % 86_400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const parts: string[] = [];
-  if (days > 0) {parts.push(`${days}d`);}
-  if (hours > 0) {parts.push(`${hours}h`);}
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
   parts.push(`${minutes}m`);
   return parts.join(" ");
 }
@@ -68,7 +69,10 @@ function HealthSection({ checks }: { checks: HealthCheck[] }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {checks.map((check) => (
-          <div key={`${check.source}-${check.message}`} className="flex items-start gap-3">
+          <div
+            key={`${check.source}-${check.message}`}
+            className="flex items-start gap-3"
+          >
             {check.type === "error" ? (
               <AlertCircle className="h-5 w-5 shrink-0 text-destructive mt-0.5" />
             ) : (
@@ -76,7 +80,9 @@ function HealthSection({ checks }: { checks: HealthCheck[] }) {
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Badge variant={check.type === "error" ? "destructive" : "outline"}>
+                <Badge
+                  variant={check.type === "error" ? "destructive" : "outline"}
+                >
                   {check.source}
                 </Badge>
               </div>
@@ -122,11 +128,13 @@ function DiskSpaceSection({ disks }: { disks: DiskSpaceEntry[] }) {
       <CardContent className="space-y-4">
         {disks.map((disk) => {
           const used = disk.totalSpace - disk.freeSpace;
-          const pct =
-            disk.totalSpace > 0 ? (used / disk.totalSpace) * 100 : 0;
+          const pct = disk.totalSpace > 0 ? (used / disk.totalSpace) * 100 : 0;
           let barColor = "bg-primary";
-          if (pct > 90) {barColor = "bg-destructive";}
-          else if (pct > 75) {barColor = "bg-yellow-500";}
+          if (pct > 90) {
+            barColor = "bg-destructive";
+          } else if (pct > 75) {
+            barColor = "bg-yellow-500";
+          }
 
           return (
             <div key={disk.path} className="space-y-1">

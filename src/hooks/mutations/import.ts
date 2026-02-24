@@ -41,8 +41,7 @@ export type ImportBookData = BookEntry & {
 export function useImportHardcoverAuthor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: ImportAuthorData) =>
-      importHardcoverAuthorFn({ data }),
+    mutationFn: (data: ImportAuthorData) => importHardcoverAuthorFn({ data }),
     onSuccess: (_, variables) => {
       toast.success(`${variables.name} added to library.`);
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });

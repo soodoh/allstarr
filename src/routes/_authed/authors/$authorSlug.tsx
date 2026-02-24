@@ -166,7 +166,9 @@ function BooksTab({
 }: {
   authorSlug: string;
   authorParams: AuthorParams;
-  setAuthorParams: (p: AuthorParams | ((prev: AuthorParams) => AuthorParams)) => void;
+  setAuthorParams: (
+    p: AuthorParams | ((prev: AuthorParams) => AuthorParams),
+  ) => void;
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
   existingBookIds: Set<string>;
@@ -176,7 +178,9 @@ function BooksTab({
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchPage, setSearchPage] = useState(1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const isSearching = searchQuery !== "";
 
@@ -198,15 +202,22 @@ function BooksTab({
   const allBooks = allBooksData?.books;
 
   const filteredBooks = useMemo(() => {
-    if (!isSearching || !allBooks) {return null;}
+    if (!isSearching || !allBooks) {
+      return null;
+    }
     const q = searchQuery.toLowerCase();
     return allBooks.filter((b) => b.title.toLowerCase().includes(q));
   }, [allBooks, isSearching, searchQuery]);
 
   const searchTotalBooks = filteredBooks?.length ?? 0;
-  const searchTotalPages = Math.max(1, Math.ceil(searchTotalBooks / DEFAULT_PAGE_SIZE));
+  const searchTotalPages = Math.max(
+    1,
+    Math.ceil(searchTotalBooks / DEFAULT_PAGE_SIZE),
+  );
   const searchPagedBooks = useMemo(() => {
-    if (!filteredBooks) {return [];}
+    if (!filteredBooks) {
+      return [];
+    }
     const start = (searchPage - 1) * DEFAULT_PAGE_SIZE;
     return filteredBooks.slice(start, start + DEFAULT_PAGE_SIZE);
   }, [filteredBooks, searchPage]);
@@ -223,7 +234,9 @@ function BooksTab({
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     setSearchPage(1);
-    if (debounceRef.current) {clearTimeout(debounceRef.current);}
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
     if (value.trim() === "") {
       setSearchQuery("");
@@ -236,7 +249,9 @@ function BooksTab({
   };
 
   const clearSearch = () => {
-    if (debounceRef.current) {clearTimeout(debounceRef.current);}
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
     setSearchInput("");
     setSearchQuery("");
     setSearchPage(1);
@@ -247,7 +262,12 @@ function BooksTab({
     if (authorParams.sortBy === key && authorParams.sortDir === "asc") {
       newDir = "desc";
     }
-    setAuthorParams((prev) => ({ ...prev, sortBy: key, sortDir: newDir, page: 1 }));
+    setAuthorParams((prev) => ({
+      ...prev,
+      sortBy: key,
+      sortDir: newDir,
+      page: 1,
+    }));
   };
 
   const colCount = 3;
@@ -257,9 +277,15 @@ function BooksTab({
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     booksTableBody = Array.from({ length: displayPageSize }).map((_, i) => (
       <TableRow key={i}>
-        <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-[55%]" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+        <TableCell>
+          <Skeleton className="h-6 w-6 rounded" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-[55%]" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-10" />
+        </TableCell>
       </TableRow>
     ));
   } else if (isSearching && filteredBooks?.length === 0) {
@@ -356,7 +382,11 @@ function BooksTab({
             value={authorParams.language}
             onValueChange={(value) => {
               clearSearch();
-              setAuthorParams((prev) => ({ ...prev, language: value, page: 1 }));
+              setAuthorParams((prev) => ({
+                ...prev,
+                language: value,
+                page: 1,
+              }));
             }}
             disabled={loading}
           >
@@ -403,7 +433,8 @@ function BooksTab({
             ).map(({ key, label }) => {
               let SortIcon = ChevronsUpDown;
               if (authorParams.sortBy === key) {
-                SortIcon = authorParams.sortDir === "asc" ? ChevronUp : ChevronDown;
+                SortIcon =
+                  authorParams.sortDir === "asc" ? ChevronUp : ChevronDown;
               }
               return (
                 <TableHead
@@ -635,9 +666,13 @@ function SeriesTab({
   const allSeries = seriesData ?? undefined;
 
   const filteredSeries = useMemo(() => {
-    if (!allSeries) {return [];}
+    if (!allSeries) {
+      return [];
+    }
     const q = searchInput.trim().toLowerCase();
-    if (!q) {return allSeries;}
+    if (!q) {
+      return allSeries;
+    }
     return allSeries.filter((s) => s.name.toLowerCase().includes(q));
   }, [allSeries, searchInput]);
 
@@ -658,9 +693,15 @@ function SeriesTab({
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     seriesTableBody = Array.from({ length: 10 }).map((_, i) => (
       <TableRow key={i}>
-        <TableCell><Skeleton className="h-6 w-6 rounded" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+        <TableCell>
+          <Skeleton className="h-6 w-6 rounded" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-48" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-10" />
+        </TableCell>
       </TableRow>
     ));
   } else if (loaded && filteredSeries.length === 0) {
@@ -806,13 +847,19 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<number | undefined>(undefined);
+  const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<
+    number | undefined
+  >(undefined);
   const [addedBookIds, setAddedBookIds] = useState<Set<string>>(new Set());
 
   const navigate = useNavigate();
 
-  const { data: author } = useSuspenseQuery(hardcoverAuthorQuery(authorSlug, authorParams));
-  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: author } = useSuspenseQuery(
+    hardcoverAuthorQuery(authorSlug, authorParams),
+  );
+  const { data: qualityProfiles } = useSuspenseQuery(
+    qualityProfilesListQuery(),
+  );
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
   const { data: localAuthorData } = useQuery({
@@ -822,7 +869,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
 
   const localAuthor = localAuthorIdOverride
     ? { id: localAuthorIdOverride, name: author.name }
-    : localAuthorData ?? null;
+    : (localAuthorData ?? null);
 
   // Fetch local author detail when in-library (for edit form)
   const { data: localAuthorDetail } = useQuery({
@@ -840,7 +887,9 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
     const ids = new Set<string>(addedBookIds);
     if (existingBooksData) {
       for (const b of existingBooksData) {
-        if (b.foreignBookId) {ids.add(b.foreignBookId);}
+        if (b.foreignBookId) {
+          ids.add(b.foreignBookId);
+        }
       }
     }
     return ids;
@@ -876,7 +925,9 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
     qualityProfileId?: number;
     rootFolderPath?: string;
   }) => {
-    if (!localAuthor) {return;}
+    if (!localAuthor) {
+      return;
+    }
     updateAuthor.mutate(
       { ...values, id: localAuthor.id },
       { onSuccess: () => setEditOpen(false) },
@@ -884,7 +935,9 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   };
 
   const handleDelete = () => {
-    if (!localAuthor) {return;}
+    if (!localAuthor) {
+      return;
+    }
     deleteAuthor.mutate(localAuthor.id, {
       onSuccess: () => navigate({ to: "/authors" }),
     });
@@ -924,7 +977,10 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
                 </Button>
-                <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Button
+                  variant="destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </Button>
@@ -1078,7 +1134,8 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
                   sortName: localAuthorDetail.sortName,
                   status: localAuthorDetail.status,
                   monitored: localAuthorDetail.monitored,
-                  qualityProfileId: localAuthorDetail.qualityProfileId || undefined,
+                  qualityProfileId:
+                    localAuthorDetail.qualityProfileId || undefined,
                   rootFolderPath: localAuthorDetail.rootFolderPath || undefined,
                 }}
                 qualityProfiles={qualityProfiles}

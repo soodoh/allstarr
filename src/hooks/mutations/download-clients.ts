@@ -20,7 +20,9 @@ export function useCreateDownloadClient() {
       createDownloadClientFn({ data }),
     onSuccess: () => {
       toast.success("Download client added");
-      queryClient.invalidateQueries({ queryKey: queryKeys.downloadClients.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.downloadClients.all,
+      });
     },
     onError: () => toast.error("Failed to add download client"),
   });
@@ -33,7 +35,9 @@ export function useUpdateDownloadClient() {
       updateDownloadClientFn({ data }),
     onSuccess: () => {
       toast.success("Download client updated");
-      queryClient.invalidateQueries({ queryKey: queryKeys.downloadClients.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.downloadClients.all,
+      });
     },
     onError: () => toast.error("Failed to update download client"),
   });
@@ -45,7 +49,9 @@ export function useDeleteDownloadClient() {
     mutationFn: (id: number) => deleteDownloadClientFn({ data: { id } }),
     onSuccess: () => {
       toast.success("Download client deleted");
-      queryClient.invalidateQueries({ queryKey: queryKeys.downloadClients.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.downloadClients.all,
+      });
     },
     onError: () => toast.error("Failed to delete download client"),
   });

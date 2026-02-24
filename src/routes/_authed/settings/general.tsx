@@ -58,11 +58,7 @@ function ApiKeyCard({
         <div className="space-y-2">
           <Label>API Key</Label>
           <div className="flex gap-2">
-            <Input
-              value={apiKey}
-              readOnly
-              className="font-mono text-sm"
-            />
+            <Input value={apiKey} readOnly className="font-mono text-sm" />
             <Button
               type="button"
               variant="outline"

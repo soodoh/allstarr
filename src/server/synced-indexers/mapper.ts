@@ -70,7 +70,9 @@ export function fromReadarrResource(
 
   const categories = (() => {
     const raw = getField("categories");
-    if (Array.isArray(raw)) {return JSON.stringify(raw);}
+    if (Array.isArray(raw)) {
+      return JSON.stringify(raw);
+    }
     return "[]";
   })();
 

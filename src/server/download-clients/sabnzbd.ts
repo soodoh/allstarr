@@ -73,7 +73,9 @@ const sabnzbdProvider: DownloadClientProvider = {
       config.urlBase,
     );
     const apiKey = encodeURIComponent(config.apiKey ?? "");
-    const category = encodeURIComponent(config.category ?? download.category ?? "");
+    const category = encodeURIComponent(
+      config.category ?? download.category ?? "",
+    );
 
     if (!download.url) {
       throw new Error("SABnzbd provider requires a URL");
@@ -88,7 +90,7 @@ const sabnzbdProvider: DownloadClientProvider = {
 
     const data = (await response.json()) as SabnzbdResponse;
     const ids = data.nzo_ids;
-    return (ids && ids[0]) ? ids[0] : "";
+    return ids && ids[0] ? ids[0] : "";
   },
 
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {

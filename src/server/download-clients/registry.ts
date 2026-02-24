@@ -17,10 +17,14 @@ const providers: Record<ImplementationType, DownloadClientProvider> = {
   Blackhole: blackholeProvider,
 };
 
-export default function getProvider(implementation: string): DownloadClientProvider {
+export default function getProvider(
+  implementation: string,
+): DownloadClientProvider {
   const provider = providers[implementation as ImplementationType];
   if (!provider) {
-    throw new Error(`Unknown download client implementation: ${implementation}`);
+    throw new Error(
+      `Unknown download client implementation: ${implementation}`,
+    );
   }
   return provider;
 }

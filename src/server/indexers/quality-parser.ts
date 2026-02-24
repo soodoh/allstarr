@@ -51,7 +51,12 @@ const UNKNOWN_QUALITY: ReleaseQuality = {
 export function parseQualityFromTitle(title: string): ReleaseQuality {
   for (const def of QUALITY_DEFS) {
     if (def.pattern.test(title)) {
-      return { id: def.id, name: def.name, weight: def.weight, color: def.color };
+      return {
+        id: def.id,
+        name: def.name,
+        weight: def.weight,
+        color: def.color,
+      };
     }
   }
 
@@ -61,10 +66,16 @@ export function parseQualityFromTitle(title: string): ReleaseQuality {
   if (bracketMatch) {
     const ext = bracketMatch[1].toLowerCase();
     const matched = QUALITY_DEFS.find(
-      (d) => d.name.toLowerCase() === ext || (ext === "azw" && d.name === "AZW3"),
+      (d) =>
+        d.name.toLowerCase() === ext || (ext === "azw" && d.name === "AZW3"),
     );
     if (matched) {
-      return { id: matched.id, name: matched.name, weight: matched.weight, color: matched.color };
+      return {
+        id: matched.id,
+        name: matched.name,
+        weight: matched.weight,
+        color: matched.color,
+      };
     }
   }
 
@@ -73,7 +84,9 @@ export function parseQualityFromTitle(title: string): ReleaseQuality {
 
 /** Format bytes as human-readable string */
 function formatBytes(bytes: number): string {
-  if (bytes === 0) {return "0 B";}
+  if (bytes === 0) {
+    return "0 B";
+  }
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -82,20 +95,36 @@ function formatBytes(bytes: number): string {
 
 /** Format publish date as days ago */
 function formatAge(publishDate: string | undefined): string {
-  if (!publishDate) {return "Unknown";}
+  if (!publishDate) {
+    return "Unknown";
+  }
   const pubMs = new Date(publishDate).getTime();
   const nowMs = Date.now();
   const diffMs = nowMs - pubMs;
-  if (diffMs < 0) {return "Unknown";}
+  if (diffMs < 0) {
+    return "Unknown";
+  }
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (days === 0) {return "Today";}
-  if (days === 1) {return "1 day ago";}
-  if (days < 30) {return `${days} days ago`;}
+  if (days === 0) {
+    return "Today";
+  }
+  if (days === 1) {
+    return "1 day ago";
+  }
+  if (days < 30) {
+    return `${days} days ago`;
+  }
   const months = Math.floor(days / 30);
-  if (months === 1) {return "1 month ago";}
-  if (months < 12) {return `${months} months ago`;}
+  if (months === 1) {
+    return "1 month ago";
+  }
+  if (months < 12) {
+    return `${months} months ago`;
+  }
   const years = Math.floor(months / 12);
-  if (years === 1) {return "1 year ago";}
+  if (years === 1) {
+    return "1 year ago";
+  }
   return `${years} years ago`;
 }
 

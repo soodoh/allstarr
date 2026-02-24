@@ -92,9 +92,7 @@ export default function InteractiveSearchModal({
             <ReleaseTable
               releases={releases}
               grabbingGuid={
-                grabRelease.isPending
-                  ? grabRelease.variables?.guid
-                  : undefined
+                grabRelease.isPending ? grabRelease.variables?.guid : undefined
               }
               onGrab={handleGrab}
             />

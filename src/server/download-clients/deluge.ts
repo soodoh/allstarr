@@ -36,8 +36,7 @@ async function delugeCall(
     body: JSON.stringify({ id, method, params }),
   });
 
-  const responseCookie =
-    response.headers.get("set-cookie") ?? cookie ?? "";
+  const responseCookie = response.headers.get("set-cookie") ?? cookie ?? "";
 
   if (!response.ok) {
     throw new Error(`Deluge API error: HTTP ${response.status}`);
@@ -186,12 +185,21 @@ const delugeProvider: DownloadClientProvider = {
       "core.get_torrents_status",
       [
         filterDict,
-        ["name", "state", "total_size", "all_time_download", "upload_rate", "download_rate"],
+        [
+          "name",
+          "state",
+          "total_size",
+          "all_time_download",
+          "upload_rate",
+          "download_rate",
+        ],
       ],
       sessionCookie,
     );
 
-    const torrents = result.result as Record<string, Record<string, unknown>> | undefined;
+    const torrents = result.result as
+      | Record<string, Record<string, unknown>>
+      | undefined;
     if (!torrents) {
       return [];
     }

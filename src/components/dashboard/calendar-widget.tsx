@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { CalendarDays } from "lucide-react";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 
 type UpcomingBook = {
   id: number;
@@ -16,6 +16,8 @@ type CalendarWidgetProps = {
 export default function CalendarWidget({
   upcomingBooks,
 }: CalendarWidgetProps): React.JSX.Element {
+  const { openBookModal } = useBookDetailModal();
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -33,13 +35,13 @@ export default function CalendarWidget({
                 className="flex items-center justify-between text-sm"
               >
                 <div>
-                  <Link
-                    to="/books/$bookId"
-                    params={{ bookId: String(book.id) }}
-                    className="font-medium hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => openBookModal(book.id)}
+                    className="font-medium hover:underline text-left"
                   >
                     {book.title}
-                  </Link>
+                  </button>
                   <p className="text-xs text-muted-foreground">
                     {book.authorName || "Unknown author"}
                   </p>

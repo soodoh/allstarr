@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authed/library")({
 });
 
 function LibraryPage() {
+  const { openBookModal } = useBookDetailModal();
   const { data: authors } = useSuspenseQuery(authorsListQuery());
   const { data: books } = useSuspenseQuery(booksListQuery());
 
@@ -85,7 +87,9 @@ function LibraryPage() {
                       <TableCell>
                         <Link
                           to="/authors/$authorSlug"
-                          params={{ authorSlug: author.slug || String(author.id) }}
+                          params={{
+                            authorSlug: author.slug || String(author.id),
+                          }}
                           className="hover:underline"
                         >
                           {author.name}
@@ -123,13 +127,13 @@ function LibraryPage() {
                   {books.slice(0, 10).map((book) => (
                     <TableRow key={book.id}>
                       <TableCell>
-                        <Link
-                          to="/books/$bookId"
-                          params={{ bookId: String(book.id) }}
-                          className="hover:underline"
+                        <button
+                          type="button"
+                          onClick={() => openBookModal(book.id)}
+                          className="hover:underline text-left"
                         >
                           {book.title}
-                        </Link>
+                        </button>
                       </TableCell>
                       <TableCell>{book.authorName || "Unknown"}</TableCell>
                       <TableCell>

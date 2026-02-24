@@ -20,7 +20,7 @@ function buildXmlRpcCall(method: string, params: unknown[]): string {
 
 function encodeXmlRpcValue(value: unknown): string {
   if (typeof value === "string") {
-    return `<string>${value.replaceAll('&', "&amp;").replaceAll('<', "&lt;").replaceAll('>', "&gt;")}</string>`;
+    return `<string>${value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</string>`;
   }
   if (typeof value === "number") {
     return Number.isInteger(value)
@@ -133,7 +133,8 @@ const rtorrentProvider: DownloadClientProvider = {
         config.password,
       );
       return download.url;
-    }if (download.torrentData) {
+    }
+    if (download.torrentData) {
       await xmlRpcCall(
         baseUrl,
         "load.raw_start",
@@ -175,15 +176,11 @@ const rtorrentProvider: DownloadClientProvider = {
 
     // Parse simple XML-RPC array of arrays response
     const rows: DownloadItem[] = [];
-    const arrayMatches = responseXml.match(
-      /<data>([\s\S]*?)<\/data>/g,
-    );
+    const arrayMatches = responseXml.match(/<data>([\s\S]*?)<\/data>/g);
     if (arrayMatches) {
       for (const arrayXml of arrayMatches) {
         const values = arrayXml.match(/<string>([^<]*)<\/string>/g) ?? [];
-        const strings = values.map((v) =>
-          v.replaceAll(/<\/?string>/g, ""),
-        );
+        const strings = values.map((v) => v.replaceAll(/<\/?string>/g, ""));
         const intValues = arrayXml.match(/<i8>([^<]*)<\/i8>/g) ?? [];
         const ints = intValues.map((v) => Number(v.replaceAll(/<\/?i8>/g, "")));
 
