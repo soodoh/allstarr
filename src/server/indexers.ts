@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "~/db";
-import { indexers, downloadClients, history, books, authors } from "~/db/schema";
+import { indexers, syncedIndexers, downloadClients, history, books, authors } from "~/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -80,6 +80,13 @@ export const deleteIndexerFn = createServerFn({ method: "POST" })
     db.delete(indexers).where(eq(indexers.id, data.id)).run();
     return { success: true };
   });
+
+export const getSyncedIndexersFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+    return db.select().from(syncedIndexers).orderBy(asc(syncedIndexers.name)).all();
+  },
+);
 
 // ─── Connection Test ──────────────────────────────────────────────────────────
 
