@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
@@ -63,12 +63,7 @@ function BooksPage() {
         <EmptyState
           icon={BookOpen}
           title="No books yet"
-          description="Add your first book to start building your library."
-          action={
-            <Button asChild>
-              <Link to="/add/book">Add Book</Link>
-            </Button>
-          }
+          description="Search Hardcover to add your first book."
         />
       </div>
     );
@@ -101,9 +96,6 @@ function BooksPage() {
                 <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
-            <Button asChild>
-              <Link to="/add/book">Add Book</Link>
-            </Button>
           </div>
         }
       />

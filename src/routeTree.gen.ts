@@ -20,7 +20,6 @@ import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/i
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
-import { Route as AuthedAddIndexRouteImport } from './routes/_authed/add/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
@@ -29,8 +28,6 @@ import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/set
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
 import { Route as AuthedAuthorsAuthorSlugRouteImport } from './routes/_authed/authors/$authorSlug'
-import { Route as AuthedAddBookRouteImport } from './routes/_authed/add/book'
-import { Route as AuthedAddAuthorRouteImport } from './routes/_authed/add/author'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
 import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
 import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
@@ -91,11 +88,6 @@ const AuthedAuthorsIndexRoute = AuthedAuthorsIndexRouteImport.update({
   path: '/authors/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAddIndexRoute = AuthedAddIndexRouteImport.update({
-  id: '/add/',
-  path: '/add/',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -138,16 +130,6 @@ const AuthedAuthorsAuthorSlugRoute = AuthedAuthorsAuthorSlugRouteImport.update({
   path: '/authors/$authorSlug',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAddBookRoute = AuthedAddBookRouteImport.update({
-  id: '/add/book',
-  path: '/add/book',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedAddAuthorRoute = AuthedAddAuthorRouteImport.update({
-  id: '/add/author',
-  path: '/add/author',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
   id: '/api/v1/indexer/',
   path: '/api/v1/indexer/',
@@ -181,8 +163,6 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthedHistoryRoute
   '/library': typeof AuthedLibraryRoute
   '/search': typeof AuthedSearchRoute
-  '/add/author': typeof AuthedAddAuthorRoute
-  '/add/book': typeof AuthedAddBookRoute
   '/authors/$authorSlug': typeof AuthedAuthorsAuthorSlugRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
@@ -191,7 +171,6 @@ export interface FileRoutesByFullPath {
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/add/': typeof AuthedAddIndexRoute
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
@@ -209,8 +188,6 @@ export interface FileRoutesByTo {
   '/library': typeof AuthedLibraryRoute
   '/search': typeof AuthedSearchRoute
   '/': typeof AuthedIndexRoute
-  '/add/author': typeof AuthedAddAuthorRoute
-  '/add/book': typeof AuthedAddBookRoute
   '/authors/$authorSlug': typeof AuthedAuthorsAuthorSlugRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
@@ -219,7 +196,6 @@ export interface FileRoutesByTo {
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/add': typeof AuthedAddIndexRoute
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
@@ -239,8 +215,6 @@ export interface FileRoutesById {
   '/_authed/library': typeof AuthedLibraryRoute
   '/_authed/search': typeof AuthedSearchRoute
   '/_authed/': typeof AuthedIndexRoute
-  '/_authed/add/author': typeof AuthedAddAuthorRoute
-  '/_authed/add/book': typeof AuthedAddBookRoute
   '/_authed/authors/$authorSlug': typeof AuthedAuthorsAuthorSlugRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
@@ -249,7 +223,6 @@ export interface FileRoutesById {
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/_authed/add/': typeof AuthedAddIndexRoute
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
@@ -269,8 +242,6 @@ export interface FileRouteTypes {
     | '/history'
     | '/library'
     | '/search'
-    | '/add/author'
-    | '/add/book'
     | '/authors/$authorSlug'
     | '/settings/download-clients'
     | '/settings/general'
@@ -279,7 +250,6 @@ export interface FileRouteTypes {
     | '/settings/root-folders'
     | '/system/status'
     | '/api/auth/$'
-    | '/add/'
     | '/authors/'
     | '/books/'
     | '/settings/'
@@ -297,8 +267,6 @@ export interface FileRouteTypes {
     | '/library'
     | '/search'
     | '/'
-    | '/add/author'
-    | '/add/book'
     | '/authors/$authorSlug'
     | '/settings/download-clients'
     | '/settings/general'
@@ -307,7 +275,6 @@ export interface FileRouteTypes {
     | '/settings/root-folders'
     | '/system/status'
     | '/api/auth/$'
-    | '/add'
     | '/authors'
     | '/books'
     | '/settings'
@@ -326,8 +293,6 @@ export interface FileRouteTypes {
     | '/_authed/library'
     | '/_authed/search'
     | '/_authed/'
-    | '/_authed/add/author'
-    | '/_authed/add/book'
     | '/_authed/authors/$authorSlug'
     | '/_authed/settings/download-clients'
     | '/_authed/settings/general'
@@ -336,7 +301,6 @@ export interface FileRouteTypes {
     | '/_authed/settings/root-folders'
     | '/_authed/system/status'
     | '/api/auth/$'
-    | '/_authed/add/'
     | '/_authed/authors/'
     | '/_authed/books/'
     | '/_authed/settings/'
@@ -439,13 +403,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAuthorsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/add/': {
-      id: '/_authed/add/'
-      path: '/add'
-      fullPath: '/add/'
-      preLoaderRoute: typeof AuthedAddIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -502,20 +459,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAuthorsAuthorSlugRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/add/book': {
-      id: '/_authed/add/book'
-      path: '/add/book'
-      fullPath: '/add/book'
-      preLoaderRoute: typeof AuthedAddBookRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/add/author': {
-      id: '/_authed/add/author'
-      path: '/add/author'
-      fullPath: '/add/author'
-      preLoaderRoute: typeof AuthedAddAuthorRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/api/v1/indexer/': {
       id: '/api/v1/indexer/'
       path: '/api/v1/indexer'
@@ -559,8 +502,6 @@ interface AuthedRouteChildren {
   AuthedLibraryRoute: typeof AuthedLibraryRoute
   AuthedSearchRoute: typeof AuthedSearchRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
-  AuthedAddAuthorRoute: typeof AuthedAddAuthorRoute
-  AuthedAddBookRoute: typeof AuthedAddBookRoute
   AuthedAuthorsAuthorSlugRoute: typeof AuthedAuthorsAuthorSlugRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
@@ -568,7 +509,6 @@ interface AuthedRouteChildren {
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
-  AuthedAddIndexRoute: typeof AuthedAddIndexRoute
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
@@ -580,8 +520,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedLibraryRoute: AuthedLibraryRoute,
   AuthedSearchRoute: AuthedSearchRoute,
   AuthedIndexRoute: AuthedIndexRoute,
-  AuthedAddAuthorRoute: AuthedAddAuthorRoute,
-  AuthedAddBookRoute: AuthedAddBookRoute,
   AuthedAuthorsAuthorSlugRoute: AuthedAuthorsAuthorSlugRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
@@ -589,7 +527,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
-  AuthedAddIndexRoute: AuthedAddIndexRoute,
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,

@@ -3,8 +3,6 @@ import {
   BookOpen,
   Users,
   LayoutDashboard,
-  UserPlus,
-  BookPlus,
   Settings,
   FolderOpen,
   Sliders,
@@ -13,7 +11,6 @@ import {
   Search,
   Download,
   Radar,
-  Plus,
   Monitor,
   Activity,
 } from "lucide-react";
@@ -63,16 +60,6 @@ const navGroups: NavGroup[] = [
       { title: "Search", to: "/search", icon: Search },
       { title: "Authors", to: "/authors", icon: Users },
       { title: "Books", to: "/books", icon: BookOpen },
-    ],
-  },
-  {
-    title: "Add New",
-    to: "/add",
-    icon: Plus,
-    matchPrefixes: ["/add"],
-    children: [
-      { title: "Add Author", to: "/add/author", icon: UserPlus },
-      { title: "Add Book", to: "/add/book", icon: BookPlus },
     ],
   },
   {
