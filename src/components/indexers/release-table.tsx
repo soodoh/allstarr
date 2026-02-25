@@ -1,6 +1,6 @@
 import { Download, Loader2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
+import Skeleton from "~/components/ui/skeleton";
 import { Badge } from "~/components/ui/badge";
 import {
   Table,
@@ -18,6 +18,7 @@ type ReleaseTableProps = {
   releases: IndexerRelease[];
   grabbingGuid: string | undefined;
   onGrab: (release: IndexerRelease) => void;
+  loading?: boolean;
 };
 
 const QUALITY_BADGE_CLASS: Record<string, string> = {
@@ -40,10 +41,23 @@ const comparators: Partial<
   age: (a, b) => (a.age ?? 0) - (b.age ?? 0),
 };
 
+// oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
+function ReleaseTableSkeleton(): React.JSX.Element {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-10 w-full" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  );
+}
+
 export default function ReleaseTable({
   releases,
   grabbingGuid,
   onGrab,
+  loading,
 }: ReleaseTableProps): React.JSX.Element {
   const { sortColumn, sortDirection, handleSort, paginatedData } =
     useTableState({
@@ -54,20 +68,14 @@ export default function ReleaseTable({
       defaultSortDirection: "desc",
     });
 
+  if (loading) {
+    return <ReleaseTableSkeleton />;
+  }
+
   if (releases.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <p>No releases found.</p>
-        <p className="text-sm mt-1">
-          Make sure you have{" "}
-          <Link
-            to="/settings/indexers"
-            className="underline hover:text-foreground"
-          >
-            indexers configured
-          </Link>{" "}
-          and enabled.
-        </p>
       </div>
     );
   }

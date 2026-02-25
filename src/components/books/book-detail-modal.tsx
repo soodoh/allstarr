@@ -27,7 +27,11 @@ import BookForm from "~/components/books/book-form";
 import SearchToolbar from "~/components/indexers/search-toolbar";
 import ReleaseTable from "~/components/indexers/release-table";
 import ConfirmDialog from "~/components/shared/confirm-dialog";
-import { bookDetailQuery, authorsListQuery } from "~/lib/queries";
+import {
+  bookDetailQuery,
+  authorsListQuery,
+  hasEnabledIndexersQuery,
+} from "~/lib/queries";
 import {
   useUpdateBook,
   useDeleteBook,
@@ -183,67 +187,48 @@ function getDefaultQuery(book: BookDetail | undefined): string {
   return book.title;
 }
 
-export default function BookDetailModal({
-  bookId,
+function SearchTab({
+  book,
   open,
+  hasIndexers,
   onOpenChange,
-}: BookDetailModalProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState("details");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+}: {
+  book: BookDetail;
+  open: boolean;
+  hasIndexers: boolean | undefined;
+  onOpenChange: (open: boolean) => void;
+}): React.JSX.Element {
   const searchIndexers = useSearchIndexers();
   const grabRelease = useGrabRelease();
-  const updateBook = useUpdateBook();
-  const deleteBook = useDeleteBook();
   const hasSearched = useRef(false);
-
-  const { data: book, isLoading } = useQuery({
-    ...bookDetailQuery(bookId ?? 0),
-    enabled: bookId !== undefined && open,
-  });
-
-  const { data: authors } = useQuery({
-    ...authorsListQuery(),
-    enabled: editOpen,
-  });
-
   const defaultQuery = getDefaultQuery(book);
-
-  // Auto-search when switching to search tab for the first time
-  useEffect(() => {
-    if (activeTab === "search" && !hasSearched.current && book) {
-      hasSearched.current = true;
-      searchIndexers.mutate({ query: defaultQuery, bookId: book.id });
-    }
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!open) {
-      setActiveTab("details");
-      setEditOpen(false);
-      hasSearched.current = false;
-      searchIndexers.reset();
-    }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const releases = useMemo(
     () => searchIndexers.data ?? [],
     [searchIndexers.data],
   );
 
-  const authorsList = useMemo(() => authors ?? [], [authors]);
+  // Auto-search when the tab first mounts (if indexers are available)
+  useEffect(() => {
+    if (!hasSearched.current && hasIndexers === true) {
+      hasSearched.current = true;
+      searchIndexers.mutate({ query: defaultQuery, bookId: book.id });
+    }
+  }, [hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!open) {
+      hasSearched.current = false;
+      searchIndexers.reset();
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (query: string) => {
-    if (book) {
-      searchIndexers.mutate({ query, bookId: book.id });
-    }
+    searchIndexers.mutate({ query, bookId: book.id });
   };
 
   const handleGrab = (release: IndexerRelease) => {
-    if (!book) {
-      return;
-    }
     grabRelease.mutate(
       {
         guid: release.guid,
@@ -260,6 +245,84 @@ export default function BookDetailModal({
       },
     );
   };
+
+  return (
+    <TabsContent
+      value="search"
+      className="overflow-y-auto flex-1 min-h-0 space-y-4"
+    >
+      <SearchToolbar
+        defaultQuery={defaultQuery}
+        onSearch={handleSearch}
+        searching={searchIndexers.isPending}
+        disabled={hasIndexers === false}
+      />
+      {hasIndexers === false ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No indexers configured or enabled.</p>
+          <p className="text-sm mt-1">
+            Add indexers in{" "}
+            <Link
+              to="/settings/indexers"
+              className="underline hover:text-foreground"
+              onClick={() => onOpenChange(false)}
+            >
+              Settings
+            </Link>{" "}
+            to search for releases.
+          </p>
+        </div>
+      ) : (
+        (searchIndexers.data || searchIndexers.isPending) && (
+          <ReleaseTable
+            releases={releases}
+            loading={searchIndexers.isPending}
+            grabbingGuid={
+              grabRelease.isPending ? grabRelease.variables?.guid : undefined
+            }
+            onGrab={handleGrab}
+          />
+        )
+      )}
+    </TabsContent>
+  );
+}
+
+export default function BookDetailModal({
+  bookId,
+  open,
+  onOpenChange,
+}: BookDetailModalProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState("details");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const updateBook = useUpdateBook();
+  const deleteBook = useDeleteBook();
+
+  const { data: book, isLoading } = useQuery({
+    ...bookDetailQuery(bookId ?? 0),
+    enabled: bookId !== undefined && open,
+  });
+
+  const { data: authors } = useQuery({
+    ...authorsListQuery(),
+    enabled: editOpen,
+  });
+
+  const { data: hasIndexers } = useQuery({
+    ...hasEnabledIndexersQuery(),
+    enabled: open && activeTab === "search",
+  });
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setActiveTab("details");
+      setEditOpen(false);
+    }
+  }, [open]);
+
+  const authorsList = useMemo(() => authors ?? [], [authors]);
 
   const handleUpdate = (values: {
     title: string;
@@ -323,28 +386,12 @@ export default function BookDetailModal({
 
               <DetailsTab book={book} onOpenChange={onOpenChange} />
               <EditionsTab editions={book.editions} />
-
-              <TabsContent
-                value="search"
-                className="overflow-y-auto flex-1 min-h-0 space-y-4"
-              >
-                <SearchToolbar
-                  defaultQuery={defaultQuery}
-                  onSearch={handleSearch}
-                  searching={searchIndexers.isPending}
-                />
-                {(searchIndexers.data || searchIndexers.isPending) && (
-                  <ReleaseTable
-                    releases={releases}
-                    grabbingGuid={
-                      grabRelease.isPending
-                        ? grabRelease.variables?.guid
-                        : undefined
-                    }
-                    onGrab={handleGrab}
-                  />
-                )}
-              </TabsContent>
+              <SearchTab
+                book={book}
+                open={open}
+                hasIndexers={hasIndexers}
+                onOpenChange={onOpenChange}
+              />
             </Tabs>
           )}
 
