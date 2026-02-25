@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
-import Label from "~/components/ui/label";
-import Checkbox from "~/components/ui/checkbox";
-import Switch from "~/components/ui/switch";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
+import Label from "src/components/ui/label";
+import Checkbox from "src/components/ui/checkbox";
+import Switch from "src/components/ui/switch";
 
 type QualityItem = {
   quality: { id: number; name: string };

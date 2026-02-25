@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import PageHeader from "~/components/shared/page-header";
-import LibraryStats from "~/components/dashboard/library-stats";
-import RecentActivity from "~/components/dashboard/recent-activity";
-import CalendarWidget from "~/components/dashboard/calendar-widget";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { DashboardSkeleton } from "~/components/shared/loading-skeleton";
-import { dashboardStatsQuery } from "~/lib/queries";
+import PageHeader from "src/components/shared/page-header";
+import LibraryStats from "src/components/dashboard/library-stats";
+import RecentActivity from "src/components/dashboard/recent-activity";
+import CalendarWidget from "src/components/dashboard/calendar-widget";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import { DashboardSkeleton } from "src/components/shared/loading-skeleton";
+import { dashboardStatsQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/")({
   loader: ({ context }) =>

@@ -1,12 +1,12 @@
 import type React from "react";
 import { useState } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
-import { cn } from "~/lib/utils";
-import type { HardcoverAuthorBook } from "~/server/search";
+import { cn } from "src/lib/utils";
+import type { HardcoverAuthorBook } from "src/server/search";
 import {
   useImportHardcoverAuthor,
   useImportHardcoverBook,
-} from "~/hooks/mutations";
+} from "src/hooks/mutations";
 
 export type AuthorContext = {
   name: string;

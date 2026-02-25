@@ -5,12 +5,12 @@ import {
   createIndexerFn,
   updateIndexerFn,
   deleteIndexerFn,
-} from "~/server/indexers";
-import { queryKeys } from "~/lib/query-keys";
+} from "src/server/indexers";
+import { queryKeys } from "src/lib/query-keys";
 import type {
   createIndexerSchema,
   updateIndexerSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 import type { z } from "zod";
 
 export function useCreateIndexer() {

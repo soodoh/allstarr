@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowUp, Folder, Loader2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { browseDirectoryQuery } from "~/lib/queries";
+} from "src/components/ui/dialog";
+import { ScrollArea } from "src/components/ui/scroll-area";
+import { browseDirectoryQuery } from "src/lib/queries";
 
 type DirectoryBrowserDialogProps = {
   open: boolean;

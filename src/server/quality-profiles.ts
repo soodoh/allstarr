@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { qualityProfiles, qualityDefinitions } from "~/db/schema";
+import { db } from "src/db";
+import { qualityProfiles, qualityDefinitions } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createQualityProfileSchema,
   updateQualityProfileSchema,
   updateQualityDefinitionSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 
 export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {

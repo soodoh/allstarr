@@ -5,11 +5,11 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import SortableTableHead from "~/components/shared/sortable-table-head";
-import TablePagination from "~/components/shared/table-pagination";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
-import { useTableState } from "~/hooks/use-table-state";
+} from "src/components/ui/table";
+import SortableTableHead from "src/components/shared/sortable-table-head";
+import TablePagination from "src/components/shared/table-pagination";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
+import { useTableState } from "src/hooks/use-table-state";
 
 type Book = {
   id: number;

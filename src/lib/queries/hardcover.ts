@@ -4,7 +4,7 @@ import {
   getHardcoverAuthorFn,
   getHardcoverAuthorSeriesFn,
   getHardcoverSeriesBooksFn,
-} from "~/server/search";
+} from "src/server/search";
 import { queryKeys } from "../query-keys";
 
 type HardcoverAuthorParams = {

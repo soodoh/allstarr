@@ -1,25 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import PageHeader from "~/components/shared/page-header";
-import QualityProfileList from "~/components/quality-profiles/quality-profile-list";
-import QualityProfileForm from "~/components/quality-profiles/quality-profile-form";
+} from "src/components/ui/dialog";
+import PageHeader from "src/components/shared/page-header";
+import QualityProfileList from "src/components/quality-profiles/quality-profile-list";
+import QualityProfileForm from "src/components/quality-profiles/quality-profile-form";
 import {
   qualityProfilesListQuery,
   qualityDefinitionsListQuery,
-} from "~/lib/queries";
+} from "src/lib/queries";
 import {
   useCreateQualityProfile,
   useUpdateQualityProfile,
   useDeleteQualityProfile,
-} from "~/hooks/mutations";
+} from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
   loader: async ({ context }) => {

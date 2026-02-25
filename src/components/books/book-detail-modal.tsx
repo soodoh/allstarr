@@ -9,10 +9,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
+} from "src/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "src/components/ui/tabs";
+import { Button } from "src/components/ui/button";
+import { Badge } from "src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -20,25 +20,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import Skeleton from "~/components/ui/skeleton";
-import BookCover from "~/components/books/book-cover";
-import BookForm from "~/components/books/book-form";
-import SearchToolbar from "~/components/indexers/search-toolbar";
-import ReleaseTable from "~/components/indexers/release-table";
-import ConfirmDialog from "~/components/shared/confirm-dialog";
+} from "src/components/ui/table";
+import Skeleton from "src/components/ui/skeleton";
+import BookCover from "src/components/books/book-cover";
+import BookForm from "src/components/books/book-form";
+import SearchToolbar from "src/components/indexers/search-toolbar";
+import ReleaseTable from "src/components/indexers/release-table";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   bookDetailQuery,
   authorsListQuery,
   hasEnabledIndexersQuery,
-} from "~/lib/queries";
+} from "src/lib/queries";
 import {
   useUpdateBook,
   useDeleteBook,
   useSearchIndexers,
   useGrabRelease,
-} from "~/hooks/mutations";
-import type { IndexerRelease } from "~/server/indexers/types";
+} from "src/hooks/mutations";
+import type { IndexerRelease } from "src/server/indexers/types";
 
 type BookDetailModalProps = {
   bookId: number | undefined;

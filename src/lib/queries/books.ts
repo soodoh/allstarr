@@ -1,6 +1,6 @@
 // oxlint-disable explicit-module-boundary-types -- queryOptions return type is complex generic
 import { queryOptions } from "@tanstack/react-query";
-import { getBooksFn, getBookFn, checkBooksExistFn } from "~/server/books";
+import { getBooksFn, getBookFn, checkBooksExistFn } from "src/server/books";
 import { queryKeys } from "../query-keys";
 
 export const booksListQuery = () =>

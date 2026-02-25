@@ -1,15 +1,15 @@
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut, PanelLeft } from "lucide-react";
-import { signOut } from "~/lib/auth-client";
-import { Button } from "~/components/ui/button";
-import { useSidebar } from "~/components/ui/sidebar";
+import { signOut } from "src/lib/auth-client";
+import { Button } from "src/components/ui/button";
+import { useSidebar } from "src/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "~/components/ui/avatar";
+} from "src/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "src/components/ui/avatar";
 import { toast } from "sonner";
 
 export default function Header(): React.JSX.Element {

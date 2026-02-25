@@ -1,24 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import PageHeader from "~/components/shared/page-header";
-import DownloadClientList from "~/components/download-clients/download-client-list";
-import DownloadClientForm from "~/components/download-clients/download-client-form";
-import type { DownloadClientFormValues } from "~/components/download-clients/download-client-form";
-import ImplementationSelect from "~/components/download-clients/implementation-select";
-import { downloadClientsListQuery } from "~/lib/queries";
+} from "src/components/ui/dialog";
+import PageHeader from "src/components/shared/page-header";
+import DownloadClientList from "src/components/download-clients/download-client-list";
+import DownloadClientForm from "src/components/download-clients/download-client-form";
+import type { DownloadClientFormValues } from "src/components/download-clients/download-client-form";
+import ImplementationSelect from "src/components/download-clients/implementation-select";
+import { downloadClientsListQuery } from "src/lib/queries";
 import {
   useCreateDownloadClient,
   useUpdateDownloadClient,
   useDeleteDownloadClient,
-} from "~/hooks/mutations";
+} from "src/hooks/mutations";
 
 type ImplementationType =
   | "qBittorrent"

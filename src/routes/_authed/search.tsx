@@ -4,30 +4,30 @@ import type React from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Search, BookOpen, Users } from "lucide-react";
-import PageHeader from "~/components/shared/page-header";
-import EmptyState from "~/components/shared/empty-state";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
-import { Badge } from "~/components/ui/badge";
+import PageHeader from "src/components/shared/page-header";
+import EmptyState from "src/components/shared/empty-state";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
+import { Badge } from "src/components/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+} from "src/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { searchHardcoverFn } from "~/server/search";
-import type { HardcoverSearchItem, HardcoverSearchMode } from "~/server/search";
-import AuthorPreviewModal from "~/components/hardcover/author-preview-modal";
-import BookPreviewModal from "~/components/hardcover/book-preview-modal";
+} from "src/components/ui/select";
+import { searchHardcoverFn } from "src/server/search";
+import type { HardcoverSearchItem, HardcoverSearchMode } from "src/server/search";
+import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
+import BookPreviewModal from "src/components/hardcover/book-preview-modal";
 
 export const Route = createFileRoute("/_authed/search")({
   component: SearchPage,

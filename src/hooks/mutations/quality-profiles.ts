@@ -6,13 +6,13 @@ import {
   updateQualityProfileFn,
   deleteQualityProfileFn,
   updateQualityDefinitionFn,
-} from "~/server/quality-profiles";
-import { queryKeys } from "~/lib/query-keys";
+} from "src/server/quality-profiles";
+import { queryKeys } from "src/lib/query-keys";
 import type {
   createQualityProfileSchema,
   updateQualityProfileSchema,
   updateQualityDefinitionSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 import type { z } from "zod";
 
 export function useCreateQualityProfile() {

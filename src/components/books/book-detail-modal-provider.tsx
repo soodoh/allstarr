@@ -5,7 +5,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import BookDetailModal from "~/components/books/book-detail-modal";
+import BookDetailModal from "src/components/books/book-detail-modal";
 
 type BookDetailModalContextType = {
   openBookModal: (bookId: number) => void;

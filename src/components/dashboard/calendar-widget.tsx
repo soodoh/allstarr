@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
 import { CalendarDays } from "lucide-react";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 
 type UpcomingBook = {
   id: number;

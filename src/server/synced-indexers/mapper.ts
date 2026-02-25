@@ -1,4 +1,4 @@
-import type { SyncedIndexer, NewSyncedIndexer } from "~/db/schema";
+import type { SyncedIndexer, NewSyncedIndexer } from "src/db/schema";
 
 export type ReadarrField = {
   name: string;

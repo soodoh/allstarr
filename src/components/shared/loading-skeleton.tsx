@@ -1,7 +1,7 @@
 // oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
 import type React from "react";
-import Skeleton from "~/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import Skeleton from "src/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "src/components/ui/card";
 
 export function DashboardSkeleton(): React.JSX.Element {
   return (

@@ -2,34 +2,34 @@ import { useState } from "react";
 import { ExternalLink, Loader2, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import AuthorPhoto from "~/components/authors/author-photo";
-import { Button } from "~/components/ui/button";
+import AuthorPhoto from "src/components/authors/author-photo";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import Label from "~/components/ui/label";
+} from "src/components/ui/dialog";
+import Label from "src/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import Skeleton from "~/components/ui/skeleton";
+} from "src/components/ui/select";
+import Skeleton from "src/components/ui/skeleton";
 import type {
   HardcoverAuthorDetail,
   HardcoverSearchItem,
-} from "~/server/search";
+} from "src/server/search";
 import {
   hardcoverAuthorQuery,
   qualityProfilesListQuery,
   rootFoldersListQuery,
   authorExistsQuery,
-} from "~/lib/queries";
-import { useImportHardcoverAuthor } from "~/hooks/mutations";
+} from "src/lib/queries";
+import { useImportHardcoverAuthor } from "src/hooks/mutations";
 
 const DEFAULT_PARAMS = {
   page: 1,

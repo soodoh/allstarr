@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import requireApiKey from "~/server/api-key-auth";
+import requireApiKey from "src/server/api-key-auth";
 
 export const Route = createFileRoute("/api/v1/system/status")({
   server: {

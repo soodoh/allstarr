@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "./middleware";
-import { browseDirectorySchema } from "~/lib/validators";
+import { browseDirectorySchema } from "src/lib/validators";
 
 type DirectoryEntry = {
   name: string;

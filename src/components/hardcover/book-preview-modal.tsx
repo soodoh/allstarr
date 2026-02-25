@@ -2,40 +2,40 @@ import type React from "react";
 import { useState } from "react";
 import { BookOpen, ExternalLink, Loader2, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
+import { Badge } from "src/components/ui/badge";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import Label from "~/components/ui/label";
+} from "src/components/ui/dialog";
+import Label from "src/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import Switch from "~/components/ui/switch";
+} from "src/components/ui/select";
+import Switch from "src/components/ui/switch";
 import type {
   HardcoverAuthorDetail,
   HardcoverSearchItem,
-} from "~/server/search";
-import { searchHardcoverFn } from "~/server/search";
+} from "src/server/search";
+import { searchHardcoverFn } from "src/server/search";
 import {
   booksExistQuery,
   hardcoverAuthorQuery,
   authorExistsQuery,
   qualityProfilesListQuery,
   rootFoldersListQuery,
-} from "~/lib/queries";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+} from "src/lib/queries";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import {
   useImportHardcoverAuthor,
   useImportHardcoverBook,
-} from "~/hooks/mutations";
+} from "src/hooks/mutations";
 
 const AUTHOR_FETCH_PARAMS = {
   page: 1,

@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { getAuthSessionFn } from "~/server/middleware";
-import AppLayout from "~/components/layout/app-layout";
-import BookDetailModalProvider from "~/components/books/book-detail-modal-provider";
-import NotFound from "~/components/NotFound";
+import { getAuthSessionFn } from "src/server/middleware";
+import AppLayout from "src/components/layout/app-layout";
+import BookDetailModalProvider from "src/components/books/book-detail-modal-provider";
+import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ location }) => {

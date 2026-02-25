@@ -1,14 +1,14 @@
 // oxlint-disable react/no-array-index-key -- Ellipsis placeholders in pagination have no unique identity
 import type React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+} from "src/components/ui/select";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 

@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
+import { Badge } from "src/components/ui/badge";
+import { Button } from "src/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+} from "src/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,11 +18,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import PageHeader from "~/components/shared/page-header";
-import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { historyListQuery } from "~/lib/queries";
-import type { HistoryResult } from "~/lib/queries";
+} from "src/components/ui/table";
+import PageHeader from "src/components/shared/page-header";
+import { TableSkeleton } from "src/components/shared/loading-skeleton";
+import { historyListQuery } from "src/lib/queries";
+import type { HistoryResult } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/history")({
   loader: ({ context }) =>

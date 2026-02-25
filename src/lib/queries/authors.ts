@@ -5,7 +5,7 @@ import {
   getAuthorFn,
   checkAuthorExistsFn,
   checkAuthorExistsBySlugFn,
-} from "~/server/authors";
+} from "src/server/authors";
 import { queryKeys } from "../query-keys";
 
 export const authorsListQuery = () =>

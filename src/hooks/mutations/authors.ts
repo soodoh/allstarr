@@ -5,9 +5,9 @@ import {
   createAuthorFn,
   updateAuthorFn,
   deleteAuthorFn,
-} from "~/server/authors";
-import { queryKeys } from "~/lib/query-keys";
-import type { createAuthorSchema, updateAuthorSchema } from "~/lib/validators";
+} from "src/server/authors";
+import { queryKeys } from "src/lib/query-keys";
+import type { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import type { z } from "zod";
 
 export function useCreateAuthor() {

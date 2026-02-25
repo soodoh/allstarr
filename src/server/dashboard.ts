@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { authors, books, editions, rootFolders } from "~/db/schema";
+import { db } from "src/db";
+import { authors, books, editions, rootFolders } from "src/db/schema";
 import { sql, gt, desc } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import * as fs from "node:fs";

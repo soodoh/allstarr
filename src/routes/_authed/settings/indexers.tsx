@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
+} from "src/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -15,18 +15,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import { Badge } from "~/components/ui/badge";
-import PageHeader from "~/components/shared/page-header";
-import IndexerList from "~/components/indexers/indexer-list";
-import IndexerForm from "~/components/indexers/indexer-form";
-import type { IndexerFormValues } from "~/components/indexers/indexer-form";
-import { indexersListQuery, syncedIndexersListQuery } from "~/lib/queries";
+} from "src/components/ui/table";
+import { Badge } from "src/components/ui/badge";
+import PageHeader from "src/components/shared/page-header";
+import IndexerList from "src/components/indexers/indexer-list";
+import IndexerForm from "src/components/indexers/indexer-form";
+import type { IndexerFormValues } from "src/components/indexers/indexer-form";
+import { indexersListQuery, syncedIndexersListQuery } from "src/lib/queries";
 import {
   useCreateIndexer,
   useUpdateIndexer,
   useDeleteIndexer,
-} from "~/hooks/mutations";
+} from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/indexers")({
   loader: async ({ context }) => {
