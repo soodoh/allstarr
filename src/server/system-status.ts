@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { db } from "~/db";
-import { rootFolders, indexers, downloadClients, settings } from "~/db/schema";
+import {
+  rootFolders,
+  indexers,
+  syncedIndexers,
+  downloadClients,
+  settings,
+} from "~/db/schema";
 import { requireAuth } from "./middleware";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -69,9 +75,10 @@ function runHealthChecks(): HealthCheck[] {
     }
   }
 
-  // Check indexers
+  // Check indexers (Prowlarr connection or synced indexers)
   const allIndexers = db.select().from(indexers).all();
-  if (allIndexers.length === 0) {
+  const allSyncedIndexers = db.select().from(syncedIndexers).all();
+  if (allIndexers.length === 0 && allSyncedIndexers.length === 0) {
     checks.push({
       source: "IndexerCheck",
       type: "warning",
