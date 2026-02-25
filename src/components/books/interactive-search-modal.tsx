@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -8,6 +10,7 @@ import {
 } from "~/components/ui/dialog";
 import SearchToolbar from "~/components/indexers/search-toolbar";
 import ReleaseTable from "~/components/indexers/release-table";
+import { hasEnabledIndexersQuery } from "~/lib/queries";
 import { useSearchIndexers, useGrabRelease } from "~/hooks/mutations";
 import type { IndexerRelease } from "~/server/indexers/types";
 
@@ -25,6 +28,11 @@ export default function InteractiveSearchModal({
   const searchIndexers = useSearchIndexers();
   const grabRelease = useGrabRelease();
 
+  const { data: hasIndexers } = useQuery({
+    ...hasEnabledIndexersQuery(),
+    enabled: open,
+  });
+
   const defaultQuery = book.authorName
     ? `${book.authorName} ${book.title}`
     : book.title;
@@ -32,12 +40,12 @@ export default function InteractiveSearchModal({
   // Auto-search when the modal opens
   const lastBookId = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (open && book.id !== lastBookId.current) {
+    if (open && book.id !== lastBookId.current && hasIndexers === true) {
       lastBookId.current = book.id;
       searchIndexers.reset();
       searchIndexers.mutate({ query: defaultQuery, bookId: book.id });
     }
-  }, [open, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, book.id, hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset state when modal closes
   useEffect(() => {
@@ -85,17 +93,38 @@ export default function InteractiveSearchModal({
             defaultQuery={defaultQuery}
             onSearch={handleSearch}
             searching={searchIndexers.isPending}
+            disabled={hasIndexers === false}
           />
         </div>
         <div className="overflow-y-auto flex-1 min-h-0">
-          {(searchIndexers.data || searchIndexers.isPending) && (
-            <ReleaseTable
-              releases={releases}
-              grabbingGuid={
-                grabRelease.isPending ? grabRelease.variables?.guid : undefined
-              }
-              onGrab={handleGrab}
-            />
+          {hasIndexers === false ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No indexers configured or enabled.</p>
+              <p className="text-sm mt-1">
+                Add indexers in{" "}
+                <Link
+                  to="/settings/indexers"
+                  className="underline hover:text-foreground"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Settings
+                </Link>{" "}
+                to search for releases.
+              </p>
+            </div>
+          ) : (
+            (searchIndexers.data || searchIndexers.isPending) && (
+              <ReleaseTable
+                releases={releases}
+                loading={searchIndexers.isPending}
+                grabbingGuid={
+                  grabRelease.isPending
+                    ? grabRelease.variables?.guid
+                    : undefined
+                }
+                onGrab={handleGrab}
+              />
+            )
           )}
         </div>
       </DialogContent>

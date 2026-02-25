@@ -77,6 +77,7 @@ export const queryKeys = {
   indexers: {
     all: ["indexers"] as const,
     lists: () => ["indexers", "list"] as const,
+    hasEnabled: () => ["indexers", "hasEnabled"] as const,
   },
 
   // ─── Synced Indexers (pushed from Prowlarr) ───────────────────────────────

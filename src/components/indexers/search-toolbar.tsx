@@ -7,12 +7,14 @@ type SearchToolbarProps = {
   defaultQuery: string;
   onSearch: (query: string) => void;
   searching: boolean;
+  disabled?: boolean;
 };
 
 export default function SearchToolbar({
   defaultQuery,
   onSearch,
   searching,
+  disabled,
 }: SearchToolbarProps): React.JSX.Element {
   const [query, setQuery] = useState(defaultQuery);
 
@@ -31,7 +33,7 @@ export default function SearchToolbar({
         placeholder="Search for releases..."
         className="flex-1"
       />
-      <Button type="submit" disabled={searching || !query.trim()}>
+      <Button type="submit" disabled={disabled || searching || !query.trim()}>
         {searching ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (

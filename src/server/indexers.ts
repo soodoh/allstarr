@@ -137,6 +137,27 @@ export const listProwlarrIndexersFn = createServerFn({ method: "POST" })
     });
   });
 
+// ─── Enabled-indexer check ────────────────────────────────────────────────────
+
+export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+    const manualCount = db
+      .select()
+      .from(indexers)
+      .where(eq(indexers.enabled, true))
+      .all().length;
+    if (manualCount > 0) {return true;}
+
+    const syncedCount = db
+      .select()
+      .from(syncedIndexers)
+      .where(eq(syncedIndexers.enableSearch, true))
+      .all().length;
+    return syncedCount > 0;
+  },
+);
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 type SearchSource = {
