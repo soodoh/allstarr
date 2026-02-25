@@ -1,34 +1,16 @@
 services:
-  # Production build — comment this out during local development (use allstarr-dev below)
-  allstarr:
-    image: allstarr
-    container_name: allstarr
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    volumes:
-      - allstarr-data:/app/data
-      - books:/books
-    env_file: ".env"
-    networks:
-      - app-net
-    depends_on:
-      - gluetun
-
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     network_mode: "service:gluetun"
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Chicago
-      - WEBUI_PORT=8080
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+      WEBUI_PORT: 8081
     volumes:
       - qbittorrent-config:/config
-      - books:/books
+      - ./data:/data
     depends_on:
       gluetun:
         condition: service_healthy
@@ -39,15 +21,31 @@ services:
     container_name: prowlarr
     network_mode: "service:gluetun"
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Chicago
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
     volumes:
       - prowlarr-config:/config
     depends_on:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
+
+  sabnzbd:
+    image: ghcr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - sabnzbd-data:/config
+      - ./data:/data
 
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -57,7 +55,8 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
-      - "8080:8080" # qbittorrent WebUI
+      - "8080:8080" # Sabnzbd
+      - "8081:8081" # qbittorrent WebUI
       - "9696:9696" # Prowlarr
     volumes:
       - gluetun-data:/gluetun
@@ -67,11 +66,9 @@ services:
       - OPENVPN_USER=${OPENVPN_USER}
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
       - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES:-United States}
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
     networks:
       app-net:
-        aliases:
-          - prowlarr
-          - qbittorrent
     healthcheck:
       test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
       interval: 10s
@@ -80,11 +77,10 @@ services:
     restart: unless-stopped
 
 volumes:
-  allstarr-data:
   qbittorrent-config:
   prowlarr-config:
   gluetun-data:
-  books:
+  sabnzbd-data:
 
 networks:
   app-net:
