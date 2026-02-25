@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import {
   importHardcoverAuthorFn,
   importHardcoverBookFn,
-} from "~/server/import";
-import { queryKeys } from "~/lib/query-keys";
+} from "src/server/import";
+import { queryKeys } from "src/lib/query-keys";
 
 type BookEntry = {
   title: string;

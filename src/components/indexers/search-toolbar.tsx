@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Loader2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
 
 type SearchToolbarProps = {
   defaultQuery: string;

@@ -1,8 +1,8 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { searchIndexersFn, grabReleaseFn } from "~/server/indexers";
-import type { searchIndexersSchema, grabReleaseSchema } from "~/lib/validators";
+import { searchIndexersFn, grabReleaseFn } from "src/server/indexers";
+import type { searchIndexersSchema, grabReleaseSchema } from "src/lib/validators";
 import type { z } from "zod";
 
 export function useSearchIndexers() {

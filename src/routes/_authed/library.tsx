@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import { Badge } from "src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,9 +11,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import PageHeader from "~/components/shared/page-header";
-import { authorsListQuery, booksListQuery } from "~/lib/queries";
+} from "src/components/ui/table";
+import PageHeader from "src/components/shared/page-header";
+import { authorsListQuery, booksListQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/library")({
   loader: async ({ context }) => {

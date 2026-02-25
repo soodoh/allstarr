@@ -1,6 +1,6 @@
 import { BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "~/lib/utils";
+import { cn } from "src/lib/utils";
 
 type BookCoverProps = {
   title: string;

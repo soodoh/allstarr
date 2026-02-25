@@ -26,7 +26,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   SidebarHeader,
-} from "~/components/ui/sidebar";
+} from "src/components/ui/sidebar";
 
 type NavChild = {
   title: string;

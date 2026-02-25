@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import AuthorPhoto from "~/components/authors/author-photo";
-import { Button } from "~/components/ui/button";
+import AuthorPhoto from "src/components/authors/author-photo";
+import { Button } from "src/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import Label from "~/components/ui/label";
+} from "src/components/ui/dialog";
+import Label from "src/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import type { HardcoverAuthorDetail } from "~/server/search";
-import { useImportHardcoverAuthor } from "~/hooks/mutations";
+} from "src/components/ui/select";
+import type { HardcoverAuthorDetail } from "src/server/search";
+import { useImportHardcoverAuthor } from "src/hooks/mutations";
 
 type AddAuthorDialogProps = {
   open: boolean;

@@ -6,8 +6,8 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-} from "~/components/ui/card";
-import PageHeader from "~/components/shared/page-header";
+} from "src/components/ui/card";
+import PageHeader from "src/components/shared/page-header";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,

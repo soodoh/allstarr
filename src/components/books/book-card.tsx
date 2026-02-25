@@ -1,5 +1,5 @@
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
-import BookCover from "~/components/books/book-cover";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
+import BookCover from "src/components/books/book-cover";
 
 type BookCardProps = {
   book: {

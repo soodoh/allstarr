@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
+import { db } from "src/db";
 import {
   indexers,
   syncedIndexers,
@@ -7,7 +7,7 @@ import {
   history,
   books,
   authors,
-} from "~/db/schema";
+} from "src/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -16,7 +16,7 @@ import {
   testIndexerSchema,
   searchIndexersSchema,
   grabReleaseSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 import * as prowlarrHttp from "./indexers/http";
 import { enrichRelease } from "./indexers/quality-parser";
 import getProvider from "./download-clients/registry";

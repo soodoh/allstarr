@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 
 type RecentBook = {
   id: number;

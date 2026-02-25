@@ -47,7 +47,7 @@ Copy `.env.example` to `.env`:
 - **Auth**: [better-auth](https://better-auth.com/) with email/password, handled at `/api/auth/$`
 - **UI**: shadcn/ui (new-york style, zinc base) + Tailwind CSS v4 + Radix UI
 - **Forms**: react-hook-form + zod
-- **Path alias**: `~/*` maps to `src/*`
+- **Path alias**: `src/*` maps to `./src/*`
 
 ### Data Flow Pattern
 

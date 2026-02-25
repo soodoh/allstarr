@@ -1,7 +1,7 @@
 import { Download, Loader2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import Skeleton from "~/components/ui/skeleton";
-import { Badge } from "~/components/ui/badge";
+import { Button } from "src/components/ui/button";
+import Skeleton from "src/components/ui/skeleton";
+import { Badge } from "src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -9,10 +9,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import SortableTableHead from "~/components/shared/sortable-table-head";
-import { useTableState } from "~/hooks/use-table-state";
-import type { IndexerRelease } from "~/server/indexers/types";
+} from "src/components/ui/table";
+import SortableTableHead from "src/components/shared/sortable-table-head";
+import { useTableState } from "src/hooks/use-table-state";
+import type { IndexerRelease } from "src/server/indexers/types";
 
 type ReleaseTableProps = {
   releases: IndexerRelease[];

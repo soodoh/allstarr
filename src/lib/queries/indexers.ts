@@ -5,7 +5,7 @@ import {
   getIndexersFn,
   getSyncedIndexersFn,
   hasEnabledIndexersFn,
-} from "~/server/indexers";
+} from "src/server/indexers";
 import { queryKeys } from "../query-keys";
 
 export const indexersListQuery = () =>

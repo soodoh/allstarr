@@ -7,10 +7,10 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import Toaster from "~/components/ui/sonner";
-import NotFound from "~/components/NotFound";
+import Toaster from "src/components/ui/sonner";
+import NotFound from "src/components/NotFound";
 
-import appCss from "~/styles/app.css?url";
+import appCss from "src/styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {

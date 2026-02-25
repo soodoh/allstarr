@@ -7,12 +7,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import SearchToolbar from "~/components/indexers/search-toolbar";
-import ReleaseTable from "~/components/indexers/release-table";
-import { hasEnabledIndexersQuery } from "~/lib/queries";
-import { useSearchIndexers, useGrabRelease } from "~/hooks/mutations";
-import type { IndexerRelease } from "~/server/indexers/types";
+} from "src/components/ui/dialog";
+import SearchToolbar from "src/components/indexers/search-toolbar";
+import ReleaseTable from "src/components/indexers/release-table";
+import { hasEnabledIndexersQuery } from "src/lib/queries";
+import { useSearchIndexers, useGrabRelease } from "src/hooks/mutations";
+import type { IndexerRelease } from "src/server/indexers/types";
 
 type InteractiveSearchModalProps = {
   book: { id: number; title: string; authorName: string | undefined };

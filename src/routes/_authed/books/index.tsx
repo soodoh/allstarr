@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
-import PageHeader from "~/components/shared/page-header";
-import BookTable from "~/components/books/book-table";
-import BookCard from "~/components/books/book-card";
-import EmptyState from "~/components/shared/empty-state";
-import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { booksListQuery } from "~/lib/queries";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
+import PageHeader from "src/components/shared/page-header";
+import BookTable from "src/components/books/book-table";
+import BookCard from "src/components/books/book-card";
+import EmptyState from "src/components/shared/empty-state";
+import { TableSkeleton } from "src/components/shared/loading-skeleton";
+import { booksListQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/books/")({
   loader: ({ context }) =>

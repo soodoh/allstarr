@@ -9,21 +9,21 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import PageHeader from "~/components/shared/page-header";
-import AuthorTable from "~/components/authors/author-table";
-import AuthorCard from "~/components/authors/author-card";
-import EmptyState from "~/components/shared/empty-state";
-import { TableSkeleton } from "~/components/shared/loading-skeleton";
-import { authorsListQuery } from "~/lib/queries";
+} from "src/components/ui/select";
+import PageHeader from "src/components/shared/page-header";
+import AuthorTable from "src/components/authors/author-table";
+import AuthorCard from "src/components/authors/author-card";
+import EmptyState from "src/components/shared/empty-state";
+import { TableSkeleton } from "src/components/shared/loading-skeleton";
+import { authorsListQuery } from "src/lib/queries";
 
 const PAGE_SIZES = [25, 50, 100] as const;
 

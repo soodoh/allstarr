@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { rootFolders } from "~/db/schema";
+import { db } from "src/db";
+import { rootFolders } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
-import { createRootFolderSchema } from "~/lib/validators";
+import { createRootFolderSchema } from "src/lib/validators";
 import * as fs from "node:fs";
 
 export const getRootFoldersFn = createServerFn({ method: "GET" }).handler(

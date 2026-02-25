@@ -6,12 +6,12 @@ import {
   AlertTriangle,
   HardDrive,
 } from "lucide-react";
-import PageHeader from "~/components/shared/page-header";
-import { SystemStatusSkeleton } from "~/components/shared/loading-skeleton";
-import { systemStatusQuery } from "~/lib/queries";
-import type { HealthCheck, DiskSpaceEntry } from "~/lib/queries";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
+import PageHeader from "src/components/shared/page-header";
+import { SystemStatusSkeleton } from "src/components/shared/loading-skeleton";
+import { systemStatusQuery } from "src/lib/queries";
+import type { HealthCheck, DiskSpaceEntry } from "src/lib/queries";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import { Badge } from "src/components/ui/badge";
 
 export const Route = createFileRoute("/_authed/system/status")({
   loader: ({ context }) =>

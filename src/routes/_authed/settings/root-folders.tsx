@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { FolderOpen, Trash2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,11 +10,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import PageHeader from "~/components/shared/page-header";
-import DirectoryBrowserDialog from "~/components/shared/directory-browser-dialog";
-import { rootFoldersListQuery } from "~/lib/queries";
-import { useCreateRootFolder, useDeleteRootFolder } from "~/hooks/mutations";
+} from "src/components/ui/table";
+import PageHeader from "src/components/shared/page-header";
+import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
+import { rootFoldersListQuery } from "src/lib/queries";
+import { useCreateRootFolder, useDeleteRootFolder } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/root-folders")({
   loader: ({ context }) =>

@@ -3,7 +3,7 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   getQualityProfilesFn,
   getQualityDefinitionsFn,
-} from "~/server/quality-profiles";
+} from "src/server/quality-profiles";
 import { queryKeys } from "../query-keys";
 
 export const qualityProfilesListQuery = () =>

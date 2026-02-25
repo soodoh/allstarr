@@ -27,27 +27,27 @@ import {
   keepPreviousData,
 } from "@tanstack/react-query";
 import { z } from "zod";
-import PageHeader from "~/components/shared/page-header";
-import { HardcoverAuthorSkeleton } from "~/components/shared/loading-skeleton";
-import Skeleton from "~/components/ui/skeleton";
-import AuthorPhoto from "~/components/authors/author-photo";
-import TablePagination from "~/components/shared/table-pagination";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
-import Input from "~/components/ui/input";
+import PageHeader from "src/components/shared/page-header";
+import { HardcoverAuthorSkeleton } from "src/components/shared/loading-skeleton";
+import Skeleton from "src/components/ui/skeleton";
+import AuthorPhoto from "src/components/authors/author-photo";
+import TablePagination from "src/components/shared/table-pagination";
+import { Button } from "src/components/ui/button";
+import { Badge } from "src/components/ui/badge";
+import Input from "src/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
+} from "src/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
+} from "src/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -55,28 +55,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
+} from "src/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+} from "src/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "src/components/ui/tabs";
 import type {
   HardcoverAuthorBook,
   HardcoverAuthorSeries,
-} from "~/server/search";
-import { useBookDetailModal } from "~/components/books/book-detail-modal-provider";
-import AddAuthorDialog from "~/components/hardcover/add-author-dialog";
+} from "src/server/search";
+import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
+import AddAuthorDialog from "src/components/hardcover/add-author-dialog";
 import {
   BookMonitorToggle,
   SeriesBookMonitorToggle,
-} from "~/components/hardcover/add-book-button";
-import type { AuthorContext } from "~/components/hardcover/add-book-button";
-import AuthorForm from "~/components/authors/author-form";
-import ConfirmDialog from "~/components/shared/confirm-dialog";
+} from "src/components/hardcover/add-book-button";
+import type { AuthorContext } from "src/components/hardcover/add-book-button";
+import AuthorForm from "src/components/authors/author-form";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   hardcoverAuthorQuery,
   hardcoverAuthorSeriesQuery,
@@ -86,10 +86,10 @@ import {
   authorExistsQuery,
   booksExistQuery,
   authorDetailQuery,
-} from "~/lib/queries";
-import { useUpdateAuthor, useDeleteAuthor } from "~/hooks/mutations";
-import NotFound from "~/components/NotFound";
-import { checkAuthorExistsBySlugFn } from "~/server/authors";
+} from "src/lib/queries";
+import { useUpdateAuthor, useDeleteAuthor } from "src/hooks/mutations";
+import NotFound from "src/components/NotFound";
+import { checkAuthorExistsBySlugFn } from "src/server/authors";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;

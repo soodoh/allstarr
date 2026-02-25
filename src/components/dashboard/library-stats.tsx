@@ -1,5 +1,5 @@
 import { BookOpen, Users, Eye, Layers } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
 
 type LibraryStatsProps = {
   authorCount: number;

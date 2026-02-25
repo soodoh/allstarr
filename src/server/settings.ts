@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { settings } from "~/db/schema";
+import { db } from "src/db";
+import { settings } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
-import { updateSettingSchema } from "~/lib/validators";
+import { updateSettingSchema } from "src/lib/validators";
 
 export const getSettingsFn = createServerFn({ method: "GET" }).handler(
   async () => {

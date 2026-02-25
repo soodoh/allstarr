@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { downloadClients } from "~/db/schema";
+import { db } from "src/db";
+import { downloadClients } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createDownloadClientSchema,
   updateDownloadClientSchema,
   testDownloadClientSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 

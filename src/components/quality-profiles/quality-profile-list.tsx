@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Button } from "src/components/ui/button";
 import {
   Table,
   TableBody,
@@ -7,8 +7,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table";
-import { Badge } from "~/components/ui/badge";
+} from "src/components/ui/table";
+import { Badge } from "src/components/ui/badge";
 
 type QualityProfile = {
   id: number;

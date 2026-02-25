@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "~/db";
-import { books, editions, authors, history } from "~/db/schema";
+import { db } from "src/db";
+import { books, editions, authors, history } from "src/db/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -8,7 +8,7 @@ import {
   updateBookSchema,
   createEditionSchema,
   updateEditionSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 
 export const getBooksFn = createServerFn({ method: "GET" }).handler(
   async () => {

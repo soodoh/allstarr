@@ -5,12 +5,12 @@ import {
   createDownloadClientFn,
   updateDownloadClientFn,
   deleteDownloadClientFn,
-} from "~/server/download-clients";
-import { queryKeys } from "~/lib/query-keys";
+} from "src/server/download-clients";
+import { queryKeys } from "src/lib/query-keys";
 import type {
   createDownloadClientSchema,
   updateDownloadClientSchema,
-} from "~/lib/validators";
+} from "src/lib/validators";
 import type { z } from "zod";
 
 export function useCreateDownloadClient() {

@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { signIn } from "~/lib/auth-client";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
-import Label from "~/components/ui/label";
+import { signIn } from "src/lib/auth-client";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
+import Label from "src/components/ui/label";
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
+} from "src/components/ui/card";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({

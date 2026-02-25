@@ -2,8 +2,8 @@
 // oxlint-disable import/prefer-default-export -- barrel-imported; default export would break re-exports
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { regenerateApiKeyFn, updateSettingFn } from "~/server/settings";
-import { queryKeys } from "~/lib/query-keys";
+import { regenerateApiKeyFn, updateSettingFn } from "src/server/settings";
+import { queryKeys } from "src/lib/query-keys";
 
 type SettingEntry = { key: string; value: string };
 

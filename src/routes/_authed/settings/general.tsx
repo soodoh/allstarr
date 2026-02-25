@@ -3,27 +3,27 @@ import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "~/components/ui/button";
-import Input from "~/components/ui/input";
-import Label from "~/components/ui/label";
+import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
+import Label from "src/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+} from "src/components/ui/select";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
-import PageHeader from "~/components/shared/page-header";
-import ConfirmDialog from "~/components/shared/confirm-dialog";
-import { settingsMapQuery } from "~/lib/queries";
-import { useRegenerateApiKey, useUpdateSettings } from "~/hooks/mutations";
+} from "src/components/ui/card";
+import PageHeader from "src/components/shared/page-header";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
+import { settingsMapQuery } from "src/lib/queries";
+import { useRegenerateApiKey, useUpdateSettings } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/general")({
   loader: ({ context }) =>
