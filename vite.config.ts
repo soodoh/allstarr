@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
-    allowedHosts: ["allstarr"], // allow Prowlarr (via gluetun Docker network) to reach this dev server
+    allowedHosts: ["allstarr", "host.docker.internal"],
   },
   plugins: [
     tailwindcss(),
