@@ -31,6 +31,7 @@ const importBookSchema = z.object({
     .object({ value: z.number(), votes: z.number() })
     .nullable()
     .optional(),
+  readers: z.number().nullable().optional(),
   series: z
     .array(
       z.object({
@@ -122,6 +123,7 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
             monitored: bookData.monitored,
             images: bookData.images,
             ratings: bookData.ratings ?? undefined,
+            readers: bookData.readers ?? undefined,
           })
           .returning()
           .get();
@@ -207,6 +209,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           monitored: data.monitored,
           images: data.images,
           ratings: data.ratings ?? undefined,
+          readers: data.readers ?? undefined,
         })
         .returning()
         .get();

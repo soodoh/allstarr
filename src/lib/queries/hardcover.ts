@@ -4,7 +4,11 @@ import {
   getHardcoverAuthorFn,
   getHardcoverAuthorSeriesFn,
   getHardcoverSeriesBooksFn,
+  getHardcoverBookEditionsFn,
+  getHardcoverBookLanguagesFn,
+  getHardcoverBookDetailFn,
 } from "src/server/search";
+import type { EditionSortKey } from "src/server/search";
 import { queryKeys } from "../query-keys";
 
 type HardcoverAuthorParams = {
@@ -38,4 +42,37 @@ export const hardcoverSeriesBooksQuery = (seriesId: number, language: string) =>
   queryOptions({
     queryKey: queryKeys.hardcover.seriesBooks(seriesId, language),
     queryFn: () => getHardcoverSeriesBooksFn({ data: { seriesId, language } }),
+  });
+
+type HardcoverBookEditionsParams = {
+  page: number;
+  pageSize: number;
+  sortBy: EditionSortKey;
+  sortDir: "asc" | "desc";
+};
+
+export const hardcoverBookEditionsQuery = (
+  foreignBookId: number,
+  params: HardcoverBookEditionsParams,
+) =>
+  queryOptions({
+    queryKey: queryKeys.hardcover.bookEditions(foreignBookId, params),
+    queryFn: () =>
+      getHardcoverBookEditionsFn({
+        data: { foreignBookId, ...params },
+      }),
+  });
+
+export const hardcoverBookLanguagesQuery = (foreignBookId: number) =>
+  queryOptions({
+    queryKey: queryKeys.hardcover.bookLanguages(foreignBookId),
+    queryFn: () =>
+      getHardcoverBookLanguagesFn({ data: { foreignBookId } }),
+  });
+
+export const hardcoverSingleBookQuery = (foreignBookId: number) =>
+  queryOptions({
+    queryKey: queryKeys.hardcover.bookDetail(foreignBookId),
+    queryFn: () =>
+      getHardcoverBookDetailFn({ data: { foreignBookId } }),
   });

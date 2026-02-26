@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
-import { BookOpen, ExternalLink, Loader2, Plus } from "lucide-react";
+import { ExternalLink, Loader2, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
@@ -21,16 +20,20 @@ import {
 import Switch from "src/components/ui/switch";
 import type {
   HardcoverAuthorDetail,
+  HardcoverBookDetail,
   HardcoverSearchItem,
 } from "src/server/search";
 import { searchHardcoverFn } from "src/server/search";
 import {
   booksExistQuery,
   hardcoverAuthorQuery,
+  hardcoverBookLanguagesQuery,
+  hardcoverSingleBookQuery,
   authorExistsQuery,
   qualityProfilesListQuery,
   rootFoldersListQuery,
 } from "src/lib/queries";
+import BookDetailContent from "src/components/books/book-detail-content";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import {
   useImportHardcoverAuthor,
@@ -49,6 +52,7 @@ const AUTHOR_FETCH_PARAMS = {
 
 type AddBookFormProps = {
   book: HardcoverSearchItem;
+  bookDetail: HardcoverBookDetail | undefined;
   fullAuthor: HardcoverAuthorDetail;
   existingAuthorId: number | undefined;
   onSuccess: () => void;
@@ -57,6 +61,7 @@ type AddBookFormProps = {
 
 function AddBookForm({
   book,
+  bookDetail,
   fullAuthor,
   existingAuthorId,
   onSuccess,
@@ -78,6 +83,7 @@ function AddBookForm({
 
   const loading = importAuthor.isPending || importBook.isPending;
 
+  // oxlint-disable-next-line complexity -- Import flow with author creation, book data assembly, and error handling
   const handleSubmit = async () => {
     try {
       let authorId = existingAuthorId;
@@ -101,19 +107,36 @@ function AddBookForm({
         authorId = result.authorId;
       }
 
+      const releaseDate =
+        bookDetail?.releaseDate ??
+        (book.releaseYear ? `${book.releaseYear}-01-01` : undefined);
+
+      const rating = bookDetail?.rating;
+      const readers = bookDetail?.usersCount ?? book.readers ?? undefined;
+      const overview =
+        bookDetail?.description ?? book.description ?? undefined;
+      const coverUrl = bookDetail?.coverUrl ?? book.coverUrl;
+
       await importBook.mutateAsync({
         authorId,
         title: book.title,
         foreignBookId: book.id,
-        releaseDate: book.releaseYear
-          ? `${book.releaseYear}-01-01`
-          : undefined,
-        overview: book.description ?? undefined,
+        releaseDate,
+        overview,
         monitored,
-        images: book.coverUrl
-          ? [{ url: book.coverUrl, coverType: "cover" }]
+        images: coverUrl
+          ? [{ url: coverUrl, coverType: "cover" }]
           : undefined,
-        series: [],
+        ratings:
+          rating === undefined
+            ? undefined
+            : { value: rating, votes: bookDetail?.ratingsCount ?? 0 },
+        readers,
+        series: (bookDetail?.series ?? []).map((s) => ({
+          foreignSeriesId: s.id,
+          title: s.title,
+          position: s.position,
+        })),
       });
 
       onSuccess();
@@ -242,7 +265,7 @@ export default function BookPreviewModal({
 
   const { data: fullAuthor, isLoading: authorDetailLoading } = useQuery({
     ...hardcoverAuthorQuery(authorSlug ?? "", AUTHOR_FETCH_PARAMS),
-    enabled: open && !localBook && Boolean(authorSlug),
+    enabled: open && Boolean(authorSlug),
   });
 
   // ── Check if this author already exists locally ──
@@ -258,119 +281,120 @@ export default function BookPreviewModal({
 
   const inLibrary = Boolean(localBook) || added;
   const authorLoading = authorSearching || authorDetailLoading;
-  const hardcoverUrl = book.hardcoverUrl;
+
+  // ── Fetch book detail + languages from Hardcover ──
+  const foreignBookId = book.id ? Number(book.id) : 0;
+
+  const { data: hcBook } = useQuery({
+    ...hardcoverSingleBookQuery(foreignBookId),
+    enabled: open && foreignBookId > 0,
+  });
+
+  const { data: languages } = useQuery({
+    ...hardcoverBookLanguagesQuery(foreignBookId),
+    enabled: open && foreignBookId > 0,
+  });
+
+  // ── Build rich book detail from Hardcover data ──
+  const bookDetailData = useMemo(
+    () => ({
+      title: book.title,
+      coverUrl: hcBook?.coverUrl ?? book.coverUrl,
+      authorName: book.subtitle,
+      releaseDate:
+        hcBook?.releaseDate ??
+        (book.releaseYear ? String(book.releaseYear) : undefined),
+      availableLanguages: languages,
+      series: hcBook?.series.map((s) => ({
+        title: s.title,
+        position: s.position,
+      })),
+      rating: hcBook?.rating,
+      ratingVotes: hcBook?.ratingsCount,
+      readers: hcBook?.usersCount ?? book.readers,
+      overview: hcBook?.description ?? book.description,
+      hardcoverUrl: book.hardcoverUrl,
+    }),
+    [book, hcBook, languages],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="sr-only">{book.title}</DialogTitle>
         </DialogHeader>
 
-        {/* ── Book identity ── */}
-        <div className="flex gap-4">
-          <div className="h-36 w-24 shrink-0 overflow-hidden rounded border border-border bg-muted">
-            {book.coverUrl ? (
-              <img
-                src={book.coverUrl}
-                alt={`${book.title} cover`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                <BookOpen className="h-6 w-6" />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1 space-y-1.5 pt-1">
-            <h2 className="text-lg font-semibold leading-tight">
-              {book.title}
-            </h2>
-            {book.subtitle && (
-              <p className="text-sm text-muted-foreground">{book.subtitle}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              {book.releaseYear && (
-                <Badge variant="ghost">{book.releaseYear}</Badge>
+        <BookDetailContent book={bookDetailData}>
+          {/* ── Actions ── */}
+          {!inLibrary && !addOpen && (
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                className="flex-1"
+                onClick={() => setAddOpen(true)}
+                disabled={authorLoading || !fullAuthor}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {authorLoading ? "Loading…" : "Add to Library"}
+              </Button>
+              {book.hardcoverUrl && (
+                <Button variant="outline" size="icon" asChild>
+                  <a
+                    href={book.hardcoverUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open on Hardcover"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
               )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* ── Description ── */}
-        {book.description && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-5">
-            {book.description}
-          </p>
-        )}
-
-        {/* ── Actions ── */}
-        {!inLibrary && !addOpen && (
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              className="flex-1"
-              onClick={() => setAddOpen(true)}
-              disabled={authorLoading || !fullAuthor}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {authorLoading ? "Loading…" : "Add to Library"}
-            </Button>
-            {hardcoverUrl && (
-              <Button variant="outline" size="icon" asChild>
-                <a
-                  href={hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open on Hardcover"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+          {inLibrary && (
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  if (localBook) {
+                    openBookModal(localBook.id);
+                  }
+                  onOpenChange(false);
+                }}
+              >
+                View in Library
               </Button>
-            )}
-          </div>
-        )}
+              {book.hardcoverUrl && (
+                <Button variant="outline" size="icon" asChild>
+                  <a
+                    href={book.hardcoverUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open on Hardcover"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
 
-        {inLibrary && (
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => {
-                if (localBook) {
-                  openBookModal(localBook.id);
-                }
-                onOpenChange(false);
+          {addOpen && !inLibrary && fullAuthor && (
+            <AddBookForm
+              book={book}
+              bookDetail={hcBook}
+              fullAuthor={fullAuthor}
+              existingAuthorId={existingAuthor?.id}
+              onSuccess={() => {
+                setAdded(true);
+                setAddOpen(false);
               }}
-            >
-              View in Library
-            </Button>
-            {hardcoverUrl && (
-              <Button variant="outline" size="icon" asChild>
-                <a
-                  href={hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open on Hardcover"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            )}
-          </div>
-        )}
-
-        {addOpen && !inLibrary && fullAuthor && (
-          <AddBookForm
-            book={book}
-            fullAuthor={fullAuthor}
-            existingAuthorId={existingAuthor?.id}
-            onSuccess={() => {
-              setAdded(true);
-              setAddOpen(false);
-            }}
-            onCancel={() => setAddOpen(false)}
-          />
-        )}
+              onCancel={() => setAddOpen(false)}
+            />
+          )}
+        </BookDetailContent>
       </DialogContent>
     </Dialog>
   );

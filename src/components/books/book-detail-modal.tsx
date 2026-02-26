@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ImageIcon,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -18,7 +25,6 @@ import {
   TabsTrigger,
 } from "src/components/ui/tabs";
 import { Button } from "src/components/ui/button";
-import { Badge } from "src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -28,16 +34,20 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import Skeleton from "src/components/ui/skeleton";
-import BookCover from "src/components/books/book-cover";
+import BookDetailContent from "src/components/books/book-detail-content";
 import BookForm from "src/components/books/book-form";
 import SearchToolbar from "src/components/indexers/search-toolbar";
 import ReleaseTable from "src/components/indexers/release-table";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import TablePagination from "src/components/shared/table-pagination";
 import {
   bookDetailQuery,
   authorsListQuery,
   hasEnabledIndexersQuery,
+  hardcoverBookEditionsQuery,
+  hardcoverBookLanguagesQuery,
 } from "src/lib/queries";
+import type { EditionSortKey } from "src/server/search";
 import {
   useUpdateBook,
   useDeleteBook,
@@ -73,133 +83,248 @@ function LoadingSkeleton(): JSX.Element {
 
 function DetailsTab({
   book,
+  open,
   onOpenChange,
 }: {
   book: BookDetail;
+  open: boolean;
   onOpenChange: (open: boolean) => void;
 }): JSX.Element {
+  const foreignBookId = book.foreignBookId
+    ? Number(book.foreignBookId)
+    : 0;
+
+  const { data: languages } = useQuery({
+    ...hardcoverBookLanguagesQuery(foreignBookId),
+    enabled: open && foreignBookId > 0,
+  });
+
   return (
-    <TabsContent value="details" className="overflow-y-auto flex-1 min-h-0">
-      <div className="space-y-4 pt-2">
-        <div className="grid grid-cols-[auto_1fr] gap-6">
-          <BookCover
-            title={book.title}
-            images={book.images ?? undefined}
-            className="w-40"
-          />
-          <div className="flex flex-col justify-end space-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Author: </span>
-              {book.authorId ? (
-                <Link
-                  to="/library/authors/$authorSlug"
-                  params={{
-                    authorSlug: book.authorSlug || String(book.authorId),
-                  }}
-                  className="hover:underline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {book.authorName || "Unknown"}
-                </Link>
-              ) : (
-                <span>{book.authorName || "Unknown"}</span>
-              )}
-            </div>
-            {book.releaseDate && (
-              <div>
-                <span className="text-muted-foreground">Release Date: </span>
-                {book.releaseDate}
-              </div>
-            )}
-            {book.language && (
-              <div>
-                <span className="text-muted-foreground">Language: </span>
-                {book.language}
-              </div>
-            )}
-            {book.series && book.series.length > 0 && (
-              <div>
-                <span className="text-muted-foreground">Series: </span>
-                {book.series
-                  .map((s) =>
-                    s.position ? `${s.title} #${s.position}` : s.title,
-                  )
-                  .join(", ")}
-              </div>
-            )}
-            {book.ratings && (
-              <div>
-                <span className="text-muted-foreground">Rating: </span>
-                {book.ratings.value.toFixed(1)}/5
-                <span className="text-muted-foreground ml-1">
-                  ({book.ratings.votes.toLocaleString()}{" "}
-                  {book.ratings.votes === 1 ? "vote" : "votes"})
-                </span>
-              </div>
-            )}
-            {book.isbn && (
-              <div>
-                <span className="text-muted-foreground">ISBN: </span>
-                <span className="font-mono text-xs">{book.isbn}</span>
-              </div>
-            )}
-            {book.asin && (
-              <div>
-                <span className="text-muted-foreground">ASIN: </span>
-                <span className="font-mono text-xs">{book.asin}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        {book.overview && (
-          <div className="text-sm">
-            <h4 className="text-muted-foreground font-medium mb-1">
-              Description
-            </h4>
-            <p className="leading-relaxed">{book.overview}</p>
-          </div>
-        )}
-      </div>
+    <TabsContent value="details" className="overflow-y-auto flex-1 min-h-0 pt-2">
+      <BookDetailContent
+        book={{
+          title: book.title,
+          images: book.images ?? undefined,
+          author: book.authorId
+            ? {
+                id: book.authorId,
+                slug: book.authorSlug ?? undefined,
+                name: book.authorName || "Unknown",
+              }
+            : undefined,
+          authorName: book.authorName || "Unknown",
+          releaseDate: book.releaseDate ?? undefined,
+          availableLanguages: languages,
+          series: book.series ?? undefined,
+          rating: book.ratings?.value,
+          ratingVotes: book.ratings?.votes,
+          readers: book.readers ?? undefined,
+          isbn: book.isbn ?? undefined,
+          asin: book.asin ?? undefined,
+          overview: book.overview ?? undefined,
+        }}
+        onCloseModal={() => onOpenChange(false)}
+      />
     </TabsContent>
   );
 }
 
+type EditionColumn = {
+  key: EditionSortKey | "author";
+  label: string;
+  sortable: boolean;
+};
+
+const EDITION_COLUMNS: EditionColumn[] = [
+  { key: "title", label: "Title", sortable: true },
+  { key: "author", label: "Author", sortable: false },
+  { key: "publisher", label: "Publisher", sortable: true },
+  { key: "type", label: "Type", sortable: true },
+  { key: "pages", label: "Pages", sortable: true },
+  { key: "releaseDate", label: "Release Date", sortable: true },
+  { key: "isbn13", label: "ISBN-13", sortable: true },
+  { key: "isbn10", label: "ISBN-10", sortable: true },
+  { key: "asin", label: "ASIN", sortable: true },
+  { key: "language", label: "Language", sortable: true },
+  { key: "country", label: "Country", sortable: true },
+  { key: "readers", label: "Readers", sortable: true },
+  { key: "score", label: "Data Score", sortable: true },
+];
+
+// oxlint-disable-next-line complexity -- Rendering edition table with sort, pagination, and loading states
 function EditionsTab({
-  editions,
+  foreignBookId,
+  open,
 }: {
-  editions: BookDetail["editions"];
+  foreignBookId: string | undefined;
+  open: boolean;
 }): JSX.Element {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [sortBy, setSortBy] = useState<EditionSortKey>("readers");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const bookId = foreignBookId ? Number(foreignBookId) : 0;
+
+  const { data, isLoading } = useQuery({
+    ...hardcoverBookEditionsQuery(bookId, { page, pageSize, sortBy, sortDir }),
+    enabled: open && bookId > 0,
+  });
+
+  const handleSort = (key: EditionSortKey) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
+  const SortIcon = ({ col }: { col: EditionSortKey }) => {
+    if (sortBy !== col) {
+      return (
+        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+      );
+    }
+    return sortDir === "asc" ? (
+      <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
+    ) : (
+      <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
+    );
+  };
+
+  if (!foreignBookId) {
+    return (
+      <TabsContent value="editions" className="overflow-y-auto flex-1 min-h-0">
+        <p className="text-sm text-muted-foreground py-4">
+          No Hardcover ID linked to this book.
+        </p>
+      </TabsContent>
+    );
+  }
+
   return (
-    <TabsContent value="editions" className="overflow-y-auto flex-1 min-h-0">
-      {editions.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">No editions found.</p>
-      ) : (
-        <Table>
+    <TabsContent
+      value="editions"
+      className="flex-1 min-h-0 flex flex-col gap-3"
+    >
+      <div className="overflow-auto flex-1 min-h-0">
+        <Table className="min-w-max">
+          <colgroup>
+            <col className="w-14" />
+            {EDITION_COLUMNS.map((col) => (
+              <col key={col.key} />
+            ))}
+          </colgroup>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Format</TableHead>
-              <TableHead>ISBN</TableHead>
-              <TableHead>Publisher</TableHead>
-              <TableHead>Monitored</TableHead>
+              <TableHead />
+              {EDITION_COLUMNS.map(({ key, label, sortable }) =>
+                sortable ? (
+                  <TableHead
+                    key={key}
+                    className="cursor-pointer select-none hover:text-foreground whitespace-nowrap"
+                    onClick={() => handleSort(key as EditionSortKey)}
+                  >
+                    {label}
+                    <SortIcon col={key as EditionSortKey} />
+                  </TableHead>
+                ) : (
+                  <TableHead key={key} className="whitespace-nowrap">
+                    {label}
+                  </TableHead>
+                ),
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {editions.map((edition) => (
-              <TableRow key={edition.id}>
-                <TableCell className="font-medium">{edition.title}</TableCell>
-                <TableCell>{edition.format || "N/A"}</TableCell>
-                <TableCell>{edition.isbn || "N/A"}</TableCell>
-                <TableCell>{edition.publisher || "N/A"}</TableCell>
-                <TableCell>
-                  <Badge variant={edition.monitored ? "default" : "outline"}>
-                    {edition.monitored ? "Yes" : "No"}
-                  </Badge>
+            {isLoading &&
+              Array.from({ length: 5 }).map((_, i) => (
+                // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no unique identity
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="w-10 aspect-[2/3] rounded-sm" />
+                  </TableCell>
+                  {EDITION_COLUMNS.map((col) => (
+                    <TableCell key={col.key}>
+                      <Skeleton className="h-4 w-16" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            {!isLoading && data && data.editions.length > 0 &&
+              data.editions.map((edition) => (
+                <TableRow key={edition.id}>
+                  <TableCell>
+                    {edition.coverUrl ? (
+                      <img
+                        src={edition.coverUrl}
+                        alt={edition.title}
+                        className="aspect-[2/3] w-full rounded-sm object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium max-w-48 truncate">
+                    {edition.title}
+                  </TableCell>
+                  <TableCell className="max-w-36 truncate">
+                    {edition.author || "—"}
+                  </TableCell>
+                  <TableCell className="max-w-36 truncate">
+                    {edition.publisher || "—"}
+                  </TableCell>
+                  <TableCell>{edition.type || "—"}</TableCell>
+                  <TableCell>{edition.pages ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {edition.releaseDate || "—"}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {edition.isbn13 || "—"}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {edition.isbn10 || "—"}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {edition.asin || "—"}
+                  </TableCell>
+                  <TableCell>{edition.language || "—"}</TableCell>
+                  <TableCell>{edition.country || "—"}</TableCell>
+                  <TableCell>{edition.readers.toLocaleString()}</TableCell>
+                  <TableCell>{edition.score.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            {!isLoading && (!data || data.editions.length === 0) && (
+              <TableRow>
+                <TableCell
+                  colSpan={EDITION_COLUMNS.length + 1}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No editions found.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
+      </div>
+      {data && data.total > 0 && (
+        <TablePagination
+          page={data.page}
+          pageSize={pageSize}
+          totalItems={data.total}
+          totalPages={data.totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       )}
     </TabsContent>
   );
@@ -406,14 +531,15 @@ export default function BookDetailModal({
             >
               <TabsList>
                 <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="editions">
-                  Editions ({book.editions.length})
-                </TabsTrigger>
+                <TabsTrigger value="editions">Editions</TabsTrigger>
                 <TabsTrigger value="search">Search Releases</TabsTrigger>
               </TabsList>
 
-              <DetailsTab book={book} onOpenChange={onOpenChange} />
-              <EditionsTab editions={book.editions} />
+              <DetailsTab book={book} open={open} onOpenChange={onOpenChange} />
+              <EditionsTab
+                foreignBookId={book.foreignBookId ?? undefined}
+                open={open && activeTab === "editions"}
+              />
               <SearchTab
                 book={book}
                 open={open}

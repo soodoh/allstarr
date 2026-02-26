@@ -16,6 +16,7 @@ type BookEntry = {
   monitored?: boolean;
   images?: Array<{ url: string; coverType: string }>;
   ratings?: { value: number; votes: number } | undefined;
+  readers?: number | undefined;
   series?: Array<{
     foreignSeriesId: string;
     title: string;
