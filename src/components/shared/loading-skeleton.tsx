@@ -203,15 +203,24 @@ export function BookTableRowsSkeleton({
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b border-border">
-          <td className="p-4">
+        <tr key={i} className="border-b">
+          <td className="p-2">
+            <Skeleton className="aspect-[2/3] w-full rounded-sm" />
+          </td>
+          <td className="p-2">
             <Skeleton className="h-4 w-44" />
           </td>
-          <td className="p-4">
+          <td className="p-2">
             <Skeleton className="h-4 w-32" />
           </td>
-          <td className="p-4">
+          <td className="p-2">
             <Skeleton className="h-4 w-24" />
+          </td>
+          <td className="p-2">
+            <Skeleton className="h-4 w-28" />
+          </td>
+          <td className="p-2">
+            <Skeleton className="h-4 w-16" />
           </td>
         </tr>
       ))}

@@ -33,6 +33,7 @@ export type HardcoverAuthorBook = {
   releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
+  usersCount: number | undefined;
   coverUrl: string | undefined;
   contribution: string | undefined;
   languageCode: string | undefined;
@@ -45,6 +46,8 @@ export type HardcoverSeriesBook = {
   id: string;
   title: string;
   slug: string | undefined;
+  description: string | undefined;
+  releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
   coverUrl: string | undefined;
@@ -52,6 +55,7 @@ export type HardcoverSeriesBook = {
   hardcoverUrl: string | undefined;
   isCompilation: boolean;
   authorName: string | undefined;
+  languageName: string | undefined;
 };
 
 export type HardcoverSeriesBooksResult = {
@@ -325,6 +329,7 @@ query ${queryName}(${varDefs}) {
     release_date
     release_year
     rating
+    users_count
     image {
       url
     }
@@ -387,6 +392,8 @@ query ${queryName}(${varDefs}) {
       id
       title
       slug
+      description
+      release_date
       release_year
       rating
       users_count
@@ -400,6 +407,16 @@ query ${queryName}(${varDefs}) {
       ) {
         author {
           name
+        }
+      }
+      editions(
+        limit: 1
+        where: { language_id: { _is_null: false } }
+        order_by: [{ id: asc }]
+      ) {
+        language {
+          code2
+          language
         }
       }
     }
@@ -567,10 +584,18 @@ async function fetchSeriesBooks(
             })
             .filter((n): n is string => n !== undefined)
             .join(", ") || undefined;
+        const editions = toRecordArray(bookRecord.editions);
+        const languageRecord =
+          editions.length > 0 ? toRecord(editions[0].language) : undefined;
+        const languageName = languageRecord
+          ? firstString(languageRecord, [["language"]])
+          : undefined;
         return {
           id,
           title,
           slug,
+          description: firstString(bookRecord, [["description"]]),
+          releaseDate: firstString(bookRecord, [["release_date"]]),
           releaseYear: firstNumber(bookRecord, [["release_year"]]),
           rating: firstNumber(bookRecord, [["rating"]]),
           coverUrl: getCoverUrl(bookRecord),
@@ -580,6 +605,7 @@ async function fetchSeriesBooks(
             : undefined,
           isCompilation,
           authorName,
+          languageName,
         };
       })
       .filter(Boolean) as HardcoverSeriesBook[];
@@ -856,7 +882,7 @@ function toHardcoverAuthorBook(
       return {
         id: seriesId,
         title: seriesTitle,
-        position: firstString(entry, [["position"]]),
+        position: firstNumber(entry, [["position"]])?.toString() ?? firstString(entry, [["position"]]),
       };
     })
     .filter(Boolean) as HardcoverAuthorBookSeries[];
@@ -880,6 +906,7 @@ function toHardcoverAuthorBook(
         firstString(bookRecord, [["release_date"], ["published_date"]]),
       ),
     rating: firstNumber(bookRecord, [["rating"]]),
+    usersCount: firstNumber(bookRecord, [["users_count"]]),
     coverUrl: getCoverUrl(bookRecord),
     contribution,
     languageCode,

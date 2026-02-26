@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon, Star } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,6 +16,9 @@ type Book = {
   title: string;
   authorName: string | undefined;
   releaseDate: string | undefined;
+  language: string | undefined;
+  ratings?: { value: number; votes: number } | undefined;
+  series: Array<{ title: string; position: string | undefined }>;
   images?: Array<{ url: string; coverType: string }>;
 };
 
@@ -24,7 +27,35 @@ type BookTableProps = {
   children?: ReactNode;
 };
 
-type SortKey = "title" | "authorName" | "releaseDate";
+type SortKey = "title" | "authorName" | "releaseDate" | "series" | "language" | "rating";
+
+function compareRating(a: Book, b: Book): number {
+  return (a.ratings?.value ?? -1) - (b.ratings?.value ?? -1);
+}
+
+function compareSeries(a: Book, b: Book): number {
+  const cmp = (a.series[0]?.title ?? "").localeCompare(b.series[0]?.title ?? "");
+  if (cmp !== 0) {return cmp;}
+  const ap = Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+  const bp = Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+  return ap - bp;
+}
+
+// oxlint-disable-next-line complexity -- sort dispatch across multiple keys
+function compareBooks(a: Book, b: Book, key: SortKey, dir: "asc" | "desc"): number {
+  if (key === "rating") {
+    const cmp = compareRating(a, b);
+    return dir === "asc" ? cmp : -cmp;
+  }
+  if (key === "series") {
+    const cmp = compareSeries(a, b);
+    return dir === "asc" ? cmp : -cmp;
+  }
+  const av = a[key] ?? "";
+  const bv = b[key] ?? "";
+  const cmp = String(av).localeCompare(String(bv));
+  return dir === "asc" ? cmp : -cmp;
+}
 
 export default function BookTable({
   books,
@@ -44,12 +75,7 @@ export default function BookTable({
   };
 
   const sorted = sortKey
-    ? [...books].toSorted((a, b) => {
-        const av = a[sortKey] ?? "";
-        const bv = b[sortKey] ?? "";
-        const cmp = String(av).localeCompare(String(bv));
-        return sortDir === "asc" ? cmp : -cmp;
-      })
+    ? [...books].toSorted((a, b) => compareBooks(a, b, sortKey, sortDir))
     : books;
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -72,6 +98,9 @@ export default function BookTable({
         <col />
         <col />
         <col />
+        <col />
+        <col />
+        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -81,17 +110,24 @@ export default function BookTable({
               { key: "title", label: "Title" },
               { key: "authorName", label: "Author" },
               { key: "releaseDate", label: "Release Date" },
-            ] as Array<{ key: SortKey; label: string }>
-          ).map(({ key, label }) => (
-            <TableHead
-              key={key}
-              className="cursor-pointer select-none hover:text-foreground"
-              onClick={() => handleSort(key)}
-            >
-              {label}
-              <SortIcon col={key} />
-            </TableHead>
-          ))}
+              { key: "series", label: "Series" },
+              { key: "language", label: "Language" },
+              { key: "rating", label: "Rating" },
+            ] as Array<{ key: SortKey | undefined; label: string }>
+          ).map(({ key, label }) =>
+            key ? (
+              <TableHead
+                key={label}
+                className="cursor-pointer select-none hover:text-foreground"
+                onClick={() => handleSort(key)}
+              >
+                {label}
+                <SortIcon col={key} />
+              </TableHead>
+            ) : (
+              <TableHead key={label}>{label}</TableHead>
+            ),
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -119,6 +155,29 @@ export default function BookTable({
               <TableCell className="font-medium">{book.title}</TableCell>
               <TableCell>{book.authorName || "Unknown"}</TableCell>
               <TableCell>{book.releaseDate || "Unknown"}</TableCell>
+              <TableCell>
+                {book.series.length > 0
+                  ? book.series
+                      .map((s) =>
+                        s.position ? `${s.title} (#${s.position})` : s.title,
+                      )
+                      .join(", ")
+                  : "—"}
+              </TableCell>
+              <TableCell>{book.language || "—"}</TableCell>
+              <TableCell>
+                {book.ratings ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                    {book.ratings.value.toFixed(1)}
+                    <span className="text-muted-foreground">
+                      ({book.ratings.votes.toLocaleString()})
+                    </span>
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
             </TableRow>
           );
         })}

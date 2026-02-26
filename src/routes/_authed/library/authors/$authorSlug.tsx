@@ -15,9 +15,11 @@ import {
   ChevronUp,
   ChevronsUpDown,
   ExternalLink,
+  ImageIcon,
   Pencil,
   Plus,
   Search,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -176,62 +178,99 @@ function BooksTab({
   onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
+  type BooksTabSortKey = "title" | "year" | "series" | "language" | "rating";
+  const apiSortKeys = new Set<BooksTabSortKey>(["title", "year", "rating"]);
+
   const { openBookModal } = useBookDetailModal();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchPage, setSearchPage] = useState(1);
+  const [activeSortKey, setActiveSortKey] = useState<BooksTabSortKey>("year");
+  const [activeSortDir, setActiveSortDir] = useState<"asc" | "desc">("desc");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
 
   const isSearching = searchQuery !== "";
+  const isClientSort = !apiSortKeys.has(activeSortKey);
+  const needsAllBooks = isSearching || isClientSort;
 
   const { data: author, isFetching } = useSuspenseQuery({
     ...hardcoverAuthorQuery(authorSlug, authorParams),
     placeholderData: keepPreviousData,
   });
 
-  const { data: allBooksData, isFetching: searchLoading } = useQuery({
+  const { data: allBooksData, isFetching: allBooksLoading } = useQuery({
     ...hardcoverAuthorQuery(authorSlug, {
       ...authorParams,
       page: 1,
       pageSize: SEARCH_ALL_PAGE_SIZE,
     }),
-    enabled: isSearching,
+    enabled: needsAllBooks,
   });
 
   const loading = isFetching;
   const allBooks = allBooksData?.books;
 
-  const filteredBooks = useMemo(() => {
-    if (!isSearching || !allBooks) {
-      return null;
-    }
-    const q = searchQuery.toLowerCase();
-    return allBooks.filter((b) => b.title.toLowerCase().includes(q));
-  }, [allBooks, isSearching, searchQuery]);
+  // When we need all books (searching or client-side sorting), filter/sort/paginate locally
+  const processedBooks = useMemo(() => {
+    if (!needsAllBooks || !allBooks) {return null;}
 
-  const searchTotalBooks = filteredBooks?.length ?? 0;
-  const searchTotalPages = Math.max(
-    1,
-    Math.ceil(searchTotalBooks / DEFAULT_PAGE_SIZE),
-  );
-  const searchPagedBooks = useMemo(() => {
-    if (!filteredBooks) {
-      return [];
-    }
-    const start = (searchPage - 1) * DEFAULT_PAGE_SIZE;
-    return filteredBooks.slice(start, start + DEFAULT_PAGE_SIZE);
-  }, [filteredBooks, searchPage]);
+    let books = allBooks;
 
-  const displayBooks = isSearching ? searchPagedBooks : author.books;
+    // Apply search filter
+    if (isSearching) {
+      const q = searchQuery.toLowerCase();
+      books = books.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.series.some((s) => s.title.toLowerCase().includes(q)),
+      );
+    }
+
+    // Apply client-side sort
+    if (isClientSort) {
+      books = [...books].toSorted((a, b) => {
+        let cmp = 0;
+        if (activeSortKey === "series") {
+          const av = a.series[0]?.title ?? "";
+          const bv = b.series[0]?.title ?? "";
+          cmp = av.localeCompare(bv);
+          if (cmp === 0) {
+            const ap = Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+            const bp = Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+            return ap - bp;
+          }
+        } else if (activeSortKey === "language") {
+          const av = a.languageName ?? "";
+          const bv = b.languageName ?? "";
+          cmp = av.localeCompare(bv);
+        }
+        return activeSortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return books;
+  }, [allBooks, needsAllBooks, isSearching, searchQuery, isClientSort, activeSortKey, activeSortDir]);
+
+  const localTotal = processedBooks?.length ?? 0;
+  const localTotalPages = Math.max(1, Math.ceil(localTotal / DEFAULT_PAGE_SIZE));
+  const localPage = needsAllBooks ? searchPage : authorParams.page;
+
+  const localPagedBooks = useMemo(() => {
+    if (!processedBooks) {return [];}
+    const start = (localPage - 1) * DEFAULT_PAGE_SIZE;
+    return processedBooks.slice(start, start + DEFAULT_PAGE_SIZE);
+  }, [processedBooks, localPage]);
+
+  const displayBooks = needsAllBooks ? localPagedBooks : author.books;
   const languageGroups = groupBooksByLanguage(displayBooks);
 
-  const displayPage = isSearching ? searchPage : authorParams.page;
+  const displayPage = needsAllBooks ? localPage : authorParams.page;
   const displayPageSize = authorParams.pageSize;
-  const totalItems = isSearching ? searchTotalBooks : author.totalBooks;
-  const totalPages = isSearching ? searchTotalPages : author.totalPages;
-  const isLoadingDisplay = isSearching ? searchLoading : loading;
+  const totalItems = needsAllBooks ? localTotal : author.totalBooks;
+  const totalPages = needsAllBooks ? localTotalPages : author.totalPages;
+  const isLoadingDisplay = needsAllBooks ? allBooksLoading : loading;
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -259,20 +298,23 @@ function BooksTab({
     setSearchPage(1);
   };
 
-  const handleSort = (key: "title" | "year" | "rating") => {
-    let newDir: "asc" | "desc" = "asc";
-    if (authorParams.sortBy === key && authorParams.sortDir === "asc") {
-      newDir = "desc";
+  const handleSort = (key: BooksTabSortKey) => {
+    const newDir: "asc" | "desc" =
+      activeSortKey === key && activeSortDir === "asc" ? "desc" : "asc";
+    setActiveSortKey(key);
+    setActiveSortDir(newDir);
+    setSearchPage(1);
+    if (apiSortKeys.has(key)) {
+      setAuthorParams((prev) => ({
+        ...prev,
+        sortBy: key as "title" | "year" | "rating",
+        sortDir: newDir,
+        page: 1,
+      }));
     }
-    setAuthorParams((prev) => ({
-      ...prev,
-      sortBy: key,
-      sortDir: newDir,
-      page: 1,
-    }));
   };
 
-  const colCount = 3;
+  const colCount = 7;
 
   let booksTableBody: ReactNode;
   if (isLoadingDisplay) {
@@ -283,14 +325,26 @@ function BooksTab({
           <Skeleton className="h-6 w-6 rounded" />
         </TableCell>
         <TableCell>
+          <Skeleton className="aspect-[2/3] w-full rounded-sm" />
+        </TableCell>
+        <TableCell>
           <Skeleton className="h-4 w-[55%]" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-16" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-24" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-14" />
         </TableCell>
         <TableCell>
           <Skeleton className="h-4 w-10" />
         </TableCell>
       </TableRow>
     ));
-  } else if (isSearching && filteredBooks?.length === 0) {
+  } else if (isSearching && processedBooks?.length === 0) {
     booksTableBody = (
       <TableRow>
         <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
@@ -338,6 +392,19 @@ function BooksTab({
                 />
               </TableCell>
               <TableCell>
+                {book.coverUrl ? (
+                  <img
+                    src={book.coverUrl}
+                    alt={book.title}
+                    className="aspect-[2/3] w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
                 {book.hardcoverUrl ? (
                   <a
                     href={book.hardcoverUrl}
@@ -353,8 +420,32 @@ function BooksTab({
                 )}
               </TableCell>
               <TableCell>
-                {book.releaseYear ||
-                  (book.releaseDate ? book.releaseDate.slice(0, 4) : "Unknown")}
+                {book.releaseDate || (book.releaseYear ? String(book.releaseYear) : "Unknown")}
+              </TableCell>
+              <TableCell>
+                {book.series.length > 0
+                  ? book.series
+                      .map((s) =>
+                        s.position ? `${s.title} (#${s.position})` : s.title,
+                      )
+                      .join(", ")
+                  : "—"}
+              </TableCell>
+              <TableCell>{book.languageName || "—"}</TableCell>
+              <TableCell>
+                {book.rating === undefined ? (
+                  "—"
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                    {book.rating.toFixed(1)}
+                    {book.usersCount !== undefined && (
+                      <span className="text-muted-foreground">
+                        ({book.usersCount.toLocaleString()})
+                      </span>
+                    )}
+                  </span>
+                )}
               </TableCell>
             </TableRow>
           );
@@ -370,7 +461,7 @@ function BooksTab({
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
             className="pl-8 pr-8 h-9 text-sm"
-            placeholder="Filter books…"
+            placeholder="Filter by title or series…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -421,7 +512,7 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={(p) =>
-            isSearching
+            needsAllBooks
               ? setSearchPage(p)
               : setAuthorParams((prev) => ({ ...prev, page: p }))
           }
@@ -432,19 +523,32 @@ function BooksTab({
       )}
 
       <Table>
+        <colgroup>
+          <col className="w-10" />
+          <col className="w-14" />
+          <col />
+          <col />
+          <col />
+          <col />
+          <col />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10" />
+            <TableHead />
             {(
               [
                 { key: "title", label: "Title" },
-                { key: "year", label: "Year" },
-              ] as Array<{ key: "title" | "year" | "rating"; label: string }>
+                { key: "year", label: "Release Date" },
+                { key: "series", label: "Series" },
+                { key: "language", label: "Language" },
+                { key: "rating", label: "Rating" },
+              ] as Array<{ key: BooksTabSortKey; label: string }>
             ).map(({ key, label }) => {
               let SortIcon = ChevronsUpDown;
-              if (authorParams.sortBy === key) {
+              if (activeSortKey === key) {
                 SortIcon =
-                  authorParams.sortDir === "asc" ? ChevronUp : ChevronDown;
+                  activeSortDir === "asc" ? ChevronUp : ChevronDown;
               }
               return (
                 <TableHead
@@ -469,7 +573,7 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={(p) =>
-            isSearching
+            needsAllBooks
               ? setSearchPage(p)
               : setAuthorParams((prev) => ({ ...prev, page: p }))
           }
@@ -583,9 +687,17 @@ function SeriesRow({
                     <SeriesBookMonitorToggle
                       bookId={book.id}
                       title={book.title}
+                      description={book.description}
                       coverUrl={book.coverUrl}
+                      releaseDate={book.releaseDate}
                       releaseYear={book.releaseYear}
                       rating={book.rating}
+                      languageName={book.languageName}
+                      seriesInfo={{
+                        foreignSeriesId: series.id,
+                        title: series.name,
+                        position: book.position === undefined ? undefined : String(book.position),
+                      }}
                       authorContext={authorContext}
                       localAuthorId={localAuthorId}
                       inLibrary={existingBookMap.has(book.id)}

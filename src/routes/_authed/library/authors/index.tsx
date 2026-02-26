@@ -72,10 +72,8 @@ function AuthorsPage() {
     );
   }
 
-  let description: string | undefined;
-  if (isLoading) {
-    description = undefined;
-  } else if (search) {
+  let description: string;
+  if (search) {
     description = `${total} matching authors`;
   } else {
     description = `${total} authors in your library`;

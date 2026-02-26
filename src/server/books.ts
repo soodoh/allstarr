@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { books, editions, authors, history, series, seriesBookLinks } from "src/db/schema";
-import { eq, desc, inArray, like, or, sql } from "drizzle-orm";
+import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createBookSchema,
@@ -59,6 +59,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         isbn: books.isbn,
         asin: books.asin,
         releaseDate: books.releaseDate,
+        language: books.language,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
@@ -80,9 +81,22 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     if (data.search) {
       const pattern = `%${data.search}%`;
+      const seriesMatch = exists(
+        db
+          .select({ one: sql`1` })
+          .from(seriesBookLinks)
+          .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
+          .where(
+            and(
+              eq(seriesBookLinks.bookId, books.id),
+              like(series.title, pattern),
+            ),
+          ),
+      );
       const condition = or(
         like(books.title, pattern),
         like(authors.name, pattern),
+        seriesMatch,
       );
       query = query.where(condition);
       countQuery = countQuery.where(condition);
@@ -91,8 +105,35 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     const items = query.limit(pageSize).offset(offset).all();
     const total = countQuery.get()?.count || 0;
 
+    const bookIds = items.map((b) => b.id);
+    const seriesLinks =
+      bookIds.length > 0
+        ? db
+            .select({
+              bookId: seriesBookLinks.bookId,
+              title: series.title,
+              position: seriesBookLinks.position,
+            })
+            .from(seriesBookLinks)
+            .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
+            .where(inArray(seriesBookLinks.bookId, bookIds))
+            .all()
+        : [];
+
+    const seriesByBook = new Map<
+      number,
+      Array<{ title: string; position: string | undefined }>
+    >();
+    for (const link of seriesLinks) {
+      const arr = seriesByBook.get(link.bookId) ?? [];
+      arr.push({ title: link.title, position: link.position });
+      seriesByBook.set(link.bookId, arr);
+    }
+
     return {
-      items,
+      items: items.map((item) =>
+        Object.assign(item, { series: seriesByBook.get(item.id) ?? [] }),
+      ),
       total,
       page,
       totalPages: Math.ceil(total / pageSize),
