@@ -36,6 +36,7 @@ export type HardcoverAuthorBook = {
   usersCount: number | undefined;
   coverUrl: string | undefined;
   contribution: string | undefined;
+  contributors: string | undefined;
   languageCode: string | undefined;
   languageName: string | undefined;
   hardcoverUrl: string | undefined;
@@ -50,6 +51,7 @@ export type HardcoverSeriesBook = {
   releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
+  usersCount: number | undefined;
   coverUrl: string | undefined;
   position: number | undefined;
   hardcoverUrl: string | undefined;
@@ -219,6 +221,8 @@ const NON_AUTHOR_CONTRIBUTION_ROLES = [
   // Supplementary content
   "Introduction",
   "Afterword",
+  "Contributor",
+  "contributor",
   // Other non-originating
   "Compiler",
   "Pseudonym",
@@ -339,6 +343,15 @@ query ${queryName}(${varDefs}) {
     ) {
       contribution
     }
+    all_contributions: contributions(
+      where: { contribution: { _is_null: true } }
+      order_by: [{ id: asc }]
+      limit: 5
+    ) {
+      author {
+        name
+      }
+    }
     editions(
       limit: 1
       ${editionsWhere}
@@ -403,7 +416,7 @@ query ${queryName}(${varDefs}) {
       contributions(
         where: { contribution: { _is_null: true } }
         order_by: [{ id: asc }]
-        limit: 3
+        limit: 5
       ) {
         author {
           name
@@ -449,6 +462,13 @@ function buildAuthorSeriesQuery(hasLanguage: boolean): string {
 
   const positionsWhere = seriesPositionsWhereFilters({ hasLanguage });
 
+  const authorBooksWhere = hasLanguage
+    ? `book: {
+          contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
+          editions: { language: { code2: { _eq: $lang } } }
+        }`
+    : `book: { contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} } }`;
+
   return `
 query ${queryName}(${varDefs}) {
   series(
@@ -467,6 +487,17 @@ query ${queryName}(${varDefs}) {
       }
       order_by: [{ position: asc }]
     ) { position }
+    author_books: book_series(
+      where: {
+        ${authorBooksWhere}
+      }
+    ) {
+      book {
+        primary_authors: contributions_aggregate(where: { contribution: { _is_null: true } }) {
+          aggregate { count }
+        }
+      }
+    }
   }
 }
 `;
@@ -598,6 +629,7 @@ async function fetchSeriesBooks(
           releaseDate: firstString(bookRecord, [["release_date"]]),
           releaseYear: firstNumber(bookRecord, [["release_year"]]),
           rating: firstNumber(bookRecord, [["rating"]]),
+          usersCount: firstNumber(bookRecord, [["users_count"]]),
           coverUrl: getCoverUrl(bookRecord),
           position,
           hardcoverUrl: slug
@@ -857,6 +889,17 @@ function toHardcoverAuthorBook(
     contributions.length > 0
       ? firstString(contributions[0], [["contribution"]])
       : undefined;
+  const allContributions = toRecordArray(bookRecord.all_contributions);
+  const contributors =
+    allContributions
+      .map((c) => {
+        const authorRecord = toRecord(c.author);
+        return authorRecord
+          ? firstString(authorRecord, [["name"]])
+          : undefined;
+      })
+      .filter((n): n is string => n !== undefined)
+      .join(", ") || undefined;
   const editions = toRecordArray(bookRecord.editions);
   const languageRecord =
     editions.length > 0 ? toRecord(editions[0].language) : undefined;
@@ -909,6 +952,7 @@ function toHardcoverAuthorBook(
     usersCount: firstNumber(bookRecord, [["users_count"]]),
     coverUrl: getCoverUrl(bookRecord),
     contribution,
+    contributors,
     languageCode,
     languageName,
     hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
@@ -1638,6 +1682,27 @@ async function fetchAuthorSeries(
             .filter((p): p is number => p !== undefined),
         );
         const booksCount = distinctPositions.size;
+
+        // Check if the author's association is only through anthologies.
+        // If every book the author contributed to in this series has many
+        // primary authors (> 4), it's likely an anthology — not a real
+        // series association for this author.
+        const authorBookEntries = toRecordArray(s.author_books);
+        const hasNonAnthology = authorBookEntries.some((entry) => {
+          const bookRecord = toRecord(entry.book);
+          if (!bookRecord) {return false;}
+          const aggRecord = toRecord(bookRecord.primary_authors);
+          const aggregate = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
+          const count = aggregate
+            ? firstNumber(aggregate, [["count"]])
+            : undefined;
+          return count !== undefined && count <= 4;
+        });
+        // If author_books is empty or all entries are anthologies, skip
+        if (authorBookEntries.length > 0 && !hasNonAnthology) {
+          return undefined;
+        }
+
         return {
           id: String(firstId(s, [["id"]]) ?? ""),
           name: firstString(s, [["name"]]) ?? "",
@@ -1648,7 +1713,7 @@ async function fetchAuthorSeries(
           hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
         };
       })
-      .filter((s) => s.id && s.name && s.booksCount > 0);
+      .filter((s): s is NonNullable<typeof s> => s !== undefined && s !== null && s.id !== "" && s.name !== "" && s.booksCount > 0);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("Hardcover series request timed out.", { cause: error });

@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  BookMarked,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,7 @@ import {
   ChevronsUpDown,
   ExternalLink,
   ImageIcon,
+  Loader2,
   Pencil,
   Plus,
   Search,
@@ -29,6 +31,7 @@ import {
   keepPreviousData,
 } from "@tanstack/react-query";
 import { z } from "zod";
+import { cn } from "src/lib/utils";
 import PageHeader from "src/components/shared/page-header";
 import { HardcoverAuthorSkeleton } from "src/components/shared/loading-skeleton";
 import Skeleton from "src/components/ui/skeleton";
@@ -69,6 +72,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "src/components/ui/tabs
 import type {
   HardcoverAuthorBook,
   HardcoverAuthorSeries,
+  HardcoverSeriesBook,
 } from "src/server/search";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import AddAuthorDialog from "src/components/hardcover/add-author-dialog";
@@ -89,7 +93,7 @@ import {
   booksExistQuery,
   authorDetailQuery,
 } from "src/lib/queries";
-import { useUpdateAuthor, useDeleteAuthor } from "src/hooks/mutations";
+import { useUpdateAuthor, useDeleteAuthor, useImportHardcoverAuthor, useImportHardcoverBook } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 import { checkAuthorExistsBySlugFn } from "src/server/authors";
 
@@ -178,7 +182,7 @@ function BooksTab({
   onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  type BooksTabSortKey = "title" | "year" | "series" | "language" | "rating";
+  type BooksTabSortKey = "title" | "author" | "year" | "series" | "language" | "rating";
   const apiSortKeys = new Set<BooksTabSortKey>(["title", "year", "rating"]);
 
   const { openBookModal } = useBookDetailModal();
@@ -241,6 +245,10 @@ function BooksTab({
             const bp = Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
             return ap - bp;
           }
+        } else if (activeSortKey === "author") {
+          const av = a.contributors ?? "";
+          const bv = b.contributors ?? "";
+          cmp = av.localeCompare(bv);
         } else if (activeSortKey === "language") {
           const av = a.languageName ?? "";
           const bv = b.languageName ?? "";
@@ -314,7 +322,7 @@ function BooksTab({
     }
   };
 
-  const colCount = 7;
+  const colCount = 8;
 
   let booksTableBody: ReactNode;
   if (isLoadingDisplay) {
@@ -329,6 +337,9 @@ function BooksTab({
         </TableCell>
         <TableCell>
           <Skeleton className="h-4 w-[55%]" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-24" />
         </TableCell>
         <TableCell>
           <Skeleton className="h-4 w-16" />
@@ -418,6 +429,9 @@ function BooksTab({
                 ) : (
                   <span className="font-medium">{book.title}</span>
                 )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {book.contributors || "—"}
               </TableCell>
               <TableCell>
                 {book.releaseDate || (book.releaseYear ? String(book.releaseYear) : "Unknown")}
@@ -531,6 +545,7 @@ function BooksTab({
           <col />
           <col />
           <col />
+          <col />
         </colgroup>
         <TableHeader>
           <TableRow>
@@ -539,6 +554,7 @@ function BooksTab({
             {(
               [
                 { key: "title", label: "Title" },
+                { key: "author", label: "Author" },
                 { key: "year", label: "Release Date" },
                 { key: "series", label: "Series" },
                 { key: "language", label: "Language" },
@@ -588,9 +604,9 @@ function BooksTab({
 
 // ---------- Series tab ----------
 
-const SERIES_BOOKS_PAGE_SIZE = 10;
+type SeriesSortKey = "position" | "title" | "author" | "year" | "language" | "rating";
 
-function SeriesRow({
+function SeriesCard({
   series,
   language,
   authorContext,
@@ -609,7 +625,8 @@ function SeriesRow({
 }) {
   const { openBookModal } = useBookDetailModal();
   const [expanded, setExpanded] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(SERIES_BOOKS_PAGE_SIZE);
+  const [sortKey, setSortKey] = useState<SeriesSortKey>("position");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const { data, isFetching: loadingBooks } = useQuery({
     ...hardcoverSeriesBooksQuery(Number(series.id), language),
@@ -618,148 +635,420 @@ function SeriesRow({
 
   const books = data?.books;
 
-  const handleToggle = () => {
-    setExpanded((v) => !v);
-    setVisibleCount(SERIES_BOOKS_PAGE_SIZE);
+  const sortedBooks = useMemo(() => {
+    if (!books) {return [];}
+    return [...books].toSorted((a, b) => {
+      let cmp = 0;
+      if (sortKey === "position") {
+        cmp = (a.position ?? Number.POSITIVE_INFINITY) - (b.position ?? Number.POSITIVE_INFINITY);
+      } else if (sortKey === "title") {
+        cmp = a.title.localeCompare(b.title);
+      } else if (sortKey === "author") {
+        cmp = (a.authorName ?? "").localeCompare(b.authorName ?? "");
+      } else if (sortKey === "year") {
+        cmp = (a.releaseYear ?? 0) - (b.releaseYear ?? 0);
+      } else if (sortKey === "language") {
+        cmp = (a.languageName ?? "").localeCompare(b.languageName ?? "");
+      } else if (sortKey === "rating") {
+        cmp = (a.rating ?? 0) - (b.rating ?? 0);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [books, sortKey, sortDir]);
+
+  const handleSort = (key: SeriesSortKey) => {
+    const newDir: "asc" | "desc" =
+      sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
   };
 
-  const visibleBooks = books?.slice(0, visibleCount) ?? [];
-  const hasMore = books !== undefined && visibleCount < books.length;
+  const importAuthor = useImportHardcoverAuthor();
+  const importBook = useImportHardcoverBook();
+  const [monitoringAll, setMonitoringAll] = useState(false);
 
-  let SeriesExpandIcon: typeof ChevronUp | typeof ChevronDown;
-  if (expanded) {
-    SeriesExpandIcon = ChevronUp;
-  } else {
-    SeriesExpandIcon = ChevronDown;
-  }
+  const allMonitored = books !== undefined && books.length > 0 && books.every((b) => existingBookMap.has(b.id));
 
-  const seriesColCount = 3;
-  const bookColCount = 4;
+  const handleMonitorAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (monitoringAll || !books || books.length === 0) {return;}
+
+    const unmonitored = books.filter((b) => !existingBookMap.has(b.id));
+    if (unmonitored.length === 0) {return;}
+
+    setMonitoringAll(true);
+    try {
+      let authorId = localAuthorId;
+      if (authorId === undefined) {
+        const result = await importAuthor.mutateAsync({
+          name: authorContext.name,
+          foreignAuthorId: authorContext.foreignAuthorId,
+          slug: authorContext.slug,
+          overview: authorContext.bio,
+          status: authorContext.deathYear ? "deceased" : "continuing",
+          qualityProfileId: authorContext.qualityProfileId,
+          rootFolderPath: authorContext.rootFolderPath,
+          images: authorContext.imageUrl
+            ? [{ url: authorContext.imageUrl, coverType: "poster" }]
+            : undefined,
+          books: [],
+        });
+        authorId = result.authorId;
+        onAuthorCreated(authorId);
+      }
+
+      for (const book of unmonitored) {
+        const imported = await importBook.mutateAsync({
+          authorId,
+          title: book.title,
+          foreignBookId: book.id,
+          releaseDate: book.releaseDate ?? (book.releaseYear ? `${book.releaseYear}-01-01` : undefined),
+          overview: book.description,
+          language: book.languageName,
+          monitored: true,
+          images: book.coverUrl ? [{ url: book.coverUrl, coverType: "cover" }] : undefined,
+          ratings: book.rating === undefined ? undefined : { value: book.rating, votes: 0 },
+          series: [{
+            foreignSeriesId: series.id,
+            title: series.name,
+            position: book.position === undefined ? undefined : String(book.position),
+          }],
+        });
+        onBookAdded(book.id, imported.id);
+      }
+    } catch {
+      // Errors handled by mutation hooks (toast notifications)
+    } finally {
+      setMonitoringAll(false);
+    }
+  };
+
+  const handleToggle = () => setExpanded((v) => !v);
+
+  const ExpandIcon = expanded ? ChevronUp : ChevronDown;
 
   return (
-    <>
-      <TableRow
-        className="cursor-pointer hover:bg-muted/50"
+    <Card className="py-0 gap-0">
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg text-left"
         onClick={handleToggle}
       >
-        <TableCell className="w-10" />
-        <TableCell>
-          <div className="flex items-center gap-2">
-            {loadingBooks ? (
-              <Skeleton className="h-4 w-4 rounded" />
-            ) : (
-              <SeriesExpandIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="font-medium">{series.name}</span>
-          </div>
-        </TableCell>
-        <TableCell>{series.booksCount}</TableCell>
-      </TableRow>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleMonitorAll(e); }}
+          disabled={monitoringAll || !books || allMonitored}
+          aria-label={allMonitored ? "All books monitored" : `Monitor all books in "${series.name}"`}
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
+            allMonitored
+              ? "bg-primary/15 text-primary cursor-default"
+              : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
+          )}
+        >
+          {monitoringAll ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <BookMarked className="h-3.5 w-3.5" />
+          )}
+        </button>
+        <span className="flex flex-1 items-center gap-2 text-left">
+          <span className="font-medium">{series.name}</span>
+          <Badge variant="secondary">{series.booksCount}</Badge>
+        </span>
+        <span className="shrink-0 text-muted-foreground">
+          {loadingBooks ? (
+            <Skeleton className="h-4 w-4 rounded" />
+          ) : (
+            <ExpandIcon className="h-4 w-4" />
+          )}
+        </span>
+      </button>
 
-      {expanded &&
-        books !== undefined &&
-        (books.length === 0 ? (
-          <TableRow>
-            <TableCell
-              colSpan={seriesColCount}
-              className="pl-10 text-sm text-muted-foreground bg-muted/20"
-            >
-              No books found in this series.
-            </TableCell>
-          </TableRow>
-        ) : (
-          <>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="w-10" />
-              <TableHead className="pl-4">Title</TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Year</TableHead>
-            </TableRow>
-            {visibleBooks.map((book) => {
-              const localBookId = existingBookMap.get(book.id);
-              return (
-                <TableRow
-                  key={book.id}
-                  className={`bg-muted/20 hover:bg-muted/30${localBookId === undefined ? "" : " cursor-pointer"}`}
-                  onClick={localBookId === undefined ? undefined : (e) => { e.stopPropagation(); openBookModal(localBookId); }}
-                >
-                  <TableCell className="w-10">
-                    <SeriesBookMonitorToggle
-                      bookId={book.id}
-                      title={book.title}
-                      description={book.description}
-                      coverUrl={book.coverUrl}
-                      releaseDate={book.releaseDate}
-                      releaseYear={book.releaseYear}
-                      rating={book.rating}
-                      languageName={book.languageName}
-                      seriesInfo={{
-                        foreignSeriesId: series.id,
-                        title: series.name,
-                        position: book.position === undefined ? undefined : String(book.position),
-                      }}
-                      authorContext={authorContext}
-                      localAuthorId={localAuthorId}
-                      inLibrary={existingBookMap.has(book.id)}
-                      onAdded={onBookAdded}
-                      onAuthorCreated={onAuthorCreated}
-                    />
-                  </TableCell>
-                  <TableCell className="pl-4">
-                    <div className="flex items-baseline gap-2">
-                      {book.position !== undefined && (
-                        <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">
-                          {book.position}
-                        </span>
-                      )}
-                      {book.hardcoverUrl ? (
-                        <a
-                          href={book.hardcoverUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {book.title}
-                        </a>
-                      ) : (
-                        <span>{book.title}</span>
-                      )}
-                      {book.isCompilation && (
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          Boxed Set
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {book.authorName ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {book.releaseYear ?? "—"}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {hasMore && (
-              <TableRow className="bg-muted/20">
-                <TableCell colSpan={bookColCount} className="pl-10 py-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVisibleCount((c) => c + SERIES_BOOKS_PAGE_SIZE);
-                    }}
-                  >
-                    Load more ({books.length - visibleCount} remaining)
-                  </Button>
-                </TableCell>
-              </TableRow>
-            )}
-          </>
+      {expanded && (
+        <CardContent className="p-0">
+          <SeriesCardContent
+            series={series}
+            loadingBooks={loadingBooks}
+            books={books}
+            sortedBooks={sortedBooks}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            handleSort={handleSort}
+            existingBookMap={existingBookMap}
+            authorContext={authorContext}
+            localAuthorId={localAuthorId}
+            onBookAdded={onBookAdded}
+            onAuthorCreated={onAuthorCreated}
+          />
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function SeriesCardContent({
+  series,
+  loadingBooks,
+  books,
+  sortedBooks,
+  sortKey,
+  sortDir,
+  handleSort,
+  existingBookMap,
+  authorContext,
+  localAuthorId,
+  onBookAdded,
+  onAuthorCreated,
+}: {
+  series: HardcoverAuthorSeries;
+  loadingBooks: boolean;
+  books: HardcoverSeriesBook[] | undefined;
+  sortedBooks: HardcoverSeriesBook[];
+  sortKey: SeriesSortKey;
+  sortDir: "asc" | "desc";
+  handleSort: (key: SeriesSortKey) => void;
+  existingBookMap: Map<string, number>;
+  authorContext: AuthorContext;
+  localAuthorId: number | undefined;
+  onBookAdded: (foreignBookId: string, localBookId: number) => void;
+  onAuthorCreated: (id: number) => void;
+}) {
+  const { openBookModal } = useBookDetailModal();
+
+  if (loadingBooks) {
+    return (
+      <div className="px-4 pb-4">
+        {/* oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity */}
+        {Array.from({ length: Math.min(series.booksCount, 5) }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 py-2">
+            <Skeleton className="h-6 w-6 rounded" />
+            <Skeleton className="h-8 w-8 rounded-sm" />
+            <Skeleton className="h-4 w-[40%]" />
+          </div>
         ))}
-    </>
+      </div>
+    );
+  }
+
+  if (books !== undefined && books.length === 0) {
+    return (
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
+        No books found in this series.
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <colgroup>
+        <col className="w-10" />
+        <col className="w-14" />
+        <col className="w-14" />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+      </colgroup>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-10" />
+          <TableHead />
+          {(
+            [
+              { key: "position", label: "#" },
+              { key: "title", label: "Title" },
+              { key: "author", label: "Author" },
+              { key: "year", label: "Year" },
+              { key: "language", label: "Language" },
+              { key: "rating", label: "Rating" },
+            ] as Array<{ key: SeriesSortKey; label: string }>
+          ).map(({ key, label }) => {
+            let SortIcon = ChevronsUpDown;
+            if (sortKey === key) {
+              SortIcon = sortDir === "asc" ? ChevronUp : ChevronDown;
+            }
+            return (
+              <TableHead
+                key={key}
+                className="cursor-pointer select-none hover:text-foreground"
+                onClick={() => handleSort(key)}
+              >
+                {label}
+                <SortIcon className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+              </TableHead>
+            );
+          })}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sortedBooks.map((book) => {
+          const localBookId = existingBookMap.get(book.id);
+          return (
+            <TableRow
+              key={book.id}
+              className={localBookId === undefined ? undefined : "cursor-pointer"}
+              onClick={localBookId === undefined ? undefined : () => openBookModal(localBookId)}
+            >
+              <TableCell>
+                <SeriesBookMonitorToggle
+                  bookId={book.id}
+                  title={book.title}
+                  description={book.description}
+                  coverUrl={book.coverUrl}
+                  releaseDate={book.releaseDate}
+                  releaseYear={book.releaseYear}
+                  rating={book.rating}
+                  languageName={book.languageName}
+                  seriesInfo={{
+                    foreignSeriesId: series.id,
+                    title: series.name,
+                    position: book.position === undefined ? undefined : String(book.position),
+                  }}
+                  authorContext={authorContext}
+                  localAuthorId={localAuthorId}
+                  inLibrary={existingBookMap.has(book.id)}
+                  onAdded={onBookAdded}
+                  onAuthorCreated={onAuthorCreated}
+                />
+              </TableCell>
+              <TableCell>
+                {book.coverUrl ? (
+                  <img
+                    src={book.coverUrl}
+                    alt={book.title}
+                    className="aspect-[2/3] w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground tabular-nums text-center">
+                {book.position ?? "—"}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-baseline gap-2">
+                  {book.hardcoverUrl ? (
+                    <a
+                      href={book.hardcoverUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {book.title}
+                    </a>
+                  ) : (
+                    <span className="font-medium">{book.title}</span>
+                  )}
+                  {book.isCompilation && (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      Boxed Set
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {book.authorName ?? "—"}
+              </TableCell>
+              <TableCell>
+                {book.releaseDate || (book.releaseYear ? String(book.releaseYear) : "—")}
+              </TableCell>
+              <TableCell>{book.languageName || "—"}</TableCell>
+              <TableCell>
+                {book.rating === undefined ? (
+                  "—"
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                    {book.rating.toFixed(1)}
+                    {book.usersCount !== undefined && (
+                      <span className="text-muted-foreground">
+                        ({book.usersCount.toLocaleString()})
+                      </span>
+                    )}
+                  </span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
+function SeriesListBody({
+  loading,
+  loaded,
+  filteredSeries,
+  pagedSeries,
+  searchInput,
+  selectedLanguage,
+  authorContext,
+  localAuthorId,
+  existingBookMap,
+  onBookAdded,
+  onAuthorCreated,
+}: {
+  loading: boolean;
+  loaded: boolean;
+  filteredSeries: HardcoverAuthorSeries[];
+  pagedSeries: HardcoverAuthorSeries[];
+  searchInput: string;
+  selectedLanguage: string;
+  authorContext: AuthorContext;
+  localAuthorId: number | undefined;
+  existingBookMap: Map<string, number>;
+  onBookAdded: (foreignBookId: string, localBookId: number) => void;
+  onAuthorCreated: (id: number) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {/* oxlint-disable-next-line react/no-array-index-key -- Skeleton cards have no meaningful identity */}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i} className="py-0">
+            <div className="flex items-center gap-2 p-4">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-5 w-8 rounded-full" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (loaded && filteredSeries.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-4">
+        {searchInput.trim()
+          ? `No series match "${searchInput.trim()}".`
+          : "No series found for the selected language."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {pagedSeries.map((s) => (
+        <SeriesCard
+          key={s.id}
+          series={s}
+          language={selectedLanguage}
+          authorContext={authorContext}
+          localAuthorId={localAuthorId}
+          existingBookMap={existingBookMap}
+          onBookAdded={onBookAdded}
+          onAuthorCreated={onAuthorCreated}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -815,49 +1104,6 @@ function SeriesTab({
   }, [filteredSeries, page]);
 
   const loaded = !loading && allSeries !== undefined;
-
-  const colCount = 3;
-
-  let seriesTableBody: ReactNode;
-  if (loading) {
-    // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
-    seriesTableBody = Array.from({ length: 10 }).map((_, i) => (
-      <TableRow key={i}>
-        <TableCell>
-          <Skeleton className="h-6 w-6 rounded" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-48" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-10" />
-        </TableCell>
-      </TableRow>
-    ));
-  } else if (loaded && filteredSeries.length === 0) {
-    seriesTableBody = (
-      <TableRow>
-        <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
-          {searchInput.trim()
-            ? `No series match "${searchInput.trim()}".`
-            : "No series found for the selected language."}
-        </TableCell>
-      </TableRow>
-    );
-  } else {
-    seriesTableBody = pagedSeries.map((s) => (
-      <SeriesRow
-        key={s.id}
-        series={s}
-        language={selectedLanguage}
-        authorContext={authorContext}
-        localAuthorId={localAuthorId}
-        existingBookMap={existingBookMap}
-        onBookAdded={onBookAdded}
-        onAuthorCreated={onAuthorCreated}
-      />
-    ));
-  }
 
   const SeriesPagination = () =>
     totalSeries > SERIES_PAGE_SIZE ? (
@@ -942,16 +1188,19 @@ function SeriesTab({
 
       {loaded && <SeriesPagination />}
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10" />
-            <TableHead>Series</TableHead>
-            <TableHead>Books</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>{seriesTableBody}</TableBody>
-      </Table>
+      <SeriesListBody
+        loading={loading}
+        loaded={loaded}
+        filteredSeries={filteredSeries}
+        pagedSeries={pagedSeries}
+        searchInput={searchInput}
+        selectedLanguage={selectedLanguage}
+        authorContext={authorContext}
+        localAuthorId={localAuthorId}
+        existingBookMap={existingBookMap}
+        onBookAdded={onBookAdded}
+        onAuthorCreated={onAuthorCreated}
+      />
 
       {loaded && <SeriesPagination />}
     </div>
