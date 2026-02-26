@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, Users } from "lucide-react";
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/_authed/library")({
 });
 
 function LibraryPage() {
+  const navigate = useNavigate();
   const { openBookModal } = useBookDetailModal();
   const { data: authors } = useSuspenseQuery(authorsListQuery());
   const { data: books } = useSuspenseQuery(booksListQuery());
@@ -89,14 +90,26 @@ function LibraryPage() {
                 </TableHeader>
                 <TableBody>
                   {authors.slice(0, 10).map((author) => (
-                    <TableRow key={author.id}>
+                    <TableRow
+                      key={author.id}
+                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() =>
+                        navigate({
+                          to: "/authors/$authorSlug",
+                          params: {
+                            authorSlug: author.slug || String(author.id),
+                          },
+                        })
+                      }
+                    >
                       <TableCell>
                         <Link
                           to="/authors/$authorSlug"
                           params={{
                             authorSlug: author.slug || String(author.id),
                           }}
-                          className="hover:underline"
+                          className="font-medium hover:underline"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {author.name}
                         </Link>
@@ -131,15 +144,13 @@ function LibraryPage() {
                 </TableHeader>
                 <TableBody>
                   {books.slice(0, 10).map((book) => (
-                    <TableRow key={book.id}>
-                      <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => openBookModal(book.id)}
-                          className="hover:underline text-left"
-                        >
-                          {book.title}
-                        </button>
+                    <TableRow
+                      key={book.id}
+                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => openBookModal(book.id)}
+                    >
+                      <TableCell className="font-medium">
+                        {book.title}
                       </TableCell>
                       <TableCell>{book.authorName || "Unknown"}</TableCell>
                       <TableCell>
