@@ -126,7 +126,7 @@ function HistoryPage() {
                   <TableCell>
                     {item.authorId ? (
                       <Link
-                        to="/authors/$authorSlug"
+                        to="/library/authors/$authorSlug"
                         params={{
                           authorSlug: item.authorSlug || String(item.authorId),
                         }}

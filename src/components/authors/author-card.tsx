@@ -21,7 +21,7 @@ export default function AuthorCard({
 
   return (
     <Link
-      to="/authors/$authorSlug"
+      to="/library/authors/$authorSlug"
       params={{ authorSlug: author.slug || String(author.id) }}
       className="block group"
     >
