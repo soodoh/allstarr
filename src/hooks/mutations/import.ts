@@ -11,6 +11,8 @@ type BookEntry = {
   title: string;
   foreignBookId: string;
   releaseDate?: string | undefined;
+  overview?: string | undefined;
+  language?: string | undefined;
   monitored?: boolean;
   images?: Array<{ url: string; coverType: string }>;
   ratings?: { value: number; votes: number } | undefined;

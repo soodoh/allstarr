@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
-import { books, editions, authors, history } from "src/db/schema";
+import { books, editions, authors, history, series, seriesBookLinks } from "src/db/schema";
 import { eq, desc, inArray, like, or, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -111,6 +111,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         authorName: authors.name,
         authorSlug: authors.slug,
         overview: books.overview,
+        language: books.language,
         isbn: books.isbn,
         asin: books.asin,
         releaseDate: books.releaseDate,
@@ -136,7 +137,17 @@ export const getBookFn = createServerFn({ method: "GET" })
       .where(eq(editions.bookId, data.id))
       .all();
 
-    return { ...book, editions: bookEditions };
+    const bookSeries = db
+      .select({
+        title: series.title,
+        position: seriesBookLinks.position,
+      })
+      .from(seriesBookLinks)
+      .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
+      .where(eq(seriesBookLinks.bookId, data.id))
+      .all();
+
+    return { ...book, editions: bookEditions, series: bookSeries };
   });
 
 export const createBookFn = createServerFn({ method: "POST" })

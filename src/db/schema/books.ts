@@ -8,6 +8,7 @@ export const books = sqliteTable("books", {
     .notNull()
     .references(() => authors.id, { onDelete: "cascade" }),
   overview: text("overview"),
+  language: text("language"),
   isbn: text("isbn"),
   asin: text("asin"),
   releaseDate: text("release_date"),

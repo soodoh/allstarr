@@ -55,11 +55,14 @@ function BooksPage() {
 
   const tableBooks = useMemo(
     () =>
-      books.map((b) => ({
-        ...b,
-        authorName: b.authorName ?? undefined,
-        releaseDate: b.releaseDate ?? undefined,
-      })),
+      books.map((b) =>
+        Object.assign(b, {
+          authorName: b.authorName ?? undefined,
+          releaseDate: b.releaseDate ?? undefined,
+          overview: b.overview ?? undefined,
+          images: b.images ?? undefined,
+        }),
+      ),
     [books],
   );
 
@@ -132,15 +135,10 @@ function BooksPage() {
         </BookTable>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {books.map((book) => (
+          {tableBooks.map((book) => (
             <BookCard
               key={book.id}
-              book={{
-                ...book,
-                authorName: book.authorName ?? undefined,
-                releaseDate: book.releaseDate ?? undefined,
-                images: book.images ?? undefined,
-              }}
+              book={book}
             />
           ))}
           {showLoading && <BookCardsSkeleton />}

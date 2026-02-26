@@ -74,6 +74,7 @@ export function BookMonitorToggle({
         title: book.title,
         foreignBookId: book.id,
         releaseDate: book.releaseDate ?? undefined,
+        language: book.languageName ?? undefined,
         monitored: true,
         images: book.coverUrl
           ? [{ url: book.coverUrl, coverType: "cover" }]
