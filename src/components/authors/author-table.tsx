@@ -14,7 +14,7 @@ import {
 type Author = {
   id: number;
   name: string;
-  slug?: string | undefined;
+  slug?: string;
   sortName: string;
   status: string;
   bookCount: number;

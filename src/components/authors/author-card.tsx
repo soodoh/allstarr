@@ -6,9 +6,9 @@ type AuthorCardProps = {
   author: {
     id: number;
     name: string;
-    slug?: string | undefined;
+    slug?: string;
     bookCount: number;
-    images?: Array<{ url: string; coverType: string }> | undefined;
+    images?: Array<{ url: string; coverType: string }>;
   };
 };
 

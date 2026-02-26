@@ -57,6 +57,11 @@ export const queryKeys = {
     lists: () => ["rootFolders", "list"] as const,
   },
 
+  // ─── Dashboard ──────────────────────────────────────────────────────────
+  dashboard: {
+    all: ["dashboard"] as const,
+  },
+
   // ─── Settings ────────────────────────────────────────────────────────────
   settings: {
     all: ["settings"] as const,

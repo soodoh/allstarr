@@ -21,6 +21,8 @@ const importBookSchema = z.object({
   title: z.string().min(1),
   foreignBookId: z.string().min(1),
   releaseDate: z.string().nullable().optional(),
+  overview: z.string().nullable().optional(),
+  language: z.string().nullable().optional(),
   monitored: z.boolean().default(true),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
@@ -115,6 +117,8 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
             authorId: author.id,
             foreignBookId: bookData.foreignBookId,
             releaseDate: bookData.releaseDate ?? undefined,
+            overview: bookData.overview ?? undefined,
+            language: bookData.language ?? undefined,
             monitored: bookData.monitored,
             images: bookData.images,
             ratings: bookData.ratings ?? undefined,
@@ -198,6 +202,8 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           authorId: data.authorId,
           foreignBookId: data.foreignBookId,
           releaseDate: data.releaseDate ?? undefined,
+          overview: data.overview ?? undefined,
+          language: data.language ?? undefined,
           monitored: data.monitored,
           images: data.images,
           ratings: data.ratings ?? undefined,

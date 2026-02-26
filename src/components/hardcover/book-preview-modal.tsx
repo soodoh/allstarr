@@ -108,6 +108,7 @@ function AddBookForm({
         releaseDate: book.releaseYear
           ? `${book.releaseYear}-01-01`
           : undefined,
+        overview: book.description ?? undefined,
         monitored,
         images: book.coverUrl
           ? [{ url: book.coverUrl, coverType: "cover" }]

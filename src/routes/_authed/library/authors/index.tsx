@@ -29,7 +29,13 @@ function AuthorsPage() {
     useInfiniteQuery(authorsInfiniteQuery(search));
 
   const authors = useMemo(
-    () => data?.pages.flatMap((p) => p.items) ?? [],
+    () =>
+      (data?.pages.flatMap((p) => p.items) ?? []).map((a) =>
+        Object.assign(a, {
+          slug: a.slug ?? undefined,
+          images: a.images ?? undefined,
+        }),
+      ),
     [data],
   );
   const total = data?.pages[0]?.total ?? 0;
@@ -125,7 +131,7 @@ function AuthorsPage() {
           {authors.map((author) => (
             <AuthorCard
               key={author.id}
-              author={{ ...author, images: author.images ?? undefined }}
+              author={author}
             />
           ))}
           {showLoading && <AuthorCardsSkeleton />}

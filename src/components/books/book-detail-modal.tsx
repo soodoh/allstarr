@@ -40,6 +40,7 @@ import {
   useGrabRelease,
 } from "src/hooks/mutations";
 import type { IndexerRelease } from "src/server/indexers/types";
+import type { getBookFn } from "src/server/books";
 
 type BookDetailModalProps = {
   bookId: number | undefined;
@@ -47,11 +48,7 @@ type BookDetailModalProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type BookDetail = NonNullable<
-  ReturnType<
-    typeof useQuery<Awaited<ReturnType<typeof bookDetailQuery>["queryFn"]>>
-  >["data"]
->;
+type BookDetail = Awaited<ReturnType<typeof getBookFn>>;
 
 function LoadingSkeleton(): JSX.Element {
   return (
@@ -102,16 +99,33 @@ function DetailsTab({
               <span>{book.authorName || "Unknown"}</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Monitored: </span>
-            <Badge variant={book.monitored ? "default" : "outline"}>
-              {book.monitored ? "Yes" : "No"}
-            </Badge>
-          </div>
           {book.releaseDate && (
             <div>
               <span className="text-muted-foreground">Release Date: </span>
               {book.releaseDate}
+            </div>
+          )}
+          {book.language && (
+            <div>
+              <span className="text-muted-foreground">Language: </span>
+              {book.language}
+            </div>
+          )}
+          {book.series && book.series.length > 0 && (
+            <div>
+              <span className="text-muted-foreground">Series: </span>
+              {book.series
+                .map((s) => (s.position ? `${s.title} #${s.position}` : s.title))
+                .join(", ")}
+            </div>
+          )}
+          {book.ratings && (
+            <div>
+              <span className="text-muted-foreground">Rating: </span>
+              {book.ratings.value.toFixed(1)}/5
+              <span className="text-muted-foreground ml-1">
+                ({book.ratings.votes.toLocaleString()} {book.ratings.votes === 1 ? "vote" : "votes"})
+              </span>
             </div>
           )}
           {book.isbn && (
