@@ -288,15 +288,9 @@ function EditionsTab({
                   <TableCell className="whitespace-nowrap">
                     {edition.releaseDate || "—"}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {edition.isbn13 || "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {edition.isbn10 || "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {edition.asin || "—"}
-                  </TableCell>
+                  <TableCell>{edition.isbn13 || "—"}</TableCell>
+                  <TableCell>{edition.isbn10 || "—"}</TableCell>
+                  <TableCell>{edition.asin || "—"}</TableCell>
                   <TableCell>{edition.language || "—"}</TableCell>
                   <TableCell>{edition.country || "—"}</TableCell>
                   <TableCell>{edition.readers.toLocaleString()}</TableCell>
