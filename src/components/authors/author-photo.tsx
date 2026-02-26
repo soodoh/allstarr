@@ -1,5 +1,6 @@
 import { ImageOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { JSX } from "react";
 import { cn } from "src/lib/utils";
 
 type AuthorPhotoProps = {
@@ -12,7 +13,7 @@ export default function AuthorPhoto({
   name,
   imageUrl,
   className,
-}: AuthorPhotoProps): React.JSX.Element {
+}: AuthorPhotoProps): JSX.Element {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {

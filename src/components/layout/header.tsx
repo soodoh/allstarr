@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut, PanelLeft } from "lucide-react";
 import { signOut } from "src/lib/auth-client";
@@ -12,7 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "src/components/ui/avatar";
 import { toast } from "sonner";
 
-export default function Header(): React.JSX.Element {
+export default function Header(): JSX.Element {
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 

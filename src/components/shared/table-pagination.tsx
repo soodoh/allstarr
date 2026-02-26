@@ -1,5 +1,5 @@
 // oxlint-disable react/no-array-index-key -- Ellipsis placeholders in pagination have no unique identity
-import type React from "react";
+import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
@@ -56,7 +56,7 @@ export default function TablePagination({
   totalPages,
   onPageChange,
   onPageSizeChange,
-}: TablePaginationProps): React.ReactNode {
+}: TablePaginationProps): ReactNode {
   if (totalItems === 0) {
     return null;
   }

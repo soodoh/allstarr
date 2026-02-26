@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { BookOpen, Users, Eye, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
 
@@ -13,7 +14,7 @@ export default function LibraryStats({
   bookCount,
   monitoredBooks,
   editionCount,
-}: LibraryStatsProps): React.JSX.Element {
+}: LibraryStatsProps): JSX.Element {
   const stats = [
     {
       title: "Total Authors",

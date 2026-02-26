@@ -1,11 +1,11 @@
-import * as React from "react";
+import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
 export default function Textarea({
   className,
   ...props
-}: React.ComponentProps<"textarea">): React.JSX.Element {
+}: ComponentProps<"textarea">): JSX.Element {
   return (
     <textarea
       data-slot="textarea"

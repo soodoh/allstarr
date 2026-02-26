@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
@@ -36,7 +37,7 @@ function TestResultBanner({
   result,
 }: {
   result: TestResult;
-}): React.JSX.Element {
+}): JSX.Element {
   const isSuccess = result.success;
   return (
     <div
@@ -68,7 +69,7 @@ export default function IndexerForm({
   onCancel,
   cancelLabel = "Cancel",
   loading,
-}: IndexerFormProps): React.JSX.Element {
+}: IndexerFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
   const [host, setHost] = useState(initialValues?.host ?? "localhost");
@@ -91,7 +92,7 @@ export default function IndexerForm({
       }),
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({ name, enabled, host, port, useSsl, urlBase, apiKey, priority });
   };

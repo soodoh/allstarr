@@ -1,7 +1,8 @@
+import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "src/components/ui/button";
 
-export default function NotFound(): React.JSX.Element {
+export default function NotFound(): JSX.Element {
   return (
     <div className="flex flex-1 min-h-[50vh] items-center justify-center p-4">
       <div className="max-w-md text-center">

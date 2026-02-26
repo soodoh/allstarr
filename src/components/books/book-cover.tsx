@@ -1,5 +1,6 @@
 import { BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { JSX } from "react";
 import { cn } from "src/lib/utils";
 
 type BookCoverProps = {
@@ -12,7 +13,7 @@ export default function BookCover({
   title,
   images,
   className,
-}: BookCoverProps): React.JSX.Element {
+}: BookCoverProps): JSX.Element {
   const [imageFailed, setImageFailed] = useState(false);
 
   const imageUrl =

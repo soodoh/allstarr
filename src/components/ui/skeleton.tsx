@@ -1,9 +1,10 @@
+import type { ComponentProps, JSX } from "react";
 import { cn } from "src/lib/utils";
 
 export default function Skeleton({
   className,
   ...props
-}: React.ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<"div">): JSX.Element {
   return (
     <div
       data-slot="skeleton"

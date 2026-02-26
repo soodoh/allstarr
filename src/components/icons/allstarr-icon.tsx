@@ -1,4 +1,6 @@
-export default function AllstarrIcon({ className }: { className?: string }): React.JSX.Element {
+import type { JSX } from "react";
+
+export default function AllstarrIcon({ className }: { className?: string }): JSX.Element {
   return (
     <svg
       viewBox="0 0 24 24"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
@@ -34,7 +35,7 @@ export default function QualityProfileForm({
   onSubmit,
   onCancel,
   loading,
-}: QualityProfileFormProps): React.JSX.Element {
+}: QualityProfileFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [upgradeAllowed, setUpgradeAllowed] = useState(
     initialValues?.upgradeAllowed || false,
@@ -57,7 +58,7 @@ export default function QualityProfileForm({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({ name, cutoff: 0, items, upgradeAllowed });
   };

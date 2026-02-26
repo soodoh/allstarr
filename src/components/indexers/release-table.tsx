@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Skeleton from "src/components/ui/skeleton";
@@ -42,7 +43,7 @@ const comparators: Partial<
 };
 
 // oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
-function ReleaseTableSkeleton(): React.JSX.Element {
+function ReleaseTableSkeleton(): JSX.Element {
   return (
     <div className="space-y-2">
       <Skeleton className="h-10 w-full" />
@@ -58,7 +59,7 @@ export default function ReleaseTable({
   grabbingGuid,
   onGrab,
   loading,
-}: ReleaseTableProps): React.JSX.Element {
+}: ReleaseTableProps): JSX.Element {
   const { sortColumn, sortDirection, handleSort, paginatedData } =
     useTableState({
       data: releases,

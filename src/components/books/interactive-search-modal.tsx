@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ export default function InteractiveSearchModal({
   book,
   open,
   onOpenChange,
-}: InteractiveSearchModalProps): React.JSX.Element {
+}: InteractiveSearchModalProps): JSX.Element {
   const searchIndexers = useSearchIndexers();
   const grabRelease = useGrabRelease();
 

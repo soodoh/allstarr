@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { JSX } from "react";
 import { Loader2 } from "lucide-react";
 import AuthorPhoto from "src/components/authors/author-photo";
 import { Button } from "src/components/ui/button";
@@ -36,7 +37,7 @@ export default function AddAuthorDialog({
   qualityProfiles,
   rootFolders,
   onSuccess,
-}: AddAuthorDialogProps): React.JSX.Element {
+}: AddAuthorDialogProps): JSX.Element {
   const [qualityProfileId, setQualityProfileId] = useState<string>(
     qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : "",
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
@@ -44,7 +45,7 @@ export default function BookForm({
   onCancel,
   loading,
   submitLabel = "Save",
-}: BookFormProps): React.JSX.Element {
+}: BookFormProps): JSX.Element {
   const [title, setTitle] = useState(initialValues?.title || "");
   const [authorId, setAuthorId] = useState<string>(
     initialValues?.authorId?.toString() || "",
@@ -57,7 +58,7 @@ export default function BookForm({
   );
   const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
       title,

@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
@@ -6,7 +6,7 @@ export default function Input({
   className,
   type,
   ...props
-}: React.ComponentProps<"input">): React.JSX.Element {
+}: ComponentProps<"input">): JSX.Element {
   return (
     <input
       type={type}

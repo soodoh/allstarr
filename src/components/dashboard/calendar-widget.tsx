@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
 import { CalendarDays } from "lucide-react";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
@@ -15,7 +16,7 @@ type CalendarWidgetProps = {
 
 export default function CalendarWidget({
   upcomingBooks,
-}: CalendarWidgetProps): React.JSX.Element {
+}: CalendarWidgetProps): JSX.Element {
   const { openBookModal } = useBookDetailModal();
 
   return (

@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ export default function ConfirmDialog({
   onConfirm,
   loading,
   variant = "destructive",
-}: ConfirmDialogProps): React.JSX.Element {
+}: ConfirmDialogProps): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import { createContext, useContext, useId, useMemo } from "react";
+import type { ComponentProps, JSX } from "react";
 import type { Label as LabelPrimitive } from "radix-ui";
 import { Slot } from "radix-ui";
 import {
@@ -23,7 +24,7 @@ type FormFieldContextValue<
   name: TName;
 };
 
-const FormFieldContext = React.createContext<FormFieldContextValue>(
+const FormFieldContext = createContext<FormFieldContextValue>(
   {} as FormFieldContextValue,
 );
 
@@ -32,8 +33,8 @@ const FormField = <
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >({
   ...props
-}: ControllerProps<TFieldValues, TName>): React.JSX.Element => {
-  const fieldContextValue = React.useMemo(
+}: ControllerProps<TFieldValues, TName>): JSX.Element => {
+  const fieldContextValue = useMemo(
     () => ({ name: props.name }),
     [props.name],
   );
@@ -46,8 +47,8 @@ const FormField = <
 
 // oxlint-disable-next-line explicit-module-boundary-types
 const useFormField = () => {
-  const fieldContext = React.useContext(FormFieldContext);
-  const itemContext = React.useContext(FormItemContext);
+  const fieldContext = useContext(FormFieldContext);
+  const itemContext = useContext(FormItemContext);
   const { getFieldState } = useFormContext();
   const formState = useFormState({ name: fieldContext.name });
   const fieldState = getFieldState(fieldContext.name, formState);
@@ -72,16 +73,16 @@ type FormItemContextValue = {
   id: string;
 };
 
-const FormItemContext = React.createContext<FormItemContextValue>(
+const FormItemContext = createContext<FormItemContextValue>(
   {} as FormItemContextValue,
 );
 
 function FormItem({
   className,
   ...props
-}: React.ComponentProps<"div">): React.JSX.Element {
-  const id = React.useId();
-  const itemContextValue = React.useMemo(() => ({ id }), [id]);
+}: ComponentProps<"div">): JSX.Element {
+  const id = useId();
+  const itemContextValue = useMemo(() => ({ id }), [id]);
 
   return (
     <FormItemContext.Provider value={itemContextValue}>
@@ -97,7 +98,7 @@ function FormItem({
 function FormLabel({
   className,
   ...props
-}: React.ComponentProps<typeof LabelPrimitive.Root>): React.JSX.Element {
+}: ComponentProps<typeof LabelPrimitive.Root>): JSX.Element {
   const { error, formItemId } = useFormField();
 
   return (
@@ -113,7 +114,7 @@ function FormLabel({
 
 function FormControl({
   ...props
-}: React.ComponentProps<typeof Slot.Root>): React.JSX.Element {
+}: ComponentProps<typeof Slot.Root>): JSX.Element {
   const { error, formItemId, formDescriptionId, formMessageId } =
     useFormField();
 
@@ -133,7 +134,7 @@ function FormControl({
 function FormDescription({
   className,
   ...props
-}: React.ComponentProps<"p">): React.JSX.Element {
+}: ComponentProps<"p">): JSX.Element {
   const { formDescriptionId } = useFormField();
 
   return (
@@ -149,7 +150,7 @@ function FormDescription({
 function FormMessage({
   className,
   ...props
-}: React.ComponentProps<"p">): React.JSX.Element {
+}: ComponentProps<"p">): JSX.Element {
   const { error, formMessageId } = useFormField();
   const body = error ? String(error?.message ?? "") : props.children;
 

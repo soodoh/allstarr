@@ -1,3 +1,4 @@
+import type { ReactNode, ThHTMLAttributes, JSX } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { TableHead } from "src/components/ui/table";
 import { cn } from "src/lib/utils";
@@ -8,8 +9,8 @@ type SortableTableHeadProps = {
   sortColumn: string | undefined;
   sortDirection: SortDirection;
   onSort: (col: string) => void;
-  children: React.ReactNode;
-} & React.ThHTMLAttributes<HTMLTableCellElement>;
+  children: ReactNode;
+} & ThHTMLAttributes<HTMLTableCellElement>;
 
 export default function SortableTableHead({
   column,
@@ -19,7 +20,7 @@ export default function SortableTableHead({
   children,
   className,
   ...props
-}: SortableTableHeadProps): React.JSX.Element {
+}: SortableTableHeadProps): JSX.Element {
   const isActive = sortColumn === column;
 
   let Icon = ArrowUpDown;

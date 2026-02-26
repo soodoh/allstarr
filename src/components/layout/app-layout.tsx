@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, JSX } from "react";
 import { SidebarProvider } from "src/components/ui/sidebar";
 import { TooltipProvider } from "src/components/ui/tooltip";
 import AppSidebar from "./app-sidebar";
@@ -10,7 +10,7 @@ type AppLayoutProps = {
 
 export default function AppLayout({
   children,
-}: AppLayoutProps): React.JSX.Element {
+}: AppLayoutProps): JSX.Element {
   return (
     <TooltipProvider>
       <SidebarProvider>
