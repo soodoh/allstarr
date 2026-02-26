@@ -4,7 +4,6 @@ import AllstarrIcon from "src/components/icons/allstarr-icon";
 import {
   BookOpen,
   Users,
-  LayoutDashboard,
   Settings,
   FolderOpen,
   Sliders,
@@ -46,20 +45,18 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
+    title: "Add New",
+    to: "/search",
+    icon: Search,
+    matchPrefixes: ["/search"],
+    children: [],
+  },
+  {
     title: "Library",
     to: "/library",
     icon: Library,
-    matchPrefixes: [
-      "/",
-      "/search",
-      "/authors",
-      "/books",
-      "/library",
-      "/hardcover",
-    ],
+    matchPrefixes: ["/authors", "/books", "/library"],
     children: [
-      { title: "Dashboard", to: "/", icon: LayoutDashboard },
-      { title: "Search", to: "/search", icon: Search },
       { title: "Authors", to: "/authors", icon: Users },
       { title: "Books", to: "/books", icon: BookOpen },
     ],
@@ -94,26 +91,10 @@ const navGroups: NavGroup[] = [
 ];
 
 function getActiveGroup(currentPath: string, groups: NavGroup[]): NavGroup {
-  // Check non-root prefixes first to avoid false "/" matches
-  const nonRootMatch = groups.find((group) =>
-    group.matchPrefixes
-      .filter((p) => p !== "/")
-      .some((prefix) => currentPath.startsWith(prefix)),
+  const match = groups.find((group) =>
+    group.matchPrefixes.some((prefix) => currentPath.startsWith(prefix)),
   );
-  if (nonRootMatch) {
-    return nonRootMatch;
-  }
-
-  // Check exact root match
-  const rootMatch = groups.find(
-    (group) => group.matchPrefixes.includes("/") && currentPath === "/",
-  );
-  if (rootMatch) {
-    return rootMatch;
-  }
-
-  // Fallback to Library
-  return groups[0];
+  return match ?? groups[0];
 }
 
 export default function AppSidebar(): JSX.Element {
@@ -122,16 +103,13 @@ export default function AppSidebar(): JSX.Element {
   const activeGroup = getActiveGroup(currentPath, navGroups);
 
   const isChildActive = (to: string) => {
-    if (to === "/") {
-      return currentPath === "/";
-    }
     return currentPath.startsWith(to);
   };
 
   return (
     <Sidebar>
       <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-4">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/library" className="flex items-center gap-2">
           <AllstarrIcon className="h-6 w-6" />
           <span className="text-lg font-bold">Allstarr</span>
         </Link>
@@ -159,7 +137,7 @@ export default function AppSidebar(): JSX.Element {
                       </Link>
                     </SidebarMenuButton>
 
-                    {isActive && (
+                    {isActive && group.children.length > 0 && (
                       <SidebarMenuSub>
                         {group.children.map((child) => (
                           <SidebarMenuSubItem key={child.title}>
