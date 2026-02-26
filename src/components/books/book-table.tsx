@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,6 +16,7 @@ type Book = {
   title: string;
   authorName: string | undefined;
   releaseDate: string | undefined;
+  images?: Array<{ url: string; coverType: string }>;
 };
 
 type BookTableProps = {
@@ -66,8 +67,15 @@ export default function BookTable({
 
   return (
     <Table>
+      <colgroup>
+        <col className="w-14" />
+        <col />
+        <col />
+        <col />
+      </colgroup>
       <TableHeader>
         <TableRow>
+          <TableHead />
           {(
             [
               { key: "title", label: "Title" },
@@ -87,17 +95,33 @@ export default function BookTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sorted.map((book) => (
-          <TableRow
-            key={book.id}
-            className="cursor-pointer"
-            onClick={() => openBookModal(book.id)}
-          >
-            <TableCell className="font-medium">{book.title}</TableCell>
-            <TableCell>{book.authorName || "Unknown"}</TableCell>
-            <TableCell>{book.releaseDate || "Unknown"}</TableCell>
-          </TableRow>
-        ))}
+        {sorted.map((book) => {
+          const bookImage = book.images?.[0]?.url;
+          return (
+            <TableRow
+              key={book.id}
+              className="cursor-pointer"
+              onClick={() => openBookModal(book.id)}
+            >
+              <TableCell>
+                {bookImage ? (
+                  <img
+                    src={bookImage}
+                    alt={book.title}
+                    className="aspect-[2/3] w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+              </TableCell>
+              <TableCell className="font-medium">{book.title}</TableCell>
+              <TableCell>{book.authorName || "Unknown"}</TableCell>
+              <TableCell>{book.releaseDate || "Unknown"}</TableCell>
+            </TableRow>
+          );
+        })}
         {children}
       </TableBody>
     </Table>

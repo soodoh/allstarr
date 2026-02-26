@@ -1,8 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import { Badge } from "src/components/ui/badge";
+import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,6 +18,7 @@ type Author = {
   sortName: string;
   status: string;
   bookCount: number;
+  images?: Array<{ url: string; coverType: string }>;
 };
 
 type AuthorTableProps = {
@@ -74,12 +74,17 @@ export default function AuthorTable({
 
   return (
     <Table>
+      <colgroup>
+        <col className="w-14" />
+        <col />
+        <col />
+      </colgroup>
       <TableHeader>
         <TableRow>
+          <TableHead />
           {(
             [
               { key: "name", label: "Name" },
-              { key: "status", label: "Status" },
               { key: "bookCount", label: "Books" },
             ] as Array<{ key: keyof Author; label: string }>
           ).map(({ key, label }) => (
@@ -95,33 +100,46 @@ export default function AuthorTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sorted.map((author) => (
-          <TableRow
-            key={author.id}
-            className="cursor-pointer hover:bg-accent/50 transition-colors"
-            onClick={() =>
-              navigate({
-                to: "/library/authors/$authorSlug",
-                params: { authorSlug: author.slug || String(author.id) },
-              })
-            }
-          >
-            <TableCell>
-              <Link
-                to="/library/authors/$authorSlug"
-                params={{ authorSlug: author.slug || String(author.id) }}
-                className="font-medium hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {author.name}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary">{author.status}</Badge>
-            </TableCell>
-            <TableCell>{author.bookCount}</TableCell>
-          </TableRow>
-        ))}
+        {sorted.map((author) => {
+          const authorImage = author.images?.[0]?.url;
+          return (
+            <TableRow
+              key={author.id}
+              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              onClick={() =>
+                navigate({
+                  to: "/library/authors/$authorSlug",
+                  params: { authorSlug: author.slug || String(author.id) },
+                })
+              }
+            >
+              <TableCell>
+                {authorImage ? (
+                  <img
+                    src={authorImage}
+                    alt={author.name}
+                    className="aspect-square w-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="aspect-square w-full rounded-full bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Link
+                  to="/library/authors/$authorSlug"
+                  params={{ authorSlug: author.slug || String(author.id) }}
+                  className="font-medium hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {author.name}
+                </Link>
+              </TableCell>
+              <TableCell>{author.bookCount}</TableCell>
+            </TableRow>
+          );
+        })}
         {children}
       </TableBody>
     </Table>
