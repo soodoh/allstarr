@@ -124,9 +124,13 @@ export function BookMonitorToggle({
 type SeriesBookMonitorToggleProps = {
   bookId: string;
   title: string;
+  description: string | undefined;
   coverUrl: string | undefined;
+  releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
+  languageName: string | undefined;
+  seriesInfo: { foreignSeriesId: string; title: string; position: string | undefined };
   authorContext: AuthorContext;
   localAuthorId: number | undefined;
   inLibrary: boolean;
@@ -137,9 +141,13 @@ type SeriesBookMonitorToggleProps = {
 export function SeriesBookMonitorToggle({
   bookId,
   title,
+  description,
   coverUrl,
+  releaseDate,
   releaseYear,
   rating,
+  languageName,
+  seriesInfo,
   authorContext,
   localAuthorId,
   inLibrary: initialInLibrary,
@@ -183,11 +191,17 @@ export function SeriesBookMonitorToggle({
         authorId,
         title,
         foreignBookId: bookId,
-        releaseDate: releaseYear ? `${releaseYear}-01-01` : undefined,
+        releaseDate: releaseDate ?? (releaseYear ? `${releaseYear}-01-01` : undefined),
+        overview: description,
+        language: languageName,
         monitored: true,
         images: coverUrl ? [{ url: coverUrl, coverType: "cover" }] : undefined,
         ratings: rating === undefined ? undefined : { value: rating, votes: 0 },
-        series: [],
+        series: [{
+          foreignSeriesId: seriesInfo.foreignSeriesId,
+          title: seriesInfo.title,
+          position: seriesInfo.position,
+        }],
       });
 
       setInLibrary(true);

@@ -59,6 +59,7 @@ function BooksPage() {
         Object.assign(b, {
           authorName: b.authorName ?? undefined,
           releaseDate: b.releaseDate ?? undefined,
+          language: b.language ?? undefined,
           overview: b.overview ?? undefined,
           images: b.images ?? undefined,
         }),
@@ -79,10 +80,8 @@ function BooksPage() {
     );
   }
 
-  let description: string | undefined;
-  if (isLoading) {
-    description = undefined;
-  } else if (search) {
+  let description: string;
+  if (search) {
     description = `${total} matching books`;
   } else {
     description = `${total} books in your library`;
@@ -121,7 +120,7 @@ function BooksPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by title or author..."
+            placeholder="Search by title, author, or series..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
