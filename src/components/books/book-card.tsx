@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import BookCover from "src/components/books/book-cover";
 
@@ -12,7 +13,7 @@ type BookCardProps = {
   };
 };
 
-export default function BookCard({ book }: BookCardProps): React.JSX.Element {
+export default function BookCard({ book }: BookCardProps): JSX.Element {
   const { openBookModal } = useBookDetailModal();
 
   return (

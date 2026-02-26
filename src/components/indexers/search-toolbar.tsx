@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { Search, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -15,10 +16,10 @@ export default function SearchToolbar({
   onSearch,
   searching,
   disabled,
-}: SearchToolbarProps): React.JSX.Element {
+}: SearchToolbarProps): JSX.Element {
   const [query, setQuery] = useState(defaultQuery);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
       onSearch(query.trim());

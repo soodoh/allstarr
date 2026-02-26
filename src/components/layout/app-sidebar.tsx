@@ -1,3 +1,4 @@
+import type { ComponentType, JSX } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import AllstarrIcon from "src/components/icons/allstarr-icon";
 import {
@@ -32,13 +33,13 @@ import {
 type NavChild = {
   title: string;
   to: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
 };
 
 type NavGroup = {
   title: string;
   to: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   matchPrefixes: string[];
   children: NavChild[];
 };
@@ -115,7 +116,7 @@ function getActiveGroup(currentPath: string, groups: NavGroup[]): NavGroup {
   return groups[0];
 }
 
-export default function AppSidebar(): React.JSX.Element {
+export default function AppSidebar(): JSX.Element {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const activeGroup = getActiveGroup(currentPath, navGroups);

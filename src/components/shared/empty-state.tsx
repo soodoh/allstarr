@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, JSX } from "react";
 import type { LucideIcon } from "lucide-react";
 
 type EmptyStateProps = {
@@ -13,7 +13,7 @@ export default function EmptyState({
   title,
   description,
   action,
-}: EmptyStateProps): React.JSX.Element {
+}: EmptyStateProps): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <Icon className="h-12 w-12 text-muted-foreground/50 mb-4" />

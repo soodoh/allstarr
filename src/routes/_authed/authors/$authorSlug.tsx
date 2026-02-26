@@ -1,6 +1,6 @@
 // oxlint-disable react/no-array-index-key -- Skeleton rows in this file have no meaningful identity
 import { Fragment, useMemo, useRef, useState } from "react";
-import type React from "react";
+import type { ReactNode } from "react";
 import {
   createFileRoute,
   Link,
@@ -274,7 +274,7 @@ function BooksTab({
 
   const colCount = 3;
 
-  let booksTableBody: React.ReactNode;
+  let booksTableBody: ReactNode;
   if (isLoadingDisplay) {
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     booksTableBody = Array.from({ length: displayPageSize }).map((_, i) => (
@@ -706,7 +706,7 @@ function SeriesTab({
 
   const colCount = 3;
 
-  let seriesTableBody: React.ReactNode;
+  let seriesTableBody: ReactNode;
   if (loading) {
     // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
     seriesTableBody = Array.from({ length: 10 }).map((_, i) => (

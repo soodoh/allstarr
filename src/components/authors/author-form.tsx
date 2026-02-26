@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
@@ -40,7 +41,7 @@ export default function AuthorForm({
   onCancel,
   loading,
   submitLabel = "Save",
-}: AuthorFormProps): React.JSX.Element {
+}: AuthorFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
   const [status, setStatus] = useState(initialValues?.status || "continuing");
@@ -63,7 +64,7 @@ export default function AuthorForm({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
       name,

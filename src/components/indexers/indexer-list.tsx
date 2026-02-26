@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
@@ -29,7 +30,7 @@ export default function IndexerList({
   indexers,
   onEdit,
   onDelete,
-}: IndexerListProps): React.JSX.Element {
+}: IndexerListProps): JSX.Element {
   if (indexers.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import type { JSX } from "react";
 import AuthorPhoto from "src/components/authors/author-photo";
 
 type AuthorCardProps = {
@@ -13,7 +14,7 @@ type AuthorCardProps = {
 
 export default function AuthorCard({
   author,
-}: AuthorCardProps): React.JSX.Element {
+}: AuthorCardProps): JSX.Element {
   const imageUrl =
     author.images?.find((img) => img.coverType === "poster")?.url ??
     author.images?.[0]?.url;

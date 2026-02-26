@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
@@ -52,7 +53,7 @@ type BookDetail = NonNullable<
   >["data"]
 >;
 
-function LoadingSkeleton(): React.JSX.Element {
+function LoadingSkeleton(): JSX.Element {
   return (
     <div className="space-y-4 py-4">
       <div className="grid grid-cols-[auto_1fr] gap-6">
@@ -74,7 +75,7 @@ function DetailsTab({
 }: {
   book: BookDetail;
   onOpenChange: (open: boolean) => void;
-}): React.JSX.Element {
+}): JSX.Element {
   return (
     <TabsContent value="details" className="overflow-y-auto flex-1 min-h-0">
       <div className="grid grid-cols-[auto_1fr] gap-6 pt-2">
@@ -140,7 +141,7 @@ function EditionsTab({
   editions,
 }: {
   editions: BookDetail["editions"];
-}): React.JSX.Element {
+}): JSX.Element {
   return (
     <TabsContent value="editions" className="overflow-y-auto flex-1 min-h-0">
       {editions.length === 0 ? (
@@ -197,7 +198,7 @@ function SearchTab({
   open: boolean;
   hasIndexers: boolean | undefined;
   onOpenChange: (open: boolean) => void;
-}): React.JSX.Element {
+}): JSX.Element {
   const searchIndexers = useSearchIndexers();
   const grabRelease = useGrabRelease();
   const hasSearched = useRef(false);
@@ -292,7 +293,7 @@ export default function BookDetailModal({
   bookId,
   open,
   onOpenChange,
-}: BookDetailModalProps): React.JSX.Element {
+}: BookDetailModalProps): JSX.Element {
   const [activeTab, setActiveTab] = useState("details");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

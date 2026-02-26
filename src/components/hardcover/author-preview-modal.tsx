@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { JSX } from "react";
 import { ExternalLink, Loader2, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -185,7 +186,7 @@ export default function AuthorPreviewModal({
   author,
   open,
   onOpenChange,
-}: AuthorPreviewModalProps): React.JSX.Element {
+}: AuthorPreviewModalProps): JSX.Element {
   const slug = author.slug;
 
   const { data: fullAuthor, isLoading: authorLoading } = useQuery({

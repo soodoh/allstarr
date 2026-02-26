@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
@@ -30,7 +31,7 @@ export default function QualityProfileList({
   profiles,
   onEdit,
   onDelete,
-}: QualityProfileListProps): React.JSX.Element {
+}: QualityProfileListProps): JSX.Element {
   if (profiles.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">

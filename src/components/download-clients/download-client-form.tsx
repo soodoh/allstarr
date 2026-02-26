@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent, JSX } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
@@ -157,7 +158,7 @@ function ConnectionFields({
   onPort,
   onSsl,
   onUrlBase,
-}: ConnectionFieldsProps): React.JSX.Element {
+}: ConnectionFieldsProps): JSX.Element {
   return (
     <>
       <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
@@ -208,7 +209,7 @@ function TestResultBanner({
   result,
 }: {
   result: TestResult;
-}): React.JSX.Element {
+}): JSX.Element {
   const isSuccess = result.success;
   return (
     <div
@@ -255,7 +256,7 @@ function CredentialFields({
   onPassword,
   onApiKey,
   onWatchFolder,
-}: CredentialFieldsProps): React.JSX.Element {
+}: CredentialFieldsProps): JSX.Element {
   return (
     <>
       {fields.watchFolder && (
@@ -317,7 +318,7 @@ export default function DownloadClientForm({
   onCancel,
   cancelLabel = "Cancel",
   loading,
-}: DownloadClientFormProps): React.JSX.Element {
+}: DownloadClientFormProps): JSX.Element {
   const impl = initialValues?.implementation ?? "qBittorrent";
   const clientConfig = CLIENT_CONFIGS[impl];
 
@@ -359,7 +360,7 @@ export default function DownloadClientForm({
 
   const { fields, hideHostPort } = clientConfig;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
       name,

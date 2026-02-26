@@ -1,10 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-} from "react";
+import { createContext, useContext, useState, useCallback, useMemo } from "react";
+import type { JSX, ReactNode } from "react";
 import BookDetailModal from "src/components/books/book-detail-modal";
 
 type BookDetailModalContextType = {
@@ -28,8 +23,8 @@ export function useBookDetailModal(): BookDetailModalContextType {
 export default function BookDetailModalProvider({
   children,
 }: {
-  children: React.ReactNode;
-}): React.JSX.Element {
+  children: ReactNode;
+}): JSX.Element {
   const [bookId, setBookId] = useState<number | undefined>(undefined);
 
   const openBookModal = useCallback((id: number) => {

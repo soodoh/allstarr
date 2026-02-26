@@ -1,17 +1,17 @@
-import * as React from "react";
+import type { ComponentProps, JSX } from "react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 
 import { cn } from "src/lib/utils";
 
 function Popover({
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Root>): React.JSX.Element {
+}: ComponentProps<typeof PopoverPrimitive.Root>): JSX.Element {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 }
 
 function PopoverTrigger({
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Trigger>): React.JSX.Element {
+}: ComponentProps<typeof PopoverPrimitive.Trigger>): JSX.Element {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
@@ -20,7 +20,7 @@ function PopoverContent({
   align = "center",
   sideOffset = 4,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>): React.JSX.Element {
+}: ComponentProps<typeof PopoverPrimitive.Content>): JSX.Element {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -39,14 +39,14 @@ function PopoverContent({
 
 function PopoverAnchor({
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Anchor>): React.JSX.Element {
+}: ComponentProps<typeof PopoverPrimitive.Anchor>): JSX.Element {
   return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
 }
 
 function PopoverHeader({
   className,
   ...props
-}: React.ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<"div">): JSX.Element {
   return (
     <div
       data-slot="popover-header"
@@ -59,7 +59,7 @@ function PopoverHeader({
 function PopoverTitle({
   className,
   ...props
-}: React.ComponentProps<"h2">): React.JSX.Element {
+}: ComponentProps<"h2">): JSX.Element {
   return (
     <div
       data-slot="popover-title"
@@ -72,7 +72,7 @@ function PopoverTitle({
 function PopoverDescription({
   className,
   ...props
-}: React.ComponentProps<"p">): React.JSX.Element {
+}: ComponentProps<"p">): JSX.Element {
   return (
     <p
       data-slot="popover-description"

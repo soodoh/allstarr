@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -22,13 +23,13 @@ type Author = {
 
 type AuthorTableProps = {
   authors: Author[];
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 export default function AuthorTable({
   authors,
   children,
-}: AuthorTableProps): React.JSX.Element {
+}: AuthorTableProps): JSX.Element {
   const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

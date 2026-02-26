@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
@@ -30,7 +31,7 @@ export default function DownloadClientList({
   clients,
   onEdit,
   onDelete,
-}: DownloadClientListProps): React.JSX.Element {
+}: DownloadClientListProps): JSX.Element {
   if (clients.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
   Table,
@@ -19,7 +20,7 @@ type Book = {
 
 type BookTableProps = {
   books: Book[];
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 type SortKey = "title" | "authorName" | "releaseDate";
@@ -27,7 +28,7 @@ type SortKey = "title" | "authorName" | "releaseDate";
 export default function BookTable({
   books,
   children,
-}: BookTableProps): React.JSX.Element {
+}: BookTableProps): JSX.Element {
   const { openBookModal } = useBookDetailModal();
   const [sortKey, setSortKey] = useState<SortKey | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

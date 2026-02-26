@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 
@@ -15,7 +16,7 @@ type RecentActivityProps = {
 
 export default function RecentActivity({
   recentBooks,
-}: RecentActivityProps): React.JSX.Element {
+}: RecentActivityProps): JSX.Element {
   const { openBookModal } = useBookDetailModal();
 
   return (

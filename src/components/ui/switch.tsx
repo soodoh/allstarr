@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentProps, JSX } from "react";
 import { Switch as SwitchPrimitive } from "radix-ui";
 
 import { cn } from "src/lib/utils";
@@ -7,9 +7,9 @@ export default function Switch({
   className,
   size = "default",
   ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root> & {
+}: ComponentProps<typeof SwitchPrimitive.Root> & {
   size?: "sm" | "default";
-}): React.JSX.Element {
+}): JSX.Element {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"

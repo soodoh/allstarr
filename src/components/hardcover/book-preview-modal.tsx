@@ -1,5 +1,5 @@
-import type React from "react";
 import { useState } from "react";
+import type { JSX } from "react";
 import { BookOpen, ExternalLink, Loader2, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "src/components/ui/badge";
@@ -217,7 +217,7 @@ export default function BookPreviewModal({
   book,
   open,
   onOpenChange,
-}: BookPreviewModalProps): React.JSX.Element {
+}: BookPreviewModalProps): JSX.Element {
   const foreignBookIds = book.id ? [book.id] : [];
   const authorName = book.subtitle;
 

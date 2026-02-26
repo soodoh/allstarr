@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { JSX } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowUp, Folder, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
@@ -24,7 +25,7 @@ export default function DirectoryBrowserDialog({
   onOpenChange,
   onSelect,
   initialPath = "/",
-}: DirectoryBrowserDialogProps): React.JSX.Element {
+}: DirectoryBrowserDialogProps): JSX.Element {
   const [currentPath, setCurrentPath] = useState(initialPath);
 
   // Reset to initialPath when the dialog opens

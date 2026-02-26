@@ -1,11 +1,11 @@
-import * as React from "react";
+import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
 function Table({
   className,
   ...props
-}: React.ComponentProps<"table">): React.JSX.Element {
+}: ComponentProps<"table">): JSX.Element {
   return (
     <div
       data-slot="table-container"
@@ -23,7 +23,7 @@ function Table({
 function TableHeader({
   className,
   ...props
-}: React.ComponentProps<"thead">): React.JSX.Element {
+}: ComponentProps<"thead">): JSX.Element {
   return (
     <thead
       data-slot="table-header"
@@ -36,7 +36,7 @@ function TableHeader({
 function TableBody({
   className,
   ...props
-}: React.ComponentProps<"tbody">): React.JSX.Element {
+}: ComponentProps<"tbody">): JSX.Element {
   return (
     <tbody
       data-slot="table-body"
@@ -49,7 +49,7 @@ function TableBody({
 function TableFooter({
   className,
   ...props
-}: React.ComponentProps<"tfoot">): React.JSX.Element {
+}: ComponentProps<"tfoot">): JSX.Element {
   return (
     <tfoot
       data-slot="table-footer"
@@ -65,7 +65,7 @@ function TableFooter({
 function TableRow({
   className,
   ...props
-}: React.ComponentProps<"tr">): React.JSX.Element {
+}: ComponentProps<"tr">): JSX.Element {
   return (
     <tr
       data-slot="table-row"
@@ -81,7 +81,7 @@ function TableRow({
 function TableHead({
   className,
   ...props
-}: React.ComponentProps<"th">): React.JSX.Element {
+}: ComponentProps<"th">): JSX.Element {
   return (
     <th
       data-slot="table-head"
@@ -97,7 +97,7 @@ function TableHead({
 function TableCell({
   className,
   ...props
-}: React.ComponentProps<"td">): React.JSX.Element {
+}: ComponentProps<"td">): JSX.Element {
   return (
     <td
       data-slot="table-cell"
@@ -113,7 +113,7 @@ function TableCell({
 function TableCaption({
   className,
   ...props
-}: React.ComponentProps<"caption">): React.JSX.Element {
+}: ComponentProps<"caption">): JSX.Element {
   return (
     <caption
       data-slot="table-caption"

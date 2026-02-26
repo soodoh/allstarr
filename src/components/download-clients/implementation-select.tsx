@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Button } from "src/components/ui/button";
 
 type ImplementationType =
@@ -75,7 +76,7 @@ function ClientButton({
 }: {
   option: ClientOption;
   onSelect: (impl: ImplementationType) => void;
-}): React.JSX.Element {
+}): JSX.Element {
   return (
     <Button
       type="button"
@@ -94,7 +95,7 @@ function ClientButton({
 export default function ImplementationSelect({
   onSelect,
   onCancel,
-}: ImplementationSelectProps): React.JSX.Element {
+}: ImplementationSelectProps): JSX.Element {
   return (
     <div className="space-y-6">
       <div className="space-y-3">

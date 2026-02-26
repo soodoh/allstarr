@@ -1,9 +1,9 @@
 // oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
-import type React from "react";
+import type { JSX } from "react";
 import Skeleton from "src/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "src/components/ui/card";
 
-export function DashboardSkeleton(): React.JSX.Element {
+export function DashboardSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
@@ -49,7 +49,7 @@ export function DashboardSkeleton(): React.JSX.Element {
   );
 }
 
-export function TableSkeleton(): React.JSX.Element {
+export function TableSkeleton(): JSX.Element {
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
@@ -69,7 +69,7 @@ export function TableSkeleton(): React.JSX.Element {
   );
 }
 
-export function HardcoverAuthorSkeleton(): React.JSX.Element {
+export function HardcoverAuthorSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
       {/* Back button */}
@@ -146,7 +146,7 @@ export function HardcoverAuthorSkeleton(): React.JSX.Element {
   );
 }
 
-export function SystemStatusSkeleton(): React.JSX.Element {
+export function SystemStatusSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
@@ -207,7 +207,7 @@ export function SystemStatusSkeleton(): React.JSX.Element {
 
 export function AuthorTableRowsSkeleton({
   rows = 5,
-}: { rows?: number }): React.JSX.Element {
+}: { rows?: number }): JSX.Element {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -229,7 +229,7 @@ export function AuthorTableRowsSkeleton({
 
 export function AuthorCardsSkeleton({
   count = 6,
-}: { count?: number }): React.JSX.Element {
+}: { count?: number }): JSX.Element {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
@@ -245,7 +245,7 @@ export function AuthorCardsSkeleton({
 
 export function BookTableRowsSkeleton({
   rows = 5,
-}: { rows?: number }): React.JSX.Element {
+}: { rows?: number }): JSX.Element {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -267,7 +267,7 @@ export function BookTableRowsSkeleton({
 
 export function BookCardsSkeleton({
   count = 6,
-}: { count?: number }): React.JSX.Element {
+}: { count?: number }): JSX.Element {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
@@ -284,7 +284,7 @@ export function BookCardsSkeleton({
   );
 }
 
-export function DetailSkeleton(): React.JSX.Element {
+export function DetailSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
       <Skeleton className="h-8 w-32" />

@@ -1,5 +1,5 @@
-import type React from "react";
 import { useState } from "react";
+import type { JSX, MouseEvent } from "react";
 import { BookMarked, Loader2 } from "lucide-react";
 import { cn } from "src/lib/utils";
 import type { HardcoverAuthorBook } from "src/server/search";
@@ -35,7 +35,7 @@ export function BookMonitorToggle({
   inLibrary: initialInLibrary,
   onAdded,
   onAuthorCreated,
-}: BookMonitorToggleProps): React.JSX.Element {
+}: BookMonitorToggleProps): JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
 
   const importAuthor = useImportHardcoverAuthor();
@@ -43,7 +43,7 @@ export function BookMonitorToggle({
 
   const loading = importAuthor.isPending || importBook.isPending;
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = async (e: MouseEvent) => {
     e.stopPropagation();
     if (inLibrary || loading) {
       return;
@@ -143,7 +143,7 @@ export function SeriesBookMonitorToggle({
   inLibrary: initialInLibrary,
   onAdded,
   onAuthorCreated,
-}: SeriesBookMonitorToggleProps): React.JSX.Element {
+}: SeriesBookMonitorToggleProps): JSX.Element {
   const [inLibrary, setInLibrary] = useState(initialInLibrary);
 
   const importAuthor = useImportHardcoverAuthor();
@@ -151,7 +151,7 @@ export function SeriesBookMonitorToggle({
 
   const loading = importAuthor.isPending || importBook.isPending;
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = async (e: MouseEvent) => {
     e.stopPropagation(); // don't collapse the series row
     if (inLibrary || loading) {
       return;

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import type React from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Search, BookOpen, Users } from "lucide-react";
@@ -270,7 +269,7 @@ function ResultCard({
   const isBook = result.type === "book";
   const isClickable = isAuthor || isBook;
 
-  let actionButton: React.ReactNode = null;
+  let actionButton: ReactNode = null;
   if (isAuthor) {
     actionButton = (
       <Button variant="outline" size="sm">
