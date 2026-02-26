@@ -21,7 +21,7 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import { authorsListQuery, booksListQuery } from "src/lib/queries";
 
-export const Route = createFileRoute("/_authed/library")({
+export const Route = createFileRoute("/_authed/library/")({
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(authorsListQuery()),
@@ -45,7 +45,7 @@ function LibraryPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Link to="/authors">
+        <Link to="/library/authors">
           <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -57,7 +57,7 @@ function LibraryPage() {
             <CardContent />
           </Card>
         </Link>
-        <Link to="/books">
+        <Link to="/library/books">
           <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -95,7 +95,7 @@ function LibraryPage() {
                       className="cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() =>
                         navigate({
-                          to: "/authors/$authorSlug",
+                          to: "/library/authors/$authorSlug",
                           params: {
                             authorSlug: author.slug || String(author.id),
                           },
@@ -104,7 +104,7 @@ function LibraryPage() {
                     >
                       <TableCell>
                         <Link
-                          to="/authors/$authorSlug"
+                          to="/library/authors/$authorSlug"
                           params={{
                             authorSlug: author.slug || String(author.id),
                           }}

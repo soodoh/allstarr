@@ -101,14 +101,14 @@ export default function AuthorTable({
             className="cursor-pointer hover:bg-accent/50 transition-colors"
             onClick={() =>
               navigate({
-                to: "/authors/$authorSlug",
+                to: "/library/authors/$authorSlug",
                 params: { authorSlug: author.slug || String(author.id) },
               })
             }
           >
             <TableCell>
               <Link
-                to="/authors/$authorSlug"
+                to="/library/authors/$authorSlug"
                 params={{ authorSlug: author.slug || String(author.id) }}
                 className="font-medium hover:underline"
                 onClick={(e) => e.stopPropagation()}

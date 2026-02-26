@@ -113,7 +113,7 @@ function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
   return [...groups.values()];
 }
 
-export const Route = createFileRoute("/_authed/authors/$authorSlug")({
+export const Route = createFileRoute("/_authed/library/authors/$authorSlug")({
   validateSearch: z.object({
     from: z.enum(["search"]).optional(),
   }),
@@ -956,7 +956,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
       return;
     }
     deleteAuthor.mutate(localAuthor.id, {
-      onSuccess: () => navigate({ to: "/authors" }),
+      onSuccess: () => navigate({ to: "/library/authors" }),
     });
   };
 
@@ -970,12 +970,12 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
       <div>
         <Button variant="ghost" size="sm" asChild>
           {fromSearch ? (
-            <Link to="/search">
+            <Link to="/library/add">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Search
+              Back to Add
             </Link>
           ) : (
-            <Link to="/authors">
+            <Link to="/library/authors">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Authors
             </Link>

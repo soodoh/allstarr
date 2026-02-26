@@ -28,8 +28,8 @@ import type { HardcoverSearchItem, HardcoverSearchMode } from "src/server/search
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
 
-export const Route = createFileRoute("/_authed/search")({
-  component: SearchPage,
+export const Route = createFileRoute("/_authed/library/add")({
+  component: AddToLibraryPage,
 });
 
 const resultTypeConfig = {
@@ -62,7 +62,7 @@ const languageOptions = [
   { code: "he", name: "Hebrew" },
 ];
 
-function SearchPage() {
+function AddToLibraryPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
   const [language, setLanguage] = useState("en");
@@ -113,8 +113,8 @@ function SearchPage() {
     searchResultsContent = (
       <EmptyState
         icon={Search}
-        title="Start searching"
-        description="Use the search bar to find books or authors from Hardcover."
+        title="Search to add"
+        description="Search for authors or books on Hardcover, then add them to your library."
       />
     );
   } else if (results.length === 0) {
@@ -160,15 +160,15 @@ function SearchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Search"
-        description="Search Hardcover for books and authors."
+        title="Add to Library"
+        description="Search Hardcover to find authors and books, then add them to your library."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Catalog Search</CardTitle>
+          <CardTitle>Search Hardcover</CardTitle>
           <CardDescription>
-            Pick a result type, then search by book or author name.
+            Find authors or books to add to your library. Click a result to preview and add it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

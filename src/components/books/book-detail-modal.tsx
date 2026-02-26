@@ -89,7 +89,7 @@ function DetailsTab({
             <span className="text-muted-foreground">Author: </span>
             {book.authorId ? (
               <Link
-                to="/authors/$authorSlug"
+                to="/library/authors/$authorSlug"
                 params={{
                   authorSlug: book.authorSlug || String(book.authorId),
                 }}

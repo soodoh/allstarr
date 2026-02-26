@@ -9,7 +9,7 @@ import {
   Sliders,
   History,
   Library,
-  Search,
+  Plus,
   Download,
   Radar,
   Monitor,
@@ -45,20 +45,14 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Add New",
-    to: "/search",
-    icon: Search,
-    matchPrefixes: ["/search"],
-    children: [],
-  },
-  {
     title: "Library",
     to: "/library",
     icon: Library,
-    matchPrefixes: ["/authors", "/books", "/library"],
+    matchPrefixes: ["/library"],
     children: [
-      { title: "Authors", to: "/authors", icon: Users },
-      { title: "Books", to: "/books", icon: BookOpen },
+      { title: "Add New", to: "/library/add", icon: Plus },
+      { title: "Authors", to: "/library/authors", icon: Users },
+      { title: "Books", to: "/library/books", icon: BookOpen },
     ],
   },
   {
