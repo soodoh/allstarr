@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -8,55 +8,62 @@ import PageHeader from "src/components/shared/page-header";
 import BookTable from "src/components/books/book-table";
 import BookCard from "src/components/books/book-card";
 import EmptyState from "src/components/shared/empty-state";
-import { TableSkeleton } from "src/components/shared/loading-skeleton";
-import { booksListQuery } from "src/lib/queries";
+import {
+  BookTableRowsSkeleton,
+  BookCardsSkeleton,
+} from "src/components/shared/loading-skeleton";
+import { booksInfiniteQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/books/")({
   loader: ({ context }) =>
-    context.queryClient.ensureQueryData(booksListQuery()),
+    context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery()),
   component: BooksPage,
-  pendingComponent: TableSkeleton,
 });
 
 function BooksPage() {
-  const { data: books } = useSuspenseQuery(booksListQuery());
-
   const [view, setView] = useState<"table" | "grid">("table");
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [search, setSearch] = useState("");
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useInfiniteQuery(booksInfiniteQuery(search));
+
+  const books = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
+  );
+  const total = data?.pages[0]?.total ?? 0;
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
 
   useEffect(() => {
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setSearchQuery(searchInput);
-    }, 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [searchInput]);
-
-  const filteredBooks = useMemo(() => {
-    if (!searchQuery) {
-      return books;
-    }
-    const q = searchQuery.toLowerCase();
-    return books.filter(
-      (b) =>
-        b.title.toLowerCase().includes(q) ||
-        (b.authorName?.toLowerCase().includes(q) ?? false),
-    );
-  }, [books, searchQuery]);
+    const el = sentinelRef.current;
+    if (!el) {return;}
+    const observer = new IntersectionObserver(handleObserver, {
+      rootMargin: "200px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
 
   const tableBooks = useMemo(
     () =>
-      filteredBooks.map((b) => ({
+      books.map((b) => ({
         ...b,
         authorName: b.authorName ?? undefined,
         releaseDate: b.releaseDate ?? undefined,
       })),
-    [filteredBooks],
+    [books],
   );
 
-  if (books.length === 0) {
+  if (!isLoading && total === 0 && !search) {
     return (
       <div>
         <PageHeader title="Books" />
@@ -69,9 +76,16 @@ function BooksPage() {
     );
   }
 
-  const description = searchQuery
-    ? `${filteredBooks.length} of ${books.length} books`
-    : `${books.length} books in your library`;
+  let description: string | undefined;
+  if (isLoading) {
+    description = undefined;
+  } else if (search) {
+    description = `${total} matching books`;
+  } else {
+    description = `${total} books in your library`;
+  }
+
+  const showLoading = isLoading || isFetchingNextPage;
 
   return (
     <div>
@@ -105,18 +119,20 @@ function BooksPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by title or author..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
       </div>
 
       {view === "table" ? (
-        <BookTable books={tableBooks} />
+        <BookTable books={tableBooks}>
+          {showLoading && <BookTableRowsSkeleton />}
+        </BookTable>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {filteredBooks.map((book) => (
+          {books.map((book) => (
             <BookCard
               key={book.id}
               book={{
@@ -127,8 +143,11 @@ function BooksPage() {
               }}
             />
           ))}
+          {showLoading && <BookCardsSkeleton />}
         </div>
       )}
+
+      <div ref={sentinelRef} className="h-1" />
     </div>
   );
 }
