@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import AllstarrIcon from "src/components/icons/allstarr-icon";
 import {
   BookOpen,
   Users,
@@ -130,7 +131,7 @@ export default function AppSidebar(): React.JSX.Element {
     <Sidebar>
       <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-4">
         <Link to="/" className="flex items-center gap-2">
-          <BookOpen className="h-6 w-6" />
+          <AllstarrIcon className="h-6 w-6" />
           <span className="text-lg font-bold">Allstarr</span>
         </Link>
       </SidebarHeader>
