@@ -21,6 +21,7 @@ export const books = sqliteTable("books", {
     value: number;
     votes: number;
   }>(),
+  readers: integer("readers"),
   tags: text("tags", { mode: "json" }).$type<number[]>(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

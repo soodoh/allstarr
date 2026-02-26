@@ -7,6 +7,46 @@ const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 export type HardcoverSearchMode = "all" | "books" | "authors";
 type HardcoverQueryType = "Book" | "Author";
 
+export type HardcoverEdition = {
+  id: string;
+  title: string;
+  author: string | undefined;
+  publisher: string | undefined;
+  type: string | undefined;
+  pages: number | undefined;
+  releaseDate: string | undefined;
+  isbn10: string | undefined;
+  isbn13: string | undefined;
+  asin: string | undefined;
+  language: string | undefined;
+  country: string | undefined;
+  readers: number;
+  score: number;
+  coverUrl: string | undefined;
+};
+
+export type HardcoverBookEditionsResult = {
+  editions: HardcoverEdition[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type EditionSortKey =
+  | "title"
+  | "publisher"
+  | "type"
+  | "pages"
+  | "releaseDate"
+  | "isbn10"
+  | "isbn13"
+  | "asin"
+  | "language"
+  | "country"
+  | "readers"
+  | "score";
+
 export type HardcoverSearchItem = {
   id: string;
   type: "book" | "author";
@@ -15,6 +55,7 @@ export type HardcoverSearchItem = {
   subtitle: string | undefined;
   description: string | undefined;
   releaseYear: number | undefined;
+  readers: number | undefined;
   coverUrl: string | undefined;
   hardcoverUrl: string | undefined;
 };
@@ -33,6 +74,7 @@ export type HardcoverAuthorBook = {
   releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
+  ratingsCount: number | undefined;
   usersCount: number | undefined;
   coverUrl: string | undefined;
   contribution: string | undefined;
@@ -135,20 +177,10 @@ query Search($query: String!, $queryType: String, $perPage: Int!, $page: Int!) {
 }
 `;
 
-const bookLanguagesQuery = `
-query BookLanguages($ids: [Int!]!) {
-  books(where: { id: { _in: $ids } }) {
+const bookLanguageFilterQuery = `
+query BookLanguageFilter($ids: [Int!]!, $langCode: String!) {
+  books(where: { id: { _in: $ids }, editions: { language: { code2: { _eq: $langCode } } } }) {
     id
-    default_physical_edition {
-      language {
-        code2
-      }
-    }
-    editions(limit: 1, order_by: { id: asc }, where: { language_id: { _is_null: false } }) {
-      language {
-        code2
-      }
-    }
   }
 }
 `;
@@ -333,6 +365,7 @@ query ${queryName}(${varDefs}) {
     release_date
     release_year
     rating
+    ratings_count
     users_count
     image {
       url
@@ -949,6 +982,7 @@ function toHardcoverAuthorBook(
         firstString(bookRecord, [["release_date"], ["published_date"]]),
       ),
     rating: firstNumber(bookRecord, [["rating"]]),
+    ratingsCount: firstNumber(bookRecord, [["ratings_count"]]),
     usersCount: firstNumber(bookRecord, [["users_count"]]),
     coverUrl: getCoverUrl(bookRecord),
     contribution,
@@ -998,6 +1032,7 @@ function toBookResult(
     subtitle,
     description,
     releaseYear,
+    readers: firstNumber(document, [["users_count"]]),
     coverUrl: getCoverUrl(document),
     hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
   };
@@ -1040,6 +1075,7 @@ function toAuthorResult(
     subtitle,
     description,
     releaseYear: undefined,
+    readers: firstNumber(document, [["users_count"]]),
     coverUrl: getCoverUrl(document),
     hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : undefined,
   };
@@ -1072,11 +1108,15 @@ function interleave<T>(left: T[], right: T[], limit: number): T[] {
   return merged.slice(0, limit);
 }
 
+function sortByReaders(items: HardcoverSearchItem[]): HardcoverSearchItem[] {
+  return items.toSorted((a, b) => (b.readers ?? 0) - (a.readers ?? 0));
+}
+
 /**
- * Fetches the default edition language for a batch of books via a secondary
- * GraphQL query, then filters out books whose language doesn't match.
- * The Hardcover search index doesn't include language data, so this is the
- * only reliable way to filter by language.
+ * Filters search results to only include books that have at least one edition
+ * matching the selected language. The Hardcover search index doesn't include
+ * language data, so this uses a secondary GraphQL query with Hasura's
+ * relationship filter to check for any matching edition.
  */
 async function applyLanguageFilter(
   items: HardcoverSearchItem[],
@@ -1098,8 +1138,8 @@ async function applyLanguageFilter(
         Authorization: authorization,
       },
       body: JSON.stringify({
-        query: bookLanguagesQuery,
-        variables: { ids: bookIds },
+        query: bookLanguageFilterQuery,
+        variables: { ids: bookIds, langCode: language },
       }),
       cache: "no-store",
     });
@@ -1116,40 +1156,15 @@ async function applyLanguageFilter(
       return items;
     }
 
-    const languageByBookId = new Map<string, string>();
+    const matchingIds = new Set<string>();
     for (const book of toRecordArray(body.data?.books)) {
       const bookId = firstId(book, [["id"]]);
-      if (!bookId) {continue;}
-
-      // Try default_physical_edition first, fall back to first edition
-      const defaultEdition = toRecord(book.default_physical_edition);
-      const defaultLang = defaultEdition
-        ? toRecord(defaultEdition.language)
-        : undefined;
-      let code = defaultLang
-        ? normalizeLanguageCode(firstString(defaultLang, [["code2"]]))
-        : undefined;
-
-      if (!code) {
-        const editions = toRecordArray(book.editions);
-        if (editions.length > 0) {
-          const editionLang = toRecord(editions[0].language);
-          code = editionLang
-            ? normalizeLanguageCode(firstString(editionLang, [["code2"]]))
-            : undefined;
-        }
-      }
-
-      if (code) {
-        languageByBookId.set(bookId, code);
+      if (bookId) {
+        matchingIds.add(bookId);
       }
     }
 
-    return items.filter((item) => {
-      const bookLang = languageByBookId.get(item.id);
-      // Keep books whose language matches or whose language couldn't be resolved
-      return !bookLang || bookLang === language;
-    });
+    return items.filter((item) => matchingIds.has(item.id));
   } catch {
     // If the language lookup fails, return unfiltered rather than breaking search
     return items;
@@ -1571,24 +1586,24 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
     const { query, type, limit, language } = data;
 
     if (type === "books") {
-      const results = await fetchSearchResults(
+      const results = sortByReaders(await fetchSearchResults(
         query,
         "Book",
         limit,
         authorization,
         language,
-      );
+      ));
       return { query, type, results, total: results.length };
     }
 
     if (type === "authors") {
-      const results = await fetchSearchResults(
+      const results = sortByReaders(await fetchSearchResults(
         query,
         "Author",
         limit,
         authorization,
         language,
-      );
+      ));
       return { query, type, results, total: results.length };
     }
 
@@ -1596,7 +1611,11 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
       fetchSearchResults(query, "Book", limit, authorization, language),
       fetchSearchResults(query, "Author", limit, authorization, language),
     ]);
-    const results = interleave(bookResults, authorResults, limit);
+    const results = interleave(
+      sortByReaders(bookResults),
+      sortByReaders(authorResults),
+      limit,
+    );
 
     return { query, type, results, total: results.length };
   });
@@ -1730,4 +1749,448 @@ export const getHardcoverAuthorSeriesFn = createServerFn({ method: "GET" })
     await requireAuth();
     const authorization = getAuthorizationHeader();
     return fetchAuthorSeries(data.slug, data.language, authorization);
+  });
+
+// ---------------------------------------------------------------------------
+// Book editions (paginated, sorted)
+// ---------------------------------------------------------------------------
+
+const bookEditionsQuery = `
+query HardcoverBookEditions($bookId: Int!, $limit: Int!, $offset: Int!, $orderBy: [editions_order_by!]!) {
+  books(where: { id: { _eq: $bookId } }) {
+    editions_count
+  }
+  editions(
+    where: { book_id: { _eq: $bookId } }
+    limit: $limit
+    offset: $offset
+    order_by: $orderBy
+  ) {
+    id
+    title
+    isbn_10
+    isbn_13
+    asin
+    pages
+    release_date
+    users_count
+    score
+    cached_contributors
+    image { url }
+    language { code2 language }
+    country { name }
+    publisher { name }
+    reading_format { format }
+  }
+}
+`;
+
+function buildEditionsOrderBy(
+  sortBy: EditionSortKey,
+  sortDir: "asc" | "desc",
+): Array<Record<string, unknown>> {
+  const dir = sortDir;
+  const dirNullsLast =
+    sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
+  const map: Record<EditionSortKey, Array<Record<string, unknown>>> = {
+    title: [{ title: dirNullsLast }, { id: "asc" }],
+    publisher: [{ publisher: { name: dirNullsLast } }, { id: "asc" }],
+    type: [{ reading_format: { format: dirNullsLast } }, { id: "asc" }],
+    pages: [{ pages: dirNullsLast }, { id: "asc" }],
+    releaseDate: [{ release_date: dirNullsLast }, { id: "asc" }],
+    isbn10: [{ isbn_10: dirNullsLast }, { id: "asc" }],
+    isbn13: [{ isbn_13: dirNullsLast }, { id: "asc" }],
+    asin: [{ asin: dirNullsLast }, { id: "asc" }],
+    language: [{ language: { language: dirNullsLast } }, { id: "asc" }],
+    country: [{ country: { name: dirNullsLast } }, { id: "asc" }],
+    readers: [{ users_count: dir }, { id: "asc" }],
+    score: [{ score: dir }, { id: "asc" }],
+  };
+  return map[sortBy];
+}
+
+type GraphQLBookEditionsResponse = {
+  data?: {
+    books?: unknown;
+    editions?: unknown;
+  };
+  errors?: Array<{ message?: string }>;
+};
+
+async function fetchBookEditions(
+  foreignBookId: number,
+  page: number,
+  pageSize: number,
+  sortBy: EditionSortKey,
+  sortDir: "asc" | "desc",
+  authorization: string,
+): Promise<HardcoverBookEditionsResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const offset = (page - 1) * pageSize;
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: bookEditionsQuery,
+        variables: {
+          bookId: foreignBookId,
+          limit: pageSize,
+          offset,
+          orderBy: buildEditionsOrderBy(sortBy, sortDir),
+        },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const body = (await response.json()) as GraphQLBookEditionsResponse;
+    if (!response.ok) {
+      throw new Error("Hardcover editions request failed.");
+    }
+    if (body.errors && body.errors.length > 0) {
+      throw new Error(
+        body.errors[0]?.message || "Hardcover editions request failed.",
+      );
+    }
+
+    const booksArray = toRecordArray(body.data?.books);
+    const total =
+      booksArray.length > 0
+        ? (firstNumber(booksArray[0], [["editions_count"]]) ?? 0)
+        : 0;
+    const editions: HardcoverEdition[] = toRecordArray(body.data?.editions)
+      .map((record) => {
+        const id = firstId(record, [["id"]]);
+        if (!id) {
+          return undefined;
+        }
+        const title = firstString(record, [["title"]]) ?? "";
+
+        // Author from cached_contributors
+        const contributors = Array.isArray(record.cached_contributors)
+          ? record.cached_contributors
+          : [];
+        const authorNames = contributors
+          .map((c: unknown) => {
+            const contributorRecord = toRecord(c);
+            const authorRecord = contributorRecord
+              ? toRecord(contributorRecord.author)
+              : undefined;
+            return authorRecord
+              ? firstString(authorRecord, [["name"]])
+              : undefined;
+          })
+          .filter((n: unknown): n is string => typeof n === "string" && n.length > 0);
+        const author = authorNames.length > 0 ? authorNames.join(", ") : undefined;
+
+        const publisherRecord = toRecord(record.publisher);
+        const publisher = publisherRecord
+          ? firstString(publisherRecord, [["name"]])
+          : undefined;
+
+        const readingFormatRecord = toRecord(record.reading_format);
+        const type = readingFormatRecord
+          ? firstString(readingFormatRecord, [["format"]])
+          : undefined;
+
+        const languageRecord = toRecord(record.language);
+        const language = languageRecord
+          ? firstString(languageRecord, [["language"]])
+          : undefined;
+
+        const countryRecord = toRecord(record.country);
+        const country = countryRecord
+          ? firstString(countryRecord, [["name"]])
+          : undefined;
+
+        return {
+          id,
+          title,
+          author,
+          publisher,
+          type,
+          pages: firstNumber(record, [["pages"]]),
+          releaseDate: firstString(record, [["release_date"]]),
+          isbn10: firstString(record, [["isbn_10"]]),
+          isbn13: firstString(record, [["isbn_13"]]),
+          asin: firstString(record, [["asin"]]),
+          language,
+          country,
+          readers: firstNumber(record, [["users_count"]]) ?? 0,
+          score: firstNumber(record, [["score"]]) ?? 0,
+          coverUrl: getCoverUrl(record),
+        };
+      })
+      .filter(Boolean) as HardcoverEdition[];
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return { editions, total, page, pageSize, totalPages };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Hardcover editions request timed out.", {
+        cause: error,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+const bookEditionsInputSchema = z.object({
+  foreignBookId: z.number().int().min(1),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(25),
+  sortBy: z
+    .enum([
+      "title",
+      "publisher",
+      "type",
+      "pages",
+      "releaseDate",
+      "isbn10",
+      "isbn13",
+      "asin",
+      "language",
+      "country",
+      "readers",
+      "score",
+    ])
+    .default("readers"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+});
+
+export const getHardcoverBookEditionsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) => bookEditionsInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const authorization = getAuthorizationHeader();
+    return fetchBookEditions(
+      data.foreignBookId,
+      data.page,
+      data.pageSize,
+      data.sortBy,
+      data.sortDir,
+      authorization,
+    );
+  });
+
+// ── Book edition languages ──────────────────────────────────────────────────
+
+export type BookLanguage = {
+  name: string;
+  code: string;
+  readers: number;
+};
+
+const bookEditionLanguagesQuery = `
+query HardcoverBookEditionLanguages($bookId: Int!) {
+  editions(where: { book_id: { _eq: $bookId } }) {
+    users_count
+    language { code2 language }
+  }
+}
+`;
+
+async function fetchBookEditionLanguages(
+  foreignBookId: number,
+  authorization: string,
+): Promise<BookLanguage[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: bookEditionLanguagesQuery,
+        variables: { bookId: foreignBookId },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const body = (await response.json()) as {
+      data?: { editions?: unknown };
+      errors?: Array<{ message?: string }>;
+    };
+    if (!response.ok || (body.errors && body.errors.length > 0)) {
+      return [];
+    }
+
+    const editions = toRecordArray(body.data?.editions);
+    const langMap = new Map<string, { name: string; code: string; readers: number }>();
+
+    for (const edition of editions) {
+      const langRecord = toRecord(edition.language);
+      if (!langRecord) {continue;}
+      const code = firstString(langRecord, [["code2"]]);
+      const name = firstString(langRecord, [["language"]]);
+      if (!code || !name) {continue;}
+      const readers = firstNumber(edition, [["users_count"]]) ?? 0;
+
+      const existing = langMap.get(code);
+      if (existing) {
+        existing.readers += readers;
+      } else {
+        langMap.set(code, { name, code, readers });
+      }
+    }
+
+    return [...langMap.values()].toSorted((a, b) => b.readers - a.readers);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+const bookLanguagesInputSchema = z.object({
+  foreignBookId: z.number().int().min(1),
+});
+
+export const getHardcoverBookLanguagesFn = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) => bookLanguagesInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const authorization = getAuthorizationHeader();
+    return fetchBookEditionLanguages(data.foreignBookId, authorization);
+  });
+
+// ── Single book detail from Hardcover ───────────────────────────────────────
+
+export type HardcoverBookDetail = {
+  id: string;
+  title: string;
+  slug: string | undefined;
+  description: string | undefined;
+  releaseDate: string | undefined;
+  releaseYear: number | undefined;
+  rating: number | undefined;
+  ratingsCount: number | undefined;
+  usersCount: number | undefined;
+  coverUrl: string | undefined;
+  series: HardcoverAuthorBookSeries[];
+};
+
+const singleBookQuery = `
+query HardcoverSingleBook($bookId: Int!) {
+  books(where: { id: { _eq: $bookId } }) {
+    id
+    title
+    slug
+    description
+    release_date
+    release_year
+    rating
+    ratings_count
+    users_count
+    image { url }
+    book_series {
+      position
+      series {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+async function fetchSingleBook(
+  bookId: number,
+  authorization: string,
+): Promise<HardcoverBookDetail | undefined> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: singleBookQuery,
+        variables: { bookId },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const body = (await response.json()) as {
+      data?: { books?: unknown };
+      errors?: Array<{ message?: string }>;
+    };
+    if (!response.ok || (body.errors && body.errors.length > 0)) {
+      return undefined;
+    }
+
+    const booksArray = toRecordArray(body.data?.books);
+    if (booksArray.length === 0) {return undefined;}
+
+    const bookRecord = booksArray[0];
+    const id = firstId(bookRecord, [["id"]]);
+    if (!id) {return undefined;}
+
+    const bookSeriesEntries = toRecordArray(bookRecord.book_series);
+    const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
+      .map((entry) => {
+        const seriesRecord = toRecord(entry.series);
+        if (!seriesRecord) {return undefined;}
+        const seriesId = firstId(seriesRecord, [["id"]]);
+        const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
+        if (!seriesId || !seriesTitle) {return undefined;}
+        return {
+          id: seriesId,
+          title: seriesTitle,
+          position:
+            firstNumber(entry, [["position"]])?.toString() ??
+            firstString(entry, [["position"]]),
+        };
+      })
+      .filter(Boolean) as HardcoverAuthorBookSeries[];
+
+    return {
+      id,
+      title: firstString(bookRecord, [["title"]]) ?? "",
+      slug: firstString(bookRecord, [["slug"]]),
+      description: firstString(bookRecord, [["description"]]),
+      releaseDate: firstString(bookRecord, [["release_date"]]),
+      releaseYear: firstNumber(bookRecord, [["release_year"]]),
+      rating: firstNumber(bookRecord, [["rating"]]),
+      ratingsCount: firstNumber(bookRecord, [["ratings_count"]]),
+      usersCount: firstNumber(bookRecord, [["users_count"]]),
+      coverUrl: getCoverUrl(bookRecord),
+      series,
+    };
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+const singleBookInputSchema = z.object({
+  foreignBookId: z.number().int().min(1),
+});
+
+export const getHardcoverBookDetailFn = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) => singleBookInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const authorization = getAuthorizationHeader();
+    return fetchSingleBook(data.foreignBookId, authorization);
   });

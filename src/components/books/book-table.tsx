@@ -18,6 +18,7 @@ type Book = {
   releaseDate: string | undefined;
   language: string | undefined;
   ratings?: { value: number; votes: number } | undefined;
+  readers?: number | undefined;
   series: Array<{ title: string; position: string | undefined }>;
   images?: Array<{ url: string; coverType: string }>;
 };
@@ -27,7 +28,7 @@ type BookTableProps = {
   children?: ReactNode;
 };
 
-type SortKey = "title" | "authorName" | "releaseDate" | "series" | "language" | "rating";
+type SortKey = "title" | "authorName" | "releaseDate" | "series" | "language" | "rating" | "readers";
 
 function compareRating(a: Book, b: Book): number {
   return (a.ratings?.value ?? -1) - (b.ratings?.value ?? -1);
@@ -45,6 +46,10 @@ function compareSeries(a: Book, b: Book): number {
 function compareBooks(a: Book, b: Book, key: SortKey, dir: "asc" | "desc"): number {
   if (key === "rating") {
     const cmp = compareRating(a, b);
+    return dir === "asc" ? cmp : -cmp;
+  }
+  if (key === "readers") {
+    const cmp = (a.readers ?? -1) - (b.readers ?? -1);
     return dir === "asc" ? cmp : -cmp;
   }
   if (key === "series") {
@@ -101,6 +106,7 @@ export default function BookTable({
         <col />
         <col />
         <col />
+        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -112,6 +118,7 @@ export default function BookTable({
               { key: "releaseDate", label: "Release Date" },
               { key: "series", label: "Series" },
               { key: "language", label: "Language" },
+              { key: "readers", label: "Readers" },
               { key: "rating", label: "Rating" },
             ] as Array<{ key: SortKey | undefined; label: string }>
           ).map(({ key, label }) =>
@@ -165,6 +172,9 @@ export default function BookTable({
                   : "—"}
               </TableCell>
               <TableCell>{book.language || "—"}</TableCell>
+              <TableCell>
+                {book.readers ? book.readers.toLocaleString() : "—"}
+              </TableCell>
               <TableCell>
                 {book.ratings ? (
                   <span className="inline-flex items-center gap-1">

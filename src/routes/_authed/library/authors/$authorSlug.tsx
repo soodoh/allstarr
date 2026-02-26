@@ -182,7 +182,7 @@ function BooksTab({
   onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  type BooksTabSortKey = "title" | "author" | "year" | "series" | "language" | "rating";
+  type BooksTabSortKey = "title" | "author" | "year" | "series" | "language" | "readers" | "rating";
   const apiSortKeys = new Set<BooksTabSortKey>(["title", "year", "rating"]);
 
   const { openBookModal } = useBookDetailModal();
@@ -234,6 +234,7 @@ function BooksTab({
 
     // Apply client-side sort
     if (isClientSort) {
+      // oxlint-disable-next-line complexity -- sort dispatch across multiple keys
       books = [...books].toSorted((a, b) => {
         let cmp = 0;
         if (activeSortKey === "series") {
@@ -249,6 +250,8 @@ function BooksTab({
           const av = a.contributors ?? "";
           const bv = b.contributors ?? "";
           cmp = av.localeCompare(bv);
+        } else if (activeSortKey === "readers") {
+          cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
         } else if (activeSortKey === "language") {
           const av = a.languageName ?? "";
           const bv = b.languageName ?? "";
@@ -322,7 +325,7 @@ function BooksTab({
     }
   };
 
-  const colCount = 8;
+  const colCount = 9;
 
   let booksTableBody: ReactNode;
   if (isLoadingDisplay) {
@@ -349,6 +352,9 @@ function BooksTab({
         </TableCell>
         <TableCell>
           <Skeleton className="h-4 w-14" />
+        </TableCell>
+        <TableCell>
+          <Skeleton className="h-4 w-12" />
         </TableCell>
         <TableCell>
           <Skeleton className="h-4 w-10" />
@@ -447,17 +453,15 @@ function BooksTab({
               </TableCell>
               <TableCell>{book.languageName || "—"}</TableCell>
               <TableCell>
+                {book.usersCount === undefined ? "—" : book.usersCount.toLocaleString()}
+              </TableCell>
+              <TableCell>
                 {book.rating === undefined ? (
                   "—"
                 ) : (
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                     {book.rating.toFixed(1)}
-                    {book.usersCount !== undefined && (
-                      <span className="text-muted-foreground">
-                        ({book.usersCount.toLocaleString()})
-                      </span>
-                    )}
                   </span>
                 )}
               </TableCell>
@@ -546,6 +550,7 @@ function BooksTab({
           <col />
           <col />
           <col />
+          <col />
         </colgroup>
         <TableHeader>
           <TableRow>
@@ -558,6 +563,7 @@ function BooksTab({
                 { key: "year", label: "Release Date" },
                 { key: "series", label: "Series" },
                 { key: "language", label: "Language" },
+                { key: "readers", label: "Readers" },
                 { key: "rating", label: "Rating" },
               ] as Array<{ key: BooksTabSortKey; label: string }>
             ).map(({ key, label }) => {
@@ -604,7 +610,7 @@ function BooksTab({
 
 // ---------- Series tab ----------
 
-type SeriesSortKey = "position" | "title" | "author" | "year" | "language" | "rating";
+type SeriesSortKey = "position" | "title" | "author" | "year" | "language" | "readers" | "rating";
 
 function SeriesCard({
   series,
@@ -623,7 +629,6 @@ function SeriesCard({
   onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  const { openBookModal } = useBookDetailModal();
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SeriesSortKey>("position");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -637,6 +642,7 @@ function SeriesCard({
 
   const sortedBooks = useMemo(() => {
     if (!books) {return [];}
+    // oxlint-disable-next-line complexity -- sort dispatch across multiple keys
     return [...books].toSorted((a, b) => {
       let cmp = 0;
       if (sortKey === "position") {
@@ -649,6 +655,8 @@ function SeriesCard({
         cmp = (a.releaseYear ?? 0) - (b.releaseYear ?? 0);
       } else if (sortKey === "language") {
         cmp = (a.languageName ?? "").localeCompare(b.languageName ?? "");
+      } else if (sortKey === "readers") {
+        cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
       } else if (sortKey === "rating") {
         cmp = (a.rating ?? 0) - (b.rating ?? 0);
       }
@@ -851,6 +859,7 @@ function SeriesCardContent({
         <col />
         <col />
         <col />
+        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -863,6 +872,7 @@ function SeriesCardContent({
               { key: "author", label: "Author" },
               { key: "year", label: "Year" },
               { key: "language", label: "Language" },
+              { key: "readers", label: "Readers" },
               { key: "rating", label: "Rating" },
             ] as Array<{ key: SeriesSortKey; label: string }>
           ).map(({ key, label }) => {
@@ -901,6 +911,7 @@ function SeriesCardContent({
                   releaseDate={book.releaseDate}
                   releaseYear={book.releaseYear}
                   rating={book.rating}
+                  readers={book.usersCount}
                   languageName={book.languageName}
                   seriesInfo={{
                     foreignSeriesId: series.id,
@@ -960,17 +971,15 @@ function SeriesCardContent({
               </TableCell>
               <TableCell>{book.languageName || "—"}</TableCell>
               <TableCell>
+                {book.usersCount === undefined ? "—" : book.usersCount.toLocaleString()}
+              </TableCell>
+              <TableCell>
                 {book.rating === undefined ? (
                   "—"
                 ) : (
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                     {book.rating.toFixed(1)}
-                    {book.usersCount !== undefined && (
-                      <span className="text-muted-foreground">
-                        ({book.usersCount.toLocaleString()})
-                      </span>
-                    )}
                   </span>
                 )}
               </TableCell>

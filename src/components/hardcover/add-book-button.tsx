@@ -84,6 +84,7 @@ export function BookMonitorToggle({
           book.rating === undefined
             ? undefined
             : { value: book.rating, votes: 0 },
+        readers: book.usersCount ?? undefined,
         series: book.series.map((s) => ({
           foreignSeriesId: s.id,
           title: s.title,
@@ -129,6 +130,7 @@ type SeriesBookMonitorToggleProps = {
   releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
+  readers: number | undefined;
   languageName: string | undefined;
   seriesInfo: { foreignSeriesId: string; title: string; position: string | undefined };
   authorContext: AuthorContext;
@@ -146,6 +148,7 @@ export function SeriesBookMonitorToggle({
   releaseDate,
   releaseYear,
   rating,
+  readers,
   languageName,
   seriesInfo,
   authorContext,
@@ -197,6 +200,7 @@ export function SeriesBookMonitorToggle({
         monitored: true,
         images: coverUrl ? [{ url: coverUrl, coverType: "cover" }] : undefined,
         ratings: rating === undefined ? undefined : { value: rating, votes: 0 },
+        readers: readers ?? undefined,
         series: [{
           foreignSeriesId: seriesInfo.foreignSeriesId,
           title: seriesInfo.title,

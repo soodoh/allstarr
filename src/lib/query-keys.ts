@@ -106,6 +106,19 @@ export const queryKeys = {
       ["hardcover", "authorSeries", slug, lang] as const,
     seriesBooks: (id: number, lang: string) =>
       ["hardcover", "seriesBooks", id, lang] as const,
+    bookEditions: (
+      foreignBookId: number,
+      params: {
+        page: number;
+        pageSize: number;
+        sortBy: string;
+        sortDir: string;
+      },
+    ) => ["hardcover", "bookEditions", foreignBookId, params] as const,
+    bookLanguages: (foreignBookId: number) =>
+      ["hardcover", "bookLanguages", foreignBookId] as const,
+    bookDetail: (foreignBookId: number) =>
+      ["hardcover", "bookDetail", foreignBookId] as const,
   },
 
   // ─── System Status ──────────────────────────────────────────────────────
