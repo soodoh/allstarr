@@ -1,15 +1,14 @@
-import { useMemo } from "react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "src/components/ui/table";
-import SortableTableHead from "src/components/shared/sortable-table-head";
-import TablePagination from "src/components/shared/table-pagination";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
-import { useTableState } from "src/hooks/use-table-state";
 
 type Book = {
   id: number;
@@ -20,100 +19,86 @@ type Book = {
 
 type BookTableProps = {
   books: Book[];
+  children?: React.ReactNode;
 };
+
+type SortKey = "title" | "authorName" | "releaseDate";
 
 export default function BookTable({
   books,
+  children,
 }: BookTableProps): React.JSX.Element {
   const { openBookModal } = useBookDetailModal();
+  const [sortKey, setSortKey] = useState<SortKey | undefined>(undefined);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const comparators = useMemo(
-    () => ({
-      title: (a: Book, b: Book) => a.title.localeCompare(b.title),
-      author: (a: Book, b: Book) =>
-        (a.authorName ?? "").localeCompare(b.authorName ?? ""),
-      releaseDate: (a: Book, b: Book) =>
-        (a.releaseDate ?? "").localeCompare(b.releaseDate ?? ""),
-    }),
-    [],
-  );
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
-  const {
-    page,
-    pageSize,
-    sortColumn,
-    sortDirection,
-    setPage,
-    setPageSize,
-    handleSort,
-    paginatedData,
-    totalPages,
-  } = useTableState({ data: books, comparators });
+  const sorted = sortKey
+    ? [...books].toSorted((a, b) => {
+        const av = a[sortKey] ?? "";
+        const bv = b[sortKey] ?? "";
+        const cmp = String(av).localeCompare(String(bv));
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : books;
 
-  if (books.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        No books found. Add one to get started.
-      </div>
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) {
+      return (
+        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+      );
+    }
+    return sortDir === "asc" ? (
+      <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
+    ) : (
+      <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
     );
-  }
+  };
 
   return (
-    <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead
-              column="title"
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {(
+            [
+              { key: "title", label: "Title" },
+              { key: "authorName", label: "Author" },
+              { key: "releaseDate", label: "Release Date" },
+            ] as Array<{ key: SortKey; label: string }>
+          ).map(({ key, label }) => (
+            <TableHead
+              key={key}
+              className="cursor-pointer select-none hover:text-foreground"
+              onClick={() => handleSort(key)}
             >
-              Title
-            </SortableTableHead>
-            <SortableTableHead
-              column="author"
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
-              Author
-            </SortableTableHead>
-            <SortableTableHead
-              column="releaseDate"
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
-              Release Date
-            </SortableTableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginatedData.map((book) => (
-            <TableRow
-              key={book.id}
-              className="cursor-pointer"
-              onClick={() => openBookModal(book.id)}
-            >
-              <TableCell className="font-medium">{book.title}</TableCell>
-              <TableCell>{book.authorName || "Unknown"}</TableCell>
-              <TableCell>{book.releaseDate || "Unknown"}</TableCell>
-            </TableRow>
+              {label}
+              <SortIcon col={key} />
+            </TableHead>
           ))}
-        </TableBody>
-      </Table>
-
-      <div className="mt-4">
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          totalItems={books.length}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      </div>
-    </>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sorted.map((book) => (
+          <TableRow
+            key={book.id}
+            className="cursor-pointer"
+            onClick={() => openBookModal(book.id)}
+          >
+            <TableCell className="font-medium">{book.title}</TableCell>
+            <TableCell>{book.authorName || "Unknown"}</TableCell>
+            <TableCell>{book.releaseDate || "Unknown"}</TableCell>
+          </TableRow>
+        ))}
+        {children}
+      </TableBody>
+    </Table>
   );
 }

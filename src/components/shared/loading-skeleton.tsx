@@ -205,6 +205,85 @@ export function SystemStatusSkeleton(): React.JSX.Element {
   );
 }
 
+export function AuthorTableRowsSkeleton({
+  rows = 5,
+}: { rows?: number }): React.JSX.Element {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i} className="border-b border-border">
+          <td className="p-4">
+            <Skeleton className="h-4 w-36" />
+          </td>
+          <td className="p-4">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </td>
+          <td className="p-4">
+            <Skeleton className="h-4 w-8" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+export function AuthorCardsSkeleton({
+  count = 6,
+}: { count?: number }): React.JSX.Element {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex flex-col items-center gap-2 text-center">
+          <Skeleton className="w-full aspect-[3/4] max-w-56 rounded-xl" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+export function BookTableRowsSkeleton({
+  rows = 5,
+}: { rows?: number }): React.JSX.Element {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i} className="border-b border-border">
+          <td className="p-4">
+            <Skeleton className="h-4 w-44" />
+          </td>
+          <td className="p-4">
+            <Skeleton className="h-4 w-32" />
+          </td>
+          <td className="p-4">
+            <Skeleton className="h-4 w-24" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+export function BookCardsSkeleton({
+  count = 6,
+}: { count?: number }): React.JSX.Element {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-2">
+          <Skeleton className="w-full aspect-[2/3] max-w-56 rounded-xl" />
+          <div className="min-w-0 space-y-1">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function DetailSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-6">

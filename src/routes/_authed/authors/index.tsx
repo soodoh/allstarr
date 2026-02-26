@@ -1,73 +1,59 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import {
-  LayoutGrid,
-  List,
-  Users,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { LayoutGrid, List, Users, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "src/components/ui/select";
 import PageHeader from "src/components/shared/page-header";
 import AuthorTable from "src/components/authors/author-table";
 import AuthorCard from "src/components/authors/author-card";
 import EmptyState from "src/components/shared/empty-state";
-import { TableSkeleton } from "src/components/shared/loading-skeleton";
-import { authorsListQuery } from "src/lib/queries";
-
-const PAGE_SIZES = [25, 50, 100] as const;
+import {
+  AuthorTableRowsSkeleton,
+  AuthorCardsSkeleton,
+} from "src/components/shared/loading-skeleton";
+import { authorsInfiniteQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/authors/")({
   loader: ({ context }) =>
-    context.queryClient.ensureQueryData(authorsListQuery()),
+    context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
   component: AuthorsPage,
-  pendingComponent: TableSkeleton,
 });
 
 function AuthorsPage() {
-  const { data: authors } = useSuspenseQuery(authorsListQuery());
-
   const [view, setView] = useState<"table" | "grid">("table");
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [search, setSearch] = useState("");
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useInfiniteQuery(authorsInfiniteQuery(search));
+
+  const authors = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
+  );
+  const total = data?.pages[0]?.total ?? 0;
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
 
   useEffect(() => {
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setSearchQuery(searchInput);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [searchInput]);
+    const el = sentinelRef.current;
+    if (!el) {return;}
+    const observer = new IntersectionObserver(handleObserver, {
+      rootMargin: "200px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
 
-  const filteredAuthors = useMemo(() => {
-    if (!searchQuery) {return authors;}
-    const q = searchQuery.toLowerCase();
-    return authors.filter((a) => a.name.toLowerCase().includes(q));
-  }, [authors, searchQuery]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredAuthors.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-
-  const paginatedAuthors = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredAuthors.slice(start, start + pageSize);
-  }, [filteredAuthors, currentPage, pageSize]);
-
-  if (authors.length === 0) {
+  if (!isLoading && total === 0 && !search) {
     return (
       <div>
         <PageHeader title="Authors" />
@@ -80,9 +66,16 @@ function AuthorsPage() {
     );
   }
 
-  const description = searchQuery
-    ? `${filteredAuthors.length} of ${authors.length} authors`
-    : `${authors.length} authors in your library`;
+  let description: string | undefined;
+  if (isLoading) {
+    description = undefined;
+  } else if (search) {
+    description = `${total} matching authors`;
+  } else {
+    description = `${total} authors in your library`;
+  }
+
+  const showLoading = isLoading || isFetchingNextPage;
 
   return (
     <div>
@@ -116,75 +109,30 @@ function AuthorsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
       </div>
 
       {view === "table" ? (
-        <AuthorTable authors={paginatedAuthors} />
+        <AuthorTable authors={authors}>
+          {showLoading && <AuthorTableRowsSkeleton />}
+        </AuthorTable>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {paginatedAuthors.map((author) => (
+          {authors.map((author) => (
             <AuthorCard
               key={author.id}
               author={{ ...author, images: author.images ?? undefined }}
             />
           ))}
+          {showLoading && <AuthorCardsSkeleton />}
         </div>
       )}
 
-      {filteredAuthors.length > 0 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span>Rows per page</span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(v) => {
-                setPageSize(Number(v));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-[70px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span>
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={currentPage <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={currentPage >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <div ref={sentinelRef} className="h-1" />
     </div>
   );
 }

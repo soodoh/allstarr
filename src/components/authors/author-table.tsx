@@ -22,10 +22,12 @@ type Author = {
 
 type AuthorTableProps = {
   authors: Author[];
+  children?: React.ReactNode;
 };
 
 export default function AuthorTable({
   authors,
+  children,
 }: AuthorTableProps): React.JSX.Element {
   const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
@@ -55,14 +57,6 @@ export default function AuthorTable({
         return sortDir === "asc" ? cmp : -cmp;
       })
     : authors;
-
-  if (sorted.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        No authors found. Add one to get started.
-      </div>
-    );
-  }
 
   const SortIcon = ({ col }: { col: keyof Author }) => {
     if (sortKey !== col) {
@@ -127,6 +121,7 @@ export default function AuthorTable({
             <TableCell>{author.bookCount}</TableCell>
           </TableRow>
         ))}
+        {children}
       </TableBody>
     </Table>
   );

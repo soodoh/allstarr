@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { books, editions, authors, history } from "src/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, like, or, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createBookSchema,
@@ -38,6 +38,66 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
     return result;
   },
 );
+
+export const getPaginatedBooksFn = createServerFn({ method: "GET" })
+  .inputValidator(
+    (d: { page?: number; pageSize?: number; search?: string }) => d,
+  )
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const page = data.page || 1;
+    const pageSize = data.pageSize || 25;
+    const offset = (page - 1) * pageSize;
+
+    let query = db
+      .select({
+        id: books.id,
+        title: books.title,
+        authorId: books.authorId,
+        authorName: authors.name,
+        overview: books.overview,
+        isbn: books.isbn,
+        asin: books.asin,
+        releaseDate: books.releaseDate,
+        monitored: books.monitored,
+        foreignBookId: books.foreignBookId,
+        images: books.images,
+        ratings: books.ratings,
+        tags: books.tags,
+        createdAt: books.createdAt,
+        updatedAt: books.updatedAt,
+      })
+      .from(books)
+      .leftJoin(authors, eq(books.authorId, authors.id))
+      .orderBy(desc(books.createdAt))
+      .$dynamic();
+
+    let countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(books)
+      .leftJoin(authors, eq(books.authorId, authors.id))
+      .$dynamic();
+
+    if (data.search) {
+      const pattern = `%${data.search}%`;
+      const condition = or(
+        like(books.title, pattern),
+        like(authors.name, pattern),
+      );
+      query = query.where(condition);
+      countQuery = countQuery.where(condition);
+    }
+
+    const items = query.limit(pageSize).offset(offset).all();
+    const total = countQuery.get()?.count || 0;
+
+    return {
+      items,
+      total,
+      page,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  });
 
 export const getBookFn = createServerFn({ method: "GET" })
   .inputValidator((d: { id: number }) => d)
