@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "src/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "src/components/ui/tabs";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -75,77 +80,85 @@ function DetailsTab({
 }): JSX.Element {
   return (
     <TabsContent value="details" className="overflow-y-auto flex-1 min-h-0">
-      <div className="grid grid-cols-[auto_1fr] gap-6 pt-2">
-        <BookCover
-          title={book.title}
-          images={book.images ?? undefined}
-          className="w-40"
-        />
-        <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Author: </span>
-            {book.authorId ? (
-              <Link
-                to="/library/authors/$authorSlug"
-                params={{
-                  authorSlug: book.authorSlug || String(book.authorId),
-                }}
-                className="hover:underline"
-                onClick={() => onOpenChange(false)}
-              >
-                {book.authorName || "Unknown"}
-              </Link>
-            ) : (
-              <span>{book.authorName || "Unknown"}</span>
+      <div className="space-y-4 pt-2">
+        <div className="grid grid-cols-[auto_1fr] gap-6">
+          <BookCover
+            title={book.title}
+            images={book.images ?? undefined}
+            className="w-40"
+          />
+          <div className="flex flex-col justify-end space-y-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Author: </span>
+              {book.authorId ? (
+                <Link
+                  to="/library/authors/$authorSlug"
+                  params={{
+                    authorSlug: book.authorSlug || String(book.authorId),
+                  }}
+                  className="hover:underline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {book.authorName || "Unknown"}
+                </Link>
+              ) : (
+                <span>{book.authorName || "Unknown"}</span>
+              )}
+            </div>
+            {book.releaseDate && (
+              <div>
+                <span className="text-muted-foreground">Release Date: </span>
+                {book.releaseDate}
+              </div>
+            )}
+            {book.language && (
+              <div>
+                <span className="text-muted-foreground">Language: </span>
+                {book.language}
+              </div>
+            )}
+            {book.series && book.series.length > 0 && (
+              <div>
+                <span className="text-muted-foreground">Series: </span>
+                {book.series
+                  .map((s) =>
+                    s.position ? `${s.title} #${s.position}` : s.title,
+                  )
+                  .join(", ")}
+              </div>
+            )}
+            {book.ratings && (
+              <div>
+                <span className="text-muted-foreground">Rating: </span>
+                {book.ratings.value.toFixed(1)}/5
+                <span className="text-muted-foreground ml-1">
+                  ({book.ratings.votes.toLocaleString()}{" "}
+                  {book.ratings.votes === 1 ? "vote" : "votes"})
+                </span>
+              </div>
+            )}
+            {book.isbn && (
+              <div>
+                <span className="text-muted-foreground">ISBN: </span>
+                <span className="font-mono text-xs">{book.isbn}</span>
+              </div>
+            )}
+            {book.asin && (
+              <div>
+                <span className="text-muted-foreground">ASIN: </span>
+                <span className="font-mono text-xs">{book.asin}</span>
+              </div>
             )}
           </div>
-          {book.releaseDate && (
-            <div>
-              <span className="text-muted-foreground">Release Date: </span>
-              {book.releaseDate}
-            </div>
-          )}
-          {book.language && (
-            <div>
-              <span className="text-muted-foreground">Language: </span>
-              {book.language}
-            </div>
-          )}
-          {book.series && book.series.length > 0 && (
-            <div>
-              <span className="text-muted-foreground">Series: </span>
-              {book.series
-                .map((s) => (s.position ? `${s.title} #${s.position}` : s.title))
-                .join(", ")}
-            </div>
-          )}
-          {book.ratings && (
-            <div>
-              <span className="text-muted-foreground">Rating: </span>
-              {book.ratings.value.toFixed(1)}/5
-              <span className="text-muted-foreground ml-1">
-                ({book.ratings.votes.toLocaleString()} {book.ratings.votes === 1 ? "vote" : "votes"})
-              </span>
-            </div>
-          )}
-          {book.isbn && (
-            <div>
-              <span className="text-muted-foreground">ISBN: </span>
-              <span className="font-mono text-xs">{book.isbn}</span>
-            </div>
-          )}
-          {book.asin && (
-            <div>
-              <span className="text-muted-foreground">ASIN: </span>
-              <span className="font-mono text-xs">{book.asin}</span>
-            </div>
-          )}
-          {book.overview && (
-            <p className="text-muted-foreground leading-relaxed pt-1">
-              {book.overview}
-            </p>
-          )}
         </div>
+        {book.overview && (
+          <div className="text-sm">
+            <h4 className="text-muted-foreground font-medium mb-1">
+              Description
+            </h4>
+            <p className="leading-relaxed">{book.overview}</p>
+          </div>
+        )}
       </div>
     </TabsContent>
   );
@@ -372,7 +385,7 @@ export default function BookDetailModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-6xl h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {isLoading ? (

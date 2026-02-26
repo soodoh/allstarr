@@ -29,6 +29,7 @@ export type HardcoverAuthorBook = {
   id: string;
   title: string;
   slug: string | undefined;
+  description: string | undefined;
   releaseDate: string | undefined;
   releaseYear: number | undefined;
   rating: number | undefined;
@@ -320,6 +321,7 @@ query ${queryName}(${varDefs}) {
     id
     title
     slug
+    description
     release_date
     release_year
     rating
@@ -863,6 +865,7 @@ function toHardcoverAuthorBook(
     id,
     title,
     slug,
+    description: firstString(bookRecord, [["description"]]),
     releaseDate: firstString(bookRecord, [
       ["release_date"],
       ["published_date"],
