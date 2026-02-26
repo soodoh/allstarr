@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { BookOpen, Users } from "lucide-react";
+import { BookOpen, ImageIcon, Users } from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -9,7 +9,6 @@ import {
   CardTitle,
   CardContent,
 } from "src/components/ui/card";
-import { Badge } from "src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -81,45 +80,63 @@ function LibraryPage() {
               <p className="text-sm text-muted-foreground">No authors yet.</p>
             ) : (
               <Table>
+                <colgroup>
+                  <col className="w-14" />
+                  <col />
+                  <col />
+                </colgroup>
                 <TableHeader>
                   <TableRow>
+                    <TableHead />
                     <TableHead>Name</TableHead>
                     <TableHead>Books</TableHead>
-                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {authors.slice(0, 10).map((author) => (
-                    <TableRow
-                      key={author.id}
-                      className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() =>
-                        navigate({
-                          to: "/library/authors/$authorSlug",
-                          params: {
-                            authorSlug: author.slug || String(author.id),
-                          },
-                        })
-                      }
-                    >
-                      <TableCell>
-                        <Link
-                          to="/library/authors/$authorSlug"
-                          params={{
-                            authorSlug: author.slug || String(author.id),
-                          }}
-                          className="font-medium hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {author.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{author.bookCount}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{author.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {authors.slice(0, 10).map((author) => {
+                    const authorImage = author.images?.[0]?.url;
+                    return (
+                      <TableRow
+                        key={author.id}
+                        className="cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() =>
+                          navigate({
+                            to: "/library/authors/$authorSlug",
+                            params: {
+                              authorSlug: author.slug || String(author.id),
+                            },
+                          })
+                        }
+                      >
+                        <TableCell>
+                          {authorImage ? (
+                            <img
+                              src={authorImage}
+                              alt={author.name}
+                              className="aspect-square w-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="aspect-square w-full rounded-full bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to="/library/authors/$authorSlug"
+                            params={{
+                              authorSlug: author.slug || String(author.id),
+                            }}
+                            className="font-medium hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {author.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{author.bookCount}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -135,31 +152,47 @@ function LibraryPage() {
               <p className="text-sm text-muted-foreground">No books yet.</p>
             ) : (
               <Table>
+                <colgroup>
+                  <col className="w-14" />
+                  <col />
+                  <col />
+                </colgroup>
                 <TableHeader>
                   <TableRow>
+                    <TableHead />
                     <TableHead>Title</TableHead>
                     <TableHead>Author</TableHead>
-                    <TableHead>Monitored</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {books.slice(0, 10).map((book) => (
-                    <TableRow
-                      key={book.id}
-                      className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => openBookModal(book.id)}
-                    >
-                      <TableCell className="font-medium">
-                        {book.title}
-                      </TableCell>
-                      <TableCell>{book.authorName || "Unknown"}</TableCell>
-                      <TableCell>
-                        <Badge variant={book.monitored ? "default" : "outline"}>
-                          {book.monitored ? "Yes" : "No"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {books.slice(0, 10).map((book) => {
+                    const bookImage = book.images?.[0]?.url;
+                    return (
+                      <TableRow
+                        key={book.id}
+                        className="cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() => openBookModal(book.id)}
+                      >
+                        <TableCell>
+                          {bookImage ? (
+                            <img
+                              src={bookImage}
+                              alt={book.title}
+                              className="aspect-[2/3] w-full rounded-sm object-cover"
+                            />
+                          ) : (
+                            <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {book.title}
+                        </TableCell>
+                        <TableCell>{book.authorName || "Unknown"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
