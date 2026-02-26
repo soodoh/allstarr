@@ -2,7 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "src/components/ui/card";
 import { Badge } from "src/components/ui/badge";
 import {
   Table,
@@ -34,31 +40,34 @@ function LibraryPage() {
     <div>
       <PageHeader
         title="Library"
-        description="Overview of your entire collection"
+        description="Overview of your books collection"
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Authors</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{authors.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Books</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{books.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {books.filter((b) => b.monitored).length} monitored
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/authors">
+          <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Users className="h-6 w-6 text-primary" />
+                <CardTitle>Authors</CardTitle>
+              </div>
+              <CardDescription>Total authors: {authors.length}</CardDescription>
+            </CardHeader>
+            <CardContent />
+          </Card>
+        </Link>
+        <Link to="/books">
+          <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-6 w-6 text-primary" />
+                <CardTitle>Books</CardTitle>
+              </div>
+              <CardDescription>Total books: {books.length}</CardDescription>
+            </CardHeader>
+            <CardContent />
+          </Card>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

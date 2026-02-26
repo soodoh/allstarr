@@ -31,12 +31,6 @@ export const queryKeys = {
       ["books", "existence", ...foreignBookIds] as const,
   },
 
-  // ─── Dashboard ───────────────────────────────────────────────────────────
-  dashboard: {
-    all: ["dashboard"] as const,
-    stats: () => ["dashboard", "stats"] as const,
-  },
-
   // ─── History ─────────────────────────────────────────────────────────────
   history: {
     all: ["history"] as const,
