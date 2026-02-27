@@ -17,8 +17,6 @@ export const queryKeys = {
     detail: (id: number) => ["authors", "detail", id] as const,
     existence: (foreignId: string) =>
       ["authors", "existence", foreignId] as const,
-    existenceBySlug: (slug: string) =>
-      ["authors", "existenceBySlug", slug] as const,
   },
 
   // ─── Books ───────────────────────────────────────────────────────────────
@@ -27,7 +25,6 @@ export const queryKeys = {
     lists: () => ["books", "list"] as const,
     infinite: (search: string) => ["books", "infinite", search] as const,
     detail: (id: number) => ["books", "detail", id] as const,
-    detailBySlug: (slug: string) => ["books", "detailBySlug", slug] as const,
     existence: (foreignBookIds: string[]) =>
       ["books", "existence", ...foreignBookIds] as const,
   },
@@ -94,7 +91,7 @@ export const queryKeys = {
     search: (query: string, type: string) =>
       ["hardcover", "search", query, type] as const,
     author: (
-      slug: string,
+      foreignAuthorId: number,
       params: {
         page: number;
         pageSize: number;
@@ -102,7 +99,7 @@ export const queryKeys = {
         sortBy: string;
         sortDir: string;
       },
-    ) => ["hardcover", "author", slug, params] as const,
+    ) => ["hardcover", "author", foreignAuthorId, params] as const,
     authorSeries: (slug: string, lang: string) =>
       ["hardcover", "authorSeries", slug, lang] as const,
     seriesBooks: (id: number, lang: string) =>

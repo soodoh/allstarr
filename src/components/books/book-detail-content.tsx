@@ -5,7 +5,6 @@ import BookCover from "src/components/books/book-cover";
 
 type AuthorLink = {
   id: number;
-  slug: string | undefined;
   name: string;
 };
 
@@ -68,10 +67,9 @@ export default function BookDetailContent({
               <span className="text-muted-foreground">Author: </span>
               {book.author && onCloseModal ? (
                 <Link
-                  to="/library/authors/$authorSlug"
+                  to="/library/authors/$authorId"
                   params={{
-                    authorSlug:
-                      book.author.slug || String(book.author.id),
+                    authorId: String(book.author.id),
                   }}
                   className="hover:underline"
                   onClick={onCloseModal}

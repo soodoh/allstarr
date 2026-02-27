@@ -20,14 +20,14 @@ type HardcoverAuthorParams = {
 };
 
 export const hardcoverAuthorQuery = (
-  slug: string,
+  foreignAuthorId: number,
   params: HardcoverAuthorParams,
 ) =>
   queryOptions({
-    queryKey: queryKeys.hardcover.author(slug, params),
+    queryKey: queryKeys.hardcover.author(foreignAuthorId, params),
     queryFn: () =>
       getHardcoverAuthorFn({
-        data: { slug, ...params },
+        data: { foreignAuthorId, ...params },
       }),
   });
 

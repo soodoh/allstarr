@@ -101,9 +101,9 @@ function LibraryPage() {
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() =>
                           navigate({
-                            to: "/library/authors/$authorSlug",
+                            to: "/library/authors/$authorId",
                             params: {
-                              authorSlug: author.slug || String(author.id),
+                              authorId: String(author.id),
                             },
                           })
                         }
@@ -123,9 +123,9 @@ function LibraryPage() {
                         </TableCell>
                         <TableCell>
                           <Link
-                            to="/library/authors/$authorSlug"
+                            to="/library/authors/$authorId"
                             params={{
-                              authorSlug: author.slug || String(author.id),
+                              authorId: String(author.id),
                             }}
                             className="font-medium hover:underline"
                             onClick={(e) => e.stopPropagation()}

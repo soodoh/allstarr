@@ -32,7 +32,6 @@ function AuthorsPage() {
     () =>
       (data?.pages.flatMap((p) => p.items) ?? []).map((a) =>
         Object.assign(a, {
-          slug: a.slug ?? undefined,
           images: a.images ?? undefined,
         }),
       ),

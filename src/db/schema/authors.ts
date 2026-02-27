@@ -12,7 +12,6 @@ export const authors = sqliteTable("authors", {
   ),
   rootFolderPath: text("root_folder_path"),
   foreignAuthorId: text("foreign_author_id"),
-  slug: text("slug"),
   images: text("images", { mode: "json" }).$type<
     Array<{ url: string; coverType: string }>
   >(),

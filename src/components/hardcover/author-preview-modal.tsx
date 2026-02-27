@@ -65,7 +65,6 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
       {
         name: fullAuthor.name,
         foreignAuthorId: fullAuthor.id,
-        slug: fullAuthor.slug,
         overview: fullAuthor.bio ?? undefined,
         status: fullAuthor.deathYear ? "deceased" : "continuing",
         qualityProfileId: qualityProfileId
@@ -187,11 +186,11 @@ export default function AuthorPreviewModal({
   open,
   onOpenChange,
 }: AuthorPreviewModalProps): JSX.Element {
-  const slug = author.slug;
+  const authorId = author.id ? Number(author.id) : 0;
 
   const { data: fullAuthor, isLoading: authorLoading } = useQuery({
-    ...hardcoverAuthorQuery(slug ?? "", DEFAULT_PARAMS),
-    enabled: open && Boolean(slug),
+    ...hardcoverAuthorQuery(authorId, DEFAULT_PARAMS),
+    enabled: open && authorId > 0,
   });
 
   const { data: existingAuthor } = useQuery({
@@ -293,8 +292,8 @@ export default function AuthorPreviewModal({
           <div className="flex items-center gap-2 pt-1">
             <Button variant="secondary" className="flex-1" asChild>
               <Link
-                to="/library/authors/$authorSlug"
-                params={{ authorSlug: slug ?? "" }}
+                to="/library/authors/$authorId"
+                params={{ authorId: String(existingAuthor?.id ?? addedId ?? "") }}
                 onClick={() => onOpenChange(false)}
               >
                 View in library

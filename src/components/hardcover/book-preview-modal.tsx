@@ -92,7 +92,6 @@ function AddBookForm({
         const result = await importAuthor.mutateAsync({
           name: fullAuthor.name,
           foreignAuthorId: fullAuthor.id,
-          slug: fullAuthor.slug,
           overview: fullAuthor.bio ?? undefined,
           status: fullAuthor.deathYear ? "deceased" : "continuing",
           qualityProfileId: qualityProfileId
@@ -121,7 +120,6 @@ function AddBookForm({
         authorId,
         title: book.title,
         foreignBookId: book.id,
-        slug: book.slug,
         releaseDate,
         overview,
         monitored,
@@ -262,11 +260,11 @@ export default function BookPreviewModal({
       }),
     enabled: open && !localBook && Boolean(authorName),
   });
-  const authorSlug = authorSearch?.results[0]?.slug;
+  const resolvedAuthorId = authorSearch?.results[0]?.id ? Number(authorSearch.results[0].id) : 0;
 
   const { data: fullAuthor, isLoading: authorDetailLoading } = useQuery({
-    ...hardcoverAuthorQuery(authorSlug ?? "", AUTHOR_FETCH_PARAMS),
-    enabled: open && Boolean(authorSlug),
+    ...hardcoverAuthorQuery(resolvedAuthorId, AUTHOR_FETCH_PARAMS),
+    enabled: open && resolvedAuthorId > 0,
   });
 
   // ── Check if this author already exists locally ──

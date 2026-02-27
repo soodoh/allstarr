@@ -6,7 +6,6 @@ type AuthorCardProps = {
   author: {
     id: number;
     name: string;
-    slug?: string;
     bookCount: number;
     images?: Array<{ url: string; coverType: string }>;
   };
@@ -21,8 +20,8 @@ export default function AuthorCard({
 
   return (
     <Link
-      to="/library/authors/$authorSlug"
-      params={{ authorSlug: author.slug || String(author.id) }}
+      to="/library/authors/$authorId"
+      params={{ authorId: String(author.id) }}
       className="block group"
     >
       <div className="flex flex-col items-center gap-2 text-center">

@@ -54,7 +54,6 @@ export const createAuthorSchema = z.object({
   qualityProfileId: z.number().optional(),
   rootFolderPath: z.string().optional(),
   foreignAuthorId: z.string().optional(),
-  slug: z.string().optional(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
     .optional(),
@@ -69,7 +68,6 @@ export const updateAuthorSchema = createAuthorSchema.extend({
 export const createBookSchema = z.object({
   title: z.string().min(1, "Title is required"),
   authorId: z.number(),
-  slug: z.string().optional(),
   overview: z.string().optional(),
   isbn: z.string().optional(),
   asin: z.string().optional(),
