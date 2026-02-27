@@ -36,7 +36,7 @@ function toImageArray(
 }
 
 /**
- * Non-author contributor roles to exclude from additionalAuthors.
+ * Non-author contributor roles to exclude from foreignAuthorIds.
  * These are people who contributed to the book but are not co-authors.
  */
 const NON_AUTHOR_ROLES = new Set([
@@ -53,12 +53,14 @@ const NON_AUTHOR_ROLES = new Set([
   "Reader",
 ]);
 
+type ForeignAuthorIdEntry = { foreignAuthorId: string; name: string };
+
 /**
- * Derive additional authors from a book's contributions list.
+ * Derive additional author IDs from a book's contributions list.
  * Excludes the primary author (identified by foreignAuthorId) and
  * non-author roles (Narrator, Illustrator, Translator, etc.).
  */
-function deriveAdditionalAuthors(
+function deriveForeignAuthorIds(
   contributions: Array<{
     authorId: number;
     authorName: string;
@@ -66,7 +68,7 @@ function deriveAdditionalAuthors(
     position: number;
   }>,
   primaryForeignAuthorId: number,
-): string[] | undefined {
+): ForeignAuthorIdEntry[] | undefined {
   const additional = contributions
     .filter(
       (c) =>
@@ -74,7 +76,7 @@ function deriveAdditionalAuthors(
         (c.contribution === null || !NON_AUTHOR_ROLES.has(c.contribution)),
     )
     .toSorted((a, b) => a.position - b.position)
-    .map((c) => c.authorName);
+    .map((c) => ({ foreignAuthorId: String(c.authorId), name: c.authorName }));
   return additional.length > 0 ? additional : undefined;
 }
 
@@ -104,53 +106,82 @@ const monitorBookSchema = z.object({
   bookId: z.number().int().positive(),
 });
 
-// ---------- Import Author ----------
+// ---------- Import Author (internal) ----------
 
-export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => importAuthorSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const authorization = getAuthorizationHeader();
+/**
+ * Core import logic shared between the public server function and cascade imports.
+ * Callers must handle auth themselves.
+ */
+async function importAuthorInternal(data: {
+  foreignAuthorId: number;
+  qualityProfileId: number | null;
+  rootFolderPath: string | null;
+}): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
+  const authorization = getAuthorizationHeader();
 
-    // Duplicate guard
-    const existing = db
-      .select({ id: authors.id })
+  // Duplicate guard — allow upgrading stub authors
+  const existing = db
+    .select({ id: authors.id, isStub: authors.isStub })
+    .from(authors)
+    .where(eq(authors.foreignAuthorId, String(data.foreignAuthorId)))
+    .get();
+  if (existing && !existing.isStub) {
+    throw new Error("Author is already in your library.");
+  }
+
+  // ── Server-side fetch ──
+  const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
+    data.foreignAuthorId,
+    authorization,
+  );
+
+  // Fetch editions only for author's own books
+  const authorBookIds = rawBooks.map((b) => b.id);
+  const editionsMap = await fetchBatchedEditions(
+    authorBookIds,
+    authorization,
+  );
+
+  // ── DB transaction ──
+  return db.transaction((tx) => {
+    const now = new Date();
+
+    // Double-check inside transaction to prevent race conditions
+    const existingInTx = tx
+      .select({ id: authors.id, isStub: authors.isStub })
       .from(authors)
       .where(eq(authors.foreignAuthorId, String(data.foreignAuthorId)))
       .get();
-    if (existing) {
+    if (existingInTx && !existingInTx.isStub) {
       throw new Error("Author is already in your library.");
     }
 
-    // ── Server-side fetch ──
-    const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
-      data.foreignAuthorId,
-      authorization,
-    );
+    let author: { id: number; name: string };
 
-    // Fetch editions only for author's own books
-    const authorBookIds = rawBooks.map((b) => b.id);
-    const editionsMap = await fetchBatchedEditions(
-      authorBookIds,
-      authorization,
-    );
-
-    // ── DB transaction ──
-    return db.transaction((tx) => {
-      const now = new Date();
-
-      // Double-check inside transaction to prevent race conditions
-      const existingInTx = tx
-        .select({ id: authors.id })
-        .from(authors)
-        .where(eq(authors.foreignAuthorId, String(data.foreignAuthorId)))
-        .get();
-      if (existingInTx) {
-        throw new Error("Author is already in your library.");
-      }
-
-      // Insert primary author
-      const author = tx
+    if (existingInTx) {
+      // Upgrade stub author to full author
+      tx.update(authors)
+        .set({
+          name: rawAuthor.name,
+          sortName: deriveSortName(rawAuthor.name),
+          slug: rawAuthor.slug,
+          bio: rawAuthor.bio,
+          bornYear: rawAuthor.bornYear,
+          deathYear: rawAuthor.deathYear,
+          status: rawAuthor.deathYear ? "deceased" : "continuing",
+          isStub: false,
+          qualityProfileId: data.qualityProfileId,
+          rootFolderPath: data.rootFolderPath,
+          images: toImageArray(rawAuthor.imageUrl),
+          metadataUpdatedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(authors.id, existingInTx.id))
+        .run();
+      author = { id: existingInTx.id, name: rawAuthor.name };
+    } else {
+      // Insert new author
+      author = tx
         .insert(authors)
         .values({
           name: rawAuthor.name,
@@ -177,144 +208,154 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
           data: { name: author.name, source: "hardcover" },
         })
         .run();
+    }
 
-      // Cache: foreignSeriesId → local series id
-      const seriesCache = new Map<number, number>();
+    // Cache: foreignSeriesId → local series id
+    const seriesCache = new Map<number, number>();
 
-      // Helper: ensure series exists
-      function ensureSeries(
-        foreignId: number,
-        title: string,
-        slug: string | null,
-        isCompleted: boolean | null,
-      ): number {
-        const cached = seriesCache.get(foreignId);
-        if (cached !== undefined) {return cached;}
+    // Helper: ensure series exists
+    function ensureSeries(
+      foreignId: number,
+      title: string,
+      slug: string | null,
+      isCompleted: boolean | null,
+    ): number {
+      const cached = seriesCache.get(foreignId);
+      if (cached !== undefined) {return cached;}
 
-        const existing = tx
-          .select({ id: series.id })
-          .from(series)
-          .where(eq(series.foreignSeriesId, String(foreignId)))
-          .get();
-        if (existing) {
-          seriesCache.set(foreignId, existing.id);
-          return existing.id;
-        }
-
-        const newSeries = tx
-          .insert(series)
-          .values({
-            title,
-            slug,
-            foreignSeriesId: String(foreignId),
-            isCompleted,
-            metadataUpdatedAt: now,
-          })
-          .returning()
-          .get();
-        seriesCache.set(foreignId, newSeries.id);
-        return newSeries.id;
+      const existing = tx
+        .select({ id: series.id })
+        .from(series)
+        .where(eq(series.foreignSeriesId, String(foreignId)))
+        .get();
+      if (existing) {
+        seriesCache.set(foreignId, existing.id);
+        return existing.id;
       }
 
-      // Insert all author books (unmonitored)
-      let booksAdded = 0;
-      let editionsAdded = 0;
-      for (const rawBook of rawBooks) {
-        // Check if book already in DB
-        const existingBook = tx
-          .select({ id: books.id })
-          .from(books)
-          .where(eq(books.foreignBookId, String(rawBook.id)))
-          .get();
-        if (existingBook) {continue;}
+      const newSeries = tx
+        .insert(series)
+        .values({
+          title,
+          slug,
+          foreignSeriesId: String(foreignId),
+          isCompleted,
+          metadataUpdatedAt: now,
+        })
+        .returning()
+        .get();
+      seriesCache.set(foreignId, newSeries.id);
+      return newSeries.id;
+    }
 
-        const additionalAuthors = deriveAdditionalAuthors(
-          rawBook.contributions,
-          data.foreignAuthorId,
+    // Insert all author books (unmonitored)
+    let booksAdded = 0;
+    let editionsAdded = 0;
+    for (const rawBook of rawBooks) {
+      // Check if book already in DB
+      const existingBook = tx
+        .select({ id: books.id })
+        .from(books)
+        .where(eq(books.foreignBookId, String(rawBook.id)))
+        .get();
+      if (existingBook) {continue;}
+
+      const foreignAuthorIds = deriveForeignAuthorIds(
+        rawBook.contributions,
+        data.foreignAuthorId,
+      );
+
+      const book = tx
+        .insert(books)
+        .values({
+          title: rawBook.title,
+          slug: rawBook.slug,
+          authorId: author.id,
+          description: rawBook.description,
+          releaseDate: rawBook.releaseDate,
+          releaseYear: rawBook.releaseYear,
+          monitored: false,
+          foreignBookId: String(rawBook.id),
+          images: toImageArray(rawBook.coverUrl),
+          rating: rawBook.rating,
+          ratingsCount: rawBook.ratingsCount,
+          usersCount: rawBook.usersCount,
+          foreignAuthorIds,
+          metadataUpdatedAt: now,
+        })
+        .returning()
+        .get();
+
+      booksAdded += 1;
+
+      // Series links
+      for (const s of rawBook.series ?? []) {
+        const localSeriesId = ensureSeries(
+          s.seriesId,
+          s.seriesTitle,
+          s.seriesSlug,
+          s.isCompleted,
         );
-
-        const book = tx
-          .insert(books)
+        tx.insert(seriesBookLinks)
           .values({
-            title: rawBook.title,
-            slug: rawBook.slug,
-            authorId: author.id,
-            description: rawBook.description,
-            releaseDate: rawBook.releaseDate,
-            releaseYear: rawBook.releaseYear,
-            monitored: false,
-            foreignBookId: String(rawBook.id),
-            images: toImageArray(rawBook.coverUrl),
-            rating: rawBook.rating,
-            ratingsCount: rawBook.ratingsCount,
-            usersCount: rawBook.usersCount,
-            additionalAuthors,
-            metadataUpdatedAt: now,
-          })
-          .returning()
-          .get();
-
-        booksAdded += 1;
-
-        // Series links
-        for (const s of rawBook.series ?? []) {
-          const localSeriesId = ensureSeries(
-            s.seriesId,
-            s.seriesTitle,
-            s.seriesSlug,
-            s.isCompleted,
-          );
-          tx.insert(seriesBookLinks)
-            .values({
-              seriesId: localSeriesId,
-              bookId: book.id,
-              position: s.position,
-            })
-            .run();
-        }
-
-        // Editions
-        const bookEditions = editionsMap.get(rawBook.id) ?? [];
-        for (const ed of bookEditions) {
-          tx.insert(editions)
-            .values({
-              bookId: book.id,
-              title: ed.title,
-              isbn10: ed.isbn10,
-              isbn13: ed.isbn13,
-              asin: ed.asin,
-              format: ed.format,
-              pageCount: ed.pageCount,
-              publisher: ed.publisher,
-              editionInformation: ed.editionInformation,
-              releaseDate: ed.releaseDate,
-              language: ed.language,
-              languageCode: ed.languageCode,
-              country: ed.country,
-              usersCount: ed.usersCount,
-              score: ed.score,
-              foreignEditionId: String(ed.id),
-              images: toImageArray(ed.coverUrl),
-              contributors: ed.contributors,
-              metadataUpdatedAt: now,
-            })
-            .run();
-        }
-        editionsAdded += bookEditions.length;
-
-        // History event
-        tx.insert(history)
-          .values({
-            eventType: "bookAdded",
+            seriesId: localSeriesId,
             bookId: book.id,
-            authorId: author.id,
-            data: { title: rawBook.title, source: "hardcover" },
+            position: s.position,
           })
           .run();
       }
 
-      return { authorId: author.id, booksAdded, editionsAdded };
-    });
+      // Editions
+      const bookEditions = editionsMap.get(rawBook.id) ?? [];
+      for (const ed of bookEditions) {
+        tx.insert(editions)
+          .values({
+            bookId: book.id,
+            title: ed.title,
+            isbn10: ed.isbn10,
+            isbn13: ed.isbn13,
+            asin: ed.asin,
+            format: ed.format,
+            pageCount: ed.pageCount,
+            publisher: ed.publisher,
+            editionInformation: ed.editionInformation,
+            releaseDate: ed.releaseDate,
+            language: ed.language,
+            languageCode: ed.languageCode,
+            country: ed.country,
+            usersCount: ed.usersCount,
+            score: ed.score,
+            foreignEditionId: String(ed.id),
+            images: toImageArray(ed.coverUrl),
+            contributors: ed.contributors,
+            metadataUpdatedAt: now,
+          })
+          .run();
+      }
+      editionsAdded += bookEditions.length;
+
+      // History event
+      tx.insert(history)
+        .values({
+          eventType: "bookAdded",
+          bookId: book.id,
+          authorId: author.id,
+          data: { title: rawBook.title, source: "hardcover" },
+        })
+        .run();
+    }
+
+    return { authorId: author.id, booksAdded, editionsAdded };
+  });
+}
+
+// ---------- Import Author ----------
+
+export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => importAuthorSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return importAuthorInternal(data);
   });
 
 // ---------- Import Single Book ----------
@@ -344,67 +385,81 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     const { book: rawBook, editions: rawEditions } = result;
     const now = new Date();
 
-    return db.transaction((tx) => {
-      // Determine primary author
-      const primaryContrib = rawBook.contributions.find(
-        (c) => c.contribution === null,
-      );
-      let primaryAuthorId: number;
+    // Determine primary author from contributions
+    const primaryContrib = rawBook.contributions.find(
+      (c) => c.contribution === null,
+    );
+    if (!primaryContrib) {
+      throw new Error("Could not determine the author of this book.");
+    }
 
-      if (primaryContrib) {
-        // Check if author exists
-        const existingAuthor = tx
-          .select({ id: authors.id })
-          .from(authors)
-          .where(
-            eq(authors.foreignAuthorId, String(primaryContrib.authorId)),
-          )
-          .get();
+    // Import the primary author (full import, not a stub) before the book transaction.
+    // importAuthorInternal handles dedup: skips if already fully imported, upgrades stubs.
+    let primaryAuthorImported = false;
+    try {
+      await importAuthorInternal({
+        foreignAuthorId: primaryContrib.authorId,
+        qualityProfileId: data.qualityProfileId,
+        rootFolderPath: data.rootFolderPath,
+      });
+      primaryAuthorImported = true;
+    } catch {
+      // Author already exists as a full author — that's fine
+    }
 
-        if (existingAuthor) {
-          primaryAuthorId = existingAuthor.id;
-        } else {
-          // Create stub author
-          const newAuthor = tx
-            .insert(authors)
-            .values({
-              name: primaryContrib.authorName,
-              sortName: deriveSortName(primaryContrib.authorName),
-              slug: primaryContrib.authorSlug,
-              isStub: true,
-              monitored: false,
-              foreignAuthorId: String(primaryContrib.authorId),
-              images: toImageArray(primaryContrib.authorImageUrl),
-              qualityProfileId: data.qualityProfileId,
-              rootFolderPath: data.rootFolderPath,
-              metadataUpdatedAt: now,
-            })
-            .returning()
-            .get();
-          primaryAuthorId = newAuthor.id;
+    // Look up the primary author's local ID (must exist now)
+    const primaryAuthor = db
+      .select({ id: authors.id })
+      .from(authors)
+      .where(eq(authors.foreignAuthorId, String(primaryContrib.authorId)))
+      .get();
+    if (!primaryAuthor) {
+      throw new Error("Failed to import the primary author.");
+    }
+    const primaryAuthorId = primaryAuthor.id;
 
-          tx.insert(history)
-            .values({
-              eventType: "authorAdded",
-              authorId: newAuthor.id,
-              data: {
-                name: primaryContrib.authorName,
-                source: "hardcover",
-              },
-            })
-            .run();
+    const foreignAuthorIds = deriveForeignAuthorIds(
+      rawBook.contributions,
+      primaryContrib.authorId,
+    );
+
+    // The book may have already been imported as part of the primary author's import.
+    // If so, just mark it as monitored.
+    const alreadyImported = db
+      .select({ id: books.id })
+      .from(books)
+      .where(eq(books.foreignBookId, String(data.foreignBookId)))
+      .get();
+
+    if (alreadyImported) {
+      db.update(books)
+        .set({ monitored: true, foreignAuthorIds, updatedAt: now })
+        .where(eq(books.id, alreadyImported.id))
+        .run();
+
+      // Still cascade-import co-authors
+      let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
+      for (const coAuthor of foreignAuthorIds ?? []) {
+        try {
+          await importAuthorInternal({
+            foreignAuthorId: Number(coAuthor.foreignAuthorId),
+            qualityProfileId: data.qualityProfileId,
+            rootFolderPath: data.rootFolderPath,
+          });
+          additionalAuthorsImported += 1;
+        } catch {
+          // Best-effort
         }
-      } else {
-        throw new Error(
-          "Could not determine the author of this book.",
-        );
       }
 
-      const additionalAuthors = deriveAdditionalAuthors(
-        rawBook.contributions,
-        primaryContrib.authorId,
-      );
+      return {
+        bookId: alreadyImported.id,
+        authorId: primaryAuthorId,
+        additionalAuthorsImported,
+      };
+    }
 
+    const txResult = db.transaction((tx) => {
       // Insert book (monitored — user explicitly chose it)
       const book = tx
         .insert(books)
@@ -421,7 +476,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           rating: rawBook.rating,
           ratingsCount: rawBook.ratingsCount,
           usersCount: rawBook.usersCount,
-          additionalAuthors,
+          foreignAuthorIds,
           metadataUpdatedAt: now,
         })
         .returning()
@@ -498,8 +553,29 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         })
         .run();
 
-      return { bookId: book.id, authorId: primaryAuthorId };
+      return { bookId: book.id };
     });
+
+    // Cascade import co-authors sequentially (best-effort)
+    let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
+    for (const coAuthor of foreignAuthorIds ?? []) {
+      try {
+        await importAuthorInternal({
+          foreignAuthorId: Number(coAuthor.foreignAuthorId),
+          qualityProfileId: data.qualityProfileId,
+          rootFolderPath: data.rootFolderPath,
+        });
+        additionalAuthorsImported += 1;
+      } catch {
+        // Best-effort: book is already saved, author import failure is non-fatal
+      }
+    }
+
+    return {
+      bookId: txResult.bookId,
+      authorId: primaryAuthorId,
+      additionalAuthorsImported,
+    };
   });
 
 // ---------- Refresh Author Metadata ----------
@@ -575,7 +651,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
           .where(eq(books.foreignBookId, foreignBookId))
           .get();
 
-        const additionalAuthors = deriveAdditionalAuthors(
+        const foreignAuthorIds = deriveForeignAuthorIds(
           rawBook.contributions,
           foreignAuthorId,
         );
@@ -593,7 +669,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               rating: rawBook.rating,
               ratingsCount: rawBook.ratingsCount,
               usersCount: rawBook.usersCount,
-              additionalAuthors: additionalAuthors ?? null,
+              foreignAuthorIds: foreignAuthorIds ?? null,
               metadataUpdatedAt: now,
               metadataSourceMissingSince: null,
               updatedAt: now,
@@ -708,7 +784,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               rating: rawBook.rating,
               ratingsCount: rawBook.ratingsCount,
               usersCount: rawBook.usersCount,
-              additionalAuthors,
+              foreignAuthorIds,
               metadataUpdatedAt: now,
             })
             .returning()
@@ -868,9 +944,9 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
       : undefined;
 
     return db.transaction((tx) => {
-      const additionalAuthors = primaryForeignAuthorId === undefined
+      const foreignAuthorIds = primaryForeignAuthorId === undefined
         ? undefined
-        : deriveAdditionalAuthors(rawBook.contributions, primaryForeignAuthorId);
+        : deriveForeignAuthorIds(rawBook.contributions, primaryForeignAuthorId);
 
       // Update book
       tx.update(books)
@@ -884,7 +960,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
           rating: rawBook.rating,
           ratingsCount: rawBook.ratingsCount,
           usersCount: rawBook.usersCount,
-          additionalAuthors: additionalAuthors ?? null,
+          foreignAuthorIds: foreignAuthorIds ?? null,
           metadataUpdatedAt: now,
           metadataSourceMissingSince: null,
           updatedAt: now,
@@ -1052,20 +1128,20 @@ export const monitorBookFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    // Fetch book from Hardcover to get contributions for additionalAuthors
+    // Fetch book from Hardcover to get contributions for foreignAuthorIds
     const localBook = db
       .select({
         foreignBookId: books.foreignBookId,
         authorId: books.authorId,
-        additionalAuthors: books.additionalAuthors,
+        foreignAuthorIds: books.foreignAuthorIds,
       })
       .from(books)
       .where(eq(books.id, data.bookId))
       .get();
 
-    let additionalAuthors: string[] | undefined;
+    let foreignAuthorIds: ForeignAuthorIdEntry[] | undefined;
 
-    if (localBook?.foreignBookId && !localBook.additionalAuthors) {
+    if (localBook?.foreignBookId && !localBook.foreignAuthorIds) {
       const authorization = getAuthorizationHeader();
       const result = await fetchBookComplete(
         Number(localBook.foreignBookId),
@@ -1084,7 +1160,7 @@ export const monitorBookFn = createServerFn({ method: "POST" })
           : undefined;
 
         if (primaryForeignAuthorId !== undefined) {
-          additionalAuthors = deriveAdditionalAuthors(
+          foreignAuthorIds = deriveForeignAuthorIds(
             result.book.contributions,
             primaryForeignAuthorId,
           );
@@ -1092,11 +1168,11 @@ export const monitorBookFn = createServerFn({ method: "POST" })
       }
     }
 
-    // Set monitored = true (and additionalAuthors if derived)
+    // Set monitored = true (and foreignAuthorIds if derived)
     db.update(books)
       .set({
         monitored: true,
-        ...(additionalAuthors ? { additionalAuthors } : {}),
+        ...(foreignAuthorIds ? { foreignAuthorIds } : {}),
         updatedAt: new Date(),
       })
       .where(eq(books.id, data.bookId))

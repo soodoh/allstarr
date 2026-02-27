@@ -23,6 +23,7 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import { BookDetailSkeleton } from "src/components/shared/loading-skeleton";
 import BookCover from "src/components/books/book-cover";
+import AdditionalAuthors from "src/components/books/additional-authors";
 import BookForm from "src/components/books/book-form";
 import EditionsTab from "src/components/books/editions-tab";
 import SearchReleasesTab from "src/components/books/search-releases-tab";
@@ -243,8 +244,14 @@ function BookDetailPage(): JSX.Element {
                   ) : (
                     authorName
                   )}
-                  {book.additionalAuthors && book.additionalAuthors.length > 0 && (
-                    <>, {book.additionalAuthors.join(", ")}</>
+                  {book.foreignAuthorIds && book.foreignAuthorIds.length > 0 && (
+                    <>
+                      ,{" "}
+                      <AdditionalAuthors
+                        foreignAuthorIds={book.foreignAuthorIds}
+                        resolvedAuthors={book.resolvedAuthors ?? {}}
+                      />
+                    </>
                   )}
                 </dd>
               </div>

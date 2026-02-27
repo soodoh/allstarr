@@ -72,6 +72,7 @@ import {
 import BookMonitorToggle from "src/components/hardcover/add-book-button";
 import AuthorForm from "src/components/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import AdditionalAuthors from "src/components/books/additional-authors";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
 import type { HardcoverSearchItem } from "src/server/search";
 import {
@@ -132,6 +133,9 @@ type LocalBook = {
   id: number;
   title: string;
   slug: string | null;
+  authorId: number;
+  authorName: string | null;
+  authorForeignId: string | null;
   description: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
@@ -142,7 +146,7 @@ type LocalBook = {
   ratingsCount: number | null;
   usersCount: number | null;
   tags: number[] | null;
-  additionalAuthors: string[] | null;
+  foreignAuthorIds: Array<{ foreignAuthorId: string; name: string }> | null;
   languageCodes: string[];
   editions: EditionInfo[];
 };
@@ -176,17 +180,20 @@ function pickBestEdition(
   return editions.find((e) => e.languageCode === language) ?? editions[0];
 }
 
+
 // ---------- Books tab ----------
 
 // oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
 function BooksTab({
   books,
-  authorName,
+  currentAuthorId,
   availableLanguages,
+  resolvedAuthors,
 }: {
   books: LocalBook[];
-  authorName: string;
+  currentAuthorId: number;
   availableLanguages: LanguageOption[];
+  resolvedAuthors: Record<string, { id: number; name: string }>;
 }) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
@@ -481,7 +488,12 @@ function BooksTab({
                       {edition?.score ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {[authorName, ...(book.additionalAuthors ?? [])].join(", ")}
+                      <AdditionalAuthors
+                        foreignAuthorIds={book.foreignAuthorIds}
+                        primaryAuthor={book.authorForeignId && book.authorName ? { foreignAuthorId: book.authorForeignId, name: book.authorName } : null}
+                        resolvedAuthors={resolvedAuthors}
+                        currentAuthorId={currentAuthorId}
+                      />
                     </TableCell>
                     <TableCell>
                       <Badge variant={book.monitored ? "default" : "secondary"}>
@@ -566,15 +578,17 @@ function dedupeByPosition(entries: MergedSeriesEntry[]): MergedSeriesEntry[] {
 function SeriesTab({
   seriesList,
   books,
-  authorName,
+  currentAuthorId,
   availableLanguages,
   enabled,
+  resolvedAuthors,
 }: {
   seriesList: AuthorSeries[];
   books: LocalBook[];
-  authorName: string;
+  currentAuthorId: number;
   availableLanguages: LanguageOption[];
   enabled: boolean;
+  resolvedAuthors: Record<string, { id: number; name: string }>;
 }) {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
@@ -834,7 +848,12 @@ function SeriesTab({
                             <TableCell className="text-muted-foreground">{edition?.asin ?? "—"}</TableCell>
                             <TableCell className="text-muted-foreground">{edition?.score ?? "—"}</TableCell>
                             <TableCell className="text-muted-foreground">
-                              {[authorName, ...(book.additionalAuthors ?? [])].join(", ")}
+                              <AdditionalAuthors
+                                foreignAuthorIds={book.foreignAuthorIds}
+                        primaryAuthor={book.authorForeignId && book.authorName ? { foreignAuthorId: book.authorForeignId, name: book.authorName } : null}
+                                resolvedAuthors={resolvedAuthors}
+                                currentAuthorId={currentAuthorId}
+                              />
                             </TableCell>
                           </TableRow>
                         );
@@ -932,6 +951,7 @@ function AuthorDetailPage() {
   const books = useMemo(() => (author?.books ?? []) as LocalBook[], [author?.books]);
   const authorSeries = useMemo(() => (author?.series ?? []) as AuthorSeries[], [author?.series]);
   const availableLanguages = useMemo(() => (author?.availableLanguages ?? []) as LanguageOption[], [author?.availableLanguages]);
+  const resolvedAuthors = useMemo(() => (author?.resolvedAuthors ?? {}) as Record<string, { id: number; name: string }>, [author?.resolvedAuthors]);
 
   if (!author) {
     return <NotFound />;
@@ -1108,10 +1128,10 @@ function AuthorDetailPage() {
             </CardHeader>
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
-                <BooksTab books={books} authorName={author.name} availableLanguages={availableLanguages} />
+                <BooksTab books={books} currentAuthorId={authorIdNum} availableLanguages={availableLanguages} resolvedAuthors={resolvedAuthors} />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
-                <SeriesTab seriesList={authorSeries} books={books} authorName={author.name} availableLanguages={availableLanguages} enabled={activeTab === "series"} />
+                <SeriesTab seriesList={authorSeries} books={books} currentAuthorId={authorIdNum} availableLanguages={availableLanguages} enabled={activeTab === "series"} resolvedAuthors={resolvedAuthors} />
               </TabsContent>
             </CardContent>
           </Tabs>
