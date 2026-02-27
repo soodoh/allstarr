@@ -629,6 +629,33 @@ function SeriesTab({
   const [previewBook, setPreviewBook] = useState<
     HardcoverSearchItem | undefined
   >(undefined);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    if (value.trim() === "") {
+      setSearchQuery("");
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchQuery(value.trim());
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const clearSearch = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    setSearchInput("");
+    setSearchQuery("");
+  };
 
   const bookMap = useMemo(() => {
     const map = new Map<number, LocalBook>();
@@ -720,8 +747,12 @@ function SeriesTab({
   // Precompute entry counts per series so we can filter out empty ones and show counts.
   const seriesWithCounts = useMemo(
     () => {
+      const q = searchQuery.toLowerCase();
       const result: Array<{ series: AuthorSeries; entryCount: number }> = [];
       for (const s of seriesList) {
+        if (q && !s.title.toLowerCase().includes(q)) {
+          continue;
+        }
         const count = getSeriesEntries(s).length;
         if (count > 0) {
           result.push({ series: s, entryCount: count });
@@ -730,7 +761,7 @@ function SeriesTab({
       return result;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds
-    [seriesList, language, bookMap, hardcoverSeriesMap, localForeignBookIds],
+    [seriesList, language, bookMap, hardcoverSeriesMap, localForeignBookIds, searchQuery],
   );
 
   const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
@@ -753,6 +784,25 @@ function SeriesTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pl-8 pr-8 h-9 text-sm"
+            placeholder="Filter by series name…"
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+          {searchInput && (
+            <button
+              type="button"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={clearSearch}
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
         {availableLanguages.length > 1 && (
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger className="h-9 w-[160px] text-sm">
@@ -782,7 +832,9 @@ function SeriesTab({
 
       {seriesWithCounts.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          No series found for this author.
+          {searchQuery
+            ? `No series match \u201C${searchQuery}\u201D.`
+            : "No series found for this author."}
         </div>
       ) : null}
 
