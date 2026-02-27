@@ -528,6 +528,40 @@ type MergedSeriesEntry =
       authorName: string | null;
     };
 
+/** Deduplicate entries sharing the same series position, keeping the one with the highest usersCount. */
+function dedupeByPosition(entries: MergedSeriesEntry[]): MergedSeriesEntry[] {
+  const byPosition = new Map<string, MergedSeriesEntry>();
+  const noPosition: MergedSeriesEntry[] = [];
+  for (const entry of entries) {
+    if (!entry.position) {
+      noPosition.push(entry);
+      continue;
+    }
+    const existing = byPosition.get(entry.position);
+    if (!existing) {
+      byPosition.set(entry.position, entry);
+      continue;
+    }
+    const existingUsers = existing.kind === "local" ? (existing.book.usersCount ?? 0) : (existing.usersCount ?? 0);
+    const entryUsers = entry.kind === "local" ? (entry.book.usersCount ?? 0) : (entry.usersCount ?? 0);
+    if (entryUsers > existingUsers) {
+      byPosition.set(entry.position, entry);
+    }
+  }
+  const deduped = [...byPosition.values(), ...noPosition];
+  deduped.sort((a, b) => {
+    const posA = a.position ? Number.parseFloat(a.position) : Number.POSITIVE_INFINITY;
+    const posB = b.position ? Number.parseFloat(b.position) : Number.POSITIVE_INFINITY;
+    if (posA !== posB) {
+      return posA - posB;
+    }
+    const titleA = a.kind === "local" ? a.book.title : a.title;
+    const titleB = b.kind === "local" ? b.book.title : b.title;
+    return titleA.localeCompare(titleB);
+  });
+  return deduped;
+}
+
 // oxlint-disable-next-line complexity -- Series tab merges local/external data with expand/collapse UI
 function SeriesTab({
   seriesList,
@@ -629,18 +663,7 @@ function SeriesTab({
       }
     }
 
-    entries.sort((a, b) => {
-      const posA = a.position ? Number.parseFloat(a.position) : Number.POSITIVE_INFINITY;
-      const posB = b.position ? Number.parseFloat(b.position) : Number.POSITIVE_INFINITY;
-      if (posA !== posB) {
-        return posA - posB;
-      }
-      const titleA = a.kind === "local" ? a.book.title : a.title;
-      const titleB = b.kind === "local" ? b.book.title : b.title;
-      return titleA.localeCompare(titleB);
-    });
-
-    return entries;
+    return dedupeByPosition(entries);
   };
 
   const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
@@ -696,8 +719,10 @@ function SeriesTab({
       {seriesList.map((s) => {
         const isExpanded = expandedId === s.id;
         const entries = isExpanded ? getSeriesEntries(s) : [];
-        const localCount = s.books.length;
         const monitoredCount = s.books.filter((sb) => bookMap.get(sb.bookId)?.monitored).length;
+        const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : null;
+        const hcBooks = foreignId === null ? undefined : hardcoverSeriesMap.get(foreignId);
+        const totalCount = hcBooks ? hcBooks.length : s.books.length;
 
         return (
           <div key={s.id} className="border rounded-lg">
@@ -710,7 +735,7 @@ function SeriesTab({
                 <Library className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="font-medium text-sm">{s.title}</span>
                 <Badge variant="secondary" className="text-xs">
-                  {localCount} book{localCount === 1 ? "" : "s"}
+                  {totalCount} book{totalCount === 1 ? "" : "s"}
                 </Badge>
                 {monitoredCount > 0 && (
                   <Badge variant="default" className="text-xs">
