@@ -17,7 +17,7 @@ type QualityProfile = {
   cutoff: number;
   items:
     | { quality: { id: number; name: string }; allowed: boolean }[]
-    | undefined;
+    | null;
   upgradeAllowed: boolean;
 };
 

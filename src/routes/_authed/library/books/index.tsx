@@ -53,18 +53,7 @@ function BooksPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  const tableBooks = useMemo(
-    () =>
-      books.map((b) =>
-        Object.assign(b, {
-          authorName: b.authorName ?? undefined,
-          releaseDate: b.releaseDate ?? undefined,
-          description: b.description ?? undefined,
-          images: b.images ?? undefined,
-        }),
-      ),
-    [books],
-  );
+  const tableBooks = useMemo(() => books, [books]);
 
   if (!isLoading && total === 0 && !search) {
     return (

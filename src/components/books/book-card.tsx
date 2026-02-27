@@ -6,10 +6,10 @@ type BookCardProps = {
   book: {
     id: number;
     title: string;
-    authorName?: string;
-    releaseDate?: string;
-    description?: string;
-    images?: Array<{ url: string; coverType: string }>;
+    authorName: string | null;
+    releaseDate: string | null;
+    description: string | null;
+    images: Array<{ url: string; coverType: string }> | null;
   };
 };
 

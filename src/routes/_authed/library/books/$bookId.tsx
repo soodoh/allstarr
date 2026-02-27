@@ -104,17 +104,17 @@ function BookDetailPage(): JSX.Element {
     return <NotFound />;
   }
 
-  const coverImages = book.images ?? undefined;
+  const coverImages = book.images;
   const authorName = book.authorName || "Unknown";
   const hardcoverUrl = book.foreignBookId
     ? `https://hardcover.app/books/${book.foreignBookId}`
-    : undefined;
+    : null;
 
   const handleUpdate = (values: {
     title: string;
     authorId: number;
-    description?: string;
-    releaseDate?: string;
+    description: string | null;
+    releaseDate: string | null;
     monitored: boolean;
   }) => {
     updateBook.mutate(
@@ -268,12 +268,12 @@ function BookDetailPage(): JSX.Element {
                   </dd>
                 </div>
               )}
-              {book.rating !== undefined && book.rating !== null && (
+              {book.rating !== null && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Rating</dt>
                   <dd>
                     {book.rating.toFixed(1)}/5
-                    {book.ratingsCount !== undefined && book.ratingsCount !== null && book.ratingsCount > 0 && (
+                    {book.ratingsCount !== null && book.ratingsCount > 0 && (
                       <span className="text-muted-foreground ml-1">
                         ({book.ratingsCount.toLocaleString()})
                       </span>
@@ -281,7 +281,7 @@ function BookDetailPage(): JSX.Element {
                   </dd>
                 </div>
               )}
-              {book.usersCount !== undefined && book.usersCount !== null && book.usersCount > 0 && (
+              {book.usersCount !== null && book.usersCount > 0 && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Readers</dt>
                   <dd>{book.usersCount.toLocaleString()}</dd>
@@ -373,8 +373,8 @@ function BookDetailPage(): JSX.Element {
             initialValues={{
               title: book.title,
               authorId: book.authorId,
-              description: book.description || undefined,
-              releaseDate: book.releaseDate || undefined,
+              description: book.description || null,
+              releaseDate: book.releaseDate || null,
               monitored: book.monitored,
             }}
             authors={authorsList}

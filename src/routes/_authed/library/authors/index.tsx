@@ -29,12 +29,7 @@ function AuthorsPage() {
     useInfiniteQuery(authorsInfiniteQuery(search));
 
   const authors = useMemo(
-    () =>
-      (data?.pages.flatMap((p) => p.items) ?? []).map((a) =>
-        Object.assign(a, {
-          images: a.images ?? undefined,
-        }),
-      ),
+    () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
   const total = data?.pages[0]?.total ?? 0;

@@ -29,9 +29,9 @@ function deriveSortName(name: string): string {
 }
 
 function toImageArray(
-  url: string | undefined,
-): Array<{ url: string; coverType: string }> | undefined {
-  if (!url) {return undefined;}
+  url: string | null,
+): Array<{ url: string; coverType: string }> | null {
+  if (!url) {return null;}
   return [{ url, coverType: "poster" }];
 }
 
@@ -62,7 +62,7 @@ function deriveAdditionalAuthors(
   contributions: Array<{
     authorId: number;
     authorName: string;
-    contribution: string | undefined;
+    contribution: string | null;
     position: number;
   }>,
   primaryForeignAuthorId: number,
@@ -71,7 +71,7 @@ function deriveAdditionalAuthors(
     .filter(
       (c) =>
         c.authorId !== primaryForeignAuthorId &&
-        (c.contribution === undefined || !NON_AUTHOR_ROLES.has(c.contribution)),
+        (c.contribution === null || !NON_AUTHOR_ROLES.has(c.contribution)),
     )
     .toSorted((a, b) => a.position - b.position)
     .map((c) => c.authorName);
@@ -82,14 +82,14 @@ function deriveAdditionalAuthors(
 
 const importAuthorSchema = z.object({
   foreignAuthorId: z.number().int().positive(),
-  qualityProfileId: z.number().int().positive().optional(),
-  rootFolderPath: z.string().min(1).optional(),
+  qualityProfileId: z.number().int().positive().nullable(),
+  rootFolderPath: z.string().min(1).nullable(),
 });
 
 const importBookSchema = z.object({
   foreignBookId: z.number().int().positive(),
-  qualityProfileId: z.number().int().positive().optional(),
-  rootFolderPath: z.string().min(1).optional(),
+  qualityProfileId: z.number().int().positive().nullable(),
+  rootFolderPath: z.string().min(1).nullable(),
 });
 
 const refreshAuthorSchema = z.object({
@@ -185,8 +185,8 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
       function ensureSeries(
         foreignId: number,
         title: string,
-        slug: string | undefined,
-        isCompleted: boolean | undefined,
+        slug: string | null,
+        isCompleted: boolean | null,
       ): number {
         const cached = seriesCache.get(foreignId);
         if (cached !== undefined) {return cached;}
@@ -347,7 +347,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     return db.transaction((tx) => {
       // Determine primary author
       const primaryContrib = rawBook.contributions.find(
-        (c) => c.contribution === undefined,
+        (c) => c.contribution === null,
       );
       let primaryAuthorId: number;
 

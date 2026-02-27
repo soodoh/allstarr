@@ -2,14 +2,14 @@ export type IndexerConnectionConfig = {
   host: string;
   port: number;
   useSsl: boolean;
-  urlBase?: string;
+  urlBase: string | null;
   apiKey: string;
 };
 
 export type TestResult = {
   success: boolean;
   message: string;
-  version?: string;
+  version: string | null;
 };
 
 /** Raw search result shape returned by Prowlarr's /api/v1/search endpoint */
@@ -18,19 +18,19 @@ export type ProwlarrSearchResult = {
   title: string;
   size: number;
   /** Direct download URL. May be absent for torrent results — use magnetUrl instead. */
-  downloadUrl?: string;
+  downloadUrl: string | null;
   /** Magnet/torrent download URL, used when downloadUrl is absent (common for public trackers). */
-  magnetUrl?: string;
-  infoUrl?: string;
-  publishDate?: string;
+  magnetUrl: string | null;
+  infoUrl: string | null;
+  publishDate: string | null;
   indexerId: number;
-  indexer?: string;
+  indexer: string | null;
   protocol: "torrent" | "usenet";
-  seeders?: number;
-  leechers?: number;
-  grabs?: number;
-  categories?: Array<{ id: number; name: string }>;
-  age?: number;
+  seeders: number | null;
+  leechers: number | null;
+  grabs: number | null;
+  categories: Array<{ id: number; name: string }> | null;
+  age: number | null;
 };
 
 /** Prowlarr indexer info from /api/v1/indexer */

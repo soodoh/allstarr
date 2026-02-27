@@ -49,8 +49,8 @@ async function xmlRpcCall(
   baseUrl: string,
   method: string,
   params: unknown[],
-  username?: string,
-  password?: string,
+  username?: string | null,
+  password?: string | null,
 ): Promise<string> {
   const headers: Record<string, string> = {
     "Content-Type": "text/xml",
@@ -102,13 +102,14 @@ const rtorrentProvider: DownloadClientProvider = {
       return {
         success: true,
         message: "Connected to rTorrent successfully",
-        version: version || undefined,
+        version: version || null,
       };
     } catch (error) {
       return {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },
@@ -193,6 +194,7 @@ const rtorrentProvider: DownloadClientProvider = {
             downloaded: ints[1] ?? 0,
             uploadSpeed: ints[2] ?? 0,
             downloadSpeed: ints[3] ?? 0,
+            category: null,
           });
         }
       }

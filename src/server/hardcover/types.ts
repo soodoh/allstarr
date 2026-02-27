@@ -6,25 +6,25 @@
 export type HardcoverRawAuthor = {
   id: number;
   name: string;
-  slug: string | undefined;
-  bio: string | undefined;
-  bornYear: number | undefined;
-  deathYear: number | undefined;
-  imageUrl: string | undefined;
+  slug: string | null;
+  bio: string | null;
+  bornYear: number | null;
+  deathYear: number | null;
+  imageUrl: string | null;
 };
 
 /** Raw book from the Hardcover "author complete" query */
 export type HardcoverRawBook = {
   id: number;
   title: string;
-  slug: string | undefined;
-  description: string | undefined;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
-  rating: number | undefined;
-  ratingsCount: number | undefined;
-  usersCount: number | undefined;
-  coverUrl: string | undefined;
+  slug: string | null;
+  description: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  usersCount: number | null;
+  coverUrl: string | null;
   isCompilation: boolean;
   contributions: HardcoverRawContribution[];
   series: HardcoverRawBookSeries[];
@@ -34,9 +34,9 @@ export type HardcoverRawBook = {
 export type HardcoverRawContribution = {
   authorId: number;
   authorName: string;
-  authorSlug: string | undefined;
-  authorImageUrl: string | undefined;
-  contribution: string | undefined; // undefined = primary author
+  authorSlug: string | null;
+  authorImageUrl: string | null;
+  contribution: string | null; // null = primary author
   position: number;
 };
 
@@ -44,9 +44,9 @@ export type HardcoverRawContribution = {
 export type HardcoverRawBookSeries = {
   seriesId: number;
   seriesTitle: string;
-  seriesSlug: string | undefined;
-  isCompleted: boolean | undefined;
-  position: string | undefined;
+  seriesSlug: string | null;
+  isCompleted: boolean | null;
+  position: string | null;
 };
 
 /** Raw edition from the batched editions query */
@@ -54,24 +54,24 @@ export type HardcoverRawEdition = {
   id: number;
   bookId: number;
   title: string;
-  isbn10: string | undefined;
-  isbn13: string | undefined;
-  asin: string | undefined;
-  format: string | undefined;
-  pageCount: number | undefined;
-  publisher: string | undefined;
-  editionInformation: string | undefined;
-  releaseDate: string | undefined;
-  language: string | undefined;
-  languageCode: string | undefined;
-  country: string | undefined;
+  isbn10: string | null;
+  isbn13: string | null;
+  asin: string | null;
+  format: string | null;
+  pageCount: number | null;
+  publisher: string | null;
+  editionInformation: string | null;
+  releaseDate: string | null;
+  language: string | null;
+  languageCode: string | null;
+  country: string | null;
   usersCount: number;
   score: number;
-  coverUrl: string | undefined;
+  coverUrl: string | null;
   contributors: Array<{
     authorId: string;
     name: string;
-    contribution: string | undefined;
+    contribution: string | null;
   }>;
 };
 
@@ -79,8 +79,8 @@ export type HardcoverRawEdition = {
 export type HardcoverRawSeries = {
   id: number;
   title: string;
-  slug: string | undefined;
-  isCompleted: boolean | undefined;
+  slug: string | null;
+  isCompleted: boolean | null;
   books: HardcoverRawSeriesBook[];
 };
 
@@ -88,18 +88,18 @@ export type HardcoverRawSeries = {
 export type HardcoverRawSeriesBook = {
   bookId: number;
   bookTitle: string;
-  bookSlug: string | undefined;
-  position: string | undefined;
+  bookSlug: string | null;
+  position: string | null;
   isCompilation: boolean;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
-  rating: number | undefined;
-  usersCount: number | undefined;
-  coverUrl: string | undefined;
-  authorId: number | undefined;
-  authorName: string | undefined;
-  authorSlug: string | undefined;
-  authorImageUrl: string | undefined;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  usersCount: number | null;
+  coverUrl: string | null;
+  authorId: number | null;
+  authorName: string | null;
+  authorSlug: string | null;
+  authorImageUrl: string | null;
 };
 
 // ---------------------------------------------------------------------------

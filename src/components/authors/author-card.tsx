@@ -7,7 +7,7 @@ type AuthorCardProps = {
     id: number;
     name: string;
     bookCount: number;
-    images?: Array<{ url: string; coverType: string }>;
+    images: Array<{ url: string; coverType: string }> | null;
   };
 };
 
@@ -16,7 +16,8 @@ export default function AuthorCard({
 }: AuthorCardProps): JSX.Element {
   const imageUrl =
     author.images?.find((img) => img.coverType === "poster")?.url ??
-    author.images?.[0]?.url;
+    author.images?.[0]?.url ??
+    null;
 
   return (
     <Link

@@ -17,16 +17,16 @@ type BookFormProps = {
   initialValues?: {
     title: string;
     authorId: number;
-    description?: string;
-    releaseDate?: string;
+    description: string | null;
+    releaseDate: string | null;
     monitored: boolean;
   };
   authors: Array<{ id: number; name: string }>;
   onSubmit: (values: {
     title: string;
     authorId: number;
-    description?: string;
-    releaseDate?: string;
+    description: string | null;
+    releaseDate: string | null;
     monitored: boolean;
   }) => void;
   onCancel?: () => void;
@@ -57,8 +57,8 @@ export default function BookForm({
     onSubmit({
       title,
       authorId: Number.parseInt(authorId, 10),
-      description: description || undefined,
-      releaseDate: releaseDate || undefined,
+      description: description || null,
+      releaseDate: releaseDate || null,
       monitored,
     });
   };

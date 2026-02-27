@@ -16,7 +16,7 @@ export type HealthCheck = {
   source: string;
   type: "warning" | "error";
   message: string;
-  wikiUrl?: string;
+  wikiUrl: string | null;
 };
 
 export type DiskSpaceEntry = {

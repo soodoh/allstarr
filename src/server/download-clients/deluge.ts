@@ -107,13 +107,14 @@ const delugeProvider: DownloadClientProvider = {
       return {
         success: true,
         message: "Connected to Deluge successfully",
-        version: version || undefined,
+        version: version || null,
       };
     } catch (error) {
       return {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },
@@ -212,6 +213,7 @@ const delugeProvider: DownloadClientProvider = {
       downloaded: Number(t.all_time_download ?? 0),
       uploadSpeed: Number(t.upload_rate ?? 0),
       downloadSpeed: Number(t.download_rate ?? 0),
+      category: null,
     }));
   },
 };

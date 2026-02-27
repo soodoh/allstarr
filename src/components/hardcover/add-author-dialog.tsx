@@ -50,8 +50,8 @@ export default function AddAuthorDialog({
       foreignAuthorId: Number(author.id),
       qualityProfileId: qualityProfileId
         ? Number.parseInt(qualityProfileId, 10)
-        : undefined,
-      rootFolderPath: rootFolderPath || undefined,
+        : null,
+      rootFolderPath: rootFolderPath || null,
     });
     onOpenChange(false);
   };
@@ -73,7 +73,7 @@ export default function AddAuthorDialog({
             />
             <div className="min-w-0">
               <p className="font-semibold truncate">{author.name}</p>
-              {author.booksCount !== undefined && (
+              {author.booksCount !== null && author.booksCount !== undefined && (
                 <p className="text-sm text-muted-foreground">
                   {author.booksCount} book{author.booksCount === 1 ? "" : "s"}
                   {" — all books, editions & series will be imported"}

@@ -9,7 +9,7 @@ type DirectoryEntry = {
 
 type BrowseDirectoryResult = {
   current: string;
-  parent: string | undefined;
+  parent: string | null;
   directories: DirectoryEntry[];
 };
 
@@ -28,7 +28,7 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
       current.endsWith("/") && current !== "/" ? current.slice(0, -1) : current;
     const lastSlash = normalized.lastIndexOf("/");
     const parentRaw = lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
-    const parent = parentRaw === current ? undefined : parentRaw;
+    const parent = parentRaw === current ? null : parentRaw;
 
     const entries = fs.readdirSync(current, { withFileTypes: true });
     const directories: DirectoryEntry[] = entries

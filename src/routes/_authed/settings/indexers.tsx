@@ -87,8 +87,9 @@ function IndexersPage() {
         host: values.host,
         port: values.port,
         useSsl: values.useSsl,
-        urlBase: values.urlBase || undefined,
+        urlBase: values.urlBase || null,
         apiKey: values.apiKey,
+        settings: null,
       },
       { onSuccess: handleCloseDialog },
     );
@@ -107,8 +108,9 @@ function IndexersPage() {
         host: values.host,
         port: values.port,
         useSsl: values.useSsl,
-        urlBase: values.urlBase || undefined,
+        urlBase: values.urlBase || null,
         apiKey: values.apiKey,
+        settings: null,
       },
       { onSuccess: handleCloseDialog },
     );

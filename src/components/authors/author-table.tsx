@@ -17,7 +17,7 @@ type Author = {
   sortName: string;
   status: string;
   bookCount: number;
-  images?: Array<{ url: string; coverType: string }>;
+  images: Array<{ url: string; coverType: string }> | null;
 };
 
 type AuthorTableProps = {

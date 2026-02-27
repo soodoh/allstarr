@@ -4,6 +4,8 @@ export default defineConfig({
   react: true,
   ignorePatterns: ["node_modules/**", ".output/**", "src/routeTree.gen.ts"],
   rules: {
+    "typescript/no-restricted-types": "off",
+    "typescript-eslint/no-restricted-types": "off",
     "eslint/no-restricted-imports": [
       "error",
       {
@@ -35,6 +37,18 @@ export default defineConfig({
       ],
       rules: {
         "import/prefer-default-export": "off",
+      },
+    },
+    {
+      // Data-mapping files have inherently high complexity from field-by-field
+      // API response mapping with many nullable fields.
+      files: [
+        "src/server/hardcover/import-queries.ts",
+        "src/server/search.ts",
+        "src/components/hardcover/book-preview-modal.tsx",
+      ],
+      rules: {
+        "eslint/complexity": ["error", { max: 25 }],
       },
     },
     {

@@ -77,7 +77,7 @@ export default function DirectoryBrowserDialog({
     return (
       <div className="flex flex-col">
         {/* Parent directory row */}
-        {parentPath !== undefined && (
+        {parentPath !== null && parentPath !== undefined && (
           <button
             type="button"
             className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left"
