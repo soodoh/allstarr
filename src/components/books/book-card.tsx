@@ -6,7 +6,6 @@ type BookCardProps = {
   book: {
     id: number;
     title: string;
-    slug?: string | undefined;
     authorName?: string;
     releaseDate?: string;
     overview?: string;
@@ -21,7 +20,7 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
     <button
       type="button"
       className="block cursor-pointer w-full text-left group"
-      onClick={() => navigate({ to: "/library/books/$bookSlug", params: { bookSlug: book.slug || String(book.id) } })}
+      onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
     >
       <div className="flex flex-col gap-2">
         <BookCover

@@ -14,7 +14,6 @@ import {
 type Author = {
   id: number;
   name: string;
-  slug?: string;
   sortName: string;
   status: string;
   bookCount: number;
@@ -108,8 +107,8 @@ export default function AuthorTable({
               className="cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() =>
                 navigate({
-                  to: "/library/authors/$authorSlug",
-                  params: { authorSlug: author.slug || String(author.id) },
+                  to: "/library/authors/$authorId",
+                  params: { authorId: String(author.id) },
                 })
               }
             >
@@ -128,8 +127,8 @@ export default function AuthorTable({
               </TableCell>
               <TableCell>
                 <Link
-                  to="/library/authors/$authorSlug"
-                  params={{ authorSlug: author.slug || String(author.id) }}
+                  to="/library/authors/$authorId"
+                  params={{ authorId: String(author.id) }}
                   className="font-medium hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >

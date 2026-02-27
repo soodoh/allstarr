@@ -5,7 +5,6 @@ import {
   getPaginatedAuthorsFn,
   getAuthorFn,
   checkAuthorExistsFn,
-  checkAuthorExistsBySlugFn,
 } from "src/server/authors";
 import { queryKeys } from "../query-keys";
 
@@ -39,8 +38,3 @@ export const authorExistsQuery = (foreignAuthorId: string) =>
     queryFn: () => checkAuthorExistsFn({ data: { foreignAuthorId } }),
   });
 
-export const authorExistsBySlugQuery = (slug: string) =>
-  queryOptions({
-    queryKey: queryKeys.authors.existenceBySlug(slug),
-    queryFn: () => checkAuthorExistsBySlugFn({ data: { slug } }),
-  });

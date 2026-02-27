@@ -43,23 +43,22 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import {
-  bookDetailBySlugQuery,
+  bookDetailQuery,
   authorsListQuery,
   hasEnabledIndexersQuery,
   hardcoverBookLanguagesQuery,
 } from "src/lib/queries";
-import { getBookBySlugFn } from "src/server/books";
+import { getBookFn } from "src/server/books";
 import { useUpdateBook, useDeleteBook } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
-export const Route = createFileRoute("/_authed/library/books/$bookSlug")({
+export const Route = createFileRoute("/_authed/library/books/$bookId")({
   loader: async ({ params, context }) => {
-    const slug = params.bookSlug;
-    const book = await getBookBySlugFn({ data: { slug } });
-    if (!book) {
+    const id = Number(params.bookId);
+    if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    await context.queryClient.ensureQueryData(bookDetailBySlugQuery(slug));
+    await context.queryClient.ensureQueryData(bookDetailQuery(id));
   },
   component: BookDetailPage,
   notFoundComponent: NotFound,
@@ -68,11 +67,11 @@ export const Route = createFileRoute("/_authed/library/books/$bookSlug")({
 
 // oxlint-disable-next-line complexity -- Book detail page with multiple sections, tabs, edit/delete dialogs
 function BookDetailPage(): JSX.Element {
-  const { bookSlug } = Route.useParams();
+  const { bookId } = Route.useParams();
   const navigate = useNavigate();
   const router = useRouter();
 
-  const { data: book } = useSuspenseQuery(bookDetailBySlugQuery(bookSlug));
+  const { data: book } = useSuspenseQuery(bookDetailQuery(Number(bookId)));
 
   const [activeTab, setActiveTab] = useState("editions");
   const [editOpen, setEditOpen] = useState(false);
@@ -107,7 +106,7 @@ function BookDetailPage(): JSX.Element {
   const coverImages = book.images ?? undefined;
   const authorName = book.authorName || "Unknown";
   const hardcoverUrl = book.foreignBookId
-    ? `https://hardcover.app/books/${book.slug || book.foreignBookId}`
+    ? `https://hardcover.app/books/${book.foreignBookId}`
     : undefined;
 
   const handleUpdate = (values: {
@@ -207,9 +206,9 @@ function BookDetailPage(): JSX.Element {
                 <dd>
                   {book.authorId ? (
                     <Link
-                      to="/library/authors/$authorSlug"
+                      to="/library/authors/$authorId"
                       params={{
-                        authorSlug: book.authorSlug || String(book.authorId),
+                        authorId: String(book.authorId),
                       }}
                       className="hover:underline"
                     >

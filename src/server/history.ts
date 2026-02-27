@@ -23,7 +23,6 @@ export const getHistoryFn = createServerFn({ method: "GET" })
         data: history.data,
         date: history.date,
         authorName: authors.name,
-        authorSlug: authors.slug,
         bookTitle: books.title,
       })
       .from(history)

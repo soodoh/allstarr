@@ -10,7 +10,6 @@ import { queryKeys } from "src/lib/query-keys";
 type BookEntry = {
   title: string;
   foreignBookId: string;
-  slug?: string | undefined;
   releaseDate?: string | undefined;
   overview?: string | undefined;
   language?: string | undefined;
@@ -28,7 +27,6 @@ type BookEntry = {
 export type ImportAuthorData = {
   name: string;
   foreignAuthorId: string;
-  slug?: string | undefined;
   overview?: string | undefined;
   status: string;
   qualityProfileId?: number | undefined;

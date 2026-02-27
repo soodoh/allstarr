@@ -155,7 +155,7 @@ const searchInputSchema = z.object({
 });
 
 const authorDetailsInputSchema = z.object({
-  slug: z.string().trim().min(1).max(160),
+  foreignAuthorId: z.number().int().min(1),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(500).default(25),
   language: z
@@ -186,8 +186,8 @@ query BookLanguageFilter($ids: [Int!]!, $langCode: String!) {
 `;
 
 const authorDetailsMetaQuery = `
-query HardcoverAuthorMeta($slug: String!) {
-  authors(where: { slug: { _eq: $slug } }, limit: 1) {
+query HardcoverAuthorMeta($authorId: Int!) {
+  authors(where: { id: { _eq: $authorId } }, limit: 1) {
     id
     name
     slug
@@ -202,7 +202,7 @@ query HardcoverAuthorMeta($slug: String!) {
   editions(
     distinct_on: language_id
     where: {
-      book: { contributions: { author: { slug: { _eq: $slug } } } }
+      book: { contributions: { author: { id: { _eq: $authorId } } } }
       language_id: { _is_null: false }
     }
     order_by: [{ language_id: asc }, { id: asc }]
@@ -274,7 +274,6 @@ const NON_AUTHOR_CONTRIBUTION_FILTER = `_or: [{ contribution: { _is_null: true }
  * queries on the author books page.
  */
 function bookWhereFilters(opts: {
-  slug: string;
   hasLanguage: boolean;
 }): string {
   const parts: string[] = [
@@ -336,7 +335,7 @@ function buildAuthorBooksPageQuery(hasLanguage: boolean): string {
   const queryName = hasLanguage
     ? "HardcoverAuthorBooksPageByLanguage"
     : "HardcoverAuthorBooksPage";
-  const where = bookWhereFilters({ slug: "$slug", hasLanguage });
+  const where = bookWhereFilters({ hasLanguage });
   const editionsWhere = hasLanguage
     ? `where: { language: { code2: { _eq: $languageCode } } }`
     : `where: { language: { code2: { _is_null: false } } }`;
@@ -586,7 +585,7 @@ async function fetchSeriesBooks(
   authorization: string,
 ): Promise<HardcoverSeriesBooksResult> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const hasLanguageFilter = language !== "all";
 
   try {
@@ -1289,7 +1288,7 @@ async function fetchSearchResults(
   const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1382,7 +1381,7 @@ async function fetchAuthorBooksPage(
   authorization: string,
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const offset = (page - 1) * pageSize;
   const hasLanguageFilter = selectedLanguage !== "all";
 
@@ -1434,7 +1433,7 @@ async function fetchAuthorBooksPage(
 
 // oxlint-disable-next-line complexity -- Complex data-fetching function with many validation steps
 async function fetchAuthorDetails(
-  slug: string,
+  authorId: number,
   page: number,
   pageSize: number,
   language: string,
@@ -1443,7 +1442,7 @@ async function fetchAuthorDetails(
   authorization: string,
 ): Promise<HardcoverAuthorDetail> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const metaResponse = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1454,7 +1453,7 @@ async function fetchAuthorDetails(
       },
       body: JSON.stringify({
         query: authorDetailsMetaQuery,
-        variables: { slug },
+        variables: { authorId },
       }),
       signal: controller.signal,
       cache: "no-store",
@@ -1504,8 +1503,10 @@ async function fetchAuthorDetails(
         ? selectedLanguageRaw
         : "en";
 
+    const authorSlug = firstString(author, [["slug"]]) || String(authorId);
+
     const booksPage = await fetchAuthorBooksPage(
-      slug,
+      authorSlug,
       page,
       pageSize,
       selectedLanguage,
@@ -1520,7 +1521,7 @@ async function fetchAuthorDetails(
       pagedBooks = booksPage.books;
     } else {
       const safePageResult = await fetchAuthorBooksPage(
-        slug,
+        authorSlug,
         safePage,
         pageSize,
         selectedLanguage,
@@ -1530,8 +1531,6 @@ async function fetchAuthorDetails(
       );
       pagedBooks = safePageResult.books;
     }
-
-    const authorSlug = firstString(author, [["slug"]]) || slug;
     const authorName = firstString(author, [["name"], ["title"]]);
     if (!authorName) {
       throw new Error("Author name is missing in Hardcover response.");
@@ -1626,7 +1625,7 @@ export const getHardcoverAuthorFn = createServerFn({ method: "GET" })
     await requireAuth();
     const authorization = getAuthorizationHeader();
     return fetchAuthorDetails(
-      data.slug,
+      data.foreignAuthorId,
       data.page,
       data.pageSize,
       data.language,
@@ -1645,7 +1644,7 @@ export const getHardcoverSeriesBooksFn = createServerFn({ method: "GET" })
   });
 
 const authorSeriesInputSchema = z.object({
-  slug: z.string().trim().min(1).max(160),
+  slug: z.string().min(1),
   language: z
     .string()
     .trim()
@@ -1665,7 +1664,7 @@ async function fetchAuthorSeries(
   authorization: string,
 ): Promise<HardcoverAuthorSeries[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const hasLanguageFilter = language !== "all";
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1826,7 +1825,7 @@ async function fetchBookEditions(
   authorization: string,
 ): Promise<HardcoverBookEditionsResult> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const offset = (page - 1) * pageSize;
 
   try {
@@ -2004,7 +2003,7 @@ async function fetchBookEditionLanguages(
   authorization: string,
 ): Promise<BookLanguage[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -2113,7 +2112,7 @@ async function fetchSingleBook(
   authorization: string,
 ): Promise<HardcoverBookDetail | undefined> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {

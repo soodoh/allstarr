@@ -95,7 +95,6 @@ import {
 } from "src/lib/queries";
 import { useUpdateAuthor, useDeleteAuthor, useImportHardcoverAuthor, useImportHardcoverBook } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
-import { checkAuthorExistsBySlugFn } from "src/server/authors";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;
@@ -119,22 +118,29 @@ function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
   return [...groups.values()];
 }
 
-export const Route = createFileRoute("/_authed/library/authors/$authorSlug")({
+export const Route = createFileRoute("/_authed/library/authors/$authorId")({
   validateSearch: z.object({
     from: z.enum(["search"]).optional(),
   }),
   loader: async ({ params, context }) => {
-    const slug = params.authorSlug;
-
-    // Verify the author exists locally before fetching from Hardcover
-    const localAuthor = await checkAuthorExistsBySlugFn({ data: { slug } });
-    if (!localAuthor) {
+    const id = Number(params.authorId);
+    if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
 
+    // Fetch the local author to get its foreignAuthorId for Hardcover queries
+    const localAuthor = await context.queryClient.ensureQueryData(
+      authorDetailQuery(id),
+    );
+    if (!localAuthor.foreignAuthorId) {
+      throw notFound();
+    }
+
+    const foreignAuthorId = Number(localAuthor.foreignAuthorId);
+
     await Promise.all([
       context.queryClient.ensureQueryData(
-        hardcoverAuthorQuery(slug, {
+        hardcoverAuthorQuery(foreignAuthorId, {
           page: 1,
           pageSize: DEFAULT_PAGE_SIZE,
           language: DEFAULT_LANGUAGE,
@@ -145,6 +151,8 @@ export const Route = createFileRoute("/_authed/library/authors/$authorSlug")({
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
+
+    return { foreignAuthorId };
   },
   component: AuthorPage,
   notFoundComponent: NotFound,
@@ -162,7 +170,7 @@ type AuthorParams = {
 };
 
 function BooksTab({
-  authorSlug,
+  foreignAuthorId,
   authorParams,
   setAuthorParams,
   authorContext,
@@ -171,7 +179,7 @@ function BooksTab({
   onBookAdded,
   onAuthorCreated,
 }: {
-  authorSlug: string;
+  foreignAuthorId: number;
   authorParams: AuthorParams;
   setAuthorParams: (
     p: AuthorParams | ((prev: AuthorParams) => AuthorParams),
@@ -200,12 +208,12 @@ function BooksTab({
   const needsAllBooks = isSearching || isClientSort;
 
   const { data: author, isFetching } = useSuspenseQuery({
-    ...hardcoverAuthorQuery(authorSlug, authorParams),
+    ...hardcoverAuthorQuery(foreignAuthorId, authorParams),
     placeholderData: keepPreviousData,
   });
 
   const { data: allBooksData, isFetching: allBooksLoading } = useQuery({
-    ...hardcoverAuthorQuery(authorSlug, {
+    ...hardcoverAuthorQuery(foreignAuthorId, {
       ...authorParams,
       page: 1,
       pageSize: SEARCH_ALL_PAGE_SIZE,
@@ -691,7 +699,6 @@ function SeriesCard({
         const result = await importAuthor.mutateAsync({
           name: authorContext.name,
           foreignAuthorId: authorContext.foreignAuthorId,
-          slug: authorContext.slug,
           overview: authorContext.bio,
           status: authorContext.deathYear ? "deceased" : "continuing",
           qualityProfileId: authorContext.qualityProfileId,
@@ -710,7 +717,6 @@ function SeriesCard({
           authorId,
           title: book.title,
           foreignBookId: book.id,
-          slug: book.slug,
           releaseDate: book.releaseDate ?? (book.releaseYear ? `${book.releaseYear}-01-01` : undefined),
           overview: book.description,
           language: book.languageName,
@@ -907,7 +913,6 @@ function SeriesCardContent({
                 <SeriesBookMonitorToggle
                   bookId={book.id}
                   title={book.title}
-                  slug={book.slug}
                   description={book.description}
                   coverUrl={book.coverUrl}
                   releaseDate={book.releaseDate}
@@ -1064,6 +1069,7 @@ function SeriesListBody({
 }
 
 function SeriesTab({
+  foreignAuthorId,
   authorSlug,
   active,
   language,
@@ -1074,6 +1080,7 @@ function SeriesTab({
   onBookAdded,
   onAuthorCreated,
 }: {
+  foreignAuthorId: number;
   authorSlug: string;
   active: boolean;
   language: string;
@@ -1221,7 +1228,7 @@ function SeriesTab({
 // ---------- Hardcover-mode page ----------
 
 // oxlint-disable-next-line complexity -- Page component manages multiple state variables
-function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
+function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
   const search = Route.useSearch();
   const fromSearch = search.from === "search";
 
@@ -1245,7 +1252,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const navigate = useNavigate();
 
   const { data: author } = useSuspenseQuery(
-    hardcoverAuthorQuery(authorSlug, authorParams),
+    hardcoverAuthorQuery(foreignAuthorId, authorParams),
   );
   const { data: qualityProfiles } = useSuspenseQuery(
     qualityProfilesListQuery(),
@@ -1288,7 +1295,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
   const authorContext: AuthorContext = {
     name: author.name,
     foreignAuthorId: author.id,
-    slug: author.slug,
     imageUrl: author.imageUrl,
     bio: author.bio,
     deathYear: author.deathYear,
@@ -1473,7 +1479,7 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
                 <BooksTab
-                  authorSlug={authorSlug}
+                  foreignAuthorId={foreignAuthorId}
                   authorParams={authorParams}
                   setAuthorParams={setAuthorParams}
                   authorContext={authorContext}
@@ -1485,7 +1491,8 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
               </TabsContent>
               <TabsContent value="series" className="mt-0">
                 <SeriesTab
-                  authorSlug={authorSlug}
+                  foreignAuthorId={foreignAuthorId}
+                  authorSlug={author.slug}
                   active={activeTab === "series"}
                   language={authorParams.language}
                   languages={author.languages}
@@ -1552,6 +1559,6 @@ function HardcoverAuthorPage({ authorSlug }: { authorSlug: string }) {
 // ---------- Root component ----------
 
 function AuthorPage() {
-  const params = Route.useParams();
-  return <HardcoverAuthorPage authorSlug={params.authorSlug} />;
+  const { foreignAuthorId } = Route.useLoaderData();
+  return <HardcoverAuthorPage foreignAuthorId={foreignAuthorId} />;
 }

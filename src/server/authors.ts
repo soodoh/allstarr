@@ -18,7 +18,6 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
         qualityProfileId: authors.qualityProfileId,
         rootFolderPath: authors.rootFolderPath,
         foreignAuthorId: authors.foreignAuthorId,
-        slug: authors.slug,
         images: authors.images,
         tags: authors.tags,
         createdAt: authors.createdAt,
@@ -52,7 +51,6 @@ export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
         qualityProfileId: authors.qualityProfileId,
         rootFolderPath: authors.rootFolderPath,
         foreignAuthorId: authors.foreignAuthorId,
-        slug: authors.slug,
         images: authors.images,
         tags: authors.tags,
         createdAt: authors.createdAt,
@@ -184,14 +182,3 @@ export const checkAuthorExistsFn = createServerFn({ method: "GET" })
     return author ?? null;
   });
 
-export const checkAuthorExistsBySlugFn = createServerFn({ method: "GET" })
-  .inputValidator((d: { slug: string }) => d)
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const author = db
-      .select({ id: authors.id })
-      .from(authors)
-      .where(eq(authors.slug, data.slug))
-      .get();
-    return author ?? null;
-  });

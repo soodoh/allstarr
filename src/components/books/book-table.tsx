@@ -14,7 +14,6 @@ import {
 type Book = {
   id: number;
   title: string;
-  slug?: string | undefined;
   authorName: string | undefined;
   releaseDate: string | undefined;
   language: string | undefined;
@@ -145,7 +144,7 @@ export default function BookTable({
             <TableRow
               key={book.id}
               className="cursor-pointer"
-              onClick={() => navigate({ to: "/library/books/$bookSlug", params: { bookSlug: book.slug || String(book.id) } })}
+              onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
             >
               <TableCell>
                 {bookImage ? (

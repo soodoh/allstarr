@@ -82,7 +82,6 @@ function DetailsTab({
           author: book.authorId
             ? {
                 id: book.authorId,
-                slug: book.authorSlug ?? undefined,
                 name: book.authorName || "Unknown",
               }
             : undefined,
