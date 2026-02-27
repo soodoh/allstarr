@@ -666,6 +666,22 @@ function SeriesTab({
     return dedupeByPosition(entries);
   };
 
+  // Precompute entry counts per series so we can filter out empty ones and show counts.
+  const seriesWithCounts = useMemo(
+    () => {
+      const result: Array<{ series: AuthorSeries; entryCount: number }> = [];
+      for (const s of seriesList) {
+        const count = getSeriesEntries(s).length;
+        if (count > 0) {
+          result.push({ series: s, entryCount: count });
+        }
+      }
+      return result;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds
+    [seriesList, language, bookMap, hardcoverSeriesMap, localForeignBookIds],
+  );
+
   const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
     setPreviewBook({
       id: String(entry.foreignBookId),
@@ -685,8 +701,8 @@ function SeriesTab({
 
   return (
     <div className="space-y-4">
-      {availableLanguages.length > 1 && (
-        <div>
+      <div className="flex items-center gap-3">
+        {availableLanguages.length > 1 && (
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger className="h-9 w-[160px] text-sm">
               <SelectValue placeholder="Language" />
@@ -700,8 +716,11 @@ function SeriesTab({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      )}
+        )}
+        <span className="text-sm text-muted-foreground">
+          {seriesWithCounts.length} series
+        </span>
+      </div>
 
       {isLoadingSeries && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
@@ -710,19 +729,16 @@ function SeriesTab({
         </div>
       )}
 
-      {seriesList.length === 0 ? (
+      {seriesWithCounts.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
           No series found for this author.
         </div>
       ) : null}
 
-      {seriesList.map((s) => {
+      {seriesWithCounts.map(({ series: s, entryCount }) => {
         const isExpanded = expandedId === s.id;
         const entries = isExpanded ? getSeriesEntries(s) : [];
         const monitoredCount = s.books.filter((sb) => bookMap.get(sb.bookId)?.monitored).length;
-        const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : null;
-        const hcBooks = foreignId === null ? undefined : hardcoverSeriesMap.get(foreignId);
-        const totalCount = hcBooks ? hcBooks.length : s.books.length;
 
         return (
           <div key={s.id} className="border rounded-lg">
@@ -735,7 +751,7 @@ function SeriesTab({
                 <Library className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="font-medium text-sm">{s.title}</span>
                 <Badge variant="secondary" className="text-xs">
-                  {totalCount} book{totalCount === 1 ? "" : "s"}
+                  {entryCount} book{entryCount === 1 ? "" : "s"}
                 </Badge>
                 {monitoredCount > 0 && (
                   <Badge variant="default" className="text-xs">
@@ -1082,11 +1098,7 @@ function AuthorDetailPage() {
                   <CardTitle>
                     {activeTab === "books" ? "Books" : "Series"}
                   </CardTitle>
-                  <CardDescription className="mt-1">
-                    {activeTab === "series"
-                      ? `${authorSeries.length} series`
-                      : undefined}
-                  </CardDescription>
+                  <CardDescription className="mt-1" />
                 </div>
                 <TabsList>
                   <TabsTrigger value="books">Books</TabsTrigger>
