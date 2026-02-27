@@ -27,6 +27,7 @@ export const queryKeys = {
     lists: () => ["books", "list"] as const,
     infinite: (search: string) => ["books", "infinite", search] as const,
     detail: (id: number) => ["books", "detail", id] as const,
+    detailBySlug: (slug: string) => ["books", "detailBySlug", slug] as const,
     existence: (foreignBookIds: string[]) =>
       ["books", "existence", ...foreignBookIds] as const,
   },

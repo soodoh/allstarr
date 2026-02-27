@@ -25,6 +25,7 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
         releaseDate: books.releaseDate,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
+        slug: books.slug,
         images: books.images,
         ratings: books.ratings,
         readers: books.readers,
@@ -63,6 +64,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         language: books.language,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
+        slug: books.slug,
         images: books.images,
         ratings: books.ratings,
         readers: books.readers,
@@ -160,6 +162,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         releaseDate: books.releaseDate,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
+        slug: books.slug,
         images: books.images,
         ratings: books.ratings,
         readers: books.readers,
@@ -189,6 +192,77 @@ export const getBookFn = createServerFn({ method: "GET" })
       .from(seriesBookLinks)
       .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
       .where(eq(seriesBookLinks.bookId, data.id))
+      .all();
+
+    return { ...book, editions: bookEditions, series: bookSeries };
+  });
+
+export const getBookBySlugFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { slug: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    const bookSelect = {
+      id: books.id,
+      title: books.title,
+      authorId: books.authorId,
+      authorName: authors.name,
+      authorSlug: authors.slug,
+      overview: books.overview,
+      language: books.language,
+      isbn: books.isbn,
+      asin: books.asin,
+      releaseDate: books.releaseDate,
+      monitored: books.monitored,
+      foreignBookId: books.foreignBookId,
+      slug: books.slug,
+      images: books.images,
+      ratings: books.ratings,
+      readers: books.readers,
+      tags: books.tags,
+      createdAt: books.createdAt,
+      updatedAt: books.updatedAt,
+    };
+
+    // Try slug first
+    let book = db
+      .select(bookSelect)
+      .from(books)
+      .leftJoin(authors, eq(books.authorId, authors.id))
+      .where(eq(books.slug, data.slug))
+      .get();
+
+    // Fallback to numeric ID for books without slugs
+    if (!book) {
+      const numericId = Number.parseInt(data.slug, 10);
+      if (Number.isFinite(numericId)) {
+        book = db
+          .select(bookSelect)
+          .from(books)
+          .leftJoin(authors, eq(books.authorId, authors.id))
+          .where(eq(books.id, numericId))
+          .get();
+      }
+    }
+
+    if (!book) {
+      return null;
+    }
+
+    const bookEditions = db
+      .select()
+      .from(editions)
+      .where(eq(editions.bookId, book.id))
+      .all();
+
+    const bookSeries = db
+      .select({
+        title: series.title,
+        position: seriesBookLinks.position,
+      })
+      .from(seriesBookLinks)
+      .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
+      .where(eq(seriesBookLinks.bookId, book.id))
       .all();
 
     return { ...book, editions: bookEditions, series: bookSeries };

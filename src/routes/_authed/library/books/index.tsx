@@ -57,6 +57,7 @@ function BooksPage() {
     () =>
       books.map((b) =>
         Object.assign(b, {
+          slug: b.slug ?? undefined,
           authorName: b.authorName ?? undefined,
           releaseDate: b.releaseDate ?? undefined,
           language: b.language ?? undefined,

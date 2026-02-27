@@ -69,6 +69,7 @@ export const updateAuthorSchema = createAuthorSchema.extend({
 export const createBookSchema = z.object({
   title: z.string().min(1, "Title is required"),
   authorId: z.number(),
+  slug: z.string().optional(),
   overview: z.string().optional(),
   isbn: z.string().optional(),
   asin: z.string().optional(),

@@ -247,6 +247,72 @@ export function BookCardsSkeleton({
   );
 }
 
+export function BookDetailSkeleton(): JSX.Element {
+  return (
+    <div className="space-y-6">
+      {/* Back button */}
+      <Skeleton className="h-8 w-32" />
+
+      {/* Page header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-20" />
+          <Skeleton className="h-10 w-20" />
+        </div>
+      </div>
+
+      {/* Cover + Details + Overview row */}
+      <div className="flex flex-col gap-6 xl:flex-row">
+        <Skeleton className="w-full xl:w-44 aspect-[2/3] xl:aspect-auto xl:h-64 rounded-lg shrink-0" />
+        <Card className="w-full xl:w-auto xl:shrink-0">
+          <CardHeader>
+            <Skeleton className="h-5 w-16" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex justify-between gap-4">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card className="w-full xl:flex-1">
+          <CardHeader>
+            <Skeleton className="h-5 w-20" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs placeholder */}
+      <Card>
+        <CardHeader>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function DetailSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
