@@ -1,39 +1,34 @@
-// oxlint-disable react/no-array-index-key -- Skeleton rows in this file have no meaningful identity
-import { Fragment, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   createFileRoute,
   Link,
   notFound,
   useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import {
+  useQuery,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
+import {
   ArrowLeft,
-  BookMarked,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronsUpDown,
+  ChevronRight,
   ExternalLink,
   ImageIcon,
+  Library,
   Loader2,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Star,
   Trash2,
   X,
 } from "lucide-react";
-import {
-  useQuery,
-  useSuspenseQuery,
-  keepPreviousData,
-} from "@tanstack/react-query";
-import { z } from "zod";
-import { cn } from "src/lib/utils";
 import PageHeader from "src/components/shared/page-header";
-import { HardcoverAuthorSkeleton } from "src/components/shared/loading-skeleton";
 import Skeleton from "src/components/ui/skeleton";
 import AuthorPhoto from "src/components/authors/author-photo";
 import TablePagination from "src/components/shared/table-pagination";
@@ -62,246 +57,158 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "src/components/ui/tabs";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "src/components/ui/tabs";
-import type {
-  HardcoverAuthorBook,
-  HardcoverAuthorSeries,
-  HardcoverSeriesBook,
-} from "src/server/search";
-import AddAuthorDialog from "src/components/hardcover/add-author-dialog";
-import {
-  BookMonitorToggle,
-  SeriesBookMonitorToggle,
-} from "src/components/hardcover/add-book-button";
-import type { AuthorContext } from "src/components/hardcover/add-book-button";
+import BookMonitorToggle from "src/components/hardcover/add-book-button";
 import AuthorForm from "src/components/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import BookPreviewModal from "src/components/hardcover/book-preview-modal";
+import type { HardcoverSearchItem } from "src/server/search";
 import {
-  hardcoverAuthorQuery,
-  hardcoverAuthorSeriesQuery,
-  hardcoverSeriesBooksQuery,
+  authorDetailQuery,
+  hardcoverSeriesCompleteQuery,
   qualityProfilesListQuery,
   rootFoldersListQuery,
-  authorExistsQuery,
-  booksExistQuery,
-  authorDetailQuery,
 } from "src/lib/queries";
-import { useUpdateAuthor, useDeleteAuthor, useImportHardcoverAuthor, useImportHardcoverBook } from "src/hooks/mutations";
+import { useUpdateAuthor, useDeleteAuthor, useRefreshAuthorMetadata } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
-const DEFAULT_LANGUAGE = "en";
 const DEFAULT_PAGE_SIZE = 25;
-const SERIES_PAGE_SIZE = 25;
-const SEARCH_ALL_PAGE_SIZE = 500;
 const SEARCH_DEBOUNCE_MS = 300;
 
-function groupBooksByLanguage(books: HardcoverAuthorBook[]) {
-  const groups = new Map<
-    string,
-    { key: string; label: string; books: HardcoverAuthorBook[] }
-  >();
-  for (const book of books) {
-    const key = book.languageCode || "unknown";
-    const label = book.languageName || "Unknown";
-    if (!groups.has(key)) {
-      groups.set(key, { key, label, books: [] });
-    }
-    groups.get(key)!.books.push(book);
-  }
-  return [...groups.values()];
-}
-
 export const Route = createFileRoute("/_authed/library/authors/$authorId")({
-  validateSearch: z.object({
-    from: z.enum(["search"]).optional(),
-  }),
   loader: async ({ params, context }) => {
     const id = Number(params.authorId);
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
 
-    // Fetch the local author to get its foreignAuthorId for Hardcover queries
-    const localAuthor = await context.queryClient.ensureQueryData(
-      authorDetailQuery(id),
-    );
-    if (!localAuthor.foreignAuthorId) {
-      throw notFound();
-    }
-
-    const foreignAuthorId = Number(localAuthor.foreignAuthorId);
-
     await Promise.all([
-      context.queryClient.ensureQueryData(
-        hardcoverAuthorQuery(foreignAuthorId, {
-          page: 1,
-          pageSize: DEFAULT_PAGE_SIZE,
-          language: DEFAULT_LANGUAGE,
-          sortBy: "year",
-          sortDir: "desc",
-        }),
-      ),
+      context.queryClient.ensureQueryData(authorDetailQuery(id)),
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
-
-    return { foreignAuthorId };
   },
   component: AuthorPage,
   notFoundComponent: NotFound,
-  pendingComponent: () => <HardcoverAuthorSkeleton />,
+  pendingComponent: () => (
+    <div className="space-y-6">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  ),
 });
 
-// ---------- Hardcover Books tab ----------
+// ---------- Types ----------
 
-type AuthorParams = {
-  page: number;
-  pageSize: number;
-  language: string;
-  sortBy: "title" | "year" | "rating";
-  sortDir: "asc" | "desc";
+type EditionInfo = {
+  bookId: number;
+  title: string;
+  releaseDate: string | undefined;
+  format: string | undefined;
+  pageCount: number | undefined;
+  isbn10: string | undefined;
+  isbn13: string | undefined;
+  asin: string | undefined;
+  publisher: string | undefined;
+  country: string | undefined;
+  usersCount: number | undefined;
+  score: number | undefined;
+  languageCode: string | undefined;
+  images: Array<{ url: string; coverType: string }> | undefined;
 };
 
-function BooksTab({
-  foreignAuthorId,
-  authorParams,
-  setAuthorParams,
-  authorContext,
-  localAuthorId,
-  existingBookMap,
-  onBookAdded,
-  onAuthorCreated,
-}: {
-  foreignAuthorId: number;
-  authorParams: AuthorParams;
-  setAuthorParams: (
-    p: AuthorParams | ((prev: AuthorParams) => AuthorParams),
-  ) => void;
-  authorContext: AuthorContext;
-  localAuthorId: number | undefined;
-  existingBookMap: Map<string, number>;
-  onBookAdded: (foreignBookId: string, localBookId: number) => void;
-  onAuthorCreated: (id: number) => void;
-}) {
-  type BooksTabSortKey = "title" | "author" | "year" | "series" | "language" | "readers" | "rating";
-  const apiSortKeys = new Set<BooksTabSortKey>(["title", "year", "rating"]);
+type LocalBook = {
+  id: number;
+  title: string;
+  slug: string | undefined;
+  description: string | undefined;
+  releaseDate: string | undefined;
+  releaseYear: number | undefined;
+  monitored: boolean;
+  foreignBookId: string | undefined;
+  images: Array<{ url: string; coverType: string }> | undefined;
+  rating: number | undefined;
+  ratingsCount: number | undefined;
+  usersCount: number | undefined;
+  tags: number[] | undefined;
+  additionalAuthors: string[] | undefined;
+  languageCodes: string[];
+  editions: EditionInfo[];
+};
 
+type LanguageOption = {
+  languageCode: string;
+  language: string;
+};
+
+type AuthorSeries = {
+  id: number;
+  title: string;
+  slug: string | undefined;
+  foreignSeriesId: string | undefined;
+  isCompleted: boolean | undefined;
+  books: Array<{ bookId: number; position: string | undefined }>;
+};
+
+type BooksTabSortKey = "title" | "year" | "readers" | "rating";
+
+// ---------- Helpers ----------
+
+function pickBestEdition(
+  editions: EditionInfo[],
+  language: string,
+): EditionInfo | undefined {
+  // Editions are pre-sorted by usersCount desc from server
+  if (language === "all") {
+    return editions[0];
+  }
+  return editions.find((e) => e.languageCode === language) ?? editions[0];
+}
+
+// ---------- Books tab ----------
+
+// oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
+function BooksTab({
+  books,
+  authorName,
+  availableLanguages,
+}: {
+  books: LocalBook[];
+  authorName: string;
+  availableLanguages: LanguageOption[];
+}) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchPage, setSearchPage] = useState(1);
-  const [activeSortKey, setActiveSortKey] = useState<BooksTabSortKey>("year");
-  const [activeSortDir, setActiveSortDir] = useState<"asc" | "desc">("desc");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
+  const [language, setLanguage] = useState(
+    availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
-
-  const isSearching = searchQuery !== "";
-  const isClientSort = !apiSortKeys.has(activeSortKey);
-  const needsAllBooks = isSearching || isClientSort;
-
-  const { data: author, isFetching } = useSuspenseQuery({
-    ...hardcoverAuthorQuery(foreignAuthorId, authorParams),
-    placeholderData: keepPreviousData,
-  });
-
-  const { data: allBooksData, isFetching: allBooksLoading } = useQuery({
-    ...hardcoverAuthorQuery(foreignAuthorId, {
-      ...authorParams,
-      page: 1,
-      pageSize: SEARCH_ALL_PAGE_SIZE,
-    }),
-    enabled: needsAllBooks,
-  });
-
-  const loading = isFetching;
-  const allBooks = allBooksData?.books;
-
-  // When we need all books (searching or client-side sorting), filter/sort/paginate locally
-  const processedBooks = useMemo(() => {
-    if (!needsAllBooks || !allBooks) {return null;}
-
-    let books = allBooks;
-
-    // Apply search filter
-    if (isSearching) {
-      const q = searchQuery.toLowerCase();
-      books = books.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.series.some((s) => s.title.toLowerCase().includes(q)),
-      );
-    }
-
-    // Apply client-side sort
-    if (isClientSort) {
-      // oxlint-disable-next-line complexity -- sort dispatch across multiple keys
-      books = [...books].toSorted((a, b) => {
-        let cmp = 0;
-        if (activeSortKey === "series") {
-          const av = a.series[0]?.title ?? "";
-          const bv = b.series[0]?.title ?? "";
-          cmp = av.localeCompare(bv);
-          if (cmp === 0) {
-            const ap = Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
-            const bp = Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
-            return ap - bp;
-          }
-        } else if (activeSortKey === "author") {
-          const av = a.contributors ?? "";
-          const bv = b.contributors ?? "";
-          cmp = av.localeCompare(bv);
-        } else if (activeSortKey === "readers") {
-          cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
-        } else if (activeSortKey === "language") {
-          const av = a.languageName ?? "";
-          const bv = b.languageName ?? "";
-          cmp = av.localeCompare(bv);
-        }
-        return activeSortDir === "asc" ? cmp : -cmp;
-      });
-    }
-
-    return books;
-  }, [allBooks, needsAllBooks, isSearching, searchQuery, isClientSort, activeSortKey, activeSortDir]);
-
-  const localTotal = processedBooks?.length ?? 0;
-  const localTotalPages = Math.max(1, Math.ceil(localTotal / DEFAULT_PAGE_SIZE));
-  const localPage = needsAllBooks ? searchPage : authorParams.page;
-
-  const localPagedBooks = useMemo(() => {
-    if (!processedBooks) {return [];}
-    const start = (localPage - 1) * DEFAULT_PAGE_SIZE;
-    return processedBooks.slice(start, start + DEFAULT_PAGE_SIZE);
-  }, [processedBooks, localPage]);
-
-  const displayBooks = needsAllBooks ? localPagedBooks : author.books;
-  const languageGroups = groupBooksByLanguage(displayBooks);
-
-  const displayPage = needsAllBooks ? localPage : authorParams.page;
-  const displayPageSize = authorParams.pageSize;
-  const totalItems = needsAllBooks ? localTotal : author.totalBooks;
-  const totalPages = needsAllBooks ? localTotalPages : author.totalPages;
-  const isLoadingDisplay = needsAllBooks ? allBooksLoading : loading;
+  const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<BooksTabSortKey>("year");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
-    setSearchPage(1);
+    setPage(1);
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
-
     if (value.trim() === "") {
       setSearchQuery("");
       return;
     }
-
     debounceRef.current = setTimeout(() => {
       setSearchQuery(value.trim());
     }, SEARCH_DEBOUNCE_MS);
@@ -313,302 +220,290 @@ function BooksTab({
     }
     setSearchInput("");
     setSearchQuery("");
-    setSearchPage(1);
+    setPage(1);
   };
 
   const handleSort = (key: BooksTabSortKey) => {
     const newDir: "asc" | "desc" =
-      activeSortKey === key && activeSortDir === "asc" ? "desc" : "asc";
-    setActiveSortKey(key);
-    setActiveSortDir(newDir);
-    setSearchPage(1);
-    if (apiSortKeys.has(key)) {
-      setAuthorParams((prev) => ({
-        ...prev,
-        sortBy: key as "title" | "year" | "rating",
-        sortDir: newDir,
-        page: 1,
-      }));
-    }
+      sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
+    setPage(1);
   };
 
-  const colCount = 9;
+  const processedBooks = useMemo(() => {
+    let result = books;
 
-  let booksTableBody: ReactNode;
-  if (isLoadingDisplay) {
-    // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity
-    booksTableBody = Array.from({ length: displayPageSize }).map((_, i) => (
-      <TableRow key={i}>
-        <TableCell>
-          <Skeleton className="h-6 w-6 rounded" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="aspect-[2/3] w-full rounded-sm" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-[55%]" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-24" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-16" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-24" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-14" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-12" />
-        </TableCell>
-        <TableCell>
-          <Skeleton className="h-4 w-10" />
-        </TableCell>
-      </TableRow>
-    ));
-  } else if (isSearching && processedBooks?.length === 0) {
-    booksTableBody = (
-      <TableRow>
-        <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
-          No books match &ldquo;{searchQuery}&rdquo;.
-        </TableCell>
-      </TableRow>
-    );
-  } else if (!isSearching && author.books.length === 0) {
-    booksTableBody = (
-      <TableRow>
-        <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
-          No books found for the selected language filter.
-        </TableCell>
-      </TableRow>
-    );
-  } else {
-    booksTableBody = languageGroups.map((group) => (
-      <Fragment key={group.key}>
-        {authorParams.language === "all" && (
-          <TableRow>
-            <TableCell
-              colSpan={colCount}
-              className="bg-muted/40 font-medium text-muted-foreground"
-            >
-              {group.label}
-            </TableCell>
-          </TableRow>
-        )}
-        {group.books.map((book) => {
-          const localBookId = existingBookMap.get(book.id);
-          return (
-            <TableRow
-              key={`${group.key}-${book.id}`}
-              className={localBookId === undefined ? undefined : "cursor-pointer"}
-              onClick={localBookId === undefined ? undefined : () => navigate({ to: "/library/books/$bookId", params: { bookId: String(localBookId) } })}
-            >
-              <TableCell>
-                <BookMonitorToggle
-                  book={book}
-                  authorContext={authorContext}
-                  localAuthorId={localAuthorId}
-                  inLibrary={existingBookMap.has(book.id)}
-                  onAdded={onBookAdded}
-                  onAuthorCreated={onAuthorCreated}
-                />
-              </TableCell>
-              <TableCell>
-                {book.coverUrl ? (
-                  <img
-                    src={book.coverUrl}
-                    alt={book.title}
-                    className="aspect-[2/3] w-full rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                {book.hardcoverUrl ? (
-                  <a
-                    href={book.hardcoverUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {book.title}
-                  </a>
-                ) : (
-                  <span className="font-medium">{book.title}</span>
-                )}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {book.contributors || "—"}
-              </TableCell>
-              <TableCell>
-                {book.releaseDate || (book.releaseYear ? String(book.releaseYear) : "Unknown")}
-              </TableCell>
-              <TableCell>
-                {book.series.length > 0
-                  ? book.series
-                      .map((s) =>
-                        s.position ? `${s.title} (#${s.position})` : s.title,
-                      )
-                      .join(", ")
-                  : "—"}
-              </TableCell>
-              <TableCell>{book.languageName || "—"}</TableCell>
-              <TableCell>
-                {book.usersCount === undefined ? "—" : book.usersCount.toLocaleString()}
-              </TableCell>
-              <TableCell>
-                {book.rating === undefined ? (
-                  "—"
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                    {book.rating.toFixed(1)}
-                  </span>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </Fragment>
-    ));
-  }
+    // Language filter
+    if (language !== "all") {
+      result = result.filter((b) => b.languageCodes.includes(language));
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((b) => b.title.toLowerCase().includes(q));
+    }
+
+    // Sort
+    result = [...result].toSorted((a, b) => {
+      let cmp = 0;
+      if (sortKey === "title") {
+        cmp = a.title.localeCompare(b.title);
+      } else if (sortKey === "year") {
+        cmp = (a.releaseDate ?? "").localeCompare(b.releaseDate ?? "");
+      } else if (sortKey === "readers") {
+        cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
+      } else if (sortKey === "rating") {
+        cmp = (a.rating ?? -1) - (b.rating ?? -1);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [books, language, searchQuery, sortKey, sortDir]);
+
+  const totalItems = processedBooks.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / DEFAULT_PAGE_SIZE));
+  const pagedBooks = processedBooks.slice(
+    (page - 1) * DEFAULT_PAGE_SIZE,
+    page * DEFAULT_PAGE_SIZE,
+  );
+
+  const colCount = 14;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            className="pl-8 pr-8 h-9 text-sm"
-            placeholder="Filter by title or series…"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-          {searchInput && (
-            <button
-              type="button"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              onClick={clearSearch}
-              aria-label="Clear search"
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              className="pl-8 pr-8 h-9 text-sm"
+              placeholder="Filter by title…"
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+            {searchInput && (
+              <button
+                type="button"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={clearSearch}
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {availableLanguages.length > 1 && (
+            <Select
+              value={language}
+              onValueChange={(v) => { setLanguage(v); setPage(1); }}
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
+              <SelectTrigger className="h-9 w-[160px] text-sm">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Languages</SelectItem>
+                {availableLanguages.map((l) => (
+                  <SelectItem key={l.languageCode} value={l.languageCode}>
+                    {l.language}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Language</span>
-          <Select
-            value={authorParams.language}
-            onValueChange={(value) => {
-              clearSearch();
-              setAuthorParams((prev) => ({
-                ...prev,
-                language: value,
-                page: 1,
-              }));
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger className="w-full sm:w-[220px]">
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              {author.languages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {totalItems} book{totalItems === 1 ? "" : "s"}
+          </span>
         </div>
       </div>
 
       {totalItems > 0 && (
         <TablePagination
-          page={displayPage}
-          pageSize={displayPageSize}
+          page={page}
+          pageSize={DEFAULT_PAGE_SIZE}
           totalItems={totalItems}
           totalPages={totalPages}
-          onPageChange={(p) =>
-            needsAllBooks
-              ? setSearchPage(p)
-              : setAuthorParams((prev) => ({ ...prev, page: p }))
-          }
-          onPageSizeChange={(size) =>
-            setAuthorParams((prev) => ({ ...prev, page: 1, pageSize: size }))
-          }
+          onPageChange={setPage}
+          onPageSizeChange={() => { /* noop */ }}
         />
       )}
 
-      <Table>
-        <colgroup>
-          <col className="w-10" />
-          <col className="w-14" />
-          <col />
-          <col />
-          <col />
-          <col />
-          <col />
-          <col />
-          <col />
-        </colgroup>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10" />
-            <TableHead />
+      <div className="overflow-x-auto">
+        <Table>
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-14" />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10" />
+              <TableHead />
+              {(
+                [
+                  { key: "title", label: "Title" },
+                  { key: "year", label: "Release Date" },
+                  { key: "readers", label: "Readers" },
+                  { key: "rating", label: "Rating" },
+                ] as Array<{ key: BooksTabSortKey; label: string }>
+              ).map(({ key, label }) => {
+                let SortIcon = ChevronsUpDown;
+                if (sortKey === key) {
+                  SortIcon = sortDir === "asc" ? ChevronUp : ChevronDown;
+                }
+                return (
+                  <TableHead
+                    key={key}
+                    className="cursor-pointer select-none hover:text-foreground"
+                    onClick={() => handleSort(key)}
+                  >
+                    {label}
+                    <SortIcon className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+                  </TableHead>
+                );
+              })}
+              <TableHead>Type</TableHead>
+              <TableHead>Pages</TableHead>
+              <TableHead>ISBN 10</TableHead>
+              <TableHead>ISBN 13</TableHead>
+              <TableHead>ASIN</TableHead>
+              <TableHead>Data Score</TableHead>
+              <TableHead>Author</TableHead>
+              <TableHead>Monitored</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {searchQuery && processedBooks.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
+                  No books match &ldquo;{searchQuery}&rdquo;.
+                </TableCell>
+              </TableRow>
+            )}
+            {!searchQuery && books.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
+                  No books found for this author.
+                </TableCell>
+              </TableRow>
+            )}
             {(
-              [
-                { key: "title", label: "Title" },
-                { key: "author", label: "Author" },
-                { key: "year", label: "Release Date" },
-                { key: "series", label: "Series" },
-                { key: "language", label: "Language" },
-                { key: "readers", label: "Readers" },
-                { key: "rating", label: "Rating" },
-              ] as Array<{ key: BooksTabSortKey; label: string }>
-            ).map(({ key, label }) => {
-              let SortIcon = ChevronsUpDown;
-              if (activeSortKey === key) {
-                SortIcon =
-                  activeSortDir === "asc" ? ChevronUp : ChevronDown;
-              }
-              return (
-                <TableHead
-                  key={key}
-                  className="cursor-pointer select-none hover:text-foreground"
-                  onClick={() => !loading && handleSort(key)}
-                >
-                  {label}
-                  <SortIcon className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
-                </TableHead>
-              );
-            })}
-          </TableRow>
-        </TableHeader>
-        <TableBody>{booksTableBody}</TableBody>
-      </Table>
+              // oxlint-disable-next-line complexity -- Table row render with many conditional cells
+              pagedBooks.map((book) => {
+                const edition = pickBestEdition(book.editions, language);
+                const coverUrl =
+                  edition?.images?.[0]?.url ??
+                  book.images?.[0]?.url;
+                const displayTitle = edition?.title ?? book.title;
+                const displayDate =
+                  edition?.releaseDate ??
+                  book.releaseDate ??
+                  (book.releaseYear ? String(book.releaseYear) : "Unknown");
+                return (
+                  <TableRow
+                    key={book.id}
+                    className="cursor-pointer"
+                    onClick={() =>
+                      navigate({
+                        to: "/library/books/$bookId",
+                        params: { bookId: String(book.id) },
+                      })
+                    }
+                  >
+                    <TableCell>
+                      <BookMonitorToggle
+                        bookId={book.id}
+                        title={book.title}
+                        monitored={book.monitored}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt={displayTitle}
+                          className="aspect-[2/3] w-full rounded-sm object-cover"
+                        />
+                      ) : (
+                        <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">{displayTitle}</span>
+                    </TableCell>
+                    <TableCell>{displayDate}</TableCell>
+                    <TableCell>
+                      {book.usersCount === undefined
+                        ? "—"
+                        : book.usersCount.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      {book.rating === undefined ? (
+                        "—"
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                          {book.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.format ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.pageCount ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.isbn10 ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.isbn13 ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.asin ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {edition?.score ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {[authorName, ...(book.additionalAuthors ?? [])].join(", ")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={book.monitored ? "default" : "secondary"}>
+                        {book.monitored ? "Yes" : "No"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {totalItems > 0 && (
         <TablePagination
-          page={displayPage}
-          pageSize={displayPageSize}
+          page={page}
+          pageSize={DEFAULT_PAGE_SIZE}
           totalItems={totalItems}
           totalPages={totalPages}
-          onPageChange={(p) =>
-            needsAllBooks
-              ? setSearchPage(p)
-              : setAuthorParams((prev) => ({ ...prev, page: p }))
-          }
-          onPageSizeChange={(size) =>
-            setAuthorParams((prev) => ({ ...prev, page: 1, pageSize: size }))
-          }
+          onPageChange={setPage}
+          onPageSizeChange={() => { /* noop */ }}
         />
       )}
     </div>
@@ -617,700 +512,400 @@ function BooksTab({
 
 // ---------- Series tab ----------
 
-type SeriesSortKey = "position" | "title" | "author" | "year" | "language" | "readers" | "rating";
+type MergedSeriesEntry =
+  | { kind: "local"; book: LocalBook; position: string | undefined }
+  | {
+      kind: "external";
+      foreignBookId: number;
+      title: string;
+      slug: string;
+      position: string | undefined;
+      releaseDate: string | undefined;
+      releaseYear: number | undefined;
+      rating: number | undefined;
+      usersCount: number | undefined;
+      coverUrl: string | undefined;
+      authorName: string;
+    };
 
-function SeriesCard({
-  series,
-  language,
-  authorContext,
-  localAuthorId,
-  existingBookMap,
-  onBookAdded,
-  onAuthorCreated,
-}: {
-  series: HardcoverAuthorSeries;
-  language: string;
-  authorContext: AuthorContext;
-  localAuthorId: number | undefined;
-  existingBookMap: Map<string, number>;
-  onBookAdded: (foreignBookId: string, localBookId: number) => void;
-  onAuthorCreated: (id: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [sortKey, setSortKey] = useState<SeriesSortKey>("position");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-
-  const { data, isFetching: loadingBooks } = useQuery({
-    ...hardcoverSeriesBooksQuery(Number(series.id), language),
-    enabled: expanded,
-  });
-
-  const books = data?.books;
-
-  const sortedBooks = useMemo(() => {
-    if (!books) {return [];}
-    // oxlint-disable-next-line complexity -- sort dispatch across multiple keys
-    return [...books].toSorted((a, b) => {
-      let cmp = 0;
-      if (sortKey === "position") {
-        cmp = (a.position ?? Number.POSITIVE_INFINITY) - (b.position ?? Number.POSITIVE_INFINITY);
-      } else if (sortKey === "title") {
-        cmp = a.title.localeCompare(b.title);
-      } else if (sortKey === "author") {
-        cmp = (a.authorName ?? "").localeCompare(b.authorName ?? "");
-      } else if (sortKey === "year") {
-        cmp = (a.releaseYear ?? 0) - (b.releaseYear ?? 0);
-      } else if (sortKey === "language") {
-        cmp = (a.languageName ?? "").localeCompare(b.languageName ?? "");
-      } else if (sortKey === "readers") {
-        cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
-      } else if (sortKey === "rating") {
-        cmp = (a.rating ?? 0) - (b.rating ?? 0);
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [books, sortKey, sortDir]);
-
-  const handleSort = (key: SeriesSortKey) => {
-    const newDir: "asc" | "desc" =
-      sortKey === key && sortDir === "asc" ? "desc" : "asc";
-    setSortKey(key);
-    setSortDir(newDir);
-  };
-
-  const importAuthor = useImportHardcoverAuthor();
-  const importBook = useImportHardcoverBook();
-  const [monitoringAll, setMonitoringAll] = useState(false);
-
-  const allMonitored = books !== undefined && books.length > 0 && books.every((b) => existingBookMap.has(b.id));
-
-  const handleMonitorAll = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (monitoringAll || !books || books.length === 0) {return;}
-
-    const unmonitored = books.filter((b) => !existingBookMap.has(b.id));
-    if (unmonitored.length === 0) {return;}
-
-    setMonitoringAll(true);
-    try {
-      let authorId = localAuthorId;
-      if (authorId === undefined) {
-        const result = await importAuthor.mutateAsync({
-          name: authorContext.name,
-          foreignAuthorId: authorContext.foreignAuthorId,
-          overview: authorContext.bio,
-          status: authorContext.deathYear ? "deceased" : "continuing",
-          qualityProfileId: authorContext.qualityProfileId,
-          rootFolderPath: authorContext.rootFolderPath,
-          images: authorContext.imageUrl
-            ? [{ url: authorContext.imageUrl, coverType: "poster" }]
-            : undefined,
-          books: [],
-        });
-        authorId = result.authorId;
-        onAuthorCreated(authorId);
-      }
-
-      for (const book of unmonitored) {
-        const imported = await importBook.mutateAsync({
-          authorId,
-          title: book.title,
-          foreignBookId: book.id,
-          releaseDate: book.releaseDate ?? (book.releaseYear ? `${book.releaseYear}-01-01` : undefined),
-          overview: book.description,
-          language: book.languageName,
-          monitored: true,
-          images: book.coverUrl ? [{ url: book.coverUrl, coverType: "cover" }] : undefined,
-          ratings: book.rating === undefined ? undefined : { value: book.rating, votes: 0 },
-          series: [{
-            foreignSeriesId: series.id,
-            title: series.name,
-            position: book.position === undefined ? undefined : String(book.position),
-          }],
-        });
-        onBookAdded(book.id, imported.id);
-      }
-    } catch {
-      // Errors handled by mutation hooks (toast notifications)
-    } finally {
-      setMonitoringAll(false);
-    }
-  };
-
-  const handleToggle = () => setExpanded((v) => !v);
-
-  const ExpandIcon = expanded ? ChevronUp : ChevronDown;
-
-  return (
-    <Card className="py-0 gap-0">
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg text-left"
-        onClick={handleToggle}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); handleMonitorAll(e); }}
-          disabled={monitoringAll || !books || allMonitored}
-          aria-label={allMonitored ? "All books monitored" : `Monitor all books in "${series.name}"`}
-          className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
-            allMonitored
-              ? "bg-primary/15 text-primary cursor-default"
-              : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
-          )}
-        >
-          {monitoringAll ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <BookMarked className="h-3.5 w-3.5" />
-          )}
-        </button>
-        <span className="flex flex-1 items-center gap-2 text-left">
-          <span className="font-medium">{series.name}</span>
-          <Badge variant="secondary">{series.booksCount}</Badge>
-        </span>
-        <span className="shrink-0 text-muted-foreground">
-          {loadingBooks ? (
-            <Skeleton className="h-4 w-4 rounded" />
-          ) : (
-            <ExpandIcon className="h-4 w-4" />
-          )}
-        </span>
-      </button>
-
-      {expanded && (
-        <CardContent className="p-0">
-          <SeriesCardContent
-            series={series}
-            loadingBooks={loadingBooks}
-            books={books}
-            sortedBooks={sortedBooks}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            handleSort={handleSort}
-            existingBookMap={existingBookMap}
-            authorContext={authorContext}
-            localAuthorId={localAuthorId}
-            onBookAdded={onBookAdded}
-            onAuthorCreated={onAuthorCreated}
-          />
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
-function SeriesCardContent({
-  series,
-  loadingBooks,
+// oxlint-disable-next-line complexity -- Series tab merges local/external data with expand/collapse UI
+function SeriesTab({
+  seriesList,
   books,
-  sortedBooks,
-  sortKey,
-  sortDir,
-  handleSort,
-  existingBookMap,
-  authorContext,
-  localAuthorId,
-  onBookAdded,
-  onAuthorCreated,
+  authorName,
+  availableLanguages,
+  enabled,
 }: {
-  series: HardcoverAuthorSeries;
-  loadingBooks: boolean;
-  books: HardcoverSeriesBook[] | undefined;
-  sortedBooks: HardcoverSeriesBook[];
-  sortKey: SeriesSortKey;
-  sortDir: "asc" | "desc";
-  handleSort: (key: SeriesSortKey) => void;
-  existingBookMap: Map<string, number>;
-  authorContext: AuthorContext;
-  localAuthorId: number | undefined;
-  onBookAdded: (foreignBookId: string, localBookId: number) => void;
-  onAuthorCreated: (id: number) => void;
+  seriesList: AuthorSeries[];
+  books: LocalBook[];
+  authorName: string;
+  availableLanguages: LanguageOption[];
+  enabled: boolean;
 }) {
   const navigate = useNavigate();
-
-  if (loadingBooks) {
-    return (
-      <div className="px-4 pb-4">
-        {/* oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no meaningful identity */}
-        {Array.from({ length: Math.min(series.booksCount, 5) }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 py-2">
-            <Skeleton className="h-6 w-6 rounded" />
-            <Skeleton className="h-8 w-8 rounded-sm" />
-            <Skeleton className="h-4 w-[40%]" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (books !== undefined && books.length === 0) {
-    return (
-      <p className="px-4 pb-4 text-sm text-muted-foreground">
-        No books found in this series.
-      </p>
-    );
-  }
-
-  return (
-    <Table>
-      <colgroup>
-        <col className="w-10" />
-        <col className="w-14" />
-        <col className="w-14" />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-      </colgroup>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-10" />
-          <TableHead />
-          {(
-            [
-              { key: "position", label: "#" },
-              { key: "title", label: "Title" },
-              { key: "author", label: "Author" },
-              { key: "year", label: "Year" },
-              { key: "language", label: "Language" },
-              { key: "readers", label: "Readers" },
-              { key: "rating", label: "Rating" },
-            ] as Array<{ key: SeriesSortKey; label: string }>
-          ).map(({ key, label }) => {
-            let SortIcon = ChevronsUpDown;
-            if (sortKey === key) {
-              SortIcon = sortDir === "asc" ? ChevronUp : ChevronDown;
-            }
-            return (
-              <TableHead
-                key={key}
-                className="cursor-pointer select-none hover:text-foreground"
-                onClick={() => handleSort(key)}
-              >
-                {label}
-                <SortIcon className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
-              </TableHead>
-            );
-          })}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sortedBooks.map((book) => {
-          const localBookId = existingBookMap.get(book.id);
-          return (
-            <TableRow
-              key={book.id}
-              className={localBookId === undefined ? undefined : "cursor-pointer"}
-              onClick={localBookId === undefined ? undefined : () => navigate({ to: "/library/books/$bookId", params: { bookId: String(localBookId) } })}
-            >
-              <TableCell>
-                <SeriesBookMonitorToggle
-                  bookId={book.id}
-                  title={book.title}
-                  description={book.description}
-                  coverUrl={book.coverUrl}
-                  releaseDate={book.releaseDate}
-                  releaseYear={book.releaseYear}
-                  rating={book.rating}
-                  readers={book.usersCount}
-                  languageName={book.languageName}
-                  seriesInfo={{
-                    foreignSeriesId: series.id,
-                    title: series.name,
-                    position: book.position === undefined ? undefined : String(book.position),
-                  }}
-                  authorContext={authorContext}
-                  localAuthorId={localAuthorId}
-                  inLibrary={existingBookMap.has(book.id)}
-                  onAdded={onBookAdded}
-                  onAuthorCreated={onAuthorCreated}
-                />
-              </TableCell>
-              <TableCell>
-                {book.coverUrl ? (
-                  <img
-                    src={book.coverUrl}
-                    alt={book.title}
-                    className="aspect-[2/3] w-full rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums text-center">
-                {book.position ?? "—"}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-baseline gap-2">
-                  {book.hardcoverUrl ? (
-                    <a
-                      href={book.hardcoverUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {book.title}
-                    </a>
-                  ) : (
-                    <span className="font-medium">{book.title}</span>
-                  )}
-                  {book.isCompilation && (
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      Boxed Set
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {book.authorName ?? "—"}
-              </TableCell>
-              <TableCell>
-                {book.releaseDate || (book.releaseYear ? String(book.releaseYear) : "—")}
-              </TableCell>
-              <TableCell>{book.languageName || "—"}</TableCell>
-              <TableCell>
-                {book.usersCount === undefined ? "—" : book.usersCount.toLocaleString()}
-              </TableCell>
-              <TableCell>
-                {book.rating === undefined ? (
-                  "—"
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                    {book.rating.toFixed(1)}
-                  </span>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+  const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
+  const [language, setLanguage] = useState(
+    availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
-}
+  const [previewBook, setPreviewBook] = useState<HardcoverSearchItem | undefined>(undefined);
 
-function SeriesListBody({
-  loading,
-  loaded,
-  filteredSeries,
-  pagedSeries,
-  searchInput,
-  selectedLanguage,
-  authorContext,
-  localAuthorId,
-  existingBookMap,
-  onBookAdded,
-  onAuthorCreated,
-}: {
-  loading: boolean;
-  loaded: boolean;
-  filteredSeries: HardcoverAuthorSeries[];
-  pagedSeries: HardcoverAuthorSeries[];
-  searchInput: string;
-  selectedLanguage: string;
-  authorContext: AuthorContext;
-  localAuthorId: number | undefined;
-  existingBookMap: Map<string, number>;
-  onBookAdded: (foreignBookId: string, localBookId: number) => void;
-  onAuthorCreated: (id: number) => void;
-}) {
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {/* oxlint-disable-next-line react/no-array-index-key -- Skeleton cards have no meaningful identity */}
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Card key={i} className="py-0">
-            <div className="flex items-center gap-2 p-4">
-              <Skeleton className="h-4 w-4 rounded" />
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-5 w-8 rounded-full" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
+  const bookMap = useMemo(() => {
+    const map = new Map<number, LocalBook>();
+    for (const b of books) {
+      map.set(b.id, b);
+    }
+    return map;
+  }, [books]);
 
-  if (loaded && filteredSeries.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground py-4">
-        {searchInput.trim()
-          ? `No series match "${searchInput.trim()}".`
-          : "No series found for the selected language."}
-      </p>
-    );
-  }
+  const localForeignBookIds = useMemo(() => {
+    const set = new Set<number>();
+    for (const b of books) {
+      if (b.foreignBookId) {
+        set.add(Number(b.foreignBookId));
+      }
+    }
+    return set;
+  }, [books]);
 
-  return (
-    <div className="space-y-3">
-      {pagedSeries.map((s) => (
-        <SeriesCard
-          key={s.id}
-          series={s}
-          language={selectedLanguage}
-          authorContext={authorContext}
-          localAuthorId={localAuthorId}
-          existingBookMap={existingBookMap}
-          onBookAdded={onBookAdded}
-          onAuthorCreated={onAuthorCreated}
-        />
-      ))}
-    </div>
+  const foreignSeriesIds = useMemo(
+    () =>
+      seriesList
+        .map((s) => (s.foreignSeriesId ? Number(s.foreignSeriesId) : undefined))
+        .filter((id): id is number => id !== undefined && Number.isFinite(id)),
+    [seriesList],
   );
-}
 
-function SeriesTab({
-  foreignAuthorId,
-  authorSlug,
-  active,
-  language,
-  languages,
-  authorContext,
-  localAuthorId,
-  existingBookMap,
-  onBookAdded,
-  onAuthorCreated,
-}: {
-  foreignAuthorId: number;
-  authorSlug: string;
-  active: boolean;
-  language: string;
-  languages: Array<{ code: string; name: string }>;
-  authorContext: AuthorContext;
-  localAuthorId: number | undefined;
-  existingBookMap: Map<string, number>;
-  onBookAdded: (foreignBookId: string, localBookId: number) => void;
-  onAuthorCreated: (id: number) => void;
-}) {
-  const [selectedLanguage, setSelectedLanguage] = useState(language);
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-
-  const { data: seriesData, isFetching: loading } = useQuery({
-    ...hardcoverAuthorSeriesQuery(authorSlug, selectedLanguage),
-    enabled: active,
+  const { data: hardcoverSeries, isLoading: isLoadingSeries } = useQuery({
+    ...hardcoverSeriesCompleteQuery(foreignSeriesIds),
+    enabled: enabled && foreignSeriesIds.length > 0,
   });
 
-  const allSeries = seriesData ?? undefined;
-
-  const filteredSeries = useMemo(() => {
-    if (!allSeries) {
-      return [];
+  const hardcoverSeriesMap = useMemo(() => {
+    const map = new Map<
+      number,
+      Array<{
+        foreignBookId: number;
+        title: string;
+        slug: string;
+        position: string;
+        releaseDate: string | undefined;
+        releaseYear: number | undefined;
+        rating: number | undefined;
+        usersCount: number | undefined;
+        coverUrl: string | undefined;
+        authorName: string;
+      }>
+    >();
+    if (!hardcoverSeries) {
+      return map;
     }
-    const q = searchInput.trim().toLowerCase();
-    if (!q) {
-      return allSeries;
+    for (const s of hardcoverSeries) {
+      map.set(s.foreignSeriesId, s.books);
     }
-    return allSeries.filter((s) => s.name.toLowerCase().includes(q));
-  }, [allSeries, searchInput]);
+    return map;
+  }, [hardcoverSeries]);
 
-  const totalSeries = filteredSeries.length;
-  const totalPages = Math.max(1, Math.ceil(totalSeries / SERIES_PAGE_SIZE));
+  const getSeriesEntries = (s: AuthorSeries): MergedSeriesEntry[] => {
+    const entries: MergedSeriesEntry[] = [];
 
-  const pagedSeries = useMemo(() => {
-    const start = (page - 1) * SERIES_PAGE_SIZE;
-    return filteredSeries.slice(start, start + SERIES_PAGE_SIZE);
-  }, [filteredSeries, page]);
+    for (const sb of s.books) {
+      const book = bookMap.get(sb.bookId);
+      if (!book) {
+        continue;
+      }
+      if (language !== "all" && book.languageCodes.length > 0 && !book.languageCodes.includes(language)) {
+        continue;
+      }
+      entries.push({ kind: "local", book, position: sb.position });
+    }
 
-  const loaded = !loading && allSeries !== undefined;
+    const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : undefined;
+    if (foreignId !== undefined) {
+      const hcBooks = hardcoverSeriesMap.get(foreignId) ?? [];
+      for (const hcBook of hcBooks) {
+        if (!localForeignBookIds.has(hcBook.foreignBookId)) {
+          entries.push({ kind: "external", ...hcBook });
+        }
+      }
+    }
 
-  const SeriesPagination = () =>
-    totalSeries > SERIES_PAGE_SIZE ? (
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          Showing {(page - 1) * SERIES_PAGE_SIZE + 1}–
-          {Math.min(page * SERIES_PAGE_SIZE, totalSeries)} of {totalSeries}
-        </span>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="px-2">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    ) : null;
+    entries.sort((a, b) => {
+      const posA = a.position ? Number.parseFloat(a.position) : Number.POSITIVE_INFINITY;
+      const posB = b.position ? Number.parseFloat(b.position) : Number.POSITIVE_INFINITY;
+      if (posA !== posB) {
+        return posA - posB;
+      }
+      const titleA = a.kind === "local" ? a.book.title : a.title;
+      const titleB = b.kind === "local" ? b.book.title : b.title;
+      return titleA.localeCompare(titleB);
+    });
+
+    return entries;
+  };
+
+  const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
+    setPreviewBook({
+      id: String(entry.foreignBookId),
+      type: "book",
+      slug: entry.slug || undefined,
+      title: entry.title,
+      subtitle: entry.authorName,
+      description: undefined,
+      releaseYear: entry.releaseYear ?? undefined,
+      readers: entry.usersCount ?? undefined,
+      coverUrl: entry.coverUrl ?? undefined,
+      hardcoverUrl: entry.slug
+        ? `https://hardcover.app/books/${entry.slug}`
+        : undefined,
+    });
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            className="pl-8 pr-8 h-9 text-sm"
-            placeholder="Filter series…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            disabled={loading}
-          />
-          {searchInput && (
-            <button
-              type="button"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              onClick={() => setSearchInput("")}
-              aria-label="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Language</span>
-          <Select
-            value={selectedLanguage}
-            onValueChange={(value) => {
-              setSelectedLanguage(value);
-              setPage(1);
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger className="w-full sm:w-[220px]">
-              <SelectValue placeholder="Select language" />
+      {availableLanguages.length > 1 && (
+        <div>
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger className="h-9 w-[160px] text-sm">
+              <SelectValue placeholder="Language" />
             </SelectTrigger>
             <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
+              <SelectItem value="all">All Languages</SelectItem>
+              {availableLanguages.map((l) => (
+                <SelectItem key={l.languageCode} value={l.languageCode}>
+                  {l.language}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-      </div>
+      )}
 
-      {loaded && <SeriesPagination />}
+      {isLoadingSeries && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading series data from Hardcover…
+        </div>
+      )}
 
-      <SeriesListBody
-        loading={loading}
-        loaded={loaded}
-        filteredSeries={filteredSeries}
-        pagedSeries={pagedSeries}
-        searchInput={searchInput}
-        selectedLanguage={selectedLanguage}
-        authorContext={authorContext}
-        localAuthorId={localAuthorId}
-        existingBookMap={existingBookMap}
-        onBookAdded={onBookAdded}
-        onAuthorCreated={onAuthorCreated}
-      />
+      {seriesList.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          No series found for this author.
+        </div>
+      ) : null}
 
-      {loaded && <SeriesPagination />}
+      {seriesList.map((s) => {
+        const isExpanded = expandedId === s.id;
+        const entries = isExpanded ? getSeriesEntries(s) : [];
+        const localCount = s.books.length;
+        const monitoredCount = s.books.filter((sb) => bookMap.get(sb.bookId)?.monitored).length;
+
+        return (
+          <div key={s.id} className="border rounded-lg">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => setExpandedId(isExpanded ? undefined : s.id)}
+            >
+              <div className="flex items-center gap-3">
+                <Library className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium text-sm">{s.title}</span>
+                <Badge variant="secondary" className="text-xs">
+                  {localCount} book{localCount === 1 ? "" : "s"}
+                </Badge>
+                {monitoredCount > 0 && (
+                  <Badge variant="default" className="text-xs">
+                    {monitoredCount} monitored
+                  </Badge>
+                )}
+                {s.isCompleted && (
+                  <Badge variant="outline" className="text-xs">
+                    Complete
+                  </Badge>
+                )}
+              </div>
+              <ChevronRight
+                className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+              />
+            </button>
+
+            {isExpanded && (
+              <div className="border-t overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10" />
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead className="w-14" />
+                      <TableHead>Title</TableHead>
+                      <TableHead>Release Date</TableHead>
+                      <TableHead>Rating</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Pages</TableHead>
+                      <TableHead>ISBN 10</TableHead>
+                      <TableHead>ISBN 13</TableHead>
+                      <TableHead>ASIN</TableHead>
+                      <TableHead>Data Score</TableHead>
+                      <TableHead>Author</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* oxlint-disable-next-line complexity -- Series table row render with local/external variants */}
+                    {entries.map((entry) => {
+                      if (entry.kind === "local") {
+                        const { book, position } = entry;
+                        const edition = pickBestEdition(book.editions, language);
+                        const coverUrl = edition?.images?.[0]?.url ?? book.images?.[0]?.url;
+                        const displayTitle = edition?.title ?? book.title;
+                        const displayDate = edition?.releaseDate ?? book.releaseDate ?? (book.releaseYear ? String(book.releaseYear) : "—");
+                        return (
+                          <TableRow
+                            key={`local-${book.id}`}
+                            className="cursor-pointer"
+                            onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
+                          >
+                            <TableCell>
+                              <BookMonitorToggle bookId={book.id} title={book.title} monitored={book.monitored} />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{position ?? "—"}</TableCell>
+                            <TableCell>
+                              {coverUrl ? (
+                                <img src={coverUrl} alt={displayTitle} className="aspect-[2/3] w-full rounded-sm object-cover" />
+                              ) : (
+                                <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell><span className="font-medium">{displayTitle}</span></TableCell>
+                            <TableCell>{displayDate}</TableCell>
+                            <TableCell>
+                              {book.rating === undefined ? "—" : (
+                                <span className="inline-flex items-center gap-1">
+                                  <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                                  {book.rating.toFixed(1)}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.format ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.pageCount ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.isbn10 ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.isbn13 ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.asin ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{edition?.score ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {[authorName, ...(book.additionalAuthors ?? [])].join(", ")}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      // External book from Hardcover
+                      const displayDate = entry.releaseDate ?? (entry.releaseYear ? String(entry.releaseYear) : "—");
+                      return (
+                        <TableRow
+                          key={`ext-${entry.foreignBookId}`}
+                          className="cursor-pointer opacity-60 hover:opacity-100"
+                          onClick={() => openPreview(entry)}
+                        >
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={(e) => { e.stopPropagation(); openPreview(entry); }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{entry.position ?? "—"}</TableCell>
+                          <TableCell>
+                            {entry.coverUrl ? (
+                              <img src={entry.coverUrl} alt={entry.title} className="aspect-[2/3] w-full rounded-sm object-cover" />
+                            ) : (
+                              <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell><span className="font-medium">{entry.title}</span></TableCell>
+                          <TableCell>{displayDate}</TableCell>
+                          <TableCell>
+                            {entry.rating === undefined ? "—" : (
+                              <span className="inline-flex items-center gap-1">
+                                <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                                {entry.rating.toFixed(1)}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">—</TableCell>
+                          <TableCell className="text-muted-foreground">{entry.authorName}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {previewBook && (
+        <BookPreviewModal
+          book={previewBook}
+          open
+          onOpenChange={(v) => { if (!v) { setPreviewBook(undefined); } }}
+        />
+      )}
     </div>
   );
 }
 
-// ---------- Hardcover-mode page ----------
+// ---------- Main page ----------
 
 // oxlint-disable-next-line complexity -- Page component manages multiple state variables
-function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
-  const search = Route.useSearch();
-  const fromSearch = search.from === "search";
-
-  const [authorParams, setAuthorParams] = useState<AuthorParams>({
-    page: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-    language: DEFAULT_LANGUAGE,
-    sortBy: "year",
-    sortDir: "desc",
-  });
-
-  const [activeTab, setActiveTab] = useState<"books" | "series">("books");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [localAuthorIdOverride, setLocalAuthorIdOverride] = useState<
-    number | undefined
-  >(undefined);
-  const [addedBookIds, setAddedBookIds] = useState<Map<string, number>>(new Map());
-
+function AuthorDetailPage() {
+  const { authorId } = Route.useParams();
   const navigate = useNavigate();
+  const router = useRouter();
 
-  const { data: author } = useSuspenseQuery(
-    hardcoverAuthorQuery(foreignAuthorId, authorParams),
-  );
-  const { data: qualityProfiles } = useSuspenseQuery(
-    qualityProfilesListQuery(),
-  );
+  const authorIdNum = Number(authorId);
+
+  const { data: author } = useSuspenseQuery(authorDetailQuery(authorIdNum));
+  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
-  const { data: localAuthorData } = useQuery({
-    ...authorExistsQuery(author.id),
-    enabled: Boolean(author.id),
-  });
-
-  const localAuthor = localAuthorIdOverride
-    ? { id: localAuthorIdOverride, name: author.name }
-    : (localAuthorData ?? null);
-
-  // Fetch local author detail when in-library (for edit form)
-  const { data: localAuthorDetail } = useQuery({
-    ...authorDetailQuery(localAuthor?.id ?? 0),
-    enabled: Boolean(localAuthor?.id),
-  });
-
-  const visibleBookIds = author.books.map((b) => b.id);
-  const { data: existingBooksData } = useQuery({
-    ...booksExistQuery(visibleBookIds),
-    enabled: Boolean(localAuthor) && visibleBookIds.length > 0,
-  });
-
-  const existingBookMap = useMemo(() => {
-    const map = new Map<string, number>(addedBookIds);
-    if (existingBooksData) {
-      for (const b of existingBooksData) {
-        if (b.foreignBookId) {
-          map.set(b.foreignBookId, b.id);
-        }
-      }
-    }
-    return map;
-  }, [existingBooksData, addedBookIds]);
-
-  const authorContext: AuthorContext = {
-    name: author.name,
-    foreignAuthorId: author.id,
-    imageUrl: author.imageUrl,
-    bio: author.bio,
-    deathYear: author.deathYear,
-    qualityProfileId: qualityProfiles[0]?.id ?? undefined,
-    rootFolderPath: rootFolders[0]?.path ?? undefined,
-  };
+  const [activeTab, setActiveTab] = useState<"books" | "series">("books");
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const updateAuthor = useUpdateAuthor();
   const deleteAuthor = useDeleteAuthor();
+  const refreshMetadata = useRefreshAuthorMetadata();
 
-  const handleBookAdded = (foreignBookId: string, localBookId: number) => {
-    setAddedBookIds((prev) => new Map([...prev, [foreignBookId, localBookId]]));
-  };
+  const books = useMemo(() => (author?.books ?? []) as LocalBook[], [author?.books]);
+  const authorSeries = useMemo(() => (author?.series ?? []) as AuthorSeries[], [author?.series]);
+  const availableLanguages = useMemo(() => (author?.availableLanguages ?? []) as LanguageOption[], [author?.availableLanguages]);
 
-  const handleAuthorCreated = (authorId: number) => {
-    setLocalAuthorIdOverride(authorId);
-  };
+  if (!author) {
+    return <NotFound />;
+  }
+  const monitoredCount = books.filter((b) => b.monitored).length;
+
+  const hardcoverSlug = author.slug || author.foreignAuthorId;
+  const hardcoverUrl = hardcoverSlug
+    ? `https://hardcover.app/authors/${hardcoverSlug}`
+    : undefined;
+
+  const lifespan =
+    author.bornYear || author.deathYear
+      ? `${author.bornYear || "?"}-${author.deathYear || "Present"}`
+      : null;
 
   const handleUpdate = (values: {
     name: string;
@@ -1319,77 +914,73 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
     qualityProfileId?: number;
     rootFolderPath?: string;
   }) => {
-    if (!localAuthor) {
-      return;
-    }
     updateAuthor.mutate(
-      { ...values, id: localAuthor.id },
-      { onSuccess: () => setEditOpen(false) },
+      { ...values, id: author.id },
+      {
+        onSuccess: () => {
+          setEditOpen(false);
+          router.invalidate();
+        },
+      },
     );
   };
 
   const handleDelete = () => {
-    if (!localAuthor) {
-      return;
-    }
-    deleteAuthor.mutate(localAuthor.id, {
+    deleteAuthor.mutate(author.id, {
       onSuccess: () => navigate({ to: "/library/authors" }),
     });
   };
 
-  const lifespan =
-    author.bornYear || author.deathYear
-      ? `${author.bornYear || "?"}-${author.deathYear || "Present"}`
-      : null;
+  const handleRefreshMetadata = () => {
+    refreshMetadata.mutate(author.id, {
+      onSuccess: () => router.invalidate(),
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild>
-          {fromSearch ? (
-            <Link to="/library/add">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Add
-            </Link>
-          ) : (
-            <Link to="/library/authors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Authors
-            </Link>
-          )}
+          <Link to="/library/authors">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Authors
+          </Link>
         </Button>
       </div>
 
       <PageHeader
         title={author.name}
-        description={lifespan || "Hardcover author profile"}
+        description={lifespan || undefined}
         actions={
           <div className="flex items-center gap-2">
-            {localAuthor ? (
-              <>
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add to Library
-              </Button>
-            )}
-            {author.hardcoverUrl && (
+            <Button
+              variant="outline"
+              onClick={handleRefreshMetadata}
+              disabled={refreshMetadata.isPending}
+            >
+              {refreshMetadata.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Update Metadata
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+            {hardcoverUrl && (
               <Button asChild variant="outline">
-                <a href={author.hardcoverUrl} target="_blank" rel="noreferrer">
+                <a href={hardcoverUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Open on Hardcover
+                  Hardcover
                 </a>
               </Button>
             )}
@@ -1402,7 +993,7 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
           <div className="w-full xl:w-auto xl:shrink-0">
             <AuthorPhoto
               name={author.name}
-              imageUrl={author.imageUrl}
+              imageUrl={author.images?.[0]?.url}
               className="xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
             />
           </div>
@@ -1414,19 +1005,12 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Total books</span>
-                <span>{author.booksCount ?? author.totalBooks}</span>
+                <span>{books.length}</span>
               </div>
-              {authorParams.language !== "all" && (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">
-                    In{" "}
-                    {author.languages.find(
-                      (l) => l.code === authorParams.language,
-                    )?.name ?? authorParams.language}
-                  </span>
-                  <span>{author.totalBooks}</span>
-                </div>
-              )}
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Monitored</span>
+                <span>{monitoredCount}</span>
+              </div>
               {author.bornYear && (
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Born</span>
@@ -1439,13 +1023,19 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
                   <span>{author.deathYear}</span>
                 </div>
               )}
+              {author.status && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="capitalize">{author.status}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {author.bio && (
             <Card className="w-full xl:min-w-0 xl:flex-1">
               <CardHeader>
-                <CardTitle>Overview</CardTitle>
+                <CardTitle>Bio</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -1456,17 +1046,21 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
           )}
         </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as "books" | "series")}
-        >
-          <Card>
+        <Card>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "books" | "series")}
+          >
             <CardHeader className="pb-0">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Library</CardTitle>
+                  <CardTitle>
+                    {activeTab === "books" ? "Books" : "Series"}
+                  </CardTitle>
                   <CardDescription className="mt-1">
-                    {author.totalBooks} book{author.totalBooks === 1 ? "" : "s"}
+                    {activeTab === "series"
+                      ? `${authorSeries.length} series`
+                      : undefined}
                   </CardDescription>
                 </div>
                 <TabsList>
@@ -1477,80 +1071,46 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
             </CardHeader>
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
-                <BooksTab
-                  foreignAuthorId={foreignAuthorId}
-                  authorParams={authorParams}
-                  setAuthorParams={setAuthorParams}
-                  authorContext={authorContext}
-                  localAuthorId={localAuthor?.id}
-                  existingBookMap={existingBookMap}
-                  onBookAdded={handleBookAdded}
-                  onAuthorCreated={handleAuthorCreated}
-                />
+                <BooksTab books={books} authorName={author.name} availableLanguages={availableLanguages} />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
-                <SeriesTab
-                  foreignAuthorId={foreignAuthorId}
-                  authorSlug={author.slug}
-                  active={activeTab === "series"}
-                  language={authorParams.language}
-                  languages={author.languages}
-                  authorContext={authorContext}
-                  localAuthorId={localAuthor?.id}
-                  existingBookMap={existingBookMap}
-                  onBookAdded={handleBookAdded}
-                  onAuthorCreated={handleAuthorCreated}
-                />
+                <SeriesTab seriesList={authorSeries} books={books} authorName={author.name} availableLanguages={availableLanguages} enabled={activeTab === "series"} />
               </TabsContent>
             </CardContent>
-          </Card>
-        </Tabs>
+          </Tabs>
+        </Card>
       </div>
 
-      <AddAuthorDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        author={author}
-        qualityProfiles={qualityProfiles}
-        rootFolders={rootFolders}
-        onSuccess={handleAuthorCreated}
-      />
-
-      {localAuthor && localAuthorDetail && (
-        <>
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Edit Author</DialogTitle>
-              </DialogHeader>
-              <AuthorForm
-                initialValues={{
-                  name: localAuthorDetail.name,
-                  sortName: localAuthorDetail.sortName,
-                  status: localAuthorDetail.status,
-                  qualityProfileId:
-                    localAuthorDetail.qualityProfileId || undefined,
-                  rootFolderPath: localAuthorDetail.rootFolderPath || undefined,
-                }}
-                qualityProfiles={qualityProfiles}
-                rootFolders={rootFolders}
-                onSubmit={handleUpdate}
-                onCancel={() => setEditOpen(false)}
-                loading={updateAuthor.isPending}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <ConfirmDialog
-            open={deleteOpen}
-            onOpenChange={setDeleteOpen}
-            title="Delete Author"
-            description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
-            onConfirm={handleDelete}
-            loading={deleteAuthor.isPending}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Author</DialogTitle>
+          </DialogHeader>
+          <AuthorForm
+            initialValues={{
+              name: author.name,
+              sortName: author.sortName,
+              status: author.status,
+              qualityProfileId: author.qualityProfileId || undefined,
+              rootFolderPath: author.rootFolderPath || undefined,
+            }}
+            qualityProfiles={qualityProfiles}
+            rootFolders={rootFolders}
+            onSubmit={handleUpdate}
+            onCancel={() => setEditOpen(false)}
+            loading={updateAuthor.isPending}
           />
-        </>
-      )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Author"
+        description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleteAuthor.isPending}
+      />
     </div>
   );
 }
@@ -1558,6 +1118,5 @@ function HardcoverAuthorPage({ foreignAuthorId }: { foreignAuthorId: number }) {
 // ---------- Root component ----------
 
 function AuthorPage() {
-  const { foreignAuthorId } = Route.useLoaderData();
-  return <HardcoverAuthorPage foreignAuthorId={foreignAuthorId} />;
+  return <AuthorDetailPage />;
 }

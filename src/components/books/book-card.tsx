@@ -8,7 +8,7 @@ type BookCardProps = {
     title: string;
     authorName?: string;
     releaseDate?: string;
-    overview?: string;
+    description?: string;
     images?: Array<{ url: string; coverType: string }>;
   };
 };

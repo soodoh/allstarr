@@ -17,7 +17,6 @@ type AuthorLink = {
 export type BookLanguageEntry = {
   name: string;
   code: string;
-  readers: number;
 };
 
 export type BookDetailData = {
@@ -32,8 +31,6 @@ export type BookDetailData = {
   rating?: number | undefined;
   ratingVotes?: number | undefined;
   readers?: number | undefined;
-  isbn?: string | undefined;
-  asin?: string | undefined;
   overview?: string | undefined;
   hardcoverUrl?: string | undefined;
 };
@@ -148,18 +145,6 @@ export default function BookDetailContent({
                   </PopoverContent>
                 )}
               </Popover>
-            </div>
-          )}
-          {book.isbn && (
-            <div>
-              <span className="text-muted-foreground">ISBN: </span>
-              <span className="font-mono text-xs">{book.isbn}</span>
-            </div>
-          )}
-          {book.asin && (
-            <div>
-              <span className="text-muted-foreground">ASIN: </span>
-              <span className="font-mono text-xs">{book.asin}</span>
             </div>
           )}
           {book.hardcoverUrl && (

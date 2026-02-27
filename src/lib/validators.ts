@@ -49,7 +49,10 @@ export const updateSettingSchema = z.object({
 export const createAuthorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   sortName: z.string().min(1),
-  overview: z.string().optional(),
+  slug: z.string().optional(),
+  bio: z.string().optional(),
+  bornYear: z.number().optional(),
+  deathYear: z.number().optional(),
   status: z.string().default("continuing"),
   qualityProfileId: z.number().optional(),
   rootFolderPath: z.string().optional(),
@@ -60,29 +63,30 @@ export const createAuthorSchema = z.object({
   tags: z.array(z.number()).optional(),
 });
 
-export const updateAuthorSchema = createAuthorSchema.extend({
+export const updateAuthorSchema = createAuthorSchema.partial().extend({
   id: z.number(),
 });
 
 // Books
 export const createBookSchema = z.object({
   title: z.string().min(1, "Title is required"),
+  slug: z.string().optional(),
   authorId: z.number(),
-  overview: z.string().optional(),
-  isbn: z.string().optional(),
-  asin: z.string().optional(),
+  description: z.string().optional(),
   releaseDate: z.string().optional(),
-  monitored: z.boolean().default(true),
+  releaseYear: z.number().optional(),
+  monitored: z.boolean().default(false),
   foreignBookId: z.string().optional(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
     .optional(),
-  ratings: z.object({ value: z.number(), votes: z.number() }).optional(),
-  readers: z.number().optional(),
+  rating: z.number().optional(),
+  ratingsCount: z.number().optional(),
+  usersCount: z.number().optional(),
   tags: z.array(z.number()).optional(),
 });
 
-export const updateBookSchema = createBookSchema.extend({
+export const updateBookSchema = createBookSchema.partial().extend({
   id: z.number(),
 });
 
@@ -90,17 +94,32 @@ export const updateBookSchema = createBookSchema.extend({
 export const createEditionSchema = z.object({
   bookId: z.number(),
   title: z.string().min(1, "Title is required"),
-  isbn: z.string().optional(),
+  isbn10: z.string().optional(),
+  isbn13: z.string().optional(),
   asin: z.string().optional(),
   format: z.string().optional(),
   pageCount: z.number().optional(),
   publisher: z.string().optional(),
   releaseDate: z.string().optional(),
+  language: z.string().optional(),
+  languageCode: z.string().optional(),
+  country: z.string().optional(),
+  usersCount: z.number().optional(),
+  score: z.number().optional(),
   foreignEditionId: z.string().optional(),
+  contributors: z
+    .array(
+      z.object({
+        authorId: z.string(),
+        name: z.string(),
+        contribution: z.string().optional(),
+      }),
+    )
+    .optional(),
   monitored: z.boolean().default(true),
 });
 
-export const updateEditionSchema = createEditionSchema.extend({
+export const updateEditionSchema = createEditionSchema.partial().extend({
   id: z.number(),
 });
 

@@ -9,6 +9,7 @@ import {
   getHardcoverBookDetailFn,
 } from "src/server/search";
 import type { EditionSortKey } from "src/server/search";
+import { getSeriesFromHardcoverFn } from "src/server/authors";
 import { queryKeys } from "../query-keys";
 
 type HardcoverAuthorParams = {
@@ -75,4 +76,12 @@ export const hardcoverSingleBookQuery = (foreignBookId: number) =>
     queryKey: queryKeys.hardcover.bookDetail(foreignBookId),
     queryFn: () =>
       getHardcoverBookDetailFn({ data: { foreignBookId } }),
+  });
+
+export const hardcoverSeriesCompleteQuery = (foreignSeriesIds: number[]) =>
+  queryOptions({
+    queryKey: queryKeys.hardcover.seriesComplete(foreignSeriesIds),
+    queryFn: () =>
+      getSeriesFromHardcoverFn({ data: { foreignSeriesIds } }),
+    staleTime: 1000 * 60 * 30, // 30 minutes
   });

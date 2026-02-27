@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createBookFn, updateBookFn, deleteBookFn } from "src/server/books";
+import { monitorBookFn } from "src/server/import";
 import { queryKeys } from "src/lib/query-keys";
 import type { createBookSchema, updateBookSchema } from "src/lib/validators";
 import type { z } from "zod";
@@ -49,5 +50,18 @@ export function useDeleteBook() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete book"),
+  });
+}
+
+export function useMonitorBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bookId: number) => monitorBookFn({ data: { bookId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    },
+    onError: () => toast.error("Failed to monitor book"),
   });
 }

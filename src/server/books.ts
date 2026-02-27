@@ -1,7 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
-import { books, editions, authors, history, series, seriesBookLinks } from "src/db/schema";
+import {
+  books,
+  editions,
+  authors,
+  history,
+  series,
+  seriesBookLinks,
+} from "src/db/schema";
 import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createBookSchema,
@@ -17,23 +25,25 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
       .select({
         id: books.id,
         title: books.title,
+        slug: books.slug,
         authorId: books.authorId,
         authorName: authors.name,
-        overview: books.overview,
-        isbn: books.isbn,
-        asin: books.asin,
+        description: books.description,
         releaseDate: books.releaseDate,
+        releaseYear: books.releaseYear,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
-        ratings: books.ratings,
-        readers: books.readers,
+        rating: books.rating,
+        ratingsCount: books.ratingsCount,
+        usersCount: books.usersCount,
         tags: books.tags,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })
       .from(books)
       .leftJoin(authors, eq(books.authorId, authors.id))
+      .where(eq(books.monitored, true))
       .orderBy(desc(books.createdAt))
       .all();
     return result;
@@ -42,7 +52,12 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
 
 export const getPaginatedBooksFn = createServerFn({ method: "GET" })
   .inputValidator(
-    (d: { page?: number; pageSize?: number; search?: string }) => d,
+    (d: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      monitored?: boolean;
+    }) => d,
   )
   .handler(async ({ data }) => {
     await requireAuth();
@@ -54,18 +69,18 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       .select({
         id: books.id,
         title: books.title,
+        slug: books.slug,
         authorId: books.authorId,
         authorName: authors.name,
-        overview: books.overview,
-        isbn: books.isbn,
-        asin: books.asin,
+        description: books.description,
         releaseDate: books.releaseDate,
-        language: books.language,
+        releaseYear: books.releaseYear,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
-        ratings: books.ratings,
-        readers: books.readers,
+        rating: books.rating,
+        ratingsCount: books.ratingsCount,
+        usersCount: books.usersCount,
         tags: books.tags,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
@@ -81,6 +96,12 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       .leftJoin(authors, eq(books.authorId, authors.id))
       .$dynamic();
 
+    const conditions: SQL[] = [];
+
+    if (data.monitored !== undefined) {
+      conditions.push(eq(books.monitored, data.monitored));
+    }
+
     if (data.search) {
       const pattern = `%${data.search}%`;
       const seriesMatch = exists(
@@ -95,13 +116,19 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
             ),
           ),
       );
-      const condition = or(
-        like(books.title, pattern),
-        like(authors.name, pattern),
-        seriesMatch,
+      conditions.push(
+        or(
+          like(books.title, pattern),
+          like(authors.name, pattern),
+          seriesMatch,
+        )!,
       );
-      query = query.where(condition);
-      countQuery = countQuery.where(condition);
+    }
+
+    if (conditions.length > 0) {
+      const combined = and(...conditions);
+      query = query.where(combined);
+      countQuery = countQuery.where(combined);
     }
 
     const items = query.limit(pageSize).offset(offset).all();
@@ -150,19 +177,21 @@ export const getBookFn = createServerFn({ method: "GET" })
       .select({
         id: books.id,
         title: books.title,
+        slug: books.slug,
         authorId: books.authorId,
         authorName: authors.name,
-        overview: books.overview,
-        language: books.language,
-        isbn: books.isbn,
-        asin: books.asin,
+        description: books.description,
         releaseDate: books.releaseDate,
+        releaseYear: books.releaseYear,
         monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
-        ratings: books.ratings,
-        readers: books.readers,
+        rating: books.rating,
+        ratingsCount: books.ratingsCount,
+        usersCount: books.usersCount,
         tags: books.tags,
+        additionalAuthors: books.additionalAuthors,
+        metadataUpdatedAt: books.metadataUpdatedAt,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })
@@ -190,7 +219,26 @@ export const getBookFn = createServerFn({ method: "GET" })
       .where(eq(seriesBookLinks.bookId, data.id))
       .all();
 
-    return { ...book, editions: bookEditions, series: bookSeries };
+    // Get distinct languages from editions
+    const languages = db
+      .selectDistinct({
+        languageCode: editions.languageCode,
+        language: editions.language,
+      })
+      .from(editions)
+      .where(eq(editions.bookId, data.id))
+      .all()
+      .filter((l) => l.languageCode && l.language) as Array<{
+      languageCode: string;
+      language: string;
+    }>;
+
+    return {
+      ...book,
+      editions: bookEditions,
+      series: bookSeries,
+      languages,
+    };
   });
 
 export const createBookFn = createServerFn({ method: "POST" })
@@ -289,4 +337,24 @@ export const checkBooksExistFn = createServerFn({ method: "GET" })
       .from(books)
       .where(inArray(books.foreignBookId, data.foreignBookIds))
       .all();
+  });
+
+// Get author's available languages from editions
+export const getAuthorLanguagesFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { authorId: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return db
+      .selectDistinct({
+        languageCode: editions.languageCode,
+        language: editions.language,
+      })
+      .from(editions)
+      .innerJoin(books, eq(editions.bookId, books.id))
+      .where(eq(books.authorId, data.authorId))
+      .all()
+      .filter((l) => l.languageCode && l.language) as Array<{
+      languageCode: string;
+      language: string;
+    }>;
   });

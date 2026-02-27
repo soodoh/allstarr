@@ -17,9 +17,7 @@ type BookFormProps = {
   initialValues?: {
     title: string;
     authorId: number;
-    overview?: string;
-    isbn?: string;
-    asin?: string;
+    description?: string;
     releaseDate?: string;
     monitored: boolean;
   };
@@ -27,9 +25,7 @@ type BookFormProps = {
   onSubmit: (values: {
     title: string;
     authorId: number;
-    overview?: string;
-    isbn?: string;
-    asin?: string;
+    description?: string;
     releaseDate?: string;
     monitored: boolean;
   }) => void;
@@ -50,22 +46,18 @@ export default function BookForm({
   const [authorId, setAuthorId] = useState<string>(
     initialValues?.authorId?.toString() || "",
   );
-  const [overview, setOverview] = useState(initialValues?.overview || "");
-  const [isbn, setIsbn] = useState(initialValues?.isbn || "");
-  const [asin, setAsin] = useState(initialValues?.asin || "");
+  const [description, setDescription] = useState(initialValues?.description || "");
   const [releaseDate, setReleaseDate] = useState(
     initialValues?.releaseDate || "",
   );
-  const [monitored, setMonitored] = useState(initialValues?.monitored ?? true);
+  const [monitored, setMonitored] = useState(initialValues?.monitored ?? false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
       title,
       authorId: Number.parseInt(authorId, 10),
-      overview: overview || undefined,
-      isbn: isbn || undefined,
-      asin: asin || undefined,
+      description: description || undefined,
       releaseDate: releaseDate || undefined,
       monitored,
     });
@@ -101,44 +93,24 @@ export default function BookForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="overview">Overview</Label>
+        <Label htmlFor="description">Description</Label>
         <Textarea
-          id="overview"
-          value={overview}
-          onChange={(e) => setOverview(e.target.value)}
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="Book description..."
           rows={4}
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="isbn">ISBN</Label>
-          <Input
-            id="isbn"
-            value={isbn}
-            onChange={(e) => setIsbn(e.target.value)}
-            placeholder="ISBN"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="asin">ASIN</Label>
-          <Input
-            id="asin"
-            value={asin}
-            onChange={(e) => setAsin(e.target.value)}
-            placeholder="ASIN"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="releaseDate">Release Date</Label>
-          <Input
-            id="releaseDate"
-            type="date"
-            value={releaseDate}
-            onChange={(e) => setReleaseDate(e.target.value)}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="releaseDate">Release Date</Label>
+        <Input
+          id="releaseDate"
+          type="date"
+          value={releaseDate}
+          onChange={(e) => setReleaseDate(e.target.value)}
+        />
       </div>
 
       <div className="flex items-center gap-2">
