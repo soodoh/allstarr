@@ -45,7 +45,9 @@ function AuthorsPage() {
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) {return;}
+    if (!el) {
+      return;
+    }
     const observer = new IntersectionObserver(handleObserver, {
       rootMargin: "200px",
     });
@@ -121,10 +123,7 @@ function AuthorsPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {authors.map((author) => (
-            <AuthorCard
-              key={author.id}
-              author={author}
-            />
+            <AuthorCard key={author.id} author={author} />
           ))}
           {showLoading && <AuthorCardsSkeleton />}
         </div>

@@ -32,16 +32,13 @@ function BooksPage() {
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
-  const resolvedAuthors = useMemo(
-    () => {
-      const merged: Record<string, { id: number; name: string }> = {};
-      for (const page of data?.pages ?? []) {
-        Object.assign(merged, page.resolvedAuthors ?? {});
-      }
-      return merged;
-    },
-    [data],
-  );
+  const resolvedAuthors = useMemo(() => {
+    const merged: Record<string, { id: number; name: string }> = {};
+    for (const page of data?.pages ?? []) {
+      Object.assign(merged, page.resolvedAuthors ?? {});
+    }
+    return merged;
+  }, [data]);
   const total = data?.pages[0]?.total ?? 0;
 
   const handleObserver = useCallback(
@@ -55,7 +52,9 @@ function BooksPage() {
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) {return;}
+    if (!el) {
+      return;
+    }
     const observer = new IntersectionObserver(handleObserver, {
       rootMargin: "200px",
     });
@@ -133,10 +132,7 @@ function BooksPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {tableBooks.map((book) => (
-            <BookCard
-              key={book.id}
-              book={book}
-            />
+            <BookCard key={book.id} book={book} />
           ))}
           {showLoading && <BookCardsSkeleton />}
         </div>

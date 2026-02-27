@@ -67,21 +67,18 @@ export const hardcoverBookEditionsQuery = (
 export const hardcoverBookLanguagesQuery = (foreignBookId: number) =>
   queryOptions({
     queryKey: queryKeys.hardcover.bookLanguages(foreignBookId),
-    queryFn: () =>
-      getHardcoverBookLanguagesFn({ data: { foreignBookId } }),
+    queryFn: () => getHardcoverBookLanguagesFn({ data: { foreignBookId } }),
   });
 
 export const hardcoverSingleBookQuery = (foreignBookId: number) =>
   queryOptions({
     queryKey: queryKeys.hardcover.bookDetail(foreignBookId),
-    queryFn: () =>
-      getHardcoverBookDetailFn({ data: { foreignBookId } }),
+    queryFn: () => getHardcoverBookDetailFn({ data: { foreignBookId } }),
   });
 
 export const hardcoverSeriesCompleteQuery = (foreignSeriesIds: number[]) =>
   queryOptions({
     queryKey: queryKeys.hardcover.seriesComplete(foreignSeriesIds),
-    queryFn: () =>
-      getSeriesFromHardcoverFn({ data: { foreignSeriesIds } }),
+    queryFn: () => getSeriesFromHardcoverFn({ data: { foreignSeriesIds } }),
     staleTime: 1000 * 60 * 30, // 30 minutes
   });

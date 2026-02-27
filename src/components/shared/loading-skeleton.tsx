@@ -161,7 +161,9 @@ export function SystemStatusSkeleton(): JSX.Element {
 
 export function AuthorTableRowsSkeleton({
   rows = 5,
-}: { rows?: number }): JSX.Element {
+}: {
+  rows?: number;
+}): JSX.Element {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -183,7 +185,9 @@ export function AuthorTableRowsSkeleton({
 
 export function AuthorCardsSkeleton({
   count = 6,
-}: { count?: number }): JSX.Element {
+}: {
+  count?: number;
+}): JSX.Element {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
@@ -199,7 +203,9 @@ export function AuthorCardsSkeleton({
 
 export function BookTableRowsSkeleton({
   rows = 5,
-}: { rows?: number }): JSX.Element {
+}: {
+  rows?: number;
+}): JSX.Element {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -230,7 +236,9 @@ export function BookTableRowsSkeleton({
 
 export function BookCardsSkeleton({
   count = 6,
-}: { count?: number }): JSX.Element {
+}: {
+  count?: number;
+}): JSX.Element {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (

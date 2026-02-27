@@ -37,7 +37,20 @@ type Edition = {
   images: Array<{ url: string; coverType: string }> | null;
 };
 
-type EditionSortKey = "title" | "publisher" | "information" | "format" | "pages" | "releaseDate" | "isbn13" | "isbn10" | "asin" | "language" | "country" | "readers" | "score";
+type EditionSortKey =
+  | "title"
+  | "publisher"
+  | "information"
+  | "format"
+  | "pages"
+  | "releaseDate"
+  | "isbn13"
+  | "isbn10"
+  | "asin"
+  | "language"
+  | "country"
+  | "readers"
+  | "score";
 
 type EditionColumn = {
   key: EditionSortKey;
@@ -60,7 +73,10 @@ const EDITION_COLUMNS: EditionColumn[] = [
   { key: "score", label: "Data Score" },
 ];
 
-const EDITION_SORT_ACCESSORS: Record<EditionSortKey, (e: Edition) => string | number> = {
+const EDITION_SORT_ACCESSORS: Record<
+  EditionSortKey,
+  (e: Edition) => string | number
+> = {
   title: (e) => e.title || "",
   publisher: (e) => e.publisher || "",
   information: (e) => e.editionInformation || "",
@@ -76,7 +92,10 @@ const EDITION_SORT_ACCESSORS: Record<EditionSortKey, (e: Edition) => string | nu
   score: (e) => e.score ?? -1,
 };
 
-function getEditionSortValue(edition: Edition, key: EditionSortKey): string | number {
+function getEditionSortValue(
+  edition: Edition,
+  key: EditionSortKey,
+): string | number {
   return EDITION_SORT_ACCESSORS[key](edition);
 }
 
@@ -121,7 +140,10 @@ export default function EditionsTab({
 
   const total = sortedEditions.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pagedEditions = sortedEditions.slice((page - 1) * pageSize, page * pageSize);
+  const pagedEditions = sortedEditions.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
 
   const SortIcon = ({ col }: { col: EditionSortKey }) => {
     if (sortBy !== col) {
@@ -202,8 +224,12 @@ export default function EditionsTab({
                     <TableCell>{edition.asin || "—"}</TableCell>
                     <TableCell>{edition.language || "—"}</TableCell>
                     <TableCell>{edition.country || "—"}</TableCell>
-                    <TableCell>{(edition.usersCount ?? 0).toLocaleString()}</TableCell>
-                    <TableCell>{(edition.score ?? 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {(edition.usersCount ?? 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      {(edition.score ?? 0).toLocaleString()}
+                    </TableCell>
                   </TableRow>
                 );
               })}

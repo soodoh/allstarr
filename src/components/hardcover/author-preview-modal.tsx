@@ -108,17 +108,10 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
       </div>
 
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={onCancel}
-        >
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
           Cancel
         </Button>
-        <Button
-          className="flex-1"
-          onClick={handleSubmit}
-        >
+        <Button className="flex-1" onClick={handleSubmit}>
           Confirm
         </Button>
       </div>
@@ -228,12 +221,13 @@ export default function AuthorPreviewModal({
                 </h2>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
                   {lifespan && <span>{lifespan}</span>}
-                  {displayBooksCount !== null && displayBooksCount !== undefined && (
-                    <span>
-                      {displayBooksCount}{" "}
-                      {displayBooksCount === 1 ? "book" : "books"}
-                    </span>
-                  )}
+                  {displayBooksCount !== null &&
+                    displayBooksCount !== undefined && (
+                      <span>
+                        {displayBooksCount}{" "}
+                        {displayBooksCount === 1 ? "book" : "books"}
+                      </span>
+                    )}
                 </div>
               </>
             )}

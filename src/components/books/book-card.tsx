@@ -21,7 +21,12 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
     <button
       type="button"
       className="block cursor-pointer w-full text-left group"
-      onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
+      onClick={() =>
+        navigate({
+          to: "/library/books/$bookId",
+          params: { bookId: String(book.id) },
+        })
+      }
     >
       <div className="flex flex-col gap-2">
         <BookCover
@@ -34,7 +39,10 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
             {book.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {[book.authorName || "Unknown author", ...(book.foreignAuthorIds ?? []).map((a) => a.name)].join(", ")}
+            {[
+              book.authorName || "Unknown author",
+              ...(book.foreignAuthorIds ?? []).map((a) => a.name),
+            ].join(", ")}
           </p>
           {book.releaseDate && (
             <p className="text-xs text-muted-foreground">{book.releaseDate}</p>

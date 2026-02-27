@@ -70,4 +70,3 @@ export const editions = sqliteTable("editions", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
-

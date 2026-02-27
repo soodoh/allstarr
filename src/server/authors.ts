@@ -278,7 +278,11 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     const booksWithEditions = authorBooks.map((b) =>
       Object.assign(b, {
         languageCodes: [
-          ...new Set((bookEditionsMap.get(b.id) ?? []).map((e) => e.languageCode).filter(Boolean)),
+          ...new Set(
+            (bookEditionsMap.get(b.id) ?? [])
+              .map((e) => e.languageCode)
+              .filter(Boolean),
+          ),
         ] as string[],
         editions: bookEditionsMap.get(b.id) ?? [],
       }),
@@ -297,7 +301,11 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     const resolvedAuthors: Record<string, { id: number; name: string }> = {};
     if (allForeignAuthorIds.size > 0) {
       const localAuthors = db
-        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .select({
+          id: authors.id,
+          name: authors.name,
+          foreignAuthorId: authors.foreignAuthorId,
+        })
         .from(authors)
         .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
         .all();

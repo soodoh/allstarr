@@ -6,10 +6,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import {
-  useQuery,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ChevronDown,
@@ -81,7 +78,11 @@ import {
   qualityProfilesListQuery,
   rootFoldersListQuery,
 } from "src/lib/queries";
-import { useUpdateAuthor, useDeleteAuthor, useRefreshAuthorMetadata } from "src/hooks/mutations";
+import {
+  useUpdateAuthor,
+  useDeleteAuthor,
+  useRefreshAuthorMetadata,
+} from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -180,7 +181,6 @@ function pickBestEdition(
   return editions.find((e) => e.languageCode === language) ?? editions[0];
 }
 
-
 // ---------- Books tab ----------
 
 // oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
@@ -204,7 +204,9 @@ function BooksTab({
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<BooksTabSortKey>("year");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -305,7 +307,10 @@ function BooksTab({
           {availableLanguages.length > 1 && (
             <Select
               value={language}
-              onValueChange={(v) => { setLanguage(v); setPage(1); }}
+              onValueChange={(v) => {
+                setLanguage(v);
+                setPage(1);
+              }}
             >
               <SelectTrigger className="h-9 w-[160px] text-sm">
                 <SelectValue placeholder="Language" />
@@ -333,7 +338,9 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={setPage}
-          onPageSizeChange={() => { /* noop */ }}
+          onPageSizeChange={() => {
+            /* noop */
+          }}
         />
       )}
 
@@ -395,25 +402,30 @@ function BooksTab({
           <TableBody>
             {searchQuery && processedBooks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={colCount}
+                  className="text-sm text-muted-foreground"
+                >
                   No books match &ldquo;{searchQuery}&rdquo;.
                 </TableCell>
               </TableRow>
             )}
             {!searchQuery && books.length === 0 && (
               <TableRow>
-                <TableCell colSpan={colCount} className="text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={colCount}
+                  className="text-sm text-muted-foreground"
+                >
                   No books found for this author.
                 </TableCell>
               </TableRow>
             )}
-            {(
+            {
               // oxlint-disable-next-line complexity -- Table row render with many conditional cells
               pagedBooks.map((book) => {
                 const edition = pickBestEdition(book.editions, language);
                 const coverUrl =
-                  edition?.images?.[0]?.url ??
-                  book.images?.[0]?.url;
+                  edition?.images?.[0]?.url ?? book.images?.[0]?.url;
                 const displayTitle = edition?.title ?? book.title;
                 const displayDate =
                   edition?.releaseDate ??
@@ -490,7 +502,14 @@ function BooksTab({
                     <TableCell className="text-muted-foreground">
                       <AdditionalAuthors
                         foreignAuthorIds={book.foreignAuthorIds}
-                        primaryAuthor={book.authorForeignId && book.authorName ? { foreignAuthorId: book.authorForeignId, name: book.authorName } : null}
+                        primaryAuthor={
+                          book.authorForeignId && book.authorName
+                            ? {
+                                foreignAuthorId: book.authorForeignId,
+                                name: book.authorName,
+                              }
+                            : null
+                        }
                         resolvedAuthors={resolvedAuthors}
                         currentAuthorId={currentAuthorId}
                       />
@@ -503,7 +522,7 @@ function BooksTab({
                   </TableRow>
                 );
               })
-            )}
+            }
           </TableBody>
         </Table>
       </div>
@@ -515,7 +534,9 @@ function BooksTab({
           totalItems={totalItems}
           totalPages={totalPages}
           onPageChange={setPage}
-          onPageSizeChange={() => { /* noop */ }}
+          onPageSizeChange={() => {
+            /* noop */
+          }}
         />
       )}
     </div>
@@ -554,16 +575,26 @@ function dedupeByPosition(entries: MergedSeriesEntry[]): MergedSeriesEntry[] {
       byPosition.set(entry.position, entry);
       continue;
     }
-    const existingUsers = existing.kind === "local" ? (existing.book.usersCount ?? 0) : (existing.usersCount ?? 0);
-    const entryUsers = entry.kind === "local" ? (entry.book.usersCount ?? 0) : (entry.usersCount ?? 0);
+    const existingUsers =
+      existing.kind === "local"
+        ? (existing.book.usersCount ?? 0)
+        : (existing.usersCount ?? 0);
+    const entryUsers =
+      entry.kind === "local"
+        ? (entry.book.usersCount ?? 0)
+        : (entry.usersCount ?? 0);
     if (entryUsers > existingUsers) {
       byPosition.set(entry.position, entry);
     }
   }
   const deduped = [...byPosition.values(), ...noPosition];
   deduped.sort((a, b) => {
-    const posA = a.position ? Number.parseFloat(a.position) : Number.POSITIVE_INFINITY;
-    const posB = b.position ? Number.parseFloat(b.position) : Number.POSITIVE_INFINITY;
+    const posA = a.position
+      ? Number.parseFloat(a.position)
+      : Number.POSITIVE_INFINITY;
+    const posB = b.position
+      ? Number.parseFloat(b.position)
+      : Number.POSITIVE_INFINITY;
     if (posA !== posB) {
       return posA - posB;
     }
@@ -595,7 +626,9 @@ function SeriesTab({
   const [language, setLanguage] = useState(
     availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
-  const [previewBook, setPreviewBook] = useState<HardcoverSearchItem | undefined>(undefined);
+  const [previewBook, setPreviewBook] = useState<
+    HardcoverSearchItem | undefined
+  >(undefined);
 
   const bookMap = useMemo(() => {
     const map = new Map<number, LocalBook>();
@@ -661,7 +694,11 @@ function SeriesTab({
       if (!book) {
         continue;
       }
-      if (language !== "all" && book.languageCodes.length > 0 && !book.languageCodes.includes(language)) {
+      if (
+        language !== "all" &&
+        book.languageCodes.length > 0 &&
+        !book.languageCodes.includes(language)
+      ) {
         continue;
       }
       entries.push({ kind: "local", book, position: sb.position });
@@ -752,7 +789,9 @@ function SeriesTab({
       {seriesWithCounts.map(({ series: s, entryCount }) => {
         const isExpanded = expandedId === s.id;
         const entries = isExpanded ? getSeriesEntries(s) : [];
-        const monitoredCount = s.books.filter((sb) => bookMap.get(sb.bookId)?.monitored).length;
+        const monitoredCount = s.books.filter(
+          (sb) => bookMap.get(sb.bookId)?.monitored,
+        ).length;
 
         return (
           <div key={s.id} className="border rounded-lg">
@@ -808,49 +847,96 @@ function SeriesTab({
                     {entries.map((entry) => {
                       if (entry.kind === "local") {
                         const { book, position } = entry;
-                        const edition = pickBestEdition(book.editions, language);
-                        const coverUrl = edition?.images?.[0]?.url ?? book.images?.[0]?.url;
+                        const edition = pickBestEdition(
+                          book.editions,
+                          language,
+                        );
+                        const coverUrl =
+                          edition?.images?.[0]?.url ?? book.images?.[0]?.url;
                         const displayTitle = edition?.title ?? book.title;
-                        const displayDate = edition?.releaseDate ?? book.releaseDate ?? (book.releaseYear ? String(book.releaseYear) : "—");
+                        const displayDate =
+                          edition?.releaseDate ??
+                          book.releaseDate ??
+                          (book.releaseYear ? String(book.releaseYear) : "—");
                         return (
                           <TableRow
                             key={`local-${book.id}`}
                             className="cursor-pointer"
-                            onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
+                            onClick={() =>
+                              navigate({
+                                to: "/library/books/$bookId",
+                                params: { bookId: String(book.id) },
+                              })
+                            }
                           >
                             <TableCell>
-                              <BookMonitorToggle bookId={book.id} title={book.title} monitored={book.monitored} />
+                              <BookMonitorToggle
+                                bookId={book.id}
+                                title={book.title}
+                                monitored={book.monitored}
+                              />
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{position ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">
+                              {position ?? "—"}
+                            </TableCell>
                             <TableCell>
                               {coverUrl ? (
-                                <img src={coverUrl} alt={displayTitle} className="aspect-[2/3] w-full rounded-sm object-cover" />
+                                <img
+                                  src={coverUrl}
+                                  alt={displayTitle}
+                                  className="aspect-[2/3] w-full rounded-sm object-cover"
+                                />
                               ) : (
                                 <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
                                   <ImageIcon className="h-4 w-4 text-muted-foreground" />
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell><span className="font-medium">{displayTitle}</span></TableCell>
+                            <TableCell>
+                              <span className="font-medium">
+                                {displayTitle}
+                              </span>
+                            </TableCell>
                             <TableCell>{displayDate}</TableCell>
                             <TableCell>
-                              {book.rating === null ? "—" : (
+                              {book.rating === null ? (
+                                "—"
+                              ) : (
                                 <span className="inline-flex items-center gap-1">
                                   <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                                   {book.rating.toFixed(1)}
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.format ?? "—"}</TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.pageCount ?? "—"}</TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.isbn10 ?? "—"}</TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.isbn13 ?? "—"}</TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.asin ?? "—"}</TableCell>
-                            <TableCell className="text-muted-foreground">{edition?.score ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.format ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.pageCount ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.isbn10 ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.isbn13 ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.asin ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {edition?.score ?? "—"}
+                            </TableCell>
                             <TableCell className="text-muted-foreground">
                               <AdditionalAuthors
                                 foreignAuthorIds={book.foreignAuthorIds}
-                        primaryAuthor={book.authorForeignId && book.authorName ? { foreignAuthorId: book.authorForeignId, name: book.authorName } : null}
+                                primaryAuthor={
+                                  book.authorForeignId && book.authorName
+                                    ? {
+                                        foreignAuthorId: book.authorForeignId,
+                                        name: book.authorName,
+                                      }
+                                    : null
+                                }
                                 resolvedAuthors={resolvedAuthors}
                                 currentAuthorId={currentAuthorId}
                               />
@@ -860,7 +946,9 @@ function SeriesTab({
                       }
 
                       // External book from Hardcover
-                      const displayDate = entry.releaseDate ?? (entry.releaseYear ? String(entry.releaseYear) : "—");
+                      const displayDate =
+                        entry.releaseDate ??
+                        (entry.releaseYear ? String(entry.releaseYear) : "—");
                       return (
                         <TableRow
                           key={`ext-${entry.foreignBookId}`}
@@ -872,38 +960,65 @@ function SeriesTab({
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={(e) => { e.stopPropagation(); openPreview(entry); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openPreview(entry);
+                              }}
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{entry.position ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {entry.position ?? "—"}
+                          </TableCell>
                           <TableCell>
                             {entry.coverUrl ? (
-                              <img src={entry.coverUrl} alt={entry.title} className="aspect-[2/3] w-full rounded-sm object-cover" />
+                              <img
+                                src={entry.coverUrl}
+                                alt={entry.title}
+                                className="aspect-[2/3] w-full rounded-sm object-cover"
+                              />
                             ) : (
                               <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
                                 <ImageIcon className="h-4 w-4 text-muted-foreground" />
                               </div>
                             )}
                           </TableCell>
-                          <TableCell><span className="font-medium">{entry.title}</span></TableCell>
+                          <TableCell>
+                            <span className="font-medium">{entry.title}</span>
+                          </TableCell>
                           <TableCell>{displayDate}</TableCell>
                           <TableCell>
-                            {entry.rating === null ? "—" : (
+                            {entry.rating === null ? (
+                              "—"
+                            ) : (
                               <span className="inline-flex items-center gap-1">
                                 <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                                 {entry.rating.toFixed(1)}
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">—</TableCell>
-                          <TableCell className="text-muted-foreground">{entry.authorName}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            —
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {entry.authorName}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -919,7 +1034,11 @@ function SeriesTab({
         <BookPreviewModal
           book={previewBook}
           open
-          onOpenChange={(v) => { if (!v) { setPreviewBook(undefined); } }}
+          onOpenChange={(v) => {
+            if (!v) {
+              setPreviewBook(undefined);
+            }
+          }}
         />
       )}
     </div>
@@ -937,7 +1056,9 @@ function AuthorDetailPage() {
   const authorIdNum = Number(authorId);
 
   const { data: author } = useSuspenseQuery(authorDetailQuery(authorIdNum));
-  const { data: qualityProfiles } = useSuspenseQuery(qualityProfilesListQuery());
+  const { data: qualityProfiles } = useSuspenseQuery(
+    qualityProfilesListQuery(),
+  );
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
@@ -948,10 +1069,26 @@ function AuthorDetailPage() {
   const deleteAuthor = useDeleteAuthor();
   const refreshMetadata = useRefreshAuthorMetadata();
 
-  const books = useMemo(() => (author?.books ?? []) as LocalBook[], [author?.books]);
-  const authorSeries = useMemo(() => (author?.series ?? []) as AuthorSeries[], [author?.series]);
-  const availableLanguages = useMemo(() => (author?.availableLanguages ?? []) as LanguageOption[], [author?.availableLanguages]);
-  const resolvedAuthors = useMemo(() => (author?.resolvedAuthors ?? {}) as Record<string, { id: number; name: string }>, [author?.resolvedAuthors]);
+  const books = useMemo(
+    () => (author?.books ?? []) as LocalBook[],
+    [author?.books],
+  );
+  const authorSeries = useMemo(
+    () => (author?.series ?? []) as AuthorSeries[],
+    [author?.series],
+  );
+  const availableLanguages = useMemo(
+    () => (author?.availableLanguages ?? []) as LanguageOption[],
+    [author?.availableLanguages],
+  );
+  const resolvedAuthors = useMemo(
+    () =>
+      (author?.resolvedAuthors ?? {}) as Record<
+        string,
+        { id: number; name: string }
+      >,
+    [author?.resolvedAuthors],
+  );
 
   if (!author) {
     return <NotFound />;
@@ -1030,10 +1167,7 @@ function AuthorDetailPage() {
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
@@ -1128,10 +1262,22 @@ function AuthorDetailPage() {
             </CardHeader>
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
-                <BooksTab books={books} currentAuthorId={authorIdNum} availableLanguages={availableLanguages} resolvedAuthors={resolvedAuthors} />
+                <BooksTab
+                  books={books}
+                  currentAuthorId={authorIdNum}
+                  availableLanguages={availableLanguages}
+                  resolvedAuthors={resolvedAuthors}
+                />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
-                <SeriesTab seriesList={authorSeries} books={books} currentAuthorId={authorIdNum} availableLanguages={availableLanguages} enabled={activeTab === "series"} resolvedAuthors={resolvedAuthors} />
+                <SeriesTab
+                  seriesList={authorSeries}
+                  books={books}
+                  currentAuthorId={authorIdNum}
+                  availableLanguages={availableLanguages}
+                  enabled={activeTab === "series"}
+                  resolvedAuthors={resolvedAuthors}
+                />
               </TabsContent>
             </CardContent>
           </Tabs>

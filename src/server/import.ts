@@ -31,7 +31,9 @@ function deriveSortName(name: string): string {
 function toImageArray(
   url: string | null,
 ): Array<{ url: string; coverType: string }> | null {
-  if (!url) {return null;}
+  if (!url) {
+    return null;
+  }
   return [{ url, coverType: "poster" }];
 }
 
@@ -137,10 +139,7 @@ async function importAuthorInternal(data: {
 
   // Fetch editions only for author's own books
   const authorBookIds = rawBooks.map((b) => b.id);
-  const editionsMap = await fetchBatchedEditions(
-    authorBookIds,
-    authorization,
-  );
+  const editionsMap = await fetchBatchedEditions(authorBookIds, authorization);
 
   // ── DB transaction ──
   return db.transaction((tx) => {
@@ -221,7 +220,9 @@ async function importAuthorInternal(data: {
       isCompleted: boolean | null,
     ): number {
       const cached = seriesCache.get(foreignId);
-      if (cached !== undefined) {return cached;}
+      if (cached !== undefined) {
+        return cached;
+      }
 
       const existing = tx
         .select({ id: series.id })
@@ -258,7 +259,9 @@ async function importAuthorInternal(data: {
         .from(books)
         .where(eq(books.foreignBookId, String(rawBook.id)))
         .get();
-      if (existingBook) {continue;}
+      if (existingBook) {
+        continue;
+      }
 
       const foreignAuthorIds = deriveForeignAuthorIds(
         rawBook.contributions,
@@ -755,13 +758,19 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
             .all();
 
           for (const ed of existingEditions) {
-            if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
+            if (
+              ed.foreignEditionId &&
+              !seenEditionIds.has(ed.foreignEditionId)
+            ) {
               tx.update(editions)
                 .set({ metadataSourceMissingSince: now })
                 .where(
                   and(
                     eq(editions.id, ed.id),
-                    eq(editions.metadataSourceMissingSince, null as unknown as Date),
+                    eq(
+                      editions.metadataSourceMissingSince,
+                      null as unknown as Date,
+                    ),
                   ),
                 )
                 .run();
@@ -944,9 +953,13 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
       : undefined;
 
     return db.transaction((tx) => {
-      const foreignAuthorIds = primaryForeignAuthorId === undefined
-        ? undefined
-        : deriveForeignAuthorIds(rawBook.contributions, primaryForeignAuthorId);
+      const foreignAuthorIds =
+        primaryForeignAuthorId === undefined
+          ? undefined
+          : deriveForeignAuthorIds(
+              rawBook.contributions,
+              primaryForeignAuthorId,
+            );
 
       // Update book
       tx.update(books)

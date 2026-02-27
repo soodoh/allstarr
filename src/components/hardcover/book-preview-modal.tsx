@@ -74,15 +74,13 @@ function AddBookForm({
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add Author & Monitor Book</p>
       <p className="text-xs text-muted-foreground">
-        The author and all their books will be added to your library. This book will be monitored.
+        The author and all their books will be added to your library. This book
+        will be monitored.
       </p>
 
       <div className="space-y-1.5">
         <Label>Quality Profile</Label>
-        <Select
-          value={qualityProfileId}
-          onValueChange={setQualityProfileId}
-        >
+        <Select value={qualityProfileId} onValueChange={setQualityProfileId}>
           <SelectTrigger>
             <SelectValue placeholder="None" />
           </SelectTrigger>
@@ -113,11 +111,7 @@ function AddBookForm({
       </div>
 
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={onCancel}
-        >
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
           Cancel
         </Button>
         <Button className="flex-1" onClick={handleSubmit}>
@@ -173,10 +167,16 @@ export default function BookPreviewModal({
   const { primaryAuthor, foreignAuthorIds } = useMemo(() => {
     const contributors = hcBook?.contributors ?? [];
     return {
-      primaryAuthor: contributors.length > 0 ? contributors[0].name : (book.subtitle ?? null),
-      foreignAuthorIds: contributors.length > 1
-        ? contributors.slice(1).map((c) => ({ foreignAuthorId: c.id, name: c.name }))
-        : null,
+      primaryAuthor:
+        contributors.length > 0
+          ? contributors[0].name
+          : (book.subtitle ?? null),
+      foreignAuthorIds:
+        contributors.length > 1
+          ? contributors
+              .slice(1)
+              .map((c) => ({ foreignAuthorId: c.id, name: c.name }))
+          : null,
     };
   }, [hcBook?.contributors, book.subtitle]);
 
@@ -193,10 +193,11 @@ export default function BookPreviewModal({
         hcBook?.releaseDate ??
         (book.releaseYear ? String(book.releaseYear) : null),
       availableLanguages: languages ?? null,
-      series: hcBook?.series.map((s) => ({
-        title: s.title,
-        position: s.position ?? null,
-      })) ?? null,
+      series:
+        hcBook?.series.map((s) => ({
+          title: s.title,
+          position: s.position ?? null,
+        })) ?? null,
       rating: hcBook?.rating ?? null,
       ratingVotes: hcBook?.ratingsCount ?? null,
       readers: hcBook?.usersCount ?? book.readers ?? null,
@@ -217,10 +218,7 @@ export default function BookPreviewModal({
           {/* ── Actions ── */}
           {!inLibrary && !addOpen && (
             <div className="flex items-center gap-2 pt-1">
-              <Button
-                className="flex-1"
-                onClick={() => setAddOpen(true)}
-              >
+              <Button className="flex-1" onClick={() => setAddOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Author & Monitor Book
               </Button>

@@ -56,9 +56,10 @@ export function useImportHardcoverBook() {
       return { toastId };
     },
     onSuccess: (result, _vars, context) => {
-      const msg = result.additionalAuthorsImported > 0
-        ? `Book added to library. ${result.additionalAuthorsImported} co-author(s) also imported.`
-        : "Book added to library.";
+      const msg =
+        result.additionalAuthorsImported > 0
+          ? `Book added to library. ${result.additionalAuthorsImported} co-author(s) also imported.`
+          : "Book added to library.";
       toast.success(msg, { id: context?.toastId });
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
@@ -80,11 +81,15 @@ export function useRefreshAuthorMetadata() {
       refreshAuthorMetadataFn({ data: { authorId } }),
     onSuccess: (result) => {
       const parts: string[] = [];
-      if (result.booksAdded > 0) {parts.push(`${result.booksAdded} new books`);}
-      if (result.booksUpdated > 0)
-        {parts.push(`${result.booksUpdated} books updated`);}
-      if (result.editionsAdded > 0)
-        {parts.push(`${result.editionsAdded} new editions`);}
+      if (result.booksAdded > 0) {
+        parts.push(`${result.booksAdded} new books`);
+      }
+      if (result.booksUpdated > 0) {
+        parts.push(`${result.booksUpdated} books updated`);
+      }
+      if (result.editionsAdded > 0) {
+        parts.push(`${result.editionsAdded} new editions`);
+      }
       toast.success(
         parts.length > 0
           ? `Metadata updated: ${parts.join(", ")}.`
@@ -96,9 +101,7 @@ export function useRefreshAuthorMetadata() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to refresh metadata.",
+        error instanceof Error ? error.message : "Failed to refresh metadata.",
       ),
   });
 }
@@ -106,14 +109,15 @@ export function useRefreshAuthorMetadata() {
 export function useRefreshBookMetadata() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (bookId: number) =>
-      refreshBookMetadataFn({ data: { bookId } }),
+    mutationFn: (bookId: number) => refreshBookMetadataFn({ data: { bookId } }),
     onSuccess: (result) => {
       const parts: string[] = [];
-      if (result.editionsAdded > 0)
-        {parts.push(`${result.editionsAdded} new editions`);}
-      if (result.editionsUpdated > 0)
-        {parts.push(`${result.editionsUpdated} editions updated`);}
+      if (result.editionsAdded > 0) {
+        parts.push(`${result.editionsAdded} new editions`);
+      }
+      if (result.editionsUpdated > 0) {
+        parts.push(`${result.editionsUpdated} editions updated`);
+      }
       toast.success(
         parts.length > 0
           ? `Metadata updated: ${parts.join(", ")}.`
@@ -124,9 +128,7 @@ export function useRefreshBookMetadata() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to refresh metadata.",
+        error instanceof Error ? error.message : "Failed to refresh metadata.",
       ),
   });
 }

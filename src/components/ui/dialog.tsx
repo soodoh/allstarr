@@ -135,9 +135,7 @@ function DialogTitle({
 function DialogDescription({
   className,
   ...props
-}: ComponentProps<
-  typeof DialogPrimitive.Description
->): JSX.Element {
+}: ComponentProps<typeof DialogPrimitive.Description>): JSX.Element {
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"

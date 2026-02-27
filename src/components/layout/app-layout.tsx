@@ -8,9 +8,7 @@ type AppLayoutProps = {
   children: ReactNode;
 };
 
-export default function AppLayout({
-  children,
-}: AppLayoutProps): JSX.Element {
+export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
   return (
     <TooltipProvider>
       <SidebarProvider>

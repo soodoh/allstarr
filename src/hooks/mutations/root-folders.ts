@@ -1,7 +1,10 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createRootFolderFn, deleteRootFolderFn } from "src/server/root-folders";
+import {
+  createRootFolderFn,
+  deleteRootFolderFn,
+} from "src/server/root-folders";
 import { queryKeys } from "src/lib/query-keys";
 
 export function useCreateRootFolder() {

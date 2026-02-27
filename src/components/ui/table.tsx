@@ -2,10 +2,7 @@ import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
-function Table({
-  className,
-  ...props
-}: ComponentProps<"table">): JSX.Element {
+function Table({ className, ...props }: ComponentProps<"table">): JSX.Element {
   return (
     <div
       data-slot="table-container"
@@ -62,10 +59,7 @@ function TableFooter({
   );
 }
 
-function TableRow({
-  className,
-  ...props
-}: ComponentProps<"tr">): JSX.Element {
+function TableRow({ className, ...props }: ComponentProps<"tr">): JSX.Element {
   return (
     <tr
       data-slot="table-row"
@@ -78,10 +72,7 @@ function TableRow({
   );
 }
 
-function TableHead({
-  className,
-  ...props
-}: ComponentProps<"th">): JSX.Element {
+function TableHead({ className, ...props }: ComponentProps<"th">): JSX.Element {
   return (
     <th
       data-slot="table-head"
@@ -94,10 +85,7 @@ function TableHead({
   );
 }
 
-function TableCell({
-  className,
-  ...props
-}: ComponentProps<"td">): JSX.Element {
+function TableCell({ className, ...props }: ComponentProps<"td">): JSX.Element {
   return (
     <td
       data-slot="table-cell"
