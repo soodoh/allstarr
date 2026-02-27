@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge } from "src/components/ui/badge";
@@ -53,7 +52,6 @@ const eventTypeVariants: Record<
 };
 
 function HistoryPage() {
-  const { openBookModal } = useBookDetailModal();
   const [eventType, setEventType] = useState<string>("all");
   const [page, setPage] = useState(1);
 
@@ -140,13 +138,13 @@ function HistoryPage() {
                   </TableCell>
                   <TableCell>
                     {item.bookId ? (
-                      <button
-                        type="button"
-                        onClick={() => openBookModal(item.bookId!)}
-                        className="hover:underline text-left"
+                      <Link
+                        to="/library/books/$bookId"
+                        params={{ bookId: String(item.bookId) }}
+                        className="hover:underline"
                       >
                         {item.bookTitle || `Book #${item.bookId}`}
-                      </button>
+                      </Link>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}

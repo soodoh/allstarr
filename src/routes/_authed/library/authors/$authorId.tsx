@@ -74,7 +74,6 @@ import type {
   HardcoverAuthorSeries,
   HardcoverSeriesBook,
 } from "src/server/search";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import AddAuthorDialog from "src/components/hardcover/add-author-dialog";
 import {
   BookMonitorToggle,
@@ -193,7 +192,7 @@ function BooksTab({
   type BooksTabSortKey = "title" | "author" | "year" | "series" | "language" | "readers" | "rating";
   const apiSortKeys = new Set<BooksTabSortKey>(["title", "year", "rating"]);
 
-  const { openBookModal } = useBookDetailModal();
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchPage, setSearchPage] = useState(1);
@@ -404,7 +403,7 @@ function BooksTab({
             <TableRow
               key={`${group.key}-${book.id}`}
               className={localBookId === undefined ? undefined : "cursor-pointer"}
-              onClick={localBookId === undefined ? undefined : () => openBookModal(localBookId)}
+              onClick={localBookId === undefined ? undefined : () => navigate({ to: "/library/books/$bookId", params: { bookId: String(localBookId) } })}
             >
               <TableCell>
                 <BookMonitorToggle
@@ -829,7 +828,7 @@ function SeriesCardContent({
   onBookAdded: (foreignBookId: string, localBookId: number) => void;
   onAuthorCreated: (id: number) => void;
 }) {
-  const { openBookModal } = useBookDetailModal();
+  const navigate = useNavigate();
 
   if (loadingBooks) {
     return (
@@ -907,7 +906,7 @@ function SeriesCardContent({
             <TableRow
               key={book.id}
               className={localBookId === undefined ? undefined : "cursor-pointer"}
-              onClick={localBookId === undefined ? undefined : () => openBookModal(localBookId)}
+              onClick={localBookId === undefined ? undefined : () => navigate({ to: "/library/books/$bookId", params: { bookId: String(localBookId) } })}
             >
               <TableCell>
                 <SeriesBookMonitorToggle

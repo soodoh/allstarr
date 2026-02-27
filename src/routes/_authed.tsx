@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { getAuthSessionFn } from "src/server/middleware";
 import AppLayout from "src/components/layout/app-layout";
-import BookDetailModalProvider from "src/components/books/book-detail-modal-provider";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed")({
@@ -22,9 +21,7 @@ export const Route = createFileRoute("/_authed")({
 function AuthedLayout() {
   return (
     <AppLayout>
-      <BookDetailModalProvider>
-        <Outlet />
-      </BookDetailModalProvider>
+      <Outlet />
     </AppLayout>
   );
 }
