@@ -35,6 +35,7 @@ export async function testConnection(
     return {
       success: false,
       message: `Prowlarr returned HTTP ${healthRes.status}: ${healthRes.statusText}`,
+      version: null,
     };
   }
 
@@ -49,6 +50,7 @@ export async function testConnection(
     return {
       success: true,
       message: "Connected to Prowlarr (version unavailable)",
+      version: null,
     };
   }
 
@@ -56,7 +58,7 @@ export async function testConnection(
   return {
     success: true,
     message: "Connected to Prowlarr successfully",
-    version: status.version,
+    version: status.version ?? null,
   };
 }
 
@@ -89,7 +91,7 @@ export async function searchProwlarr(
   query: string,
   categories: number[] = [7020],
 ): Promise<
-  Array<Omit<ProwlarrSearchResult, "downloadUrl"> & { downloadUrl: string }>
+  Array<Omit<ProwlarrSearchResult, "downloadUrl" | "magnetUrl"> & { downloadUrl: string }>
 > {
   const base = buildBaseUrl(
     config.host,
@@ -128,7 +130,7 @@ export async function searchProwlarr(
       // Skip results with no usable download URL
       return [];
     }
-    const { magnetUrl: _mag, ...rest } = r;
+    const { magnetUrl: _mag, downloadUrl: _dl, ...rest } = r;
     return [{ ...rest, downloadUrl: url }];
   });
 }

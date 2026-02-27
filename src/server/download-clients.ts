@@ -41,7 +41,7 @@ export const createDownloadClientFn = createServerFn({ method: "POST" })
       .insert(downloadClients)
       .values({
         ...data,
-        settings: data.settings as Record<string, unknown> | undefined,
+        settings: data.settings as Record<string, unknown> | null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -58,7 +58,7 @@ export const updateDownloadClientFn = createServerFn({ method: "POST" })
       .update(downloadClients)
       .set({
         ...values,
-        settings: values.settings as Record<string, unknown> | undefined,
+        settings: values.settings as Record<string, unknown> | null,
         updatedAt: Date.now(),
       })
       .where(eq(downloadClients.id, id))
@@ -88,6 +88,8 @@ export const testDownloadClientFn = createServerFn({ method: "POST" })
       username: data.username,
       password: data.password,
       apiKey: data.apiKey,
+      category: null,
+      settings: null,
     };
     return provider.testConnection(config);
   });

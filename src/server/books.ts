@@ -151,7 +151,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     const seriesByBook = new Map<
       number,
-      Array<{ title: string; position: string | undefined }>
+      Array<{ title: string; position: string | null }>
     >();
     for (const link of seriesLinks) {
       const arr = seriesByBook.get(link.bookId) ?? [];

@@ -114,35 +114,35 @@ export const Route = createFileRoute("/_authed/library/authors/$authorId")({
 type EditionInfo = {
   bookId: number;
   title: string;
-  releaseDate: string | undefined;
-  format: string | undefined;
-  pageCount: number | undefined;
-  isbn10: string | undefined;
-  isbn13: string | undefined;
-  asin: string | undefined;
-  publisher: string | undefined;
-  country: string | undefined;
-  usersCount: number | undefined;
-  score: number | undefined;
-  languageCode: string | undefined;
-  images: Array<{ url: string; coverType: string }> | undefined;
+  releaseDate: string | null;
+  format: string | null;
+  pageCount: number | null;
+  isbn10: string | null;
+  isbn13: string | null;
+  asin: string | null;
+  publisher: string | null;
+  country: string | null;
+  usersCount: number | null;
+  score: number | null;
+  languageCode: string | null;
+  images: Array<{ url: string; coverType: string }> | null;
 };
 
 type LocalBook = {
   id: number;
   title: string;
-  slug: string | undefined;
-  description: string | undefined;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
+  slug: string | null;
+  description: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
   monitored: boolean;
-  foreignBookId: string | undefined;
-  images: Array<{ url: string; coverType: string }> | undefined;
-  rating: number | undefined;
-  ratingsCount: number | undefined;
-  usersCount: number | undefined;
-  tags: number[] | undefined;
-  additionalAuthors: string[] | undefined;
+  foreignBookId: string | null;
+  images: Array<{ url: string; coverType: string }> | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  usersCount: number | null;
+  tags: number[] | null;
+  additionalAuthors: string[] | null;
   languageCodes: string[];
   editions: EditionInfo[];
 };
@@ -155,10 +155,10 @@ type LanguageOption = {
 type AuthorSeries = {
   id: number;
   title: string;
-  slug: string | undefined;
-  foreignSeriesId: string | undefined;
-  isCompleted: boolean | undefined;
-  books: Array<{ bookId: number; position: string | undefined }>;
+  slug: string | null;
+  foreignSeriesId: string | null;
+  isCompleted: boolean | null;
+  books: Array<{ bookId: number; position: string | null }>;
 };
 
 type BooksTabSortKey = "title" | "year" | "readers" | "rating";
@@ -448,12 +448,12 @@ function BooksTab({
                     </TableCell>
                     <TableCell>{displayDate}</TableCell>
                     <TableCell>
-                      {book.usersCount === undefined
+                      {book.usersCount === null
                         ? "—"
                         : book.usersCount.toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      {book.rating === undefined ? (
+                      {book.rating === null ? (
                         "—"
                       ) : (
                         <span className="inline-flex items-center gap-1">
@@ -513,19 +513,19 @@ function BooksTab({
 // ---------- Series tab ----------
 
 type MergedSeriesEntry =
-  | { kind: "local"; book: LocalBook; position: string | undefined }
+  | { kind: "local"; book: LocalBook; position: string | null }
   | {
       kind: "external";
       foreignBookId: number;
       title: string;
-      slug: string;
-      position: string | undefined;
-      releaseDate: string | undefined;
-      releaseYear: number | undefined;
-      rating: number | undefined;
-      usersCount: number | undefined;
-      coverUrl: string | undefined;
-      authorName: string;
+      slug: string | null;
+      position: string | null;
+      releaseDate: string | null;
+      releaseYear: number | null;
+      rating: number | null;
+      usersCount: number | null;
+      coverUrl: string | null;
+      authorName: string | null;
     };
 
 // oxlint-disable-next-line complexity -- Series tab merges local/external data with expand/collapse UI
@@ -570,8 +570,8 @@ function SeriesTab({
   const foreignSeriesIds = useMemo(
     () =>
       seriesList
-        .map((s) => (s.foreignSeriesId ? Number(s.foreignSeriesId) : undefined))
-        .filter((id): id is number => id !== undefined && Number.isFinite(id)),
+        .map((s) => (s.foreignSeriesId ? Number(s.foreignSeriesId) : null))
+        .filter((id): id is number => id !== null && Number.isFinite(id)),
     [seriesList],
   );
 
@@ -586,14 +586,14 @@ function SeriesTab({
       Array<{
         foreignBookId: number;
         title: string;
-        slug: string;
-        position: string;
-        releaseDate: string | undefined;
-        releaseYear: number | undefined;
-        rating: number | undefined;
-        usersCount: number | undefined;
-        coverUrl: string | undefined;
-        authorName: string;
+        slug: string | null;
+        position: string | null;
+        releaseDate: string | null;
+        releaseYear: number | null;
+        rating: number | null;
+        usersCount: number | null;
+        coverUrl: string | null;
+        authorName: string | null;
       }>
     >();
     if (!hardcoverSeries) {
@@ -619,8 +619,8 @@ function SeriesTab({
       entries.push({ kind: "local", book, position: sb.position });
     }
 
-    const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : undefined;
-    if (foreignId !== undefined) {
+    const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : null;
+    if (foreignId !== null) {
       const hcBooks = hardcoverSeriesMap.get(foreignId) ?? [];
       for (const hcBook of hcBooks) {
         if (!localForeignBookIds.has(hcBook.foreignBookId)) {
@@ -647,16 +647,16 @@ function SeriesTab({
     setPreviewBook({
       id: String(entry.foreignBookId),
       type: "book",
-      slug: entry.slug || undefined,
+      slug: entry.slug || null,
       title: entry.title,
       subtitle: entry.authorName,
-      description: undefined,
-      releaseYear: entry.releaseYear ?? undefined,
-      readers: entry.usersCount ?? undefined,
-      coverUrl: entry.coverUrl ?? undefined,
+      description: null,
+      releaseYear: entry.releaseYear ?? null,
+      readers: entry.usersCount ?? null,
+      coverUrl: entry.coverUrl ?? null,
       hardcoverUrl: entry.slug
         ? `https://hardcover.app/books/${entry.slug}`
-        : undefined,
+        : null,
     });
   };
 
@@ -779,7 +779,7 @@ function SeriesTab({
                             <TableCell><span className="font-medium">{displayTitle}</span></TableCell>
                             <TableCell>{displayDate}</TableCell>
                             <TableCell>
-                              {book.rating === undefined ? "—" : (
+                              {book.rating === null ? "—" : (
                                 <span className="inline-flex items-center gap-1">
                                   <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                                   {book.rating.toFixed(1)}
@@ -830,7 +830,7 @@ function SeriesTab({
                           <TableCell><span className="font-medium">{entry.title}</span></TableCell>
                           <TableCell>{displayDate}</TableCell>
                           <TableCell>
-                            {entry.rating === undefined ? "—" : (
+                            {entry.rating === null ? "—" : (
                               <span className="inline-flex items-center gap-1">
                                 <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                                 {entry.rating.toFixed(1)}
@@ -900,7 +900,7 @@ function AuthorDetailPage() {
   const hardcoverSlug = author.slug || author.foreignAuthorId;
   const hardcoverUrl = hardcoverSlug
     ? `https://hardcover.app/authors/${hardcoverSlug}`
-    : undefined;
+    : null;
 
   const lifespan =
     author.bornYear || author.deathYear
@@ -911,8 +911,8 @@ function AuthorDetailPage() {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId?: number;
-    rootFolderPath?: string;
+    qualityProfileId: number | null;
+    rootFolderPath: string | null;
   }) => {
     updateAuthor.mutate(
       { ...values, id: author.id },
@@ -950,7 +950,7 @@ function AuthorDetailPage() {
 
       <PageHeader
         title={author.name}
-        description={lifespan || undefined}
+        description={lifespan || null}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -993,7 +993,7 @@ function AuthorDetailPage() {
           <div className="w-full xl:w-auto xl:shrink-0">
             <AuthorPhoto
               name={author.name}
-              imageUrl={author.images?.[0]?.url}
+              imageUrl={author.images?.[0]?.url ?? null}
               className="xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
             />
           </div>
@@ -1091,8 +1091,8 @@ function AuthorDetailPage() {
               name: author.name,
               sortName: author.sortName,
               status: author.status,
-              qualityProfileId: author.qualityProfileId || undefined,
-              rootFolderPath: author.rootFolderPath || undefined,
+              qualityProfileId: author.qualityProfileId || null,
+              rootFolderPath: author.rootFolderPath || null,
             }}
             qualityProfiles={qualityProfiles}
             rootFolders={rootFolders}

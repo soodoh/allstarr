@@ -11,7 +11,7 @@ import type { IndexerRelease } from "src/server/indexers/types";
 type BookData = {
   id: number;
   title: string;
-  authorName: string | undefined;
+  authorName: string | null;
 };
 
 export default function SearchReleasesTab({
@@ -42,7 +42,7 @@ export default function SearchReleasesTab({
   useEffect(() => {
     if (!hasSearched.current && hasIndexers === true) {
       hasSearched.current = true;
-      searchIndexers.mutate({ query: defaultQuery, bookId: book.id });
+      searchIndexers.mutate({ query: defaultQuery, bookId: book.id, categories: null });
     }
   }, [hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -55,7 +55,7 @@ export default function SearchReleasesTab({
   }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (query: string) => {
-    searchIndexers.mutate({ query, bookId: book.id });
+    searchIndexers.mutate({ query, bookId: book.id, categories: null });
   };
 
   const handleGrab = (release: IndexerRelease) => {
@@ -68,6 +68,7 @@ export default function SearchReleasesTab({
         protocol: release.protocol,
         size: release.size,
         bookId: book.id,
+        downloadClientId: null,
       },
       {
         onSuccess: (result) =>

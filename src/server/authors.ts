@@ -148,10 +148,10 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       {
         id: number;
         title: string;
-        slug: string | undefined;
-        foreignSeriesId: string | undefined;
-        isCompleted: boolean | undefined;
-        books: Array<{ bookId: number; position: string | undefined }>;
+        slug: string | null;
+        foreignSeriesId: string | null;
+        isCompleted: boolean | null;
+        books: Array<{ bookId: number; position: string | null }>;
       }
     >();
     for (const link of seriesLinks) {

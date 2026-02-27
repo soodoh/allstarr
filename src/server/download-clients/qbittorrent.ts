@@ -84,6 +84,7 @@ const qbittorrentProvider: DownloadClientProvider = {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },

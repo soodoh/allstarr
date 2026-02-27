@@ -46,10 +46,7 @@ function ProfilesPage() {
 
   const loading = createProfile.isPending || updateProfile.isPending;
 
-  const mappedProfiles = useMemo(
-    () => profiles.map((p) => ({ ...p, items: p.items ?? undefined })),
-    [profiles],
-  );
+  const mappedProfiles = useMemo(() => profiles, [profiles]);
 
   const handleCreate = (values: {
     name: string;

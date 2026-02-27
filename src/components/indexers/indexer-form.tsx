@@ -22,7 +22,7 @@ export type IndexerFormValues = {
 type TestResult = {
   success: boolean;
   message: string;
-  version?: string;
+  version: string | null;
 };
 
 type IndexerFormProps = {
@@ -86,7 +86,7 @@ export default function IndexerForm({
           host,
           port,
           useSsl,
-          urlBase: urlBase || undefined,
+          urlBase: urlBase || null,
           apiKey,
         },
       }),
@@ -211,6 +211,7 @@ export default function IndexerForm({
                 testMutation.error instanceof Error
                   ? testMutation.error.message
                   : "Unknown error occurred",
+              version: null,
             }}
           />
         )}

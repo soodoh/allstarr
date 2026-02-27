@@ -57,7 +57,7 @@ export const editions = sqliteTable("editions", {
     Array<{ url: string; coverType: string }>
   >(),
   contributors: text("contributors", { mode: "json" }).$type<
-    Array<{ authorId: string; name: string; contribution: string | undefined }>
+    Array<{ authorId: string; name: string; contribution: string | null }>
   >(),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),

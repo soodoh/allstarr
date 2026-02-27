@@ -14,13 +14,13 @@ import {
 type Book = {
   id: number;
   title: string;
-  authorName: string | undefined;
-  releaseDate: string | undefined;
-  rating?: number | undefined;
-  ratingsCount?: number | undefined;
-  usersCount?: number | undefined;
-  series: Array<{ title: string; position: string | undefined }>;
-  images?: Array<{ url: string; coverType: string }>;
+  authorName: string | null;
+  releaseDate: string | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  usersCount: number | null;
+  series: Array<{ title: string; position: string | null }>;
+  images: Array<{ url: string; coverType: string }> | null;
 };
 
 type BookTableProps = {
@@ -177,7 +177,7 @@ export default function BookTable({
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                     {book.rating.toFixed(1)}
-                    {book.ratingsCount !== undefined && book.ratingsCount !== null && book.ratingsCount > 0 && (
+                    {book.ratingsCount !== null && book.ratingsCount > 0 && (
                       <span className="text-muted-foreground">
                         ({book.ratingsCount.toLocaleString()})
                       </span>

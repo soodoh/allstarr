@@ -64,8 +64,8 @@ function AddBookForm({
       foreignBookId: Number(book.id),
       qualityProfileId: qualityProfileId
         ? Number.parseInt(qualityProfileId, 10)
-        : undefined,
-      rootFolderPath: rootFolderPath || undefined,
+        : null,
+      rootFolderPath: rootFolderPath || null,
     });
     onSuccess();
   };
@@ -173,21 +173,23 @@ export default function BookPreviewModal({
   const bookDetailData = useMemo(
     () => ({
       title: book.title,
-      coverUrl: hcBook?.coverUrl ?? book.coverUrl,
-      authorName: book.subtitle,
+      coverUrl: hcBook?.coverUrl ?? book.coverUrl ?? null,
+      images: null as Array<{ url: string; coverType: string }> | null,
+      author: null as { id: number; name: string } | null,
+      authorName: book.subtitle ?? null,
       releaseDate:
         hcBook?.releaseDate ??
-        (book.releaseYear ? String(book.releaseYear) : undefined),
-      availableLanguages: languages,
+        (book.releaseYear ? String(book.releaseYear) : null),
+      availableLanguages: languages ?? null,
       series: hcBook?.series.map((s) => ({
         title: s.title,
-        position: s.position,
-      })),
-      rating: hcBook?.rating,
-      ratingVotes: hcBook?.ratingsCount,
-      readers: hcBook?.usersCount ?? book.readers,
-      overview: hcBook?.description ?? book.description,
-      hardcoverUrl: book.hardcoverUrl,
+        position: s.position ?? null,
+      })) ?? null,
+      rating: hcBook?.rating ?? null,
+      ratingVotes: hcBook?.ratingsCount ?? null,
+      readers: hcBook?.usersCount ?? book.readers ?? null,
+      overview: hcBook?.description ?? book.description ?? null,
+      hardcoverUrl: book.hardcoverUrl ?? null,
     }),
     [book, hcBook, languages],
   );

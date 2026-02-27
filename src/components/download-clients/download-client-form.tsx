@@ -123,7 +123,7 @@ export type DownloadClientFormValues = {
 type TestResult = {
   success: boolean;
   message: string;
-  version?: string;
+  version: string | null;
 };
 
 type DownloadClientFormProps = {
@@ -349,10 +349,10 @@ export default function DownloadClientForm({
           host: hideHostPort ? "localhost" : host,
           port: hideHostPort ? 1 : port,
           useSsl,
-          urlBase: urlBase || undefined,
-          username: username || undefined,
-          password: password || undefined,
-          apiKey: apiKey || undefined,
+          urlBase: urlBase || null,
+          username: username || null,
+          password: password || null,
+          apiKey: apiKey || null,
           ...(impl === "Blackhole" ? { settings: { watchFolder } } : {}),
         },
       }),
@@ -476,6 +476,7 @@ export default function DownloadClientForm({
                 testMutation.error instanceof Error
                   ? testMutation.error.message
                   : "Unknown error occurred",
+              version: null,
             }}
           />
         )}

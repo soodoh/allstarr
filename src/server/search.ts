@@ -10,19 +10,19 @@ type HardcoverQueryType = "Book" | "Author";
 export type HardcoverEdition = {
   id: string;
   title: string;
-  author: string | undefined;
-  publisher: string | undefined;
-  type: string | undefined;
-  pages: number | undefined;
-  releaseDate: string | undefined;
-  isbn10: string | undefined;
-  isbn13: string | undefined;
-  asin: string | undefined;
-  language: string | undefined;
-  country: string | undefined;
+  author: string | null;
+  publisher: string | null;
+  type: string | null;
+  pages: number | null;
+  releaseDate: string | null;
+  isbn10: string | null;
+  isbn13: string | null;
+  asin: string | null;
+  language: string | null;
+  country: string | null;
   readers: number;
   score: number;
-  coverUrl: string | undefined;
+  coverUrl: string | null;
 };
 
 export type HardcoverBookEditionsResult = {
@@ -50,56 +50,56 @@ export type EditionSortKey =
 export type HardcoverSearchItem = {
   id: string;
   type: "book" | "author";
-  slug: string | undefined;
+  slug: string | null;
   title: string;
-  subtitle: string | undefined;
-  description: string | undefined;
-  releaseYear: number | undefined;
-  readers: number | undefined;
-  coverUrl: string | undefined;
-  hardcoverUrl: string | undefined;
+  subtitle: string | null;
+  description: string | null;
+  releaseYear: number | null;
+  readers: number | null;
+  coverUrl: string | null;
+  hardcoverUrl: string | null;
 };
 
 export type HardcoverAuthorBookSeries = {
   id: string;
   title: string;
-  position: string | undefined;
+  position: string | null;
 };
 
 export type HardcoverAuthorBook = {
   id: string;
   title: string;
-  slug: string | undefined;
-  description: string | undefined;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
-  rating: number | undefined;
-  ratingsCount: number | undefined;
-  usersCount: number | undefined;
-  coverUrl: string | undefined;
-  contribution: string | undefined;
-  contributors: string | undefined;
-  languageCode: string | undefined;
-  languageName: string | undefined;
-  hardcoverUrl: string | undefined;
+  slug: string | null;
+  description: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  usersCount: number | null;
+  coverUrl: string | null;
+  contribution: string | null;
+  contributors: string | null;
+  languageCode: string | null;
+  languageName: string | null;
+  hardcoverUrl: string | null;
   series: HardcoverAuthorBookSeries[];
 };
 
 export type HardcoverSeriesBook = {
   id: string;
   title: string;
-  slug: string | undefined;
-  description: string | undefined;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
-  rating: number | undefined;
-  usersCount: number | undefined;
-  coverUrl: string | undefined;
-  position: number | undefined;
-  hardcoverUrl: string | undefined;
+  slug: string | null;
+  description: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  usersCount: number | null;
+  coverUrl: string | null;
+  position: number | null;
+  hardcoverUrl: string | null;
   isCompilation: boolean;
-  authorName: string | undefined;
-  languageName: string | undefined;
+  authorName: string | null;
+  languageName: string | null;
 };
 
 export type HardcoverSeriesBooksResult = {
@@ -113,7 +113,7 @@ export type HardcoverAuthorSeries = {
   name: string;
   slug: string;
   booksCount: number;
-  isCompleted: boolean | undefined;
+  isCompleted: boolean | null;
 };
 
 export type HardcoverLanguageOption = {
@@ -125,12 +125,12 @@ export type HardcoverAuthorDetail = {
   id: string;
   slug: string;
   name: string;
-  bio: string | undefined;
-  booksCount: number | undefined;
-  bornYear: number | undefined;
-  deathYear: number | undefined;
-  imageUrl: string | undefined;
-  hardcoverUrl: string | undefined;
+  bio: string | null;
+  booksCount: number | null;
+  bornYear: number | null;
+  deathYear: number | null;
+  imageUrl: string | null;
+  hardcoverUrl: string | null;
   selectedLanguage: string;
   page: number;
   pageSize: number;
@@ -550,7 +550,7 @@ function deduplicateSeriesBooks(
 ): HardcoverSeriesBook[] {
   const seen = new Set<number>();
   return books.filter((b) => {
-    if (b.position === undefined) {
+    if (b.position === null) {
       return false;
     }
     if (seen.has(b.position)) {
@@ -646,27 +646,27 @@ async function fetchSeriesBooks(
                 : undefined;
             })
             .filter((n): n is string => n !== undefined)
-            .join(", ") || undefined;
+            .join(", ") || null;
         const editions = toRecordArray(bookRecord.editions);
         const languageRecord =
           editions.length > 0 ? toRecord(editions[0].language) : undefined;
         const languageName = languageRecord
-          ? firstString(languageRecord, [["language"]])
-          : undefined;
+          ? firstString(languageRecord, [["language"]]) ?? null
+          : null;
         return {
           id,
           title,
-          slug,
-          description: firstString(bookRecord, [["description"]]),
-          releaseDate: firstString(bookRecord, [["release_date"]]),
-          releaseYear: firstNumber(bookRecord, [["release_year"]]),
-          rating: firstNumber(bookRecord, [["rating"]]),
-          usersCount: firstNumber(bookRecord, [["users_count"]]),
-          coverUrl: getCoverUrl(bookRecord),
-          position,
+          slug: slug ?? null,
+          description: firstString(bookRecord, [["description"]]) ?? null,
+          releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+          releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+          rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+          usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+          coverUrl: getCoverUrl(bookRecord) ?? null,
+          position: position ?? null,
           hardcoverUrl: slug
             ? `https://hardcover.app/books/${slug}`
-            : undefined,
+            : null,
           isCompilation,
           authorName,
           languageName,
@@ -919,8 +919,8 @@ function toHardcoverAuthorBook(
   const contributions = toRecordArray(bookRecord.contributions);
   const contribution =
     contributions.length > 0
-      ? firstString(contributions[0], [["contribution"]])
-      : undefined;
+      ? firstString(contributions[0], [["contribution"]]) ?? null
+      : null;
   const allContributions = toRecordArray(bookRecord.all_contributions);
   const contributors =
     allContributions
@@ -931,16 +931,16 @@ function toHardcoverAuthorBook(
           : undefined;
       })
       .filter((n): n is string => n !== undefined)
-      .join(", ") || undefined;
+      .join(", ") || null;
   const editions = toRecordArray(bookRecord.editions);
   const languageRecord =
     editions.length > 0 ? toRecord(editions[0].language) : undefined;
   const languageCode = languageRecord
-    ? normalizeLanguageCode(firstString(languageRecord, [["code2"], ["code3"]]))
-    : undefined;
+    ? normalizeLanguageCode(firstString(languageRecord, [["code2"], ["code3"]])) ?? null
+    : null;
   const languageName = languageRecord
-    ? firstString(languageRecord, [["language"]])
-    : undefined;
+    ? firstString(languageRecord, [["language"]]) ?? null
+    : null;
 
   const bookSeriesEntries = toRecordArray(bookRecord.book_series);
   const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
@@ -957,7 +957,7 @@ function toHardcoverAuthorBook(
       return {
         id: seriesId,
         title: seriesTitle,
-        position: firstNumber(entry, [["position"]])?.toString() ?? firstString(entry, [["position"]]),
+        position: firstNumber(entry, [["position"]])?.toString() ?? firstString(entry, [["position"]]) ?? null,
       };
     })
     .filter(Boolean) as HardcoverAuthorBookSeries[];
@@ -965,12 +965,12 @@ function toHardcoverAuthorBook(
   return {
     id,
     title,
-    slug,
-    description: firstString(bookRecord, [["description"]]),
+    slug: slug ?? null,
+    description: firstString(bookRecord, [["description"]]) ?? null,
     releaseDate: firstString(bookRecord, [
       ["release_date"],
       ["published_date"],
-    ]),
+    ]) ?? null,
     releaseYear:
       firstNumber(bookRecord, [
         ["release_year"],
@@ -979,16 +979,16 @@ function toHardcoverAuthorBook(
       ]) ??
       parseYear(
         firstString(bookRecord, [["release_date"], ["published_date"]]),
-      ),
-    rating: firstNumber(bookRecord, [["rating"]]),
-    ratingsCount: firstNumber(bookRecord, [["ratings_count"]]),
-    usersCount: firstNumber(bookRecord, [["users_count"]]),
-    coverUrl: getCoverUrl(bookRecord),
+      ) ?? null,
+    rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+    ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
+    usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+    coverUrl: getCoverUrl(bookRecord) ?? null,
     contribution,
     contributors,
     languageCode,
     languageName,
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
+    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
     series,
   };
 }
@@ -1026,14 +1026,14 @@ function toBookResult(
   return {
     id,
     type: "book",
-    slug,
+    slug: slug ?? null,
     title,
     subtitle,
-    description,
-    releaseYear,
-    readers: firstNumber(document, [["users_count"]]),
-    coverUrl: getCoverUrl(document),
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : undefined,
+    description: description ?? null,
+    releaseYear: releaseYear ?? null,
+    readers: firstNumber(document, [["users_count"]]) ?? null,
+    coverUrl: getCoverUrl(document) ?? null,
+    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
   };
 }
 
@@ -1047,7 +1047,7 @@ function toAuthorResult(
 
   const booksCount = firstNumber(document, [["books_count"], ["book_count"]]);
   const personalName = firstString(document, [["name_personal"]]);
-  let subtitle: string | undefined;
+  let subtitle: string | null = null;
   if (booksCount !== undefined) {
     subtitle = `${booksCount} ${booksCount === 1 ? "book" : "books"}`;
   } else if (personalName && personalName !== name) {
@@ -1069,14 +1069,14 @@ function toAuthorResult(
   return {
     id,
     type: "author",
-    slug,
+    slug: slug ?? null,
     title: name,
     subtitle,
-    description,
-    releaseYear: undefined,
-    readers: firstNumber(document, [["users_count"]]),
-    coverUrl: getCoverUrl(document),
-    hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : undefined,
+    description: description ?? null,
+    releaseYear: null,
+    readers: firstNumber(document, [["users_count"]]) ?? null,
+    coverUrl: getCoverUrl(document) ?? null,
+    hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
   };
 }
 
@@ -1549,14 +1549,14 @@ async function fetchAuthorDetails(
         authorSlug,
       slug: authorSlug,
       name: authorName,
-      bio: firstString(author, [["bio"], ["overview"]]),
+      bio: firstString(author, [["bio"], ["overview"]]) ?? null,
       booksCount: booksPage.totalBooks,
-      bornYear: firstNumber(author, [["born_year"]]),
-      deathYear: firstNumber(author, [["death_year"]]),
-      imageUrl: getCoverUrl(author),
+      bornYear: firstNumber(author, [["born_year"]]) ?? null,
+      deathYear: firstNumber(author, [["death_year"]]) ?? null,
+      imageUrl: getCoverUrl(author) ?? null,
       hardcoverUrl: authorSlug
         ? `https://hardcover.app/authors/${authorSlug}`
-        : undefined,
+        : null,
       selectedLanguage,
       page: safePage,
       pageSize,
@@ -1727,7 +1727,7 @@ async function fetchAuthorSeries(
           slug: firstString(s, [["slug"]]) ?? "",
           booksCount,
           isCompleted:
-            typeof s.is_completed === "boolean" ? s.is_completed : undefined,
+            typeof s.is_completed === "boolean" ? s.is_completed : null,
           hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
         };
       })
@@ -1886,27 +1886,27 @@ async function fetchBookEditions(
               : undefined;
           })
           .filter((n: unknown): n is string => typeof n === "string" && n.length > 0);
-        const author = authorNames.length > 0 ? authorNames.join(", ") : undefined;
+        const author = authorNames.length > 0 ? authorNames.join(", ") : null;
 
         const publisherRecord = toRecord(record.publisher);
         const publisher = publisherRecord
-          ? firstString(publisherRecord, [["name"]])
-          : undefined;
+          ? firstString(publisherRecord, [["name"]]) ?? null
+          : null;
 
         const readingFormatRecord = toRecord(record.reading_format);
         const type = readingFormatRecord
-          ? firstString(readingFormatRecord, [["format"]])
-          : undefined;
+          ? firstString(readingFormatRecord, [["format"]]) ?? null
+          : null;
 
         const languageRecord = toRecord(record.language);
         const language = languageRecord
-          ? firstString(languageRecord, [["language"]])
-          : undefined;
+          ? firstString(languageRecord, [["language"]]) ?? null
+          : null;
 
         const countryRecord = toRecord(record.country);
         const country = countryRecord
-          ? firstString(countryRecord, [["name"]])
-          : undefined;
+          ? firstString(countryRecord, [["name"]]) ?? null
+          : null;
 
         return {
           id,
@@ -1914,16 +1914,16 @@ async function fetchBookEditions(
           author,
           publisher,
           type,
-          pages: firstNumber(record, [["pages"]]),
-          releaseDate: firstString(record, [["release_date"]]),
-          isbn10: firstString(record, [["isbn_10"]]),
-          isbn13: firstString(record, [["isbn_13"]]),
-          asin: firstString(record, [["asin"]]),
+          pages: firstNumber(record, [["pages"]]) ?? null,
+          releaseDate: firstString(record, [["release_date"]]) ?? null,
+          isbn10: firstString(record, [["isbn_10"]]) ?? null,
+          isbn13: firstString(record, [["isbn_13"]]) ?? null,
+          asin: firstString(record, [["asin"]]) ?? null,
           language,
           country,
           readers: firstNumber(record, [["users_count"]]) ?? 0,
           score: firstNumber(record, [["score"]]) ?? 0,
-          coverUrl: getCoverUrl(record),
+          coverUrl: getCoverUrl(record) ?? null,
         };
       })
       .filter(Boolean) as HardcoverEdition[];
@@ -2072,14 +2072,14 @@ export const getHardcoverBookLanguagesFn = createServerFn({ method: "GET" })
 export type HardcoverBookDetail = {
   id: string;
   title: string;
-  slug: string | undefined;
-  description: string | undefined;
-  releaseDate: string | undefined;
-  releaseYear: number | undefined;
-  rating: number | undefined;
-  ratingsCount: number | undefined;
-  usersCount: number | undefined;
-  coverUrl: string | undefined;
+  slug: string | null;
+  description: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  usersCount: number | null;
+  coverUrl: string | null;
   series: HardcoverAuthorBookSeries[];
 };
 
@@ -2157,7 +2157,7 @@ async function fetchSingleBook(
           title: seriesTitle,
           position:
             firstNumber(entry, [["position"]])?.toString() ??
-            firstString(entry, [["position"]]),
+            firstString(entry, [["position"]]) ?? null,
         };
       })
       .filter(Boolean) as HardcoverAuthorBookSeries[];
@@ -2165,14 +2165,14 @@ async function fetchSingleBook(
     return {
       id,
       title: firstString(bookRecord, [["title"]]) ?? "",
-      slug: firstString(bookRecord, [["slug"]]),
-      description: firstString(bookRecord, [["description"]]),
-      releaseDate: firstString(bookRecord, [["release_date"]]),
-      releaseYear: firstNumber(bookRecord, [["release_year"]]),
-      rating: firstNumber(bookRecord, [["rating"]]),
-      ratingsCount: firstNumber(bookRecord, [["ratings_count"]]),
-      usersCount: firstNumber(bookRecord, [["users_count"]]),
-      coverUrl: getCoverUrl(bookRecord),
+      slug: firstString(bookRecord, [["slug"]]) ?? null,
+      description: firstString(bookRecord, [["description"]]) ?? null,
+      releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+      releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+      rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+      ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
+      usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+      coverUrl: getCoverUrl(bookRecord) ?? null,
       series,
     };
   } catch {

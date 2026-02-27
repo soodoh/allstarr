@@ -49,18 +49,18 @@ export const updateSettingSchema = z.object({
 export const createAuthorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   sortName: z.string().min(1),
-  slug: z.string().optional(),
-  bio: z.string().optional(),
-  bornYear: z.number().optional(),
-  deathYear: z.number().optional(),
+  slug: z.string().nullable(),
+  bio: z.string().nullable(),
+  bornYear: z.number().nullable(),
+  deathYear: z.number().nullable(),
   status: z.string().default("continuing"),
-  qualityProfileId: z.number().optional(),
-  rootFolderPath: z.string().optional(),
-  foreignAuthorId: z.string().optional(),
+  qualityProfileId: z.number().nullable(),
+  rootFolderPath: z.string().nullable(),
+  foreignAuthorId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
-    .optional(),
-  tags: z.array(z.number()).optional(),
+    .nullable(),
+  tags: z.array(z.number()).nullable(),
 });
 
 export const updateAuthorSchema = createAuthorSchema.partial().extend({
@@ -70,20 +70,20 @@ export const updateAuthorSchema = createAuthorSchema.partial().extend({
 // Books
 export const createBookSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  slug: z.string().optional(),
+  slug: z.string().nullable(),
   authorId: z.number(),
-  description: z.string().optional(),
-  releaseDate: z.string().optional(),
-  releaseYear: z.number().optional(),
+  description: z.string().nullable(),
+  releaseDate: z.string().nullable(),
+  releaseYear: z.number().nullable(),
   monitored: z.boolean().default(false),
-  foreignBookId: z.string().optional(),
+  foreignBookId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
-    .optional(),
-  rating: z.number().optional(),
-  ratingsCount: z.number().optional(),
-  usersCount: z.number().optional(),
-  tags: z.array(z.number()).optional(),
+    .nullable(),
+  rating: z.number().nullable(),
+  ratingsCount: z.number().nullable(),
+  usersCount: z.number().nullable(),
+  tags: z.array(z.number()).nullable(),
 });
 
 export const updateBookSchema = createBookSchema.partial().extend({
@@ -94,28 +94,28 @@ export const updateBookSchema = createBookSchema.partial().extend({
 export const createEditionSchema = z.object({
   bookId: z.number(),
   title: z.string().min(1, "Title is required"),
-  isbn10: z.string().optional(),
-  isbn13: z.string().optional(),
-  asin: z.string().optional(),
-  format: z.string().optional(),
-  pageCount: z.number().optional(),
-  publisher: z.string().optional(),
-  releaseDate: z.string().optional(),
-  language: z.string().optional(),
-  languageCode: z.string().optional(),
-  country: z.string().optional(),
-  usersCount: z.number().optional(),
-  score: z.number().optional(),
-  foreignEditionId: z.string().optional(),
+  isbn10: z.string().nullable(),
+  isbn13: z.string().nullable(),
+  asin: z.string().nullable(),
+  format: z.string().nullable(),
+  pageCount: z.number().nullable(),
+  publisher: z.string().nullable(),
+  releaseDate: z.string().nullable(),
+  language: z.string().nullable(),
+  languageCode: z.string().nullable(),
+  country: z.string().nullable(),
+  usersCount: z.number().nullable(),
+  score: z.number().nullable(),
+  foreignEditionId: z.string().nullable(),
   contributors: z
     .array(
       z.object({
         authorId: z.string(),
         name: z.string(),
-        contribution: z.string().optional(),
+        contribution: z.string().nullable(),
       }),
     )
-    .optional(),
+    .nullable(),
   monitored: z.boolean().default(true),
 });
 
@@ -145,12 +145,12 @@ export const createDownloadClientSchema = z.object({
   host: z.string().default("localhost"),
   port: z.number().int().min(1).max(65_535),
   useSsl: z.boolean().default(false),
-  urlBase: z.string().optional(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  apiKey: z.string().optional(),
+  urlBase: z.string().nullable(),
+  username: z.string().nullable(),
+  password: z.string().nullable(),
+  apiKey: z.string().nullable(),
   category: z.string().default("allstarr"),
-  settings: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const updateDownloadClientSchema = createDownloadClientSchema.extend({
@@ -162,10 +162,10 @@ export const testDownloadClientSchema = z.object({
   host: z.string().default("localhost"),
   port: z.number().int().min(1).max(65_535),
   useSsl: z.boolean().default(false),
-  urlBase: z.string().optional(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  apiKey: z.string().optional(),
+  urlBase: z.string().nullable(),
+  username: z.string().nullable(),
+  password: z.string().nullable(),
+  apiKey: z.string().nullable(),
 });
 
 // Indexers
@@ -176,9 +176,9 @@ export const createIndexerSchema = z.object({
   host: z.string().default("localhost"),
   port: z.number().int().min(1).max(65_535).default(9696),
   useSsl: z.boolean().default(false),
-  urlBase: z.string().optional(),
+  urlBase: z.string().nullable(),
   apiKey: z.string().min(1, "API Key is required"),
-  settings: z.object({ categories: z.array(z.number()).optional() }).optional(),
+  settings: z.object({ categories: z.array(z.number()).nullable() }).nullable(),
 });
 
 export const updateIndexerSchema = createIndexerSchema.extend({
@@ -189,14 +189,14 @@ export const testIndexerSchema = z.object({
   host: z.string().default("localhost"),
   port: z.number().int().min(1).max(65_535).default(9696),
   useSsl: z.boolean().default(false),
-  urlBase: z.string().optional(),
+  urlBase: z.string().nullable(),
   apiKey: z.string().min(1, "API Key is required"),
 });
 
 export const searchIndexersSchema = z.object({
   query: z.string().min(1, "Query is required"),
-  bookId: z.number().optional(),
-  categories: z.array(z.number()).optional(),
+  bookId: z.number().nullable(),
+  categories: z.array(z.number()).nullable(),
 });
 
 export const grabReleaseSchema = z.object({
@@ -206,6 +206,6 @@ export const grabReleaseSchema = z.object({
   downloadUrl: z.string().min(1),
   protocol: z.enum(["torrent", "usenet"]),
   size: z.number(),
-  bookId: z.number().optional(),
-  downloadClientId: z.number().optional(),
+  bookId: z.number().nullable(),
+  downloadClientId: z.number().nullable(),
 });

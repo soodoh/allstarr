@@ -16,8 +16,8 @@ type AuthorFormProps = {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId?: number;
-    rootFolderPath?: string;
+    qualityProfileId: number | null;
+    rootFolderPath: string | null;
   };
   qualityProfiles: Array<{ id: number; name: string }>;
   rootFolders: Array<{ id: number; path: string }>;
@@ -25,8 +25,8 @@ type AuthorFormProps = {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId?: number;
-    rootFolderPath?: string;
+    qualityProfileId: number | null;
+    rootFolderPath: string | null;
   }) => void;
   onCancel?: () => void;
   loading?: boolean;
@@ -72,8 +72,8 @@ export default function AuthorForm({
       status,
       qualityProfileId: qualityProfileId
         ? Number.parseInt(qualityProfileId, 10)
-        : undefined,
-      rootFolderPath: rootFolderPath || undefined,
+        : null,
+      rootFolderPath: rootFolderPath || null,
     });
   };
 

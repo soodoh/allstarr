@@ -65,8 +65,8 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
       foreignAuthorId: Number(fullAuthor.id),
       qualityProfileId: qualityProfileId
         ? Number.parseInt(qualityProfileId, 10)
-        : undefined,
-      rootFolderPath: rootFolderPath || undefined,
+        : null,
+      rootFolderPath: rootFolderPath || null,
     });
     onSuccess();
   };
@@ -133,7 +133,7 @@ function BioSection({
   bio,
 }: {
   loading: boolean;
-  bio: string | undefined;
+  bio: string | null;
 }) {
   if (loading) {
     return (
@@ -187,11 +187,11 @@ export default function AuthorPreviewModal({
   const lifespan =
     fullAuthor?.bornYear || fullAuthor?.deathYear
       ? `${fullAuthor.bornYear ?? "?"}–${fullAuthor.deathYear ?? "Present"}`
-      : undefined;
+      : null;
 
   const displayName = fullAuthor?.name ?? author.title;
-  const displayImage = fullAuthor?.imageUrl ?? author.coverUrl;
-  const displayBio = fullAuthor?.bio ?? author.description;
+  const displayImage = fullAuthor?.imageUrl ?? author.coverUrl ?? null;
+  const displayBio = fullAuthor?.bio ?? author.description ?? null;
   const displayBooksCount = fullAuthor?.booksCount;
   const hardcoverUrl = fullAuthor?.hardcoverUrl ?? author.hardcoverUrl;
 
@@ -228,7 +228,7 @@ export default function AuthorPreviewModal({
                 </h2>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
                   {lifespan && <span>{lifespan}</span>}
-                  {displayBooksCount !== undefined && (
+                  {displayBooksCount !== null && displayBooksCount !== undefined && (
                     <span>
                       {displayBooksCount}{" "}
                       {displayBooksCount === 1 ? "book" : "books"}
@@ -274,7 +274,7 @@ export default function AuthorPreviewModal({
             <Button variant="secondary" className="flex-1" asChild>
               <Link
                 to="/library/authors/$authorId"
-                params={{ authorId: String(existingAuthor?.id ?? addedId ?? "") }}
+                params={{ authorId: String(existingAuthor?.id ?? "") }}
                 onClick={() => onOpenChange(false)}
               >
                 View in library

@@ -21,18 +21,18 @@ export type BookLanguageEntry = {
 
 export type BookDetailData = {
   title: string;
-  coverUrl?: string | undefined;
-  images?: Array<{ url: string; coverType: string }> | undefined;
-  author?: AuthorLink | undefined;
-  authorName?: string | undefined;
-  releaseDate?: string | undefined;
-  availableLanguages?: BookLanguageEntry[] | undefined;
-  series?: Array<{ title: string; position?: string | undefined }> | undefined;
-  rating?: number | undefined;
-  ratingVotes?: number | undefined;
-  readers?: number | undefined;
-  overview?: string | undefined;
-  hardcoverUrl?: string | undefined;
+  coverUrl: string | null;
+  images: Array<{ url: string; coverType: string }> | null;
+  author: AuthorLink | null;
+  authorName: string | null;
+  releaseDate: string | null;
+  availableLanguages: BookLanguageEntry[] | null;
+  series: Array<{ title: string; position: string | null }> | null;
+  rating: number | null;
+  ratingVotes: number | null;
+  readers: number | null;
+  overview: string | null;
+  hardcoverUrl: string | null;
 };
 
 type BookDetailContentProps = {
@@ -50,7 +50,7 @@ export default function BookDetailContent({
   const coverImages = useMemo(
     () =>
       book.images ??
-      (book.coverUrl ? [{ url: book.coverUrl, coverType: "cover" }] : undefined),
+      (book.coverUrl ? [{ url: book.coverUrl, coverType: "cover" }] : null),
     [book.images, book.coverUrl],
   );
 
@@ -100,11 +100,11 @@ export default function BookDetailContent({
                 .join(", ")}
             </div>
           )}
-          {book.rating !== undefined && (
+          {book.rating !== null && (
             <div>
               <span className="text-muted-foreground">Rating: </span>
               {book.rating.toFixed(1)}/5
-              {book.ratingVotes !== undefined && book.ratingVotes > 0 && (
+              {book.ratingVotes !== null && book.ratingVotes > 0 && (
                 <span className="text-muted-foreground ml-1">
                   ({book.ratingVotes.toLocaleString()}{" "}
                   {book.ratingVotes === 1 ? "vote" : "votes"})
@@ -112,7 +112,7 @@ export default function BookDetailContent({
               )}
             </div>
           )}
-          {book.readers !== undefined && book.readers > 0 && (
+          {book.readers !== null && book.readers > 0 && (
             <div>
               <span className="text-muted-foreground">Readers: </span>
               {book.readers.toLocaleString()}

@@ -35,11 +35,13 @@ const blackholeProvider: DownloadClientProvider = {
         return {
           success: false,
           message: error.message,
+          version: null,
         };
       }
       return {
         success: false,
         message: `Cannot access folder: ${error instanceof Error ? error.message : "Unknown error"}`,
+        version: null,
       };
     }
   },
@@ -95,6 +97,7 @@ const blackholeProvider: DownloadClientProvider = {
             downloaded: stat.size,
             uploadSpeed: 0,
             downloadSpeed: 0,
+            category: null,
           };
         });
     } catch {

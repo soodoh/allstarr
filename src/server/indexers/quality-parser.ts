@@ -94,7 +94,7 @@ function formatBytes(bytes: number): string {
 }
 
 /** Format publish date as days ago */
-function formatAge(publishDate: string | undefined): string {
+function formatAge(publishDate: string | null): string {
   if (!publishDate) {
     return "Unknown";
   }

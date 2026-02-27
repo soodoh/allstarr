@@ -5,7 +5,7 @@ import { cn } from "src/lib/utils";
 
 type AuthorPhotoProps = {
   name: string;
-  imageUrl?: string | undefined;
+  imageUrl: string | null;
   className?: string;
 };
 

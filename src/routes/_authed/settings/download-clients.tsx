@@ -95,14 +95,14 @@ function DownloadClientsPage() {
         host: values.host,
         port: values.port,
         useSsl: values.useSsl,
-        urlBase: values.urlBase || undefined,
-        username: values.username || undefined,
-        password: values.password || undefined,
-        apiKey: values.apiKey || undefined,
+        urlBase: values.urlBase || null,
+        username: values.username || null,
+        password: values.password || null,
+        apiKey: values.apiKey || null,
         category: values.category,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
-          : undefined,
+          : null,
       },
       { onSuccess: handleCloseDialog },
     );
@@ -123,14 +123,14 @@ function DownloadClientsPage() {
         host: values.host,
         port: values.port,
         useSsl: values.useSsl,
-        urlBase: values.urlBase || undefined,
-        username: values.username || undefined,
-        password: values.password || undefined,
-        apiKey: values.apiKey || undefined,
+        urlBase: values.urlBase || null,
+        username: values.username || null,
+        password: values.password || null,
+        apiKey: values.apiKey || null,
         category: values.category,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
-          : undefined,
+          : null,
       },
       { onSuccess: handleCloseDialog },
     );

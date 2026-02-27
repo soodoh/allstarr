@@ -2,7 +2,7 @@ export function buildBaseUrl(
   host: string,
   port: number,
   useSsl: boolean,
-  urlBase?: string,
+  urlBase?: string | null,
 ): string {
   const scheme = useSsl ? "https" : "http";
   const base = `${scheme}://${host}:${port}`;

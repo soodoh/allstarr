@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authed/settings/root-folders")({
   component: RootFoldersPage,
 });
 
-function formatBytes(bytes: number | undefined) {
+function formatBytes(bytes: number | null) {
   if (!bytes) {
     return "N/A";
   }
@@ -99,10 +99,10 @@ function RootFoldersPage() {
                     {folder.path}
                   </TableCell>
                   <TableCell>
-                    {formatBytes(folder.freeSpace ?? undefined)}
+                    {formatBytes(folder.freeSpace)}
                   </TableCell>
                   <TableCell>
-                    {formatBytes(folder.totalSpace ?? undefined)}
+                    {formatBytes(folder.totalSpace)}
                   </TableCell>
                   <TableCell>
                     <Button

@@ -17,8 +17,8 @@ async function rpcCall(
   method: string,
   args: Record<string, unknown>,
   sessionId: string,
-  username?: string,
-  password?: string,
+  username?: string | null,
+  password?: string | null,
 ): Promise<TransmissionRpcResponse> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -81,13 +81,14 @@ const transmissionProvider: DownloadClientProvider = {
       return {
         success: true,
         message: "Connected to Transmission successfully",
-        version: version || undefined,
+        version: version || null,
       };
     } catch (error) {
       return {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },
@@ -171,6 +172,7 @@ const transmissionProvider: DownloadClientProvider = {
       downloaded: Number(t.downloadedEver ?? 0),
       uploadSpeed: Number(t.uploadSpeed ?? 0),
       downloadSpeed: Number(t.rateDownload ?? 0),
+      category: null,
     }));
   },
 };

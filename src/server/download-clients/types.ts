@@ -13,26 +13,26 @@ export type ConnectionConfig = {
   host: string;
   port: number;
   useSsl: boolean;
-  urlBase?: string;
-  username?: string;
-  password?: string;
-  apiKey?: string;
-  category?: string;
-  settings?: Record<string, unknown>;
+  urlBase: string | null;
+  username: string | null;
+  password: string | null;
+  apiKey: string | null;
+  category: string | null;
+  settings: Record<string, unknown> | null;
 };
 
 export type TestResult = {
   success: boolean;
   message: string;
-  version?: string;
+  version: string | null;
 };
 
 export type DownloadRequest = {
-  url?: string;
-  torrentData?: Buffer;
-  nzbData?: Buffer;
-  category?: string;
-  savePath?: string;
+  url: string | null;
+  torrentData: Buffer | null;
+  nzbData: Buffer | null;
+  category: string | null;
+  savePath: string | null;
 };
 
 export type DownloadItem = {
@@ -43,7 +43,7 @@ export type DownloadItem = {
   downloaded: number;
   uploadSpeed: number;
   downloadSpeed: number;
-  category?: string;
+  category: string | null;
 };
 
 export type DownloadClientProvider = {

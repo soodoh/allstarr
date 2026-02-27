@@ -58,6 +58,7 @@ const sabnzbdProvider: DownloadClientProvider = {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },
@@ -125,6 +126,7 @@ const sabnzbdProvider: DownloadClientProvider = {
         downloaded: Math.round(totalBytes - leftBytes),
         uploadSpeed: 0,
         downloadSpeed: 0,
+        category: null,
       };
     });
   },

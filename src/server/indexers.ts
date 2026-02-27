@@ -55,7 +55,7 @@ export const createIndexerFn = createServerFn({ method: "POST" })
       .insert(indexers)
       .values({
         ...data,
-        settings: data.settings as Record<string, unknown> | undefined,
+        settings: data.settings as Record<string, unknown> | null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -72,7 +72,7 @@ export const updateIndexerFn = createServerFn({ method: "POST" })
       .update(indexers)
       .set({
         ...values,
-        settings: values.settings as Record<string, unknown> | undefined,
+        settings: values.settings as Record<string, unknown> | null,
         updatedAt: Date.now(),
       })
       .where(eq(indexers.id, id))
@@ -132,7 +132,7 @@ export const listProwlarrIndexersFn = createServerFn({ method: "POST" })
       host: indexer.host,
       port: indexer.port,
       useSsl: indexer.useSsl,
-      urlBase: indexer.urlBase ?? undefined,
+      urlBase: indexer.urlBase,
       apiKey: indexer.apiKey,
     });
   });
@@ -165,7 +165,7 @@ type SearchSource = {
     host: string;
     port: number;
     useSsl: boolean;
-    urlBase?: string;
+    urlBase: string | null;
     apiKey: string;
   };
   id: number;
@@ -191,6 +191,7 @@ function parseSyncedBaseUrl(
       host: url.hostname,
       port,
       useSsl: url.protocol === "https:",
+      urlBase: null,
       apiKey,
     };
   } catch {
@@ -231,7 +232,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
           host: ix.host,
           port: ix.port,
           useSsl: ix.useSsl,
-          urlBase: ix.urlBase ?? undefined,
+          urlBase: ix.urlBase,
           apiKey: ix.apiKey,
         },
         id: ix.id,
@@ -365,15 +366,21 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       host: client.host,
       port: client.port,
       useSsl: client.useSsl,
-      urlBase: client.urlBase ?? undefined,
-      username: client.username ?? undefined,
-      password: client.password ?? undefined,
-      apiKey: client.apiKey ?? undefined,
+      urlBase: client.urlBase,
+      username: client.username,
+      password: client.password,
+      apiKey: client.apiKey,
       category: client.category,
-      settings: client.settings as Record<string, unknown> | undefined,
+      settings: client.settings as Record<string, unknown> | null,
     };
 
-    await provider.addDownload(config, { url: data.downloadUrl });
+    await provider.addDownload(config, {
+      url: data.downloadUrl,
+      torrentData: null,
+      nzbData: null,
+      category: null,
+      savePath: null,
+    });
 
     // Record history event
     db.insert(history)

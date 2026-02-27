@@ -16,7 +16,7 @@ import { useSearchIndexers, useGrabRelease } from "src/hooks/mutations";
 import type { IndexerRelease } from "src/server/indexers/types";
 
 type InteractiveSearchModalProps = {
-  book: { id: number; title: string; authorName: string | undefined };
+  book: { id: number; title: string; authorName: string | null };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -44,7 +44,7 @@ export default function InteractiveSearchModal({
     if (open && book.id !== lastBookId.current && hasIndexers === true) {
       lastBookId.current = book.id;
       searchIndexers.reset();
-      searchIndexers.mutate({ query: defaultQuery, bookId: book.id });
+      searchIndexers.mutate({ query: defaultQuery, bookId: book.id, categories: null });
     }
   }, [open, book.id, hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -62,7 +62,7 @@ export default function InteractiveSearchModal({
   );
 
   const handleSearch = (query: string) => {
-    searchIndexers.mutate({ query, bookId: book.id });
+    searchIndexers.mutate({ query, bookId: book.id, categories: null });
   };
 
   const handleGrab = (release: IndexerRelease) => {
@@ -75,6 +75,7 @@ export default function InteractiveSearchModal({
         protocol: release.protocol,
         size: release.size,
         bookId: book.id,
+        downloadClientId: null,
       },
       {
         onSuccess: (result) =>

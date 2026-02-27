@@ -18,8 +18,8 @@ async function nzbgetCall(
   baseUrl: string,
   method: string,
   params: unknown[],
-  username?: string,
-  password?: string,
+  username?: string | null,
+  password?: string | null,
 ): Promise<unknown> {
   nzbgetRpcId += 1;
   const id = nzbgetRpcId;
@@ -80,6 +80,7 @@ const nzbgetProvider: DownloadClientProvider = {
         success: false,
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
+        version: null,
       };
     }
   },
@@ -158,6 +159,7 @@ const nzbgetProvider: DownloadClientProvider = {
         downloaded: Math.round(downloadedMb * 1024 * 1024),
         uploadSpeed: 0,
         downloadSpeed: Number(g.DownloadRateKB ?? 0) * 1024,
+        category: null,
       };
     });
   },
