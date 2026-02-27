@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ChevronDown,
   ExternalLink,
   Pencil,
   Trash2,
@@ -31,6 +32,11 @@ import {
   CardHeader,
   CardTitle,
 } from "src/components/ui/card";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "src/components/ui/popover";
 import {
   Tabs,
   TabsList,
@@ -195,7 +201,7 @@ function BookDetailPage(): JSX.Element {
           className="w-full xl:w-44 shrink-0"
         />
 
-        <Card className="w-full xl:w-auto xl:shrink-0">
+        <Card className="w-full xl:w-72 xl:shrink-0">
           <CardHeader>
             <CardTitle>Details</CardTitle>
           </CardHeader>
@@ -258,16 +264,35 @@ function BookDetailPage(): JSX.Element {
                   <dd>{book.readers.toLocaleString()}</dd>
                 </div>
               )}
-              {book.language && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Language</dt>
-                  <dd>{book.language}</dd>
-                </div>
-              )}
               {languages && languages.length > 0 && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground shrink-0">Available</dt>
-                  <dd className="text-right break-words min-w-0">{languages.map((l) => l.name).join(", ")}</dd>
+                  <dt className="text-muted-foreground">Languages</dt>
+                  <dd>
+                    <Popover>
+                      <PopoverTrigger className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer">
+                        {languages.length === 1
+                          ? languages[0].name
+                          : `${languages[0].name} and ${languages.length - 1} other${languages.length - 1 === 1 ? "" : "s"}`}
+                        {languages.length > 1 && (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </PopoverTrigger>
+                      {languages.length > 1 && (
+                        <PopoverContent align="end" className="w-48 p-0">
+                          <ul className="max-h-64 overflow-y-auto py-1">
+                            {languages.map((l) => (
+                              <li
+                                key={l.code}
+                                className="px-3 py-1.5 text-sm"
+                              >
+                                {l.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </PopoverContent>
+                      )}
+                    </Popover>
+                  </dd>
                 </div>
               )}
               {book.isbn && (

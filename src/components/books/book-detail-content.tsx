@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import BookCover from "src/components/books/book-cover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "src/components/ui/popover";
 
 type AuthorLink = {
   id: number;
@@ -61,7 +67,7 @@ export default function BookDetailContent({
           images={coverImages}
           className="w-40"
         />
-        <div className="flex flex-col justify-end space-y-3 text-sm">
+        <div className="flex flex-col justify-end space-y-3 text-sm min-w-0">
           {displayAuthor && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Author: </span>
@@ -117,8 +123,31 @@ export default function BookDetailContent({
           )}
           {book.availableLanguages && book.availableLanguages.length > 0 && (
             <div>
-              <span className="text-muted-foreground">Available Languages: </span>
-              {book.availableLanguages.map((l) => l.name).join(", ")}
+              <span className="text-muted-foreground">Languages: </span>
+              <Popover>
+                <PopoverTrigger className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer">
+                  {book.availableLanguages.length === 1
+                    ? book.availableLanguages[0].name
+                    : `${book.availableLanguages[0].name} and ${book.availableLanguages.length - 1} other${book.availableLanguages.length - 1 === 1 ? "" : "s"}`}
+                  {book.availableLanguages.length > 1 && (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </PopoverTrigger>
+                {book.availableLanguages.length > 1 && (
+                  <PopoverContent align="start" className="w-48 p-0">
+                    <ul className="max-h-64 overflow-y-auto py-1">
+                      {book.availableLanguages.map((l) => (
+                        <li
+                          key={l.code}
+                          className="px-3 py-1.5 text-sm"
+                        >
+                          {l.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                )}
+              </Popover>
             </div>
           )}
           {book.isbn && (
