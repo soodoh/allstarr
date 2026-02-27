@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { JSX } from "react";
-import { Loader2 } from "lucide-react";
 import AuthorPhoto from "src/components/authors/author-photo";
 import { Button } from "src/components/ui/button";
 import {
@@ -36,7 +35,7 @@ export default function AddAuthorDialog({
   author,
   qualityProfiles,
   rootFolders,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: AddAuthorDialogProps): JSX.Element {
   const [qualityProfileId, setQualityProfileId] = useState<string>(
     qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : "",
@@ -47,28 +46,14 @@ export default function AddAuthorDialog({
   const importAuthor = useImportHardcoverAuthor();
 
   const handleSubmit = () => {
-    importAuthor.mutate(
-      {
-        name: author.name,
-        foreignAuthorId: author.id,
-        overview: author.bio ?? undefined,
-        status: author.deathYear ? "deceased" : "continuing",
-        qualityProfileId: qualityProfileId
-          ? Number.parseInt(qualityProfileId, 10)
-          : undefined,
-        rootFolderPath: rootFolderPath || undefined,
-        images: author.imageUrl
-          ? [{ url: author.imageUrl, coverType: "poster" }]
-          : undefined,
-        books: [],
-      },
-      {
-        onSuccess: (result) => {
-          onSuccess(result.authorId);
-          onOpenChange(false);
-        },
-      },
-    );
+    importAuthor.mutate({
+      foreignAuthorId: Number(author.id),
+      qualityProfileId: qualityProfileId
+        ? Number.parseInt(qualityProfileId, 10)
+        : undefined,
+      rootFolderPath: rootFolderPath || undefined,
+    });
+    onOpenChange(false);
   };
 
   return (
@@ -91,6 +76,7 @@ export default function AddAuthorDialog({
               {author.booksCount !== undefined && (
                 <p className="text-sm text-muted-foreground">
                   {author.booksCount} book{author.booksCount === 1 ? "" : "s"}
+                  {" — all books, editions & series will be imported"}
                 </p>
               )}
             </div>
@@ -139,19 +125,11 @@ export default function AddAuthorDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={importAuthor.isPending}
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={importAuthor.isPending}>
-            {importAuthor.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding…
-              </>
-            ) : (
-              "Add to Library"
-            )}
+          <Button onClick={handleSubmit}>
+            Add to Library
           </Button>
         </DialogFooter>
       </DialogContent>
