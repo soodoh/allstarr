@@ -82,6 +82,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
+        additionalAuthors: books.additionalAuthors,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })

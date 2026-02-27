@@ -106,8 +106,8 @@ function BookDetailPage(): JSX.Element {
 
   const coverImages = book.images;
   const authorName = book.authorName || "Unknown";
-  const hardcoverUrl = book.foreignBookId
-    ? `https://hardcover.app/books/${book.foreignBookId}`
+  const hardcoverUrl = book.slug
+    ? `https://hardcover.app/books/${book.slug}`
     : null;
 
   const handleUpdate = (values: {

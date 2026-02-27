@@ -253,8 +253,6 @@ const NON_AUTHOR_CONTRIBUTION_ROLES = [
   // Supplementary content
   "Introduction",
   "Afterword",
-  "Contributor",
-  "contributor",
   // Other non-originating
   "Compiler",
   "Pseudonym",
@@ -264,6 +262,9 @@ const NON_AUTHOR_CONTRIBUTION_ROLES = [
 ];
 
 const NON_AUTHOR_CONTRIBUTION_FILTER = `_or: [{ contribution: { _is_null: true } }, { contribution: { _nin: [${NON_AUTHOR_CONTRIBUTION_ROLES.map((r) => JSON.stringify(r)).join(", ")}] } }]`;
+
+/** GraphQL where clause for selecting author-role contributions to display. */
+const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, { contribution: { _in: ["Writer", "Contributor"] } }]`;
 
 // ---------------------------------------------------------------------------
 // Filter composition helpers
@@ -376,7 +377,7 @@ query ${queryName}(${varDefs}) {
       contribution
     }
     all_contributions: contributions(
-      where: { contribution: { _is_null: true } }
+      where: { ${AUTHOR_CONTRIBUTION_WHERE} }
       order_by: [{ id: asc }]
       limit: 5
     ) {
@@ -446,7 +447,7 @@ query ${queryName}(${varDefs}) {
         url
       }
       contributions(
-        where: { contribution: { _is_null: true } }
+        where: { ${AUTHOR_CONTRIBUTION_WHERE} }
         order_by: [{ id: asc }]
         limit: 5
       ) {
@@ -525,7 +526,7 @@ query ${queryName}(${varDefs}) {
       }
     ) {
       book {
-        primary_authors: contributions_aggregate(where: { contribution: { _is_null: true } }) {
+        primary_authors: contributions_aggregate(where: { ${AUTHOR_CONTRIBUTION_WHERE} }) {
           aggregate { count }
         }
       }
@@ -1275,6 +1276,89 @@ async function applyAuthorBookCounts(
   }
 }
 
+/**
+ * Builds a batched GraphQL query that fetches author-role contributions for
+ * multiple books in a single request, so search result cards can display the
+ * same filtered author list as the book detail modal.
+ */
+function buildBookContributorsQuery(bookIds: number[]): string {
+  const fragments = bookIds
+    .map(
+      (id, i) => `  b${i}: books(where: { id: { _eq: ${id} } }) {
+      contributions(
+        where: { ${AUTHOR_CONTRIBUTION_WHERE} }
+        order_by: [{ id: asc }]
+      ) {
+        author { name }
+      }
+    }`,
+    )
+    .join("\n  ");
+
+  return `query BookContributors {\n  ${fragments}\n}`;
+}
+
+/**
+ * Fetches author-role contributors for each book result and updates the
+ * subtitle to show only primary author + co-authors (excluding translators,
+ * editors, etc.).
+ */
+async function applyBookContributors(
+  items: HardcoverSearchItem[],
+  authorization: string,
+): Promise<HardcoverSearchItem[]> {
+  const bookEntries = items
+    .filter((item) => item.type === "book")
+    .map((item) => ({ item, id: Number(item.id) }))
+    .filter(({ id }) => Number.isFinite(id) && id > 0);
+  if (bookEntries.length === 0) {
+    return items;
+  }
+
+  try {
+    const query = buildBookContributorsQuery(bookEntries.map((e) => e.id));
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({ query }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return items;
+    }
+
+    const body = (await response.json()) as {
+      data?: Record<string, unknown>;
+      errors?: Array<{ message: string }>;
+    };
+    if (body.errors && body.errors.length > 0) {
+      return items;
+    }
+
+    for (let i = 0; i < bookEntries.length; i += 1) {
+      const booksArray = toRecordArray(body.data?.[`b${i}`]);
+      if (booksArray.length === 0) {continue;}
+      const contributors = toRecordArray(booksArray[0].contributions)
+        .map((c) => {
+          const authorRecord = toRecord(c.author);
+          return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+        })
+        .filter(Boolean) as string[];
+      if (contributors.length > 0) {
+        bookEntries[i].item.subtitle = contributors.join(", ");
+      }
+    }
+
+    return items;
+  } catch {
+    return items;
+  }
+}
+
 async function fetchSearchResults(
   query: string,
   queryType: HardcoverQueryType,
@@ -1338,6 +1422,10 @@ async function fetchSearchResults(
 
     if (filterByLanguage && queryType === "Book") {
       mapped = await applyLanguageFilter(mapped, language, authorization);
+    }
+
+    if (queryType === "Book") {
+      mapped = await applyBookContributors(mapped, authorization);
     }
 
     if (queryType === "Author" && language) {
@@ -2081,6 +2169,7 @@ export type HardcoverBookDetail = {
   usersCount: number | null;
   coverUrl: string | null;
   series: HardcoverAuthorBookSeries[];
+  contributors: string[];
 };
 
 const singleBookQuery = `
@@ -2102,6 +2191,12 @@ query HardcoverSingleBook($bookId: Int!) {
         id
         name
       }
+    }
+    contributions(
+      where: { ${AUTHOR_CONTRIBUTION_WHERE} }
+      order_by: [{ id: asc }]
+    ) {
+      author { name }
     }
   }
 }
@@ -2162,6 +2257,13 @@ async function fetchSingleBook(
       })
       .filter(Boolean) as HardcoverAuthorBookSeries[];
 
+    const contributors = toRecordArray(bookRecord.contributions)
+      .map((c) => {
+        const authorRecord = toRecord(c.author);
+        return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+      })
+      .filter(Boolean) as string[];
+
     return {
       id,
       title: firstString(bookRecord, [["title"]]) ?? "",
@@ -2174,6 +2276,7 @@ async function fetchSingleBook(
       usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
       coverUrl: getCoverUrl(bookRecord) ?? null,
       series,
+      contributors,
     };
   } catch {
     return undefined;
