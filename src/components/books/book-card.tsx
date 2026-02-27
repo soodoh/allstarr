@@ -7,6 +7,7 @@ type BookCardProps = {
     id: number;
     title: string;
     authorName: string | null;
+    additionalAuthors: string[] | null;
     releaseDate: string | null;
     description: string | null;
     images: Array<{ url: string; coverType: string }> | null;
@@ -33,7 +34,7 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
             {book.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {book.authorName || "Unknown author"}
+            {[book.authorName || "Unknown author", ...(book.additionalAuthors ?? [])].join(", ")}
           </p>
           {book.releaseDate && (
             <p className="text-xs text-muted-foreground">{book.releaseDate}</p>

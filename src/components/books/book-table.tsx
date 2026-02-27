@@ -15,6 +15,7 @@ type Book = {
   id: number;
   title: string;
   authorName: string | null;
+  additionalAuthors: string[] | null;
   releaseDate: string | null;
   rating: number | null;
   ratingsCount: number | null;
@@ -158,7 +159,9 @@ export default function BookTable({
                 )}
               </TableCell>
               <TableCell className="font-medium">{book.title}</TableCell>
-              <TableCell>{book.authorName || "Unknown"}</TableCell>
+              <TableCell>
+                {[book.authorName || "Unknown", ...(book.additionalAuthors ?? [])].join(", ")}
+              </TableCell>
               <TableCell>{book.releaseDate || "Unknown"}</TableCell>
               <TableCell>
                 {book.series.length > 0

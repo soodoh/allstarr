@@ -376,7 +376,7 @@ query SeriesComplete($seriesIds: [Int!]!) {
         users_count
         image { url }
         contributions(
-          where: { contribution: { _is_null: true } }
+          where: { _or: [{ contribution: { _is_null: true } }, { contribution: { _in: ["Writer", "Contributor"] } }] }
           order_by: [{ id: asc }]
           limit: 1
         ) {

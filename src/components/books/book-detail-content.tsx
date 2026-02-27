@@ -25,6 +25,7 @@ export type BookDetailData = {
   images: Array<{ url: string; coverType: string }> | null;
   author: AuthorLink | null;
   authorName: string | null;
+  additionalAuthors: string[] | null;
   releaseDate: string | null;
   availableLanguages: BookLanguageEntry[] | null;
   series: Array<{ title: string; position: string | null }> | null;
@@ -67,21 +68,26 @@ export default function BookDetailContent({
         <div className="flex flex-col justify-end space-y-3 text-sm min-w-0">
           {displayAuthor && (
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Author: </span>
-              {book.author && onCloseModal ? (
-                <Link
-                  to="/library/authors/$authorId"
-                  params={{
-                    authorId: String(book.author.id),
-                  }}
-                  className="hover:underline"
-                  onClick={onCloseModal}
-                >
-                  {displayAuthor}
-                </Link>
-              ) : (
-                <span>{displayAuthor}</span>
-              )}
+              <span className="text-muted-foreground shrink-0">Author: </span>
+              <span>
+                {book.author && onCloseModal ? (
+                  <Link
+                    to="/library/authors/$authorId"
+                    params={{
+                      authorId: String(book.author.id),
+                    }}
+                    className="hover:underline"
+                    onClick={onCloseModal}
+                  >
+                    {displayAuthor}
+                  </Link>
+                ) : (
+                  displayAuthor
+                )}
+                {book.additionalAuthors && book.additionalAuthors.length > 0 && (
+                  <>, {book.additionalAuthors.join(", ")}</>
+                )}
+              </span>
             </div>
           )}
           {book.releaseDate && (
