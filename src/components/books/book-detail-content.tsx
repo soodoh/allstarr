@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import BookCover from "src/components/books/book-cover";
+import AdditionalAuthors from "src/components/books/additional-authors";
 import {
   Popover,
   PopoverTrigger,
@@ -25,7 +26,8 @@ export type BookDetailData = {
   images: Array<{ url: string; coverType: string }> | null;
   author: AuthorLink | null;
   authorName: string | null;
-  additionalAuthors: string[] | null;
+  foreignAuthorIds: Array<{ foreignAuthorId: string; name: string }> | null;
+  resolvedAuthors: Record<string, { id: number; name: string }> | null;
   releaseDate: string | null;
   availableLanguages: BookLanguageEntry[] | null;
   series: Array<{ title: string; position: string | null }> | null;
@@ -84,8 +86,14 @@ export default function BookDetailContent({
                 ) : (
                   displayAuthor
                 )}
-                {book.additionalAuthors && book.additionalAuthors.length > 0 && (
-                  <>, {book.additionalAuthors.join(", ")}</>
+                {book.foreignAuthorIds && book.foreignAuthorIds.length > 0 && (
+                  <>
+                    ,{" "}
+                    <AdditionalAuthors
+                      foreignAuthorIds={book.foreignAuthorIds}
+                      resolvedAuthors={book.resolvedAuthors ?? {}}
+                    />
+                  </>
                 )}
               </span>
             </div>

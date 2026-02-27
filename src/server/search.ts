@@ -2169,7 +2169,7 @@ export type HardcoverBookDetail = {
   usersCount: number | null;
   coverUrl: string | null;
   series: HardcoverAuthorBookSeries[];
-  contributors: string[];
+  contributors: Array<{ id: string; name: string }>;
 };
 
 const singleBookQuery = `
@@ -2196,7 +2196,7 @@ query HardcoverSingleBook($bookId: Int!) {
       where: { ${AUTHOR_CONTRIBUTION_WHERE} }
       order_by: [{ id: asc }]
     ) {
-      author { name }
+      author { id name }
     }
   }
 }
@@ -2260,9 +2260,13 @@ async function fetchSingleBook(
     const contributors = toRecordArray(bookRecord.contributions)
       .map((c) => {
         const authorRecord = toRecord(c.author);
-        return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+        if (!authorRecord) {return undefined;}
+        const authorId = firstId(authorRecord, [["id"]]);
+        const authorName = firstString(authorRecord, [["name"]]);
+        if (!authorId || !authorName) {return undefined;}
+        return { id: authorId, name: authorName };
       })
-      .filter(Boolean) as string[];
+      .filter(Boolean) as Array<{ id: string; name: string }>;
 
     return {
       id,

@@ -20,7 +20,9 @@ export const books = sqliteTable("books", {
   ratingsCount: integer("ratings_count"),
   usersCount: integer("users_count"),
   tags: text("tags", { mode: "json" }).$type<number[]>(),
-  additionalAuthors: text("additional_authors", { mode: "json" }).$type<string[]>(),
+  foreignAuthorIds: text("foreign_author_ids", { mode: "json" }).$type<
+    Array<{ foreignAuthorId: string; name: string }>
+  >(),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
   metadataSourceMissingSince: integer("metadata_source_missing_since", {
     mode: "timestamp",

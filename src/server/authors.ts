@@ -115,12 +115,59 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       throw new Error("Author not found");
     }
 
-    const authorBooks = db
-      .select()
+    // Get books where this author is primary OR appears as co-author in foreignAuthorIds
+    // Join author table to get primary author name for each book
+    const bookColumns = {
+      id: books.id,
+      title: books.title,
+      slug: books.slug,
+      authorId: books.authorId,
+      authorName: authors.name,
+      authorForeignId: authors.foreignAuthorId,
+      description: books.description,
+      releaseDate: books.releaseDate,
+      releaseYear: books.releaseYear,
+      monitored: books.monitored,
+      foreignBookId: books.foreignBookId,
+      images: books.images,
+      rating: books.rating,
+      ratingsCount: books.ratingsCount,
+      usersCount: books.usersCount,
+      tags: books.tags,
+      foreignAuthorIds: books.foreignAuthorIds,
+      metadataUpdatedAt: books.metadataUpdatedAt,
+      createdAt: books.createdAt,
+      updatedAt: books.updatedAt,
+    };
+
+    const primaryBooks = db
+      .select(bookColumns)
       .from(books)
+      .leftJoin(authors, eq(books.authorId, authors.id))
       .where(eq(books.authorId, data.id))
       .orderBy(desc(books.releaseDate))
       .all();
+
+    // Find co-authored books via foreignAuthorIds JSON column
+    let coAuthoredBooks: typeof primaryBooks = [];
+    if (author.foreignAuthorId) {
+      const primaryBookIds = new Set(primaryBooks.map((b) => b.id));
+      coAuthoredBooks = db
+        .select(bookColumns)
+        .from(books)
+        .leftJoin(authors, eq(books.authorId, authors.id))
+        .where(
+          sql`EXISTS (
+            SELECT 1 FROM json_each(${books.foreignAuthorIds})
+            WHERE json_extract(value, '$.foreignAuthorId') = ${author.foreignAuthorId}
+          )`,
+        )
+        .orderBy(desc(books.releaseDate))
+        .all()
+        .filter((b) => !primaryBookIds.has(b.id));
+    }
+
+    const authorBooks = [...primaryBooks, ...coAuthoredBooks];
 
     // Get series data for this author's books
     const bookIds = authorBooks.map((b) => b.id);
@@ -237,11 +284,36 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       }),
     );
 
+    // Batch-resolve foreignAuthorIds to local authors (including primary authors)
+    const allForeignAuthorIds = new Set<string>();
+    for (const b of authorBooks) {
+      if (b.authorForeignId) {
+        allForeignAuthorIds.add(b.authorForeignId);
+      }
+      for (const entry of b.foreignAuthorIds ?? []) {
+        allForeignAuthorIds.add(entry.foreignAuthorId);
+      }
+    }
+    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
+    if (allForeignAuthorIds.size > 0) {
+      const localAuthors = db
+        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .from(authors)
+        .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
+        .all();
+      for (const a of localAuthors) {
+        if (a.foreignAuthorId) {
+          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
+        }
+      }
+    }
+
     return {
       ...author,
       books: booksWithEditions,
       series: authorSeries,
       availableLanguages,
+      resolvedAuthors,
     };
   });
 

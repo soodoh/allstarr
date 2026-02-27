@@ -10,12 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "src/components/ui/table";
+import AdditionalAuthors from "src/components/books/additional-authors";
+
+type ForeignAuthorIdEntry = { foreignAuthorId: string; name: string };
 
 type Book = {
   id: number;
   title: string;
   authorName: string | null;
-  additionalAuthors: string[] | null;
+  authorForeignId: string | null;
+  foreignAuthorIds: ForeignAuthorIdEntry[] | null;
   releaseDate: string | null;
   rating: number | null;
   ratingsCount: number | null;
@@ -26,6 +30,7 @@ type Book = {
 
 type BookTableProps = {
   books: Book[];
+  resolvedAuthors: Record<string, { id: number; name: string }>;
   children?: ReactNode;
 };
 
@@ -65,6 +70,7 @@ function compareBooks(a: Book, b: Book, key: SortKey, dir: "asc" | "desc"): numb
 
 export default function BookTable({
   books,
+  resolvedAuthors,
   children,
 }: BookTableProps): JSX.Element {
   const navigate = useNavigate();
@@ -139,6 +145,9 @@ export default function BookTable({
       <TableBody>
         {sorted.map((book) => {
           const bookImage = book.images?.[0]?.url;
+          const primaryAuthor = book.authorForeignId && book.authorName
+            ? { foreignAuthorId: book.authorForeignId, name: book.authorName }
+            : null;
           return (
             <TableRow
               key={book.id}
@@ -160,7 +169,12 @@ export default function BookTable({
               </TableCell>
               <TableCell className="font-medium">{book.title}</TableCell>
               <TableCell>
-                {[book.authorName || "Unknown", ...(book.additionalAuthors ?? [])].join(", ")}
+                <AdditionalAuthors
+                  foreignAuthorIds={book.foreignAuthorIds}
+                  resolvedAuthors={resolvedAuthors}
+                  primaryAuthor={primaryAuthor}
+                />
+                {!book.authorForeignId && book.authorName}
               </TableCell>
               <TableCell>{book.releaseDate || "Unknown"}</TableCell>
               <TableCell>

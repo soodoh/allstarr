@@ -72,6 +72,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         slug: books.slug,
         authorId: books.authorId,
         authorName: authors.name,
+        authorForeignId: authors.foreignAuthorId,
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
@@ -82,7 +83,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
-        additionalAuthors: books.additionalAuthors,
+        foreignAuthorIds: books.foreignAuthorIds,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })
@@ -160,10 +161,35 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       seriesByBook.set(link.bookId, arr);
     }
 
+    // Batch-resolve which foreignAuthorIds correspond to local authors (including primary authors)
+    const allForeignAuthorIds = new Set<string>();
+    for (const item of items) {
+      if (item.authorForeignId) {
+        allForeignAuthorIds.add(item.authorForeignId);
+      }
+      for (const entry of item.foreignAuthorIds ?? []) {
+        allForeignAuthorIds.add(entry.foreignAuthorId);
+      }
+    }
+    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
+    if (allForeignAuthorIds.size > 0) {
+      const localAuthors = db
+        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .from(authors)
+        .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
+        .all();
+      for (const a of localAuthors) {
+        if (a.foreignAuthorId) {
+          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
+        }
+      }
+    }
+
     return {
       items: items.map((item) =>
         Object.assign(item, { series: seriesByBook.get(item.id) ?? [] }),
       ),
+      resolvedAuthors,
       total,
       page,
       totalPages: Math.ceil(total / pageSize),
@@ -191,7 +217,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
-        additionalAuthors: books.additionalAuthors,
+        foreignAuthorIds: books.foreignAuthorIds,
         metadataUpdatedAt: books.metadataUpdatedAt,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
@@ -234,11 +260,28 @@ export const getBookFn = createServerFn({ method: "GET" })
       language: string;
     }>;
 
+    // Resolve foreignAuthorIds to local authors
+    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
+    const bookForeignAuthorIds = (book.foreignAuthorIds ?? []).map((e) => e.foreignAuthorId);
+    if (bookForeignAuthorIds.length > 0) {
+      const localAuthors = db
+        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .from(authors)
+        .where(inArray(authors.foreignAuthorId, bookForeignAuthorIds))
+        .all();
+      for (const a of localAuthors) {
+        if (a.foreignAuthorId) {
+          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
+        }
+      }
+    }
+
     return {
       ...book,
       editions: bookEditions,
       series: bookSeries,
       languages,
+      resolvedAuthors,
     };
   });
 

@@ -55,8 +55,11 @@ export function useImportHardcoverBook() {
       const toastId = toast.loading("Importing book metadata…");
       return { toastId };
     },
-    onSuccess: (_result, _vars, context) => {
-      toast.success("Book added to library.", { id: context?.toastId });
+    onSuccess: (result, _vars, context) => {
+      const msg = result.additionalAuthorsImported > 0
+        ? `Book added to library. ${result.additionalAuthorsImported} co-author(s) also imported.`
+        : "Book added to library.";
+      toast.success(msg, { id: context?.toastId });
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });

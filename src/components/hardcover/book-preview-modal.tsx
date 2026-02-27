@@ -170,11 +170,13 @@ export default function BookPreviewModal({
   });
 
   // ── Build rich book detail from Hardcover data ──
-  const { primaryAuthor, additionalAuthors } = useMemo(() => {
+  const { primaryAuthor, foreignAuthorIds } = useMemo(() => {
     const contributors = hcBook?.contributors ?? [];
     return {
-      primaryAuthor: contributors.length > 0 ? contributors[0] : (book.subtitle ?? null),
-      additionalAuthors: contributors.length > 1 ? contributors.slice(1) : null,
+      primaryAuthor: contributors.length > 0 ? contributors[0].name : (book.subtitle ?? null),
+      foreignAuthorIds: contributors.length > 1
+        ? contributors.slice(1).map((c) => ({ foreignAuthorId: c.id, name: c.name }))
+        : null,
     };
   }, [hcBook?.contributors, book.subtitle]);
 
@@ -185,7 +187,8 @@ export default function BookPreviewModal({
       images: null as Array<{ url: string; coverType: string }> | null,
       author: null as { id: number; name: string } | null,
       authorName: primaryAuthor,
-      additionalAuthors,
+      foreignAuthorIds,
+      resolvedAuthors: null,
       releaseDate:
         hcBook?.releaseDate ??
         (book.releaseYear ? String(book.releaseYear) : null),
@@ -200,7 +203,7 @@ export default function BookPreviewModal({
       overview: hcBook?.description ?? book.description ?? null,
       hardcoverUrl: book.hardcoverUrl ?? null,
     }),
-    [book, hcBook, languages, primaryAuthor, additionalAuthors],
+    [book, hcBook, languages, primaryAuthor, foreignAuthorIds],
   );
 
   return (
