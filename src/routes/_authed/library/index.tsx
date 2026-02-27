@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, ImageIcon, Users } from "lucide-react";
 import {
@@ -32,7 +31,6 @@ export const Route = createFileRoute("/_authed/library/")({
 
 function LibraryPage() {
   const navigate = useNavigate();
-  const { openBookModal } = useBookDetailModal();
   const { data: authors } = useSuspenseQuery(authorsListQuery());
   const { data: books } = useSuspenseQuery(booksListQuery());
 
@@ -171,7 +169,12 @@ function LibraryPage() {
                       <TableRow
                         key={book.id}
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
-                        onClick={() => openBookModal(book.id)}
+                        onClick={() =>
+                          navigate({
+                            to: "/library/books/$bookId",
+                            params: { bookId: String(book.id) },
+                          })
+                        }
                       >
                         <TableCell>
                           {bookImage ? (

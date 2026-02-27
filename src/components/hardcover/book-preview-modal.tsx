@@ -33,8 +33,8 @@ import {
   qualityProfilesListQuery,
   rootFoldersListQuery,
 } from "src/lib/queries";
+import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/books/book-detail-content";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 import {
   useImportHardcoverAuthor,
   useImportHardcoverBook,
@@ -273,7 +273,7 @@ export default function BookPreviewModal({
     enabled: open && Boolean(fullAuthor?.id),
   });
 
-  const { openBookModal } = useBookDetailModal();
+  const navigate = useNavigate();
 
   const [addOpen, setAddOpen] = useState(false);
   const [added, setAdded] = useState(false);
@@ -357,10 +357,13 @@ export default function BookPreviewModal({
                 variant="secondary"
                 className="flex-1"
                 onClick={() => {
-                  if (localBook) {
-                    openBookModal(localBook.id);
-                  }
                   onOpenChange(false);
+                  if (localBook) {
+                    navigate({
+                      to: "/library/books/$bookId",
+                      params: { bookId: String(localBook.id) },
+                    });
+                  }
                 }}
               >
                 View in Library
