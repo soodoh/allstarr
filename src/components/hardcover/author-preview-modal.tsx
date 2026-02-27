@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { JSX } from "react";
-import { ExternalLink, Loader2, Plus } from "lucide-react";
+import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import AuthorPhoto from "src/components/authors/author-photo";
@@ -44,7 +44,7 @@ const DEFAULT_PARAMS = {
 
 type AddFormProps = {
   fullAuthor: HardcoverAuthorDetail;
-  onSuccess: (authorId: number) => void;
+  onSuccess: () => void;
   onCancel: () => void;
 };
 
@@ -61,23 +61,14 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   const importAuthor = useImportHardcoverAuthor();
 
   const handleSubmit = () => {
-    importAuthor.mutate(
-      {
-        name: fullAuthor.name,
-        foreignAuthorId: fullAuthor.id,
-        overview: fullAuthor.bio ?? undefined,
-        status: fullAuthor.deathYear ? "deceased" : "continuing",
-        qualityProfileId: qualityProfileId
-          ? Number.parseInt(qualityProfileId, 10)
-          : undefined,
-        rootFolderPath: rootFolderPath || undefined,
-        images: fullAuthor.imageUrl
-          ? [{ url: fullAuthor.imageUrl, coverType: "poster" }]
-          : undefined,
-        books: [],
-      },
-      { onSuccess: (result) => onSuccess(result.authorId) },
-    );
+    importAuthor.mutate({
+      foreignAuthorId: Number(fullAuthor.id),
+      qualityProfileId: qualityProfileId
+        ? Number.parseInt(qualityProfileId, 10)
+        : undefined,
+      rootFolderPath: rootFolderPath || undefined,
+    });
+    onSuccess();
   };
 
   return (
@@ -121,23 +112,14 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
           variant="outline"
           className="flex-1"
           onClick={onCancel}
-          disabled={importAuthor.isPending}
         >
           Cancel
         </Button>
         <Button
           className="flex-1"
           onClick={handleSubmit}
-          disabled={importAuthor.isPending}
         >
-          {importAuthor.isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Adding…
-            </>
-          ) : (
-            "Confirm"
-          )}
+          Confirm
         </Button>
       </div>
     </div>
@@ -199,9 +181,8 @@ export default function AuthorPreviewModal({
   });
 
   const [addOpen, setAddOpen] = useState(false);
-  const [addedId, setAddedId] = useState<number | undefined>(undefined);
 
-  const inLibrary = Boolean(existingAuthor ?? addedId);
+  const inLibrary = Boolean(existingAuthor);
 
   const lifespan =
     fullAuthor?.bornYear || fullAuthor?.deathYear
@@ -317,10 +298,7 @@ export default function AuthorPreviewModal({
         {addOpen && !inLibrary && fullAuthor && (
           <AddForm
             fullAuthor={fullAuthor}
-            onSuccess={(id) => {
-              setAddedId(id);
-              setAddOpen(false);
-            }}
+            onSuccess={() => onOpenChange(false)}
             onCancel={() => setAddOpen(false)}
           />
         )}
