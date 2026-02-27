@@ -2,10 +2,7 @@ import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
-function Card({
-  className,
-  ...props
-}: ComponentProps<"div">): JSX.Element {
+function Card({ className, ...props }: ComponentProps<"div">): JSX.Element {
   return (
     <div
       data-slot="card"

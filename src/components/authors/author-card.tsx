@@ -11,9 +11,7 @@ type AuthorCardProps = {
   };
 };
 
-export default function AuthorCard({
-  author,
-}: AuthorCardProps): JSX.Element {
+export default function AuthorCard({ author }: AuthorCardProps): JSX.Element {
   const imageUrl =
     author.images?.find((img) => img.coverType === "poster")?.url ??
     author.images?.[0]?.url ??

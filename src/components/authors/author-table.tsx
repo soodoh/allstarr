@@ -1,7 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ImageIcon,
+} from "lucide-react";
 import {
   Table,
   TableBody,

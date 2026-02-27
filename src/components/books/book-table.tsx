@@ -1,7 +1,13 @@
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon, Star } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ImageIcon,
+  Star,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,22 +40,39 @@ type BookTableProps = {
   children?: ReactNode;
 };
 
-type SortKey = "title" | "authorName" | "releaseDate" | "series" | "rating" | "readers";
+type SortKey =
+  | "title"
+  | "authorName"
+  | "releaseDate"
+  | "series"
+  | "rating"
+  | "readers";
 
 function compareRating(a: Book, b: Book): number {
   return (a.rating ?? -1) - (b.rating ?? -1);
 }
 
 function compareSeries(a: Book, b: Book): number {
-  const cmp = (a.series[0]?.title ?? "").localeCompare(b.series[0]?.title ?? "");
-  if (cmp !== 0) {return cmp;}
-  const ap = Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
-  const bp = Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+  const cmp = (a.series[0]?.title ?? "").localeCompare(
+    b.series[0]?.title ?? "",
+  );
+  if (cmp !== 0) {
+    return cmp;
+  }
+  const ap =
+    Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
+  const bp =
+    Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
   return ap - bp;
 }
 
 // oxlint-disable-next-line complexity -- sort dispatch across multiple keys
-function compareBooks(a: Book, b: Book, key: SortKey, dir: "asc" | "desc"): number {
+function compareBooks(
+  a: Book,
+  b: Book,
+  key: SortKey,
+  dir: "asc" | "desc",
+): number {
   if (key === "rating") {
     const cmp = compareRating(a, b);
     return dir === "asc" ? cmp : -cmp;
@@ -145,14 +168,20 @@ export default function BookTable({
       <TableBody>
         {sorted.map((book) => {
           const bookImage = book.images?.[0]?.url;
-          const primaryAuthor = book.authorForeignId && book.authorName
-            ? { foreignAuthorId: book.authorForeignId, name: book.authorName }
-            : null;
+          const primaryAuthor =
+            book.authorForeignId && book.authorName
+              ? { foreignAuthorId: book.authorForeignId, name: book.authorName }
+              : null;
           return (
             <TableRow
               key={book.id}
               className="cursor-pointer"
-              onClick={() => navigate({ to: "/library/books/$bookId", params: { bookId: String(book.id) } })}
+              onClick={() =>
+                navigate({
+                  to: "/library/books/$bookId",
+                  params: { bookId: String(book.id) },
+                })
+              }
             >
               <TableCell>
                 {bookImage ? (

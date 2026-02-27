@@ -73,12 +73,13 @@ export default function AddAuthorDialog({
             />
             <div className="min-w-0">
               <p className="font-semibold truncate">{author.name}</p>
-              {author.booksCount !== null && author.booksCount !== undefined && (
-                <p className="text-sm text-muted-foreground">
-                  {author.booksCount} book{author.booksCount === 1 ? "" : "s"}
-                  {" — all books, editions & series will be imported"}
-                </p>
-              )}
+              {author.booksCount !== null &&
+                author.booksCount !== undefined && (
+                  <p className="text-sm text-muted-foreground">
+                    {author.booksCount} book{author.booksCount === 1 ? "" : "s"}
+                    {" — all books, editions & series will be imported"}
+                  </p>
+                )}
             </div>
           </div>
 
@@ -118,19 +119,13 @@ export default function AddAuthorDialog({
               </SelectContent>
             </Select>
           </div>
-
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
-            Add to Library
-          </Button>
+          <Button onClick={handleSubmit}>Add to Library</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

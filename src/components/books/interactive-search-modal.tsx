@@ -44,7 +44,11 @@ export default function InteractiveSearchModal({
     if (open && book.id !== lastBookId.current && hasIndexers === true) {
       lastBookId.current = book.id;
       searchIndexers.reset();
-      searchIndexers.mutate({ query: defaultQuery, bookId: book.id, categories: null });
+      searchIndexers.mutate({
+        query: defaultQuery,
+        bookId: book.id,
+        categories: null,
+      });
     }
   }, [open, book.id, hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
 

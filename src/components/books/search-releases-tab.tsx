@@ -42,7 +42,11 @@ export default function SearchReleasesTab({
   useEffect(() => {
     if (!hasSearched.current && hasIndexers === true) {
       hasSearched.current = true;
-      searchIndexers.mutate({ query: defaultQuery, bookId: book.id, categories: null });
+      searchIndexers.mutate({
+        query: defaultQuery,
+        bookId: book.id,
+        categories: null,
+      });
     }
   }, [hasIndexers]); // eslint-disable-line react-hooks/exhaustive-deps
 

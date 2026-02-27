@@ -46,7 +46,9 @@ export default function BookForm({
   const [authorId, setAuthorId] = useState<string>(
     initialValues?.authorId?.toString() || "",
   );
-  const [description, setDescription] = useState(initialValues?.description || "");
+  const [description, setDescription] = useState(
+    initialValues?.description || "",
+  );
   const [releaseDate, setReleaseDate] = useState(
     initialValues?.releaseDate || "",
   );

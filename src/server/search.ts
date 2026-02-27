@@ -274,9 +274,7 @@ const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, {
  * Composes the `where` clause for the top-level `books` / `books_aggregate`
  * queries on the author books page.
  */
-function bookWhereFilters(opts: {
-  hasLanguage: boolean;
-}): string {
+function bookWhereFilters(opts: { hasLanguage: boolean }): string {
   const parts: string[] = [
     `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
     BOOK_COMPILATION_FILTER,
@@ -652,7 +650,7 @@ async function fetchSeriesBooks(
         const languageRecord =
           editions.length > 0 ? toRecord(editions[0].language) : undefined;
         const languageName = languageRecord
-          ? firstString(languageRecord, [["language"]]) ?? null
+          ? (firstString(languageRecord, [["language"]]) ?? null)
           : null;
         return {
           id,
@@ -665,9 +663,7 @@ async function fetchSeriesBooks(
           usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
           coverUrl: getCoverUrl(bookRecord) ?? null,
           position: position ?? null,
-          hardcoverUrl: slug
-            ? `https://hardcover.app/books/${slug}`
-            : null,
+          hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
           isCompilation,
           authorName,
           languageName,
@@ -920,16 +916,14 @@ function toHardcoverAuthorBook(
   const contributions = toRecordArray(bookRecord.contributions);
   const contribution =
     contributions.length > 0
-      ? firstString(contributions[0], [["contribution"]]) ?? null
+      ? (firstString(contributions[0], [["contribution"]]) ?? null)
       : null;
   const allContributions = toRecordArray(bookRecord.all_contributions);
   const contributors =
     allContributions
       .map((c) => {
         const authorRecord = toRecord(c.author);
-        return authorRecord
-          ? firstString(authorRecord, [["name"]])
-          : undefined;
+        return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
       })
       .filter((n): n is string => n !== undefined)
       .join(", ") || null;
@@ -937,10 +931,12 @@ function toHardcoverAuthorBook(
   const languageRecord =
     editions.length > 0 ? toRecord(editions[0].language) : undefined;
   const languageCode = languageRecord
-    ? normalizeLanguageCode(firstString(languageRecord, [["code2"], ["code3"]])) ?? null
+    ? (normalizeLanguageCode(
+        firstString(languageRecord, [["code2"], ["code3"]]),
+      ) ?? null)
     : null;
   const languageName = languageRecord
-    ? firstString(languageRecord, [["language"]]) ?? null
+    ? (firstString(languageRecord, [["language"]]) ?? null)
     : null;
 
   const bookSeriesEntries = toRecordArray(bookRecord.book_series);
@@ -958,7 +954,10 @@ function toHardcoverAuthorBook(
       return {
         id: seriesId,
         title: seriesTitle,
-        position: firstNumber(entry, [["position"]])?.toString() ?? firstString(entry, [["position"]]) ?? null,
+        position:
+          firstNumber(entry, [["position"]])?.toString() ??
+          firstString(entry, [["position"]]) ??
+          null,
       };
     })
     .filter(Boolean) as HardcoverAuthorBookSeries[];
@@ -968,10 +967,8 @@ function toHardcoverAuthorBook(
     title,
     slug: slug ?? null,
     description: firstString(bookRecord, [["description"]]) ?? null,
-    releaseDate: firstString(bookRecord, [
-      ["release_date"],
-      ["published_date"],
-    ]) ?? null,
+    releaseDate:
+      firstString(bookRecord, [["release_date"], ["published_date"]]) ?? null,
     releaseYear:
       firstNumber(bookRecord, [
         ["release_year"],
@@ -980,7 +977,8 @@ function toHardcoverAuthorBook(
       ]) ??
       parseYear(
         firstString(bookRecord, [["release_date"], ["published_date"]]),
-      ) ?? null,
+      ) ??
+      null,
     rating: firstNumber(bookRecord, [["rating"]]) ?? null,
     ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
     usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
@@ -1189,7 +1187,9 @@ function buildAuthorBookCountsQuery(
   const fragments = slugs
     .map((slug, i) => {
       // Escape any quotes in slug for safe embedding in GraphQL string literal
-      const safeSlug = slug.replaceAll("\\", String.raw`\\`).replaceAll('"', String.raw`\"`);
+      const safeSlug = slug
+        .replaceAll("\\", String.raw`\\`)
+        .replaceAll('"', String.raw`\"`);
       return `  a${i}: books_aggregate(where: {
       contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
       ${BOOK_COMPILATION_FILTER}${languageFilter}
@@ -1258,7 +1258,9 @@ async function applyAuthorBookCounts(
     }
 
     const filtered = items.filter((item) => {
-      if (!item.slug || !countBySlug.has(item.slug)) {return true;}
+      if (!item.slug || !countBySlug.has(item.slug)) {
+        return true;
+      }
       return countBySlug.get(item.slug)! > 0;
     });
 
@@ -1341,11 +1343,15 @@ async function applyBookContributors(
 
     for (let i = 0; i < bookEntries.length; i += 1) {
       const booksArray = toRecordArray(body.data?.[`b${i}`]);
-      if (booksArray.length === 0) {continue;}
+      if (booksArray.length === 0) {
+        continue;
+      }
       const contributors = toRecordArray(booksArray[0].contributions)
         .map((c) => {
           const authorRecord = toRecord(c.author);
-          return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+          return authorRecord
+            ? firstString(authorRecord, [["name"]])
+            : undefined;
         })
         .filter(Boolean) as string[];
       if (contributors.length > 0) {
@@ -1673,24 +1679,22 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
     const { query, type, limit, language } = data;
 
     if (type === "books") {
-      const results = sortByReaders(await fetchSearchResults(
-        query,
-        "Book",
-        limit,
-        authorization,
-        language,
-      ));
+      const results = sortByReaders(
+        await fetchSearchResults(query, "Book", limit, authorization, language),
+      );
       return { query, type, results, total: results.length };
     }
 
     if (type === "authors") {
-      const results = sortByReaders(await fetchSearchResults(
-        query,
-        "Author",
-        limit,
-        authorization,
-        language,
-      ));
+      const results = sortByReaders(
+        await fetchSearchResults(
+          query,
+          "Author",
+          limit,
+          authorization,
+          language,
+        ),
+      );
       return { query, type, results, total: results.length };
     }
 
@@ -1796,9 +1800,13 @@ async function fetchAuthorSeries(
         const authorBookEntries = toRecordArray(s.author_books);
         const hasNonAnthology = authorBookEntries.some((entry) => {
           const bookRecord = toRecord(entry.book);
-          if (!bookRecord) {return false;}
+          if (!bookRecord) {
+            return false;
+          }
           const aggRecord = toRecord(bookRecord.primary_authors);
-          const aggregate = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
+          const aggregate = aggRecord
+            ? toRecord(aggRecord.aggregate)
+            : undefined;
           const count = aggregate
             ? firstNumber(aggregate, [["count"]])
             : undefined;
@@ -1819,7 +1827,14 @@ async function fetchAuthorSeries(
           hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
         };
       })
-      .filter((s): s is NonNullable<typeof s> => s !== undefined && s !== null && s.id !== "" && s.name !== "" && s.booksCount > 0);
+      .filter(
+        (s): s is NonNullable<typeof s> =>
+          s !== undefined &&
+          s !== null &&
+          s.id !== "" &&
+          s.name !== "" &&
+          s.booksCount > 0,
+      );
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("Hardcover series request timed out.", { cause: error });
@@ -1877,8 +1892,7 @@ function buildEditionsOrderBy(
   sortDir: "asc" | "desc",
 ): Array<Record<string, unknown>> {
   const dir = sortDir;
-  const dirNullsLast =
-    sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
+  const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
   const map: Record<EditionSortKey, Array<Record<string, unknown>>> = {
     title: [{ title: dirNullsLast }, { id: "asc" }],
     publisher: [{ publisher: { name: dirNullsLast } }, { id: "asc" }],
@@ -1973,27 +1987,29 @@ async function fetchBookEditions(
               ? firstString(authorRecord, [["name"]])
               : undefined;
           })
-          .filter((n: unknown): n is string => typeof n === "string" && n.length > 0);
+          .filter(
+            (n: unknown): n is string => typeof n === "string" && n.length > 0,
+          );
         const author = authorNames.length > 0 ? authorNames.join(", ") : null;
 
         const publisherRecord = toRecord(record.publisher);
         const publisher = publisherRecord
-          ? firstString(publisherRecord, [["name"]]) ?? null
+          ? (firstString(publisherRecord, [["name"]]) ?? null)
           : null;
 
         const readingFormatRecord = toRecord(record.reading_format);
         const type = readingFormatRecord
-          ? firstString(readingFormatRecord, [["format"]]) ?? null
+          ? (firstString(readingFormatRecord, [["format"]]) ?? null)
           : null;
 
         const languageRecord = toRecord(record.language);
         const language = languageRecord
-          ? firstString(languageRecord, [["language"]]) ?? null
+          ? (firstString(languageRecord, [["language"]]) ?? null)
           : null;
 
         const countryRecord = toRecord(record.country);
         const country = countryRecord
-          ? firstString(countryRecord, [["name"]]) ?? null
+          ? (firstString(countryRecord, [["name"]]) ?? null)
           : null;
 
         return {
@@ -2117,14 +2133,21 @@ async function fetchBookEditionLanguages(
     }
 
     const editions = toRecordArray(body.data?.editions);
-    const langMap = new Map<string, { name: string; code: string; readers: number }>();
+    const langMap = new Map<
+      string,
+      { name: string; code: string; readers: number }
+    >();
 
     for (const edition of editions) {
       const langRecord = toRecord(edition.language);
-      if (!langRecord) {continue;}
+      if (!langRecord) {
+        continue;
+      }
       const code = firstString(langRecord, [["code2"]]);
       const name = firstString(langRecord, [["language"]]);
-      if (!code || !name) {continue;}
+      if (!code || !name) {
+        continue;
+      }
       const readers = firstNumber(edition, [["users_count"]]) ?? 0;
 
       const existing = langMap.get(code);
@@ -2233,26 +2256,35 @@ async function fetchSingleBook(
     }
 
     const booksArray = toRecordArray(body.data?.books);
-    if (booksArray.length === 0) {return undefined;}
+    if (booksArray.length === 0) {
+      return undefined;
+    }
 
     const bookRecord = booksArray[0];
     const id = firstId(bookRecord, [["id"]]);
-    if (!id) {return undefined;}
+    if (!id) {
+      return undefined;
+    }
 
     const bookSeriesEntries = toRecordArray(bookRecord.book_series);
     const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
       .map((entry) => {
         const seriesRecord = toRecord(entry.series);
-        if (!seriesRecord) {return undefined;}
+        if (!seriesRecord) {
+          return undefined;
+        }
         const seriesId = firstId(seriesRecord, [["id"]]);
         const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
-        if (!seriesId || !seriesTitle) {return undefined;}
+        if (!seriesId || !seriesTitle) {
+          return undefined;
+        }
         return {
           id: seriesId,
           title: seriesTitle,
           position:
             firstNumber(entry, [["position"]])?.toString() ??
-            firstString(entry, [["position"]]) ?? null,
+            firstString(entry, [["position"]]) ??
+            null,
         };
       })
       .filter(Boolean) as HardcoverAuthorBookSeries[];
@@ -2260,10 +2292,14 @@ async function fetchSingleBook(
     const contributors = toRecordArray(bookRecord.contributions)
       .map((c) => {
         const authorRecord = toRecord(c.author);
-        if (!authorRecord) {return undefined;}
+        if (!authorRecord) {
+          return undefined;
+        }
         const authorId = firstId(authorRecord, [["id"]]);
         const authorName = firstString(authorRecord, [["name"]]);
-        if (!authorId || !authorName) {return undefined;}
+        if (!authorId || !authorName) {
+          return undefined;
+        }
         return { id: authorId, name: authorName };
       })
       .filter(Boolean) as Array<{ id: string; name: string }>;

@@ -91,7 +91,11 @@ export async function searchProwlarr(
   query: string,
   categories: number[] = [7020],
 ): Promise<
-  Array<Omit<ProwlarrSearchResult, "downloadUrl" | "magnetUrl"> & { downloadUrl: string }>
+  Array<
+    Omit<ProwlarrSearchResult, "downloadUrl" | "magnetUrl"> & {
+      downloadUrl: string;
+    }
+  >
 > {
   const base = buildBaseUrl(
     config.host,

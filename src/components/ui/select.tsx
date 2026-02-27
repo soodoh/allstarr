@@ -143,9 +143,7 @@ function SelectSeparator({
 function SelectScrollUpButton({
   className,
   ...props
-}: ComponentProps<
-  typeof SelectPrimitive.ScrollUpButton
->): JSX.Element {
+}: ComponentProps<typeof SelectPrimitive.ScrollUpButton>): JSX.Element {
   return (
     <SelectPrimitive.ScrollUpButton
       data-slot="select-scroll-up-button"
@@ -163,9 +161,7 @@ function SelectScrollUpButton({
 function SelectScrollDownButton({
   className,
   ...props
-}: ComponentProps<
-  typeof SelectPrimitive.ScrollDownButton
->): JSX.Element {
+}: ComponentProps<typeof SelectPrimitive.ScrollDownButton>): JSX.Element {
   return (
     <SelectPrimitive.ScrollDownButton
       data-slot="select-scroll-down-button"

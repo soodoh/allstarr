@@ -24,7 +24,10 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import { searchHardcoverFn } from "src/server/search";
-import type { HardcoverSearchItem, HardcoverSearchMode } from "src/server/search";
+import type {
+  HardcoverSearchItem,
+  HardcoverSearchMode,
+} from "src/server/search";
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
 
@@ -168,7 +171,8 @@ function AddToLibraryPage() {
         <CardHeader>
           <CardTitle>Search Hardcover</CardTitle>
           <CardDescription>
-            Find authors or books to add to your library. Click a result to preview and add it.
+            Find authors or books to add to your library. Click a result to
+            preview and add it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

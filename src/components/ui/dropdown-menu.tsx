@@ -14,9 +14,7 @@ function DropdownMenu({
 
 function DropdownMenuPortal({
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.Portal
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.Portal>): JSX.Element {
   return (
     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
   );
@@ -24,9 +22,7 @@ function DropdownMenuPortal({
 
 function DropdownMenuTrigger({
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.Trigger
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.Trigger>): JSX.Element {
   return (
     <DropdownMenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
@@ -39,9 +35,7 @@ function DropdownMenuContent({
   className,
   sideOffset = 4,
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.Content
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.Content>): JSX.Element {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
@@ -59,9 +53,7 @@ function DropdownMenuContent({
 
 function DropdownMenuGroup({
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.Group
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.Group>): JSX.Element {
   return (
     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
   );
@@ -95,9 +87,7 @@ function DropdownMenuCheckboxItem({
   children,
   checked,
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.CheckboxItem
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>): JSX.Element {
   return (
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
@@ -120,9 +110,7 @@ function DropdownMenuCheckboxItem({
 
 function DropdownMenuRadioGroup({
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.RadioGroup
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>): JSX.Element {
   return (
     <DropdownMenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
@@ -135,9 +123,7 @@ function DropdownMenuRadioItem({
   className,
   children,
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.RadioItem
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.RadioItem>): JSX.Element {
   return (
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
@@ -180,9 +166,7 @@ function DropdownMenuLabel({
 function DropdownMenuSeparator({
   className,
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.Separator
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.Separator>): JSX.Element {
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
@@ -241,9 +225,7 @@ function DropdownMenuSubTrigger({
 function DropdownMenuSubContent({
   className,
   ...props
-}: ComponentProps<
-  typeof DropdownMenuPrimitive.SubContent
->): JSX.Element {
+}: ComponentProps<typeof DropdownMenuPrimitive.SubContent>): JSX.Element {
   return (
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"

@@ -34,10 +34,7 @@ const FormField = <
 >({
   ...props
 }: ControllerProps<TFieldValues, TName>): JSX.Element => {
-  const fieldContextValue = useMemo(
-    () => ({ name: props.name }),
-    [props.name],
-  );
+  const fieldContextValue = useMemo(() => ({ name: props.name }), [props.name]);
   return (
     <FormFieldContext.Provider value={fieldContextValue}>
       <Controller {...props} />
@@ -77,10 +74,7 @@ const FormItemContext = createContext<FormItemContextValue>(
   {} as FormItemContextValue,
 );
 
-function FormItem({
-  className,
-  ...props
-}: ComponentProps<"div">): JSX.Element {
+function FormItem({ className, ...props }: ComponentProps<"div">): JSX.Element {
   const id = useId();
   const itemContextValue = useMemo(() => ({ id }), [id]);
 

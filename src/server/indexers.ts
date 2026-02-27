@@ -147,7 +147,9 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
       .from(indexers)
       .where(eq(indexers.enabled, true))
       .all().length;
-    if (manualCount > 0) {return true;}
+    if (manualCount > 0) {
+      return true;
+    }
 
     const syncedCount = db
       .select()
@@ -240,11 +242,17 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
     }
 
     for (const synced of enabledSynced) {
-      if (!synced.apiKey) {continue;}
+      if (!synced.apiKey) {
+        continue;
+      }
       const config = parseSyncedBaseUrl(synced.baseUrl, synced.apiKey);
-      if (!config) {continue;}
+      if (!config) {
+        continue;
+      }
       const key = `${config.host}:${config.port}`;
-      if (seenBases.has(key)) {continue;}
+      if (seenBases.has(key)) {
+        continue;
+      }
       seenBases.add(key);
       searchSources.push({ config, id: synced.id });
     }

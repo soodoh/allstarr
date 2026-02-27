@@ -56,7 +56,9 @@ function firstString(
     }
     if (typeof current === "string") {
       const trimmed = current.trim();
-      if (trimmed.length > 0) {return trimmed;}
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
     }
   }
   return undefined;
@@ -76,10 +78,14 @@ function firstNumber(
       }
       current = next[key];
     }
-    if (typeof current === "number" && Number.isFinite(current)) {return current;}
+    if (typeof current === "number" && Number.isFinite(current)) {
+      return current;
+    }
     if (typeof current === "string") {
       const parsed = Number(current);
-      if (Number.isFinite(parsed)) {return parsed;}
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
     }
   }
   return undefined;
@@ -89,7 +95,9 @@ function getCoverUrl(record: Record<string, unknown>): string | undefined {
   const imageRecord = toRecord(record.image);
   if (imageRecord) {
     const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
-    if (imageUrl) {return imageUrl;}
+    if (imageUrl) {
+      return imageUrl;
+    }
   }
   return undefined;
 }
@@ -118,7 +126,9 @@ async function fetchGraphQL<T = Record<string, unknown>>(
       if (response.status === 429 && attempt < MAX_RETRIES) {
         clearTimeout(timeoutId);
         const delay = 2000 * 2 ** attempt; // 2s, 4s, 8s, 16s, 32s
-        await new Promise((resolve) => { setTimeout(resolve, delay); });
+        await new Promise((resolve) => {
+          setTimeout(resolve, delay);
+        });
         continue;
       }
 
@@ -127,10 +137,14 @@ async function fetchGraphQL<T = Record<string, unknown>>(
       try {
         body = JSON.parse(rawText) as GraphQLResponse<T>;
       } catch {
-        throw new Error(`Hardcover API returned non-JSON (status ${response.status})`);
+        throw new Error(
+          `Hardcover API returned non-JSON (status ${response.status})`,
+        );
       }
       if (!response.ok) {
-        throw new Error(`Hardcover API request failed (status ${response.status}).`);
+        throw new Error(
+          `Hardcover API request failed (status ${response.status}).`,
+        );
       }
       if (body.errors && body.errors.length > 0) {
         throw new Error(body.errors[0]?.message || "Hardcover API error.");
@@ -223,26 +237,29 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
 }
 `;
 
-function parseRawBook(bookRecord: Record<string, unknown>): HardcoverRawBook | undefined {
+function parseRawBook(
+  bookRecord: Record<string, unknown>,
+): HardcoverRawBook | undefined {
   const id = firstNumber(bookRecord, [["id"]]);
   const title = firstString(bookRecord, [["title"]]);
-  if (!id || !title) {return undefined;}
+  if (!id || !title) {
+    return undefined;
+  }
 
   const contributions: HardcoverRawContribution[] = toRecordArray(
     bookRecord.contributions,
   ).map((c, i) => {
     const authorRecord = toRecord(c.author);
     return {
-      authorId: authorRecord ? firstNumber(authorRecord, [["id"]]) ?? 0 : 0,
+      authorId: authorRecord ? (firstNumber(authorRecord, [["id"]]) ?? 0) : 0,
       authorName: authorRecord
-        ? firstString(authorRecord, [["name"]]) ?? ""
+        ? (firstString(authorRecord, [["name"]]) ?? "")
         : "",
       authorSlug: authorRecord
-        ? firstString(authorRecord, [["slug"]]) ?? null
+        ? (firstString(authorRecord, [["slug"]]) ?? null)
         : null,
-      authorImageUrl: authorRecord ? getCoverUrl(authorRecord) ?? null : null,
-      contribution:
-        typeof c.contribution === "string" ? c.contribution : null,
+      authorImageUrl: authorRecord ? (getCoverUrl(authorRecord) ?? null) : null,
+      contribution: typeof c.contribution === "string" ? c.contribution : null,
       position: i,
     };
   });
@@ -251,10 +268,14 @@ function parseRawBook(bookRecord: Record<string, unknown>): HardcoverRawBook | u
   const series: HardcoverRawBookSeries[] = bookSeriesEntries
     .map((entry) => {
       const seriesRecord = toRecord(entry.series);
-      if (!seriesRecord) {return undefined;}
+      if (!seriesRecord) {
+        return undefined;
+      }
       const seriesId = firstNumber(seriesRecord, [["id"]]);
       const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
-      if (!seriesId || !seriesTitle) {return undefined;}
+      if (!seriesId || !seriesTitle) {
+        return undefined;
+      }
       return {
         seriesId,
         seriesTitle,
@@ -265,7 +286,8 @@ function parseRawBook(bookRecord: Record<string, unknown>): HardcoverRawBook | u
             : null,
         position:
           firstNumber(entry, [["position"]])?.toString() ??
-          firstString(entry, [["position"]]) ?? null,
+          firstString(entry, [["position"]]) ??
+          null,
       };
     })
     .filter(Boolean) as HardcoverRawBookSeries[];
@@ -303,7 +325,11 @@ export async function fetchAuthorComplete(
     authors: unknown;
     books: unknown;
     books_aggregate: unknown;
-  }>(AUTHOR_COMPLETE_QUERY, { authorId, limit: BATCH_SIZE, offset: 0 }, authorization);
+  }>(
+    AUTHOR_COMPLETE_QUERY,
+    { authorId, limit: BATCH_SIZE, offset: 0 },
+    authorization,
+  );
 
   const authors = toRecordArray(firstPage.authors);
   const authorRecord = authors[0];
@@ -323,7 +349,7 @@ export async function fetchAuthorComplete(
 
   const aggRecord = toRecord(firstPage.books_aggregate);
   const aggInner = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
-  totalBooks = aggInner ? firstNumber(aggInner, [["count"]]) ?? 0 : 0;
+  totalBooks = aggInner ? (firstNumber(aggInner, [["count"]]) ?? 0) : 0;
 
   const firstPageBooks = toRecordArray(firstPage.books)
     .map(parseRawBook)
@@ -343,7 +369,9 @@ export async function fetchAuthorComplete(
       .filter(Boolean) as HardcoverRawBook[];
     allBooks.push(...pageBooks);
     offset += BATCH_SIZE;
-    if (pageBooks.length < BATCH_SIZE) {break;}
+    if (pageBooks.length < BATCH_SIZE) {
+      break;
+    }
   }
 
   return { author, books: allBooks };
@@ -397,7 +425,9 @@ export async function fetchSeriesComplete(
   seriesIds: number[],
   authorization: string,
 ): Promise<HardcoverRawSeries[]> {
-  if (seriesIds.length === 0) {return [];}
+  if (seriesIds.length === 0) {
+    return [];
+  }
 
   const data = await fetchGraphQL<{ series: unknown }>(
     SERIES_COMPLETE_QUERY,
@@ -409,7 +439,9 @@ export async function fetchSeriesComplete(
     .map((s) => {
       const id = firstNumber(s, [["id"]]);
       const title = firstString(s, [["name"], ["title"]]);
-      if (!id || !title) {return undefined;}
+      if (!id || !title) {
+        return undefined;
+      }
 
       const bookEntries = toRecordArray(s.book_series);
       // Deduplicate by position
@@ -418,15 +450,23 @@ export async function fetchSeriesComplete(
         .map((entry) => {
           const position = firstNumber(entry, [["position"]]);
           // Skip null position entries
-          if (position === undefined) {return undefined;}
-          if (seen.has(position)) {return undefined;}
+          if (position === undefined) {
+            return undefined;
+          }
+          if (seen.has(position)) {
+            return undefined;
+          }
           seen.add(position);
 
           const bookRecord = toRecord(entry.book);
-          if (!bookRecord) {return undefined;}
+          if (!bookRecord) {
+            return undefined;
+          }
           const bookId = firstNumber(bookRecord, [["id"]]);
           const bookTitle = firstString(bookRecord, [["title"]]);
-          if (!bookId || !bookTitle) {return undefined;}
+          if (!bookId || !bookTitle) {
+            return undefined;
+          }
 
           const contributions = toRecordArray(bookRecord.contributions);
           const primaryContribution =
@@ -447,16 +487,16 @@ export async function fetchSeriesComplete(
             usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
             coverUrl: getCoverUrl(bookRecord) ?? null,
             authorId: primaryAuthor
-              ? firstNumber(primaryAuthor, [["id"]]) ?? null
+              ? (firstNumber(primaryAuthor, [["id"]]) ?? null)
               : null,
             authorName: primaryAuthor
-              ? firstString(primaryAuthor, [["name"]]) ?? null
+              ? (firstString(primaryAuthor, [["name"]]) ?? null)
               : null,
             authorSlug: primaryAuthor
-              ? firstString(primaryAuthor, [["slug"]]) ?? null
+              ? (firstString(primaryAuthor, [["slug"]]) ?? null)
               : null,
             authorImageUrl: primaryAuthor
-              ? getCoverUrl(primaryAuthor) ?? null
+              ? (getCoverUrl(primaryAuthor) ?? null)
               : null,
           };
         })
@@ -513,7 +553,9 @@ function parseEdition(
   bookId: number,
 ): HardcoverRawEdition | undefined {
   const id = firstNumber(record, [["id"]]);
-  if (!id) {return undefined;}
+  if (!id) {
+    return undefined;
+  }
 
   const publisherRecord = toRecord(record.publisher);
   const readingFormatRecord = toRecord(record.reading_format);
@@ -526,15 +568,15 @@ function parseEdition(
   const contributors = cachedContributors
     .map((c: unknown) => {
       const cr = toRecord(c);
-      if (!cr) {return undefined;}
+      if (!cr) {
+        return undefined;
+      }
       const authorRecord = toRecord(cr.author);
       return {
         authorId: String(
-          authorRecord ? firstNumber(authorRecord, [["id"]]) ?? "" : "",
+          authorRecord ? (firstNumber(authorRecord, [["id"]]) ?? "") : "",
         ),
-        name: authorRecord
-          ? firstString(authorRecord, [["name"]]) ?? ""
-          : "",
+        name: authorRecord ? (firstString(authorRecord, [["name"]]) ?? "") : "",
         contribution:
           typeof cr.contribution === "string" ? cr.contribution : null,
       };
@@ -553,22 +595,22 @@ function parseEdition(
     isbn13: firstString(record, [["isbn_13"]]) ?? null,
     asin: firstString(record, [["asin"]]) ?? null,
     format: readingFormatRecord
-      ? firstString(readingFormatRecord, [["format"]]) ?? null
+      ? (firstString(readingFormatRecord, [["format"]]) ?? null)
       : null,
     pageCount: firstNumber(record, [["pages"]]) ?? null,
     publisher: publisherRecord
-      ? firstString(publisherRecord, [["name"]]) ?? null
+      ? (firstString(publisherRecord, [["name"]]) ?? null)
       : null,
     editionInformation: firstString(record, [["edition_information"]]) ?? null,
     releaseDate: firstString(record, [["release_date"]]) ?? null,
     language: languageRecord
-      ? firstString(languageRecord, [["language"]]) ?? null
+      ? (firstString(languageRecord, [["language"]]) ?? null)
       : null,
     languageCode: languageRecord
-      ? firstString(languageRecord, [["code2"]]) ?? null
+      ? (firstString(languageRecord, [["code2"]]) ?? null)
       : null,
     country: countryRecord
-      ? firstString(countryRecord, [["name"]]) ?? null
+      ? (firstString(countryRecord, [["name"]]) ?? null)
       : null,
     usersCount: firstNumber(record, [["users_count"]]) ?? 0,
     score: firstNumber(record, [["score"]]) ?? 0,
@@ -582,7 +624,9 @@ export async function fetchBatchedEditions(
   authorization: string,
 ): Promise<Map<number, HardcoverRawEdition[]>> {
   const result = new Map<number, HardcoverRawEdition[]>();
-  if (bookIds.length === 0) {return result;}
+  if (bookIds.length === 0) {
+    return result;
+  }
 
   // Split into batches
   const batches: number[][] = [];
@@ -593,7 +637,9 @@ export async function fetchBatchedEditions(
   // Process in concurrent groups
   for (let g = 0; g < batches.length; g += EDITIONS_CONCURRENCY) {
     if (g > 0) {
-      await new Promise((resolve) => { setTimeout(resolve, BATCH_DELAY_MS); });
+      await new Promise((resolve) => {
+        setTimeout(resolve, BATCH_DELAY_MS);
+      });
     }
 
     const group = batches.slice(g, g + EDITIONS_CONCURRENCY);
@@ -686,10 +732,13 @@ query BookComplete($bookId: Int!) {
 export async function fetchBookComplete(
   foreignBookId: number,
   authorization: string,
-): Promise<{
-  book: HardcoverRawBook;
-  editions: HardcoverRawEdition[];
-} | undefined> {
+): Promise<
+  | {
+      book: HardcoverRawBook;
+      editions: HardcoverRawEdition[];
+    }
+  | undefined
+> {
   const data = await fetchGraphQL<{ books: unknown; editions: unknown }>(
     BOOK_COMPLETE_QUERY,
     { bookId: foreignBookId },
@@ -697,10 +746,14 @@ export async function fetchBookComplete(
   );
 
   const booksArray = toRecordArray(data.books);
-  if (booksArray.length === 0) {return undefined;}
+  if (booksArray.length === 0) {
+    return undefined;
+  }
 
   const book = parseRawBook(booksArray[0]);
-  if (!book) {return undefined;}
+  if (!book) {
+    return undefined;
+  }
 
   const editions = toRecordArray(data.editions)
     .map((r) => parseEdition(r, foreignBookId))

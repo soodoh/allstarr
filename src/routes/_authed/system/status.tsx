@@ -10,7 +10,12 @@ import PageHeader from "src/components/shared/page-header";
 import { SystemStatusSkeleton } from "src/components/shared/loading-skeleton";
 import { systemStatusQuery } from "src/lib/queries";
 import type { HealthCheck, DiskSpaceEntry } from "src/lib/queries";
-import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "src/components/ui/card";
 import { Badge } from "src/components/ui/badge";
 
 export const Route = createFileRoute("/_authed/system/status")({

@@ -98,12 +98,8 @@ function RootFoldersPage() {
                   <TableCell className="font-mono text-sm">
                     {folder.path}
                   </TableCell>
-                  <TableCell>
-                    {formatBytes(folder.freeSpace)}
-                  </TableCell>
-                  <TableCell>
-                    {formatBytes(folder.totalSpace)}
-                  </TableCell>
+                  <TableCell>{formatBytes(folder.freeSpace)}</TableCell>
+                  <TableCell>{formatBytes(folder.totalSpace)}</TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"

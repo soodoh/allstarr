@@ -33,11 +33,7 @@ type IndexerFormProps = {
   loading?: boolean;
 };
 
-function TestResultBanner({
-  result,
-}: {
-  result: TestResult;
-}): JSX.Element {
+function TestResultBanner({ result }: { result: TestResult }): JSX.Element {
   const isSuccess = result.success;
   return (
     <div

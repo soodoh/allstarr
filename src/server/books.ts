@@ -174,7 +174,11 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     const resolvedAuthors: Record<string, { id: number; name: string }> = {};
     if (allForeignAuthorIds.size > 0) {
       const localAuthors = db
-        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .select({
+          id: authors.id,
+          name: authors.name,
+          foreignAuthorId: authors.foreignAuthorId,
+        })
         .from(authors)
         .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
         .all();
@@ -262,10 +266,16 @@ export const getBookFn = createServerFn({ method: "GET" })
 
     // Resolve foreignAuthorIds to local authors
     const resolvedAuthors: Record<string, { id: number; name: string }> = {};
-    const bookForeignAuthorIds = (book.foreignAuthorIds ?? []).map((e) => e.foreignAuthorId);
+    const bookForeignAuthorIds = (book.foreignAuthorIds ?? []).map(
+      (e) => e.foreignAuthorId,
+    );
     if (bookForeignAuthorIds.length > 0) {
       const localAuthors = db
-        .select({ id: authors.id, name: authors.name, foreignAuthorId: authors.foreignAuthorId })
+        .select({
+          id: authors.id,
+          name: authors.name,
+          foreignAuthorId: authors.foreignAuthorId,
+        })
         .from(authors)
         .where(inArray(authors.foreignAuthorId, bookForeignAuthorIds))
         .all();

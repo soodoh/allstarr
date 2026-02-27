@@ -62,11 +62,7 @@ export default function BookDetailContent({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-[auto_1fr] gap-6">
-        <BookCover
-          title={book.title}
-          images={coverImages}
-          className="w-40"
-        />
+        <BookCover title={book.title} images={coverImages} className="w-40" />
         <div className="flex flex-col justify-end space-y-3 text-sm min-w-0">
           {displayAuthor && (
             <div className="flex items-center gap-2">
@@ -148,10 +144,7 @@ export default function BookDetailContent({
                   <PopoverContent align="start" className="w-48 p-0">
                     <ul className="max-h-64 overflow-y-auto py-1">
                       {book.availableLanguages.map((l) => (
-                        <li
-                          key={l.code}
-                          className="px-3 py-1.5 text-sm"
-                        >
+                        <li key={l.code} className="px-3 py-1.5 text-sm">
                           {l.name}
                         </li>
                       ))}

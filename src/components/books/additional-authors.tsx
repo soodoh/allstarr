@@ -80,7 +80,9 @@ export default function AdditionalAuthors({
   primaryAuthor,
   currentAuthorId,
 }: AdditionalAuthorsProps): JSX.Element | null {
-  const [previewAuthor, setPreviewAuthor] = useState<HardcoverSearchItem | undefined>(undefined);
+  const [previewAuthor, setPreviewAuthor] = useState<
+    HardcoverSearchItem | undefined
+  >(undefined);
 
   const allAuthors = useMemo(() => {
     const coAuthors = foreignAuthorIds ?? [];
@@ -98,7 +100,8 @@ export default function AdditionalAuthors({
     <>
       {allAuthors.map((entry, i) => {
         const local = resolvedAuthors[entry.foreignAuthorId];
-        const isCurrent = currentAuthorId !== undefined && local?.id === currentAuthorId;
+        const isCurrent =
+          currentAuthorId !== undefined && local?.id === currentAuthorId;
         return (
           <span key={entry.foreignAuthorId}>
             {i > 0 && ", "}
@@ -115,7 +118,11 @@ export default function AdditionalAuthors({
         <AuthorPreviewModal
           author={previewAuthor}
           open
-          onOpenChange={(v) => { if (!v) { setPreviewAuthor(undefined); } }}
+          onOpenChange={(v) => {
+            if (!v) {
+              setPreviewAuthor(undefined);
+            }
+          }}
         />
       )}
     </>

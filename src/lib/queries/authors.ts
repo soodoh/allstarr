@@ -37,4 +37,3 @@ export const authorExistsQuery = (foreignAuthorId: string) =>
     queryKey: queryKeys.authors.existence(foreignAuthorId),
     queryFn: () => checkAuthorExistsFn({ data: { foreignAuthorId } }),
   });
-

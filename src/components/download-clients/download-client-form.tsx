@@ -205,11 +205,7 @@ function ConnectionFields({
   );
 }
 
-function TestResultBanner({
-  result,
-}: {
-  result: TestResult;
-}): JSX.Element {
+function TestResultBanner({ result }: { result: TestResult }): JSX.Element {
   const isSuccess = result.success;
   return (
     <div

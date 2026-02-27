@@ -7,10 +7,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import {
-  useSuspenseQuery,
-  useQuery,
-} from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ChevronDown,
@@ -40,11 +37,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "src/components/ui/popover";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "src/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +49,11 @@ import {
   authorsListQuery,
   hasEnabledIndexersQuery,
 } from "src/lib/queries";
-import { useUpdateBook, useDeleteBook, useRefreshBookMetadata } from "src/hooks/mutations";
+import {
+  useUpdateBook,
+  useDeleteBook,
+  useRefreshBookMetadata,
+} from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed/library/books/$bookId")({
@@ -200,11 +197,7 @@ function BookDetailPage(): JSX.Element {
             </Button>
             {hardcoverUrl && (
               <Button variant="outline" size="sm" asChild>
-                <a
-                  href={hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={hardcoverUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Hardcover
                 </a>
@@ -244,15 +237,16 @@ function BookDetailPage(): JSX.Element {
                   ) : (
                     authorName
                   )}
-                  {book.foreignAuthorIds && book.foreignAuthorIds.length > 0 && (
-                    <>
-                      ,{" "}
-                      <AdditionalAuthors
-                        foreignAuthorIds={book.foreignAuthorIds}
-                        resolvedAuthors={book.resolvedAuthors ?? {}}
-                      />
-                    </>
-                  )}
+                  {book.foreignAuthorIds &&
+                    book.foreignAuthorIds.length > 0 && (
+                      <>
+                        ,{" "}
+                        <AdditionalAuthors
+                          foreignAuthorIds={book.foreignAuthorIds}
+                          resolvedAuthors={book.resolvedAuthors ?? {}}
+                        />
+                      </>
+                    )}
                 </dd>
               </div>
               {book.releaseDate && (
@@ -267,9 +261,7 @@ function BookDetailPage(): JSX.Element {
                   <dd>
                     {book.series
                       .map((s) =>
-                        s.position
-                          ? `${s.title} #${s.position}`
-                          : s.title,
+                        s.position ? `${s.title} #${s.position}` : s.title,
                       )
                       .join(", ")}
                   </dd>
