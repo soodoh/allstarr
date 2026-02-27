@@ -20,6 +20,7 @@ function deriveSortName(name: string): string {
 const importBookSchema = z.object({
   title: z.string().min(1),
   foreignBookId: z.string().min(1),
+  slug: z.string().optional(),
   releaseDate: z.string().nullable().optional(),
   overview: z.string().nullable().optional(),
   language: z.string().nullable().optional(),
@@ -117,6 +118,7 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
             title: bookData.title,
             authorId: author.id,
             foreignBookId: bookData.foreignBookId,
+            slug: bookData.slug ?? undefined,
             releaseDate: bookData.releaseDate ?? undefined,
             overview: bookData.overview ?? undefined,
             language: bookData.language ?? undefined,
@@ -203,6 +205,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           title: data.title,
           authorId: data.authorId,
           foreignBookId: data.foreignBookId,
+          slug: data.slug ?? undefined,
           releaseDate: data.releaseDate ?? undefined,
           overview: data.overview ?? undefined,
           language: data.language ?? undefined,

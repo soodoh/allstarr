@@ -710,6 +710,7 @@ function SeriesCard({
           authorId,
           title: book.title,
           foreignBookId: book.id,
+          slug: book.slug,
           releaseDate: book.releaseDate ?? (book.releaseYear ? `${book.releaseYear}-01-01` : undefined),
           overview: book.description,
           language: book.languageName,
@@ -906,6 +907,7 @@ function SeriesCardContent({
                 <SeriesBookMonitorToggle
                   bookId={book.id}
                   title={book.title}
+                  slug={book.slug}
                   description={book.description}
                   coverUrl={book.coverUrl}
                   releaseDate={book.releaseDate}

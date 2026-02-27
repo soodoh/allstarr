@@ -73,6 +73,7 @@ export function BookMonitorToggle({
         authorId,
         title: book.title,
         foreignBookId: book.id,
+        slug: book.slug,
         releaseDate: book.releaseDate ?? undefined,
         overview: book.description ?? undefined,
         language: book.languageName ?? undefined,
@@ -125,6 +126,7 @@ export function BookMonitorToggle({
 type SeriesBookMonitorToggleProps = {
   bookId: string;
   title: string;
+  slug: string | undefined;
   description: string | undefined;
   coverUrl: string | undefined;
   releaseDate: string | undefined;
@@ -143,6 +145,7 @@ type SeriesBookMonitorToggleProps = {
 export function SeriesBookMonitorToggle({
   bookId,
   title,
+  slug,
   description,
   coverUrl,
   releaseDate,
@@ -194,6 +197,7 @@ export function SeriesBookMonitorToggle({
         authorId,
         title,
         foreignBookId: bookId,
+        slug,
         releaseDate: releaseDate ?? (releaseYear ? `${releaseYear}-01-01` : undefined),
         overview: description,
         language: languageName,

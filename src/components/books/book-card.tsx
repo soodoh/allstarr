@@ -1,11 +1,12 @@
 import type { JSX } from "react";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
+import { useNavigate } from "@tanstack/react-router";
 import BookCover from "src/components/books/book-cover";
 
 type BookCardProps = {
   book: {
     id: number;
     title: string;
+    slug?: string | undefined;
     authorName?: string;
     releaseDate?: string;
     overview?: string;
@@ -14,13 +15,13 @@ type BookCardProps = {
 };
 
 export default function BookCard({ book }: BookCardProps): JSX.Element {
-  const { openBookModal } = useBookDetailModal();
+  const navigate = useNavigate();
 
   return (
     <button
       type="button"
       className="block cursor-pointer w-full text-left group"
-      onClick={() => openBookModal(book.id)}
+      onClick={() => navigate({ to: "/library/books/$bookSlug", params: { bookSlug: book.slug || String(book.id) } })}
     >
       <div className="flex flex-col gap-2">
         <BookCover

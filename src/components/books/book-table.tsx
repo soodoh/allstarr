@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, ChevronUp, ChevronsUpDown, ImageIcon, Star } from "lucide-react";
 import {
   Table,
@@ -9,11 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from "src/components/ui/table";
-import { useBookDetailModal } from "src/components/books/book-detail-modal-provider";
 
 type Book = {
   id: number;
   title: string;
+  slug?: string | undefined;
   authorName: string | undefined;
   releaseDate: string | undefined;
   language: string | undefined;
@@ -66,7 +67,7 @@ export default function BookTable({
   books,
   children,
 }: BookTableProps): JSX.Element {
-  const { openBookModal } = useBookDetailModal();
+  const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortKey | undefined>(undefined);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -144,7 +145,7 @@ export default function BookTable({
             <TableRow
               key={book.id}
               className="cursor-pointer"
-              onClick={() => openBookModal(book.id)}
+              onClick={() => navigate({ to: "/library/books/$bookSlug", params: { bookSlug: book.slug || String(book.id) } })}
             >
               <TableCell>
                 {bookImage ? (

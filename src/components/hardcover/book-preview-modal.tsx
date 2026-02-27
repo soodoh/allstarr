@@ -121,6 +121,7 @@ function AddBookForm({
         authorId,
         title: book.title,
         foreignBookId: book.id,
+        slug: book.slug,
         releaseDate,
         overview,
         monitored,

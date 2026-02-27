@@ -4,6 +4,7 @@ import {
   getBooksFn,
   getPaginatedBooksFn,
   getBookFn,
+  getBookBySlugFn,
   checkBooksExistFn,
 } from "src/server/books";
 import { queryKeys } from "../query-keys";
@@ -30,6 +31,12 @@ export const bookDetailQuery = (id: number) =>
   queryOptions({
     queryKey: queryKeys.books.detail(id),
     queryFn: () => getBookFn({ data: { id } }),
+  });
+
+export const bookDetailBySlugQuery = (slug: string) =>
+  queryOptions({
+    queryKey: queryKeys.books.detailBySlug(slug),
+    queryFn: () => getBookBySlugFn({ data: { slug } }),
   });
 
 export const booksExistQuery = (foreignBookIds: string[]) =>
