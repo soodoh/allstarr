@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronUp,
@@ -16,52 +15,80 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { TabsContent } from "src/components/ui/tabs";
-import Skeleton from "src/components/ui/skeleton";
 import TablePagination from "src/components/shared/table-pagination";
-import { hardcoverBookEditionsQuery } from "src/lib/queries";
-import type { EditionSortKey } from "src/server/search";
+
+type Edition = {
+  id: number;
+  title: string;
+  foreignEditionId: string | undefined;
+  format: string | undefined;
+  publisher: string | undefined;
+  editionInformation: string | undefined;
+  pageCount: number | undefined;
+  releaseDate: string | undefined;
+  isbn10: string | undefined;
+  isbn13: string | undefined;
+  asin: string | undefined;
+  language: string | undefined;
+  languageCode: string | undefined;
+  country: string | undefined;
+  usersCount: number | undefined;
+  score: number | undefined;
+  images: Array<{ url: string; coverType: string }> | undefined;
+};
+
+type EditionSortKey = "title" | "publisher" | "information" | "format" | "pages" | "releaseDate" | "isbn13" | "isbn10" | "asin" | "language" | "country" | "readers" | "score";
 
 type EditionColumn = {
-  key: EditionSortKey | "author";
+  key: EditionSortKey;
   label: string;
-  sortable: boolean;
 };
 
 const EDITION_COLUMNS: EditionColumn[] = [
-  { key: "title", label: "Title", sortable: true },
-  { key: "author", label: "Author", sortable: false },
-  { key: "publisher", label: "Publisher", sortable: true },
-  { key: "type", label: "Type", sortable: true },
-  { key: "pages", label: "Pages", sortable: true },
-  { key: "releaseDate", label: "Release Date", sortable: true },
-  { key: "isbn13", label: "ISBN-13", sortable: true },
-  { key: "isbn10", label: "ISBN-10", sortable: true },
-  { key: "asin", label: "ASIN", sortable: true },
-  { key: "language", label: "Language", sortable: true },
-  { key: "country", label: "Country", sortable: true },
-  { key: "readers", label: "Readers", sortable: true },
-  { key: "score", label: "Data Score", sortable: true },
+  { key: "title", label: "Title" },
+  { key: "publisher", label: "Publisher" },
+  { key: "information", label: "Information" },
+  { key: "format", label: "Type" },
+  { key: "pages", label: "Pages" },
+  { key: "releaseDate", label: "Release Date" },
+  { key: "isbn13", label: "ISBN-13" },
+  { key: "isbn10", label: "ISBN-10" },
+  { key: "asin", label: "ASIN" },
+  { key: "language", label: "Language" },
+  { key: "country", label: "Country" },
+  { key: "readers", label: "Readers" },
+  { key: "score", label: "Data Score" },
 ];
 
-// oxlint-disable-next-line complexity -- Rendering edition table with sort, pagination, and loading states
+const EDITION_SORT_ACCESSORS: Record<EditionSortKey, (e: Edition) => string | number> = {
+  title: (e) => e.title || "",
+  publisher: (e) => e.publisher || "",
+  information: (e) => e.editionInformation || "",
+  format: (e) => e.format || "",
+  pages: (e) => e.pageCount ?? -1,
+  releaseDate: (e) => e.releaseDate || "",
+  isbn13: (e) => e.isbn13 || "",
+  isbn10: (e) => e.isbn10 || "",
+  asin: (e) => e.asin || "",
+  language: (e) => e.language || "",
+  country: (e) => e.country || "",
+  readers: (e) => e.usersCount ?? -1,
+  score: (e) => e.score ?? -1,
+};
+
+function getEditionSortValue(edition: Edition, key: EditionSortKey): string | number {
+  return EDITION_SORT_ACCESSORS[key](edition);
+}
+
 export default function EditionsTab({
-  foreignBookId,
-  enabled,
+  editions,
 }: {
-  foreignBookId: string | undefined;
-  enabled: boolean;
+  editions: Edition[];
 }): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sortBy, setSortBy] = useState<EditionSortKey>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
-  const bookId = foreignBookId ? Number(foreignBookId) : 0;
-
-  const { data, isLoading } = useQuery({
-    ...hardcoverBookEditionsQuery(bookId, { page, pageSize, sortBy, sortDir }),
-    enabled: enabled && bookId > 0,
-  });
 
   const handleSort = (key: EditionSortKey) => {
     if (sortBy === key) {
@@ -78,6 +105,24 @@ export default function EditionsTab({
     setPage(1);
   };
 
+  const sortedEditions = useMemo(() => {
+    return [...editions].toSorted((a, b) => {
+      const av = getEditionSortValue(a, sortBy);
+      const bv = getEditionSortValue(b, sortBy);
+      let cmp: number;
+      if (typeof av === "number" && typeof bv === "number") {
+        cmp = av - bv;
+      } else {
+        cmp = String(av).localeCompare(String(bv));
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [editions, sortBy, sortDir]);
+
+  const total = sortedEditions.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pagedEditions = sortedEditions.slice((page - 1) * pageSize, page * pageSize);
+
   const SortIcon = ({ col }: { col: EditionSortKey }) => {
     if (sortBy !== col) {
       return (
@@ -90,16 +135,6 @@ export default function EditionsTab({
       <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
     );
   };
-
-  if (!foreignBookId) {
-    return (
-      <TabsContent value="editions" className="overflow-y-auto flex-1 min-h-0">
-        <p className="text-sm text-muted-foreground py-4">
-          No Hardcover ID linked to this book.
-        </p>
-      </TabsContent>
-    );
-  }
 
   return (
     <TabsContent
@@ -117,79 +152,62 @@ export default function EditionsTab({
           <TableHeader>
             <TableRow>
               <TableHead />
-              {EDITION_COLUMNS.map(({ key, label, sortable }) =>
-                sortable ? (
-                  <TableHead
-                    key={key}
-                    className="cursor-pointer select-none hover:text-foreground"
-                    onClick={() => handleSort(key as EditionSortKey)}
-                  >
-                    {label}
-                    <SortIcon col={key as EditionSortKey} />
-                  </TableHead>
-                ) : (
-                  <TableHead key={key}>
-                    {label}
-                  </TableHead>
-                ),
-              )}
+              {EDITION_COLUMNS.map(({ key, label }) => (
+                <TableHead
+                  key={key}
+                  className="cursor-pointer select-none hover:text-foreground"
+                  onClick={() => handleSort(key)}
+                >
+                  {label}
+                  <SortIcon col={key} />
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading &&
-              Array.from({ length: 5 }).map((_, i) => (
-                // oxlint-disable-next-line react/no-array-index-key -- Skeleton rows have no unique identity
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="w-10 aspect-[2/3] rounded-sm" />
-                  </TableCell>
-                  {EDITION_COLUMNS.map((col) => (
-                    <TableCell key={col.key}>
-                      <Skeleton className="h-4 w-16" />
+            {pagedEditions.length > 0 &&
+              pagedEditions.map((edition) => {
+                const coverUrl = edition.images?.[0]?.url;
+                return (
+                  <TableRow key={edition.id}>
+                    <TableCell>
+                      {coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt={edition.title}
+                          className="aspect-[2/3] w-full rounded-sm object-cover"
+                        />
+                      ) : (
+                        <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            {!isLoading && data && data.editions.length > 0 &&
-              data.editions.map((edition) => (
-                <TableRow key={edition.id}>
-                  <TableCell>
-                    {edition.coverUrl ? (
-                      <img
-                        src={edition.coverUrl}
-                        alt={edition.title}
-                        className="aspect-[2/3] w-full rounded-sm object-cover"
-                      />
-                    ) : (
-                      <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium max-w-48 truncate">
-                    {edition.title}
-                  </TableCell>
-                  <TableCell className="max-w-36 truncate">
-                    {edition.author || "—"}
-                  </TableCell>
-                  <TableCell className="max-w-36 truncate">
-                    {edition.publisher || "—"}
-                  </TableCell>
-                  <TableCell>{edition.type || "—"}</TableCell>
-                  <TableCell>{edition.pages ?? "—"}</TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {edition.releaseDate || "—"}
-                  </TableCell>
-                  <TableCell>{edition.isbn13 || "—"}</TableCell>
-                  <TableCell>{edition.isbn10 || "—"}</TableCell>
-                  <TableCell>{edition.asin || "—"}</TableCell>
-                  <TableCell>{edition.language || "—"}</TableCell>
-                  <TableCell>{edition.country || "—"}</TableCell>
-                  <TableCell>{edition.readers.toLocaleString()}</TableCell>
-                  <TableCell>{edition.score.toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
-            {!isLoading && (!data || data.editions.length === 0) && (
+                    <TableCell className="font-medium max-w-48 truncate">
+                      {edition.title}
+                    </TableCell>
+                    <TableCell className="max-w-36 truncate">
+                      {edition.publisher || "—"}
+                    </TableCell>
+                    <TableCell className="max-w-48 truncate">
+                      {edition.editionInformation || "—"}
+                    </TableCell>
+                    <TableCell>{edition.format || "—"}</TableCell>
+                    <TableCell>{edition.pageCount ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {edition.releaseDate || "—"}
+                    </TableCell>
+                    <TableCell>{edition.isbn13 || "—"}</TableCell>
+                    <TableCell>{edition.isbn10 || "—"}</TableCell>
+                    <TableCell>{edition.asin || "—"}</TableCell>
+                    <TableCell>{edition.language || "—"}</TableCell>
+                    <TableCell>{edition.country || "—"}</TableCell>
+                    <TableCell>{(edition.usersCount ?? 0).toLocaleString()}</TableCell>
+                    <TableCell>{(edition.score ?? 0).toLocaleString()}</TableCell>
+                  </TableRow>
+                );
+              })}
+            {pagedEditions.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={EDITION_COLUMNS.length + 1}
@@ -202,12 +220,12 @@ export default function EditionsTab({
           </TableBody>
         </Table>
       </div>
-      {data && data.total > 0 && (
+      {total > 0 && (
         <TablePagination
-          page={data.page}
+          page={page}
           pageSize={pageSize}
-          totalItems={data.total}
-          totalPages={data.totalPages}
+          totalItems={total}
+          totalPages={totalPages}
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
         />

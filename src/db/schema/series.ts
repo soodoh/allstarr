@@ -4,8 +4,14 @@ import { books } from "./books";
 export const series = sqliteTable("series", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
+  slug: text("slug"),
   foreignSeriesId: text("foreign_series_id"),
   description: text("description"),
+  isCompleted: integer("is_completed", { mode: "boolean" }),
+  metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
+  metadataSourceMissingSince: integer("metadata_source_missing_since", {
+    mode: "timestamp",
+  }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

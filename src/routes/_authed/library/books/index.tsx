@@ -16,7 +16,7 @@ import { booksInfiniteQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/library/books/")({
   loader: ({ context }) =>
-    context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery()),
+    context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),
   component: BooksPage,
 });
 
@@ -26,7 +26,7 @@ function BooksPage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useInfiniteQuery(booksInfiniteQuery(search));
+    useInfiniteQuery(booksInfiniteQuery(search, true));
 
   const books = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
@@ -59,8 +59,7 @@ function BooksPage() {
         Object.assign(b, {
           authorName: b.authorName ?? undefined,
           releaseDate: b.releaseDate ?? undefined,
-          language: b.language ?? undefined,
-          overview: b.overview ?? undefined,
+          description: b.description ?? undefined,
           images: b.images ?? undefined,
         }),
       ),

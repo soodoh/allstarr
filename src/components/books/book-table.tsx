@@ -16,9 +16,9 @@ type Book = {
   title: string;
   authorName: string | undefined;
   releaseDate: string | undefined;
-  language: string | undefined;
-  ratings?: { value: number; votes: number } | undefined;
-  readers?: number | undefined;
+  rating?: number | undefined;
+  ratingsCount?: number | undefined;
+  usersCount?: number | undefined;
   series: Array<{ title: string; position: string | undefined }>;
   images?: Array<{ url: string; coverType: string }>;
 };
@@ -28,10 +28,10 @@ type BookTableProps = {
   children?: ReactNode;
 };
 
-type SortKey = "title" | "authorName" | "releaseDate" | "series" | "language" | "rating" | "readers";
+type SortKey = "title" | "authorName" | "releaseDate" | "series" | "rating" | "readers";
 
 function compareRating(a: Book, b: Book): number {
-  return (a.ratings?.value ?? -1) - (b.ratings?.value ?? -1);
+  return (a.rating ?? -1) - (b.rating ?? -1);
 }
 
 function compareSeries(a: Book, b: Book): number {
@@ -49,7 +49,7 @@ function compareBooks(a: Book, b: Book, key: SortKey, dir: "asc" | "desc"): numb
     return dir === "asc" ? cmp : -cmp;
   }
   if (key === "readers") {
-    const cmp = (a.readers ?? -1) - (b.readers ?? -1);
+    const cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
     return dir === "asc" ? cmp : -cmp;
   }
   if (key === "series") {
@@ -106,7 +106,6 @@ export default function BookTable({
         <col />
         <col />
         <col />
-        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -117,7 +116,6 @@ export default function BookTable({
               { key: "authorName", label: "Author" },
               { key: "releaseDate", label: "Release Date" },
               { key: "series", label: "Series" },
-              { key: "language", label: "Language" },
               { key: "readers", label: "Readers" },
               { key: "rating", label: "Rating" },
             ] as Array<{ key: SortKey | undefined; label: string }>
@@ -171,18 +169,19 @@ export default function BookTable({
                       .join(", ")
                   : "—"}
               </TableCell>
-              <TableCell>{book.language || "—"}</TableCell>
               <TableCell>
-                {book.readers ? book.readers.toLocaleString() : "—"}
+                {book.usersCount ? book.usersCount.toLocaleString() : "—"}
               </TableCell>
               <TableCell>
-                {book.ratings ? (
+                {book.rating ? (
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                    {book.ratings.value.toFixed(1)}
-                    <span className="text-muted-foreground">
-                      ({book.ratings.votes.toLocaleString()})
-                    </span>
+                    {book.rating.toFixed(1)}
+                    {book.ratingsCount !== undefined && book.ratingsCount !== null && book.ratingsCount > 0 && (
+                      <span className="text-muted-foreground">
+                        ({book.ratingsCount.toLocaleString()})
+                      </span>
+                    )}
                   </span>
                 ) : (
                   "—"

@@ -15,7 +15,9 @@ import {
   ArrowLeft,
   ChevronDown,
   ExternalLink,
+  Loader2,
   Pencil,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
@@ -52,10 +54,8 @@ import {
   bookDetailQuery,
   authorsListQuery,
   hasEnabledIndexersQuery,
-  hardcoverBookLanguagesQuery,
 } from "src/lib/queries";
-import { getBookFn } from "src/server/books";
-import { useUpdateBook, useDeleteBook } from "src/hooks/mutations";
+import { useUpdateBook, useDeleteBook, useRefreshBookMetadata } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed/library/books/$bookId")({
@@ -85,6 +85,7 @@ function BookDetailPage(): JSX.Element {
 
   const updateBook = useUpdateBook();
   const deleteBook = useDeleteBook();
+  const refreshMetadata = useRefreshBookMetadata();
 
   const { data: authors } = useQuery({
     ...authorsListQuery(),
@@ -96,14 +97,8 @@ function BookDetailPage(): JSX.Element {
     enabled: activeTab === "search",
   });
 
-  const foreignBookId = book?.foreignBookId ? Number(book.foreignBookId) : 0;
-
-  const { data: languages } = useQuery({
-    ...hardcoverBookLanguagesQuery(foreignBookId),
-    enabled: foreignBookId > 0,
-  });
-
   const authorsList = useMemo(() => authors ?? [], [authors]);
+  const editionsList = useMemo(() => book?.editions ?? [], [book?.editions]);
 
   if (!book) {
     return <NotFound />;
@@ -118,9 +113,7 @@ function BookDetailPage(): JSX.Element {
   const handleUpdate = (values: {
     title: string;
     authorId: number;
-    overview?: string;
-    isbn?: string;
-    asin?: string;
+    description?: string;
     releaseDate?: string;
     monitored: boolean;
   }) => {
@@ -144,6 +137,12 @@ function BookDetailPage(): JSX.Element {
     });
   };
 
+  const handleRefreshMetadata = () => {
+    refreshMetadata.mutate(book.id, {
+      onSuccess: () => router.invalidate(),
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Back button */}
@@ -158,9 +157,30 @@ function BookDetailPage(): JSX.Element {
       {/* Page header */}
       <PageHeader
         title={book.title}
-        description={authorName}
+        description={
+          <Link
+            to="/library/authors/$authorId"
+            params={{ authorId: String(book.authorId) }}
+            className="hover:underline"
+          >
+            {authorName}
+          </Link>
+        }
         actions={
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshMetadata}
+              disabled={refreshMetadata.isPending}
+            >
+              {refreshMetadata.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1" />
+              )}
+              Update Metadata
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -193,7 +213,7 @@ function BookDetailPage(): JSX.Element {
         }
       />
 
-      {/* Cover + Details + Overview */}
+      {/* Cover + Details + Description */}
       <div className="flex flex-col gap-6 xl:flex-row">
         <BookCover
           title={book.title}
@@ -209,7 +229,7 @@ function BookDetailPage(): JSX.Element {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Author</dt>
-                <dd>
+                <dd className="text-right">
                   {book.authorId ? (
                     <Link
                       to="/library/authors/$authorId"
@@ -222,6 +242,9 @@ function BookDetailPage(): JSX.Element {
                     </Link>
                   ) : (
                     authorName
+                  )}
+                  {book.additionalAuthors && book.additionalAuthors.length > 0 && (
+                    <>, {book.additionalAuthors.join(", ")}</>
                   )}
                 </dd>
               </div>
@@ -245,47 +268,47 @@ function BookDetailPage(): JSX.Element {
                   </dd>
                 </div>
               )}
-              {book.ratings && (
+              {book.rating !== undefined && book.rating !== null && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Rating</dt>
                   <dd>
-                    {book.ratings.value.toFixed(1)}/5
-                    {book.ratings.votes > 0 && (
+                    {book.rating.toFixed(1)}/5
+                    {book.ratingsCount !== undefined && book.ratingsCount !== null && book.ratingsCount > 0 && (
                       <span className="text-muted-foreground ml-1">
-                        ({book.ratings.votes.toLocaleString()})
+                        ({book.ratingsCount.toLocaleString()})
                       </span>
                     )}
                   </dd>
                 </div>
               )}
-              {book.readers !== undefined && book.readers !== null && book.readers > 0 && (
+              {book.usersCount !== undefined && book.usersCount !== null && book.usersCount > 0 && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Readers</dt>
-                  <dd>{book.readers.toLocaleString()}</dd>
+                  <dd>{book.usersCount.toLocaleString()}</dd>
                 </div>
               )}
-              {languages && languages.length > 0 && (
+              {book.languages && book.languages.length > 0 && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Languages</dt>
                   <dd>
                     <Popover>
                       <PopoverTrigger className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer">
-                        {languages.length === 1
-                          ? languages[0].name
-                          : `${languages[0].name} and ${languages.length - 1} other${languages.length - 1 === 1 ? "" : "s"}`}
-                        {languages.length > 1 && (
+                        {book.languages.length === 1
+                          ? book.languages[0].language
+                          : `${book.languages[0].language} and ${book.languages.length - 1} other${book.languages.length - 1 === 1 ? "" : "s"}`}
+                        {book.languages.length > 1 && (
                           <ChevronDown className="h-3 w-3" />
                         )}
                       </PopoverTrigger>
-                      {languages.length > 1 && (
+                      {book.languages.length > 1 && (
                         <PopoverContent align="end" className="w-48 p-0">
                           <ul className="max-h-64 overflow-y-auto py-1">
-                            {languages.map((l) => (
+                            {book.languages.map((l) => (
                               <li
-                                key={l.code}
+                                key={l.languageCode}
                                 className="px-3 py-1.5 text-sm"
                               >
-                                {l.name}
+                                {l.language}
                               </li>
                             ))}
                           </ul>
@@ -295,29 +318,17 @@ function BookDetailPage(): JSX.Element {
                   </dd>
                 </div>
               )}
-              {book.isbn && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">ISBN</dt>
-                  <dd className="font-mono text-xs">{book.isbn}</dd>
-                </div>
-              )}
-              {book.asin && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">ASIN</dt>
-                  <dd className="font-mono text-xs">{book.asin}</dd>
-                </div>
-              )}
             </dl>
           </CardContent>
         </Card>
 
         <Card className="w-full xl:flex-1">
           <CardHeader>
-            <CardTitle>Overview</CardTitle>
+            <CardTitle>Description</CardTitle>
           </CardHeader>
           <CardContent>
-            {book.overview ? (
-              <p className="text-sm leading-relaxed">{book.overview}</p>
+            {book.description ? (
+              <p className="text-sm leading-relaxed">{book.description}</p>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No description available.
@@ -341,10 +352,7 @@ function BookDetailPage(): JSX.Element {
             </TabsList>
 
             <div className="p-4">
-              <EditionsTab
-                foreignBookId={book.foreignBookId ?? undefined}
-                enabled={activeTab === "editions"}
-              />
+              <EditionsTab editions={editionsList} />
               <SearchReleasesTab
                 book={book}
                 enabled={activeTab === "search"}
@@ -365,9 +373,7 @@ function BookDetailPage(): JSX.Element {
             initialValues={{
               title: book.title,
               authorId: book.authorId,
-              overview: book.overview || undefined,
-              isbn: book.isbn || undefined,
-              asin: book.asin || undefined,
+              description: book.description || undefined,
               releaseDate: book.releaseDate || undefined,
               monitored: book.monitored,
             }}

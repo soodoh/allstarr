@@ -23,7 +23,8 @@ export const queryKeys = {
   books: {
     all: ["books"] as const,
     lists: () => ["books", "list"] as const,
-    infinite: (search: string) => ["books", "infinite", search] as const,
+    infinite: (search: string, monitored?: boolean) =>
+      ["books", "infinite", search, monitored] as const,
     detail: (id: number) => ["books", "detail", id] as const,
     existence: (foreignBookIds: string[]) =>
       ["books", "existence", ...foreignBookIds] as const,
@@ -117,6 +118,8 @@ export const queryKeys = {
       ["hardcover", "bookLanguages", foreignBookId] as const,
     bookDetail: (foreignBookId: number) =>
       ["hardcover", "bookDetail", foreignBookId] as const,
+    seriesComplete: (foreignSeriesIds: number[]) =>
+      ["hardcover", "seriesComplete", ...foreignSeriesIds] as const,
   },
 
   // ─── System Status ──────────────────────────────────────────────────────

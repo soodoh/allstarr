@@ -14,12 +14,17 @@ export const booksListQuery = () =>
     queryFn: () => getBooksFn(),
   });
 
-export const booksInfiniteQuery = (search = "") =>
+export const booksInfiniteQuery = (search = "", monitored?: boolean) =>
   infiniteQueryOptions({
-    queryKey: queryKeys.books.infinite(search),
+    queryKey: queryKeys.books.infinite(search, monitored),
     queryFn: ({ pageParam }) =>
       getPaginatedBooksFn({
-        data: { page: pageParam, pageSize: 25, search: search || undefined },
+        data: {
+          page: pageParam,
+          pageSize: 25,
+          search: search || undefined,
+          monitored,
+        },
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
