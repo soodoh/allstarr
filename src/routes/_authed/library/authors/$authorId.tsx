@@ -169,7 +169,7 @@ type AuthorSeries = {
   slug: string | null;
   foreignSeriesId: string | null;
   isCompleted: boolean | null;
-  books: Array<{ bookId: number; position: string | null }>;
+  books: Array<{ bookId: number; position: string }>;
 };
 
 type BooksTabSortKey = "title" | "year" | "readers" | "rating";
