@@ -47,9 +47,12 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
             {book.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {sortedAuthors.length > 0
-              ? sortedAuthors.map((a) => a.authorName).join(", ")
-              : "Unknown author"}
+            {(() => {
+              if (sortedAuthors.length === 0) {return "Unknown author";}
+              if (sortedAuthors.length <= 3)
+                {return sortedAuthors.map((a) => a.authorName).join(", ");}
+              return `${sortedAuthors.slice(0, 3).map((a) => a.authorName).join(", ")}, and ${sortedAuthors.length - 3} more`;
+            })()}
           </p>
           {book.releaseDate && (
             <p className="text-xs text-muted-foreground">{book.releaseDate}</p>

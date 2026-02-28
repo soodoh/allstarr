@@ -54,7 +54,49 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
       .where(eq(books.monitored, true))
       .orderBy(desc(books.usersCount))
       .all();
-    return result;
+
+    // Fetch all booksAuthors entries for these books
+    const bookIds = result.map((b) => b.id);
+    const allBookAuthorEntries =
+      bookIds.length > 0
+        ? db
+            .select({
+              bookId: booksAuthors.bookId,
+              authorId: booksAuthors.authorId,
+              foreignAuthorId: booksAuthors.foreignAuthorId,
+              authorName: booksAuthors.authorName,
+              isPrimary: booksAuthors.isPrimary,
+            })
+            .from(booksAuthors)
+            .where(inArray(booksAuthors.bookId, bookIds))
+            .all()
+        : [];
+
+    const bookAuthorsMap = new Map<
+      number,
+      Array<{
+        authorId: number | null;
+        foreignAuthorId: string;
+        authorName: string;
+        isPrimary: boolean;
+      }>
+    >();
+    for (const entry of allBookAuthorEntries) {
+      const arr = bookAuthorsMap.get(entry.bookId) ?? [];
+      arr.push({
+        authorId: entry.authorId,
+        foreignAuthorId: entry.foreignAuthorId,
+        authorName: entry.authorName,
+        isPrimary: entry.isPrimary,
+      });
+      bookAuthorsMap.set(entry.bookId, arr);
+    }
+
+    return result.map((item) =>
+      Object.assign(item, {
+        bookAuthors: bookAuthorsMap.get(item.id) ?? [],
+      }),
+    );
   },
 );
 

@@ -97,21 +97,11 @@ function BookDetailPage(): JSX.Element {
 
   const authorsList = useMemo(() => authors ?? [], [authors]);
   const editionsList = useMemo(() => book?.editions ?? [], [book?.editions]);
-  const coAuthors = useMemo(
-    () =>
-      (book?.bookAuthors ?? []).filter(
-        (a: { isPrimary: boolean }) => !a.isPrimary,
-      ),
-    [book?.bookAuthors],
-  );
-
   if (!book) {
     return <NotFound />;
   }
 
   const coverImages = book.images;
-  const authorName = book.authorName || "Unknown";
-  const primaryAuthorId = book.authorId;
   const hardcoverUrl = book.slug
     ? `https://hardcover.app/books/${book.slug}`
     : null;
@@ -164,17 +154,7 @@ function BookDetailPage(): JSX.Element {
       <PageHeader
         title={book.title}
         description={
-          primaryAuthorId ? (
-            <Link
-              to="/library/authors/$authorId"
-              params={{ authorId: String(primaryAuthorId) }}
-              className="hover:underline"
-            >
-              {authorName}
-            </Link>
-          ) : (
-            authorName
-          )
+          <AdditionalAuthors bookAuthors={book.bookAuthors} />
         }
         actions={
           <div className="flex gap-2">
@@ -236,24 +216,10 @@ function BookDetailPage(): JSX.Element {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Author</dt>
                 <dd className="text-right">
-                  {primaryAuthorId ? (
-                    <Link
-                      to="/library/authors/$authorId"
-                      params={{
-                        authorId: String(primaryAuthorId),
-                      }}
-                      className="hover:underline"
-                    >
-                      {authorName}
-                    </Link>
-                  ) : (
-                    authorName
-                  )}
-                  {coAuthors.length > 0 && (
-                    <>
-                      , <AdditionalAuthors bookAuthors={coAuthors} />
-                    </>
-                  )}
+                  <AdditionalAuthors
+                    bookAuthors={book.bookAuthors}
+                    expandable
+                  />
                 </dd>
               </div>
               {book.releaseDate && (

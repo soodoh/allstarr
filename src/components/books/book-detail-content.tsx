@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { JSX, ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import BookCover from "src/components/books/book-cover";
 import AdditionalAuthors from "src/components/books/additional-authors";
@@ -40,14 +39,12 @@ export type BookDetailData = {
 
 type BookDetailContentProps = {
   book: BookDetailData;
-  onCloseModal?: () => void;
   children?: ReactNode;
 };
 
 // oxlint-disable-next-line complexity -- Rendering many optional book detail fields in a single layout
 export default function BookDetailContent({
   book,
-  onCloseModal,
   children,
 }: BookDetailContentProps): JSX.Element {
   const coverImages = useMemo(
@@ -58,39 +55,17 @@ export default function BookDetailContent({
   );
 
   const displayAuthor = book.author?.name ?? book.authorName;
-  const coAuthors = useMemo(
-    () => book.bookAuthors.filter((a) => !a.isPrimary),
-    [book.bookAuthors],
-  );
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-[auto_1fr] gap-6">
         <BookCover title={book.title} images={coverImages} className="w-40" />
         <div className="flex flex-col justify-end space-y-3 text-sm min-w-0">
-          {displayAuthor && (
+          {(displayAuthor || book.bookAuthors.length > 0) && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground shrink-0">Author: </span>
               <span>
-                {book.author && onCloseModal ? (
-                  <Link
-                    to="/library/authors/$authorId"
-                    params={{
-                      authorId: String(book.author.id),
-                    }}
-                    className="hover:underline"
-                    onClick={onCloseModal}
-                  >
-                    {displayAuthor}
-                  </Link>
-                ) : (
-                  displayAuthor
-                )}
-                {coAuthors.length > 0 && (
-                  <>
-                    , <AdditionalAuthors bookAuthors={coAuthors} />
-                  </>
-                )}
+                <AdditionalAuthors bookAuthors={book.bookAuthors} />
               </span>
             </div>
           )}

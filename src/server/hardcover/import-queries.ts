@@ -211,7 +211,7 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
     ratings_count
     users_count
     image { url }
-    contributions(order_by: [{ id: asc }], limit: 10) {
+    contributions(order_by: [{ id: asc }], limit: 50) {
       contribution
       author {
         id
@@ -693,7 +693,7 @@ query BookComplete($bookId: Int!) {
     ratings_count
     users_count
     image { url }
-    contributions(order_by: [{ id: asc }], limit: 10) {
+    contributions(order_by: [{ id: asc }], limit: 50) {
       contribution
       author {
         id
