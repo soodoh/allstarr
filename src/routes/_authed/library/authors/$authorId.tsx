@@ -128,6 +128,7 @@ type EditionInfo = {
   score: number | null;
   languageCode: string | null;
   images: Array<{ url: string; coverType: string }> | null;
+  isDefaultCover: boolean;
 };
 
 type BookAuthorEntry = {
@@ -180,10 +181,23 @@ function pickBestEdition(
   editions: EditionInfo[],
   language: string,
 ): EditionInfo | undefined {
-  // Editions are pre-sorted by usersCount desc from server
-  if (language === "all") {
+  // Use the default cover edition's language as the book's canonical language.
+  // When the selected language matches canonical (or "all"), return the default
+  // cover edition itself so metadata (pages, ISBN, etc.) is still available.
+  // Callers should use book.title when edition.isDefaultCover is true.
+  const defaultCoverEdition = editions.find((e) => e.isDefaultCover);
+  const canonicalLanguage = defaultCoverEdition?.languageCode;
+
+  if (language === "all" || language === canonicalLanguage) {
+    return defaultCoverEdition ?? editions[0];
+  }
+
+  // No default cover info — fall back to pre-sorted first edition
+  if (!defaultCoverEdition) {
     return editions[0];
   }
+
+  // Different language selected — find best matching translated edition
   return editions.find((e) => e.languageCode === language) ?? editions[0];
 }
 
@@ -435,7 +449,10 @@ function BooksTab({
                 const edition = pickBestEdition(book.editions, language);
                 const coverUrl =
                   edition?.images?.[0]?.url ?? book.images?.[0]?.url;
-                const displayTitle = edition?.title ?? book.title;
+                const displayTitle =
+                  !edition || edition.isDefaultCover
+                    ? book.title
+                    : edition.title;
                 const displayDate =
                   edition?.releaseDate ??
                   book.releaseDate ??
@@ -935,7 +952,10 @@ function SeriesTab({
                         );
                         const coverUrl =
                           edition?.images?.[0]?.url ?? book.images?.[0]?.url;
-                        const displayTitle = edition?.title ?? book.title;
+                        const displayTitle =
+                          !edition || edition.isDefaultCover
+                            ? book.title
+                            : edition.title;
                         const displayDate =
                           edition?.releaseDate ??
                           book.releaseDate ??

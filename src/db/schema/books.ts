@@ -84,6 +84,9 @@ export const editions = sqliteTable("editions", {
     Array<{ authorId: string; name: string; contribution: string | null }>
   >(),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
+  isDefaultCover: integer("is_default_cover", { mode: "boolean" })
+    .notNull()
+    .default(false),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
   metadataSourceMissingSince: integer("metadata_source_missing_since", {
     mode: "timestamp",

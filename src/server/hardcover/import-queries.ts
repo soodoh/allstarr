@@ -210,6 +210,7 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
     rating
     ratings_count
     users_count
+    default_cover_edition_id
     image { url }
     contributions(order_by: [{ id: asc }], limit: 50) {
       contribution
@@ -311,6 +312,8 @@ function parseRawBook(
     usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
     coverUrl: getCoverUrl(bookRecord) ?? null,
     isCompilation: bookRecord.compilation === true,
+    defaultCoverEditionId:
+      firstNumber(bookRecord, [["default_cover_edition_id"]]) ?? null,
     contributions,
     series,
   };
@@ -692,6 +695,7 @@ query BookComplete($bookId: Int!) {
     rating
     ratings_count
     users_count
+    default_cover_edition_id
     image { url }
     contributions(order_by: [{ id: asc }], limit: 50) {
       contribution

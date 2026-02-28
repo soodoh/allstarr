@@ -493,6 +493,7 @@ async function importAuthorInternal(data: {
             foreignEditionId: String(ed.id),
             images: toImageArray(ed.coverUrl),
             contributors: ed.contributors,
+            isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
             metadataUpdatedAt: now,
           })
           .run();
@@ -709,6 +710,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
             foreignEditionId: String(ed.id),
             images: toImageArray(ed.coverUrl),
             contributors: ed.contributors,
+            isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
             metadataUpdatedAt: now,
           })
           .run();
@@ -886,6 +888,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                   score: ed.score,
                   images: toImageArray(ed.coverUrl),
                   contributors: ed.contributors,
+                  isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
                   metadataUpdatedAt: now,
                   metadataSourceMissingSince: null,
                 })
@@ -913,6 +916,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                   foreignEditionId,
                   images: toImageArray(ed.coverUrl),
                   contributors: ed.contributors,
+                  isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
                   metadataUpdatedAt: now,
                 })
                 .run();
@@ -1003,6 +1007,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                 foreignEditionId: String(ed.id),
                 images: toImageArray(ed.coverUrl),
                 contributors: ed.contributors,
+                isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
                 metadataUpdatedAt: now,
               })
               .run();
@@ -1215,6 +1220,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
               score: ed.score,
               images: toImageArray(ed.coverUrl),
               contributors: ed.contributors,
+              isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
               metadataUpdatedAt: now,
               metadataSourceMissingSince: null,
             })
@@ -1242,6 +1248,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
               foreignEditionId,
               images: toImageArray(ed.coverUrl),
               contributors: ed.contributors,
+              isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
               metadataUpdatedAt: now,
             })
             .run();
