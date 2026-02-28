@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "./middleware";
+import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 
 const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -226,44 +227,10 @@ const BOOK_COMPILATION_FILTER = "compilation: { _neq: true }";
 /** Excludes compilation entries from the `book_series` join table */
 const BOOK_SERIES_COMPILATION_FILTER = "compilation: { _neq: true }";
 
-/**
- * Non-author contribution roles to exclude from the author's book listings.
- * The `contribution` field is `null` for primary authors; these are the
- * known secondary roles where the person did not originate the content.
- * We use `_nin` (not-in) paired with `_is_null: true` so that:
- *   - `null`  → primary author    → included
- *   - "Writer" / "Contributor" / etc. → named author-like roles → included
- *   - "Editor" / "Translator" / etc.  → non-originating roles   → excluded
- */
-const NON_AUTHOR_CONTRIBUTION_ROLES = [
-  // Editorial
-  "Editor",
-  "editor",
-  "Series Editor",
-  "Editor and Contributor",
-  "Editor/Introduction",
-  // Translation / adaptation
-  "Translator",
-  "Adapted by",
-  "Adapter",
-  "Adaptor",
-  // Art / production
-  "Illustrator",
-  "illustrator",
-  // Supplementary content
-  "Introduction",
-  "Afterword",
-  // Other non-originating
-  "Compiler",
-  "Pseudonym",
-  "pseudonym",
-  "Compilation",
-  'as "Anonymous"',
-];
+/** Alias for backward-compatible references within this file */
+const NON_AUTHOR_CONTRIBUTION_FILTER = AUTHOR_ROLE_FILTER;
 
-const NON_AUTHOR_CONTRIBUTION_FILTER = `_or: [{ contribution: { _is_null: true } }, { contribution: { _nin: [${NON_AUTHOR_CONTRIBUTION_ROLES.map((r) => JSON.stringify(r)).join(", ")}] } }]`;
-
-/** GraphQL where clause for selecting author-role contributions to display. */
+/** GraphQL where clause for selecting author-role contributions to display (stricter whitelist). */
 const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, { contribution: { _in: ["Writer", "Contributor"] } }]`;
 
 // ---------------------------------------------------------------------------
