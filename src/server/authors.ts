@@ -9,7 +9,7 @@ import {
   series,
   seriesBookLinks,
 } from "src/db/schema";
-import { eq, sql, desc, like, inArray } from "drizzle-orm";
+import { eq, sql, desc, like, inArray, and, isNotNull } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import {
@@ -207,7 +207,12 @@ export const getAuthorFn = createServerFn({ method: "GET" })
             })
             .from(seriesBookLinks)
             .innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
-            .where(inArray(seriesBookLinks.bookId, bookIds))
+            .where(
+              and(
+                inArray(seriesBookLinks.bookId, bookIds),
+                isNotNull(seriesBookLinks.position),
+              ),
+            )
             .all()
         : [];
 
@@ -220,7 +225,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
         slug: string | null;
         foreignSeriesId: string | null;
         isCompleted: boolean | null;
-        books: Array<{ bookId: number; position: string | null }>;
+        books: Array<{ bookId: number; position: string }>;
       }
     >();
     for (const link of seriesLinks) {
@@ -236,7 +241,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       }
       seriesMap.get(link.seriesId)!.books.push({
         bookId: link.bookId,
-        position: link.position,
+        position: link.position!,
       });
     }
 
