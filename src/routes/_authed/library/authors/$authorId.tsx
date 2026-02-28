@@ -570,6 +570,15 @@ function dedupeByPosition(entries: MergedSeriesEntry[]): MergedSeriesEntry[] {
       byPosition.set(entry.position, entry);
       continue;
     }
+    // Always prefer local entries over external ones at the same position
+    if (existing.kind === "local" && entry.kind === "external") {
+      continue;
+    }
+    if (entry.kind === "local" && existing.kind === "external") {
+      byPosition.set(entry.position, entry);
+      continue;
+    }
+    // Same kind — keep the one with more usersCount
     const existingUsers =
       existing.kind === "local"
         ? (existing.book.usersCount ?? 0)
