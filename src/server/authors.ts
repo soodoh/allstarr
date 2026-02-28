@@ -9,7 +9,7 @@ import {
   series,
   seriesBookLinks,
 } from "src/db/schema";
-import { eq, sql, desc, like, inArray, and } from "drizzle-orm";
+import { eq, sql, desc, like, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import {
@@ -377,47 +377,13 @@ export const deleteAuthorFn = createServerFn({ method: "POST" })
       .where(eq(authors.id, data.id))
       .get();
 
-    db.transaction((tx) => {
-      // Collect book IDs where this author has booksAuthors entries (before delete nulls them)
-      const affectedBookIds = tx
-        .select({ bookId: booksAuthors.bookId })
-        .from(booksAuthors)
-        .where(eq(booksAuthors.authorId, data.id))
-        .all()
-        .map((e) => e.bookId);
-
-      // Delete the author — ON DELETE SET NULL on booksAuthors.authorId
-      tx.delete(authors).where(eq(authors.id, data.id)).run();
-
-      // For affected books, delete any where ALL booksAuthors entries now have authorId IS NULL
-      if (affectedBookIds.length > 0) {
-        const uniqueBookIds = [...new Set(affectedBookIds)];
-        for (const bookId of uniqueBookIds) {
-          const hasLocalAuthor = tx
-            .select({ id: booksAuthors.id })
-            .from(booksAuthors)
-            .where(
-              and(
-                eq(booksAuthors.bookId, bookId),
-                sql`${booksAuthors.authorId} IS NOT NULL`,
-              ),
-            )
-            .get();
-
-          if (!hasLocalAuthor) {
-            // No local authors remaining — delete the book (CASCADE deletes its booksAuthors, editions, etc.)
-            tx.delete(books).where(eq(books.id, bookId)).run();
-          }
-        }
-      }
-
-      // Clean up series that no longer have any book links
-      tx.delete(series)
-        .where(
-          sql`${series.id} NOT IN (SELECT DISTINCT ${seriesBookLinks.seriesId} FROM ${seriesBookLinks})`,
-        )
-        .run();
-    });
+    // Delete the author — DB triggers handle cascading cleanup:
+    // 1. FK SET NULL on booksAuthors.authorId → trg_books_authors_cleanup deletes those rows
+    // 2. trg_books_orphan_cleanup deletes books with no remaining local authors
+    // 3. Book CASCADE deletes editions, series_book_links, etc.
+    // 4. trg_series_orphan_cleanup deletes empty series
+    // 5. trg_history_orphan_cleanup deletes history with both NULLs
+    db.delete(authors).where(eq(authors.id, data.id)).run();
 
     if (author) {
       db.insert(history)
