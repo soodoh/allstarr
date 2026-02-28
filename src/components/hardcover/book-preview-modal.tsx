@@ -208,7 +208,7 @@ export default function BookPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="sr-only">{book.title}</DialogTitle>
         </DialogHeader>

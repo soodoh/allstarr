@@ -190,7 +190,7 @@ export default function AuthorPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="sr-only">{displayName}</DialogTitle>
         </DialogHeader>
