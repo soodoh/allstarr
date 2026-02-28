@@ -18,6 +18,7 @@ import {
   fetchBookComplete,
   getAuthorizationHeader,
 } from "./hardcover/import-queries";
+import { NON_AUTHOR_ROLES } from "./hardcover/constants";
 
 // ---------- Shared helpers ----------
 
@@ -37,24 +38,6 @@ function toImageArray(
   }
   return [{ url, coverType: "poster" }];
 }
-
-/**
- * Non-author contributor roles to exclude from booksAuthors entries.
- * These are people who contributed to the book but are not co-authors.
- */
-const NON_AUTHOR_ROLES = new Set([
-  "Narrator",
-  "Illustrator",
-  "Translator",
-  "Editor",
-  "Foreword",
-  "Introduction",
-  "Afterword",
-  "Cover artist",
-  "Cover design",
-  "Photographer",
-  "Reader",
-]);
 
 type ContributionEntry = {
   authorId: number;
@@ -77,6 +60,21 @@ function deriveAuthorContributions(
     )
     .toSorted((a, b) => a.position - b.position)
     .map((c) => ({ foreignAuthorId: String(c.authorId), name: c.authorName }));
+}
+
+/**
+ * Check if a given author has an author-role contribution on a book.
+ * Returns false if the author only has non-author roles (Foreword, Introduction, etc.)
+ * or isn't listed at all — meaning the book shouldn't be imported for this author.
+ */
+function hasAuthorRoleContribution(
+  contributions: ContributionEntry[],
+  foreignAuthorId: number,
+): boolean {
+  const authorContribs = deriveAuthorContributions(contributions);
+  return authorContribs.some(
+    (c) => c.foreignAuthorId === String(foreignAuthorId),
+  );
 }
 
 /**
@@ -351,6 +349,12 @@ async function importAuthorInternal(data: {
     let booksAdded = 0;
     let editionsAdded = 0;
     for (const rawBook of rawBooks) {
+      // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
+      // The Hardcover query already filters these out, but guard against edge cases.
+      if (!hasAuthorRoleContribution(rawBook.contributions, data.foreignAuthorId)) {
+        continue;
+      }
+
       // Check if book already in DB
       const existingBook = tx
         .select({ id: books.id })
@@ -761,6 +765,12 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
       const seenForeignBookIds = new Set<string>();
 
       for (const rawBook of rawBooks) {
+        // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
+        // The Hardcover query already filters these out, but guard against edge cases.
+        if (!hasAuthorRoleContribution(rawBook.contributions, foreignAuthorId)) {
+          continue;
+        }
+
         const foreignBookId = String(rawBook.id);
         seenForeignBookIds.add(foreignBookId);
 

@@ -12,6 +12,7 @@ import type {
   HardcoverRawSeries,
   HardcoverRawSeriesBook,
 } from "./types";
+import { AUTHOR_ROLE_FILTER } from "./constants";
 
 const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -190,7 +191,10 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
   }
   books(
     where: {
-      contributions: { author_id: { _eq: $authorId } }
+      contributions: {
+        author_id: { _eq: $authorId }
+        ${AUTHOR_ROLE_FILTER}
+      }
       compilation: { _neq: true }
     }
     limit: $limit
@@ -228,7 +232,10 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
   }
   books_aggregate(
     where: {
-      contributions: { author_id: { _eq: $authorId } }
+      contributions: {
+        author_id: { _eq: $authorId }
+        ${AUTHOR_ROLE_FILTER}
+      }
       compilation: { _neq: true }
     }
   ) {
@@ -404,7 +411,7 @@ query SeriesComplete($seriesIds: [Int!]!) {
         users_count
         image { url }
         contributions(
-          where: { _or: [{ contribution: { _is_null: true } }, { contribution: { _in: ["Writer", "Contributor"] } }] }
+          where: { ${AUTHOR_ROLE_FILTER} }
           order_by: [{ id: asc }]
           limit: 1
         ) {
