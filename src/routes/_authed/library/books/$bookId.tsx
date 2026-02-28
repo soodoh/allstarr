@@ -97,6 +97,13 @@ function BookDetailPage(): JSX.Element {
 
   const authorsList = useMemo(() => authors ?? [], [authors]);
   const editionsList = useMemo(() => book?.editions ?? [], [book?.editions]);
+  const coAuthors = useMemo(
+    () =>
+      (book?.bookAuthors ?? []).filter(
+        (a: { isPrimary: boolean }) => !a.isPrimary,
+      ),
+    [book?.bookAuthors],
+  );
 
   if (!book) {
     return <NotFound />;
@@ -104,6 +111,7 @@ function BookDetailPage(): JSX.Element {
 
   const coverImages = book.images;
   const authorName = book.authorName || "Unknown";
+  const primaryAuthorId = book.authorId;
   const hardcoverUrl = book.slug
     ? `https://hardcover.app/books/${book.slug}`
     : null;
@@ -156,13 +164,17 @@ function BookDetailPage(): JSX.Element {
       <PageHeader
         title={book.title}
         description={
-          <Link
-            to="/library/authors/$authorId"
-            params={{ authorId: String(book.authorId) }}
-            className="hover:underline"
-          >
-            {authorName}
-          </Link>
+          primaryAuthorId ? (
+            <Link
+              to="/library/authors/$authorId"
+              params={{ authorId: String(primaryAuthorId) }}
+              className="hover:underline"
+            >
+              {authorName}
+            </Link>
+          ) : (
+            authorName
+          )
         }
         actions={
           <div className="flex gap-2">
@@ -224,11 +236,11 @@ function BookDetailPage(): JSX.Element {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Author</dt>
                 <dd className="text-right">
-                  {book.authorId ? (
+                  {primaryAuthorId ? (
                     <Link
                       to="/library/authors/$authorId"
                       params={{
-                        authorId: String(book.authorId),
+                        authorId: String(primaryAuthorId),
                       }}
                       className="hover:underline"
                     >
@@ -237,16 +249,11 @@ function BookDetailPage(): JSX.Element {
                   ) : (
                     authorName
                   )}
-                  {book.foreignAuthorIds &&
-                    book.foreignAuthorIds.length > 0 && (
-                      <>
-                        ,{" "}
-                        <AdditionalAuthors
-                          foreignAuthorIds={book.foreignAuthorIds}
-                          resolvedAuthors={book.resolvedAuthors ?? {}}
-                        />
-                      </>
-                    )}
+                  {coAuthors.length > 0 && (
+                    <>
+                      , <AdditionalAuthors bookAuthors={coAuthors} />
+                    </>
+                  )}
                 </dd>
               </div>
               {book.releaseDate && (
@@ -371,7 +378,7 @@ function BookDetailPage(): JSX.Element {
           <BookForm
             initialValues={{
               title: book.title,
-              authorId: book.authorId,
+              authorId: book.authorId ?? 0,
               description: book.description || null,
               releaseDate: book.releaseDate || null,
               monitored: book.monitored,

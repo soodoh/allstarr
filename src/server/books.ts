@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
   books,
+  booksAuthors,
   editions,
   authors,
   history,
@@ -21,13 +22,14 @@ import {
 export const getBooksFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
+    // Get monitored books with primary author name via booksAuthors
     const result = db
       .select({
         id: books.id,
         title: books.title,
         slug: books.slug,
-        authorId: books.authorId,
-        authorName: authors.name,
+        authorName: booksAuthors.authorName,
+        authorId: booksAuthors.authorId,
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
@@ -42,7 +44,13 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
         updatedAt: books.updatedAt,
       })
       .from(books)
-      .leftJoin(authors, eq(books.authorId, authors.id))
+      .leftJoin(
+        booksAuthors,
+        and(
+          eq(booksAuthors.bookId, books.id),
+          eq(booksAuthors.isPrimary, true),
+        ),
+      )
       .where(eq(books.monitored, true))
       .orderBy(desc(books.createdAt))
       .all();
@@ -70,9 +78,6 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         id: books.id,
         title: books.title,
         slug: books.slug,
-        authorId: books.authorId,
-        authorName: authors.name,
-        authorForeignId: authors.foreignAuthorId,
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
@@ -83,19 +88,34 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
-        foreignAuthorIds: books.foreignAuthorIds,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
+        // Primary author info via booksAuthors join
+        primaryAuthorName: booksAuthors.authorName,
+        primaryAuthorId: booksAuthors.authorId,
+        primaryForeignAuthorId: booksAuthors.foreignAuthorId,
       })
       .from(books)
-      .leftJoin(authors, eq(books.authorId, authors.id))
+      .leftJoin(
+        booksAuthors,
+        and(
+          eq(booksAuthors.bookId, books.id),
+          eq(booksAuthors.isPrimary, true),
+        ),
+      )
       .orderBy(desc(books.createdAt))
       .$dynamic();
 
     let countQuery = db
       .select({ count: sql<number>`count(*)` })
       .from(books)
-      .leftJoin(authors, eq(books.authorId, authors.id))
+      .leftJoin(
+        booksAuthors,
+        and(
+          eq(booksAuthors.bookId, books.id),
+          eq(booksAuthors.isPrimary, true),
+        ),
+      )
       .$dynamic();
 
     const conditions: SQL[] = [];
@@ -121,7 +141,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       conditions.push(
         or(
           like(books.title, pattern),
-          like(authors.name, pattern),
+          like(booksAuthors.authorName, pattern),
           seriesMatch,
         )!,
       );
@@ -161,39 +181,53 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       seriesByBook.set(link.bookId, arr);
     }
 
-    // Batch-resolve which foreignAuthorIds correspond to local authors (including primary authors)
-    const allForeignAuthorIds = new Set<string>();
-    for (const item of items) {
-      if (item.authorForeignId) {
-        allForeignAuthorIds.add(item.authorForeignId);
-      }
-      for (const entry of item.foreignAuthorIds ?? []) {
-        allForeignAuthorIds.add(entry.foreignAuthorId);
-      }
-    }
-    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
-    if (allForeignAuthorIds.size > 0) {
-      const localAuthors = db
-        .select({
-          id: authors.id,
-          name: authors.name,
-          foreignAuthorId: authors.foreignAuthorId,
-        })
-        .from(authors)
-        .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
-        .all();
-      for (const a of localAuthors) {
-        if (a.foreignAuthorId) {
-          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
-        }
-      }
+    // Get all booksAuthors entries for these books
+    const allBookAuthorEntries =
+      bookIds.length > 0
+        ? db
+            .select({
+              bookId: booksAuthors.bookId,
+              authorId: booksAuthors.authorId,
+              foreignAuthorId: booksAuthors.foreignAuthorId,
+              authorName: booksAuthors.authorName,
+              isPrimary: booksAuthors.isPrimary,
+            })
+            .from(booksAuthors)
+            .where(inArray(booksAuthors.bookId, bookIds))
+            .all()
+        : [];
+
+    // Group booksAuthors by bookId
+    const bookAuthorsMap = new Map<
+      number,
+      Array<{
+        authorId: number | null;
+        foreignAuthorId: string;
+        authorName: string;
+        isPrimary: boolean;
+      }>
+    >();
+    for (const entry of allBookAuthorEntries) {
+      const arr = bookAuthorsMap.get(entry.bookId) ?? [];
+      arr.push({
+        authorId: entry.authorId,
+        foreignAuthorId: entry.foreignAuthorId,
+        authorName: entry.authorName,
+        isPrimary: entry.isPrimary,
+      });
+      bookAuthorsMap.set(entry.bookId, arr);
     }
 
     return {
       items: items.map((item) =>
-        Object.assign(item, { series: seriesByBook.get(item.id) ?? [] }),
+        Object.assign(item, {
+          series: seriesByBook.get(item.id) ?? [],
+          bookAuthors: bookAuthorsMap.get(item.id) ?? [],
+          // Flatten primary author for backward compat
+          authorName: item.primaryAuthorName,
+          authorForeignId: item.primaryForeignAuthorId,
+        }),
       ),
-      resolvedAuthors,
       total,
       page,
       totalPages: Math.ceil(total / pageSize),
@@ -209,8 +243,6 @@ export const getBookFn = createServerFn({ method: "GET" })
         id: books.id,
         title: books.title,
         slug: books.slug,
-        authorId: books.authorId,
-        authorName: authors.name,
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
@@ -221,18 +253,34 @@ export const getBookFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
-        foreignAuthorIds: books.foreignAuthorIds,
         metadataUpdatedAt: books.metadataUpdatedAt,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })
       .from(books)
-      .leftJoin(authors, eq(books.authorId, authors.id))
       .where(eq(books.id, data.id))
       .get();
     if (!book) {
       throw new Error("Book not found");
     }
+
+    // Get all booksAuthors entries for this book
+    const bookAuthorEntries = db
+      .select({
+        authorId: booksAuthors.authorId,
+        foreignAuthorId: booksAuthors.foreignAuthorId,
+        authorName: booksAuthors.authorName,
+        isPrimary: booksAuthors.isPrimary,
+      })
+      .from(booksAuthors)
+      .where(eq(booksAuthors.bookId, data.id))
+      .all();
+
+    const primaryAuthor = bookAuthorEntries.find((a) => a.isPrimary);
+
+    // Derive authorId from primary author's local ID
+    const authorId = primaryAuthor?.authorId ?? null;
+    const authorName = primaryAuthor?.authorName ?? null;
 
     const bookEditions = db
       .select()
@@ -264,34 +312,14 @@ export const getBookFn = createServerFn({ method: "GET" })
       language: string;
     }>;
 
-    // Resolve foreignAuthorIds to local authors
-    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
-    const bookForeignAuthorIds = (book.foreignAuthorIds ?? []).map(
-      (e) => e.foreignAuthorId,
-    );
-    if (bookForeignAuthorIds.length > 0) {
-      const localAuthors = db
-        .select({
-          id: authors.id,
-          name: authors.name,
-          foreignAuthorId: authors.foreignAuthorId,
-        })
-        .from(authors)
-        .where(inArray(authors.foreignAuthorId, bookForeignAuthorIds))
-        .all();
-      for (const a of localAuthors) {
-        if (a.foreignAuthorId) {
-          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
-        }
-      }
-    }
-
     return {
       ...book,
+      authorId,
+      authorName,
+      bookAuthors: bookAuthorEntries,
       editions: bookEditions,
       series: bookSeries,
       languages,
-      resolvedAuthors,
     };
   });
 
@@ -299,13 +327,36 @@ export const createBookFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => createBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const book = db.insert(books).values(data).returning().get();
+    const { authorId, ...bookData } = data;
+    const book = db.insert(books).values(bookData).returning().get();
+
+    // Create primary booksAuthors entry
+    const author = db
+      .select({
+        name: authors.name,
+        foreignAuthorId: authors.foreignAuthorId,
+      })
+      .from(authors)
+      .where(eq(authors.id, authorId))
+      .get();
+
+    if (author) {
+      db.insert(booksAuthors)
+        .values({
+          bookId: book.id,
+          authorId,
+          foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
+          authorName: author.name,
+          isPrimary: true,
+        })
+        .run();
+    }
 
     db.insert(history)
       .values({
         eventType: "bookAdded",
         bookId: book.id,
-        authorId: data.authorId,
+        authorId,
         data: { title: book.title },
       })
       .run();
@@ -317,7 +368,7 @@ export const updateBookFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { id, ...values } = data;
+    const { id, authorId, ...values } = data;
     const book = db
       .update(books)
       .set({ ...values, updatedAt: new Date() })
@@ -325,11 +376,62 @@ export const updateBookFn = createServerFn({ method: "POST" })
       .returning()
       .get();
 
+    // If authorId changed, update the primary booksAuthors entry
+    if (authorId !== undefined) {
+      const author = db
+        .select({
+          name: authors.name,
+          foreignAuthorId: authors.foreignAuthorId,
+        })
+        .from(authors)
+        .where(eq(authors.id, authorId))
+        .get();
+
+      if (author) {
+        // Update existing primary entry or insert new one
+        const existingPrimary = db
+          .select({ id: booksAuthors.id })
+          .from(booksAuthors)
+          .where(
+            and(eq(booksAuthors.bookId, id), eq(booksAuthors.isPrimary, true)),
+          )
+          .get();
+
+        if (existingPrimary) {
+          db.update(booksAuthors)
+            .set({
+              authorId,
+              foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
+              authorName: author.name,
+            })
+            .where(eq(booksAuthors.id, existingPrimary.id))
+            .run();
+        } else {
+          db.insert(booksAuthors)
+            .values({
+              bookId: id,
+              authorId,
+              foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
+              authorName: author.name,
+              isPrimary: true,
+            })
+            .run();
+        }
+      }
+    }
+
+    // Get primary authorId for history
+    const primaryEntry = db
+      .select({ authorId: booksAuthors.authorId })
+      .from(booksAuthors)
+      .where(and(eq(booksAuthors.bookId, id), eq(booksAuthors.isPrimary, true)))
+      .get();
+
     db.insert(history)
       .values({
         eventType: "bookUpdated",
         bookId: id,
-        authorId: book.authorId,
+        authorId: primaryEntry?.authorId ?? undefined,
         data: { title: book.title },
       })
       .run();
@@ -343,13 +445,22 @@ export const deleteBookFn = createServerFn({ method: "POST" })
     await requireAuth();
     const book = db.select().from(books).where(eq(books.id, data.id)).get();
 
+    // Get primary author for history before deletion
+    const primaryEntry = db
+      .select({ authorId: booksAuthors.authorId })
+      .from(booksAuthors)
+      .where(
+        and(eq(booksAuthors.bookId, data.id), eq(booksAuthors.isPrimary, true)),
+      )
+      .get();
+
     db.delete(books).where(eq(books.id, data.id)).run();
 
     if (book) {
       db.insert(history)
         .values({
           eventType: "bookDeleted",
-          authorId: book.authorId,
+          authorId: primaryEntry?.authorId ?? undefined,
           data: { title: book.title },
         })
         .run();
@@ -405,7 +516,8 @@ export const getAuthorLanguagesFn = createServerFn({ method: "GET" })
       })
       .from(editions)
       .innerJoin(books, eq(editions.bookId, books.id))
-      .where(eq(books.authorId, data.authorId))
+      .innerJoin(booksAuthors, eq(books.id, booksAuthors.bookId))
+      .where(eq(booksAuthors.authorId, data.authorId))
       .all()
       .filter((l) => l.languageCode && l.language) as Array<{
       languageCode: string;

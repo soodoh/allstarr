@@ -1,13 +1,13 @@
 import type { JSX } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import BookCover from "src/components/books/book-cover";
+import type { BookAuthorEntry } from "src/components/books/additional-authors";
 
 type BookCardProps = {
   book: {
     id: number;
     title: string;
-    authorName: string | null;
-    foreignAuthorIds: Array<{ foreignAuthorId: string; name: string }> | null;
+    bookAuthors: BookAuthorEntry[];
     releaseDate: string | null;
     description: string | null;
     images: Array<{ url: string; coverType: string }> | null;
@@ -16,6 +16,14 @@ type BookCardProps = {
 
 export default function BookCard({ book }: BookCardProps): JSX.Element {
   const navigate = useNavigate();
+
+  // Sort: primary first, then by name
+  const sortedAuthors = [...book.bookAuthors].toSorted((a, b) => {
+    if (a.isPrimary !== b.isPrimary) {
+      return a.isPrimary ? -1 : 1;
+    }
+    return a.authorName.localeCompare(b.authorName);
+  });
 
   return (
     <button
@@ -39,10 +47,9 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
             {book.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {[
-              book.authorName || "Unknown author",
-              ...(book.foreignAuthorIds ?? []).map((a) => a.name),
-            ].join(", ")}
+            {sortedAuthors.length > 0
+              ? sortedAuthors.map((a) => a.authorName).join(", ")
+              : "Unknown author"}
           </p>
           {book.releaseDate && (
             <p className="text-xs text-muted-foreground">{book.releaseDate}</p>

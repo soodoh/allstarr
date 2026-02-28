@@ -4,41 +4,41 @@ import { Link } from "@tanstack/react-router";
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import type { HardcoverSearchItem } from "src/server/search";
 
-type ForeignAuthorIdEntry = { foreignAuthorId: string; name: string };
+export type BookAuthorEntry = {
+  authorId: number | null;
+  foreignAuthorId: string;
+  authorName: string;
+  isPrimary: boolean;
+};
 
 type AdditionalAuthorsProps = {
-  foreignAuthorIds: ForeignAuthorIdEntry[] | null;
-  resolvedAuthors: Record<string, { id: number; name: string }>;
-  /** When set, this author is prepended to the list (primary author of the book). */
-  primaryAuthor?: { foreignAuthorId: string; name: string } | null;
+  bookAuthors: BookAuthorEntry[];
   /** When set, this author renders as plain text instead of a link (used on author detail pages). */
   currentAuthorId?: number;
 };
 
 function AuthorEntry({
   entry,
-  local,
   isCurrent,
   onPreview,
 }: {
-  entry: ForeignAuthorIdEntry;
-  local: { id: number; name: string } | undefined;
+  entry: BookAuthorEntry;
   isCurrent: boolean;
   onPreview: (author: HardcoverSearchItem) => void;
 }): JSX.Element {
-  if (local && !isCurrent) {
+  if (entry.authorId && !isCurrent) {
     return (
       <Link
         to="/library/authors/$authorId"
-        params={{ authorId: String(local.id) }}
+        params={{ authorId: String(entry.authorId) }}
         className="hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
-        {local.name}
+        {entry.authorName}
       </Link>
     );
   }
-  if (entry.foreignAuthorId && !isCurrent) {
+  if (entry.foreignAuthorId && !entry.authorId && !isCurrent) {
     return (
       <button
         type="button"
@@ -49,7 +49,7 @@ function AuthorEntry({
             id: entry.foreignAuthorId,
             type: "author",
             slug: null,
-            title: entry.name,
+            title: entry.authorName,
             subtitle: null,
             description: null,
             releaseYear: null,
@@ -59,55 +59,51 @@ function AuthorEntry({
           });
         }}
       >
-        {entry.name}
+        {entry.authorName}
       </button>
     );
   }
-  return <span>{entry.name}</span>;
+  return <span>{entry.authorName}</span>;
 }
 
 /**
  * Renders a list of authors as linked names.
- * - Local authors → Link to their author page (unless they match currentAuthorId)
- * - Non-local authors with foreignAuthorId → button that opens AuthorPreviewModal
+ * - Local authors (authorId non-null) → Link to their author page (unless they match currentAuthorId)
+ * - Non-local authors (authorId null, foreignAuthorId set) → button that opens AuthorPreviewModal
  * - Fallback → plain text
- *
- * Pass `primaryAuthor` to prepend the book's primary author to the list.
  */
 export default function AdditionalAuthors({
-  foreignAuthorIds,
-  resolvedAuthors,
-  primaryAuthor,
+  bookAuthors,
   currentAuthorId,
 }: AdditionalAuthorsProps): JSX.Element | null {
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined
   >(undefined);
 
-  const allAuthors = useMemo(() => {
-    const coAuthors = foreignAuthorIds ?? [];
-    if (primaryAuthor) {
-      return [primaryAuthor, ...coAuthors];
-    }
-    return coAuthors;
-  }, [primaryAuthor, foreignAuthorIds]);
+  // Sort: primary first, then by name
+  const sortedAuthors = useMemo(() => {
+    return [...bookAuthors].toSorted((a, b) => {
+      if (a.isPrimary !== b.isPrimary) {
+        return a.isPrimary ? -1 : 1;
+      }
+      return a.authorName.localeCompare(b.authorName);
+    });
+  }, [bookAuthors]);
 
-  if (allAuthors.length === 0) {
+  if (sortedAuthors.length === 0) {
     return null;
   }
 
   return (
     <>
-      {allAuthors.map((entry, i) => {
-        const local = resolvedAuthors[entry.foreignAuthorId];
+      {sortedAuthors.map((entry, i) => {
         const isCurrent =
-          currentAuthorId !== undefined && local?.id === currentAuthorId;
+          currentAuthorId !== undefined && entry.authorId === currentAuthorId;
         return (
           <span key={entry.foreignAuthorId}>
             {i > 0 && ", "}
             <AuthorEntry
               entry={entry}
-              local={local}
               isCurrent={isCurrent}
               onPreview={setPreviewAuthor}
             />

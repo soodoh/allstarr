@@ -6,9 +6,9 @@ import {
   downloadClients,
   history,
   books,
-  authors,
+  booksAuthors,
 } from "src/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createIndexerSchema,
@@ -268,10 +268,16 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       const book = db
         .select({
           title: books.title,
-          authorName: authors.name,
+          authorName: booksAuthors.authorName,
         })
         .from(books)
-        .leftJoin(authors, eq(books.authorId, authors.id))
+        .leftJoin(
+          booksAuthors,
+          and(
+            eq(booksAuthors.bookId, books.id),
+            eq(booksAuthors.isPrimary, true),
+          ),
+        )
         .where(eq(books.id, data.bookId))
         .get();
 

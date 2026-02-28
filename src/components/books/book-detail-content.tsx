@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import BookCover from "src/components/books/book-cover";
 import AdditionalAuthors from "src/components/books/additional-authors";
+import type { BookAuthorEntry } from "src/components/books/additional-authors";
 import {
   Popover,
   PopoverTrigger,
@@ -26,8 +27,7 @@ export type BookDetailData = {
   images: Array<{ url: string; coverType: string }> | null;
   author: AuthorLink | null;
   authorName: string | null;
-  foreignAuthorIds: Array<{ foreignAuthorId: string; name: string }> | null;
-  resolvedAuthors: Record<string, { id: number; name: string }> | null;
+  bookAuthors: BookAuthorEntry[];
   releaseDate: string | null;
   availableLanguages: BookLanguageEntry[] | null;
   series: Array<{ title: string; position: string | null }> | null;
@@ -58,6 +58,10 @@ export default function BookDetailContent({
   );
 
   const displayAuthor = book.author?.name ?? book.authorName;
+  const coAuthors = useMemo(
+    () => book.bookAuthors.filter((a) => !a.isPrimary),
+    [book.bookAuthors],
+  );
 
   return (
     <div className="space-y-4">
@@ -82,13 +86,9 @@ export default function BookDetailContent({
                 ) : (
                   displayAuthor
                 )}
-                {book.foreignAuthorIds && book.foreignAuthorIds.length > 0 && (
+                {coAuthors.length > 0 && (
                   <>
-                    ,{" "}
-                    <AdditionalAuthors
-                      foreignAuthorIds={book.foreignAuthorIds}
-                      resolvedAuthors={book.resolvedAuthors ?? {}}
-                    />
+                    , <AdditionalAuthors bookAuthors={coAuthors} />
                   </>
                 )}
               </span>
