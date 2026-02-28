@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, ImageIcon, Users } from "lucide-react";
+import AdditionalAuthors from "src/components/books/additional-authors";
 import {
   Card,
   CardDescription,
@@ -192,7 +193,13 @@ function LibraryPage() {
                         <TableCell className="font-medium">
                           {book.title}
                         </TableCell>
-                        <TableCell>{book.authorName || "Unknown"}</TableCell>
+                        <TableCell>
+                          {book.bookAuthors.length > 0 ? (
+                            <AdditionalAuthors bookAuthors={book.bookAuthors} />
+                          ) : (
+                            book.authorName || "Unknown"
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}

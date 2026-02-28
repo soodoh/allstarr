@@ -15,6 +15,10 @@ type AdditionalAuthorsProps = {
   bookAuthors: BookAuthorEntry[];
   /** When set, this author renders as plain text instead of a link (used on author detail pages). */
   currentAuthorId?: number;
+  /** Max authors to show before truncating. Defaults to 3. */
+  maxVisible?: number;
+  /** When true, the "and N more" text is clickable to expand/collapse the full list. */
+  expandable?: boolean;
 };
 
 function AuthorEntry({
@@ -71,14 +75,20 @@ function AuthorEntry({
  * - Local authors (authorId non-null) → Link to their author page (unless they match currentAuthorId)
  * - Non-local authors (authorId null, foreignAuthorId set) → button that opens AuthorPreviewModal
  * - Fallback → plain text
+ *
+ * When the list exceeds `maxVisible` (default 3), truncates with ", and N more".
+ * If `expandable` is true, the overflow text is clickable to expand/collapse.
  */
 export default function AdditionalAuthors({
   bookAuthors,
   currentAuthorId,
+  maxVisible = 3,
+  expandable = false,
 }: AdditionalAuthorsProps): JSX.Element | null {
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined
   >(undefined);
+  const [expanded, setExpanded] = useState(false);
 
   // Sort: primary first, then by name
   const sortedAuthors = useMemo(() => {
@@ -94,9 +104,15 @@ export default function AdditionalAuthors({
     return null;
   }
 
+  const shouldTruncate = sortedAuthors.length > maxVisible && !expanded;
+  const visibleAuthors = shouldTruncate
+    ? sortedAuthors.slice(0, maxVisible)
+    : sortedAuthors;
+  const remainingCount = sortedAuthors.length - maxVisible;
+
   return (
     <>
-      {sortedAuthors.map((entry, i) => {
+      {visibleAuthors.map((entry, i) => {
         const isCurrent =
           currentAuthorId !== undefined && entry.authorId === currentAuthorId;
         return (
@@ -110,6 +126,35 @@ export default function AdditionalAuthors({
           </span>
         );
       })}
+      {shouldTruncate &&
+        (expandable ? (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(true);
+            }}
+          >
+            , and {remainingCount} more
+          </button>
+        ) : (
+          <span className="text-muted-foreground">
+            , and {remainingCount} more
+          </span>
+        ))}
+      {expanded && expandable && sortedAuthors.length > maxVisible && (
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground cursor-pointer ml-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(false);
+          }}
+        >
+          (show less)
+        </button>
+      )}
       {previewAuthor && (
         <AuthorPreviewModal
           author={previewAuthor}

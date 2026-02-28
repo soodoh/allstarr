@@ -63,21 +63,6 @@ function deriveAuthorContributions(
 }
 
 /**
- * Check if a given author has an author-role contribution on a book.
- * Returns false if the author only has non-author roles (Foreword, Introduction, etc.)
- * or isn't listed at all — meaning the book shouldn't be imported for this author.
- */
-function hasAuthorRoleContribution(
-  contributions: ContributionEntry[],
-  foreignAuthorId: number,
-): boolean {
-  const authorContribs = deriveAuthorContributions(contributions);
-  return authorContribs.some(
-    (c) => c.foreignAuthorId === String(foreignAuthorId),
-  );
-}
-
-/**
  * Insert booksAuthors entries for a book from its Hardcover contributions.
  * The primary author (matching primaryForeignAuthorId) gets authorId set and isPrimary=true.
  * All other author-role contributors get authorId=null and isPrimary=false.
@@ -90,10 +75,12 @@ function insertBookAuthors(
   localAuthorId: number,
 ): void {
   const authorContribs = deriveAuthorContributions(contributions);
+  let primaryFound = false;
 
   for (const contrib of authorContribs) {
     const isThePrimary =
       contrib.foreignAuthorId === String(primaryForeignAuthorId);
+    if (isThePrimary) {primaryFound = true;}
     tx.insert(booksAuthors)
       .values({
         bookId,
@@ -112,6 +99,36 @@ function insertBookAuthors(
       })
       .run();
   }
+
+  // Fallback: if the importing author wasn't in the (possibly truncated) contributions,
+  // ensure they still get a booksAuthors entry since the GraphQL WHERE clause guarantees
+  // the relationship exists.
+  if (!primaryFound && localAuthorId > 0) {
+    const localAuthor = tx
+      .select({ name: authors.name })
+      .from(authors)
+      .where(eq(authors.id, localAuthorId))
+      .get();
+    if (localAuthor) {
+      tx.insert(booksAuthors)
+        .values({
+          bookId,
+          authorId: localAuthorId,
+          foreignAuthorId: String(primaryForeignAuthorId),
+          authorName: localAuthor.name,
+          isPrimary: true,
+        })
+        .onConflictDoUpdate({
+          target: [booksAuthors.bookId, booksAuthors.foreignAuthorId],
+          set: {
+            authorId: localAuthorId,
+            authorName: localAuthor.name,
+            isPrimary: true,
+          },
+        })
+        .run();
+    }
+  }
 }
 
 /**
@@ -126,10 +143,12 @@ function syncBookAuthors(
   localAuthorId: number,
 ): void {
   const authorContribs = deriveAuthorContributions(contributions);
+  let primaryFound = false;
 
   for (const contrib of authorContribs) {
     const isThePrimary =
       contrib.foreignAuthorId === String(primaryForeignAuthorId);
+    if (isThePrimary) {primaryFound = true;}
 
     // Check if there's already an entry — if so, update; if not, insert
     const existing = tx
@@ -163,6 +182,43 @@ function syncBookAuthors(
           isPrimary: isThePrimary,
         })
         .run();
+    }
+  }
+
+  // Fallback: if the importing author wasn't in the (possibly truncated) contributions,
+  // ensure they still get a booksAuthors entry.
+  if (!primaryFound && localAuthorId > 0) {
+    const existing = tx
+      .select({ id: booksAuthors.id })
+      .from(booksAuthors)
+      .where(
+        and(
+          eq(booksAuthors.bookId, bookId),
+          eq(
+            booksAuthors.foreignAuthorId,
+            String(primaryForeignAuthorId),
+          ),
+        ),
+      )
+      .get();
+
+    if (!existing) {
+      const localAuthor = tx
+        .select({ name: authors.name })
+        .from(authors)
+        .where(eq(authors.id, localAuthorId))
+        .get();
+      if (localAuthor) {
+        tx.insert(booksAuthors)
+          .values({
+            bookId,
+            authorId: localAuthorId,
+            foreignAuthorId: String(primaryForeignAuthorId),
+            authorName: localAuthor.name,
+            isPrimary: true,
+          })
+          .run();
+      }
     }
   }
 }
@@ -349,14 +405,6 @@ async function importAuthorInternal(data: {
     let booksAdded = 0;
     let editionsAdded = 0;
     for (const rawBook of rawBooks) {
-      // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
-      // The Hardcover query already filters these out, but guard against edge cases.
-      if (
-        !hasAuthorRoleContribution(rawBook.contributions, data.foreignAuthorId)
-      ) {
-        continue;
-      }
-
       // Check if book already in DB
       const existingBook = tx
         .select({ id: books.id })
@@ -767,14 +815,6 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
       const seenForeignBookIds = new Set<string>();
 
       for (const rawBook of rawBooks) {
-        // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
-        // The Hardcover query already filters these out, but guard against edge cases.
-        if (
-          !hasAuthorRoleContribution(rawBook.contributions, foreignAuthorId)
-        ) {
-          continue;
-        }
-
         const foreignBookId = String(rawBook.id);
         seenForeignBookIds.add(foreignBookId);
 
