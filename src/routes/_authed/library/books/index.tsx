@@ -32,13 +32,6 @@ function BooksPage() {
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
-  const resolvedAuthors = useMemo(() => {
-    const merged: Record<string, { id: number; name: string }> = {};
-    for (const page of data?.pages ?? []) {
-      Object.assign(merged, page.resolvedAuthors ?? {});
-    }
-    return merged;
-  }, [data]);
   const total = data?.pages[0]?.total ?? 0;
 
   const handleObserver = useCallback(
@@ -126,7 +119,7 @@ function BooksPage() {
       </div>
 
       {view === "table" ? (
-        <BookTable books={tableBooks} resolvedAuthors={resolvedAuthors}>
+        <BookTable books={tableBooks}>
           {showLoading && <BookTableRowsSkeleton />}
         </BookTable>
       ) : (

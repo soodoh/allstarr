@@ -130,13 +130,20 @@ type EditionInfo = {
   images: Array<{ url: string; coverType: string }> | null;
 };
 
+type BookAuthorEntry = {
+  authorId: number | null;
+  foreignAuthorId: string;
+  authorName: string;
+  isPrimary: boolean;
+};
+
 type LocalBook = {
   id: number;
   title: string;
   slug: string | null;
-  authorId: number;
   authorName: string | null;
   authorForeignId: string | null;
+  bookAuthors: BookAuthorEntry[];
   description: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
@@ -147,7 +154,6 @@ type LocalBook = {
   ratingsCount: number | null;
   usersCount: number | null;
   tags: number[] | null;
-  foreignAuthorIds: Array<{ foreignAuthorId: string; name: string }> | null;
   languageCodes: string[];
   editions: EditionInfo[];
 };
@@ -188,12 +194,10 @@ function BooksTab({
   books,
   currentAuthorId,
   availableLanguages,
-  resolvedAuthors,
 }: {
   books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
-  resolvedAuthors: Record<string, { id: number; name: string }>;
 }) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
@@ -501,16 +505,7 @@ function BooksTab({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <AdditionalAuthors
-                        foreignAuthorIds={book.foreignAuthorIds}
-                        primaryAuthor={
-                          book.authorForeignId && book.authorName
-                            ? {
-                                foreignAuthorId: book.authorForeignId,
-                                name: book.authorName,
-                              }
-                            : null
-                        }
-                        resolvedAuthors={resolvedAuthors}
+                        bookAuthors={book.bookAuthors}
                         currentAuthorId={currentAuthorId}
                       />
                     </TableCell>
@@ -612,14 +607,12 @@ function SeriesTab({
   currentAuthorId,
   availableLanguages,
   enabled,
-  resolvedAuthors,
 }: {
   seriesList: AuthorSeries[];
   books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
   enabled: boolean;
-  resolvedAuthors: Record<string, { id: number; name: string }>;
 }) {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
@@ -761,7 +754,14 @@ function SeriesTab({
       return result;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds
-    [seriesList, language, bookMap, hardcoverSeriesMap, localForeignBookIds, searchQuery],
+    [
+      seriesList,
+      language,
+      bookMap,
+      hardcoverSeriesMap,
+      localForeignBookIds,
+      searchQuery,
+    ],
   );
 
   const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
@@ -980,16 +980,7 @@ function SeriesTab({
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               <AdditionalAuthors
-                                foreignAuthorIds={book.foreignAuthorIds}
-                                primaryAuthor={
-                                  book.authorForeignId && book.authorName
-                                    ? {
-                                        foreignAuthorId: book.authorForeignId,
-                                        name: book.authorName,
-                                      }
-                                    : null
-                                }
-                                resolvedAuthors={resolvedAuthors}
+                                bookAuthors={book.bookAuthors}
                                 currentAuthorId={currentAuthorId}
                               />
                             </TableCell>
@@ -1132,14 +1123,6 @@ function AuthorDetailPage() {
   const availableLanguages = useMemo(
     () => (author?.availableLanguages ?? []) as LanguageOption[],
     [author?.availableLanguages],
-  );
-  const resolvedAuthors = useMemo(
-    () =>
-      (author?.resolvedAuthors ?? {}) as Record<
-        string,
-        { id: number; name: string }
-      >,
-    [author?.resolvedAuthors],
   );
 
   if (!author) {
@@ -1318,7 +1301,6 @@ function AuthorDetailPage() {
                   books={books}
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
-                  resolvedAuthors={resolvedAuthors}
                 />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
@@ -1328,7 +1310,6 @@ function AuthorDetailPage() {
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
                   enabled={activeTab === "series"}
-                  resolvedAuthors={resolvedAuthors}
                 />
               </TabsContent>
             </CardContent>

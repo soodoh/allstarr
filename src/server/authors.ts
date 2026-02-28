@@ -3,12 +3,13 @@ import { db } from "src/db";
 import {
   authors,
   books,
+  booksAuthors,
   editions,
   history,
   series,
   seriesBookLinks,
 } from "src/db/schema";
-import { eq, sql, desc, like, inArray } from "drizzle-orm";
+import { eq, sql, desc, like, inArray, and } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import {
@@ -38,7 +39,7 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
         metadataUpdatedAt: authors.metadataUpdatedAt,
         createdAt: authors.createdAt,
         updatedAt: authors.updatedAt,
-        bookCount: sql<number>`(SELECT COUNT(*) FROM books WHERE books.author_id = ${authors.id})`,
+        bookCount: sql<number>`(SELECT COUNT(DISTINCT "books_authors"."book_id") FROM "books_authors" WHERE "books_authors"."author_id" = "authors"."id")`,
       })
       .from(authors)
       .orderBy(authors.sortName)
@@ -74,7 +75,7 @@ export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
         metadataUpdatedAt: authors.metadataUpdatedAt,
         createdAt: authors.createdAt,
         updatedAt: authors.updatedAt,
-        bookCount: sql<number>`(SELECT COUNT(*) FROM books WHERE books.author_id = ${authors.id})`,
+        bookCount: sql<number>`(SELECT COUNT(DISTINCT "books_authors"."book_id") FROM "books_authors" WHERE "books_authors"."author_id" = "authors"."id")`,
       })
       .from(authors)
       .orderBy(authors.sortName)
@@ -115,62 +116,83 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       throw new Error("Author not found");
     }
 
-    // Get books where this author is primary OR appears as co-author in foreignAuthorIds
-    // Join author table to get primary author name for each book
-    const bookColumns = {
-      id: books.id,
-      title: books.title,
-      slug: books.slug,
-      authorId: books.authorId,
-      authorName: authors.name,
-      authorForeignId: authors.foreignAuthorId,
-      description: books.description,
-      releaseDate: books.releaseDate,
-      releaseYear: books.releaseYear,
-      monitored: books.monitored,
-      foreignBookId: books.foreignBookId,
-      images: books.images,
-      rating: books.rating,
-      ratingsCount: books.ratingsCount,
-      usersCount: books.usersCount,
-      tags: books.tags,
-      foreignAuthorIds: books.foreignAuthorIds,
-      metadataUpdatedAt: books.metadataUpdatedAt,
-      createdAt: books.createdAt,
-      updatedAt: books.updatedAt,
-    };
-
-    const primaryBooks = db
-      .select(bookColumns)
-      .from(books)
-      .leftJoin(authors, eq(books.authorId, authors.id))
-      .where(eq(books.authorId, data.id))
-      .orderBy(desc(books.releaseDate))
+    // Get all book IDs linked to this author through booksAuthors
+    const authorBookEntries = db
+      .select({
+        bookId: booksAuthors.bookId,
+      })
+      .from(booksAuthors)
+      .where(eq(booksAuthors.authorId, data.id))
       .all();
 
-    // Find co-authored books via foreignAuthorIds JSON column
-    let coAuthoredBooks: typeof primaryBooks = [];
-    if (author.foreignAuthorId) {
-      const primaryBookIds = new Set(primaryBooks.map((b) => b.id));
-      coAuthoredBooks = db
-        .select(bookColumns)
-        .from(books)
-        .leftJoin(authors, eq(books.authorId, authors.id))
-        .where(
-          sql`EXISTS (
-            SELECT 1 FROM json_each(${books.foreignAuthorIds})
-            WHERE json_extract(value, '$.foreignAuthorId') = ${author.foreignAuthorId}
-          )`,
-        )
-        .orderBy(desc(books.releaseDate))
-        .all()
-        .filter((b) => !primaryBookIds.has(b.id));
+    const bookIds = [...new Set(authorBookEntries.map((e) => e.bookId))];
+
+    // Get all books
+    const authorBooks =
+      bookIds.length > 0
+        ? db
+            .select({
+              id: books.id,
+              title: books.title,
+              slug: books.slug,
+              description: books.description,
+              releaseDate: books.releaseDate,
+              releaseYear: books.releaseYear,
+              monitored: books.monitored,
+              foreignBookId: books.foreignBookId,
+              images: books.images,
+              rating: books.rating,
+              ratingsCount: books.ratingsCount,
+              usersCount: books.usersCount,
+              tags: books.tags,
+              metadataUpdatedAt: books.metadataUpdatedAt,
+              createdAt: books.createdAt,
+              updatedAt: books.updatedAt,
+            })
+            .from(books)
+            .where(inArray(books.id, bookIds))
+            .orderBy(desc(books.releaseDate))
+            .all()
+        : [];
+
+    // Get all booksAuthors entries for these books
+    const allBookAuthorEntries =
+      bookIds.length > 0
+        ? db
+            .select({
+              bookId: booksAuthors.bookId,
+              authorId: booksAuthors.authorId,
+              foreignAuthorId: booksAuthors.foreignAuthorId,
+              authorName: booksAuthors.authorName,
+              isPrimary: booksAuthors.isPrimary,
+            })
+            .from(booksAuthors)
+            .where(inArray(booksAuthors.bookId, bookIds))
+            .all()
+        : [];
+
+    // Group booksAuthors by bookId
+    const bookAuthorsMap = new Map<
+      number,
+      Array<{
+        authorId: number | null;
+        foreignAuthorId: string;
+        authorName: string;
+        isPrimary: boolean;
+      }>
+    >();
+    for (const entry of allBookAuthorEntries) {
+      const arr = bookAuthorsMap.get(entry.bookId) ?? [];
+      arr.push({
+        authorId: entry.authorId,
+        foreignAuthorId: entry.foreignAuthorId,
+        authorName: entry.authorName,
+        isPrimary: entry.isPrimary,
+      });
+      bookAuthorsMap.set(entry.bookId, arr);
     }
 
-    const authorBooks = [...primaryBooks, ...coAuthoredBooks];
-
     // Get series data for this author's books
-    const bookIds = authorBooks.map((b) => b.id);
     const seriesLinks =
       bookIds.length > 0
         ? db
@@ -257,26 +279,35 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     }
 
     // Get available languages across all author's editions, sorted by total readers desc
-    const availableLanguages = db
-      .select({
-        languageCode: editions.languageCode,
-        language: editions.language,
-        totalReaders: sql<number>`COALESCE(SUM(${books.usersCount}), 0)`,
-      })
-      .from(editions)
-      .innerJoin(books, eq(editions.bookId, books.id))
-      .where(eq(books.authorId, data.id))
-      .groupBy(editions.languageCode, editions.language)
-      .orderBy(desc(sql`COALESCE(SUM(${books.usersCount}), 0)`))
-      .all()
-      .filter((l) => l.languageCode && l.language) as Array<{
-      languageCode: string;
-      language: string;
-      totalReaders: number;
-    }>;
+    const availableLanguages =
+      bookIds.length > 0
+        ? (db
+            .select({
+              languageCode: editions.languageCode,
+              language: editions.language,
+              totalReaders: sql<number>`COALESCE(SUM(${books.usersCount}), 0)`,
+            })
+            .from(editions)
+            .innerJoin(books, eq(editions.bookId, books.id))
+            .innerJoin(booksAuthors, eq(books.id, booksAuthors.bookId))
+            .where(eq(booksAuthors.authorId, data.id))
+            .groupBy(editions.languageCode, editions.language)
+            .orderBy(desc(sql`COALESCE(SUM(${books.usersCount}), 0)`))
+            .all()
+            .filter((l) => l.languageCode && l.language) as Array<{
+            languageCode: string;
+            language: string;
+            totalReaders: number;
+          }>)
+        : [];
 
-    const booksWithEditions = authorBooks.map((b) =>
-      Object.assign(b, {
+    const booksWithEditions = authorBooks.map((b) => {
+      const ba = bookAuthorsMap.get(b.id) ?? [];
+      const primaryAuthor = ba.find((a) => a.isPrimary);
+      return Object.assign(b, {
+        bookAuthors: ba,
+        authorName: primaryAuthor?.authorName ?? null,
+        authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
         languageCodes: [
           ...new Set(
             (bookEditionsMap.get(b.id) ?? [])
@@ -285,43 +316,14 @@ export const getAuthorFn = createServerFn({ method: "GET" })
           ),
         ] as string[],
         editions: bookEditionsMap.get(b.id) ?? [],
-      }),
-    );
-
-    // Batch-resolve foreignAuthorIds to local authors (including primary authors)
-    const allForeignAuthorIds = new Set<string>();
-    for (const b of authorBooks) {
-      if (b.authorForeignId) {
-        allForeignAuthorIds.add(b.authorForeignId);
-      }
-      for (const entry of b.foreignAuthorIds ?? []) {
-        allForeignAuthorIds.add(entry.foreignAuthorId);
-      }
-    }
-    const resolvedAuthors: Record<string, { id: number; name: string }> = {};
-    if (allForeignAuthorIds.size > 0) {
-      const localAuthors = db
-        .select({
-          id: authors.id,
-          name: authors.name,
-          foreignAuthorId: authors.foreignAuthorId,
-        })
-        .from(authors)
-        .where(inArray(authors.foreignAuthorId, [...allForeignAuthorIds]))
-        .all();
-      for (const a of localAuthors) {
-        if (a.foreignAuthorId) {
-          resolvedAuthors[a.foreignAuthorId] = { id: a.id, name: a.name };
-        }
-      }
-    }
+      });
+    });
 
     return {
       ...author,
       books: booksWithEditions,
       series: authorSeries,
       availableLanguages,
-      resolvedAuthors,
     };
   });
 
@@ -375,7 +377,47 @@ export const deleteAuthorFn = createServerFn({ method: "POST" })
       .where(eq(authors.id, data.id))
       .get();
 
-    db.delete(authors).where(eq(authors.id, data.id)).run();
+    db.transaction((tx) => {
+      // Collect book IDs where this author has booksAuthors entries (before delete nulls them)
+      const affectedBookIds = tx
+        .select({ bookId: booksAuthors.bookId })
+        .from(booksAuthors)
+        .where(eq(booksAuthors.authorId, data.id))
+        .all()
+        .map((e) => e.bookId);
+
+      // Delete the author — ON DELETE SET NULL on booksAuthors.authorId
+      tx.delete(authors).where(eq(authors.id, data.id)).run();
+
+      // For affected books, delete any where ALL booksAuthors entries now have authorId IS NULL
+      if (affectedBookIds.length > 0) {
+        const uniqueBookIds = [...new Set(affectedBookIds)];
+        for (const bookId of uniqueBookIds) {
+          const hasLocalAuthor = tx
+            .select({ id: booksAuthors.id })
+            .from(booksAuthors)
+            .where(
+              and(
+                eq(booksAuthors.bookId, bookId),
+                sql`${booksAuthors.authorId} IS NOT NULL`,
+              ),
+            )
+            .get();
+
+          if (!hasLocalAuthor) {
+            // No local authors remaining — delete the book (CASCADE deletes its booksAuthors, editions, etc.)
+            tx.delete(books).where(eq(books.id, bookId)).run();
+          }
+        }
+      }
+
+      // Clean up series that no longer have any book links
+      tx.delete(series)
+        .where(
+          sql`${series.id} NOT IN (SELECT DISTINCT ${seriesBookLinks.seriesId} FROM ${seriesBookLinks})`,
+        )
+        .run();
+    });
 
     if (author) {
       db.insert(history)
