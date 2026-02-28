@@ -52,7 +52,7 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
         ),
       )
       .where(eq(books.monitored, true))
-      .orderBy(desc(books.createdAt))
+      .orderBy(desc(books.usersCount))
       .all();
     return result;
   },
@@ -103,7 +103,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
           eq(booksAuthors.isPrimary, true),
         ),
       )
-      .orderBy(desc(books.createdAt))
+      .orderBy(desc(books.usersCount))
       .$dynamic();
 
     let countQuery = db

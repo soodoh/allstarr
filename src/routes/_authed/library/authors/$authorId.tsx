@@ -206,7 +206,7 @@ function BooksTab({
     availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
   const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<BooksTabSortKey>("year");
+  const [sortKey, setSortKey] = useState<BooksTabSortKey>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -270,7 +270,12 @@ function BooksTab({
       } else if (sortKey === "rating") {
         cmp = (a.rating ?? -1) - (b.rating ?? -1);
       }
-      return sortDir === "asc" ? cmp : -cmp;
+      const directed = sortDir === "asc" ? cmp : -cmp;
+      if (directed !== 0 || sortKey === "readers") {
+        return directed;
+      }
+      // Tiebreaker: higher readers first
+      return (b.usersCount ?? 0) - (a.usersCount ?? 0);
     });
 
     return result;
@@ -760,6 +765,22 @@ function SeriesTab({
           result.push({ series: s, entryCount: count });
         }
       }
+      // Sort by aggregate readers descending
+      result.sort((a, b) => {
+        const aEntries = getSeriesEntries(a.series);
+        const bEntries = getSeriesEntries(b.series);
+        let aReaders = 0;
+        for (const e of aEntries) {
+          aReaders +=
+            e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
+        }
+        let bReaders = 0;
+        for (const e of bEntries) {
+          bReaders +=
+            e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
+        }
+        return bReaders - aReaders;
+      });
       return result;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds

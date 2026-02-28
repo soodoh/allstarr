@@ -20,6 +20,7 @@ import {
 export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
+    const totalReadersExpr = sql<number>`COALESCE((SELECT SUM("books"."users_count") FROM "books_authors" INNER JOIN "books" ON "books"."id" = "books_authors"."book_id" WHERE "books_authors"."author_id" = "authors"."id"), 0)`;
     const result = db
       .select({
         id: authors.id,
@@ -40,9 +41,10 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
         createdAt: authors.createdAt,
         updatedAt: authors.updatedAt,
         bookCount: sql<number>`(SELECT COUNT(DISTINCT "books_authors"."book_id") FROM "books_authors" WHERE "books_authors"."author_id" = "authors"."id")`,
+        totalReaders: totalReadersExpr,
       })
       .from(authors)
-      .orderBy(authors.sortName)
+      .orderBy(desc(totalReadersExpr))
       .all();
     return result;
   },
@@ -58,6 +60,7 @@ export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
     const pageSize = data.pageSize || 25;
     const offset = (page - 1) * pageSize;
 
+    const totalReadersExpr = sql<number>`COALESCE((SELECT SUM("books"."users_count") FROM "books_authors" INNER JOIN "books" ON "books"."id" = "books_authors"."book_id" WHERE "books_authors"."author_id" = "authors"."id"), 0)`;
     let query = db
       .select({
         id: authors.id,
@@ -76,9 +79,10 @@ export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
         createdAt: authors.createdAt,
         updatedAt: authors.updatedAt,
         bookCount: sql<number>`(SELECT COUNT(DISTINCT "books_authors"."book_id") FROM "books_authors" WHERE "books_authors"."author_id" = "authors"."id")`,
+        totalReaders: totalReadersExpr,
       })
       .from(authors)
-      .orderBy(authors.sortName)
+      .orderBy(desc(totalReadersExpr))
       .$dynamic();
 
     let countQuery = db
@@ -151,7 +155,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
             })
             .from(books)
             .where(inArray(books.id, bookIds))
-            .orderBy(desc(books.releaseDate))
+            .orderBy(desc(books.usersCount))
             .all()
         : [];
 
@@ -245,9 +249,20 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       });
     }
 
-    const authorSeries = [...seriesMap.values()].toSorted((a, b) =>
-      a.title.localeCompare(b.title),
-    );
+    const authorSeries = [...seriesMap.values()].toSorted((a, b) => {
+      // Sort by aggregate readers descending
+      let aReaders = 0;
+      for (const sb of a.books) {
+        const book = authorBooks.find((ab) => ab.id === sb.bookId);
+        aReaders += book?.usersCount ?? 0;
+      }
+      let bReaders = 0;
+      for (const sb of b.books) {
+        const book = authorBooks.find((ab) => ab.id === sb.bookId);
+        bReaders += book?.usersCount ?? 0;
+      }
+      return bReaders - aReaders;
+    });
 
     // Fetch all editions for author's books (pre-sorted by readers desc)
     const allEditions =

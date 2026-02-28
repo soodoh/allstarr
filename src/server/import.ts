@@ -351,7 +351,9 @@ async function importAuthorInternal(data: {
     for (const rawBook of rawBooks) {
       // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
       // The Hardcover query already filters these out, but guard against edge cases.
-      if (!hasAuthorRoleContribution(rawBook.contributions, data.foreignAuthorId)) {
+      if (
+        !hasAuthorRoleContribution(rawBook.contributions, data.foreignAuthorId)
+      ) {
         continue;
       }
 
@@ -767,7 +769,9 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
       for (const rawBook of rawBooks) {
         // Safety net: skip books where this author only has a non-author role (Foreword, etc.)
         // The Hardcover query already filters these out, but guard against edge cases.
-        if (!hasAuthorRoleContribution(rawBook.contributions, foreignAuthorId)) {
+        if (
+          !hasAuthorRoleContribution(rawBook.contributions, foreignAuthorId)
+        ) {
           continue;
         }
 

@@ -165,7 +165,7 @@ const authorDetailsInputSchema = z.object({
     .toLowerCase()
     .regex(/^(all|[a-z]{2,3})$/)
     .default("en"),
-  sortBy: z.enum(["title", "year", "rating"]).default("year"),
+  sortBy: z.enum(["title", "year", "rating", "readers"]).default("readers"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
 
@@ -1417,7 +1417,7 @@ async function fetchSearchResults(
 }
 
 function buildOrderBy(
-  sortBy: "title" | "year" | "rating",
+  sortBy: "title" | "year" | "rating" | "readers",
   sortDir: "asc" | "desc",
 ): Array<Record<string, unknown>> {
   const dir = sortDir;
@@ -1428,6 +1428,9 @@ function buildOrderBy(
   if (sortBy === "rating") {
     return [{ rating: dirNullsLast }, { id: "asc" }];
   }
+  if (sortBy === "readers") {
+    return [{ users_count: dirNullsLast }, { id: "asc" }];
+  }
   // year (default)
   return [{ release_year: dirNullsLast }, { id: dir }];
 }
@@ -1437,7 +1440,7 @@ async function fetchAuthorBooksPage(
   page: number,
   pageSize: number,
   selectedLanguage: string,
-  sortBy: "title" | "year" | "rating",
+  sortBy: "title" | "year" | "rating" | "readers",
   sortDir: "asc" | "desc",
   authorization: string,
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
@@ -1498,7 +1501,7 @@ async function fetchAuthorDetails(
   page: number,
   pageSize: number,
   language: string,
-  sortBy: "title" | "year" | "rating",
+  sortBy: "title" | "year" | "rating" | "readers",
   sortDir: "asc" | "desc",
   authorization: string,
 ): Promise<HardcoverAuthorDetail> {

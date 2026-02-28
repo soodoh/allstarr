@@ -22,6 +22,7 @@ type Author = {
   sortName: string;
   status: string;
   bookCount: number;
+  totalReaders: number;
   images: Array<{ url: string; coverType: string }> | null;
 };
 
@@ -35,8 +36,10 @@ export default function AuthorTable({
   children,
 }: AuthorTableProps): JSX.Element {
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<keyof Author | undefined>(undefined);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<keyof Author | undefined>(
+    "totalReaders",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const handleSort = (key: keyof Author) => {
     if (sortKey === key) {
@@ -58,6 +61,9 @@ export default function AuthorTable({
           cmp = av - bv;
         } else if (typeof av === "boolean" && typeof bv === "boolean") {
           cmp = Number(av) - Number(bv);
+        }
+        if (cmp === 0 && sortKey !== "totalReaders") {
+          cmp = (b.totalReaders ?? 0) - (a.totalReaders ?? 0);
         }
         return sortDir === "asc" ? cmp : -cmp;
       })
@@ -82,6 +88,7 @@ export default function AuthorTable({
         <col className="w-14" />
         <col />
         <col />
+        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -90,6 +97,7 @@ export default function AuthorTable({
             [
               { key: "name", label: "Name" },
               { key: "bookCount", label: "Books" },
+              { key: "totalReaders", label: "Readers" },
             ] as Array<{ key: keyof Author; label: string }>
           ).map(({ key, label }) => (
             <TableHead
@@ -141,6 +149,7 @@ export default function AuthorTable({
                 </Link>
               </TableCell>
               <TableCell>{author.bookCount}</TableCell>
+              <TableCell>{author.totalReaders.toLocaleString()}</TableCell>
             </TableRow>
           );
         })}

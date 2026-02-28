@@ -36,7 +36,7 @@ const DEFAULT_PARAMS = {
   page: 1,
   pageSize: 1,
   language: "en",
-  sortBy: "year" as const,
+  sortBy: "readers" as const,
   sortDir: "desc" as const,
 };
 

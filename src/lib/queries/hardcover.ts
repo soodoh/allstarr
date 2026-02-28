@@ -16,7 +16,7 @@ type HardcoverAuthorParams = {
   page: number;
   pageSize: number;
   language: string;
-  sortBy: "title" | "year" | "rating";
+  sortBy: "title" | "year" | "rating" | "readers";
   sortDir: "asc" | "desc";
 };
 
