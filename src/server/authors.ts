@@ -283,6 +283,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               score: editions.score,
               languageCode: editions.languageCode,
               images: editions.images,
+              isDefaultCover: editions.isDefaultCover,
             })
             .from(editions)
             .where(inArray(editions.bookId, bookIds))
