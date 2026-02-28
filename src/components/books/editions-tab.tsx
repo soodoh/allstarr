@@ -134,6 +134,9 @@ export default function EditionsTab({
       } else {
         cmp = String(av).localeCompare(String(bv));
       }
+      if (cmp === 0 && sortBy !== "readers") {
+        cmp = (b.usersCount ?? 0) - (a.usersCount ?? 0);
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [editions, sortBy, sortDir]);

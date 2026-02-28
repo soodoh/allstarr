@@ -70,22 +70,24 @@ function compareBooks(
   key: SortKey,
   dir: "asc" | "desc",
 ): number {
+  let cmp: number;
   if (key === "rating") {
-    const cmp = compareRating(a, b);
-    return dir === "asc" ? cmp : -cmp;
+    cmp = compareRating(a, b);
+  } else if (key === "readers") {
+    cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
+  } else if (key === "series") {
+    cmp = compareSeries(a, b);
+  } else {
+    const av = a[key] ?? "";
+    const bv = b[key] ?? "";
+    cmp = String(av).localeCompare(String(bv));
   }
-  if (key === "readers") {
-    const cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
-    return dir === "asc" ? cmp : -cmp;
+  const directed = dir === "asc" ? cmp : -cmp;
+  if (directed !== 0 || key === "readers") {
+    return directed;
   }
-  if (key === "series") {
-    const cmp = compareSeries(a, b);
-    return dir === "asc" ? cmp : -cmp;
-  }
-  const av = a[key] ?? "";
-  const bv = b[key] ?? "";
-  const cmp = String(av).localeCompare(String(bv));
-  return dir === "asc" ? cmp : -cmp;
+  // Tiebreaker: higher readers first
+  return (b.usersCount ?? 0) - (a.usersCount ?? 0);
 }
 
 export default function BookTable({
@@ -93,8 +95,8 @@ export default function BookTable({
   children,
 }: BookTableProps): JSX.Element {
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<SortKey | undefined>(undefined);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<SortKey | undefined>("readers");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
