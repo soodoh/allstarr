@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
@@ -65,6 +65,10 @@ function SizeSlider({ def }: { def: QualityDefinition }): JSX.Element {
     def.preferredSize ?? 0,
     def.maxSize ?? 0,
   ]);
+
+  useEffect(() => {
+    setValues([def.minSize ?? 0, def.preferredSize ?? 0, def.maxSize ?? 0]);
+  }, [def.minSize, def.preferredSize, def.maxSize]);
 
   const handleChange = useCallback((newValues: number[]) => {
     setValues(newValues as [number, number, number]);

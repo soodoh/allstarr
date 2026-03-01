@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "./middleware";
 import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
+import { getMetadataProfile } from "./metadata-profile";
+import type { MetadataProfile } from "./metadata-profile";
 
 const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -241,11 +243,16 @@ const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, {
  * Composes the `where` clause for the top-level `books` / `books_aggregate`
  * queries on the author books page.
  */
-function bookWhereFilters(opts: { hasLanguage: boolean }): string {
+function bookWhereFilters(opts: {
+  hasLanguage: boolean;
+  skipCompilations: boolean;
+}): string {
   const parts: string[] = [
     `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
-    BOOK_COMPILATION_FILTER,
   ];
+  if (opts.skipCompilations) {
+    parts.push(BOOK_COMPILATION_FILTER);
+  }
   if (opts.hasLanguage) {
     parts.push(`editions: { language: { code2: { _eq: $languageCode } } }`);
   }
@@ -294,14 +301,17 @@ function seriesPositionsWhereFilters(opts: { hasLanguage: boolean }): string {
  * Builds the author books page query. Accepts `hasLanguage` so that the same
  * builder covers both the "all languages" and "specific language" variants.
  */
-function buildAuthorBooksPageQuery(hasLanguage: boolean): string {
+function buildAuthorBooksPageQuery(
+  hasLanguage: boolean,
+  skipCompilations: boolean,
+): string {
   const varDefs = hasLanguage
     ? `$slug: String!, $limit: Int!, $offset: Int!, $languageCode: String!, $orderBy: [books_order_by!]!`
     : `$slug: String!, $limit: Int!, $offset: Int!, $orderBy: [books_order_by!]!`;
   const queryName = hasLanguage
     ? "HardcoverAuthorBooksPageByLanguage"
     : "HardcoverAuthorBooksPage";
-  const where = bookWhereFilters({ hasLanguage });
+  const where = bookWhereFilters({ hasLanguage, skipCompilations });
   const editionsWhere = hasLanguage
     ? `where: { language: { code2: { _eq: $languageCode } } }`
     : `where: { language: { code2: { _is_null: false } } }`;
@@ -961,14 +971,15 @@ function toHardcoverAuthorBook(
 
 function toBookResult(
   document: Record<string, unknown>,
+  profile: MetadataProfile,
 ): HardcoverSearchItem | undefined {
   const title = firstString(document, [["title"], ["name"]]);
   if (!title) {
     return undefined;
   }
 
-  // Filter out compilation books (matches BOOK_COMPILATION_FILTER used on author pages)
-  if (document.compilation === true) {
+  // Filter out compilation books when the metadata profile says to skip them
+  if (profile.skipCompilations && document.compilation === true) {
     return undefined;
   }
 
@@ -1145,8 +1156,12 @@ async function applyLanguageFilter(
 function buildAuthorBookCountsQuery(
   slugs: string[],
   hasLanguage: boolean,
+  skipCompilations: boolean,
 ): string {
   const varDefs = hasLanguage ? `($languageCode: String!)` : "";
+  const compilationFilter = skipCompilations
+    ? `\n      ${BOOK_COMPILATION_FILTER}`
+    : "";
   const languageFilter = hasLanguage
     ? `\n        editions: { language: { code2: { _eq: $languageCode } } }`
     : "";
@@ -1158,8 +1173,7 @@ function buildAuthorBookCountsQuery(
         .replaceAll("\\", String.raw`\\`)
         .replaceAll('"', String.raw`\"`);
       return `  a${i}: books_aggregate(where: {
-      contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }
-      ${BOOK_COMPILATION_FILTER}${languageFilter}
+      contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }${compilationFilter}${languageFilter}
     }) {
       aggregate { count }
     }`;
@@ -1178,6 +1192,7 @@ async function applyAuthorBookCounts(
   items: HardcoverSearchItem[],
   language: string,
   authorization: string,
+  skipCompilations: boolean,
 ): Promise<HardcoverSearchItem[]> {
   const authorSlugs = items
     .filter((item) => item.slug)
@@ -1189,7 +1204,11 @@ async function applyAuthorBookCounts(
   const hasLanguage = language !== "all";
 
   try {
-    const query = buildAuthorBookCountsQuery(authorSlugs, hasLanguage);
+    const query = buildAuthorBookCountsQuery(
+      authorSlugs,
+      hasLanguage,
+      skipCompilations,
+    );
     const variables: Record<string, string> = {};
     if (hasLanguage) {
       variables.languageCode = language;
@@ -1385,13 +1404,20 @@ async function fetchSearchResults(
     const documents = hits
       .map((hit) => toRecord(hit.document))
       .filter(Boolean) as Array<Record<string, unknown>>;
+    const profile = getMetadataProfile();
+
     let mapped = documents
       .map((document) =>
         queryType === "Book"
-          ? toBookResult(document)
+          ? toBookResult(document, profile)
           : toAuthorResult(document),
       )
       .filter(Boolean) as HardcoverSearchItem[];
+
+    // Filter out books without a release year when the profile says to
+    if (profile.skipMissingReleaseDate && queryType === "Book") {
+      mapped = mapped.filter((item) => item.releaseYear !== null);
+    }
 
     if (filterByLanguage && queryType === "Book") {
       mapped = await applyLanguageFilter(mapped, language, authorization);
@@ -1402,7 +1428,12 @@ async function fetchSearchResults(
     }
 
     if (queryType === "Author" && language) {
-      mapped = await applyAuthorBookCounts(mapped, language, authorization);
+      mapped = await applyAuthorBookCounts(
+        mapped,
+        language,
+        authorization,
+        profile.skipCompilations,
+      );
     }
 
     return mapped.slice(0, limit);
@@ -1448,6 +1479,7 @@ async function fetchAuthorBooksPage(
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const offset = (page - 1) * pageSize;
   const hasLanguageFilter = selectedLanguage !== "all";
+  const profile = getMetadataProfile();
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1457,7 +1489,10 @@ async function fetchAuthorBooksPage(
         Authorization: authorization,
       },
       body: JSON.stringify({
-        query: buildAuthorBooksPageQuery(hasLanguageFilter),
+        query: buildAuthorBooksPageQuery(
+          hasLanguageFilter,
+          profile.skipCompilations,
+        ),
         variables: {
           slug,
           limit: pageSize,

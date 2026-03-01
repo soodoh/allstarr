@@ -195,7 +195,6 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
         author_id: { _eq: $authorId }
         ${AUTHOR_ROLE_FILTER}
       }
-      compilation: { _neq: true }
     }
     limit: $limit
     offset: $offset
@@ -210,6 +209,7 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
     rating
     ratings_count
     users_count
+    compilation
     default_cover_edition_id
     image { url }
     contributions(order_by: [{ id: asc }], limit: 50) {
@@ -237,7 +237,6 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
         author_id: { _eq: $authorId }
         ${AUTHOR_ROLE_FILTER}
       }
-      compilation: { _neq: true }
     }
   ) {
     aggregate { count }
