@@ -7,7 +7,11 @@ export const Route = createFileRoute("/api/v1/indexer/schema")({
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         await requireApiKey(request);
-        return Response.json(getSchemaTemplates());
+        const templates = getSchemaTemplates();
+        console.log(
+          `[Sync API] GET /indexer/schema → returning ${templates.length} templates: ${templates.map((t) => t.implementation).join(", ")}`,
+        );
+        return Response.json(templates);
       },
     },
   },

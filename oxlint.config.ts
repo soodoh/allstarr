@@ -63,5 +63,12 @@ export default defineConfig({
         "unicorn/filename-case": "off",
       },
     },
+    {
+      // Server-side API routes use console.log for request debugging.
+      files: ["src/routes/api/**"],
+      rules: {
+        "eslint/no-console": "off",
+      },
+    },
   ],
 });

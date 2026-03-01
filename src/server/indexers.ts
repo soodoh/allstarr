@@ -29,21 +29,18 @@ import type { ConnectionConfig } from "./download-clients/types";
 type ProfileItem = { quality: { id: number }; allowed: boolean };
 
 /** Look up the quality profile items for a book's primary author */
-function getProfileItemsForBook(
-  bookId: number,
-): ProfileItem[] | null {
+function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
   const bookAuthor = db
     .select({ authorId: booksAuthors.authorId })
     .from(booksAuthors)
     .where(
-      and(
-        eq(booksAuthors.bookId, bookId),
-        eq(booksAuthors.isPrimary, true),
-      ),
+      and(eq(booksAuthors.bookId, bookId), eq(booksAuthors.isPrimary, true)),
     )
     .get();
 
-  if (!bookAuthor) {return null;}
+  if (!bookAuthor) {
+    return null;
+  }
 
   const author = db
     .select({ qualityProfileId: authors.qualityProfileId })
@@ -51,7 +48,9 @@ function getProfileItemsForBook(
     .where(eq(authors.id, bookAuthor.authorId))
     .get();
 
-  if (!author?.qualityProfileId) {return null;}
+  if (!author?.qualityProfileId) {
+    return null;
+  }
 
   const profile = db
     .select({ items: qualityProfiles.items })
