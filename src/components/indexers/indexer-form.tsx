@@ -11,6 +11,9 @@ import { testIndexerFn } from "src/server/indexers";
 export type IndexerFormValues = {
   name: string;
   enabled: boolean;
+  enableRss: boolean;
+  enableAutomaticSearch: boolean;
+  enableInteractiveSearch: boolean;
   priority: number;
   host: string;
   port: number;
@@ -68,6 +71,15 @@ export default function IndexerForm({
 }: IndexerFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
+  const [enableRss, setEnableRss] = useState(
+    initialValues?.enableRss ?? true,
+  );
+  const [enableAutomaticSearch, setEnableAutomaticSearch] = useState(
+    initialValues?.enableAutomaticSearch ?? true,
+  );
+  const [enableInteractiveSearch, setEnableInteractiveSearch] = useState(
+    initialValues?.enableInteractiveSearch ?? true,
+  );
   const [host, setHost] = useState(initialValues?.host ?? "localhost");
   const [port, setPort] = useState(initialValues?.port ?? 9696);
   const [useSsl, setUseSsl] = useState(initialValues?.useSsl ?? false);
@@ -90,7 +102,19 @@ export default function IndexerForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, enabled, host, port, useSsl, urlBase, apiKey, priority });
+    onSubmit({
+      name,
+      enabled,
+      enableRss,
+      enableAutomaticSearch,
+      enableInteractiveSearch,
+      host,
+      port,
+      useSsl,
+      urlBase,
+      apiKey,
+      priority,
+    });
   };
 
   return (
@@ -103,7 +127,7 @@ export default function IndexerForm({
             id="ix-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My Prowlarr"
+            placeholder="My Indexer"
             required
           />
         </div>
@@ -114,6 +138,34 @@ export default function IndexerForm({
             onCheckedChange={setEnabled}
           />
           <Label htmlFor="ix-enabled">Enabled</Label>
+        </div>
+      </div>
+
+      {/* RSS / Search toggles */}
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="ix-rss"
+            checked={enableRss}
+            onCheckedChange={setEnableRss}
+          />
+          <Label htmlFor="ix-rss">RSS</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="ix-auto-search"
+            checked={enableAutomaticSearch}
+            onCheckedChange={setEnableAutomaticSearch}
+          />
+          <Label htmlFor="ix-auto-search">Automatic Search</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="ix-interactive-search"
+            checked={enableInteractiveSearch}
+            onCheckedChange={setEnableInteractiveSearch}
+          />
+          <Label htmlFor="ix-interactive-search">Interactive Search</Label>
         </div>
       </div>
 
@@ -157,7 +209,7 @@ export default function IndexerForm({
           id="ix-urlbase"
           value={urlBase}
           onChange={(e) => setUrlBase(e.target.value)}
-          placeholder="/prowlarr"
+          placeholder="/api"
         />
       </div>
 

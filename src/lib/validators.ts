@@ -209,6 +209,9 @@ export const testDownloadClientSchema = z.object({
 export const createIndexerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   enabled: z.boolean().default(true),
+  enableRss: z.boolean().default(true),
+  enableAutomaticSearch: z.boolean().default(true),
+  enableInteractiveSearch: z.boolean().default(true),
   priority: z.number().int().min(1).default(25),
   host: z.string().default("localhost"),
   port: z.number().int().min(1).max(65_535).default(9696),

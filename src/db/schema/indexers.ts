@@ -9,6 +9,17 @@ export const indexers = sqliteTable("indexers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  enableRss: integer("enable_rss", { mode: "boolean" }).notNull().default(true),
+  enableAutomaticSearch: integer("enable_automatic_search", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(true),
+  enableInteractiveSearch: integer("enable_interactive_search", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(true),
   priority: integer("priority").notNull().default(25),
   host: text("host").notNull().default("localhost"),
   port: integer("port").notNull().default(9696),

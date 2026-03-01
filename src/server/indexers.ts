@@ -373,7 +373,12 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
     const manualCount = db
       .select()
       .from(indexers)
-      .where(eq(indexers.enabled, true))
+      .where(
+        and(
+          eq(indexers.enabled, true),
+          eq(indexers.enableAutomaticSearch, true),
+        ),
+      )
       .all().length;
     if (manualCount > 0) {
       return true;
@@ -454,11 +459,16 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    // Get all enabled manual indexers sorted by priority
+    // Get all enabled manual indexers with automatic search on, sorted by priority
     const enabledManual = db
       .select()
       .from(indexers)
-      .where(eq(indexers.enabled, true))
+      .where(
+        and(
+          eq(indexers.enabled, true),
+          eq(indexers.enableAutomaticSearch, true),
+        ),
+      )
       .orderBy(asc(indexers.priority))
       .all();
 

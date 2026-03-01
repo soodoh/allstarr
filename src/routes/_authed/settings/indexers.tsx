@@ -74,6 +74,9 @@ function IndexersPage() {
       {
         name: values.name,
         enabled: values.enabled,
+        enableRss: values.enableRss,
+        enableAutomaticSearch: values.enableAutomaticSearch,
+        enableInteractiveSearch: values.enableInteractiveSearch,
         priority: values.priority,
         host: values.host,
         port: values.port,
@@ -95,6 +98,9 @@ function IndexersPage() {
         id: editing.id,
         name: values.name,
         enabled: values.enabled,
+        enableRss: values.enableRss,
+        enableAutomaticSearch: values.enableAutomaticSearch,
+        enableInteractiveSearch: values.enableInteractiveSearch,
         priority: values.priority,
         host: values.host,
         port: values.port,
@@ -115,6 +121,9 @@ function IndexersPage() {
     ? {
         name: editing.name,
         enabled: editing.enabled,
+        enableRss: editing.enableRss,
+        enableAutomaticSearch: editing.enableAutomaticSearch,
+        enableInteractiveSearch: editing.enableInteractiveSearch,
         host: editing.host,
         port: editing.port,
         useSsl: editing.useSsl,
@@ -145,7 +154,7 @@ function IndexersPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editing ? "Edit Indexer" : "Add Prowlarr Indexer"}
+              {editing ? "Edit Indexer" : "Add Indexer"}
             </DialogTitle>
           </DialogHeader>
 
