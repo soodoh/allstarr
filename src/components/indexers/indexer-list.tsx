@@ -41,7 +41,7 @@ export default function IndexerList({
   const rows: UnifiedRow[] = [
     ...indexers.map((i) => ({ type: "manual" as const, data: i })),
     ...syncedIndexers.map((i) => ({ type: "synced" as const, data: i })),
-  ].sort((a, b) => a.data.name.localeCompare(b.data.name));
+  ].toSorted((a, b) => a.data.name.localeCompare(b.data.name));
 
   if (rows.length === 0) {
     return (

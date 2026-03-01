@@ -95,9 +95,14 @@ function FormatScoreCell({
         <TooltipContent side="left" className="max-w-xs">
           <ul className="space-y-1">
             {formatScoreDetails.map((detail) => (
-              <li key={detail.profileName} className="flex justify-between gap-4 text-xs">
+              <li
+                key={detail.profileName}
+                className="flex justify-between gap-4 text-xs"
+              >
                 <span>{detail.profileName}</span>
-                <span className={detail.allowed ? "text-green-400" : "text-red-400"}>
+                <span
+                  className={detail.allowed ? "text-green-400" : "text-red-400"}
+                >
                   {detail.score} ({detail.allowed ? "allowed" : "not allowed"})
                 </span>
               </li>
@@ -109,11 +114,7 @@ function FormatScoreCell({
   );
 }
 
-function RejectionsCell({
-  release,
-}: {
-  release: IndexerRelease;
-}): JSX.Element {
+function RejectionsCell({ release }: { release: IndexerRelease }): JSX.Element {
   const { rejections } = release;
 
   if (rejections.length === 0) {
@@ -137,7 +138,10 @@ function RejectionsCell({
           <ul className="space-y-1">
             {rejections.map((rejection, idx) => (
               // eslint-disable-next-line react/no-array-index-key -- rejections are static per render
-              <li key={idx} className="text-sm text-muted-foreground flex gap-2">
+              <li
+                key={idx}
+                className="text-sm text-muted-foreground flex gap-2"
+              >
                 <span className="text-red-400 shrink-0">*</span>
                 <span>{rejection.message}</span>
               </li>

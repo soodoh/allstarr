@@ -110,7 +110,10 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
 function cleanReleaseTitle(title: string): string {
   let cleaned = title;
   // Remove file extensions
-  cleaned = cleaned.replace(/\.(epub|mobi|azw3?|pdf|cbr|cbz|fb2|lit|djvu|txt|rtf|doc|docx)$/i, "");
+  cleaned = cleaned.replace(
+    /\.(epub|mobi|azw3?|pdf|cbr|cbz|fb2|lit|djvu|txt|rtf|doc|docx)$/i,
+    "",
+  );
   // Remove release group tags like -GROUP, [GROUP]
   cleaned = cleaned.replace(/[-[]\w+[\]]?\s*$/, "");
   // Remove bracketed/parenthesized metadata: [v1], (epub), [2020], {retail}, etc.
@@ -139,10 +142,7 @@ type BookInfo = { title: string; authorName: string | null };
  * Title check uses max(token_set_ratio, partial_ratio) to handle extra tokens
  * and substring matching.
  */
-function isRelevantRelease(
-  releaseTitle: string,
-  bookInfo: BookInfo,
-): boolean {
+function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
   const cleaned = cleanReleaseTitle(releaseTitle);
 
   // Author check
@@ -220,9 +220,7 @@ function computeReleaseMetrics(
   let allowedInAny = false;
 
   for (const profile of profiles) {
-    const item = profile.items.find(
-      (i) => i.quality.id === release.quality.id,
-    );
+    const item = profile.items.find((i) => i.quality.id === release.quality.id);
     if (item) {
       const score = getProfileWeight(release.quality.id, profile.items);
       formatScoreDetails.push({
