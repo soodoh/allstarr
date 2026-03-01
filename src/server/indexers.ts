@@ -98,10 +98,56 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
   return unionMap.size > 0 ? [...unionMap.values()] : null;
 }
 
+// ─── Title relevance ─────────────────────────────────────────────────────────
+
+const STOP_WORDS = new Set([
+  "the", "of", "and", "in", "to", "for", "an", "is", "it", "on",
+  "at", "by", "with", "as", "or", "from", "that", "this", "its", "no",
+]);
+
+/** Split text into lowercase alphanumeric tokens (min 2 chars) */
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2);
+}
+
+/** Get meaningful words from a title (stop words removed) */
+function getSignificantWords(text: string): string[] {
+  return tokenize(text).filter((w) => !STOP_WORDS.has(w));
+}
+
+/**
+ * Check whether a release title plausibly matches the expected book.
+ * Returns a rejection if all significant words from the book title
+ * are NOT present in the release title.
+ */
+function checkTitleRelevance(
+  releaseTitle: string,
+  bookTitle: string,
+): ReleaseRejection | null {
+  const titleWords = getSignificantWords(bookTitle);
+  // Can't meaningfully check very short/generic titles
+  if (titleWords.length === 0) {return null;}
+
+  const releaseTokens = new Set(tokenize(releaseTitle));
+  const allPresent = titleWords.every((w) => releaseTokens.has(w));
+  if (allPresent) {return null;}
+
+  return {
+    reason: "titleMismatch",
+    message: `Release does not match '${bookTitle}'`,
+  };
+}
+
+type BookInfo = { title: string; authorName: string | null };
+
 /** Compute rejections and format score for a release against the author's profiles */
 function computeReleaseMetrics(
   release: IndexerRelease,
   profiles: ProfileInfo[] | null,
+  bookInfo: BookInfo | null,
 ): {
   rejections: ReleaseRejection[];
   formatScore: number;
@@ -109,6 +155,17 @@ function computeReleaseMetrics(
 } {
   const rejections: ReleaseRejection[] = [];
   const formatScoreDetails: FormatScoreDetail[] = [];
+
+  // Title relevance check
+  if (bookInfo) {
+    const titleRejection = checkTitleRelevance(
+      release.title,
+      bookInfo.title,
+    );
+    if (titleRejection) {
+      rejections.push(titleRejection);
+    }
+  }
 
   // Unknown quality — no format definition matched
   if (release.quality.id === 0) {
@@ -327,6 +384,7 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
 function dedupeAndScoreReleases(
   allReleases: IndexerRelease[],
   bookId: number | null,
+  bookInfo: BookInfo | null,
 ): IndexerRelease[] {
   // Deduplicate by guid
   const seen = new Set<string>();
@@ -354,7 +412,7 @@ function dedupeAndScoreReleases(
 
   // Compute rejections and format scores
   for (const release of unique) {
-    const metrics = computeReleaseMetrics(release, profiles);
+    const metrics = computeReleaseMetrics(release, profiles, bookInfo);
     release.rejections = metrics.rejections;
     release.formatScore = metrics.formatScore;
     release.formatScoreDetails = metrics.formatScoreDetails;
@@ -402,6 +460,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
 
     let query = data.query;
     let bookParams: BookSearchParams | undefined;
+    let bookInfo: BookInfo | null = null;
 
     // If bookId provided, look up book info for structured search params
     if (data.bookId) {
@@ -422,6 +481,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
         .get();
 
       if (book) {
+        bookInfo = { title: book.title, authorName: book.authorName ?? null };
         // Build default query if none provided
         if (!data.query) {
           query = `${book.authorName ? `${book.authorName} ` : ""}${book.title}`;
@@ -513,7 +573,11 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       throw new Error(`All indexers failed: ${warnings.join("; ")}`);
     }
 
-    const releases = dedupeAndScoreReleases(allReleases, data.bookId ?? null);
+    const releases = dedupeAndScoreReleases(
+      allReleases,
+      data.bookId ?? null,
+      bookInfo,
+    );
     return { releases, warnings };
   });
 
