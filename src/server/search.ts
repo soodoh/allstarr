@@ -149,12 +149,6 @@ const searchInputSchema = z.object({
   query: z.string().trim().min(2).max(120),
   type: z.enum(["all", "books", "authors"]).default("all"),
   limit: z.number().int().min(1).max(50).default(20),
-  language: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^(all|[a-z]{2,3})$/)
-    .default("all"),
 });
 
 const authorDetailsInputSchema = z.object({
@@ -181,8 +175,8 @@ query Search($query: String!, $queryType: String, $perPage: Int!, $page: Int!) {
 `;
 
 const bookLanguageFilterQuery = `
-query BookLanguageFilter($ids: [Int!]!, $langCode: String!) {
-  books(where: { id: { _in: $ids }, editions: { language: { code2: { _eq: $langCode } } } }) {
+query BookLanguageFilter($ids: [Int!]!, $langCodes: [String!]!) {
+  books(where: { id: { _in: $ids }, editions: { language: { code2: { _in: $langCodes } } } }) {
     id
   }
 }
@@ -1096,7 +1090,7 @@ function sortByReaders(items: HardcoverSearchItem[]): HardcoverSearchItem[] {
  */
 async function applyLanguageFilter(
   items: HardcoverSearchItem[],
-  language: string,
+  languages: string[],
   authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const bookIds = items
@@ -1115,7 +1109,7 @@ async function applyLanguageFilter(
       },
       body: JSON.stringify({
         query: bookLanguageFilterQuery,
-        variables: { ids: bookIds, langCode: language },
+        variables: { ids: bookIds, langCodes: languages },
       }),
       cache: "no-store",
     });
@@ -1155,15 +1149,16 @@ async function applyLanguageFilter(
  */
 function buildAuthorBookCountsQuery(
   slugs: string[],
-  hasLanguage: boolean,
+  languages: string[],
   skipCompilations: boolean,
 ): string {
-  const varDefs = hasLanguage ? `($languageCode: String!)` : "";
+  const hasLanguage = languages.length > 0;
+  const varDefs = hasLanguage ? `($languageCodes: [String!]!)` : "";
   const compilationFilter = skipCompilations
     ? `\n      ${BOOK_COMPILATION_FILTER}`
     : "";
   const languageFilter = hasLanguage
-    ? `\n        editions: { language: { code2: { _eq: $languageCode } } }`
+    ? `\n        editions: { language: { code2: { _in: $languageCodes } } }`
     : "";
 
   const fragments = slugs
@@ -1190,7 +1185,7 @@ function buildAuthorBookCountsQuery(
  */
 async function applyAuthorBookCounts(
   items: HardcoverSearchItem[],
-  language: string,
+  languages: string[],
   authorization: string,
   skipCompilations: boolean,
 ): Promise<HardcoverSearchItem[]> {
@@ -1201,17 +1196,15 @@ async function applyAuthorBookCounts(
     return items;
   }
 
-  const hasLanguage = language !== "all";
-
   try {
     const query = buildAuthorBookCountsQuery(
       authorSlugs,
-      hasLanguage,
+      languages,
       skipCompilations,
     );
-    const variables: Record<string, string> = {};
-    if (hasLanguage) {
-      variables.languageCode = language;
+    const variables: Record<string, string[]> = {};
+    if (languages.length > 0) {
+      variables.languageCodes = languages;
     }
 
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1356,9 +1349,10 @@ async function fetchSearchResults(
   queryType: HardcoverQueryType,
   limit: number,
   authorization: string,
-  language?: string,
 ): Promise<HardcoverSearchItem[]> {
-  const filterByLanguage = language && language !== "all";
+  const profile = getMetadataProfile();
+  const allowedLanguages = profile.allowedLanguages;
+  const filterByLanguage = allowedLanguages.length > 0;
   // Request extra results when filtering by language to compensate for
   // books that will be removed, so we can still fill up to `limit`.
   const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
@@ -1404,7 +1398,6 @@ async function fetchSearchResults(
     const documents = hits
       .map((hit) => toRecord(hit.document))
       .filter(Boolean) as Array<Record<string, unknown>>;
-    const profile = getMetadataProfile();
 
     let mapped = documents
       .map((document) =>
@@ -1420,17 +1413,21 @@ async function fetchSearchResults(
     }
 
     if (filterByLanguage && queryType === "Book") {
-      mapped = await applyLanguageFilter(mapped, language, authorization);
+      mapped = await applyLanguageFilter(
+        mapped,
+        allowedLanguages,
+        authorization,
+      );
     }
 
     if (queryType === "Book") {
       mapped = await applyBookContributors(mapped, authorization);
     }
 
-    if (queryType === "Author" && language) {
+    if (queryType === "Author") {
       mapped = await applyAuthorBookCounts(
         mapped,
-        language,
+        allowedLanguages,
         authorization,
         profile.skipCompilations,
       );
@@ -1681,31 +1678,25 @@ export const searchHardcoverFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requireAuth();
     const authorization = getAuthorizationHeader();
-    const { query, type, limit, language } = data;
+    const { query, type, limit } = data;
 
     if (type === "books") {
       const results = sortByReaders(
-        await fetchSearchResults(query, "Book", limit, authorization, language),
+        await fetchSearchResults(query, "Book", limit, authorization),
       );
       return { query, type, results, total: results.length };
     }
 
     if (type === "authors") {
       const results = sortByReaders(
-        await fetchSearchResults(
-          query,
-          "Author",
-          limit,
-          authorization,
-          language,
-        ),
+        await fetchSearchResults(query, "Author", limit, authorization),
       );
       return { query, type, results, total: results.length };
     }
 
     const [bookResults, authorResults] = await Promise.all([
-      fetchSearchResults(query, "Book", limit, authorization, language),
-      fetchSearchResults(query, "Author", limit, authorization, language),
+      fetchSearchResults(query, "Book", limit, authorization),
+      fetchSearchResults(query, "Author", limit, authorization),
     ]);
     const results = interleave(
       sortByReaders(bookResults),
