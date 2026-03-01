@@ -47,6 +47,61 @@ services:
       - sabnzbd-data:/config
       - ./data:/data
 
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "9091:9091"
+    volumes:
+      - transmission-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  deluge:
+    image: lscr.io/linuxserver/deluge:latest
+    container_name: deluge
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "8112:8112"
+    volumes:
+      - deluge-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  nzbget:
+    image: lscr.io/linuxserver/nzbget:latest
+    container_name: nzbget
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "6789:6789"
+    volumes:
+      - nzbget-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  rtorrent:
+    image: crazymax/rtorrent-rutorrent:latest
+    container_name: rtorrent
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "8085:8080"
+    volumes:
+      - rtorrent-config:/data
+    restart: unless-stopped
+
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
@@ -83,6 +138,10 @@ volumes:
   prowlarr-config:
   gluetun-data:
   sabnzbd-data:
+  transmission-config:
+  deluge-config:
+  nzbget-config:
+  rtorrent-config:
 
 networks:
   app-net:

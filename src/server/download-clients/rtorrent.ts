@@ -63,7 +63,7 @@ async function xmlRpcCall(
     headers["Authorization"] = `Basic ${encoded}`;
   }
 
-  const response = await fetchWithTimeout(`${baseUrl}/RPC2`, {
+  const response = await fetchWithTimeout(baseUrl, {
     method: "POST",
     headers,
     body: buildXmlRpcCall(method, params),
