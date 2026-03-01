@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Skeleton from "src/components/ui/skeleton";
 import { Badge } from "src/components/ui/badge";
@@ -11,6 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "src/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "src/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "src/components/ui/popover";
 import SortableTableHead from "src/components/shared/sortable-table-head";
 import { useTableState } from "src/hooks/use-table-state";
 import type { IndexerRelease } from "src/server/indexers/types";
@@ -37,12 +47,14 @@ const comparators: Partial<
   Record<string, (a: IndexerRelease, b: IndexerRelease) => number>
 > = {
   quality: (a, b) => a.quality.weight - b.quality.weight,
+  formatScore: (a, b) => a.formatScore - b.formatScore,
   title: (a, b) => a.title.localeCompare(b.title),
   indexer: (a, b) => (a.indexer ?? "").localeCompare(b.indexer ?? ""),
   size: (a, b) => a.size - b.size,
   protocol: (a, b) => a.protocol.localeCompare(b.protocol),
   peers: (a, b) => (a.seeders ?? 0) - (b.seeders ?? 0),
   age: (a, b) => (a.age ?? 0) - (b.age ?? 0),
+  rejections: (a, b) => a.rejections.length - b.rejections.length,
 };
 
 // oxlint-disable react/no-array-index-key -- Skeleton arrays have no meaningful data keys
@@ -54,6 +66,86 @@ function ReleaseTableSkeleton(): JSX.Element {
         <Skeleton key={i} className="h-12 w-full" />
       ))}
     </div>
+  );
+}
+
+function FormatScoreCell({
+  release,
+}: {
+  release: IndexerRelease;
+}): JSX.Element {
+  const { formatScore, formatScoreDetails } = release;
+
+  if (formatScoreDetails.length === 0) {
+    return (
+      <TableCell className="text-muted-foreground text-sm text-center">
+        —
+      </TableCell>
+    );
+  }
+
+  return (
+    <TableCell className="text-center">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-default text-sm font-medium tabular-nums">
+            {formatScore}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs">
+          <ul className="space-y-1">
+            {formatScoreDetails.map((detail) => (
+              <li key={detail.profileName} className="flex justify-between gap-4 text-xs">
+                <span>{detail.profileName}</span>
+                <span className={detail.allowed ? "text-green-400" : "text-red-400"}>
+                  {detail.score} ({detail.allowed ? "allowed" : "not allowed"})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    </TableCell>
+  );
+}
+
+function RejectionsCell({
+  release,
+}: {
+  release: IndexerRelease;
+}): JSX.Element {
+  const { rejections } = release;
+
+  if (rejections.length === 0) {
+    return <TableCell className="w-12" />;
+  }
+
+  return (
+    <TableCell className="w-12 text-center">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center text-red-400 hover:text-red-300"
+            title={`${rejections.length} rejection${rejections.length > 1 ? "s" : ""}`}
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="left" className="w-80">
+          <p className="text-sm font-medium mb-2">Release Rejected</p>
+          <ul className="space-y-1">
+            {rejections.map((rejection, idx) => (
+              // eslint-disable-next-line react/no-array-index-key -- rejections are static per render
+              <li key={idx} className="text-sm text-muted-foreground flex gap-2">
+                <span className="text-red-400 shrink-0">*</span>
+                <span>{rejection.message}</span>
+              </li>
+            ))}
+          </ul>
+        </PopoverContent>
+      </Popover>
+    </TableCell>
   );
 }
 
@@ -94,6 +186,13 @@ export default function ReleaseTable({
             <SortableTableHead column="quality" className="w-24" {...sortProps}>
               Quality
             </SortableTableHead>
+            <SortableTableHead
+              column="formatScore"
+              className="w-16"
+              {...sortProps}
+            >
+              Score
+            </SortableTableHead>
             <SortableTableHead column="title" {...sortProps}>
               Title
             </SortableTableHead>
@@ -116,6 +215,13 @@ export default function ReleaseTable({
             <SortableTableHead column="age" className="w-28" {...sortProps}>
               Age
             </SortableTableHead>
+            <SortableTableHead
+              column="rejections"
+              className="w-12"
+              {...sortProps}
+            >
+              <AlertTriangle className="h-4 w-4" />
+            </SortableTableHead>
             <TableHead className="w-16">Grab</TableHead>
           </TableRow>
         </TableHeader>
@@ -134,6 +240,7 @@ export default function ReleaseTable({
                     {release.quality.name}
                   </span>
                 </TableCell>
+                <FormatScoreCell release={release} />
                 <TableCell className="max-w-xs">
                   <span
                     className="block truncate text-sm"
@@ -166,6 +273,7 @@ export default function ReleaseTable({
                 <TableCell className="text-muted-foreground text-sm">
                   {release.ageFormatted}
                 </TableCell>
+                <RejectionsCell release={release} />
                 <TableCell>
                   <Button
                     variant="ghost"

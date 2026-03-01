@@ -20,6 +20,8 @@ type CachedDef = {
 };
 
 let cachedDefs: CachedDef[] | null = null;
+let sizeLimitsCache: Map<number, { minSize: number; maxSize: number }> | null =
+  null;
 
 function parseSpecs(raw: unknown): Specification[] {
   if (Array.isArray(raw)) {
@@ -55,6 +57,25 @@ function getQualityDefs(): CachedDef[] {
 
 export function invalidateQualityDefCache(): void {
   cachedDefs = null;
+  sizeLimitsCache = null;
+}
+
+/** Get min/max size limits (in MB) for a quality definition */
+export function getDefSizeLimits(
+  qualityId: number,
+): { minSize: number; maxSize: number } | null {
+  if (qualityId === 0) {return null;}
+  if (!sizeLimitsCache) {
+    const rows = db.select().from(qualityDefinitions).all();
+    sizeLimitsCache = new Map();
+    for (const r of rows) {
+      sizeLimitsCache.set(r.id, {
+        minSize: r.minSize ?? 0,
+        maxSize: r.maxSize ?? 0,
+      });
+    }
+  }
+  return sizeLimitsCache.get(qualityId) ?? null;
 }
 
 /** Extract trailing release group from a title (e.g. "Book Title-GROUP" → "GROUP") */
@@ -208,7 +229,15 @@ function formatAge(publishDate: string | null): string {
 
 /** Enrich a partial IndexerRelease object with quality + formatted fields */
 export function enrichRelease(
-  release: Omit<IndexerRelease, "quality" | "sizeFormatted" | "ageFormatted">,
+  release: Omit<
+    IndexerRelease,
+    | "quality"
+    | "sizeFormatted"
+    | "ageFormatted"
+    | "rejections"
+    | "formatScore"
+    | "formatScoreDetails"
+  >,
 ): IndexerRelease {
   return {
     ...release,
@@ -219,6 +248,9 @@ export function enrichRelease(
     }),
     sizeFormatted: formatBytes(release.size),
     ageFormatted: formatAge(release.publishDate),
+    rejections: [],
+    formatScore: 0,
+    formatScoreDetails: [],
   };
 }
 
