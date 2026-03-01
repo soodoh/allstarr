@@ -332,11 +332,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
         authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
         monitored: bookEditions.some((e) => e.monitored),
         languageCodes: [
-          ...new Set(
-            bookEditions
-              .map((e) => e.languageCode)
-              .filter(Boolean),
-          ),
+          ...new Set(bookEditions.map((e) => e.languageCode).filter(Boolean)),
         ] as string[],
         editions: bookEditions,
       });

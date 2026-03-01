@@ -61,9 +61,7 @@ export default function BookMonitorToggle({
           className={cn("animate-spin", isLg ? "h-5 w-5" : "h-3.5 w-3.5")}
         />
       ) : (
-        <BookMarked
-          className={cn(isLg ? "h-5 w-5" : "h-3.5 w-3.5")}
-        />
+        <BookMarked className={cn(isLg ? "h-5 w-5" : "h-3.5 w-3.5")} />
       )}
     </button>
   );

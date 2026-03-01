@@ -51,10 +51,16 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {(() => {
-              if (sortedAuthors.length === 0) {return "Unknown author";}
-              if (sortedAuthors.length <= 3)
-                {return sortedAuthors.map((a) => a.authorName).join(", ");}
-              return `${sortedAuthors.slice(0, 3).map((a) => a.authorName).join(", ")}, and ${sortedAuthors.length - 3} more`;
+              if (sortedAuthors.length === 0) {
+                return "Unknown author";
+              }
+              if (sortedAuthors.length <= 3) {
+                return sortedAuthors.map((a) => a.authorName).join(", ");
+              }
+              return `${sortedAuthors
+                .slice(0, 3)
+                .map((a) => a.authorName)
+                .join(", ")}, and ${sortedAuthors.length - 3} more`;
             })()}
           </p>
           {book.releaseDate && (

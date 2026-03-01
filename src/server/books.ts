@@ -9,17 +9,7 @@ import {
   series,
   seriesBookLinks,
 } from "src/db/schema";
-import {
-  eq,
-  desc,
-  inArray,
-  like,
-  or,
-  and,
-  exists,
-  sql,
-  asc,
-} from "drizzle-orm";
+import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -66,10 +56,7 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
             .select({ one: sql`1` })
             .from(editions)
             .where(
-              and(
-                eq(editions.bookId, books.id),
-                eq(editions.monitored, true),
-              ),
+              and(eq(editions.bookId, books.id), eq(editions.monitored, true)),
             ),
         ),
       )

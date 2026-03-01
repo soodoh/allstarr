@@ -160,53 +160,51 @@ function BookDetailPage(): JSX.Element {
           onToggled={() => router.invalidate()}
         />
         <div className="flex-1 min-w-0">
-      <PageHeader
-        title={book.title}
-        description={
-          <AdditionalAuthors bookAuthors={book.bookAuthors} />
-        }
-        actions={
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshMetadata}
-              disabled={refreshMetadata.isPending}
-            >
-              {refreshMetadata.isPending ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-1" />
-              )}
-              Update Metadata
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className="h-4 w-4 mr-1" />
-              Edit
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-            {hardcoverUrl && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={hardcoverUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  Hardcover
-                </a>
-              </Button>
-            )}
-          </div>
-        }
-      />
+          <PageHeader
+            title={book.title}
+            description={<AdditionalAuthors bookAuthors={book.bookAuthors} />}
+            actions={
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshMetadata}
+                  disabled={refreshMetadata.isPending}
+                >
+                  {refreshMetadata.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Update Metadata
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
+                {hardcoverUrl && (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={hardcoverUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Hardcover
+                    </a>
+                  </Button>
+                )}
+              </div>
+            }
+          />
         </div>
       </div>
 
