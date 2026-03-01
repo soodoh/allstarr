@@ -112,11 +112,18 @@ const xmlParser = new XMLParser({
 function parseNewznabAttrs(item: any): Map<string, string> {
   const map = new Map<string, string>();
   const attrList = item?.["newznab:attr"];
-  if (!Array.isArray(attrList)) {return map;}
+  if (!Array.isArray(attrList)) {
+    return map;
+  }
   for (const a of attrList) {
     const name = a?.["@_name"];
     const value = a?.["@_value"];
-    if (name !== undefined && name !== null && value !== undefined && value !== null) {
+    if (
+      name !== undefined &&
+      name !== null &&
+      value !== undefined &&
+      value !== null
+    ) {
       map.set(String(name).toLowerCase(), String(value));
     }
   }
@@ -127,18 +134,22 @@ function detectProtocol(
   item: any,
   attrs: Map<string, string>,
 ): "torrent" | "usenet" {
-  if (attrs.has("seeders") || attrs.has("magneturl")) {return "torrent";}
+  if (attrs.has("seeders") || attrs.has("magneturl")) {
+    return "torrent";
+  }
   const encType = item?.enclosure?.["@_type"];
   if (typeof encType === "string") {
-    if (encType.includes("torrent")) {return "torrent";}
-    if (encType.includes("nzb")) {return "usenet";}
+    if (encType.includes("torrent")) {
+      return "torrent";
+    }
+    if (encType.includes("nzb")) {
+      return "usenet";
+    }
   }
   return "usenet";
 }
 
-function parseCategories(
-  item: any,
-): Array<{ id: number; name: string }> {
+function parseCategories(item: any): Array<{ id: number; name: string }> {
   const cats: Array<{ id: number; name: string }> = [];
   const seen = new Set<number>();
 
@@ -175,10 +186,15 @@ function resolveDownloadUrl(
   attrs: Map<string, string>,
 ): { downloadUrl: string; magnetUrl: string | null } | null {
   const downloadUrl =
-    item?.enclosure?.["@_url"] ?? attrs.get("downloadurl") ?? item?.link ?? null;
+    item?.enclosure?.["@_url"] ??
+    attrs.get("downloadurl") ??
+    item?.link ??
+    null;
   const magnetUrl = attrs.get("magneturl") ?? null;
   const resolved = downloadUrl ?? magnetUrl;
-  if (!resolved) {return null;}
+  if (!resolved) {
+    return null;
+  }
   return { downloadUrl: resolved, magnetUrl };
 }
 
@@ -207,7 +223,9 @@ function resolvePeerInfo(attrs: Map<string, string>): {
 function mapNewznabItem(item: any): CoalescedResult | null {
   const attrs = parseNewznabAttrs(item);
   const urls = resolveDownloadUrl(item, attrs);
-  if (!urls) {return null;}
+  if (!urls) {
+    return null;
+  }
 
   const protocol =
     urls.magnetUrl && !urls.downloadUrl
@@ -230,31 +248,22 @@ function mapNewznabItem(item: any): CoalescedResult | null {
   };
 }
 
-/**
- * Query a single Newznab/Torznab feed — this is the same path Readarr takes
- * when it searches through Prowlarr's per-indexer proxy.
- *
- *   GET {baseUrl}{apiPath}?t=search&cat=7000,7020&q=...&apikey=...&extended=1
- */
-export async function searchNewznab(
+export type BookSearchParams = { author: string; title: string };
+
+/** Fetch a single Newznab/Torznab feed URL and parse the XML into results. */
+async function fetchNewznabFeed(
   feed: NewznabFeedConfig,
-  query: string,
-  categories: number[] = [7000, 7020],
+  params: URLSearchParams,
 ): Promise<CoalescedResult[]> {
   const base = feed.baseUrl.replace(/\/+$/, "");
   const apiPath = feed.apiPath.startsWith("/")
     ? feed.apiPath
     : `/${feed.apiPath}`;
 
-  const params = new URLSearchParams({
-    t: "search",
-    q: query,
-    cat: categories.join(","),
-    extended: "1",
-  });
   if (feed.apiKey) {
     params.set("apikey", feed.apiKey);
   }
+  params.set("extended", "1");
 
   const url = `${base}${apiPath}?${params.toString()}`;
   const res = await fetchWithTimeout(
@@ -273,7 +282,9 @@ export async function searchNewznab(
   const parsed = xmlParser.parse(xml);
 
   const channel = parsed?.rss?.channel;
-  if (!channel) {return [];}
+  if (!channel) {
+    return [];
+  }
 
   let rawItems: unknown[];
   if (Array.isArray(channel.item)) {
@@ -287,36 +298,102 @@ export async function searchNewznab(
   const results: CoalescedResult[] = [];
   for (const item of rawItems) {
     const mapped = mapNewznabItem(item);
-    if (mapped) {results.push(mapped);}
+    if (mapped) {
+      results.push(mapped);
+    }
   }
   return results;
 }
 
-// ─── Prowlarr internal API search (legacy, kept for manual indexers) ──────────
-
-export async function searchProwlarr(
-  config: IndexerConnectionConfig,
+/**
+ * Query a single Newznab/Torznab feed — this is the same path Readarr takes
+ * when it searches through Prowlarr's per-indexer proxy.
+ *
+ * When `bookParams` is provided, fires multiple queries in parallel (like
+ * Readarr) and deduplicates by guid:
+ *   1. t=book with separate author/title params (structured book search)
+ *   2. t=search with "author title" (author-first text search)
+ *   3. t=search with "title" only (title-only fallback)
+ *
+ * When `bookParams` is omitted (manual/custom query), uses single-query behavior.
+ */
+export async function searchNewznab(
+  feed: NewznabFeedConfig,
   query: string,
   categories: number[] = [7000, 7020],
+  bookParams?: BookSearchParams,
 ): Promise<CoalescedResult[]> {
-  const base = buildBaseUrl(
-    config.host,
-    config.port,
-    config.useSsl,
-    config.urlBase,
-  );
+  const cat = categories.join(",");
 
-  const params = new URLSearchParams({
-    query,
-    type: "search",
-  });
-  for (const cat of categories) {
-    params.append("categories", String(cat));
+  // Manual/custom query — single search
+  if (!bookParams) {
+    const params = new URLSearchParams({ t: "search", q: query, cat });
+    return fetchNewznabFeed(feed, params);
   }
 
+  // Tiered queries — run in parallel, deduplicate by guid
+  const queries: URLSearchParams[] = [
+    // 1. Structured book search (t=book with author/title)
+    (() => {
+      const p = new URLSearchParams({ t: "book", cat });
+      p.set("author", bookParams.author);
+      p.set("title", bookParams.title);
+      return p;
+    })(),
+    // 2. Author+title text search
+    new URLSearchParams({
+      t: "search",
+      q: `${bookParams.author} ${bookParams.title}`,
+      cat,
+    }),
+    // 3. Title-only fallback
+    new URLSearchParams({
+      t: "search",
+      q: bookParams.title,
+      cat,
+    }),
+  ];
+
+  const settled = await Promise.allSettled(
+    queries.map((params) => fetchNewznabFeed(feed, params)),
+  );
+
+  // Merge results, deduplicate by guid (first occurrence wins)
+  const seen = new Set<string>();
+  const merged: CoalescedResult[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      for (const r of result.value) {
+        if (!seen.has(r.guid)) {
+          seen.add(r.guid);
+          merged.push(r);
+        }
+      }
+    }
+  }
+
+  // If every query failed, throw the first error
+  if (merged.length === 0 && settled.every((s) => s.status === "rejected")) {
+    const first = settled.find(
+      (s) => s.status === "rejected",
+    ) as PromiseRejectedResult;
+    throw first.reason;
+  }
+
+  return merged;
+}
+
+// ─── Prowlarr internal API search (legacy, kept for manual indexers) ──────────
+
+/** Fetch a single Prowlarr internal API search and coalesce results. */
+async function fetchProwlarrSearch(
+  base: string,
+  headers: HeadersInit,
+  params: URLSearchParams,
+): Promise<CoalescedResult[]> {
   const res = await fetchWithTimeout(
     `${base}/api/v1/search?${params.toString()}`,
-    { headers: makeHeaders(config.apiKey) },
+    { headers },
     60_000,
   );
 
@@ -333,10 +410,80 @@ export async function searchProwlarr(
   return raw.flatMap((r) => {
     const url = r.downloadUrl ?? r.magnetUrl;
     if (!url) {
-      // Skip results with no usable download URL
       return [];
     }
     const { magnetUrl: _mag, downloadUrl: _dl, ...rest } = r;
     return [{ ...rest, downloadUrl: url }];
   });
+}
+
+export async function searchProwlarr(
+  config: IndexerConnectionConfig,
+  query: string,
+  categories: number[] = [7000, 7020],
+  bookParams?: BookSearchParams,
+): Promise<CoalescedResult[]> {
+  const base = buildBaseUrl(
+    config.host,
+    config.port,
+    config.useSsl,
+    config.urlBase,
+  );
+  const headers = makeHeaders(config.apiKey);
+
+  function makeParams(type: string, q: string): URLSearchParams {
+    const params = new URLSearchParams({ query: q, type });
+    for (const cat of categories) {
+      params.append("categories", String(cat));
+    }
+    return params;
+  }
+
+  // Manual/custom query — single search
+  if (!bookParams) {
+    return fetchProwlarrSearch(base, headers, makeParams("search", query));
+  }
+
+  // Tiered queries — run in parallel, deduplicate by guid
+  const searches: URLSearchParams[] = [
+    // 1. Structured book search
+    (() => {
+      const p = new URLSearchParams({ type: "book" });
+      p.set("query", `${bookParams.author} ${bookParams.title}`);
+      for (const cat of categories) {
+        p.append("categories", String(cat));
+      }
+      return p;
+    })(),
+    // 2. Author+title text search
+    makeParams("search", `${bookParams.author} ${bookParams.title}`),
+    // 3. Title-only fallback
+    makeParams("search", bookParams.title),
+  ];
+
+  const settled = await Promise.allSettled(
+    searches.map((params) => fetchProwlarrSearch(base, headers, params)),
+  );
+
+  const seen = new Set<string>();
+  const merged: CoalescedResult[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      for (const r of result.value) {
+        if (!seen.has(r.guid)) {
+          seen.add(r.guid);
+          merged.push(r);
+        }
+      }
+    }
+  }
+
+  if (merged.length === 0 && settled.every((s) => s.status === "rejected")) {
+    const first = settled.find(
+      (s) => s.status === "rejected",
+    ) as PromiseRejectedResult;
+    throw first.reason;
+  }
+
+  return merged;
 }

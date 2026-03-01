@@ -8,35 +8,38 @@ type QualityDefinition = {
   pattern: RegExp;
 };
 
-// Book format quality definitions (matching seed data IDs)
+// Book format quality definitions (matching seed data IDs).
+// Patterns use \b word boundaries to match format names anywhere in the title
+// (e.g. "Book Title EPUB", "Book.Title.epub", "[EPUB]"), matching Readarr's
+// CodecRegex approach.
 const QUALITY_DEFS: QualityDefinition[] = [
   {
     id: 4,
     name: "EPUB",
     weight: 80,
     color: "green",
-    pattern: /\.(epub)(\b|\]|\))/i,
+    pattern: /\bepub\b/i,
   },
   {
     id: 5,
     name: "AZW3",
     weight: 60,
     color: "blue",
-    pattern: /\.(azw3?)(\b|\]|\))/i,
+    pattern: /\bazw3?\b/i,
   },
   {
     id: 3,
     name: "MOBI",
     weight: 40,
     color: "amber",
-    pattern: /\.(mobi)(\b|\]|\))/i,
+    pattern: /\bmobi\b/i,
   },
   {
     id: 2,
     name: "PDF",
     weight: 20,
     color: "yellow",
-    pattern: /\.(pdf)(\b|\]|\))/i,
+    pattern: /\bpdf\b/i,
   },
 ];
 
@@ -56,25 +59,6 @@ export function parseQualityFromTitle(title: string): ReleaseQuality {
         name: def.name,
         weight: def.weight,
         color: def.color,
-      };
-    }
-  }
-
-  // Also check bracket/parenthesis notation like [EPUB], (PDF), etc.
-  const bracketPattern = /[[(](epub|azw3?|mobi|pdf)[\])]/i;
-  const bracketMatch = bracketPattern.exec(title);
-  if (bracketMatch) {
-    const ext = bracketMatch[1].toLowerCase();
-    const matched = QUALITY_DEFS.find(
-      (d) =>
-        d.name.toLowerCase() === ext || (ext === "azw" && d.name === "AZW3"),
-    );
-    if (matched) {
-      return {
-        id: matched.id,
-        name: matched.name,
-        weight: matched.weight,
-        color: matched.color,
       };
     }
   }
