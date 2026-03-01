@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import AuthorPhoto from "src/components/authors/author-photo";
 import { Button } from "src/components/ui/button";
+import Checkbox from "src/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +13,6 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import Label from "src/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "src/components/ui/select";
 import Skeleton from "src/components/ui/skeleton";
 import type {
   HardcoverAuthorDetail,
@@ -27,7 +21,6 @@ import type {
 import {
   hardcoverAuthorQuery,
   qualityProfilesListQuery,
-  rootFoldersListQuery,
   authorExistsQuery,
 } from "src/lib/queries";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
@@ -50,23 +43,22 @@ type AddFormProps = {
 
 function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   const { data: qualityProfiles = [] } = useQuery(qualityProfilesListQuery());
-  const { data: rootFolders = [] } = useQuery(rootFoldersListQuery());
 
-  const [qualityProfileId, setQualityProfileId] = useState<string>(
-    qualityProfiles[0] ? String(qualityProfiles[0].id) : "",
-  );
-  const [rootFolderPath, setRootFolderPath] = useState<string>(
-    rootFolders[0]?.path ?? "",
+  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
+    qualityProfiles.map((p) => p.id),
   );
   const importAuthor = useImportHardcoverAuthor();
+
+  const toggleProfile = (id: number) => {
+    setQualityProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
 
   const handleSubmit = () => {
     importAuthor.mutate({
       foreignAuthorId: Number(fullAuthor.id),
-      qualityProfileId: qualityProfileId
-        ? Number.parseInt(qualityProfileId, 10)
-        : null,
-      rootFolderPath: rootFolderPath || null,
+      qualityProfileIds,
     });
     onSuccess();
   };
@@ -75,36 +67,28 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add to Bookshelf</p>
 
-      <div className="space-y-1.5">
-        <Label>Quality Profile</Label>
-        <Select value={qualityProfileId} onValueChange={setQualityProfileId}>
-          <SelectTrigger>
-            <SelectValue placeholder="None" />
-          </SelectTrigger>
-          <SelectContent>
+      <div className="space-y-2">
+        <Label>Quality Profiles</Label>
+        {qualityProfiles.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No quality profiles available.
+          </p>
+        ) : (
+          <div className="space-y-2">
             {qualityProfiles.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>
-                {p.name}
-              </SelectItem>
+              <label
+                key={p.id}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Checkbox
+                  checked={qualityProfileIds.includes(p.id)}
+                  onCheckedChange={() => toggleProfile(p.id)}
+                />
+                <span className="text-sm">{p.name}</span>
+              </label>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Root Folder</Label>
-        <Select value={rootFolderPath} onValueChange={setRootFolderPath}>
-          <SelectTrigger>
-            <SelectValue placeholder="None" />
-          </SelectTrigger>
-          <SelectContent>
-            {rootFolders.map((f) => (
-              <SelectItem key={f.id} value={f.path}>
-                {f.path}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

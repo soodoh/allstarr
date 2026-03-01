@@ -3,6 +3,7 @@ import type { FormEvent, JSX } from "react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
+import Checkbox from "src/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -16,17 +17,14 @@ type AuthorFormProps = {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId: number | null;
-    rootFolderPath: string | null;
+    qualityProfileIds: number[];
   };
   qualityProfiles: Array<{ id: number; name: string }>;
-  rootFolders: Array<{ id: number; path: string }>;
   onSubmit: (values: {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId: number | null;
-    rootFolderPath: string | null;
+    qualityProfileIds: number[];
   }) => void;
   onCancel?: () => void;
   loading?: boolean;
@@ -36,7 +34,6 @@ type AuthorFormProps = {
 export default function AuthorForm({
   initialValues,
   qualityProfiles,
-  rootFolders,
   onSubmit,
   onCancel,
   loading,
@@ -45,11 +42,8 @@ export default function AuthorForm({
   const [name, setName] = useState(initialValues?.name || "");
   const [sortName, setSortName] = useState(initialValues?.sortName || "");
   const [status, setStatus] = useState(initialValues?.status || "continuing");
-  const [qualityProfileId, setQualityProfileId] = useState<string>(
-    initialValues?.qualityProfileId?.toString() || "",
-  );
-  const [rootFolderPath, setRootFolderPath] = useState(
-    initialValues?.rootFolderPath || "",
+  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
+    initialValues?.qualityProfileIds ?? [],
   );
 
   const handleNameChange = (value: string) => {
@@ -64,16 +58,19 @@ export default function AuthorForm({
     }
   };
 
+  const toggleProfile = (id: number) => {
+    setQualityProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
       name,
       sortName,
       status,
-      qualityProfileId: qualityProfileId
-        ? Number.parseInt(qualityProfileId, 10)
-        : null,
-      rootFolderPath: rootFolderPath || null,
+      qualityProfileIds,
     });
   };
 
@@ -102,51 +99,42 @@ export default function AuthorForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="continuing">Continuing</SelectItem>
-              <SelectItem value="ended">Ended</SelectItem>
-              <SelectItem value="deceased">Deceased</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Quality Profile</Label>
-          <Select value={qualityProfileId} onValueChange={setQualityProfileId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select profile" />
-            </SelectTrigger>
-            <SelectContent>
-              {qualityProfiles.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-full sm:w-1/2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="continuing">Continuing</SelectItem>
+            <SelectItem value="ended">Ended</SelectItem>
+            <SelectItem value="deceased">Deceased</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
-        <Label>Root Folder</Label>
-        <Select value={rootFolderPath} onValueChange={setRootFolderPath}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select root folder" />
-          </SelectTrigger>
-          <SelectContent>
-            {rootFolders.map((f) => (
-              <SelectItem key={f.id} value={f.path}>
-                {f.path}
-              </SelectItem>
+        <Label>Quality Profiles</Label>
+        {qualityProfiles.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No quality profiles available. Create one in Settings.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {qualityProfiles.map((p) => (
+              <label
+                key={p.id}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Checkbox
+                  checked={qualityProfileIds.includes(p.id)}
+                  onCheckedChange={() => toggleProfile(p.id)}
+                />
+                <span className="text-sm">{p.name}</span>
+              </label>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

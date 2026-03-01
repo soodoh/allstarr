@@ -1,6 +1,7 @@
 // oxlint-disable oxc/no-barrel-file -- Drizzle schema barrel required for unified schema access
 export * from "./auth";
 export * from "./authors";
+export * from "./author-quality-profiles";
 export * from "./books";
 export * from "./series";
 export * from "./book-files";

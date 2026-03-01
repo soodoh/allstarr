@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 import AuthorPhoto from "src/components/authors/author-photo";
 import { Button } from "src/components/ui/button";
+import Checkbox from "src/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -10,13 +11,6 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import Label from "src/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "src/components/ui/select";
 import type { HardcoverAuthorDetail } from "src/server/search";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
 
@@ -25,7 +19,6 @@ type AddAuthorDialogProps = {
   onOpenChange: (open: boolean) => void;
   author: HardcoverAuthorDetail;
   qualityProfiles: Array<{ id: number; name: string }>;
-  rootFolders: Array<{ id: number; path: string }>;
   onSuccess: (authorId: number) => void;
 };
 
@@ -34,24 +27,23 @@ export default function AddAuthorDialog({
   onOpenChange,
   author,
   qualityProfiles,
-  rootFolders,
   onSuccess: _onSuccess,
 }: AddAuthorDialogProps): JSX.Element {
-  const [qualityProfileId, setQualityProfileId] = useState<string>(
-    qualityProfiles.length > 0 ? String(qualityProfiles[0].id) : "",
-  );
-  const [rootFolderPath, setRootFolderPath] = useState<string>(
-    rootFolders.length > 0 ? rootFolders[0].path : "",
+  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
+    qualityProfiles.map((p) => p.id),
   );
   const importAuthor = useImportHardcoverAuthor();
+
+  const toggleProfile = (id: number) => {
+    setQualityProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
 
   const handleSubmit = () => {
     importAuthor.mutate({
       foreignAuthorId: Number(author.id),
-      qualityProfileId: qualityProfileId
-        ? Number.parseInt(qualityProfileId, 10)
-        : null,
-      rootFolderPath: rootFolderPath || null,
+      qualityProfileIds,
     });
     onOpenChange(false);
   };
@@ -83,41 +75,29 @@ export default function AddAuthorDialog({
             </div>
           </div>
 
-          {/* Quality profile */}
-          <div className="space-y-1.5">
-            <Label>Quality Profile</Label>
-            <Select
-              value={qualityProfileId}
-              onValueChange={setQualityProfileId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
+          {/* Quality profiles */}
+          <div className="space-y-2">
+            <Label>Quality Profiles</Label>
+            {qualityProfiles.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No quality profiles available.
+              </p>
+            ) : (
+              <div className="space-y-2">
                 {qualityProfiles.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.name}
-                  </SelectItem>
+                  <label
+                    key={p.id}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={qualityProfileIds.includes(p.id)}
+                      onCheckedChange={() => toggleProfile(p.id)}
+                    />
+                    <span className="text-sm">{p.name}</span>
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Root folder */}
-          <div className="space-y-1.5">
-            <Label>Root Folder</Label>
-            <Select value={rootFolderPath} onValueChange={setRootFolderPath}>
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                {rootFolders.map((f) => (
-                  <SelectItem key={f.id} value={f.path}>
-                    {f.path}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
         </div>
 

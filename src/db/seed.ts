@@ -134,6 +134,7 @@ const defaultQualityDefinitions = [
 const defaultProfiles = [
   {
     name: "Ebook",
+    rootFolderPath: "",
     cutoff: 0,
     items: [
       { quality: { id: 4, name: "EPUB" }, allowed: true },
@@ -149,6 +150,7 @@ const defaultProfiles = [
   },
   {
     name: "Audiobook",
+    rootFolderPath: "",
     cutoff: 0,
     items: [
       { quality: { id: 6, name: "MP3" }, allowed: true },

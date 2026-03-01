@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "src/db";
 import {
   authors,
+  authorQualityProfiles,
   books,
   booksAuthors,
   editions,
@@ -298,14 +299,12 @@ function syncBookAuthors(
 
 const importAuthorSchema = z.object({
   foreignAuthorId: z.number().int().positive(),
-  qualityProfileId: z.number().int().positive().nullable(),
-  rootFolderPath: z.string().min(1).nullable(),
+  qualityProfileIds: z.array(z.number().int().positive()).default([]),
 });
 
 const importBookSchema = z.object({
   foreignBookId: z.number().int().positive(),
-  qualityProfileId: z.number().int().positive().nullable(),
-  rootFolderPath: z.string().min(1).nullable(),
+  qualityProfileIds: z.array(z.number().int().positive()).default([]),
 });
 
 const refreshAuthorSchema = z.object({
@@ -328,8 +327,7 @@ const monitorBookSchema = z.object({
  */
 async function importAuthorInternal(data: {
   foreignAuthorId: number;
-  qualityProfileId: number | null;
-  rootFolderPath: string | null;
+  qualityProfileIds: number[];
 }): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
   const authorization = getAuthorizationHeader();
 
@@ -381,8 +379,6 @@ async function importAuthorInternal(data: {
           deathYear: rawAuthor.deathYear,
           status: rawAuthor.deathYear ? "deceased" : "continuing",
           isStub: false,
-          qualityProfileId: data.qualityProfileId,
-          rootFolderPath: data.rootFolderPath,
           images: toImageArray(rawAuthor.imageUrl),
           metadataUpdatedAt: now,
           updatedAt: now,
@@ -390,6 +386,14 @@ async function importAuthorInternal(data: {
         .where(eq(authors.id, existingInTx.id))
         .run();
       author = { id: existingInTx.id, name: rawAuthor.name };
+
+      // Insert quality profile join rows
+      for (const profileId of data.qualityProfileIds) {
+        tx.insert(authorQualityProfiles)
+          .values({ authorId: author.id, qualityProfileId: profileId })
+          .onConflictDoNothing()
+          .run();
+      }
     } else {
       // Insert new author
       author = tx
@@ -403,14 +407,19 @@ async function importAuthorInternal(data: {
           deathYear: rawAuthor.deathYear,
           status: rawAuthor.deathYear ? "deceased" : "continuing",
           isStub: false,
-          qualityProfileId: data.qualityProfileId,
-          rootFolderPath: data.rootFolderPath,
           foreignAuthorId: String(data.foreignAuthorId),
           images: toImageArray(rawAuthor.imageUrl),
           metadataUpdatedAt: now,
         })
         .returning()
         .get();
+
+      // Insert quality profile join rows
+      for (const profileId of data.qualityProfileIds) {
+        tx.insert(authorQualityProfiles)
+          .values({ authorId: author.id, qualityProfileId: profileId })
+          .run();
+      }
 
       tx.insert(history)
         .values({
@@ -651,8 +660,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     try {
       await importAuthorInternal({
         foreignAuthorId: primaryContrib.authorId,
-        qualityProfileId: data.qualityProfileId,
-        rootFolderPath: data.rootFolderPath,
+        qualityProfileIds: data.qualityProfileIds,
       });
       primaryAuthorImported = true;
     } catch {
@@ -722,8 +730,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         try {
           await importAuthorInternal({
             foreignAuthorId: Number(coAuthor.foreignAuthorId),
-            qualityProfileId: data.qualityProfileId,
-            rootFolderPath: data.rootFolderPath,
+            qualityProfileIds: data.qualityProfileIds,
           });
           additionalAuthorsImported += 1;
         } catch {
@@ -859,8 +866,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       try {
         await importAuthorInternal({
           foreignAuthorId: Number(coAuthor.foreignAuthorId),
-          qualityProfileId: data.qualityProfileId,
-          rootFolderPath: data.rootFolderPath,
+          qualityProfileIds: data.qualityProfileIds,
         });
         additionalAuthorsImported += 1;
       } catch {
