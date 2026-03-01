@@ -7,6 +7,9 @@ type BookCardProps = {
   book: {
     id: number;
     title: string;
+    editionId: number;
+    editionTitle: string;
+    editionImages: Array<{ url: string; coverType: string }> | null;
     bookAuthors: BookAuthorEntry[];
     releaseDate: string | null;
     description: string | null;
@@ -38,13 +41,13 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
     >
       <div className="flex flex-col gap-2">
         <BookCover
-          title={book.title}
-          images={book.images}
+          title={book.editionTitle}
+          images={book.editionImages ?? book.images}
           className="w-full transition-shadow group-hover:shadow-lg"
         />
         <div className="min-w-0">
           <p className="text-sm font-medium leading-tight truncate">
-            {book.title}
+            {book.editionTitle}
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {(() => {

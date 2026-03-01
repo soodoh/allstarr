@@ -136,8 +136,15 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     const pageSize = data.pageSize || 25;
     const offset = (page - 1) * pageSize;
 
+    // Query from editions joined to books — each row is a monitored edition
     let query = db
       .select({
+        // Edition-level fields
+        editionId: editions.id,
+        editionTitle: editions.title,
+        editionImages: editions.images,
+        language: editions.language,
+        // Book-level fields
         id: books.id,
         title: books.title,
         slug: books.slug,
@@ -157,7 +164,8 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         primaryAuthorId: booksAuthors.authorId,
         primaryForeignAuthorId: booksAuthors.foreignAuthorId,
       })
-      .from(books)
+      .from(editions)
+      .innerJoin(books, eq(editions.bookId, books.id))
       .leftJoin(
         booksAuthors,
         and(
@@ -170,7 +178,8 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     let countQuery = db
       .select({ count: sql<number>`count(*)` })
-      .from(books)
+      .from(editions)
+      .innerJoin(books, eq(editions.bookId, books.id))
       .leftJoin(
         booksAuthors,
         and(
@@ -182,21 +191,9 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     const conditions: SQL[] = [];
 
+    // Filter by edition monitored status
     if (data.monitored !== undefined) {
-      const hasMonitoredEdition = exists(
-        db
-          .select({ one: sql`1` })
-          .from(editions)
-          .where(
-            and(
-              eq(editions.bookId, books.id),
-              eq(editions.monitored, true),
-            ),
-          ),
-      );
-      conditions.push(
-        data.monitored ? hasMonitoredEdition : sql`NOT ${hasMonitoredEdition}`,
-      );
+      conditions.push(eq(editions.monitored, data.monitored));
     }
 
     if (data.search) {
