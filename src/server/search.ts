@@ -141,7 +141,7 @@ export type HardcoverAuthorDetail = {
   totalPages: number;
   languages: HardcoverLanguageOption[];
   books: HardcoverAuthorBook[];
-  sortBy: "title" | "year" | "rating";
+  sortBy: "title" | "year" | "rating" | "readers";
   sortDir: "asc" | "desc";
 };
 
