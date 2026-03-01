@@ -21,6 +21,7 @@ import * as prowlarrHttp from "./indexers/http";
 import { enrichRelease } from "./indexers/quality-parser";
 import getProvider from "./download-clients/registry";
 import type { IndexerRelease } from "./indexers/types";
+import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
@@ -189,9 +190,10 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
     }
 
     let query = data.query;
+    let bookParams: BookSearchParams | undefined;
 
-    // If bookId provided and no explicit query, build a default query from book info
-    if (data.bookId && !data.query) {
+    // If bookId provided, look up book info for structured search params
+    if (data.bookId) {
       const book = db
         .select({
           title: books.title,
@@ -209,7 +211,14 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
         .get();
 
       if (book) {
-        query = `${book.authorName ? `${book.authorName} ` : ""}${book.title}`;
+        // Build default query if none provided
+        if (!data.query) {
+          query = `${book.authorName ? `${book.authorName} ` : ""}${book.title}`;
+        }
+        // Set bookParams for tiered search when we have both author and title
+        if (book.authorName) {
+          bookParams = { author: book.authorName, title: book.title };
+        }
       }
     }
 
@@ -220,6 +229,10 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
     // Prowlarr.  Querying each feed individually avoids Prowlarr's internal
     // category-capability filter that silently skips indexers whose caps
     // don't advertise the requested categories.
+    //
+    // When bookParams is available, each indexer fires multiple tiered
+    // queries (structured book search, author+title, title-only) and
+    // deduplicates internally — matching Readarr's search strategy.
     const feedSearches = enabledSynced
       .filter((s) => s.apiKey)
       .map(async (synced) => {
@@ -231,6 +244,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
           },
           query,
           categories,
+          bookParams,
         );
         return results.map((r) =>
           enrichRelease({
@@ -255,6 +269,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
         },
         query,
         categories,
+        bookParams,
       );
       return results.map((r) =>
         enrichRelease({ ...r, allstarrIndexerId: ix.id }),
@@ -284,9 +299,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
 
     // If every indexer failed, throw so the client sees an error
     if (settled.length > 0 && allReleases.length === 0 && warnings.length > 0) {
-      throw new Error(
-        `All indexers failed: ${warnings.join("; ")}`,
-      );
+      throw new Error(`All indexers failed: ${warnings.join("; ")}`);
     }
 
     // Deduplicate by guid
