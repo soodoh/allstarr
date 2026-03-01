@@ -5,12 +5,15 @@ import {
   createQualityProfileFn,
   updateQualityProfileFn,
   deleteQualityProfileFn,
+  createQualityDefinitionFn,
   updateQualityDefinitionFn,
+  deleteQualityDefinitionFn,
 } from "src/server/quality-profiles";
 import { queryKeys } from "src/lib/query-keys";
 import type {
   createQualityProfileSchema,
   updateQualityProfileSchema,
+  createQualityDefinitionSchema,
   updateQualityDefinitionSchema,
 } from "src/lib/validators";
 import type { z } from "zod";
@@ -59,6 +62,24 @@ export function useDeleteQualityProfile() {
   });
 }
 
+export function useCreateQualityDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: z.infer<typeof createQualityDefinitionSchema>) =>
+      createQualityDefinitionFn({ data }),
+    onSuccess: () => {
+      toast.success("Definition created");
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityDefinitions.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
+    },
+    onError: () => toast.error("Failed to create quality definition"),
+  });
+}
+
 export function useUpdateQualityDefinition() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -70,5 +91,22 @@ export function useUpdateQualityDefinition() {
       });
     },
     onError: () => toast.error("Failed to update quality definition"),
+  });
+}
+
+export function useDeleteQualityDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteQualityDefinitionFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Definition deleted");
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityDefinitions.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
+    },
+    onError: () => toast.error("Failed to delete quality definition"),
   });
 }

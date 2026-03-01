@@ -1,20 +1,134 @@
 // oxlint-disable no-console -- Seed script intentionally uses console for output
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
 const db = drizzle(sqlite, { schema });
 
 const defaultQualityDefinitions = [
-  { title: "Unknown", weight: 1, minSize: 0, maxSize: 0, preferredSize: 0 },
-  { title: "PDF", weight: 2, minSize: 0, maxSize: 100, preferredSize: 10 },
-  { title: "MOBI", weight: 3, minSize: 0, maxSize: 50, preferredSize: 5 },
-  { title: "EPUB", weight: 4, minSize: 0, maxSize: 50, preferredSize: 5 },
-  { title: "AZW3", weight: 5, minSize: 0, maxSize: 50, preferredSize: 5 },
-  { title: "MP3", weight: 6, minSize: 0, maxSize: 2000, preferredSize: 500 },
-  { title: "M4B", weight: 7, minSize: 0, maxSize: 3000, preferredSize: 1000 },
-  { title: "FLAC", weight: 8, minSize: 0, maxSize: 5000, preferredSize: 2000 },
+  {
+    title: "Unknown",
+    weight: 1,
+    minSize: 0,
+    maxSize: 0,
+    preferredSize: 0,
+    color: "gray",
+    specifications: [],
+  },
+  {
+    title: "PDF",
+    weight: 2,
+    minSize: 0,
+    maxSize: 100,
+    preferredSize: 10,
+    color: "yellow",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bpdf\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "MOBI",
+    weight: 3,
+    minSize: 0,
+    maxSize: 50,
+    preferredSize: 5,
+    color: "amber",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bmobi\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "EPUB",
+    weight: 4,
+    minSize: 0,
+    maxSize: 50,
+    preferredSize: 5,
+    color: "green",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bepub\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "AZW3",
+    weight: 5,
+    minSize: 0,
+    maxSize: 50,
+    preferredSize: 5,
+    color: "blue",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bazw3?\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "MP3",
+    weight: 6,
+    minSize: 0,
+    maxSize: 2000,
+    preferredSize: 500,
+    color: "orange",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bmp3\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "M4B",
+    weight: 7,
+    minSize: 0,
+    maxSize: 3000,
+    preferredSize: 1000,
+    color: "cyan",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bm4b\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
+  {
+    title: "FLAC",
+    weight: 8,
+    minSize: 0,
+    maxSize: 5000,
+    preferredSize: 2000,
+    color: "purple",
+    specifications: [
+      {
+        type: "releaseTitle",
+        value: "\\bflac\\b",
+        negate: false,
+        required: true,
+      },
+    ],
+  },
 ];
 
 const defaultProfile = {
@@ -58,18 +172,40 @@ const defaultSettings = [
 
 console.log("Seeding database...");
 
-// Seed quality definitions (idempotent — inserts only missing titles)
+// Seed quality definitions (idempotent — inserts missing, backfills color/specs)
 const existing = db.select().from(schema.qualityDefinitions).all();
-const existingTitles = new Set(existing.map((e) => e.title));
+const existingByTitle = new Map(existing.map((e) => [e.title, e]));
 let defsAdded = 0;
+let defsUpdated = 0;
 for (const def of defaultQualityDefinitions) {
-  if (!existingTitles.has(def.title)) {
+  const row = existingByTitle.get(def.title);
+  if (row) {
+    // Backfill color/specs for existing rows that lack them
+    const specs = Array.isArray(row.specifications)
+      ? row.specifications
+      : JSON.parse((row.specifications as string) || "[]");
+    if (
+      (row.color === "gray" && def.color !== "gray") ||
+      (specs.length === 0 && def.specifications.length > 0)
+    ) {
+      db.update(schema.qualityDefinitions)
+        .set({ color: def.color, specifications: def.specifications })
+        .where(eq(schema.qualityDefinitions.id, row.id))
+        .run();
+      defsUpdated += 1;
+    }
+  } else {
     db.insert(schema.qualityDefinitions).values(def).run();
     defsAdded += 1;
   }
 }
 if (defsAdded > 0) {
   console.log(`  Seeded ${defsAdded} quality definition(s)`);
+}
+if (defsUpdated > 0) {
+  console.log(
+    `  Updated ${defsUpdated} quality definition(s) with colors/specs`,
+  );
 }
 
 // Seed default quality profile

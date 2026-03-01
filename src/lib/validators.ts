@@ -21,13 +21,34 @@ export const updateQualityProfileSchema = createQualityProfileSchema.extend({
 });
 
 // Quality Definitions
+export const specificationSchema = z.object({
+  type: z.enum(["releaseTitle", "releaseGroup", "size", "indexerFlag"]),
+  value: z.string().default(""),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  negate: z.boolean().default(false),
+  required: z.boolean().default(true),
+});
+
+export const createQualityDefinitionSchema = z.object({
+  title: z.string().min(1),
+  weight: z.number().default(1),
+  color: z.string().default("gray"),
+  minSize: z.number().default(0),
+  maxSize: z.number().default(0),
+  preferredSize: z.number().default(0),
+  specifications: z.array(specificationSchema).default([]),
+});
+
 export const updateQualityDefinitionSchema = z.object({
   id: z.number(),
   title: z.string().min(1),
   weight: z.number(),
+  color: z.string().default("gray"),
   minSize: z.number().default(0),
   maxSize: z.number().default(0),
   preferredSize: z.number().default(0),
+  specifications: z.array(specificationSchema).default([]),
 });
 
 // Root Folders

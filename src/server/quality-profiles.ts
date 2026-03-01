@@ -6,8 +6,10 @@ import { requireAuth } from "./middleware";
 import {
   createQualityProfileSchema,
   updateQualityProfileSchema,
+  createQualityDefinitionSchema,
   updateQualityDefinitionSchema,
 } from "src/lib/validators";
+import { invalidateQualityDefCache } from "./indexers/quality-parser";
 
 export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -83,18 +85,66 @@ export const getQualityDefinitionsFn = createServerFn({
   method: "GET",
 }).handler(async () => {
   await requireAuth();
-  return db.select().from(qualityDefinitions).all();
+  const rows = db.select().from(qualityDefinitions).all();
+  // Ensure specifications is always a parsed array
+  for (const row of rows) {
+    if (typeof row.specifications === "string") {
+      row.specifications = JSON.parse(row.specifications);
+    }
+  }
+  return rows;
 });
+
+export const createQualityDefinitionFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => createQualityDefinitionSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const result = db.insert(qualityDefinitions).values(data).returning().get();
+    invalidateQualityDefCache();
+    return result;
+  });
 
 export const updateQualityDefinitionFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateQualityDefinitionSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;
-    return db
+    const result = db
       .update(qualityDefinitions)
       .set(values)
       .where(eq(qualityDefinitions.id, id))
       .returning()
       .get();
+    invalidateQualityDefCache();
+    return result;
+  });
+
+export const deleteQualityDefinitionFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    // Remove from all quality profiles' items arrays
+    const profiles = db.select().from(qualityProfiles).all();
+    for (const profile of profiles) {
+      const items =
+        typeof profile.items === "string"
+          ? JSON.parse(profile.items)
+          : profile.items;
+      if (Array.isArray(items)) {
+        const filtered = items.filter(
+          (i: { quality: { id: number } }) => i.quality.id !== data.id,
+        );
+        if (filtered.length !== items.length) {
+          db.update(qualityProfiles)
+            .set({ items: filtered })
+            .where(eq(qualityProfiles.id, profile.id))
+            .run();
+        }
+      }
+    }
+    db.delete(qualityDefinitions)
+      .where(eq(qualityDefinitions.id, data.id))
+      .run();
+    invalidateQualityDefCache();
+    return { success: true };
   });

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
 import {
@@ -8,9 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import Separator from "src/components/ui/separator";
 import PageHeader from "src/components/shared/page-header";
 import QualityProfileList from "src/components/quality-profiles/quality-profile-list";
 import QualityProfileForm from "src/components/quality-profiles/quality-profile-form";
+import QualityDefinitionList from "src/components/quality-profiles/quality-definition-list";
+import QualityDefinitionForm from "src/components/quality-profiles/quality-definition-form";
 import {
   qualityProfilesListQuery,
   qualityDefinitionsListQuery,
@@ -19,6 +22,9 @@ import {
   useCreateQualityProfile,
   useUpdateQualityProfile,
   useDeleteQualityProfile,
+  useCreateQualityDefinition,
+  useDeleteQualityDefinition,
+  useUpdateQualityDefinition,
 } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
@@ -38,109 +44,253 @@ function ProfilesPage() {
   const createProfile = useCreateQualityProfile();
   const updateProfile = useUpdateQualityProfile();
   const deleteProfile = useDeleteQualityProfile();
+  const createDefinition = useCreateQualityDefinition();
+  const updateDefinition = useUpdateQualityDefinition();
+  const deleteDefinition = useDeleteQualityDefinition();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<(typeof profiles)[number] | undefined>(
-    undefined,
-  );
+  // Profile dialog state
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<
+    (typeof profiles)[number] | undefined
+  >(undefined);
 
-  const loading = createProfile.isPending || updateProfile.isPending;
+  // Definition dialog state
+  const [defDialogOpen, setDefDialogOpen] = useState(false);
+  const [editingDef, setEditingDef] = useState<
+    (typeof definitions)[number] | undefined
+  >(undefined);
 
-  const mappedProfiles = useMemo(() => profiles, [profiles]);
+  const profileLoading = createProfile.isPending || updateProfile.isPending;
+  const defLoading = createDefinition.isPending || updateDefinition.isPending;
 
-  const handleCreate = (values: {
+  // Profile handlers
+  const handleCreateProfile = (values: {
     name: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
     createProfile.mutate(values, {
-      onSuccess: () => {
-        setDialogOpen(false);
-      },
+      onSuccess: () => setProfileDialogOpen(false),
     });
   };
 
-  const handleUpdate = (values: {
+  const handleUpdateProfile = (values: {
     name: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
   }) => {
-    if (!editing) {
+    if (!editingProfile) {
       return;
     }
     updateProfile.mutate(
-      { ...values, id: editing.id },
+      { ...values, id: editingProfile.id },
       {
         onSuccess: () => {
-          setEditing(undefined);
-          setDialogOpen(false);
+          setEditingProfile(undefined);
+          setProfileDialogOpen(false);
         },
       },
     );
   };
 
-  const handleDelete = (id: number) => {
-    deleteProfile.mutate(id);
+  const handleEditProfile = (profile: (typeof profiles)[number]) => {
+    setEditingProfile(profile);
+    setProfileDialogOpen(true);
   };
 
-  const handleEdit = (profile: (typeof profiles)[number]) => {
-    setEditing(profile);
-    setDialogOpen(true);
+  // Definition handlers
+  const handleCreateDefinition = (values: {
+    title: string;
+    weight: number;
+    color: string;
+    minSize: number;
+    maxSize: number;
+    preferredSize: number;
+    specifications: Array<{
+      type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
+      value: string;
+      min?: number;
+      max?: number;
+      negate: boolean;
+      required: boolean;
+    }>;
+  }) => {
+    createDefinition.mutate(values, {
+      onSuccess: () => setDefDialogOpen(false),
+    });
+  };
+
+  const handleUpdateDefinition = (values: {
+    title: string;
+    weight: number;
+    color: string;
+    minSize: number;
+    maxSize: number;
+    preferredSize: number;
+    specifications: Array<{
+      type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
+      value: string;
+      min?: number;
+      max?: number;
+      negate: boolean;
+      required: boolean;
+    }>;
+  }) => {
+    if (!editingDef) {
+      return;
+    }
+    updateDefinition.mutate(
+      { ...values, id: editingDef.id },
+      {
+        onSuccess: () => {
+          setEditingDef(undefined);
+          setDefDialogOpen(false);
+        },
+      },
+    );
+  };
+
+  const handleEditDef = (def: (typeof definitions)[number]) => {
+    setEditingDef(def);
+    setDefDialogOpen(true);
   };
 
   return (
     <div>
       <PageHeader
-        title="Quality Profiles"
-        description="Manage quality profiles for your bookshelf"
-        actions={
+        title="Profiles"
+        description="Manage quality definitions and profiles"
+      />
+
+      {/* Quality Definitions Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Quality Definitions</h2>
+            <p className="text-sm text-muted-foreground">
+              Define format types and matching rules
+            </p>
+          </div>
           <Button
             onClick={() => {
-              setEditing(undefined);
-              setDialogOpen(true);
+              setEditingDef(undefined);
+              setDefDialogOpen(true);
+            }}
+          >
+            Add Definition
+          </Button>
+        </div>
+        <QualityDefinitionList
+          definitions={definitions}
+          onEdit={handleEditDef}
+          onDelete={(id) => deleteDefinition.mutate(id)}
+        />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Quality Profiles Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Quality Profiles</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure format preferences per author
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setEditingProfile(undefined);
+              setProfileDialogOpen(true);
             }}
           >
             Add Profile
           </Button>
-        }
-      />
+        </div>
+        <QualityProfileList
+          profiles={profiles}
+          onEdit={(profile) =>
+            handleEditProfile(profiles.find((p) => p.id === profile.id)!)
+          }
+          onDelete={(id) => deleteProfile.mutate(id)}
+        />
+      </div>
 
-      <QualityProfileList
-        profiles={mappedProfiles}
-        onEdit={(profile) =>
-          handleEdit(profiles.find((p) => p.id === profile.id)!)
-        }
-        onDelete={handleDelete}
-      />
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Profile Dialog */}
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editing ? "Edit Profile" : "Add Profile"}
+              {editingProfile ? "Edit Profile" : "Add Profile"}
             </DialogTitle>
           </DialogHeader>
           <QualityProfileForm
             initialValues={
-              editing
+              editingProfile
                 ? {
-                    name: editing.name,
-                    cutoff: editing.cutoff,
+                    name: editingProfile.name,
+                    cutoff: editingProfile.cutoff,
                     items:
-                      (editing.items as Array<{
+                      (editingProfile.items as Array<{
                         quality: { id: number; name: string };
                         allowed: boolean;
                       }>) || [],
-                    upgradeAllowed: editing.upgradeAllowed,
+                    upgradeAllowed: editingProfile.upgradeAllowed,
                   }
                 : undefined
             }
             qualityDefinitions={definitions}
-            onSubmit={editing ? handleUpdate : handleCreate}
-            onCancel={() => setDialogOpen(false)}
-            loading={loading}
+            onSubmit={
+              editingProfile ? handleUpdateProfile : handleCreateProfile
+            }
+            onCancel={() => setProfileDialogOpen(false)}
+            loading={profileLoading}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Definition Dialog */}
+      <Dialog open={defDialogOpen} onOpenChange={setDefDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDef ? "Edit Definition" : "Add Definition"}
+            </DialogTitle>
+          </DialogHeader>
+          <QualityDefinitionForm
+            initialValues={
+              editingDef
+                ? {
+                    title: editingDef.title,
+                    weight: editingDef.weight,
+                    color: editingDef.color ?? "gray",
+                    minSize: editingDef.minSize ?? 0,
+                    maxSize: editingDef.maxSize ?? 0,
+                    preferredSize: editingDef.preferredSize ?? 0,
+                    specifications: Array.isArray(editingDef.specifications)
+                      ? (editingDef.specifications as Array<{
+                          type:
+                            | "releaseTitle"
+                            | "releaseGroup"
+                            | "size"
+                            | "indexerFlag";
+                          value: string;
+                          min?: number;
+                          max?: number;
+                          negate: boolean;
+                          required: boolean;
+                        }>)
+                      : [],
+                  }
+                : undefined
+            }
+            onSubmit={
+              editingDef ? handleUpdateDefinition : handleCreateDefinition
+            }
+            onCancel={() => setDefDialogOpen(false)}
+            loading={defLoading}
           />
         </DialogContent>
       </Dialog>
