@@ -19,6 +19,77 @@ import {
   getAuthorizationHeader,
 } from "./hardcover/import-queries";
 import { NON_AUTHOR_ROLES } from "./hardcover/constants";
+import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
+import { getMetadataProfile } from "./metadata-profile";
+import type { MetadataProfile } from "./metadata-profile";
+
+// ---------- Metadata profile filtering ----------
+
+/**
+ * Filter editions by the metadata profile's allowed languages.
+ * If allowedLanguages is empty, all editions pass.
+ * Always preserves the default cover edition (by defaultCoverEditionId) if any edition passes.
+ */
+function filterEditionsByProfile(
+  editions: HardcoverRawEdition[],
+  profile: MetadataProfile,
+  defaultCoverEditionId: number | null,
+): HardcoverRawEdition[] {
+  if (profile.allowedLanguages.length === 0) {
+    return editions;
+  }
+
+  const allowedSet = new Set(profile.allowedLanguages);
+  const filtered = editions.filter(
+    (ed) =>
+      !ed.languageCode || allowedSet.has(ed.languageCode),
+  );
+
+  // Always include the default cover edition if any edition passed
+  if (
+    filtered.length > 0 &&
+    defaultCoverEditionId !== null &&
+    defaultCoverEditionId !== undefined &&
+    !filtered.some((ed) => ed.id === defaultCoverEditionId)
+  ) {
+    const coverEd = editions.find((ed) => ed.id === defaultCoverEditionId);
+    if (coverEd) {
+      filtered.push(coverEd);
+    }
+  }
+
+  return filtered;
+}
+
+/**
+ * Check if a book should be skipped based on the metadata profile.
+ * Returns true if the book should be skipped.
+ */
+function shouldSkipBook(
+  book: HardcoverRawBook,
+  filteredEditions: HardcoverRawEdition[],
+  profile: MetadataProfile,
+): boolean {
+  if (profile.skipCompilations && book.isCompilation) {
+    return true;
+  }
+  if (profile.skipMissingReleaseDate && !book.releaseDate) {
+    return true;
+  }
+  if (profile.skipMissingIsbnAsin && filteredEditions.length > 0) {
+    const hasIsbnOrAsin = filteredEditions.some(
+      (ed) => ed.isbn10 || ed.isbn13 || ed.asin,
+    );
+    if (!hasIsbnOrAsin) {
+      return true;
+    }
+  }
+  // If all editions were filtered out by language, skip the book
+  if (filteredEditions.length === 0 && profile.allowedLanguages.length > 0) {
+    return true;
+  }
+  return false;
+}
 
 // ---------- Shared helpers ----------
 
@@ -402,6 +473,9 @@ async function importAuthorInternal(data: {
       return newSeries.id;
     }
 
+    // Load metadata profile for filtering
+    const metadataProfile = getMetadataProfile();
+
     // Insert all author books (unmonitored)
     let booksAdded = 0;
     let editionsAdded = 0;
@@ -421,6 +495,19 @@ async function importAuthorInternal(data: {
           data.foreignAuthorId,
           author.id,
         );
+        continue;
+      }
+
+      // Filter editions by metadata profile
+      const rawEditions = editionsMap.get(rawBook.id) ?? [];
+      const filteredEditions = filterEditionsByProfile(
+        rawEditions,
+        metadataProfile,
+        rawBook.defaultCoverEditionId,
+      );
+
+      // Check if book should be skipped
+      if (shouldSkipBook(rawBook, filteredEditions, metadataProfile)) {
         continue;
       }
 
@@ -470,9 +557,8 @@ async function importAuthorInternal(data: {
           .run();
       }
 
-      // Editions
-      const bookEditions = editionsMap.get(rawBook.id) ?? [];
-      for (const ed of bookEditions) {
+      // Editions (use filtered set)
+      for (const ed of filteredEditions) {
         tx.insert(editions)
           .values({
             bookId: book.id,
@@ -499,7 +585,7 @@ async function importAuthorInternal(data: {
           })
           .run();
       }
-      editionsAdded += bookEditions.length;
+      editionsAdded += filteredEditions.length;
 
       // History event
       tx.insert(history)
@@ -653,6 +739,14 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       };
     }
 
+    // Filter editions by metadata profile (book was explicitly chosen, so we don't skip it)
+    const metadataProfile = getMetadataProfile();
+    const filteredEditions = filterEditionsByProfile(
+      rawEditions,
+      metadataProfile,
+      rawBook.defaultCoverEditionId,
+    );
+
     const txResult = db.transaction((tx) => {
       // Insert book (editions use schema default monitored=true for user-imported books)
       const book = tx
@@ -717,8 +811,8 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           .run();
       }
 
-      // Editions
-      for (const ed of rawEditions) {
+      // Editions (filtered by metadata profile)
+      for (const ed of filteredEditions) {
         tx.insert(editions)
           .values({
             bookId: book.id,
@@ -818,6 +912,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
     );
 
     const now = new Date();
+    const metadataProfile = getMetadataProfile();
 
     return db.transaction((tx) => {
       // Update author fields
@@ -885,8 +980,14 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
             data.authorId,
           );
 
-          // Upsert editions for this book
+          // Upsert editions for this book (filter new editions by metadata profile)
           const bookEditions = editionsMap.get(rawBook.id) ?? [];
+          const filteredForNew = filterEditionsByProfile(
+            bookEditions,
+            metadataProfile,
+            rawBook.defaultCoverEditionId,
+          );
+          const filteredIds = new Set(filteredForNew.map((e) => e.id));
           const seenEditionIds = new Set<string>();
           for (const ed of bookEditions) {
             const foreignEditionId = String(ed.id);
@@ -899,6 +1000,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               .get();
 
             if (existingEdition) {
+              // Always update existing editions regardless of language filter
               tx.update(editions)
                 .set({
                   title: ed.title,
@@ -924,7 +1026,8 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                 .where(eq(editions.id, existingEdition.id))
                 .run();
               editionsUpdated += 1;
-            } else {
+            } else if (filteredIds.has(ed.id)) {
+              // Only insert new editions that pass the language filter
               tx.insert(editions)
                 .values({
                   bookId: existingBook.id,
@@ -983,7 +1086,19 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
             }
           }
         } else {
-          // Insert new book
+          // Insert new book — apply metadata profile filtering
+          const rawEditions = editionsMap.get(rawBook.id) ?? [];
+          const filteredNewEditions = filterEditionsByProfile(
+            rawEditions,
+            metadataProfile,
+            rawBook.defaultCoverEditionId,
+          );
+
+          // Skip book if it doesn't pass metadata profile filters
+          if (shouldSkipBook(rawBook, filteredNewEditions, metadataProfile)) {
+            continue;
+          }
+
           const newBook = tx
             .insert(books)
             .values({
@@ -1012,9 +1127,8 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
             data.authorId,
           );
 
-          // Insert editions for new book
-          const bookEditions = editionsMap.get(rawBook.id) ?? [];
-          for (const ed of bookEditions) {
+          // Insert editions for new book (filtered)
+          for (const ed of filteredNewEditions) {
             tx.insert(editions)
               .values({
                 bookId: newBook.id,
@@ -1168,6 +1282,13 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 
     const { book: rawBook, editions: rawEditions } = result;
     const now = new Date();
+    const metadataProfile = getMetadataProfile();
+    const filteredForNew = filterEditionsByProfile(
+      rawEditions,
+      metadataProfile,
+      rawBook.defaultCoverEditionId,
+    );
+    const filteredIds = new Set(filteredForNew.map((e) => e.id));
 
     // Look up the primary author from booksAuthors
     const primaryEntry = db
@@ -1215,7 +1336,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
         );
       }
 
-      // Upsert editions
+      // Upsert editions (filter new editions by metadata profile)
       let editionsUpdated = 0;
       let editionsAdded = 0;
       const seenEditionIds = new Set<string>();
@@ -1231,6 +1352,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
           .get();
 
         if (existingEdition) {
+          // Always update existing editions
           tx.update(editions)
             .set({
               title: ed.title,
@@ -1256,7 +1378,8 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
             .where(eq(editions.id, existingEdition.id))
             .run();
           editionsUpdated += 1;
-        } else {
+        } else if (filteredIds.has(ed.id)) {
+          // Only insert new editions that pass the language filter
           tx.insert(editions)
             .values({
               bookId: data.bookId,

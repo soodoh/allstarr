@@ -3,7 +3,10 @@ import { db } from "src/db";
 import { settings } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
-import { updateSettingSchema } from "src/lib/validators";
+import { updateSettingSchema, metadataProfileSchema } from "src/lib/validators";
+import { getMetadataProfile } from "./metadata-profile";
+
+export type { MetadataProfile } from "./metadata-profile";
 
 export const getSettingsFn = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -70,3 +73,26 @@ export const regenerateApiKeyFn = createServerFn({ method: "POST" }).handler(
     return { apiKey: newKey };
   },
 );
+
+// ─── Metadata Profile server functions ───────────────────────────────────────
+
+export const getMetadataProfileFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+    return getMetadataProfile();
+  },
+);
+
+export const updateMetadataProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => metadataProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    db.insert(settings)
+      .values({ key: "metadata.profile", value: JSON.stringify(data) })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: JSON.stringify(data) },
+      })
+      .run();
+    return { success: true };
+  });
