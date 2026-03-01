@@ -20,16 +20,32 @@ import {
   grabReleaseSchema,
 } from "src/lib/validators";
 import * as prowlarrHttp from "./indexers/http";
-import { enrichRelease, getProfileWeight } from "./indexers/quality-parser";
+import {
+  enrichRelease,
+  getProfileWeight,
+  getDefSizeLimits,
+} from "./indexers/quality-parser";
 import getProvider from "./download-clients/registry";
-import type { IndexerRelease } from "./indexers/types";
+import type {
+  IndexerRelease,
+  ReleaseRejection,
+  FormatScoreDetail,
+} from "./indexers/types";
 import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
 
 type ProfileItem = { quality: { id: number }; allowed: boolean };
 
-/** Look up the quality profile items for a book's primary author (union of all profiles) */
-function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
+type ProfileInfo = {
+  id: number;
+  name: string;
+  items: ProfileItem[];
+  cutoff: number;
+  upgradeAllowed: boolean;
+};
+
+/** Look up the quality profiles for a book's primary author */
+function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   const bookAuthor = db
     .select({ authorId: booksAuthors.authorId })
     .from(booksAuthors)
@@ -42,7 +58,6 @@ function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
     return null;
   }
 
-  // Get all quality profile IDs for this author via join table
   const profileLinks = db
     .select({ qualityProfileId: authorQualityProfiles.qualityProfileId })
     .from(authorQualityProfiles)
@@ -54,24 +69,119 @@ function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
   }
 
   const profileIds = profileLinks.map((l) => l.qualityProfileId);
-  const profiles = db
-    .select({ items: qualityProfiles.items })
+  const rows = db
+    .select()
     .from(qualityProfiles)
     .where(inArray(qualityProfiles.id, profileIds))
     .all();
 
-  // Union: a quality is allowed if ANY profile allows it
+  return rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    items: (p.items ?? []) as ProfileItem[],
+    cutoff: p.cutoff,
+    upgradeAllowed: p.upgradeAllowed,
+  }));
+}
+
+/** Derive a union of profile items (a quality is allowed if ANY profile allows it) */
+function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
   const unionMap = new Map<number, ProfileItem>();
   for (const profile of profiles) {
-    for (const item of profile.items ?? []) {
+    for (const item of profile.items) {
       const existing = unionMap.get(item.quality.id);
       if (!existing || (!existing.allowed && item.allowed)) {
         unionMap.set(item.quality.id, item);
       }
     }
   }
-
   return unionMap.size > 0 ? [...unionMap.values()] : null;
+}
+
+/** Compute rejections and format score for a release against the author's profiles */
+function computeReleaseMetrics(
+  release: IndexerRelease,
+  profiles: ProfileInfo[] | null,
+): {
+  rejections: ReleaseRejection[];
+  formatScore: number;
+  formatScoreDetails: FormatScoreDetail[];
+} {
+  const rejections: ReleaseRejection[] = [];
+  const formatScoreDetails: FormatScoreDetail[] = [];
+
+  // Unknown quality — no format definition matched
+  if (release.quality.id === 0) {
+    rejections.push({
+      reason: "unknownQuality",
+      message: "Unknown quality — no format matched this release",
+    });
+    return { rejections, formatScore: 0, formatScoreDetails };
+  }
+
+  // Check size limits from quality definition (values are in MB)
+  const sizeLimits = getDefSizeLimits(release.quality.id);
+  if (sizeLimits) {
+    const sizeMB = release.size / (1024 * 1024);
+    if (sizeLimits.minSize > 0 && sizeMB < sizeLimits.minSize) {
+      rejections.push({
+        reason: "belowMinimumSize",
+        message: `${release.sizeFormatted} is below minimum ${sizeLimits.minSize} MB for ${release.quality.name}`,
+      });
+    }
+    if (sizeLimits.maxSize > 0 && sizeMB > sizeLimits.maxSize) {
+      rejections.push({
+        reason: "aboveMaximumSize",
+        message: `${release.sizeFormatted} is above maximum ${sizeLimits.maxSize} MB for ${release.quality.name}`,
+      });
+    }
+  }
+
+  // No profiles assigned — return base quality weight
+  if (!profiles || profiles.length === 0) {
+    return {
+      rejections,
+      formatScore: release.quality.weight,
+      formatScoreDetails,
+    };
+  }
+
+  // Compute per-profile scores
+  let maxScore = 0;
+  let allowedInAny = false;
+
+  for (const profile of profiles) {
+    const item = profile.items.find(
+      (i) => i.quality.id === release.quality.id,
+    );
+    if (item) {
+      const score = getProfileWeight(release.quality.id, profile.items);
+      formatScoreDetails.push({
+        profileName: profile.name,
+        score,
+        allowed: item.allowed,
+      });
+      if (item.allowed) {
+        allowedInAny = true;
+        maxScore = Math.max(maxScore, score);
+      }
+    } else {
+      formatScoreDetails.push({
+        profileName: profile.name,
+        score: 0,
+        allowed: false,
+      });
+    }
+  }
+
+  if (!allowedInAny) {
+    rejections.push({
+      reason: "qualityNotWanted",
+      message: `${release.quality.name} is not allowed in any quality profile`,
+    });
+  }
+
+  return { rejections, formatScore: maxScore, formatScoreDetails };
 }
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
@@ -210,6 +320,57 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
     return syncedCount > 0;
   },
 );
+
+// ─── Post-processing ─────────────────────────────────────────────────────────
+
+/** Deduplicate releases, apply profile scoring/rejections, and sort */
+function dedupeAndScoreReleases(
+  allReleases: IndexerRelease[],
+  bookId: number | null,
+): IndexerRelease[] {
+  // Deduplicate by guid
+  const seen = new Set<string>();
+  const unique: IndexerRelease[] = [];
+  for (const release of allReleases) {
+    if (!seen.has(release.guid)) {
+      seen.add(release.guid);
+      unique.push(release);
+    }
+  }
+
+  // Look up the author's quality profiles for scoring and rejections
+  const profiles = bookId ? getProfilesForBook(bookId) : null;
+  const profileItems = profiles ? unionProfileItems(profiles) : null;
+
+  // Override quality weights with profile-derived weights when available
+  if (profileItems) {
+    for (const release of unique) {
+      release.quality.weight = getProfileWeight(
+        release.quality.id,
+        profileItems,
+      );
+    }
+  }
+
+  // Compute rejections and format scores
+  for (const release of unique) {
+    const metrics = computeReleaseMetrics(release, profiles);
+    release.rejections = metrics.rejections;
+    release.formatScore = metrics.formatScore;
+    release.formatScoreDetails = metrics.formatScoreDetails;
+  }
+
+  // Sort by quality weight descending, then by size descending
+  unique.sort((a, b) => {
+    const qualityDiff = b.quality.weight - a.quality.weight;
+    if (qualityDiff !== 0) {
+      return qualityDiff;
+    }
+    return b.size - a.size;
+  });
+
+  return unique;
+}
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
@@ -352,41 +513,8 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       throw new Error(`All indexers failed: ${warnings.join("; ")}`);
     }
 
-    // Deduplicate by guid
-    const seen = new Set<string>();
-    const unique: IndexerRelease[] = [];
-    for (const release of allReleases) {
-      if (!seen.has(release.guid)) {
-        seen.add(release.guid);
-        unique.push(release);
-      }
-    }
-
-    // Look up the author's quality profile for profile-aware sorting
-    const profileItems = data.bookId
-      ? getProfileItemsForBook(data.bookId)
-      : null;
-
-    // Override quality weights with profile-derived weights when available
-    if (profileItems) {
-      for (const release of unique) {
-        release.quality.weight = getProfileWeight(
-          release.quality.id,
-          profileItems,
-        );
-      }
-    }
-
-    // Sort by quality weight descending, then by size descending
-    unique.sort((a, b) => {
-      const qualityDiff = b.quality.weight - a.quality.weight;
-      if (qualityDiff !== 0) {
-        return qualityDiff;
-      }
-      return b.size - a.size;
-    });
-
-    return { releases: unique, warnings };
+    const releases = dedupeAndScoreReleases(allReleases, data.bookId ?? null);
+    return { releases, warnings };
   });
 
 // ─── Grab ─────────────────────────────────────────────────────────────────────

@@ -51,6 +51,19 @@ export type ReleaseQuality = {
   color: string;
 };
 
+/** A reason why a release would be rejected */
+export type ReleaseRejection = {
+  reason: string;
+  message: string;
+};
+
+/** Per-profile format score breakdown */
+export type FormatScoreDetail = {
+  profileName: string;
+  score: number;
+  allowed: boolean;
+};
+
 /** Normalized release for the UI, enriched with quality info */
 export type IndexerRelease = Omit<
   ProwlarrSearchResult,
@@ -63,4 +76,7 @@ export type IndexerRelease = Omit<
   sizeFormatted: string;
   ageFormatted: string;
   indexerFlags: number | null;
+  rejections: ReleaseRejection[];
+  formatScore: number;
+  formatScoreDetails: FormatScoreDetail[];
 };
