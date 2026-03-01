@@ -1,80 +1,153 @@
+import { db } from "src/db";
+import { qualityDefinitions } from "src/db/schema";
 import type { IndexerRelease, ReleaseQuality } from "./types";
 
-type QualityDefinition = {
+type Specification = {
+  type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
+  value: string;
+  min?: number;
+  max?: number;
+  negate: boolean;
+  required: boolean;
+};
+
+type CachedDef = {
   id: number;
   name: string;
   weight: number;
-  color: ReleaseQuality["color"];
-  pattern: RegExp;
+  color: string;
+  specs: Specification[];
 };
 
-// Book format quality definitions (matching seed data IDs).
-// Patterns use \b word boundaries to match format names anywhere in the title
-// (e.g. "Book Title EPUB", "Book.Title.epub", "[EPUB]"), matching Readarr's
-// CodecRegex approach.
-const QUALITY_DEFS: QualityDefinition[] = [
-  {
-    id: 4,
-    name: "EPUB",
-    weight: 80,
-    color: "green",
-    pattern: /\bepub\b/i,
-  },
-  {
-    id: 5,
-    name: "AZW3",
-    weight: 60,
-    color: "blue",
-    pattern: /\bazw3?\b/i,
-  },
-  {
-    id: 3,
-    name: "MOBI",
-    weight: 40,
-    color: "amber",
-    pattern: /\bmobi\b/i,
-  },
-  {
-    id: 2,
-    name: "PDF",
-    weight: 20,
-    color: "yellow",
-    pattern: /\bpdf\b/i,
-  },
-  {
-    id: 8,
-    name: "FLAC",
-    weight: 70,
-    color: "purple",
-    pattern: /\bflac\b/i,
-  },
-  {
-    id: 7,
-    name: "M4B",
-    weight: 50,
-    color: "cyan",
-    pattern: /\bm4b\b/i,
-  },
-  {
-    id: 6,
-    name: "MP3",
-    weight: 30,
-    color: "orange",
-    pattern: /\bmp3\b/i,
-  },
-];
+let cachedDefs: CachedDef[] | null = null;
 
-const UNKNOWN_QUALITY: ReleaseQuality = {
-  id: 0,
-  name: "Unknown",
-  weight: 0,
-  color: "gray",
+function parseSpecs(raw: unknown): Specification[] {
+  if (Array.isArray(raw)) {
+    return raw as Specification[];
+  }
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as Specification[];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function getQualityDefs(): CachedDef[] {
+  if (!cachedDefs) {
+    const rows = db.select().from(qualityDefinitions).all();
+    cachedDefs = rows
+      .filter((r) => parseSpecs(r.specifications).length > 0)
+      .map((row) => ({
+        id: row.id,
+        name: row.title,
+        weight: row.weight,
+        color: row.color,
+        specs: parseSpecs(row.specifications),
+      }))
+      // Higher weight = checked first
+      .toSorted((a, b) => b.weight - a.weight);
+  }
+  return cachedDefs;
+}
+
+export function invalidateQualityDefCache(): void {
+  cachedDefs = null;
+}
+
+/** Extract trailing release group from a title (e.g. "Book Title-GROUP" → "GROUP") */
+export function parseReleaseGroup(title: string): string | null {
+  const match = title.match(/-([A-Za-z0-9_]+)$/);
+  return match ? match[1] : null;
+}
+
+type ReleaseInfo = {
+  title: string;
+  size: number;
+  indexerFlags: number | null;
 };
 
-/** Parse quality from a release title string */
-export function parseQualityFromTitle(title: string): ReleaseQuality {
-  for (const def of QUALITY_DEFS) {
-    if (def.pattern.test(title)) {
+function evaluateSpec(spec: Specification, release: ReleaseInfo): boolean {
+  let result = false;
+
+  switch (spec.type) {
+    case "releaseTitle": {
+      if (!spec.value) {
+        break;
+      }
+      try {
+        const regex = new RegExp(spec.value, "i");
+        result = regex.test(release.title);
+      } catch {
+        // Invalid regex — treat as no match
+      }
+      break;
+    }
+    case "releaseGroup": {
+      if (!spec.value) {
+        break;
+      }
+      const group = parseReleaseGroup(release.title);
+      if (!group) {
+        break;
+      }
+      try {
+        const regex = new RegExp(spec.value, "i");
+        result = regex.test(group);
+      } catch {
+        // Invalid regex
+      }
+      break;
+    }
+    case "size": {
+      const sizeMB = release.size / (1024 * 1024);
+      const min = spec.min ?? 0;
+      const max = spec.max ?? Number.POSITIVE_INFINITY;
+      result = sizeMB >= min && sizeMB <= max;
+      break;
+    }
+    case "indexerFlag": {
+      if (
+        release.indexerFlags === null ||
+        release.indexerFlags === undefined ||
+        !spec.value
+      ) {
+        break;
+      }
+      const flagBit = Number(spec.value);
+      if (!Number.isNaN(flagBit)) {
+        // eslint-disable-next-line no-bitwise -- intentional bitwise flag check
+        result = (release.indexerFlags & flagBit) !== 0;
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+
+  return spec.negate ? !result : result;
+}
+
+/** Match a release against DB-defined quality specs */
+export function matchQuality(release: ReleaseInfo): ReleaseQuality {
+  const defs = getQualityDefs();
+
+  for (const def of defs) {
+    const requiredSpecs = def.specs.filter((s) => s.required);
+    const optionalSpecs = def.specs.filter((s) => !s.required);
+
+    // All required specs must match (AND logic)
+    const requiredPass = requiredSpecs.every((s) => evaluateSpec(s, release));
+
+    // At least one optional spec must match (OR logic), or no optional specs
+    const optionalPass =
+      optionalSpecs.length === 0 ||
+      optionalSpecs.some((s) => evaluateSpec(s, release));
+
+    if (requiredPass && optionalPass) {
       return {
         id: def.id,
         name: def.name,
@@ -84,7 +157,7 @@ export function parseQualityFromTitle(title: string): ReleaseQuality {
     }
   }
 
-  return UNKNOWN_QUALITY;
+  return { id: 0, name: "Unknown", weight: 0, color: "gray" };
 }
 
 /** Format bytes as human-readable string */
@@ -139,7 +212,11 @@ export function enrichRelease(
 ): IndexerRelease {
   return {
     ...release,
-    quality: parseQualityFromTitle(release.title),
+    quality: matchQuality({
+      title: release.title,
+      size: release.size,
+      indexerFlags: release.indexerFlags ?? null,
+    }),
     sizeFormatted: formatBytes(release.size),
     ageFormatted: formatAge(release.publishDate),
   };

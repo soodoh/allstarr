@@ -7,4 +7,8 @@ export const qualityDefinitions = sqliteTable("quality_definitions", {
   minSize: real("min_size").default(0),
   maxSize: real("max_size").default(0),
   preferredSize: real("preferred_size").default(0),
+  color: text("color").notNull().default("gray"),
+  specifications: text("specifications", { mode: "json" })
+    .notNull()
+    .default("[]"),
 });

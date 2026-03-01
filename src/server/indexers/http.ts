@@ -100,7 +100,7 @@ type NewznabFeedConfig = {
 type CoalescedResult = Omit<
   ProwlarrSearchResult,
   "downloadUrl" | "magnetUrl"
-> & { downloadUrl: string };
+> & { downloadUrl: string; indexerFlags: number | null };
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -245,6 +245,7 @@ function mapNewznabItem(item: any): CoalescedResult | null {
     ...resolvePeerInfo(attrs),
     categories: parseCategories(item),
     age: null,
+    indexerFlags: attrs.has("flags") ? Number(attrs.get("flags")) : null,
   };
 }
 
@@ -413,7 +414,9 @@ async function fetchProwlarrSearch(
       return [];
     }
     const { magnetUrl: _mag, downloadUrl: _dl, ...rest } = r;
-    return [{ ...rest, downloadUrl: url }];
+    return [
+      { ...rest, downloadUrl: url, indexerFlags: r.indexerFlags ?? null },
+    ];
   });
 }
 

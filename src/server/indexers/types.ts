@@ -31,6 +31,7 @@ export type ProwlarrSearchResult = {
   grabs: number | null;
   categories: Array<{ id: number; name: string }> | null;
   age: number | null;
+  indexerFlags: number | null;
 };
 
 /** Prowlarr indexer info from /api/v1/indexer */
@@ -47,15 +48,7 @@ export type ReleaseQuality = {
   id: number;
   name: string;
   weight: number;
-  color:
-    | "green"
-    | "blue"
-    | "amber"
-    | "yellow"
-    | "gray"
-    | "purple"
-    | "cyan"
-    | "orange";
+  color: string;
 };
 
 /** Normalized release for the UI, enriched with quality info */
@@ -69,4 +62,5 @@ export type IndexerRelease = Omit<
   quality: ReleaseQuality;
   sizeFormatted: string;
   ageFormatted: string;
+  indexerFlags: number | null;
 };
