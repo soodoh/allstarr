@@ -12,6 +12,11 @@ export function useSearchIndexers() {
   return useMutation({
     mutationFn: (data: z.infer<typeof searchIndexersSchema>) =>
       searchIndexersFn({ data }),
+    onSuccess: (data) => {
+      for (const w of data.warnings) {
+        toast.warning(w);
+      }
+    },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Search failed"),
   });

@@ -162,59 +162,21 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-type SearchSource = {
-  config: {
-    host: string;
-    port: number;
-    useSsl: boolean;
-    urlBase: string | null;
-    apiKey: string;
-  };
-  id: number;
-};
-
-/**
- * Parse a synced indexer's baseUrl (e.g. "http://prowlarr:9696/1/") to extract
- * the Prowlarr connection config (host, port, ssl).
- */
-function parseSyncedBaseUrl(
-  baseUrl: string,
-  apiKey: string,
-): SearchSource["config"] | undefined {
-  try {
-    const url = new URL(baseUrl);
-    let port = 80;
-    if (url.port) {
-      port = Number.parseInt(url.port, 10);
-    } else if (url.protocol === "https:") {
-      port = 443;
-    }
-    return {
-      host: url.hostname,
-      port,
-      useSsl: url.protocol === "https:",
-      urlBase: null,
-      apiKey,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 export const searchIndexersFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => searchIndexersSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
 
     // Get all enabled manual indexers sorted by priority
-    const enabledIndexers = db
+    const enabledManual = db
       .select()
       .from(indexers)
       .where(eq(indexers.enabled, true))
       .orderBy(asc(indexers.priority))
       .all();
 
-    // Also get synced indexers with search enabled
+    // Get synced indexers with search enabled — each maps to an individual
+    // Prowlarr Newznab/Torznab proxy feed (e.g. http://prowlarr:9696/1/api).
     const enabledSynced = db
       .select()
       .from(syncedIndexers)
@@ -222,43 +184,8 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       .orderBy(asc(syncedIndexers.priority))
       .all();
 
-    // Build unified search sources, de-duplicating by Prowlarr base (host:port)
-    const searchSources: SearchSource[] = [];
-    const seenBases = new Set<string>();
-
-    for (const ix of enabledIndexers) {
-      const key = `${ix.host}:${ix.port}`;
-      seenBases.add(key);
-      searchSources.push({
-        config: {
-          host: ix.host,
-          port: ix.port,
-          useSsl: ix.useSsl,
-          urlBase: ix.urlBase,
-          apiKey: ix.apiKey,
-        },
-        id: ix.id,
-      });
-    }
-
-    for (const synced of enabledSynced) {
-      if (!synced.apiKey) {
-        continue;
-      }
-      const config = parseSyncedBaseUrl(synced.baseUrl, synced.apiKey);
-      if (!config) {
-        continue;
-      }
-      const key = `${config.host}:${config.port}`;
-      if (seenBases.has(key)) {
-        continue;
-      }
-      seenBases.add(key);
-      searchSources.push({ config, id: synced.id });
-    }
-
-    if (searchSources.length === 0) {
-      return [] as IndexerRelease[];
+    if (enabledManual.length === 0 && enabledSynced.length === 0) {
+      return { releases: [] as IndexerRelease[], warnings: [] };
     }
 
     let query = data.query;
@@ -286,32 +213,80 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       }
     }
 
-    const categories = data.categories ?? [7020];
+    const categories = data.categories ?? [7000, 7020];
 
-    // Fan out to all search sources in parallel
-    const results = await Promise.allSettled(
-      searchSources.map(async ({ config, id }) => {
-        const rawResults = await prowlarrHttp.searchProwlarr(
-          config,
+    // ── Per-indexer Newznab feed searches (like Readarr) ──────────────────
+    // Each synced indexer has its own Newznab/Torznab proxy feed URL from
+    // Prowlarr.  Querying each feed individually avoids Prowlarr's internal
+    // category-capability filter that silently skips indexers whose caps
+    // don't advertise the requested categories.
+    const feedSearches = enabledSynced
+      .filter((s) => s.apiKey)
+      .map(async (synced) => {
+        const results = await prowlarrHttp.searchNewznab(
+          {
+            baseUrl: synced.baseUrl,
+            apiPath: synced.apiPath ?? "/api",
+            apiKey: synced.apiKey!,
+          },
           query,
           categories,
         );
-
-        return rawResults.map((r) =>
+        return results.map((r) =>
           enrichRelease({
             ...r,
-            allstarrIndexerId: id,
+            indexer: r.indexer || synced.name,
+            allstarrIndexerId: synced.id,
           }),
         );
-      }),
-    );
+      });
 
-    // Flatten results, log failures
+    // ── Fallback: Prowlarr internal API for manual indexers ───────────────
+    // Manual indexers are raw Prowlarr connections without individual feed
+    // URLs.  Use the internal search API as a fallback.
+    const internalSearches = enabledManual.map(async (ix) => {
+      const results = await prowlarrHttp.searchProwlarr(
+        {
+          host: ix.host,
+          port: ix.port,
+          useSsl: ix.useSsl,
+          urlBase: ix.urlBase,
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+      );
+      return results.map((r) =>
+        enrichRelease({ ...r, allstarrIndexerId: ix.id }),
+      );
+    });
+
+    // Fan out all searches in parallel
+    const settled = await Promise.allSettled([
+      ...feedSearches,
+      ...internalSearches,
+    ]);
+
+    // Flatten results, collect warnings from failures
     const allReleases: IndexerRelease[] = [];
-    for (const result of results) {
+    const warnings: string[] = [];
+    for (const result of settled) {
       if (result.status === "fulfilled") {
         allReleases.push(...result.value);
+      } else {
+        warnings.push(
+          result.reason instanceof Error
+            ? result.reason.message
+            : "Unknown indexer error",
+        );
       }
+    }
+
+    // If every indexer failed, throw so the client sees an error
+    if (settled.length > 0 && allReleases.length === 0 && warnings.length > 0) {
+      throw new Error(
+        `All indexers failed: ${warnings.join("; ")}`,
+      );
     }
 
     // Deduplicate by guid
@@ -333,7 +308,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       return b.size - a.size;
     });
 
-    return unique;
+    return { releases: unique, warnings };
   });
 
 // ─── Grab ─────────────────────────────────────────────────────────────────────

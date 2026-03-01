@@ -34,7 +34,7 @@ export default function SearchReleasesTab({
     : book.title;
 
   const releases = useMemo(
-    () => searchIndexers.data ?? [],
+    () => searchIndexers.data?.releases ?? [],
     [searchIndexers.data],
   );
 
