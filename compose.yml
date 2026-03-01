@@ -66,7 +66,7 @@ services:
       OPENVPN_USER: ${OPENVPN_USER}
       OPENVPN_PASSWORD: ${OPENVPN_PASSWORD}
       SERVER_COUNTRIES: ${VPN_SERVER_COUNTRIES:-United States}
-      # FIREWALL_OUTBOUND_SUBNETS: 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
+      FIREWALL_OUTBOUND_SUBNETS: 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
       # Use DoH instead of DoT — port 853 gets reset by ProtonVPN (gluetun#3121)
       DNS_UPSTREAM_RESOLVER_TYPE: doh
     networks:
