@@ -74,8 +74,8 @@ function AddBookForm({
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add Author & Monitor Book</p>
       <p className="text-xs text-muted-foreground">
-        The author and all their books will be added to your bookshelf. This book
-        will be monitored.
+        The author and all their books will be added to your bookshelf. This
+        book will be monitored.
       </p>
 
       <div className="space-y-1.5">

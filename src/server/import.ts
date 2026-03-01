@@ -80,7 +80,9 @@ function insertBookAuthors(
   for (const contrib of authorContribs) {
     const isThePrimary =
       contrib.foreignAuthorId === String(primaryForeignAuthorId);
-    if (isThePrimary) {primaryFound = true;}
+    if (isThePrimary) {
+      primaryFound = true;
+    }
     tx.insert(booksAuthors)
       .values({
         bookId,
@@ -148,7 +150,9 @@ function syncBookAuthors(
   for (const contrib of authorContribs) {
     const isThePrimary =
       contrib.foreignAuthorId === String(primaryForeignAuthorId);
-    if (isThePrimary) {primaryFound = true;}
+    if (isThePrimary) {
+      primaryFound = true;
+    }
 
     // Check if there's already an entry — if so, update; if not, insert
     const existing = tx
@@ -194,10 +198,7 @@ function syncBookAuthors(
       .where(
         and(
           eq(booksAuthors.bookId, bookId),
-          eq(
-            booksAuthors.foreignAuthorId,
-            String(primaryForeignAuthorId),
-          ),
+          eq(booksAuthors.foreignAuthorId, String(primaryForeignAuthorId)),
         ),
       )
       .get();
