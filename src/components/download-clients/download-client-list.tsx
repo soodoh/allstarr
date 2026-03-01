@@ -11,15 +11,9 @@ import {
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
 
-type DownloadClient = {
-  id: number;
-  name: string;
-  implementation: string;
-  protocol: string;
-  host: string;
-  port: number;
-  enabled: boolean;
-};
+import type { downloadClients } from "src/db/schema";
+
+type DownloadClient = typeof downloadClients.$inferSelect;
 
 type DownloadClientListProps = {
   clients: DownloadClient[];

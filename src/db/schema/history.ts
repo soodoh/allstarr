@@ -11,7 +11,9 @@ export const history = sqliteTable("history", {
   authorId: integer("author_id").references(() => authors.id, {
     onDelete: "set null",
   }),
-  data: text("data", { mode: "json" }).$type<Record<string, unknown>>(),
+  data: text("data", { mode: "json" }).$type<
+    Record<string, string | number | boolean | null>
+  >(),
   date: integer("date", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

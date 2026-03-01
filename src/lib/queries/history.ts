@@ -9,16 +9,15 @@ type HistoryParams = {
   eventType?: string;
 };
 
-// Manually typed to avoid the 'Register' duplicate issue with server functions
 export type HistoryItem = {
   id: number;
   eventType: string;
-  bookId: number | undefined;
-  authorId: number | undefined;
-  data: Record<string, unknown> | undefined;
-  date: string;
-  authorName: string | undefined;
-  bookTitle: string | undefined;
+  bookId: number | null;
+  authorId: number | null;
+  data: Record<string, string | number | boolean | null> | null;
+  date: Date;
+  authorName: string | null;
+  bookTitle: string | null;
 };
 
 export type HistoryResult = {
@@ -36,7 +35,5 @@ export const historyListQuery = (params: HistoryParams = {}) =>
       params.page ?? 1,
       params.eventType ?? "all",
     ] as const,
-    // Cast needed because createServerFn types are affected by the pre-existing
-    // duplicate 'Register' type issue in this project
     queryFn: () => getHistoryFn({ data: params }) as Promise<HistoryResult>,
   });

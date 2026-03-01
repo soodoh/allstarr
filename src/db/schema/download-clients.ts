@@ -6,7 +6,7 @@ export type DownloadClientSettings = {
   firstAndLastPiecePriority?: boolean;
   watchFolder?: string;
   savePath?: string;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | undefined;
 };
 
 export const downloadClients = sqliteTable("download_clients", {

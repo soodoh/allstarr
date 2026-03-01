@@ -10,6 +10,7 @@ import {
   authorQualityProfiles,
   qualityProfiles,
 } from "src/db/schema";
+import type { IndexerSettings } from "src/db/schema/indexers";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -284,7 +285,7 @@ export const createIndexerFn = createServerFn({ method: "POST" })
       .insert(indexers)
       .values({
         ...data,
-        settings: data.settings as Record<string, unknown> | null,
+        settings: data.settings as IndexerSettings | null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -301,7 +302,7 @@ export const updateIndexerFn = createServerFn({ method: "POST" })
       .update(indexers)
       .set({
         ...values,
-        settings: values.settings as Record<string, unknown> | null,
+        settings: values.settings as IndexerSettings | null,
         updatedAt: Date.now(),
       })
       .where(eq(indexers.id, id))
@@ -648,7 +649,7 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       password: client.password,
       apiKey: client.apiKey,
       category: client.category,
-      settings: client.settings as Record<string, unknown> | null,
+      settings: client.settings as IndexerSettings | null,
     };
 
     await provider.addDownload(config, {

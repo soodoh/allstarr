@@ -1,9 +1,10 @@
 import { createRouter } from "@tanstack/react-router";
+import type { AnyRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
 import { getQueryClient } from "./lib/query-client";
 
-export function getRouter(): ReturnType<typeof createRouter> {
+export function getRouter(): AnyRouter {
   const queryClient = getQueryClient();
 
   const router = createRouter({
@@ -18,8 +19,8 @@ export function getRouter(): ReturnType<typeof createRouter> {
   return router;
 }
 
-declare module "@tanstack/react-router" {
+declare module "@tanstack/router-core" {
   type Register = {
     router: ReturnType<typeof getRouter>;
-  };
+  }
 }
