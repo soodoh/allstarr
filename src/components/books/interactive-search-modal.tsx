@@ -61,7 +61,7 @@ export default function InteractiveSearchModal({
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const releases = useMemo(
-    () => searchIndexers.data ?? [],
+    () => searchIndexers.data?.releases ?? [],
     [searchIndexers.data],
   );
 
