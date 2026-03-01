@@ -77,7 +77,7 @@ export function fromReadarrResource(
   })();
 
   return {
-    name: body.name,
+    name: body.name.replace(/\s*\(Prowlarr\)$/i, ""),
     implementation: body.implementation,
     configContract: body.configContract,
     baseUrl: (getField("baseUrl") as string) ?? "",
