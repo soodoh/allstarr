@@ -31,7 +31,8 @@ export function getMetadataProfile(): MetadataProfile {
     return DEFAULT_METADATA_PROFILE;
   }
   try {
-    const raw = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+    const raw =
+      typeof row.value === "string" ? JSON.parse(row.value) : row.value;
     const parsed = metadataProfileSchema.safeParse(raw);
     return parsed.success ? parsed.data : DEFAULT_METADATA_PROFILE;
   } catch {

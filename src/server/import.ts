@@ -41,8 +41,7 @@ function filterEditionsByProfile(
 
   const allowedSet = new Set(profile.allowedLanguages);
   const filtered = editions.filter(
-    (ed) =>
-      !ed.languageCode || allowedSet.has(ed.languageCode),
+    (ed) => !ed.languageCode || allowedSet.has(ed.languageCode),
   );
 
   // Always include the default cover edition if any edition passed

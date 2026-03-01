@@ -168,6 +168,15 @@ const defaultSettings = [
     key: "general.apiKey",
     value: JSON.stringify(crypto.randomUUID()),
   },
+  {
+    key: "metadata.profile",
+    value: JSON.stringify({
+      allowedLanguages: ["en"],
+      skipMissingReleaseDate: false,
+      skipMissingIsbnAsin: false,
+      skipCompilations: false,
+    }),
+  },
 ];
 
 console.log("Seeding database...");

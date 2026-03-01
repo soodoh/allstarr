@@ -67,6 +67,11 @@ export const queryKeys = {
     map: () => ["settings", "map"] as const,
   },
 
+  // ─── Metadata Profile ──────────────────────────────────────────────────
+  metadataProfile: {
+    all: ["metadataProfile"] as const,
+  },
+
   // ─── Download Clients ────────────────────────────────────────────────────
   downloadClients: {
     all: ["downloadClients"] as const,

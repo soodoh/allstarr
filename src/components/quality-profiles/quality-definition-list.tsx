@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
-import { Slider } from "src/components/ui/slider";
+import Slider from "src/components/ui/slider";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { useUpdateQualityDefinition } from "src/hooks/mutations";
 
