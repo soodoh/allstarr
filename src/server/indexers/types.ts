@@ -47,7 +47,7 @@ export type ReleaseQuality = {
   id: number;
   name: string;
   weight: number;
-  color: "green" | "blue" | "amber" | "yellow" | "gray";
+  color: "green" | "blue" | "amber" | "yellow" | "gray" | "purple" | "cyan" | "orange";
 };
 
 /** Normalized release for the UI, enriched with quality info */

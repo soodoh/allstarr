@@ -51,19 +51,36 @@ export default function QualityProfileList({
       <TableBody>
         {profiles.map((profile) => {
           const allowedItems = (profile.items || []).filter((i) => i.allowed);
+          const cutoffItem = profile.cutoff
+            ? allowedItems.find((i) => i.quality.id === profile.cutoff)
+            : null;
           return (
             <TableRow key={profile.id}>
               <TableCell className="font-medium">{profile.name}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {allowedItems.map((item) => (
-                    <Badge key={item.quality.id} variant="secondary">
+                    <Badge
+                      key={item.quality.id}
+                      variant="secondary"
+                      className={
+                        profile.cutoff === item.quality.id
+                          ? "border-blue-500 bg-blue-500/20 text-blue-400"
+                          : ""
+                      }
+                    >
                       {item.quality.name}
                     </Badge>
                   ))}
                 </div>
               </TableCell>
-              <TableCell>{profile.upgradeAllowed ? "Yes" : "No"}</TableCell>
+              <TableCell>
+                {(() => {
+                  if (!profile.upgradeAllowed) {return "No";}
+                  if (cutoffItem) {return `Until ${cutoffItem.quality.name}`;}
+                  return "Yes";
+                })()}
+              </TableCell>
               <TableCell>
                 <div className="flex gap-1">
                   <Button

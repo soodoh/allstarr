@@ -7,6 +7,8 @@ import {
   history,
   books,
   booksAuthors,
+  authors,
+  qualityProfiles,
 } from "src/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { requireAuth } from "./middleware";
@@ -18,11 +20,47 @@ import {
   grabReleaseSchema,
 } from "src/lib/validators";
 import * as prowlarrHttp from "./indexers/http";
-import { enrichRelease } from "./indexers/quality-parser";
+import { enrichRelease, getProfileWeight } from "./indexers/quality-parser";
 import getProvider from "./download-clients/registry";
 import type { IndexerRelease } from "./indexers/types";
 import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
+
+type ProfileItem = { quality: { id: number }; allowed: boolean };
+
+/** Look up the quality profile items for a book's primary author */
+function getProfileItemsForBook(
+  bookId: number,
+): ProfileItem[] | null {
+  const bookAuthor = db
+    .select({ authorId: booksAuthors.authorId })
+    .from(booksAuthors)
+    .where(
+      and(
+        eq(booksAuthors.bookId, bookId),
+        eq(booksAuthors.isPrimary, true),
+      ),
+    )
+    .get();
+
+  if (!bookAuthor) {return null;}
+
+  const author = db
+    .select({ qualityProfileId: authors.qualityProfileId })
+    .from(authors)
+    .where(eq(authors.id, bookAuthor.authorId))
+    .get();
+
+  if (!author?.qualityProfileId) {return null;}
+
+  const profile = db
+    .select({ items: qualityProfiles.items })
+    .from(qualityProfiles)
+    .where(eq(qualityProfiles.id, author.qualityProfileId))
+    .get();
+
+  return profile?.items ?? null;
+}
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
 
@@ -309,6 +347,21 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       if (!seen.has(release.guid)) {
         seen.add(release.guid);
         unique.push(release);
+      }
+    }
+
+    // Look up the author's quality profile for profile-aware sorting
+    const profileItems = data.bookId
+      ? getProfileItemsForBook(data.bookId)
+      : null;
+
+    // Override quality weights with profile-derived weights when available
+    if (profileItems) {
+      for (const release of unique) {
+        release.quality.weight = getProfileWeight(
+          release.quality.id,
+          profileItems,
+        );
       }
     }
 
