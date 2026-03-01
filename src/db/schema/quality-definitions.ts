@@ -1,4 +1,14 @@
+import { sql } from "drizzle-orm";
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+
+export type QualitySpecification = {
+  type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
+  value: string;
+  min?: number;
+  max?: number;
+  negate: boolean;
+  required: boolean;
+};
 
 export const qualityDefinitions = sqliteTable("quality_definitions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -9,6 +19,7 @@ export const qualityDefinitions = sqliteTable("quality_definitions", {
   preferredSize: real("preferred_size").default(0),
   color: text("color").notNull().default("gray"),
   specifications: text("specifications", { mode: "json" })
+    .$type<QualitySpecification[]>()
     .notNull()
-    .default("[]"),
+    .default(sql`'[]'`),
 });

@@ -3,11 +3,20 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
+import type { QualitySpecification } from "./schema/quality-definitions";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
 const db = drizzle(sqlite, { schema });
 
-const defaultQualityDefinitions = [
+const defaultQualityDefinitions: Array<{
+  title: string;
+  weight: number;
+  minSize: number;
+  maxSize: number;
+  preferredSize: number;
+  color: string;
+  specifications: QualitySpecification[];
+}> = [
   {
     title: "Unknown",
     weight: 1,

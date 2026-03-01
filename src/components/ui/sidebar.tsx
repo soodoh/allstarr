@@ -55,7 +55,7 @@ const SidebarContext = createContext<SidebarContextProps | undefined>(
   undefined,
 );
 
-function useSidebar(): JSX.Element {
+function useSidebar(): SidebarContextProps {
   const context = useContext(SidebarContext);
   if (!context) {
     throw new Error("useSidebar must be used within a SidebarProvider.");

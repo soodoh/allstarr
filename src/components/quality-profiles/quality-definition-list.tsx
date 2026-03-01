@@ -15,25 +15,9 @@ import Slider from "src/components/ui/slider";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { useUpdateQualityDefinition } from "src/hooks/mutations";
 
-type Specification = {
-  type: string;
-  value: string;
-  min?: number;
-  max?: number;
-  negate: boolean;
-  required: boolean;
-};
+import type { qualityDefinitions } from "src/db/schema";
 
-type QualityDefinition = {
-  id: number;
-  title: string;
-  weight: number;
-  color: string;
-  minSize: number | null;
-  maxSize: number | null;
-  preferredSize: number | null;
-  specifications: Specification[] | unknown;
-};
+type QualityDefinition = typeof qualityDefinitions.$inferSelect;
 
 type QualityDefinitionListProps = {
   definitions: QualityDefinition[];

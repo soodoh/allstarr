@@ -144,7 +144,7 @@ function FormDescription({
 function FormMessage({
   className,
   ...props
-}: ComponentProps<"p">): JSX.Element {
+}: ComponentProps<"p">): JSX.Element | null {
   const { error, formMessageId } = useFormField();
   const body = error ? String(error?.message ?? "") : props.children;
 

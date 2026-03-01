@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { downloadClients } from "src/db/schema";
+import type { DownloadClientSettings } from "src/db/schema/download-clients";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -41,7 +42,7 @@ export const createDownloadClientFn = createServerFn({ method: "POST" })
       .insert(downloadClients)
       .values({
         ...data,
-        settings: data.settings as Record<string, unknown> | null,
+        settings: data.settings as DownloadClientSettings | null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -58,7 +59,7 @@ export const updateDownloadClientFn = createServerFn({ method: "POST" })
       .update(downloadClients)
       .set({
         ...values,
-        settings: values.settings as Record<string, unknown> | null,
+        settings: values.settings as DownloadClientSettings | null,
         updatedAt: Date.now(),
       })
       .where(eq(downloadClients.id, id))

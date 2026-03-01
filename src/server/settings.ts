@@ -12,7 +12,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
     const rows = db.select().from(settings).all();
-    const map: Record<string, unknown> = {};
+    const map: Record<string, string | number | boolean | null> = {};
     for (const row of rows) {
       // Values are stored with an extra JSON.stringify wrap (see updateSettingFn).
       // Drizzle's json-mode column deserializes once on read, so string values

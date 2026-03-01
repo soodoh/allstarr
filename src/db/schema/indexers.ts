@@ -2,7 +2,7 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 export type IndexerSettings = {
   categories?: number[];
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | number[] | undefined;
 };
 
 export const indexers = sqliteTable("indexers", {
