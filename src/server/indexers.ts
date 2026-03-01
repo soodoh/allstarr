@@ -128,28 +128,27 @@ function cleanReleaseTitle(title: string): string {
 type BookInfo = { title: string; authorName: string | null };
 
 /**
- * Check whether a release title matches the expected book title and author
- * using fuzzy string matching. Returns an array of rejections (empty = pass).
+ * Check whether a release title is relevant to the expected book.
+ * Returns true if the release passes both author and title checks.
+ *
+ * Releases that fail are silently filtered out (matching Readarr behavior,
+ * where irrelevant results are dropped before the decision engine).
  *
  * Author check uses token_set_ratio (handles "Robert Jordan" vs "Jordan, Robert").
  * Title check uses max(token_set_ratio, partial_ratio) to handle extra tokens
  * and substring matching.
  */
-function checkRelevance(
+function isRelevantRelease(
   releaseTitle: string,
   bookInfo: BookInfo,
-): ReleaseRejection[] {
+): boolean {
   const cleaned = cleanReleaseTitle(releaseTitle);
-  const rejections: ReleaseRejection[] = [];
 
   // Author check
   if (bookInfo.authorName) {
     const authorScore = fuzz.token_set_ratio(bookInfo.authorName, cleaned);
     if (authorScore < 75) {
-      rejections.push({
-        reason: "wrongAuthor",
-        message: `Author '${bookInfo.authorName}' not found in release (score: ${authorScore}%)`,
-      });
+      return false;
     }
   }
 
@@ -160,21 +159,17 @@ function checkRelevance(
     const partialScore = fuzz.partial_ratio(trimmedTitle, cleaned);
     const titleScore = Math.max(tokenSetScore, partialScore);
     if (titleScore < 80) {
-      rejections.push({
-        reason: "titleMismatch",
-        message: `Title '${bookInfo.title}' does not match release (score: ${titleScore}%)`,
-      });
+      return false;
     }
   }
 
-  return rejections;
+  return true;
 }
 
 /** Compute rejections and format score for a release against the author's profiles */
 function computeReleaseMetrics(
   release: IndexerRelease,
   profiles: ProfileInfo[] | null,
-  bookInfo: BookInfo | null,
 ): {
   rejections: ReleaseRejection[];
   formatScore: number;
@@ -182,11 +177,6 @@ function computeReleaseMetrics(
 } {
   const rejections: ReleaseRejection[] = [];
   const formatScoreDetails: FormatScoreDetail[] = [];
-
-  // Title & author relevance check
-  if (bookInfo) {
-    rejections.push(...checkRelevance(release.title, bookInfo));
-  }
 
   // Unknown quality — no format definition matched
   if (release.quality.id === 0) {
@@ -417,13 +407,20 @@ function dedupeAndScoreReleases(
     }
   }
 
+  // Filter out irrelevant releases (wrong author/title) — matching Readarr
+  // behavior where the parser silently drops non-matching results before
+  // they reach the decision engine.
+  const relevant = bookInfo
+    ? unique.filter((r) => isRelevantRelease(r.title, bookInfo))
+    : unique;
+
   // Look up the author's quality profiles for scoring and rejections
   const profiles = bookId ? getProfilesForBook(bookId) : null;
   const profileItems = profiles ? unionProfileItems(profiles) : null;
 
   // Override quality weights with profile-derived weights when available
   if (profileItems) {
-    for (const release of unique) {
+    for (const release of relevant) {
       release.quality.weight = getProfileWeight(
         release.quality.id,
         profileItems,
@@ -432,15 +429,15 @@ function dedupeAndScoreReleases(
   }
 
   // Compute rejections and format scores
-  for (const release of unique) {
-    const metrics = computeReleaseMetrics(release, profiles, bookInfo);
+  for (const release of relevant) {
+    const metrics = computeReleaseMetrics(release, profiles);
     release.rejections = metrics.rejections;
     release.formatScore = metrics.formatScore;
     release.formatScoreDetails = metrics.formatScoreDetails;
   }
 
   // Sort by quality weight descending, then by size descending
-  unique.sort((a, b) => {
+  relevant.sort((a, b) => {
     const qualityDiff = b.quality.weight - a.quality.weight;
     if (qualityDiff !== 0) {
       return qualityDiff;
@@ -448,7 +445,7 @@ function dedupeAndScoreReleases(
     return b.size - a.size;
   });
 
-  return unique;
+  return relevant;
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────

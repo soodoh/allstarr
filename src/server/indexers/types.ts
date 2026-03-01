@@ -53,8 +53,6 @@ export type ReleaseQuality = {
 
 /** All possible rejection reasons */
 export type ReleaseRejectionReason =
-  | "titleMismatch"
-  | "wrongAuthor"
   | "unknownQuality"
   | "qualityNotWanted"
   | "belowMinimumSize"
