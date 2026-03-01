@@ -19,6 +19,9 @@ type Indexer = {
   port: number;
   priority: number;
   enabled: boolean;
+  enableRss: boolean;
+  enableAutomaticSearch: boolean;
+  enableInteractiveSearch: boolean;
 };
 
 type UnifiedRow =
@@ -58,7 +61,9 @@ export default function IndexerList({
           <TableHead>Name</TableHead>
           <TableHead>Host</TableHead>
           <TableHead className="w-20">Priority</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead className="w-16 text-center">RSS</TableHead>
+          <TableHead className="w-28 text-center">Auto Search</TableHead>
+          <TableHead className="w-28 text-center">Interactive</TableHead>
           <TableHead className="w-24">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -71,9 +76,41 @@ export default function IndexerList({
                 {row.data.host}:{row.data.port}
               </TableCell>
               <TableCell>{row.data.priority}</TableCell>
-              <TableCell>
-                <Badge variant={row.data.enabled ? "default" : "outline"}>
-                  {row.data.enabled ? "Enabled" : "Disabled"}
+              <TableCell className="text-center">
+                <Badge
+                  variant={
+                    row.data.enabled && row.data.enableRss
+                      ? "default"
+                      : "outline"
+                  }
+                >
+                  {row.data.enabled && row.data.enableRss ? "Yes" : "No"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center">
+                <Badge
+                  variant={
+                    row.data.enabled && row.data.enableAutomaticSearch
+                      ? "default"
+                      : "outline"
+                  }
+                >
+                  {row.data.enabled && row.data.enableAutomaticSearch
+                    ? "Yes"
+                    : "No"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center">
+                <Badge
+                  variant={
+                    row.data.enabled && row.data.enableInteractiveSearch
+                      ? "default"
+                      : "outline"
+                  }
+                >
+                  {row.data.enabled && row.data.enableInteractiveSearch
+                    ? "Yes"
+                    : "No"}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -109,13 +146,29 @@ export default function IndexerList({
                 {row.data.baseUrl}
               </TableCell>
               <TableCell>{row.data.priority}</TableCell>
-              <TableCell>
+              <TableCell className="text-center">
+                <Badge
+                  variant={row.data.enableRss ? "default" : "outline"}
+                >
+                  {row.data.enableRss ? "Yes" : "No"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center">
                 <Badge
                   variant={
                     row.data.enableAutomaticSearch ? "default" : "outline"
                   }
                 >
-                  {row.data.enableAutomaticSearch ? "Search On" : "Search Off"}
+                  {row.data.enableAutomaticSearch ? "Yes" : "No"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center">
+                <Badge
+                  variant={
+                    row.data.enableInteractiveSearch ? "default" : "outline"
+                  }
+                >
+                  {row.data.enableInteractiveSearch ? "Yes" : "No"}
                 </Badge>
               </TableCell>
               <TableCell />
