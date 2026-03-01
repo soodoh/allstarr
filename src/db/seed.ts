@@ -12,19 +12,23 @@ const defaultQualityDefinitions = [
   { title: "MOBI", weight: 3, minSize: 0, maxSize: 50, preferredSize: 5 },
   { title: "EPUB", weight: 4, minSize: 0, maxSize: 50, preferredSize: 5 },
   { title: "AZW3", weight: 5, minSize: 0, maxSize: 50, preferredSize: 5 },
-  { title: "Hardcover", weight: 6, minSize: 0, maxSize: 0, preferredSize: 0 },
-  { title: "Paperback", weight: 7, minSize: 0, maxSize: 0, preferredSize: 0 },
+  { title: "MP3", weight: 6, minSize: 0, maxSize: 2000, preferredSize: 500 },
+  { title: "M4B", weight: 7, minSize: 0, maxSize: 3000, preferredSize: 1000 },
+  { title: "FLAC", weight: 8, minSize: 0, maxSize: 5000, preferredSize: 2000 },
 ];
 
 const defaultProfile = {
   name: "Any",
   cutoff: 0,
   items: [
-    { quality: { id: 1, name: "Unknown" }, allowed: true },
-    { quality: { id: 2, name: "PDF" }, allowed: true },
-    { quality: { id: 3, name: "MOBI" }, allowed: true },
     { quality: { id: 4, name: "EPUB" }, allowed: true },
+    { quality: { id: 8, name: "FLAC" }, allowed: true },
     { quality: { id: 5, name: "AZW3" }, allowed: true },
+    { quality: { id: 7, name: "M4B" }, allowed: true },
+    { quality: { id: 3, name: "MOBI" }, allowed: true },
+    { quality: { id: 2, name: "PDF" }, allowed: true },
+    { quality: { id: 6, name: "MP3" }, allowed: true },
+    { quality: { id: 1, name: "Unknown" }, allowed: true },
   ],
   upgradeAllowed: false,
 };
@@ -54,13 +58,18 @@ const defaultSettings = [
 
 console.log("Seeding database...");
 
-// Seed quality definitions
+// Seed quality definitions (idempotent — inserts only missing titles)
 const existing = db.select().from(schema.qualityDefinitions).all();
-if (existing.length === 0) {
-  for (const def of defaultQualityDefinitions) {
+const existingTitles = new Set(existing.map((e) => e.title));
+let defsAdded = 0;
+for (const def of defaultQualityDefinitions) {
+  if (!existingTitles.has(def.title)) {
     db.insert(schema.qualityDefinitions).values(def).run();
+    defsAdded += 1;
   }
-  console.log("  Seeded quality definitions");
+}
+if (defsAdded > 0) {
+  console.log(`  Seeded ${defsAdded} quality definition(s)`);
 }
 
 // Seed default quality profile

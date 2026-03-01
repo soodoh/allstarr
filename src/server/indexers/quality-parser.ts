@@ -41,6 +41,27 @@ const QUALITY_DEFS: QualityDefinition[] = [
     color: "yellow",
     pattern: /\bpdf\b/i,
   },
+  {
+    id: 8,
+    name: "FLAC",
+    weight: 70,
+    color: "purple",
+    pattern: /\bflac\b/i,
+  },
+  {
+    id: 7,
+    name: "M4B",
+    weight: 50,
+    color: "cyan",
+    pattern: /\bm4b\b/i,
+  },
+  {
+    id: 6,
+    name: "MP3",
+    weight: 30,
+    color: "orange",
+    pattern: /\bmp3\b/i,
+  },
 ];
 
 const UNKNOWN_QUALITY: ReleaseQuality = {
@@ -122,4 +143,20 @@ export function enrichRelease(
     sizeFormatted: formatBytes(release.size),
     ageFormatted: formatAge(release.publishDate),
   };
+}
+
+type ProfileItem = { quality: { id: number }; allowed: boolean };
+
+/**
+ * Derive a quality weight from a profile's ordered items array.
+ * Items at the top of the list (lower index) are more preferred and get a
+ * higher weight.  Returns 0 for qualities not found in the profile.
+ */
+export function getProfileWeight(
+  qualityId: number,
+  items: ProfileItem[],
+): number {
+  const idx = items.findIndex((i) => i.quality.id === qualityId);
+  if (idx === -1) {return 0;}
+  return items.length - idx;
 }
