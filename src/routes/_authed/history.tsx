@@ -73,7 +73,7 @@ function HistoryPage() {
     <div>
       <PageHeader
         title="History"
-        description="Activity log for your library"
+        description="Activity log for your bookshelf"
         actions={
           <Select value={eventType} onValueChange={handleFilterChange}>
             <SelectTrigger className="w-full sm:w-48">
@@ -124,7 +124,7 @@ function HistoryPage() {
                   <TableCell>
                     {item.authorId ? (
                       <Link
-                        to="/library/authors/$authorId"
+                        to="/bookshelf/authors/$authorId"
                         params={{
                           authorId: String(item.authorId),
                         }}
@@ -139,7 +139,7 @@ function HistoryPage() {
                   <TableCell>
                     {item.bookId ? (
                       <Link
-                        to="/library/books/$bookId"
+                        to="/bookshelf/books/$bookId"
                         params={{ bookId: String(item.bookId) }}
                         className="hover:underline"
                       >

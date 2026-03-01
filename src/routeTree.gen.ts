@@ -16,7 +16,7 @@ import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedHistoryRouteImport } from './routes/_authed/history'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
-import { Route as AuthedLibraryIndexRouteImport } from './routes/_authed/library/index'
+import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
@@ -24,16 +24,16 @@ import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/set
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
-import { Route as AuthedLibraryAddRouteImport } from './routes/_authed/library/add'
+import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
-import { Route as AuthedLibraryBooksIndexRouteImport } from './routes/_authed/library/books/index'
-import { Route as AuthedLibraryAuthorsIndexRouteImport } from './routes/_authed/library/authors/index'
+import { Route as AuthedBookshelfBooksIndexRouteImport } from './routes/_authed/bookshelf/books/index'
+import { Route as AuthedBookshelfAuthorsIndexRouteImport } from './routes/_authed/bookshelf/authors/index'
 import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
 import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
 import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
 import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
-import { Route as AuthedLibraryBooksBookIdRouteImport } from './routes/_authed/library/books/$bookId'
-import { Route as AuthedLibraryAuthorsAuthorIdRouteImport } from './routes/_authed/library/authors/$authorId'
+import { Route as AuthedBookshelfBooksBookIdRouteImport } from './routes/_authed/bookshelf/books/$bookId'
+import { Route as AuthedBookshelfAuthorsAuthorIdRouteImport } from './routes/_authed/bookshelf/authors/$authorId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -69,9 +69,9 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedLibraryIndexRoute = AuthedLibraryIndexRouteImport.update({
-  id: '/library/',
-  path: '/library/',
+const AuthedBookshelfIndexRoute = AuthedBookshelfIndexRouteImport.update({
+  id: '/bookshelf/',
+  path: '/bookshelf/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -111,9 +111,9 @@ const AuthedSettingsDownloadClientsRoute =
     path: '/settings/download-clients',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedLibraryAddRoute = AuthedLibraryAddRouteImport.update({
-  id: '/library/add',
-  path: '/library/add',
+const AuthedBookshelfAddRoute = AuthedBookshelfAddRouteImport.update({
+  id: '/bookshelf/add',
+  path: '/bookshelf/add',
   getParentRoute: () => AuthedRoute,
 } as any)
 const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
@@ -121,15 +121,16 @@ const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
   path: '/api/v1/indexer/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedLibraryBooksIndexRoute = AuthedLibraryBooksIndexRouteImport.update({
-  id: '/library/books/',
-  path: '/library/books/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedLibraryAuthorsIndexRoute =
-  AuthedLibraryAuthorsIndexRouteImport.update({
-    id: '/library/authors/',
-    path: '/library/authors/',
+const AuthedBookshelfBooksIndexRoute =
+  AuthedBookshelfBooksIndexRouteImport.update({
+    id: '/bookshelf/books/',
+    path: '/bookshelf/books/',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedBookshelfAuthorsIndexRoute =
+  AuthedBookshelfAuthorsIndexRouteImport.update({
+    id: '/bookshelf/authors/',
+    path: '/bookshelf/authors/',
     getParentRoute: () => AuthedRoute,
   } as any)
 const ApiV1SystemStatusRoute = ApiV1SystemStatusRouteImport.update({
@@ -152,16 +153,16 @@ const ApiV1IndexerIdRoute = ApiV1IndexerIdRouteImport.update({
   path: '/api/v1/indexer/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedLibraryBooksBookIdRoute =
-  AuthedLibraryBooksBookIdRouteImport.update({
-    id: '/library/books/$bookId',
-    path: '/library/books/$bookId',
+const AuthedBookshelfBooksBookIdRoute =
+  AuthedBookshelfBooksBookIdRouteImport.update({
+    id: '/bookshelf/books/$bookId',
+    path: '/bookshelf/books/$bookId',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedLibraryAuthorsAuthorIdRoute =
-  AuthedLibraryAuthorsAuthorIdRouteImport.update({
-    id: '/library/authors/$authorId',
-    path: '/library/authors/$authorId',
+const AuthedBookshelfAuthorsAuthorIdRoute =
+  AuthedBookshelfAuthorsAuthorIdRouteImport.update({
+    id: '/bookshelf/authors/$authorId',
+    path: '/bookshelf/authors/$authorId',
     getParentRoute: () => AuthedRoute,
   } as any)
 
@@ -170,7 +171,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/history': typeof AuthedHistoryRoute
-  '/library/add': typeof AuthedLibraryAddRoute
+  '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
@@ -178,17 +179,17 @@ export interface FileRoutesByFullPath {
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/library/': typeof AuthedLibraryIndexRoute
+  '/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
-  '/library/authors/$authorId': typeof AuthedLibraryAuthorsAuthorIdRoute
-  '/library/books/$bookId': typeof AuthedLibraryBooksBookIdRoute
+  '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
+  '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/library/authors/': typeof AuthedLibraryAuthorsIndexRoute
-  '/library/books/': typeof AuthedLibraryBooksIndexRoute
+  '/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
+  '/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesByTo {
@@ -196,7 +197,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/history': typeof AuthedHistoryRoute
   '/': typeof AuthedIndexRoute
-  '/library/add': typeof AuthedLibraryAddRoute
+  '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
@@ -204,17 +205,17 @@ export interface FileRoutesByTo {
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/library': typeof AuthedLibraryIndexRoute
+  '/bookshelf': typeof AuthedBookshelfIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
-  '/library/authors/$authorId': typeof AuthedLibraryAuthorsAuthorIdRoute
-  '/library/books/$bookId': typeof AuthedLibraryBooksBookIdRoute
+  '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
+  '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/library/authors': typeof AuthedLibraryAuthorsIndexRoute
-  '/library/books': typeof AuthedLibraryBooksIndexRoute
+  '/bookshelf/authors': typeof AuthedBookshelfAuthorsIndexRoute
+  '/bookshelf/books': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesById {
@@ -224,7 +225,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_authed/history': typeof AuthedHistoryRoute
   '/_authed/': typeof AuthedIndexRoute
-  '/_authed/library/add': typeof AuthedLibraryAddRoute
+  '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
@@ -232,17 +233,17 @@ export interface FileRoutesById {
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/_authed/library/': typeof AuthedLibraryIndexRoute
+  '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
-  '/_authed/library/authors/$authorId': typeof AuthedLibraryAuthorsAuthorIdRoute
-  '/_authed/library/books/$bookId': typeof AuthedLibraryBooksBookIdRoute
+  '/_authed/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
+  '/_authed/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/_authed/library/authors/': typeof AuthedLibraryAuthorsIndexRoute
-  '/_authed/library/books/': typeof AuthedLibraryBooksIndexRoute
+  '/_authed/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
+  '/_authed/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRouteTypes {
@@ -252,7 +253,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/history'
-    | '/library/add'
+    | '/bookshelf/add'
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
@@ -260,17 +261,17 @@ export interface FileRouteTypes {
     | '/settings/root-folders'
     | '/system/status'
     | '/api/auth/$'
-    | '/library/'
+    | '/bookshelf/'
     | '/settings/'
     | '/system/'
-    | '/library/authors/$authorId'
-    | '/library/books/$bookId'
+    | '/bookshelf/authors/$authorId'
+    | '/bookshelf/books/$bookId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/library/authors/'
-    | '/library/books/'
+    | '/bookshelf/authors/'
+    | '/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -278,7 +279,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/history'
     | '/'
-    | '/library/add'
+    | '/bookshelf/add'
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
@@ -286,17 +287,17 @@ export interface FileRouteTypes {
     | '/settings/root-folders'
     | '/system/status'
     | '/api/auth/$'
-    | '/library'
+    | '/bookshelf'
     | '/settings'
     | '/system'
-    | '/library/authors/$authorId'
-    | '/library/books/$bookId'
+    | '/bookshelf/authors/$authorId'
+    | '/bookshelf/books/$bookId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/library/authors'
-    | '/library/books'
+    | '/bookshelf/authors'
+    | '/bookshelf/books'
     | '/api/v1/indexer'
   id:
     | '__root__'
@@ -305,7 +306,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_authed/history'
     | '/_authed/'
-    | '/_authed/library/add'
+    | '/_authed/bookshelf/add'
     | '/_authed/settings/download-clients'
     | '/_authed/settings/general'
     | '/_authed/settings/indexers'
@@ -313,17 +314,17 @@ export interface FileRouteTypes {
     | '/_authed/settings/root-folders'
     | '/_authed/system/status'
     | '/api/auth/$'
-    | '/_authed/library/'
+    | '/_authed/bookshelf/'
     | '/_authed/settings/'
     | '/_authed/system/'
-    | '/_authed/library/authors/$authorId'
-    | '/_authed/library/books/$bookId'
+    | '/_authed/bookshelf/authors/$authorId'
+    | '/_authed/bookshelf/books/$bookId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/_authed/library/authors/'
-    | '/_authed/library/books/'
+    | '/_authed/bookshelf/authors/'
+    | '/_authed/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesById: FileRoutesById
 }
@@ -390,11 +391,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/library/': {
-      id: '/_authed/library/'
-      path: '/library'
-      fullPath: '/library/'
-      preLoaderRoute: typeof AuthedLibraryIndexRouteImport
+    '/_authed/bookshelf/': {
+      id: '/_authed/bookshelf/'
+      path: '/bookshelf'
+      fullPath: '/bookshelf/'
+      preLoaderRoute: typeof AuthedBookshelfIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/api/auth/$': {
@@ -446,11 +447,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsDownloadClientsRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/library/add': {
-      id: '/_authed/library/add'
-      path: '/library/add'
-      fullPath: '/library/add'
-      preLoaderRoute: typeof AuthedLibraryAddRouteImport
+    '/_authed/bookshelf/add': {
+      id: '/_authed/bookshelf/add'
+      path: '/bookshelf/add'
+      fullPath: '/bookshelf/add'
+      preLoaderRoute: typeof AuthedBookshelfAddRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/api/v1/indexer/': {
@@ -460,18 +461,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1IndexerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/library/books/': {
-      id: '/_authed/library/books/'
-      path: '/library/books'
-      fullPath: '/library/books/'
-      preLoaderRoute: typeof AuthedLibraryBooksIndexRouteImport
+    '/_authed/bookshelf/books/': {
+      id: '/_authed/bookshelf/books/'
+      path: '/bookshelf/books'
+      fullPath: '/bookshelf/books/'
+      preLoaderRoute: typeof AuthedBookshelfBooksIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/library/authors/': {
-      id: '/_authed/library/authors/'
-      path: '/library/authors'
-      fullPath: '/library/authors/'
-      preLoaderRoute: typeof AuthedLibraryAuthorsIndexRouteImport
+    '/_authed/bookshelf/authors/': {
+      id: '/_authed/bookshelf/authors/'
+      path: '/bookshelf/authors'
+      fullPath: '/bookshelf/authors/'
+      preLoaderRoute: typeof AuthedBookshelfAuthorsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/api/v1/system/status': {
@@ -502,18 +503,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1IndexerIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/library/books/$bookId': {
-      id: '/_authed/library/books/$bookId'
-      path: '/library/books/$bookId'
-      fullPath: '/library/books/$bookId'
-      preLoaderRoute: typeof AuthedLibraryBooksBookIdRouteImport
+    '/_authed/bookshelf/books/$bookId': {
+      id: '/_authed/bookshelf/books/$bookId'
+      path: '/bookshelf/books/$bookId'
+      fullPath: '/bookshelf/books/$bookId'
+      preLoaderRoute: typeof AuthedBookshelfBooksBookIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/library/authors/$authorId': {
-      id: '/_authed/library/authors/$authorId'
-      path: '/library/authors/$authorId'
-      fullPath: '/library/authors/$authorId'
-      preLoaderRoute: typeof AuthedLibraryAuthorsAuthorIdRouteImport
+    '/_authed/bookshelf/authors/$authorId': {
+      id: '/_authed/bookshelf/authors/$authorId'
+      path: '/bookshelf/authors/$authorId'
+      fullPath: '/bookshelf/authors/$authorId'
+      preLoaderRoute: typeof AuthedBookshelfAuthorsAuthorIdRouteImport
       parentRoute: typeof AuthedRoute
     }
   }
@@ -522,39 +523,39 @@ declare module '@tanstack/react-router' {
 interface AuthedRouteChildren {
   AuthedHistoryRoute: typeof AuthedHistoryRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
-  AuthedLibraryAddRoute: typeof AuthedLibraryAddRoute
+  AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
-  AuthedLibraryIndexRoute: typeof AuthedLibraryIndexRoute
+  AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
-  AuthedLibraryAuthorsAuthorIdRoute: typeof AuthedLibraryAuthorsAuthorIdRoute
-  AuthedLibraryBooksBookIdRoute: typeof AuthedLibraryBooksBookIdRoute
-  AuthedLibraryAuthorsIndexRoute: typeof AuthedLibraryAuthorsIndexRoute
-  AuthedLibraryBooksIndexRoute: typeof AuthedLibraryBooksIndexRoute
+  AuthedBookshelfAuthorsAuthorIdRoute: typeof AuthedBookshelfAuthorsAuthorIdRoute
+  AuthedBookshelfBooksBookIdRoute: typeof AuthedBookshelfBooksBookIdRoute
+  AuthedBookshelfAuthorsIndexRoute: typeof AuthedBookshelfAuthorsIndexRoute
+  AuthedBookshelfBooksIndexRoute: typeof AuthedBookshelfBooksIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedHistoryRoute: AuthedHistoryRoute,
   AuthedIndexRoute: AuthedIndexRoute,
-  AuthedLibraryAddRoute: AuthedLibraryAddRoute,
+  AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
-  AuthedLibraryIndexRoute: AuthedLibraryIndexRoute,
+  AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
-  AuthedLibraryAuthorsAuthorIdRoute: AuthedLibraryAuthorsAuthorIdRoute,
-  AuthedLibraryBooksBookIdRoute: AuthedLibraryBooksBookIdRoute,
-  AuthedLibraryAuthorsIndexRoute: AuthedLibraryAuthorsIndexRoute,
-  AuthedLibraryBooksIndexRoute: AuthedLibraryBooksIndexRoute,
+  AuthedBookshelfAuthorsAuthorIdRoute: AuthedBookshelfAuthorsAuthorIdRoute,
+  AuthedBookshelfBooksBookIdRoute: AuthedBookshelfBooksBookIdRoute,
+  AuthedBookshelfAuthorsIndexRoute: AuthedBookshelfAuthorsIndexRoute,
+  AuthedBookshelfBooksIndexRoute: AuthedBookshelfBooksIndexRoute,
 }
 
 const AuthedRouteWithChildren =

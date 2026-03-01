@@ -94,7 +94,7 @@ function ProfilesPage() {
     <div>
       <PageHeader
         title="Quality Profiles"
-        description="Manage quality profiles for your library"
+        description="Manage quality profiles for your bookshelf"
         actions={
           <Button
             onClick={() => {

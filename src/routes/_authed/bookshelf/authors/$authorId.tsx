@@ -88,7 +88,7 @@ import NotFound from "src/components/NotFound";
 const DEFAULT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
 
-export const Route = createFileRoute("/_authed/library/authors/$authorId")({
+export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
   loader: async ({ params, context }) => {
     const id = Number(params.authorId);
     if (!Number.isFinite(id) || id <= 0) {
@@ -464,7 +464,7 @@ function BooksTab({
                     className="cursor-pointer"
                     onClick={() =>
                       navigate({
-                        to: "/library/books/$bookId",
+                        to: "/bookshelf/books/$bookId",
                         params: { bookId: String(book.id) },
                       })
                     }
@@ -967,7 +967,7 @@ function SeriesTab({
                             className="cursor-pointer"
                             onClick={() =>
                               navigate({
-                                to: "/library/books/$bookId",
+                                to: "/bookshelf/books/$bookId",
                                 params: { bookId: String(book.id) },
                               })
                             }
@@ -1211,7 +1211,7 @@ function AuthorDetailPage() {
 
   const handleDelete = () => {
     deleteAuthor.mutate(author.id, {
-      onSuccess: () => navigate({ to: "/library/authors" }),
+      onSuccess: () => navigate({ to: "/bookshelf/authors" }),
     });
   };
 
@@ -1225,7 +1225,7 @@ function AuthorDetailPage() {
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/library/authors">
+          <Link to="/bookshelf/authors">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Authors
           </Link>

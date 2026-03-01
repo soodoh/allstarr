@@ -60,7 +60,7 @@ export default function AddAuthorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Author to Library</DialogTitle>
+          <DialogTitle>Add Author to Bookshelf</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -125,7 +125,7 @@ export default function AddAuthorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Add to Library</Button>
+          <Button onClick={handleSubmit}>Add to Bookshelf</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

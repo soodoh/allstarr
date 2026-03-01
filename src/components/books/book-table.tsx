@@ -183,7 +183,7 @@ export default function BookTable({
               className="cursor-pointer"
               onClick={() =>
                 navigate({
-                  to: "/library/books/$bookId",
+                  to: "/bookshelf/books/$bookId",
                   params: { bookId: String(book.id) },
                 })
               }
