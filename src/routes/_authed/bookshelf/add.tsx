@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Search, BookOpen, Users } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
@@ -16,13 +16,6 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "src/components/ui/select";
 import { searchHardcoverFn } from "src/server/search";
 import type {
   HardcoverSearchItem,
@@ -30,12 +23,7 @@ import type {
 } from "src/server/search";
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
-import { metadataProfileQuery } from "src/lib/queries";
-import { LANGUAGE_MAP } from "src/lib/languages";
-
 export const Route = createFileRoute("/_authed/bookshelf/add")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(metadataProfileQuery()),
   component: AddToBookshelfPage,
 });
 
@@ -46,20 +34,8 @@ const resultTypeConfig = {
 } satisfies Record<HardcoverSearchMode, { label: string; description: string }>;
 
 function AddToBookshelfPage() {
-  const { data: metadataProfile } = useSuspenseQuery(metadataProfileQuery());
-  const languageOptions = useMemo(() => {
-    const options = metadataProfile.allowedLanguages.map((code) => ({
-      code,
-      name: LANGUAGE_MAP.get(code) ?? code,
-    }));
-    return [{ code: "all", name: "All Languages" }, ...options];
-  }, [metadataProfile.allowedLanguages]);
-
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
-  const [language, setLanguage] = useState(
-    metadataProfile.allowedLanguages[0] ?? "en",
-  );
   const [error, setError] = useState<string | undefined>(undefined);
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined
@@ -69,17 +45,12 @@ function AddToBookshelfPage() {
   >(undefined);
 
   const searchMutation = useMutation({
-    mutationFn: (params: {
-      query: string;
-      type: HardcoverSearchMode;
-      language: string;
-    }) =>
+    mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
       searchHardcoverFn({
         data: {
           query: params.query,
           type: params.type,
           limit: 20,
-          language: params.language,
         },
       }),
     onError: (err) => {
@@ -148,7 +119,7 @@ function AddToBookshelfPage() {
       return;
     }
     setError(undefined);
-    searchMutation.mutate({ query: trimmed, type: searchType, language });
+    searchMutation.mutate({ query: trimmed, type: searchType });
   };
 
   return (
@@ -195,27 +166,6 @@ function AddToBookshelfPage() {
               {searchMutation.isPending ? "Searching..." : "Search"}
             </Button>
           </form>
-
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="language-filter"
-              className="text-sm text-muted-foreground shrink-0"
-            >
-              Language
-            </label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Select language" />
-              </SelectTrigger>
-              <SelectContent>
-                {languageOptions.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
