@@ -19,7 +19,7 @@ export default function AuthorCard({ author }: AuthorCardProps): JSX.Element {
 
   return (
     <Link
-      to="/library/authors/$authorId"
+      to="/bookshelf/authors/$authorId"
       params={{ authorId: String(author.id) }}
       className="block group"
     >

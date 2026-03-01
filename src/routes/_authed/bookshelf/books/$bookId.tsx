@@ -57,7 +57,7 @@ import {
 import BookMonitorToggle from "src/components/hardcover/add-book-button";
 import NotFound from "src/components/NotFound";
 
-export const Route = createFileRoute("/_authed/library/books/$bookId")({
+export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
   loader: async ({ params, context }) => {
     const id = Number(params.bookId);
     if (!Number.isFinite(id) || id <= 0) {
@@ -128,7 +128,7 @@ function BookDetailPage(): JSX.Element {
     deleteBook.mutate(book.id, {
       onSuccess: () => {
         setConfirmDelete(false);
-        navigate({ to: "/library/books" });
+        navigate({ to: "/bookshelf/books" });
       },
     });
   };
@@ -143,7 +143,7 @@ function BookDetailPage(): JSX.Element {
     <div className="space-y-6">
       {/* Back button */}
       <Link
-        to="/library/books"
+        to="/bookshelf/books"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />

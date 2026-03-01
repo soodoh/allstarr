@@ -31,8 +31,8 @@ import type {
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
 
-export const Route = createFileRoute("/_authed/library/add")({
-  component: AddToLibraryPage,
+export const Route = createFileRoute("/_authed/bookshelf/add")({
+  component: AddToBookshelfPage,
 });
 
 const resultTypeConfig = {
@@ -65,7 +65,7 @@ const languageOptions = [
   { code: "he", name: "Hebrew" },
 ];
 
-function AddToLibraryPage() {
+function AddToBookshelfPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
   const [language, setLanguage] = useState("en");
@@ -117,7 +117,7 @@ function AddToLibraryPage() {
       <EmptyState
         icon={Search}
         title="Search to add"
-        description="Search for authors or books on Hardcover, then add them to your library."
+        description="Search for authors or books on Hardcover, then add them to your bookshelf."
       />
     );
   } else if (results.length === 0) {
@@ -163,15 +163,15 @@ function AddToLibraryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Add to Library"
-        description="Search Hardcover to find authors and books, then add them to your library."
+        title="Add to Bookshelf"
+        description="Search Hardcover to find authors and books, then add them to your bookshelf."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Search Hardcover</CardTitle>
           <CardDescription>
-            Find authors or books to add to your library. Click a result to
+            Find authors or books to add to your bookshelf. Click a result to
             preview and add it.
           </CardDescription>
         </CardHeader>

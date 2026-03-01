@@ -40,7 +40,7 @@ const DEFAULT_PARAMS = {
   sortDir: "desc" as const,
 };
 
-// ── Add-to-library inline form ────────────────────────────────────────────────
+// ── Add-to-bookshelf inline form ────────────────────────────────────────────────
 
 type AddFormProps = {
   fullAuthor: HardcoverAuthorDetail;
@@ -73,7 +73,7 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-      <p className="text-sm font-medium">Add to Library</p>
+      <p className="text-sm font-medium">Add to Bookshelf</p>
 
       <div className="space-y-1.5">
         <Label>Quality Profile</Label>
@@ -155,7 +155,7 @@ type AuthorPreviewModalProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-// oxlint-disable-next-line complexity -- Modal manages loading, library-status, and add-form states together
+// oxlint-disable-next-line complexity -- Modal manages loading, bookshelf-status, and add-form states together
 export default function AuthorPreviewModal({
   author,
   open,
@@ -246,7 +246,7 @@ export default function AuthorPreviewModal({
               disabled={authorLoading || !fullAuthor}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add to Library
+              Add to Bookshelf
             </Button>
             {hardcoverUrl && (
               <Button variant="outline" size="icon" asChild>
@@ -267,11 +267,11 @@ export default function AuthorPreviewModal({
           <div className="flex items-center gap-2 pt-1">
             <Button variant="secondary" className="flex-1" asChild>
               <Link
-                to="/library/authors/$authorId"
+                to="/bookshelf/authors/$authorId"
                 params={{ authorId: String(existingAuthor?.id ?? "") }}
                 onClick={() => onOpenChange(false)}
               >
-                View in library
+                View on bookshelf
               </Link>
             </Button>
             {hardcoverUrl && (

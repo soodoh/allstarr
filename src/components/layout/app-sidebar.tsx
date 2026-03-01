@@ -8,7 +8,7 @@ import {
   FolderOpen,
   Sliders,
   History,
-  Library,
+  Library as LibraryIcon,
   Plus,
   Download,
   Radar,
@@ -45,14 +45,14 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Library",
-    to: "/library",
-    icon: Library,
-    matchPrefixes: ["/library"],
+    title: "Bookshelf",
+    to: "/bookshelf",
+    icon: LibraryIcon,
+    matchPrefixes: ["/bookshelf"],
     children: [
-      { title: "Add New", to: "/library/add", icon: Plus },
-      { title: "Authors", to: "/library/authors", icon: Users },
-      { title: "Books", to: "/library/books", icon: BookOpen },
+      { title: "Add New", to: "/bookshelf/add", icon: Plus },
+      { title: "Authors", to: "/bookshelf/authors", icon: Users },
+      { title: "Books", to: "/bookshelf/books", icon: BookOpen },
     ],
   },
   {
@@ -103,7 +103,7 @@ export default function AppSidebar(): JSX.Element {
   return (
     <Sidebar>
       <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-4">
-        <Link to="/library" className="flex items-center gap-2">
+        <Link to="/bookshelf" className="flex items-center gap-2">
           <AllstarrIcon className="h-6 w-6" />
           <span className="text-lg font-bold">Allstarr</span>
         </Link>

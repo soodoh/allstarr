@@ -32,7 +32,7 @@ import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/books/book-detail-content";
 import { useImportHardcoverBook } from "src/hooks/mutations";
 
-// ── Add-to-library inline form ──────────────────────────────────────────────
+// ── Add-to-bookshelf inline form ──────────────────────────────────────────────
 
 type AddBookFormProps = {
   book: HardcoverSearchItem;
@@ -74,7 +74,7 @@ function AddBookForm({
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add Author & Monitor Book</p>
       <p className="text-xs text-muted-foreground">
-        The author and all their books will be added to your library. This book
+        The author and all their books will be added to your bookshelf. This book
         will be monitored.
       </p>
 
@@ -137,7 +137,7 @@ export default function BookPreviewModal({
 }: BookPreviewModalProps): JSX.Element {
   const foreignBookIds = book.id ? [book.id] : [];
 
-  // ── Check if book already in library ──
+  // ── Check if book already on bookshelf ──
   const { data: existingBooks = [] } = useQuery({
     ...booksExistQuery(foreignBookIds),
     enabled: open && foreignBookIds.length > 0,
@@ -248,13 +248,13 @@ export default function BookPreviewModal({
                   onOpenChange(false);
                   if (localBook) {
                     navigate({
-                      to: "/library/books/$bookId",
+                      to: "/bookshelf/books/$bookId",
                       params: { bookId: String(localBook.id) },
                     });
                   }
                 }}
               >
-                View in Library
+                View on Bookshelf
               </Button>
               {book.hardcoverUrl && (
                 <Button variant="outline" size="icon" asChild>

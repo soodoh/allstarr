@@ -20,17 +20,17 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import { authorsListQuery, booksListQuery } from "src/lib/queries";
 
-export const Route = createFileRoute("/_authed/library/")({
+export const Route = createFileRoute("/_authed/bookshelf/")({
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(authorsListQuery()),
       context.queryClient.ensureQueryData(booksListQuery()),
     ]);
   },
-  component: LibraryPage,
+  component: BookshelfPage,
 });
 
-function LibraryPage() {
+function BookshelfPage() {
   const navigate = useNavigate();
   const { data: authors } = useSuspenseQuery(authorsListQuery());
   const { data: books } = useSuspenseQuery(booksListQuery());
@@ -38,12 +38,12 @@ function LibraryPage() {
   return (
     <div>
       <PageHeader
-        title="Library"
+        title="Bookshelf"
         description="Overview of your books collection"
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Link to="/library/authors">
+        <Link to="/bookshelf/authors">
           <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -55,7 +55,7 @@ function LibraryPage() {
             <CardContent />
           </Card>
         </Link>
-        <Link to="/library/books">
+        <Link to="/bookshelf/books">
           <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -100,7 +100,7 @@ function LibraryPage() {
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() =>
                           navigate({
-                            to: "/library/authors/$authorId",
+                            to: "/bookshelf/authors/$authorId",
                             params: {
                               authorId: String(author.id),
                             },
@@ -122,7 +122,7 @@ function LibraryPage() {
                         </TableCell>
                         <TableCell>
                           <Link
-                            to="/library/authors/$authorId"
+                            to="/bookshelf/authors/$authorId"
                             params={{
                               authorId: String(author.id),
                             }}
@@ -172,7 +172,7 @@ function LibraryPage() {
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() =>
                           navigate({
-                            to: "/library/books/$bookId",
+                            to: "/bookshelf/books/$bookId",
                             params: { bookId: String(book.id) },
                           })
                         }

@@ -269,7 +269,7 @@ async function importAuthorInternal(data: {
     .where(eq(authors.foreignAuthorId, String(data.foreignAuthorId)))
     .get();
   if (existing && !existing.isStub) {
-    throw new Error("Author is already in your library.");
+    throw new Error("Author is already on your bookshelf.");
   }
 
   // ── Server-side fetch ──
@@ -293,7 +293,7 @@ async function importAuthorInternal(data: {
       .where(eq(authors.foreignAuthorId, String(data.foreignAuthorId)))
       .get();
     if (existingInTx && !existingInTx.isStub) {
-      throw new Error("Author is already in your library.");
+      throw new Error("Author is already on your bookshelf.");
     }
 
     let author: { id: number; name: string };
@@ -539,7 +539,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       .where(eq(books.foreignBookId, String(data.foreignBookId)))
       .get();
     if (existing) {
-      throw new Error("Book is already in your library.");
+      throw new Error("Book is already on your bookshelf.");
     }
 
     // Fetch book complete (book + editions + contributions)

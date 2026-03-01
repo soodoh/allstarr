@@ -1,34 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
+import { LayoutGrid, List, Users, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
-import BookTable from "src/components/books/book-table";
-import BookCard from "src/components/books/book-card";
+import AuthorTable from "src/components/authors/author-table";
+import AuthorCard from "src/components/authors/author-card";
 import EmptyState from "src/components/shared/empty-state";
 import {
-  BookTableRowsSkeleton,
-  BookCardsSkeleton,
+  AuthorTableRowsSkeleton,
+  AuthorCardsSkeleton,
 } from "src/components/shared/loading-skeleton";
-import { booksInfiniteQuery } from "src/lib/queries";
+import { authorsInfiniteQuery } from "src/lib/queries";
 
-export const Route = createFileRoute("/_authed/library/books/")({
+export const Route = createFileRoute("/_authed/bookshelf/authors/")({
   loader: ({ context }) =>
-    context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),
-  component: BooksPage,
+    context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
+  component: AuthorsPage,
 });
 
-function BooksPage() {
+function AuthorsPage() {
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useInfiniteQuery(booksInfiniteQuery(search, true));
+    useInfiniteQuery(authorsInfiniteQuery(search));
 
-  const books = useMemo(
+  const authors = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
@@ -55,16 +55,14 @@ function BooksPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  const tableBooks = useMemo(() => books, [books]);
-
   if (!isLoading && total === 0 && !search) {
     return (
       <div>
-        <PageHeader title="Books" />
+        <PageHeader title="Authors" />
         <EmptyState
-          icon={BookOpen}
-          title="No books yet"
-          description="Search Hardcover to add your first book."
+          icon={Users}
+          title="No authors yet"
+          description="Search Hardcover to add your first author."
         />
       </div>
     );
@@ -72,9 +70,9 @@ function BooksPage() {
 
   let description: string;
   if (search) {
-    description = `${total} matching editions`;
+    description = `${total} matching authors`;
   } else {
-    description = `${total} editions in your library`;
+    description = `${total} authors on your bookshelf`;
   }
 
   const showLoading = isLoading || isFetchingNextPage;
@@ -82,7 +80,7 @@ function BooksPage() {
   return (
     <div>
       <PageHeader
-        title="Books"
+        title="Authors"
         description={description}
         actions={
           <div className="flex gap-2">
@@ -110,7 +108,7 @@ function BooksPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by title, author, or series..."
+            placeholder="Search by name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -119,15 +117,15 @@ function BooksPage() {
       </div>
 
       {view === "table" ? (
-        <BookTable books={tableBooks}>
-          {showLoading && <BookTableRowsSkeleton />}
-        </BookTable>
+        <AuthorTable authors={authors}>
+          {showLoading && <AuthorTableRowsSkeleton />}
+        </AuthorTable>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {tableBooks.map((book) => (
-            <BookCard key={book.editionId} book={book} />
+          {authors.map((author) => (
+            <AuthorCard key={author.id} author={author} />
           ))}
-          {showLoading && <BookCardsSkeleton />}
+          {showLoading && <AuthorCardsSkeleton />}
         </div>
       )}
 

@@ -58,7 +58,7 @@ function RootFoldersPage() {
     <div>
       <PageHeader
         title="Root Folders"
-        description="Manage root folders for your library"
+        description="Manage root folders for your bookshelf"
         actions={
           <Button onClick={() => setDialogOpen(true)}>
             <FolderOpen className="mr-2 h-4 w-4" />

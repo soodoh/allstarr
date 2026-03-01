@@ -58,8 +58,8 @@ export function useImportHardcoverBook() {
     onSuccess: (result, _vars, context) => {
       const msg =
         result.additionalAuthorsImported > 0
-          ? `Book added to library. ${result.additionalAuthorsImported} co-author(s) also imported.`
-          : "Book added to library.";
+          ? `Book added to bookshelf. ${result.additionalAuthorsImported} co-author(s) also imported.`
+          : "Book added to bookshelf.";
       toast.success(msg, { id: context?.toastId });
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
