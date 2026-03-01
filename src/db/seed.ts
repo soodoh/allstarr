@@ -131,21 +131,38 @@ const defaultQualityDefinitions = [
   },
 ];
 
-const defaultProfile = {
-  name: "Any",
-  cutoff: 0,
-  items: [
-    { quality: { id: 4, name: "EPUB" }, allowed: true },
-    { quality: { id: 8, name: "FLAC" }, allowed: true },
-    { quality: { id: 5, name: "AZW3" }, allowed: true },
-    { quality: { id: 7, name: "M4B" }, allowed: true },
-    { quality: { id: 3, name: "MOBI" }, allowed: true },
-    { quality: { id: 2, name: "PDF" }, allowed: true },
-    { quality: { id: 6, name: "MP3" }, allowed: true },
-    { quality: { id: 1, name: "Unknown" }, allowed: true },
-  ],
-  upgradeAllowed: false,
-};
+const defaultProfiles = [
+  {
+    name: "Ebook",
+    cutoff: 0,
+    items: [
+      { quality: { id: 4, name: "EPUB" }, allowed: true },
+      { quality: { id: 5, name: "AZW3" }, allowed: true },
+      { quality: { id: 3, name: "MOBI" }, allowed: true },
+      { quality: { id: 2, name: "PDF" }, allowed: true },
+      { quality: { id: 1, name: "Unknown" }, allowed: false },
+      { quality: { id: 6, name: "MP3" }, allowed: false },
+      { quality: { id: 7, name: "M4B" }, allowed: false },
+      { quality: { id: 8, name: "FLAC" }, allowed: false },
+    ],
+    upgradeAllowed: false,
+  },
+  {
+    name: "Audiobook",
+    cutoff: 0,
+    items: [
+      { quality: { id: 6, name: "MP3" }, allowed: true },
+      { quality: { id: 7, name: "M4B" }, allowed: true },
+      { quality: { id: 8, name: "FLAC" }, allowed: true },
+      { quality: { id: 1, name: "Unknown" }, allowed: false },
+      { quality: { id: 2, name: "PDF" }, allowed: false },
+      { quality: { id: 3, name: "MOBI" }, allowed: false },
+      { quality: { id: 4, name: "EPUB" }, allowed: false },
+      { quality: { id: 5, name: "AZW3" }, allowed: false },
+    ],
+    upgradeAllowed: false,
+  },
+];
 
 const defaultSettings = [
   {
@@ -174,7 +191,7 @@ const defaultSettings = [
       allowedLanguages: ["en"],
       skipMissingReleaseDate: false,
       skipMissingIsbnAsin: false,
-      skipCompilations: false,
+      skipCompilations: true,
     }),
   },
 ];
@@ -217,11 +234,13 @@ if (defsUpdated > 0) {
   );
 }
 
-// Seed default quality profile
+// Seed default quality profiles
 const profiles = db.select().from(schema.qualityProfiles).all();
 if (profiles.length === 0) {
-  db.insert(schema.qualityProfiles).values(defaultProfile).run();
-  console.log("  Seeded default quality profile");
+  for (const profile of defaultProfiles) {
+    db.insert(schema.qualityProfiles).values(profile).run();
+  }
+  console.log(`  Seeded ${defaultProfiles.length} default quality profile(s)`);
 }
 
 // Seed default settings
