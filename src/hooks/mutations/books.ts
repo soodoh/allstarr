@@ -1,8 +1,13 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createBookFn, updateBookFn, deleteBookFn } from "src/server/books";
-import { monitorBookFn } from "src/server/import";
+import {
+  createBookFn,
+  updateBookFn,
+  deleteBookFn,
+  toggleBookMonitorFn,
+  updateEditionFn,
+} from "src/server/books";
 import { queryKeys } from "src/lib/query-keys";
 import type { createBookSchema, updateBookSchema } from "src/lib/validators";
 import type { z } from "zod";
@@ -53,15 +58,29 @@ export function useDeleteBook() {
   });
 }
 
-export function useMonitorBook() {
+export function useToggleBookMonitor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (bookId: number) => monitorBookFn({ data: { bookId } }),
+    mutationFn: (data: { bookId: number; monitor: boolean }) =>
+      toggleBookMonitorFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
-    onError: () => toast.error("Failed to monitor book"),
+    onError: () => toast.error("Failed to update monitoring"),
+  });
+}
+
+export function useUpdateEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { id: number; monitored?: boolean }) =>
+      updateEditionFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+    },
+    onError: () => toast.error("Failed to update edition"),
   });
 }

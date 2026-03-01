@@ -54,6 +54,7 @@ import {
   useDeleteBook,
   useRefreshBookMetadata,
 } from "src/hooks/mutations";
+import BookMonitorToggle from "src/components/hardcover/add-book-button";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed/library/books/$bookId")({
@@ -111,7 +112,6 @@ function BookDetailPage(): JSX.Element {
     authorId: number;
     description: string | null;
     releaseDate: string | null;
-    monitored: boolean;
   }) => {
     updateBook.mutate(
       { ...values, id: book.id },
@@ -151,6 +151,15 @@ function BookDetailPage(): JSX.Element {
       </Link>
 
       {/* Page header */}
+      <div className="flex items-start gap-3">
+        <BookMonitorToggle
+          bookId={book.id}
+          title={book.title}
+          monitored={book.monitored}
+          size="lg"
+          onToggled={() => router.invalidate()}
+        />
+        <div className="flex-1 min-w-0">
       <PageHeader
         title={book.title}
         description={
@@ -198,6 +207,8 @@ function BookDetailPage(): JSX.Element {
           </div>
         }
       />
+        </div>
+      </div>
 
       {/* Cover + Details + Description */}
       <div className="flex flex-col gap-6 xl:flex-row">
@@ -347,7 +358,6 @@ function BookDetailPage(): JSX.Element {
               authorId: book.authorId ?? 0,
               description: book.description || null,
               releaseDate: book.releaseDate || null,
-              monitored: book.monitored,
             }}
             authors={authorsList}
             onSubmit={handleUpdate}
