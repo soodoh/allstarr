@@ -26,6 +26,7 @@ import {
   getDefSizeLimits,
 } from "./indexers/quality-parser";
 import getProvider from "./download-clients/registry";
+import * as fuzz from "fuzzball";
 import type {
   IndexerRelease,
   ReleaseRejection,
@@ -98,50 +99,76 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
   return unionMap.size > 0 ? [...unionMap.values()] : null;
 }
 
-// ─── Title relevance ─────────────────────────────────────────────────────────
-
-const STOP_WORDS = new Set([
-  "the", "of", "and", "in", "to", "for", "an", "is", "it", "on",
-  "at", "by", "with", "as", "or", "from", "that", "this", "its", "no",
-]);
-
-/** Split text into lowercase alphanumeric tokens (min 2 chars) */
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 2);
-}
-
-/** Get meaningful words from a title (stop words removed) */
-function getSignificantWords(text: string): string[] {
-  return tokenize(text).filter((w) => !STOP_WORDS.has(w));
-}
+// ─── Release title cleaning & fuzzy matching ─────────────────────────────────
 
 /**
- * Check whether a release title plausibly matches the expected book.
- * Returns a rejection if all significant words from the book title
- * are NOT present in the release title.
+ * Strip noise from a release title so fuzzy matching compares meaningful text.
+ * Removes: file extensions, format tags, release group tags, year/version tags,
+ * series info in brackets, and normalizes separators to spaces.
  */
-function checkTitleRelevance(
-  releaseTitle: string,
-  bookTitle: string,
-): ReleaseRejection | null {
-  const titleWords = getSignificantWords(bookTitle);
-  // Can't meaningfully check very short/generic titles
-  if (titleWords.length === 0) {return null;}
-
-  const releaseTokens = new Set(tokenize(releaseTitle));
-  const allPresent = titleWords.every((w) => releaseTokens.has(w));
-  if (allPresent) {return null;}
-
-  return {
-    reason: "titleMismatch",
-    message: `Release does not match '${bookTitle}'`,
-  };
+function cleanReleaseTitle(title: string): string {
+  let cleaned = title;
+  // Remove file extensions
+  cleaned = cleaned.replace(/\.(epub|mobi|azw3?|pdf|cbr|cbz|fb2|lit|djvu|txt|rtf|doc|docx)$/i, "");
+  // Remove release group tags like -GROUP, [GROUP]
+  cleaned = cleaned.replace(/[-[]\w+[\]]?\s*$/, "");
+  // Remove bracketed/parenthesized metadata: [v1], (epub), [2020], {retail}, etc.
+  cleaned = cleaned.replaceAll(/[[({][^\])}\n]*[\])}]/g, "");
+  // Remove year tags like .2020. or -2020-
+  cleaned = cleaned.replaceAll(/[.\s_-](19|20)\d{2}[.\s_-]/g, " ");
+  // Remove version tags like v1, v2.1
+  cleaned = cleaned.replaceAll(/\bv\d+(\.\d+)?\b/gi, "");
+  // Normalize separators (dots, underscores, hyphens) to spaces
+  cleaned = cleaned.replaceAll(/[._-]+/g, " ");
+  // Collapse whitespace
+  cleaned = cleaned.replaceAll(/\s+/g, " ").trim();
+  return cleaned;
 }
 
 type BookInfo = { title: string; authorName: string | null };
+
+/**
+ * Check whether a release title matches the expected book title and author
+ * using fuzzy string matching. Returns an array of rejections (empty = pass).
+ *
+ * Author check uses token_set_ratio (handles "Robert Jordan" vs "Jordan, Robert").
+ * Title check uses max(token_set_ratio, partial_ratio) to handle extra tokens
+ * and substring matching.
+ */
+function checkRelevance(
+  releaseTitle: string,
+  bookInfo: BookInfo,
+): ReleaseRejection[] {
+  const cleaned = cleanReleaseTitle(releaseTitle);
+  const rejections: ReleaseRejection[] = [];
+
+  // Author check
+  if (bookInfo.authorName) {
+    const authorScore = fuzz.token_set_ratio(bookInfo.authorName, cleaned);
+    if (authorScore < 75) {
+      rejections.push({
+        reason: "wrongAuthor",
+        message: `Author '${bookInfo.authorName}' not found in release (score: ${authorScore}%)`,
+      });
+    }
+  }
+
+  // Title check — skip for very short titles that can't be meaningfully matched
+  const trimmedTitle = bookInfo.title.trim();
+  if (trimmedTitle.length >= 3) {
+    const tokenSetScore = fuzz.token_set_ratio(trimmedTitle, cleaned);
+    const partialScore = fuzz.partial_ratio(trimmedTitle, cleaned);
+    const titleScore = Math.max(tokenSetScore, partialScore);
+    if (titleScore < 80) {
+      rejections.push({
+        reason: "titleMismatch",
+        message: `Title '${bookInfo.title}' does not match release (score: ${titleScore}%)`,
+      });
+    }
+  }
+
+  return rejections;
+}
 
 /** Compute rejections and format score for a release against the author's profiles */
 function computeReleaseMetrics(
@@ -156,15 +183,9 @@ function computeReleaseMetrics(
   const rejections: ReleaseRejection[] = [];
   const formatScoreDetails: FormatScoreDetail[] = [];
 
-  // Title relevance check
+  // Title & author relevance check
   if (bookInfo) {
-    const titleRejection = checkTitleRelevance(
-      release.title,
-      bookInfo.title,
-    );
-    if (titleRejection) {
-      rejections.push(titleRejection);
-    }
+    rejections.push(...checkRelevance(release.title, bookInfo));
   }
 
   // Unknown quality — no format definition matched
