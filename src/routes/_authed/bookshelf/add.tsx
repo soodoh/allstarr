@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Search, BookOpen, Users } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
@@ -30,8 +30,12 @@ import type {
 } from "src/server/search";
 import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/hardcover/book-preview-modal";
+import { metadataProfileQuery } from "src/lib/queries";
+import { LANGUAGE_MAP } from "src/lib/languages";
 
 export const Route = createFileRoute("/_authed/bookshelf/add")({
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(metadataProfileQuery()),
   component: AddToBookshelfPage,
 });
 
@@ -41,34 +45,21 @@ const resultTypeConfig = {
   authors: { label: "Authors", description: "Only authors" },
 } satisfies Record<HardcoverSearchMode, { label: string; description: string }>;
 
-const languageOptions = [
-  { code: "all", name: "All Languages" },
-  { code: "en", name: "English" },
-  { code: "es", name: "Spanish" },
-  { code: "fr", name: "French" },
-  { code: "de", name: "German" },
-  { code: "it", name: "Italian" },
-  { code: "pt", name: "Portuguese" },
-  { code: "nl", name: "Dutch" },
-  { code: "ru", name: "Russian" },
-  { code: "ja", name: "Japanese" },
-  { code: "zh", name: "Chinese" },
-  { code: "ko", name: "Korean" },
-  { code: "sv", name: "Swedish" },
-  { code: "pl", name: "Polish" },
-  { code: "ar", name: "Arabic" },
-  { code: "tr", name: "Turkish" },
-  { code: "cs", name: "Czech" },
-  { code: "da", name: "Danish" },
-  { code: "fi", name: "Finnish" },
-  { code: "no", name: "Norwegian" },
-  { code: "he", name: "Hebrew" },
-];
-
 function AddToBookshelfPage() {
+  const { data: metadataProfile } = useSuspenseQuery(metadataProfileQuery());
+  const languageOptions = useMemo(() => {
+    const options = metadataProfile.allowedLanguages.map((code) => ({
+      code,
+      name: LANGUAGE_MAP.get(code) ?? code,
+    }));
+    return [{ code: "all", name: "All Languages" }, ...options];
+  }, [metadataProfile.allowedLanguages]);
+
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState(
+    metadataProfile.allowedLanguages[0] ?? "en",
+  );
   const [error, setError] = useState<string | undefined>(undefined);
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined

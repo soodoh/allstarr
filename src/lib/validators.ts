@@ -66,6 +66,16 @@ export const updateSettingSchema = z.object({
   value: z.unknown(),
 });
 
+// Metadata Profile
+export const metadataProfileSchema = z.object({
+  allowedLanguages: z
+    .array(z.string())
+    .min(1, "At least one language required"),
+  skipMissingReleaseDate: z.boolean().default(false),
+  skipMissingIsbnAsin: z.boolean().default(false),
+  skipCompilations: z.boolean().default(false),
+});
+
 // Authors
 export const createAuthorSchema = z.object({
   name: z.string().min(1, "Name is required"),

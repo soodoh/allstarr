@@ -1,8 +1,12 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
-// oxlint-disable import/prefer-default-export -- barrel-imported; default export would break re-exports
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { regenerateApiKeyFn, updateSettingFn } from "src/server/settings";
+import {
+  regenerateApiKeyFn,
+  updateSettingFn,
+  updateMetadataProfileFn,
+} from "src/server/settings";
+import type { MetadataProfile } from "src/server/settings";
 import { queryKeys } from "src/lib/query-keys";
 
 type SettingEntry = { key: string; value: string };
@@ -36,5 +40,20 @@ export function useRegenerateApiKey() {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
     },
     onError: () => toast.error("Failed to regenerate API key"),
+  });
+}
+
+export function useUpdateMetadataProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (profile: MetadataProfile) =>
+      updateMetadataProfileFn({ data: profile }),
+    onSuccess: () => {
+      toast.success("Metadata profile saved");
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.metadataProfile.all,
+      });
+    },
+    onError: () => toast.error("Failed to save metadata profile"),
   });
 }

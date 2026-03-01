@@ -75,6 +75,7 @@ import type { HardcoverSearchItem } from "src/server/search";
 import {
   authorDetailQuery,
   hardcoverSeriesCompleteQuery,
+  metadataProfileQuery,
   qualityProfilesListQuery,
   rootFoldersListQuery,
 } from "src/lib/queries";
@@ -99,6 +100,7 @@ export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
       context.queryClient.ensureQueryData(authorDetailQuery(id)),
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(rootFoldersListQuery()),
+      context.queryClient.ensureQueryData(metadataProfileQuery()),
     ]);
   },
   component: AuthorPage,
@@ -1154,6 +1156,7 @@ function AuthorDetailPage() {
     qualityProfilesListQuery(),
   );
   const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
+  const { data: metadataProfile } = useSuspenseQuery(metadataProfileQuery());
 
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
   const [editOpen, setEditOpen] = useState(false);
@@ -1171,10 +1174,14 @@ function AuthorDetailPage() {
     () => (author?.series ?? []) as AuthorSeries[],
     [author?.series],
   );
-  const availableLanguages = useMemo(
-    () => (author?.availableLanguages ?? []) as LanguageOption[],
-    [author?.availableLanguages],
-  );
+  const availableLanguages = useMemo(() => {
+    const all = (author?.availableLanguages ?? []) as LanguageOption[];
+    const allowedSet = new Set(metadataProfile.allowedLanguages);
+    // Intersect: only show languages that are both available on the author AND in the allowed list
+    const filtered = all.filter((l) => allowedSet.has(l.languageCode));
+    // If nothing remains (e.g., allowed languages don't overlap with author's), fall back to all
+    return filtered.length > 0 ? filtered : all;
+  }, [author?.availableLanguages, metadataProfile.allowedLanguages]);
 
   if (!author) {
     return <NotFound />;

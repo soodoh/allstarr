@@ -7,6 +7,7 @@ import {
   Settings,
   FolderOpen,
   Sliders,
+  FileText,
   History,
   Library as LibraryIcon,
   Plus,
@@ -62,6 +63,7 @@ const navGroups: NavGroup[] = [
     matchPrefixes: ["/settings"],
     children: [
       { title: "General", to: "/settings/general", icon: Settings },
+      { title: "Metadata", to: "/settings/metadata", icon: FileText },
       { title: "Profiles", to: "/settings/profiles", icon: Sliders },
       { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
       {

@@ -21,6 +21,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
+import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
@@ -93,6 +94,11 @@ const AuthedSettingsRootFoldersRoute =
 const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
   id: '/settings/profiles',
   path: '/settings/profiles',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsMetadataRoute = AuthedSettingsMetadataRouteImport.update({
+  id: '/settings/metadata',
+  path: '/settings/metadata',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
+    | '/settings/metadata'
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/system/status'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
+    | '/settings/metadata'
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/system/status'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/download-clients'
     | '/_authed/settings/general'
     | '/_authed/settings/indexers'
+    | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
     | '/_authed/settings/root-folders'
     | '/_authed/system/status'
@@ -426,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsProfilesRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/metadata': {
+      id: '/_authed/settings/metadata'
+      path: '/settings/metadata'
+      fullPath: '/settings/metadata'
+      preLoaderRoute: typeof AuthedSettingsMetadataRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/indexers': {
       id: '/_authed/settings/indexers'
       path: '/settings/indexers'
@@ -527,6 +546,7 @@ interface AuthedRouteChildren {
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
+  AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
@@ -546,6 +566,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
+  AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,

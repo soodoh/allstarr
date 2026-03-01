@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Settings, Sliders, FolderOpen, Download, Radar } from "lucide-react";
+import {
+  Settings,
+  Sliders,
+  FolderOpen,
+  Download,
+  Radar,
+  FileText,
+} from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -20,6 +27,12 @@ const settingsItems = [
     icon: Settings,
     description:
       "Configure naming templates, log levels, and global app behavior.",
+  },
+  {
+    title: "Metadata",
+    to: "/settings/metadata" as const,
+    icon: FileText,
+    description: "Configure language preferences and book import filters.",
   },
   {
     title: "Profiles",
