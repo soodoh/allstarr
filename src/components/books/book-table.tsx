@@ -22,6 +22,10 @@ import type { BookAuthorEntry } from "src/components/books/additional-authors";
 type Book = {
   id: number;
   title: string;
+  editionId: number;
+  editionTitle: string;
+  editionImages: Array<{ url: string; coverType: string }> | null;
+  language: string | null;
   bookAuthors: BookAuthorEntry[];
   authorName: string | null;
   releaseDate: string | null;
@@ -42,6 +46,7 @@ type SortKey =
   | "authorName"
   | "releaseDate"
   | "series"
+  | "language"
   | "rating"
   | "readers";
 
@@ -77,6 +82,10 @@ function compareBooks(
     cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
   } else if (key === "series") {
     cmp = compareSeries(a, b);
+  } else if (key === "title") {
+    cmp = (a.editionTitle ?? "").localeCompare(b.editionTitle ?? "");
+  } else if (key === "language") {
+    cmp = (a.language ?? "").localeCompare(b.language ?? "");
   } else {
     const av = a[key] ?? "";
     const bv = b[key] ?? "";
@@ -134,6 +143,7 @@ export default function BookTable({
         <col />
         <col />
         <col />
+        <col />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -144,6 +154,7 @@ export default function BookTable({
               { key: "authorName", label: "Author" },
               { key: "releaseDate", label: "Release Date" },
               { key: "series", label: "Series" },
+              { key: "language", label: "Language" },
               { key: "readers", label: "Readers" },
               { key: "rating", label: "Rating" },
             ] as Array<{ key: SortKey | undefined; label: string }>
@@ -165,10 +176,10 @@ export default function BookTable({
       </TableHeader>
       <TableBody>
         {sorted.map((book) => {
-          const bookImage = book.images?.[0]?.url;
+          const coverImage = (book.editionImages ?? book.images)?.[0]?.url;
           return (
             <TableRow
-              key={book.id}
+              key={book.editionId}
               className="cursor-pointer"
               onClick={() =>
                 navigate({
@@ -178,10 +189,10 @@ export default function BookTable({
               }
             >
               <TableCell>
-                {bookImage ? (
+                {coverImage ? (
                   <img
-                    src={bookImage}
-                    alt={book.title}
+                    src={coverImage}
+                    alt={book.editionTitle}
                     className="aspect-[2/3] w-full rounded-sm object-cover"
                   />
                 ) : (
@@ -190,7 +201,7 @@ export default function BookTable({
                   </div>
                 )}
               </TableCell>
-              <TableCell className="font-medium">{book.title}</TableCell>
+              <TableCell className="font-medium">{book.editionTitle}</TableCell>
               <TableCell>
                 <AdditionalAuthors bookAuthors={book.bookAuthors} />
                 {book.bookAuthors.length === 0 && book.authorName}
@@ -205,6 +216,7 @@ export default function BookTable({
                       .join(", ")
                   : "—"}
               </TableCell>
+              <TableCell>{book.language || "—"}</TableCell>
               <TableCell>
                 {book.usersCount ? book.usersCount.toLocaleString() : "—"}
               </TableCell>

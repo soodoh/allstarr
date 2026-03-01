@@ -72,9 +72,9 @@ function BooksPage() {
 
   let description: string;
   if (search) {
-    description = `${total} matching books`;
+    description = `${total} matching editions`;
   } else {
-    description = `${total} books in your library`;
+    description = `${total} editions in your library`;
   }
 
   const showLoading = isLoading || isFetchingNextPage;
@@ -125,7 +125,7 @@ function BooksPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {tableBooks.map((book) => (
-            <BookCard key={book.id} book={book} />
+            <BookCard key={book.editionId} book={book} />
           ))}
           {showLoading && <BookCardsSkeleton />}
         </div>
