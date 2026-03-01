@@ -7,10 +7,10 @@ import {
   history,
   books,
   booksAuthors,
-  authors,
+  authorQualityProfiles,
   qualityProfiles,
 } from "src/db/schema";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createIndexerSchema,
@@ -28,7 +28,7 @@ import type { ConnectionConfig } from "./download-clients/types";
 
 type ProfileItem = { quality: { id: number }; allowed: boolean };
 
-/** Look up the quality profile items for a book's primary author */
+/** Look up the quality profile items for a book's primary author (union of all profiles) */
 function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
   const bookAuthor = db
     .select({ authorId: booksAuthors.authorId })
@@ -38,27 +38,40 @@ function getProfileItemsForBook(bookId: number): ProfileItem[] | null {
     )
     .get();
 
-  if (!bookAuthor) {
+  if (!bookAuthor?.authorId) {
     return null;
   }
 
-  const author = db
-    .select({ qualityProfileId: authors.qualityProfileId })
-    .from(authors)
-    .where(eq(authors.id, bookAuthor.authorId))
-    .get();
+  // Get all quality profile IDs for this author via join table
+  const profileLinks = db
+    .select({ qualityProfileId: authorQualityProfiles.qualityProfileId })
+    .from(authorQualityProfiles)
+    .where(eq(authorQualityProfiles.authorId, bookAuthor.authorId))
+    .all();
 
-  if (!author?.qualityProfileId) {
+  if (profileLinks.length === 0) {
     return null;
   }
 
-  const profile = db
+  const profileIds = profileLinks.map((l) => l.qualityProfileId);
+  const profiles = db
     .select({ items: qualityProfiles.items })
     .from(qualityProfiles)
-    .where(eq(qualityProfiles.id, author.qualityProfileId))
-    .get();
+    .where(inArray(qualityProfiles.id, profileIds))
+    .all();
 
-  return profile?.items ?? null;
+  // Union: a quality is allowed if ANY profile allows it
+  const unionMap = new Map<number, ProfileItem>();
+  for (const profile of profiles) {
+    for (const item of profile.items ?? []) {
+      const existing = unionMap.get(item.quality.id);
+      if (!existing || (!existing.allowed && item.allowed)) {
+        unionMap.set(item.quality.id, item);
+      }
+    }
+  }
+
+  return unionMap.size > 0 ? [...unionMap.values()] : null;
 }
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────

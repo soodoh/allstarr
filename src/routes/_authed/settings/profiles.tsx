@@ -17,6 +17,7 @@ import QualityDefinitionForm from "src/components/quality-profiles/quality-defin
 import {
   qualityProfilesListQuery,
   qualityDefinitionsListQuery,
+  rootFoldersListQuery,
 } from "src/lib/queries";
 import {
   useCreateQualityProfile,
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/_authed/settings/profiles")({
     await Promise.all([
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(qualityDefinitionsListQuery()),
+      context.queryClient.ensureQueryData(rootFoldersListQuery()),
     ]);
   },
   component: ProfilesPage,
@@ -40,6 +42,7 @@ export const Route = createFileRoute("/_authed/settings/profiles")({
 function ProfilesPage() {
   const { data: profiles } = useSuspenseQuery(qualityProfilesListQuery());
   const { data: definitions } = useSuspenseQuery(qualityDefinitionsListQuery());
+  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
   const createProfile = useCreateQualityProfile();
   const updateProfile = useUpdateQualityProfile();
@@ -66,6 +69,7 @@ function ProfilesPage() {
   // Profile handlers
   const handleCreateProfile = (values: {
     name: string;
+    rootFolderPath: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
@@ -77,6 +81,7 @@ function ProfilesPage() {
 
   const handleUpdateProfile = (values: {
     name: string;
+    rootFolderPath: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
     upgradeAllowed: boolean;
@@ -231,6 +236,7 @@ function ProfilesPage() {
               editingProfile
                 ? {
                     name: editingProfile.name,
+                    rootFolderPath: editingProfile.rootFolderPath,
                     cutoff: editingProfile.cutoff,
                     items:
                       (editingProfile.items as Array<{
@@ -242,6 +248,7 @@ function ProfilesPage() {
                 : undefined
             }
             qualityDefinitions={definitions}
+            rootFolders={rootFolders}
             onSubmit={
               editingProfile ? handleUpdateProfile : handleCreateProfile
             }

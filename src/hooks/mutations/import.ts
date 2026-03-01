@@ -11,14 +11,12 @@ import { queryKeys } from "src/lib/query-keys";
 
 export type ImportAuthorData = {
   foreignAuthorId: number;
-  qualityProfileId: number | null;
-  rootFolderPath: string | null;
+  qualityProfileIds: number[];
 };
 
 export type ImportBookData = {
   foreignBookId: number;
-  qualityProfileId: number | null;
-  rootFolderPath: string | null;
+  qualityProfileIds: number[];
 };
 
 export function useImportHardcoverAuthor() {

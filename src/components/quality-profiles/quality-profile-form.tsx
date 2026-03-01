@@ -39,13 +39,16 @@ type QualityItem = {
 type QualityProfileFormProps = {
   initialValues?: {
     name: string;
+    rootFolderPath: string;
     cutoff: number;
     items: QualityItem[];
     upgradeAllowed: boolean;
   };
   qualityDefinitions: Array<{ id: number; title: string }>;
+  rootFolders: Array<{ id: number; path: string }>;
   onSubmit: (values: {
     name: string;
+    rootFolderPath: string;
     cutoff: number;
     items: QualityItem[];
     upgradeAllowed: boolean;
@@ -105,11 +108,15 @@ function SortableQualityItem({
 export default function QualityProfileForm({
   initialValues,
   qualityDefinitions,
+  rootFolders,
   onSubmit,
   onCancel,
   loading,
 }: QualityProfileFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
+  const [rootFolderPath, setRootFolderPath] = useState(
+    initialValues?.rootFolderPath || "",
+  );
   const [upgradeAllowed, setUpgradeAllowed] = useState(
     initialValues?.upgradeAllowed || false,
   );
@@ -172,6 +179,7 @@ export default function QualityProfileForm({
     e.preventDefault();
     onSubmit({
       name,
+      rootFolderPath,
       cutoff: upgradeAllowed ? cutoff : 0,
       items,
       upgradeAllowed,
@@ -191,6 +199,22 @@ export default function QualityProfileForm({
           placeholder="Profile name"
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="root-folder">Root Folder</Label>
+        <Select value={rootFolderPath} onValueChange={setRootFolderPath}>
+          <SelectTrigger id="root-folder" className="w-full">
+            <SelectValue placeholder="Select root folder" />
+          </SelectTrigger>
+          <SelectContent>
+            {rootFolders.map((f) => (
+              <SelectItem key={f.id} value={f.path}>
+                {f.path}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center gap-2">

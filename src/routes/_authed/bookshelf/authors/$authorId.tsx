@@ -77,7 +77,6 @@ import {
   hardcoverSeriesCompleteQuery,
   metadataProfileQuery,
   qualityProfilesListQuery,
-  rootFoldersListQuery,
 } from "src/lib/queries";
 import {
   useUpdateAuthor,
@@ -99,7 +98,6 @@ export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
     await Promise.all([
       context.queryClient.ensureQueryData(authorDetailQuery(id)),
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
-      context.queryClient.ensureQueryData(rootFoldersListQuery()),
       context.queryClient.ensureQueryData(metadataProfileQuery()),
     ]);
   },
@@ -1155,7 +1153,6 @@ function AuthorDetailPage() {
   const { data: qualityProfiles } = useSuspenseQuery(
     qualityProfilesListQuery(),
   );
-  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
   const { data: metadataProfile } = useSuspenseQuery(metadataProfileQuery());
 
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
@@ -1202,8 +1199,7 @@ function AuthorDetailPage() {
     name: string;
     sortName: string;
     status: string;
-    qualityProfileId: number | null;
-    rootFolderPath: string | null;
+    qualityProfileIds: number[];
   }) => {
     updateAuthor.mutate(
       { ...values, id: author.id },
@@ -1385,11 +1381,9 @@ function AuthorDetailPage() {
               name: author.name,
               sortName: author.sortName,
               status: author.status,
-              qualityProfileId: author.qualityProfileId || null,
-              rootFolderPath: author.rootFolderPath || null,
+              qualityProfileIds: author.qualityProfileIds ?? [],
             }}
             qualityProfiles={qualityProfiles}
-            rootFolders={rootFolders}
             onSubmit={handleUpdate}
             onCancel={() => setEditOpen(false)}
             loading={updateAuthor.isPending}

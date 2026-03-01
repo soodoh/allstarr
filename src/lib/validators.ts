@@ -11,6 +11,7 @@ export const qualityItemSchema = z.object({
 
 export const createQualityProfileSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  rootFolderPath: z.string().min(1, "Root folder is required"),
   cutoff: z.number().default(0),
   items: z.array(qualityItemSchema).default([]),
   upgradeAllowed: z.boolean().default(false),
@@ -85,8 +86,7 @@ export const createAuthorSchema = z.object({
   bornYear: z.number().nullable(),
   deathYear: z.number().nullable(),
   status: z.string().default("continuing"),
-  qualityProfileId: z.number().nullable(),
-  rootFolderPath: z.string().nullable(),
+  qualityProfileIds: z.array(z.number()).default([]),
   foreignAuthorId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))

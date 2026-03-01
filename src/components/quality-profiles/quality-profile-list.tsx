@@ -14,6 +14,7 @@ import { Badge } from "src/components/ui/badge";
 type QualityProfile = {
   id: number;
   name: string;
+  rootFolderPath: string;
   cutoff: number;
   items: { quality: { id: number; name: string }; allowed: boolean }[] | null;
   upgradeAllowed: boolean;
@@ -43,6 +44,7 @@ export default function QualityProfileList({
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
+          <TableHead>Root Folder</TableHead>
           <TableHead>Qualities</TableHead>
           <TableHead>Upgrades</TableHead>
           <TableHead className="w-24">Actions</TableHead>
@@ -57,6 +59,9 @@ export default function QualityProfileList({
           return (
             <TableRow key={profile.id}>
               <TableCell className="font-medium">{profile.name}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {profile.rootFolderPath || "—"}
+              </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {allowedItems.map((item) => (
