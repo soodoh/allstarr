@@ -27,6 +27,7 @@ type ClientConfigEntry = {
     watchFolder: boolean;
   };
   hideHostPort?: boolean;
+  defaultUrlBase?: string;
 };
 
 const CLIENT_CONFIGS: Record<ImplementationType, ClientConfigEntry> = {
@@ -63,6 +64,7 @@ const CLIENT_CONFIGS: Record<ImplementationType, ClientConfigEntry> = {
   rTorrent: {
     protocol: "torrent",
     defaultPort: 8080,
+    defaultUrlBase: "/RPC2",
     fields: {
       username: true,
       password: true,
@@ -325,7 +327,9 @@ export default function DownloadClientForm({
     initialValues?.port ?? clientConfig.defaultPort,
   );
   const [useSsl, setUseSsl] = useState(initialValues?.useSsl ?? false);
-  const [urlBase, setUrlBase] = useState(initialValues?.urlBase ?? "");
+  const [urlBase, setUrlBase] = useState(
+    initialValues?.urlBase ?? clientConfig.defaultUrlBase ?? "",
+  );
   const [username, setUsername] = useState(initialValues?.username ?? "");
   const [password, setPassword] = useState(initialValues?.password ?? "");
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? "");
