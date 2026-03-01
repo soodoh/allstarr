@@ -14,7 +14,6 @@ export const books = sqliteTable("books", {
   description: text("description"),
   releaseDate: text("release_date"),
   releaseYear: integer("release_year"),
-  monitored: integer("monitored", { mode: "boolean" }).notNull().default(false),
   foreignBookId: text("foreign_book_id"),
   images: text("images", { mode: "json" }).$type<
     Array<{ url: string; coverType: string }>

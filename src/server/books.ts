@@ -9,7 +9,17 @@ import {
   series,
   seriesBookLinks,
 } from "src/db/schema";
-import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
+import {
+  eq,
+  desc,
+  inArray,
+  like,
+  or,
+  and,
+  exists,
+  sql,
+  asc,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -33,7 +43,6 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
-        monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
         rating: books.rating,
@@ -51,7 +60,19 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
           eq(booksAuthors.isPrimary, true),
         ),
       )
-      .where(eq(books.monitored, true))
+      .where(
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(editions)
+            .where(
+              and(
+                eq(editions.bookId, books.id),
+                eq(editions.monitored, true),
+              ),
+            ),
+        ),
+      )
       .orderBy(desc(books.usersCount))
       .all();
 
@@ -123,7 +144,6 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
-        monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
         rating: books.rating,
@@ -163,7 +183,20 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     const conditions: SQL[] = [];
 
     if (data.monitored !== undefined) {
-      conditions.push(eq(books.monitored, data.monitored));
+      const hasMonitoredEdition = exists(
+        db
+          .select({ one: sql`1` })
+          .from(editions)
+          .where(
+            and(
+              eq(editions.bookId, books.id),
+              eq(editions.monitored, true),
+            ),
+          ),
+      );
+      conditions.push(
+        data.monitored ? hasMonitoredEdition : sql`NOT ${hasMonitoredEdition}`,
+      );
     }
 
     if (data.search) {
@@ -288,7 +321,6 @@ export const getBookFn = createServerFn({ method: "GET" })
         description: books.description,
         releaseDate: books.releaseDate,
         releaseYear: books.releaseYear,
-        monitored: books.monitored,
         foreignBookId: books.foreignBookId,
         images: books.images,
         rating: books.rating,
@@ -356,6 +388,7 @@ export const getBookFn = createServerFn({ method: "GET" })
 
     return {
       ...book,
+      monitored: bookEditions.some((e) => e.monitored),
       authorId,
       authorName,
       bookAuthors: bookAuthorEntries,
@@ -509,6 +542,60 @@ export const deleteBookFn = createServerFn({ method: "POST" })
     }
 
     return { success: true };
+  });
+
+// Toggle book monitoring at the edition level
+export const toggleBookMonitorFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { bookId: number; monitor: boolean }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    if (data.monitor) {
+      // Monitor: set monitored=true on the default cover edition (or first by readers)
+      const defaultEdition = db
+        .select({ id: editions.id })
+        .from(editions)
+        .where(
+          and(
+            eq(editions.bookId, data.bookId),
+            eq(editions.isDefaultCover, true),
+          ),
+        )
+        .get();
+
+      const targetEdition =
+        defaultEdition ??
+        db
+          .select({ id: editions.id })
+          .from(editions)
+          .where(eq(editions.bookId, data.bookId))
+          .orderBy(desc(editions.usersCount))
+          .limit(1)
+          .get();
+
+      if (targetEdition) {
+        db.update(editions)
+          .set({ monitored: true })
+          .where(eq(editions.id, targetEdition.id))
+          .run();
+      }
+    } else {
+      // Unmonitor: set monitored=false on ALL editions for this book
+      db.update(editions)
+        .set({ monitored: false })
+        .where(eq(editions.bookId, data.bookId))
+        .run();
+    }
+
+    db.insert(history)
+      .values({
+        eventType: "bookUpdated",
+        bookId: data.bookId,
+        data: { action: data.monitor ? "monitored" : "unmonitored" },
+      })
+      .run();
+
+    return { bookId: data.bookId };
   });
 
 // Editions

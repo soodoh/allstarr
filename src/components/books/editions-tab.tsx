@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import {
+  BookMarked,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -16,6 +18,8 @@ import {
 } from "src/components/ui/table";
 import { TabsContent } from "src/components/ui/tabs";
 import TablePagination from "src/components/shared/table-pagination";
+import { cn } from "src/lib/utils";
+import { useUpdateEdition } from "src/hooks/mutations";
 
 type Edition = {
   id: number;
@@ -34,6 +38,7 @@ type Edition = {
   country: string | null;
   usersCount: number | null;
   score: number | null;
+  monitored: boolean;
   images: Array<{ url: string; coverType: string }> | null;
 };
 
@@ -109,6 +114,8 @@ export default function EditionsTab({
   const [sortBy, setSortBy] = useState<EditionSortKey>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  const updateEdition = useUpdateEdition();
+
   const handleSort = (key: EditionSortKey) => {
     if (sortBy === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -169,6 +176,7 @@ export default function EditionsTab({
       <div className="overflow-auto flex-1 min-h-0">
         <Table className="min-w-max">
           <colgroup>
+            <col className="w-8" />
             <col className="w-14" />
             {EDITION_COLUMNS.map((col) => (
               <col key={col.key} />
@@ -176,6 +184,7 @@ export default function EditionsTab({
           </colgroup>
           <TableHeader>
             <TableRow>
+              <TableHead />
               <TableHead />
               {EDITION_COLUMNS.map(({ key, label }) => (
                 <TableHead
@@ -195,6 +204,35 @@ export default function EditionsTab({
                 const coverUrl = edition.images?.[0]?.url;
                 return (
                   <TableRow key={edition.id}>
+                    <TableCell className="px-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateEdition.mutate({
+                            id: edition.id,
+                            monitored: !edition.monitored,
+                          })
+                        }
+                        disabled={updateEdition.isPending}
+                        aria-label={
+                          edition.monitored
+                            ? `Unmonitor edition "${edition.title}"`
+                            : `Monitor edition "${edition.title}"`
+                        }
+                        className={cn(
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
+                          edition.monitored
+                            ? "bg-primary/15 text-primary cursor-pointer hover:bg-destructive/15 hover:text-destructive"
+                            : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
+                        )}
+                      >
+                        {updateEdition.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <BookMarked className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </TableCell>
                     <TableCell>
                       {coverUrl ? (
                         <img
@@ -212,21 +250,21 @@ export default function EditionsTab({
                       {edition.title}
                     </TableCell>
                     <TableCell className="max-w-36 truncate">
-                      {edition.publisher || "—"}
+                      {edition.publisher || "\u2014"}
                     </TableCell>
                     <TableCell className="max-w-48 truncate">
-                      {edition.editionInformation || "—"}
+                      {edition.editionInformation || "\u2014"}
                     </TableCell>
-                    <TableCell>{edition.format || "—"}</TableCell>
-                    <TableCell>{edition.pageCount ?? "—"}</TableCell>
+                    <TableCell>{edition.format || "\u2014"}</TableCell>
+                    <TableCell>{edition.pageCount ?? "\u2014"}</TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {edition.releaseDate || "—"}
+                      {edition.releaseDate || "\u2014"}
                     </TableCell>
-                    <TableCell>{edition.isbn13 || "—"}</TableCell>
-                    <TableCell>{edition.isbn10 || "—"}</TableCell>
-                    <TableCell>{edition.asin || "—"}</TableCell>
-                    <TableCell>{edition.language || "—"}</TableCell>
-                    <TableCell>{edition.country || "—"}</TableCell>
+                    <TableCell>{edition.isbn13 || "\u2014"}</TableCell>
+                    <TableCell>{edition.isbn10 || "\u2014"}</TableCell>
+                    <TableCell>{edition.asin || "\u2014"}</TableCell>
+                    <TableCell>{edition.language || "\u2014"}</TableCell>
+                    <TableCell>{edition.country || "\u2014"}</TableCell>
                     <TableCell>
                       {(edition.usersCount ?? 0).toLocaleString()}
                     </TableCell>
@@ -239,7 +277,7 @@ export default function EditionsTab({
             {pagedEditions.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={EDITION_COLUMNS.length + 1}
+                  colSpan={EDITION_COLUMNS.length + 2}
                   className="text-center text-muted-foreground py-8"
                 >
                   No editions found.

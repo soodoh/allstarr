@@ -75,7 +75,6 @@ export const createBookSchema = z.object({
   description: z.string().nullable(),
   releaseDate: z.string().nullable(),
   releaseYear: z.number().nullable(),
-  monitored: z.boolean().default(false),
   foreignBookId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
@@ -93,7 +92,6 @@ export const updateBookSchema = z
     authorId: z.number(),
     description: z.string().nullable(),
     releaseDate: z.string().nullable(),
-    monitored: z.boolean(),
   })
   .partial()
   .required({ id: true });

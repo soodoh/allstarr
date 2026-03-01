@@ -129,6 +129,7 @@ type EditionInfo = {
   languageCode: string | null;
   images: Array<{ url: string; coverType: string }> | null;
   isDefaultCover: boolean;
+  monitored: boolean;
 };
 
 type BookAuthorEntry = {

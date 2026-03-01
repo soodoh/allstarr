@@ -142,7 +142,6 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               description: books.description,
               releaseDate: books.releaseDate,
               releaseYear: books.releaseYear,
-              monitored: books.monitored,
               foreignBookId: books.foreignBookId,
               images: books.images,
               rating: books.rating,
@@ -284,6 +283,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               languageCode: editions.languageCode,
               images: editions.images,
               isDefaultCover: editions.isDefaultCover,
+              monitored: editions.monitored,
             })
             .from(editions)
             .where(inArray(editions.bookId, bookIds))
@@ -325,18 +325,20 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     const booksWithEditions = authorBooks.map((b) => {
       const ba = bookAuthorsMap.get(b.id) ?? [];
       const primaryAuthor = ba.find((a) => a.isPrimary);
+      const bookEditions = bookEditionsMap.get(b.id) ?? [];
       return Object.assign(b, {
         bookAuthors: ba,
         authorName: primaryAuthor?.authorName ?? null,
         authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
+        monitored: bookEditions.some((e) => e.monitored),
         languageCodes: [
           ...new Set(
-            (bookEditionsMap.get(b.id) ?? [])
+            bookEditions
               .map((e) => e.languageCode)
               .filter(Boolean),
           ),
         ] as string[],
-        editions: bookEditionsMap.get(b.id) ?? [],
+        editions: bookEditions,
       });
     });
 

@@ -4,7 +4,6 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Textarea from "src/components/ui/textarea";
-import Switch from "src/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,7 +18,6 @@ type BookFormProps = {
     authorId: number;
     description: string | null;
     releaseDate: string | null;
-    monitored: boolean;
   };
   authors: Array<{ id: number; name: string }>;
   onSubmit: (values: {
@@ -27,7 +25,6 @@ type BookFormProps = {
     authorId: number;
     description: string | null;
     releaseDate: string | null;
-    monitored: boolean;
   }) => void;
   onCancel?: () => void;
   loading?: boolean;
@@ -52,7 +49,6 @@ export default function BookForm({
   const [releaseDate, setReleaseDate] = useState(
     initialValues?.releaseDate || "",
   );
-  const [monitored, setMonitored] = useState(initialValues?.monitored ?? false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -61,7 +57,6 @@ export default function BookForm({
       authorId: Number.parseInt(authorId, 10),
       description: description || null,
       releaseDate: releaseDate || null,
-      monitored,
     });
   };
 
@@ -113,15 +108,6 @@ export default function BookForm({
           value={releaseDate}
           onChange={(e) => setReleaseDate(e.target.value)}
         />
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Switch
-          id="monitored"
-          checked={monitored}
-          onCheckedChange={setMonitored}
-        />
-        <Label htmlFor="monitored">Monitored</Label>
       </div>
 
       <div className="flex gap-2">

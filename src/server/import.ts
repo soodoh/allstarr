@@ -10,7 +10,7 @@ import {
   seriesBookLinks,
   history,
 } from "src/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   fetchAuthorComplete,
@@ -431,7 +431,6 @@ async function importAuthorInternal(data: {
           description: rawBook.description,
           releaseDate: rawBook.releaseDate,
           releaseYear: rawBook.releaseYear,
-          monitored: false,
           foreignBookId: String(rawBook.id),
           images: toImageArray(rawBook.coverUrl),
           rating: rawBook.rating,
@@ -494,6 +493,7 @@ async function importAuthorInternal(data: {
             images: toImageArray(ed.coverUrl),
             contributors: ed.contributors,
             isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+            monitored: false,
             metadataUpdatedAt: now,
           })
           .run();
@@ -593,8 +593,37 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       .get();
 
     if (alreadyImported) {
+      // Monitor the default cover edition (or first by readers)
+      const defaultEdition = db
+        .select({ id: editions.id })
+        .from(editions)
+        .where(
+          and(
+            eq(editions.bookId, alreadyImported.id),
+            eq(editions.isDefaultCover, true),
+          ),
+        )
+        .get();
+
+      const targetEdition =
+        defaultEdition ??
+        db
+          .select({ id: editions.id })
+          .from(editions)
+          .where(eq(editions.bookId, alreadyImported.id))
+          .orderBy(desc(editions.usersCount))
+          .limit(1)
+          .get();
+
+      if (targetEdition) {
+        db.update(editions)
+          .set({ monitored: true })
+          .where(eq(editions.id, targetEdition.id))
+          .run();
+      }
+
       db.update(books)
-        .set({ monitored: true, updatedAt: now })
+        .set({ updatedAt: now })
         .where(eq(books.id, alreadyImported.id))
         .run();
 
@@ -624,7 +653,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     }
 
     const txResult = db.transaction((tx) => {
-      // Insert book (monitored — user explicitly chose it)
+      // Insert book (editions use schema default monitored=true for user-imported books)
       const book = tx
         .insert(books)
         .values({
@@ -633,7 +662,6 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
           description: rawBook.description,
           releaseDate: rawBook.releaseDate,
           releaseYear: rawBook.releaseYear,
-          monitored: true,
           foreignBookId: String(rawBook.id),
           images: toImageArray(rawBook.coverUrl),
           rating: rawBook.rating,
@@ -963,7 +991,6 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               description: rawBook.description,
               releaseDate: rawBook.releaseDate,
               releaseYear: rawBook.releaseYear,
-              monitored: false,
               foreignBookId,
               images: toImageArray(rawBook.coverUrl),
               rating: rawBook.rating,
@@ -1008,6 +1035,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                 images: toImageArray(ed.coverUrl),
                 contributors: ed.contributors,
                 isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+                monitored: false,
                 metadataUpdatedAt: now,
               })
               .run();
@@ -1396,14 +1424,34 @@ export const monitorBookFn = createServerFn({ method: "POST" })
       }
     }
 
-    // Set monitored = true
-    db.update(books)
-      .set({
-        monitored: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(books.id, data.bookId))
-      .run();
+    // Monitor the default cover edition (or first by readers)
+    const defaultEdition = db
+      .select({ id: editions.id })
+      .from(editions)
+      .where(
+        and(
+          eq(editions.bookId, data.bookId),
+          eq(editions.isDefaultCover, true),
+        ),
+      )
+      .get();
+
+    const targetEdition =
+      defaultEdition ??
+      db
+        .select({ id: editions.id })
+        .from(editions)
+        .where(eq(editions.bookId, data.bookId))
+        .orderBy(desc(editions.usersCount))
+        .limit(1)
+        .get();
+
+    if (targetEdition) {
+      db.update(editions)
+        .set({ monitored: true })
+        .where(eq(editions.id, targetEdition.id))
+        .run();
+    }
 
     db.insert(history)
       .values({
