@@ -76,8 +76,12 @@ export default function QualityProfileList({
               </TableCell>
               <TableCell>
                 {(() => {
-                  if (!profile.upgradeAllowed) {return "No";}
-                  if (cutoffItem) {return `Until ${cutoffItem.quality.name}`;}
+                  if (!profile.upgradeAllowed) {
+                    return "No";
+                  }
+                  if (cutoffItem) {
+                    return `Until ${cutoffItem.quality.name}`;
+                  }
                   return "Yes";
                 })()}
               </TableCell>

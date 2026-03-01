@@ -157,6 +157,8 @@ export function getProfileWeight(
   items: ProfileItem[],
 ): number {
   const idx = items.findIndex((i) => i.quality.id === qualityId);
-  if (idx === -1) {return 0;}
+  if (idx === -1) {
+    return 0;
+  }
   return items.length - idx;
 }

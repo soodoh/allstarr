@@ -60,10 +60,14 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
           .get();
 
         if (!existing) {
+          console.log(`[Sync API] PUT /indexer/${id} → not found`);
           return Response.json({ message: "Not Found" }, { status: 404 });
         }
 
         const body = (await request.json()) as ReadarrIndexerResource;
+        console.log(
+          `[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})`,
+        );
         const data = fromReadarrResource(body);
 
         const [updated] = await db
@@ -89,6 +93,7 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
           return Response.json({ message: "Invalid ID" }, { status: 400 });
         }
 
+        console.log(`[Sync API] DELETE /indexer/${id}`);
         await db.delete(syncedIndexers).where(eq(syncedIndexers.id, id)).run();
 
         return new Response(null, { status: 200 });

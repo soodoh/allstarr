@@ -145,10 +145,7 @@ export default function QualityProfileForm({
     }),
   );
 
-  const sortableIds = useMemo(
-    () => items.map((i) => i.quality.id),
-    [items],
-  );
+  const sortableIds = useMemo(() => items.map((i) => i.quality.id), [items]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -173,7 +170,12 @@ export default function QualityProfileForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, cutoff: upgradeAllowed ? cutoff : 0, items, upgradeAllowed });
+    onSubmit({
+      name,
+      cutoff: upgradeAllowed ? cutoff : 0,
+      items,
+      upgradeAllowed,
+    });
   };
 
   const allowedItems = items.filter((i) => i.allowed);
@@ -222,7 +224,8 @@ export default function QualityProfileForm({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Once this quality is reached, no further upgrades will be downloaded.
+            Once this quality is reached, no further upgrades will be
+            downloaded.
           </p>
         </div>
       )}
