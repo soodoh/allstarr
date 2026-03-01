@@ -22,5 +22,5 @@ export function getRouter(): AnyRouter {
 declare module "@tanstack/router-core" {
   type Register = {
     router: ReturnType<typeof getRouter>;
-  }
+  };
 }

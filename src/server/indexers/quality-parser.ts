@@ -64,7 +64,9 @@ export function invalidateQualityDefCache(): void {
 export function getDefSizeLimits(
   qualityId: number,
 ): { minSize: number; maxSize: number } | null {
-  if (qualityId === 0) {return null;}
+  if (qualityId === 0) {
+    return null;
+  }
   if (!sizeLimitsCache) {
     const rows = db.select().from(qualityDefinitions).all();
     sizeLimitsCache = new Map();
