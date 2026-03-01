@@ -40,6 +40,7 @@
     "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.1",
     "fast-xml-parser": "^5.4.1",
+    "fuzzball": "^2.2.3",
     "lucide-react": "^0.564.0",
     "next-themes": "^0.4.6",
     "nitro": "^3.0.1-20260219-081345-4df7aab2",

@@ -51,9 +51,18 @@ export type ReleaseQuality = {
   color: string;
 };
 
+/** All possible rejection reasons */
+export type ReleaseRejectionReason =
+  | "titleMismatch"
+  | "wrongAuthor"
+  | "unknownQuality"
+  | "qualityNotWanted"
+  | "belowMinimumSize"
+  | "aboveMaximumSize";
+
 /** A reason why a release would be rejected */
 export type ReleaseRejection = {
-  reason: string;
+  reason: ReleaseRejectionReason;
   message: string;
 };
 
