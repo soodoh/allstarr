@@ -154,33 +154,39 @@ function evaluateSpec(spec: Specification, release: ReleaseInfo): boolean {
   return spec.negate ? !result : result;
 }
 
-/** Match a release against DB-defined quality specs */
+/** Match a release against DB-defined quality specs — returns first (highest-weight) match */
 export function matchQuality(release: ReleaseInfo): ReleaseQuality {
+  const matches = matchAllQualities(release);
+  return matches[0] ?? { id: 0, name: "Unknown", weight: 0, color: "gray" };
+}
+
+/** Return ALL matching quality definitions for a release, ordered by global weight desc.
+ *  Used when a release title mentions multiple formats (e.g. "mobi, epub, pdf or azw3")
+ *  so the caller can pick the best match based on profile priority. */
+export function matchAllQualities(release: ReleaseInfo): ReleaseQuality[] {
   const defs = getQualityDefs();
+  const matches: ReleaseQuality[] = [];
 
   for (const def of defs) {
     const requiredSpecs = def.specs.filter((s) => s.required);
     const optionalSpecs = def.specs.filter((s) => !s.required);
 
-    // All required specs must match (AND logic)
     const requiredPass = requiredSpecs.every((s) => evaluateSpec(s, release));
-
-    // At least one optional spec must match (OR logic), or no optional specs
     const optionalPass =
       optionalSpecs.length === 0 ||
       optionalSpecs.some((s) => evaluateSpec(s, release));
 
     if (requiredPass && optionalPass) {
-      return {
+      matches.push({
         id: def.id,
         name: def.name,
         weight: def.weight,
         color: def.color,
-      };
+      });
     }
   }
 
-  return { id: 0, name: "Unknown", weight: 0, color: "gray" };
+  return matches;
 }
 
 /** Format bytes as human-readable string */

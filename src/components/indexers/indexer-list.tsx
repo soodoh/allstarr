@@ -147,9 +147,7 @@ export default function IndexerList({
               </TableCell>
               <TableCell>{row.data.priority}</TableCell>
               <TableCell className="text-center">
-                <Badge
-                  variant={row.data.enableRss ? "default" : "outline"}
-                >
+                <Badge variant={row.data.enableRss ? "default" : "outline"}>
                   {row.data.enableRss ? "Yes" : "No"}
                 </Badge>
               </TableCell>

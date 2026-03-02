@@ -22,7 +22,7 @@
     "*.{js,jsx,ts,tsx}": [
       "oxlint --fix"
     ],
-    "*.{css,html,json,md,mdx,yaml,yml}": "prettier --write"
+    "*.{js,jsx,ts,tsx,css,html,json,md,mdx,yaml,yml}": "prettier --write"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
