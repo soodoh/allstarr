@@ -251,6 +251,26 @@ function mapNewznabItem(item: any): CoalescedResult | null {
 
 export type BookSearchParams = { author: string; title: string };
 
+/**
+ * Clean a query term for Newznab search — mirrors Readarr's GetQueryTitle().
+ * Strips leading "The ", replaces `.` and `&` with spaces, removes accents,
+ * and collapses whitespace.
+ */
+function cleanQueryTitle(title: string): string {
+  let cleaned = title;
+  // Strip leading "The " (case-insensitive) — Readarr's BeginningThe regex
+  cleaned = cleaned.replace(/^the\s+/i, "");
+  // Replace " & " with space
+  cleaned = cleaned.replaceAll(" & ", " ");
+  // Replace periods with spaces
+  cleaned = cleaned.replaceAll(".", " ");
+  // Remove diacritical marks (accents)
+  cleaned = cleaned.normalize("NFD").replaceAll(/[\u0300-\u036F]/g, "");
+  // Collapse whitespace and trim
+  cleaned = cleaned.replaceAll(/\s+/g, " ").trim();
+  return cleaned || title;
+}
+
 /** Fetch a single Newznab/Torznab feed URL and parse the XML into results. */
 async function fetchNewznabFeed(
   feed: NewznabFeedConfig,
@@ -265,6 +285,14 @@ async function fetchNewznabFeed(
     params.set("apikey", feed.apiKey);
   }
   params.set("extended", "1");
+  // Match Readarr's page size — indexer defaults vary (often 25-50),
+  // so explicitly request 100 results per query to avoid missing releases.
+  if (!params.has("limit")) {
+    params.set("limit", "100");
+  }
+  if (!params.has("offset")) {
+    params.set("offset", "0");
+  }
 
   const url = `${base}${apiPath}?${params.toString()}`;
   const res = await fetchWithTimeout(
@@ -307,16 +335,21 @@ async function fetchNewznabFeed(
 }
 
 /**
- * Query a single Newznab/Torznab feed — this is the same path Readarr takes
- * when it searches through Prowlarr's per-indexer proxy.
+ * Query a single Newznab/Torznab feed — mirrors Readarr's search strategy.
  *
- * When `bookParams` is provided, fires multiple queries in parallel (like
- * Readarr) and deduplicates by guid:
- *   1. t=book with separate author/title params (structured book search)
- *   2. t=search with "author title" (author-first text search)
- *   3. t=search with "title" only (title-only fallback)
+ * When `bookParams` is provided, fires multiple queries in parallel and
+ * deduplicates by guid.  Readarr never uses t=book for Newznab (usenet)
+ * indexers, but does for Torznab — since we can't know which protocol the
+ * feed uses, we include it as a best-effort attempt alongside text searches.
  *
- * When `bookParams` is omitted (manual/custom query), uses single-query behavior.
+ * Queries (matching Readarr's tier layout):
+ *   1. t=book with separate author/title params (structured, if supported)
+ *   2. t=search with "title author" (title-first — Readarr's preferred order)
+ *   3. t=search with "author title" (author-first)
+ *   4. t=search with "title" only (broadest fallback)
+ *
+ * All query terms are cleaned via cleanQueryTitle() to strip leading articles,
+ * normalize punctuation, and remove accents — matching Readarr's GetQueryTitle.
  */
 export async function searchNewznab(
   feed: NewznabFeedConfig,
@@ -332,25 +365,34 @@ export async function searchNewznab(
     return fetchNewznabFeed(feed, params);
   }
 
+  const cleanAuthor = cleanQueryTitle(bookParams.author);
+  const cleanTitle = cleanQueryTitle(bookParams.title);
+
   // Tiered queries — run in parallel, deduplicate by guid
   const queries: URLSearchParams[] = [
     // 1. Structured book search (t=book with author/title)
     (() => {
       const p = new URLSearchParams({ t: "book", cat });
-      p.set("author", bookParams.author);
-      p.set("title", bookParams.title);
+      p.set("author", cleanAuthor);
+      p.set("title", cleanTitle);
       return p;
     })(),
-    // 2. Author+title text search
+    // 2. Title+author text search (title-first — Readarr's primary text query)
     new URLSearchParams({
       t: "search",
-      q: `${bookParams.author} ${bookParams.title}`,
+      q: `${cleanTitle} ${cleanAuthor}`,
       cat,
     }),
-    // 3. Title-only fallback
+    // 3. Author+title text search (author-first)
     new URLSearchParams({
       t: "search",
-      q: bookParams.title,
+      q: `${cleanAuthor} ${cleanTitle}`,
+      cat,
+    }),
+    // 4. Title-only fallback
+    new URLSearchParams({
+      t: "search",
+      q: cleanTitle,
       cat,
     }),
   ];
@@ -447,21 +489,26 @@ export async function searchProwlarr(
     return fetchProwlarrSearch(base, headers, makeParams("search", query));
   }
 
+  const cleanAuthor = cleanQueryTitle(bookParams.author);
+  const cleanTitle = cleanQueryTitle(bookParams.title);
+
   // Tiered queries — run in parallel, deduplicate by guid
   const searches: URLSearchParams[] = [
     // 1. Structured book search
     (() => {
       const p = new URLSearchParams({ type: "book" });
-      p.set("query", `${bookParams.author} ${bookParams.title}`);
+      p.set("query", `${cleanAuthor} ${cleanTitle}`);
       for (const cat of categories) {
         p.append("categories", String(cat));
       }
       return p;
     })(),
-    // 2. Author+title text search
-    makeParams("search", `${bookParams.author} ${bookParams.title}`),
-    // 3. Title-only fallback
-    makeParams("search", bookParams.title),
+    // 2. Title+author text search (title-first — Readarr's preferred order)
+    makeParams("search", `${cleanTitle} ${cleanAuthor}`),
+    // 3. Author+title text search (author-first)
+    makeParams("search", `${cleanAuthor} ${cleanTitle}`),
+    // 4. Title-only fallback
+    makeParams("search", cleanTitle),
   ];
 
   const settled = await Promise.allSettled(

@@ -23,6 +23,7 @@ import {
 import * as prowlarrHttp from "./indexers/http";
 import {
   enrichRelease,
+  matchAllQualities,
   getProfileWeight,
   getDefSizeLimits,
 } from "./indexers/quality-parser";
@@ -35,6 +36,16 @@ import type {
 } from "./indexers/types";
 import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
+
+// ─── Category constants ──────────────────────────────────────────────────────
+
+/** Newznab ebook categories — use specific subcategories, NOT the parent 7000
+ *  (which includes comics/mags and floods results, pushing actual ebooks off the page).
+ *  Matches Readarr's defaults: [3030, 7020, 8010]. */
+const EBOOK_CATEGORIES = [7020, 8010];
+const AUDIOBOOK_CATEGORIES = [3030];
+/** Quality definition IDs for audiobook formats (MP3, M4B, FLAC) */
+const AUDIOBOOK_QUALITY_IDS = new Set([6, 7, 8]);
 
 type ProfileItem = { quality: { id: number }; allowed: boolean };
 
@@ -100,6 +111,17 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
   return unionMap.size > 0 ? [...unionMap.values()] : null;
 }
 
+/** Derive search categories from quality profiles — includes audiobook categories
+ *  when any profile allows an audiobook format (MP3, M4B, FLAC). */
+function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
+  const hasAudiobook = profiles.some((p) =>
+    p.items.some((i) => i.allowed && AUDIOBOOK_QUALITY_IDS.has(i.quality.id)),
+  );
+  return hasAudiobook
+    ? [...EBOOK_CATEGORIES, ...AUDIOBOOK_CATEGORIES]
+    : [...EBOOK_CATEGORIES];
+}
+
 // ─── Release title cleaning & fuzzy matching ─────────────────────────────────
 
 /**
@@ -109,9 +131,9 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
  */
 function cleanReleaseTitle(title: string): string {
   let cleaned = title;
-  // Remove file extensions
+  // Remove file extensions (ebook + audiobook formats)
   cleaned = cleaned.replace(
-    /\.(epub|mobi|azw3?|pdf|cbr|cbz|fb2|lit|djvu|txt|rtf|doc|docx)$/i,
+    /\.(epub|mobi|azw3?|pdf|cbr|cbz|fb2|lit|djvu|txt|rtf|doc|docx|m4b|mp3|flac|aac|ogg|wma)$/i,
     "",
   );
   // Remove release group tags like -GROUP, [GROUP]
@@ -134,21 +156,21 @@ type BookInfo = { title: string; authorName: string | null };
 /**
  * Check whether a release title is relevant to the expected book.
  * Returns true if the release passes both author and title checks.
+ * Releases that fail are silently filtered out.
  *
- * Releases that fail are silently filtered out (matching Readarr behavior,
- * where irrelevant results are dropped before the decision engine).
- *
- * Author check uses token_set_ratio (handles "Robert Jordan" vs "Jordan, Robert").
- * Title check uses max(token_set_ratio, partial_ratio) to handle extra tokens
- * and substring matching.
+ * Author check uses max(token_set_ratio, partial_ratio) to handle
+ * abbreviations like "R. Jordan" matching "Robert Jordan".
+ * Title check uses the same approach to handle extra tokens and substrings.
  */
 function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
   const cleaned = cleanReleaseTitle(releaseTitle);
 
   // Author check
   if (bookInfo.authorName) {
-    const authorScore = fuzz.token_set_ratio(bookInfo.authorName, cleaned);
-    if (authorScore < 75) {
+    const tokenSetScore = fuzz.token_set_ratio(bookInfo.authorName, cleaned);
+    const partialScore = fuzz.partial_ratio(bookInfo.authorName, cleaned);
+    const authorScore = Math.max(tokenSetScore, partialScore);
+    if (authorScore < 60) {
       return false;
     }
   }
@@ -159,7 +181,7 @@ function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
     const tokenSetScore = fuzz.token_set_ratio(trimmedTitle, cleaned);
     const partialScore = fuzz.partial_ratio(trimmedTitle, cleaned);
     const titleScore = Math.max(tokenSetScore, partialScore);
-    if (titleScore < 80) {
+    if (titleScore < 70) {
       return false;
     }
   }
@@ -411,9 +433,7 @@ function dedupeAndScoreReleases(
     }
   }
 
-  // Filter out irrelevant releases (wrong author/title) — matching Readarr
-  // behavior where the parser silently drops non-matching results before
-  // they reach the decision engine.
+  // Filter out irrelevant releases (wrong author/title)
   const relevant = bookInfo
     ? unique.filter((r) => isRelevantRelease(r.title, bookInfo))
     : unique;
@@ -422,13 +442,36 @@ function dedupeAndScoreReleases(
   const profiles = bookId ? getProfilesForBook(bookId) : null;
   const profileItems = profiles ? unionProfileItems(profiles) : null;
 
-  // Override quality weights with profile-derived weights when available
+  // Re-evaluate quality using profile priority when multiple formats match.
+  // A release title like "mobi, epub, pdf or azw3" matches all four formats;
+  // pick the one ranked highest in the user's quality profile.
   if (profileItems) {
     for (const release of relevant) {
-      release.quality.weight = getProfileWeight(
-        release.quality.id,
-        profileItems,
-      );
+      const allMatches = matchAllQualities({
+        title: release.title,
+        size: release.size,
+        indexerFlags: release.indexerFlags ?? null,
+      });
+
+      if (allMatches.length > 1) {
+        // Find the match with the best profile position (highest weight from profile)
+        let bestMatch = allMatches[0];
+        let bestWeight = getProfileWeight(bestMatch.id, profileItems);
+        for (let i = 1; i < allMatches.length; i += 1) {
+          const w = getProfileWeight(allMatches[i].id, profileItems);
+          if (w > bestWeight) {
+            bestMatch = allMatches[i];
+            bestWeight = w;
+          }
+        }
+        release.quality = { ...bestMatch, weight: bestWeight };
+      } else {
+        // Single match — just override weight with profile-derived weight
+        release.quality.weight = getProfileWeight(
+          release.quality.id,
+          profileItems,
+        );
+      }
     }
   }
 
@@ -520,7 +563,18 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       }
     }
 
-    const categories = data.categories ?? [7000, 7020];
+    // Derive categories: explicit caller override > profile-based > default ebook
+    let categories: number[];
+    if (data.categories) {
+      categories = data.categories;
+    } else if (data.bookId) {
+      const profiles = getProfilesForBook(data.bookId);
+      categories = profiles
+        ? getCategoriesForProfiles(profiles)
+        : [...EBOOK_CATEGORIES];
+    } else {
+      categories = [...EBOOK_CATEGORIES];
+    }
 
     // ── Per-indexer Newznab feed searches (like Readarr) ──────────────────
     // Each synced indexer has its own Newznab/Torznab proxy feed URL from

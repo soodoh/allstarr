@@ -71,9 +71,7 @@ export default function IndexerForm({
 }: IndexerFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
-  const [enableRss, setEnableRss] = useState(
-    initialValues?.enableRss ?? true,
-  );
+  const [enableRss, setEnableRss] = useState(initialValues?.enableRss ?? true);
   const [enableAutomaticSearch, setEnableAutomaticSearch] = useState(
     initialValues?.enableAutomaticSearch ?? true,
   );
