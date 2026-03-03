@@ -1296,12 +1296,7 @@ function AuthorDetailPage() {
       ? `${author.bornYear || "?"}-${author.deathYear || "Present"}`
       : null;
 
-  const handleUpdate = (values: {
-    name: string;
-    sortName: string;
-    status: string;
-    qualityProfileIds: number[];
-  }) => {
+  const handleUpdate = (values: { qualityProfileIds: number[] }) => {
     updateAuthor.mutate(
       { ...values, id: author.id },
       {
@@ -1481,9 +1476,6 @@ function AuthorDetailPage() {
           </DialogHeader>
           <AuthorForm
             initialValues={{
-              name: author.name,
-              sortName: author.sortName,
-              status: author.status,
               qualityProfileIds: author.qualityProfileIds ?? [],
             }}
             qualityProfiles={qualityProfiles}
