@@ -7,6 +7,8 @@ import {
   deleteBookFn,
   toggleBookMonitorFn,
   updateEditionFn,
+  deleteEditionFn,
+  reassignBookFilesFn,
 } from "src/server/books";
 import { queryKeys } from "src/lib/query-keys";
 import type { createBookSchema, updateBookSchema } from "src/lib/validators";
@@ -82,5 +84,32 @@ export function useUpdateEdition() {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
     },
     onError: () => toast.error("Failed to update edition"),
+  });
+}
+
+export function useDeleteEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteEditionFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Edition deleted");
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+    },
+    onError: () => toast.error("Failed to delete edition"),
+  });
+}
+
+export function useReassignBookFiles() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { fromBookId: number; toBookId: number }) =>
+      reassignBookFilesFn({ data }),
+    onSuccess: (result) => {
+      toast.success(`Reassigned ${result.reassigned} file(s)`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+    },
+    onError: () => toast.error("Failed to reassign files"),
   });
 }

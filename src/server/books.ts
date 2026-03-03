@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
   books,
+  bookFiles,
   booksAuthors,
   editions,
   authors,
@@ -312,6 +313,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         usersCount: books.usersCount,
         tags: books.tags,
         metadataUpdatedAt: books.metadataUpdatedAt,
+        metadataSourceMissingSince: books.metadataSourceMissingSince,
         createdAt: books.createdAt,
         updatedAt: books.updatedAt,
       })
@@ -370,6 +372,18 @@ export const getBookFn = createServerFn({ method: "GET" })
       language: string;
     }>;
 
+    // Count files attached to this book
+    const fileCountResult = db
+      .select({ count: sql<number>`count(*)` })
+      .from(bookFiles)
+      .where(eq(bookFiles.bookId, data.id))
+      .get();
+
+    // Count editions with missing metadata
+    const missingEditionsCount = bookEditions.filter(
+      (e) => e.metadataSourceMissingSince !== null,
+    ).length;
+
     return {
       ...book,
       monitored: bookEditions.some((e) => e.monitored),
@@ -379,6 +393,8 @@ export const getBookFn = createServerFn({ method: "GET" })
       editions: bookEditions,
       series: bookSeries,
       languages,
+      fileCount: fileCountResult?.count ?? 0,
+      missingEditionsCount,
     };
   });
 
@@ -615,6 +631,37 @@ export const checkBooksExistFn = createServerFn({ method: "GET" })
       .from(books)
       .where(inArray(books.foreignBookId, data.foreignBookIds))
       .all();
+  });
+
+export const deleteEditionFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    db.delete(editions).where(eq(editions.id, data.id)).run();
+    return { success: true };
+  });
+
+export const reassignBookFilesFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { fromBookId: number; toBookId: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    // Verify target book exists
+    const target = db
+      .select({ id: books.id })
+      .from(books)
+      .where(eq(books.id, data.toBookId))
+      .get();
+    if (!target) {
+      throw new Error("Target book not found");
+    }
+
+    const result = db
+      .update(bookFiles)
+      .set({ bookId: data.toBookId })
+      .where(eq(bookFiles.bookId, data.fromBookId))
+      .run();
+
+    return { reassigned: result.changes };
   });
 
 // Get author's available languages from editions

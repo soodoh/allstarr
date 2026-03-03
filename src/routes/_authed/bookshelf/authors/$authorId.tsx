@@ -67,6 +67,7 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import BookMonitorToggle from "src/components/hardcover/add-book-button";
+import MetadataWarning from "src/components/shared/metadata-warning";
 import AuthorForm from "src/components/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import AdditionalAuthors from "src/components/books/additional-authors";
@@ -130,6 +131,7 @@ type EditionInfo = {
   images: Array<{ url: string; coverType: string }> | null;
   isDefaultCover: boolean;
   monitored: boolean;
+  metadataSourceMissingSince: Date | null;
 };
 
 type BookAuthorEntry = {
@@ -158,6 +160,9 @@ type LocalBook = {
   tags: number[] | null;
   languageCodes: string[];
   editions: EditionInfo[];
+  metadataSourceMissingSince: Date | null;
+  fileCount: number;
+  missingEditionsCount: number;
 };
 
 type LanguageOption = {
@@ -470,11 +475,38 @@ function BooksTab({
                     }
                   >
                     <TableCell>
-                      <BookMonitorToggle
-                        bookId={book.id}
-                        title={book.title}
-                        monitored={book.monitored}
-                      />
+                      {(() => {
+                        if (book.metadataSourceMissingSince) {
+                          return (
+                            <MetadataWarning
+                              type="book"
+                              missingSince={book.metadataSourceMissingSince}
+                              itemId={book.id}
+                              itemTitle={book.title}
+                              fileCount={book.fileCount}
+                              onDeleted={() => router.invalidate()}
+                            />
+                          );
+                        }
+                        if (book.missingEditionsCount > 0) {
+                          return (
+                            <MetadataWarning
+                              type="book-editions"
+                              missingSince={new Date()}
+                              missingEditionsCount={book.missingEditionsCount}
+                              itemId={book.id}
+                              itemTitle={book.title}
+                            />
+                          );
+                        }
+                        return (
+                          <BookMonitorToggle
+                            bookId={book.id}
+                            title={book.title}
+                            monitored={book.monitored}
+                          />
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {coverUrl ? (
@@ -973,11 +1005,42 @@ function SeriesTab({
                             }
                           >
                             <TableCell>
-                              <BookMonitorToggle
-                                bookId={book.id}
-                                title={book.title}
-                                monitored={book.monitored}
-                              />
+                              {(() => {
+                                if (book.metadataSourceMissingSince) {
+                                  return (
+                                    <MetadataWarning
+                                      type="book"
+                                      missingSince={
+                                        book.metadataSourceMissingSince
+                                      }
+                                      itemId={book.id}
+                                      itemTitle={book.title}
+                                      fileCount={book.fileCount}
+                                      onDeleted={() => router.invalidate()}
+                                    />
+                                  );
+                                }
+                                if (book.missingEditionsCount > 0) {
+                                  return (
+                                    <MetadataWarning
+                                      type="book-editions"
+                                      missingSince={new Date()}
+                                      missingEditionsCount={
+                                        book.missingEditionsCount
+                                      }
+                                      itemId={book.id}
+                                      itemTitle={book.title}
+                                    />
+                                  );
+                                }
+                                return (
+                                  <BookMonitorToggle
+                                    bookId={book.id}
+                                    title={book.title}
+                                    monitored={book.monitored}
+                                  />
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="text-muted-foreground text-xs">
                               {position ?? "—"}
