@@ -86,6 +86,8 @@ import {
   useToggleBookProfile,
 } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
+import { pickBestEdition } from "src/lib/editions";
+import type { HardcoverRawSeriesBookEdition } from "src/server/hardcover/types";
 
 const DEFAULT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -184,30 +186,6 @@ type AuthorSeries = {
 type BooksTabSortKey = "title" | "year" | "readers" | "rating";
 
 // ---------- Helpers ----------
-
-function pickBestEdition(
-  editions: EditionInfo[],
-  language: string,
-): EditionInfo | undefined {
-  // Use the default cover edition's language as the book's canonical language.
-  // When the selected language matches canonical (or "all"), return the default
-  // cover edition itself so metadata (pages, ISBN, etc.) is still available.
-  // Callers should use book.title when edition.isDefaultCover is true.
-  const defaultCoverEdition = editions.find((e) => e.isDefaultCover);
-  const canonicalLanguage = defaultCoverEdition?.languageCode;
-
-  if (language === "all" || language === canonicalLanguage) {
-    return defaultCoverEdition ?? editions[0];
-  }
-
-  // No default cover info — fall back to pre-sorted first edition
-  if (!defaultCoverEdition) {
-    return editions[0];
-  }
-
-  // Different language selected — find best matching translated edition
-  return editions.find((e) => e.languageCode === language) ?? editions[0];
-}
 
 // ---------- Books tab ----------
 
@@ -628,6 +606,7 @@ type MergedSeriesEntry =
       usersCount: number | null;
       coverUrl: string | null;
       authorName: string | null;
+      editions: HardcoverRawSeriesBookEdition[];
     };
 
 /** Deduplicate entries sharing the same series position, keeping the one with the highest usersCount. */
@@ -781,6 +760,7 @@ function SeriesTab({
         usersCount: number | null;
         coverUrl: string | null;
         authorName: string | null;
+        editions: HardcoverRawSeriesBookEdition[];
       }>
     >();
     if (!hardcoverSeries) {
@@ -814,9 +794,19 @@ function SeriesTab({
     if (foreignId !== null) {
       const hcBooks = hardcoverSeriesMap.get(foreignId) ?? [];
       for (const hcBook of hcBooks) {
-        if (!localForeignBookIds.has(hcBook.foreignBookId)) {
-          entries.push({ kind: "external", ...hcBook });
+        if (localForeignBookIds.has(hcBook.foreignBookId)) {
+          continue;
         }
+        // Filter by language: skip external books that don't have an
+        // edition in the selected language. Unlike local books, if we
+        // can't confirm the language (no editions), we exclude them.
+        if (
+          language !== "all" &&
+          !hcBook.editions.some((e) => e.languageCode === language)
+        ) {
+          continue;
+        }
+        entries.push({ kind: "external", ...hcBook });
       }
     }
 
@@ -866,17 +856,21 @@ function SeriesTab({
     ],
   );
 
-  const openPreview = (entry: MergedSeriesEntry & { kind: "external" }) => {
+  const openPreview = (
+    entry: MergedSeriesEntry & { kind: "external" },
+    displayTitle: string,
+    displayCover: string | null,
+  ) => {
     setPreviewBook({
       id: String(entry.foreignBookId),
       type: "book",
       slug: entry.slug || null,
-      title: entry.title,
+      title: displayTitle,
       subtitle: entry.authorName,
       description: null,
       releaseYear: entry.releaseYear ?? null,
       readers: entry.usersCount ?? null,
-      coverUrl: entry.coverUrl ?? null,
+      coverUrl: displayCover ?? entry.coverUrl ?? null,
       hardcoverUrl: entry.slug
         ? `https://hardcover.app/books/${entry.slug}`
         : null,
@@ -1131,14 +1125,23 @@ function SeriesTab({
                       }
 
                       // External book from Hardcover
+                      const edition = pickBestEdition(entry.editions, language);
+                      const displayTitle =
+                        !edition || edition.isDefaultCover
+                          ? entry.title
+                          : edition.title;
+                      const coverUrl = edition?.coverUrl ?? entry.coverUrl;
                       const displayDate =
+                        edition?.releaseDate ??
                         entry.releaseDate ??
                         (entry.releaseYear ? String(entry.releaseYear) : "—");
                       return (
                         <TableRow
                           key={`ext-${entry.foreignBookId}`}
                           className="cursor-pointer opacity-60 hover:opacity-100"
-                          onClick={() => openPreview(entry)}
+                          onClick={() =>
+                            openPreview(entry, displayTitle, coverUrl)
+                          }
                         >
                           <TableCell>
                             <Button
@@ -1147,7 +1150,7 @@ function SeriesTab({
                               className="h-7 w-7"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openPreview(entry);
+                                openPreview(entry, displayTitle, coverUrl);
                               }}
                             >
                               <Plus className="h-4 w-4" />
@@ -1157,10 +1160,10 @@ function SeriesTab({
                             {entry.position ?? "—"}
                           </TableCell>
                           <TableCell>
-                            {entry.coverUrl ? (
+                            {coverUrl ? (
                               <img
-                                src={entry.coverUrl}
-                                alt={entry.title}
+                                src={coverUrl}
+                                alt={displayTitle}
                                 className="aspect-[2/3] w-full rounded-sm object-cover"
                               />
                             ) : (
@@ -1170,7 +1173,7 @@ function SeriesTab({
                             )}
                           </TableCell>
                           <TableCell>
-                            <span className="font-medium">{entry.title}</span>
+                            <span className="font-medium">{displayTitle}</span>
                           </TableCell>
                           <TableCell>{displayDate}</TableCell>
                           <TableCell>
@@ -1184,22 +1187,22 @@ function SeriesTab({
                             )}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.format ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.pageCount ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.isbn10 ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.isbn13 ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.asin ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            —
+                            {edition?.score ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {entry.authorName}
