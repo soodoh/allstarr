@@ -28,7 +28,7 @@ export type DiskSpaceEntry = {
 
 export type SystemAbout = {
   version: string;
-  nodeVersion: string;
+  runtimeVersion: string;
   sqliteVersion: string;
   databasePath: string;
   databaseSize: number;
@@ -168,7 +168,7 @@ function getAbout(): SystemAbout {
 
   return {
     version: "0.1.0",
-    nodeVersion: process.version,
+    runtimeVersion: Bun.version,
     sqliteVersion: sqliteVer,
     databasePath: dbPath,
     databaseSize,

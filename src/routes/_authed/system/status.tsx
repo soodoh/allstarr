@@ -169,7 +169,7 @@ function SystemStatusPage() {
 
   const aboutRows = [
     { label: "Version", value: status.about.version },
-    { label: "Node.js", value: status.about.nodeVersion },
+    { label: "Bun", value: status.about.runtimeVersion },
     { label: "SQLite", value: status.about.sqliteVersion },
     { label: "Database", value: status.about.databasePath },
     { label: "DB Size", value: formatBytes(status.about.databaseSize) },

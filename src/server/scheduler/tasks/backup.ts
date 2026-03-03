@@ -11,7 +11,7 @@ registerTask({
   name: "Backup Database",
   description: "Create a backup of the SQLite database file.",
   defaultInterval: 7 * 24 * 60 * 60, // 7 days
-  handler: async (): Promise<TaskResult> => {
+  handler: (): TaskResult => {
     const dbPath = process.env.DATABASE_URL || "data/sqlite.db";
     const backupDir = path.join(path.dirname(dbPath), "backups");
 
@@ -24,8 +24,8 @@ registerTask({
     const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
     const backupPath = path.join(backupDir, `allstarr_${timestamp}.db`);
 
-    // Use SQLite backup API for a consistent copy
-    await db.$client.backup(backupPath);
+    // Use SQLite VACUUM INTO for a consistent copy
+    db.$client.run(`VACUUM INTO '${backupPath}'`);
 
     // Clean up old backups, keep only MAX_BACKUPS most recent
     const backups = fs

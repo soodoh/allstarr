@@ -8,12 +8,12 @@ mkdir -p /app/data
 
 # Apply database migrations
 echo "Running database migrations..."
-node_modules/.bin/drizzle-kit migrate
+bun /app/src/db/migrate.ts
 
 # Run database seed (idempotent — skips if data already exists)
 echo "Seeding database..."
-node --import tsx/esm /app/src/db/seed.ts
+bun /app/src/db/seed.ts
 
 # Start the application
 echo "Starting Allstarr..."
-exec node /app/.output/server/index.mjs
+exec bun /app/.output/server/index.mjs
