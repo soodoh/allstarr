@@ -1,12 +1,12 @@
 // oxlint-disable no-console -- Seed script intentionally uses console for output
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 import type { QualitySpecification } from "./schema/quality-definitions";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
-const db = drizzle(sqlite, { schema });
+const db = drizzle({ client: sqlite, schema });
 
 const defaultQualityDefinitions: Array<{
   title: string;

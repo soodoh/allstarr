@@ -15,7 +15,7 @@ registerTask({
     const deleted = db.delete(history).where(lt(history.date, cutoff)).run();
 
     // Optimize the database
-    db.$client.pragma("optimize");
+    db.$client.run("PRAGMA optimize");
 
     return {
       success: true,

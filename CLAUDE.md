@@ -43,7 +43,7 @@ Copy `.env.example` to `.env`:
 
 - **Framework**: [TanStack Start](https://tanstack.com/start) (React SSR/full-stack) + Vite
 - **Routing**: TanStack Router with file-based routes (`src/routes/`)
-- **Database**: SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) + [Drizzle ORM](https://orm.drizzle.team/)
+- **Database**: SQLite via [bun:sqlite](https://bun.sh/docs/api/sqlite) + [Drizzle ORM](https://orm.drizzle.team/)
 - **Auth**: [better-auth](https://better-auth.com/) with email/password, handled at `/api/auth/$`
 - **UI**: shadcn/ui (new-york style, zinc base) + Tailwind CSS v4 + Radix UI
 - **Forms**: react-hook-form + zod
