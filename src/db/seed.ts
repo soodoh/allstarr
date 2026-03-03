@@ -140,10 +140,12 @@ const defaultQualityDefinitions: Array<{
   },
 ];
 
+const defaultRootFolder = "/books";
+
 const defaultProfiles = [
   {
     name: "Ebook",
-    rootFolderPath: "",
+    rootFolderPath: defaultRootFolder,
     cutoff: 0,
     icon: "book-marked",
     items: [
@@ -160,7 +162,7 @@ const defaultProfiles = [
   },
   {
     name: "Audiobook",
-    rootFolderPath: "",
+    rootFolderPath: defaultRootFolder,
     cutoff: 0,
     icon: "audio-lines",
     items: [
@@ -247,6 +249,14 @@ if (defsUpdated > 0) {
   );
 }
 
+// Seed default root folder
+const existingFolders = db.select().from(schema.rootFolders).all();
+const folderExists = existingFolders.some((f) => f.path === defaultRootFolder);
+if (!folderExists) {
+  db.insert(schema.rootFolders).values({ path: defaultRootFolder }).run();
+  console.log(`  Seeded default root folder: ${defaultRootFolder}`);
+}
+
 // Seed default quality profiles
 const profiles = db.select().from(schema.qualityProfiles).all();
 if (profiles.length === 0) {
@@ -256,27 +266,32 @@ if (profiles.length === 0) {
   console.log(`  Seeded ${defaultProfiles.length} default quality profile(s)`);
 }
 
-// Backfill icons on existing profiles that lack them
-const iconBackfill: Record<string, string> = {
-  Ebook: "book-marked",
-  Audiobook: "audio-lines",
+// Backfill root folder path and icons on existing profiles
+const profileBackfill: Record<string, { icon: string }> = {
+  Ebook: { icon: "book-marked" },
+  Audiobook: { icon: "audio-lines" },
 };
-let iconsBackfilled = 0;
+let profilesBackfilled = 0;
 const allProfiles = db.select().from(schema.qualityProfiles).all();
 for (const profile of allProfiles) {
-  if (
-    iconBackfill[profile.name] &&
-    profile.icon !== iconBackfill[profile.name]
-  ) {
+  const updates: { icon?: string; rootFolderPath?: string } = {};
+  const backfill = profileBackfill[profile.name];
+  if (backfill && profile.icon !== backfill.icon) {
+    updates.icon = backfill.icon;
+  }
+  if (!profile.rootFolderPath) {
+    updates.rootFolderPath = defaultRootFolder;
+  }
+  if (Object.keys(updates).length > 0) {
     db.update(schema.qualityProfiles)
-      .set({ icon: iconBackfill[profile.name] })
+      .set(updates)
       .where(eq(schema.qualityProfiles.id, profile.id))
       .run();
-    iconsBackfilled += 1;
+    profilesBackfilled += 1;
   }
 }
-if (iconsBackfilled > 0) {
-  console.log(`  Backfilled icons on ${iconsBackfilled} profile(s)`);
+if (profilesBackfilled > 0) {
+  console.log(`  Backfilled ${profilesBackfilled} profile(s)`);
 }
 
 // Seed default settings
