@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Activity, History } from "lucide-react";
+import { Activity, History, ListTodo } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,6 +20,13 @@ const systemItems = [
     icon: Activity,
     description:
       "Health checks, disk space, and system information at a glance.",
+  },
+  {
+    title: "Tasks",
+    to: "/system/tasks" as const,
+    icon: ListTodo,
+    description:
+      "Scheduled background tasks like metadata refresh, health checks, and backups.",
   },
   {
     title: "History",

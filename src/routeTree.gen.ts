@@ -19,6 +19,7 @@ import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/i
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
@@ -85,6 +86,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedSystemTasksRoute = AuthedSystemTasksRouteImport.update({
+  id: '/system/tasks',
+  path: '/system/tasks',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
   id: '/system/status',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
+  '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
+  '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/bookshelf': typeof AuthedBookshelfIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
+  '/_authed/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/system/status'
+    | '/system/tasks'
     | '/api/auth/$'
     | '/bookshelf/'
     | '/settings/'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/settings/profiles'
     | '/settings/root-folders'
     | '/system/status'
+    | '/system/tasks'
     | '/api/auth/$'
     | '/bookshelf'
     | '/settings'
@@ -337,6 +348,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/profiles'
     | '/_authed/settings/root-folders'
     | '/_authed/system/status'
+    | '/_authed/system/tasks'
     | '/api/auth/$'
     | '/_authed/bookshelf/'
     | '/_authed/settings/'
@@ -435,6 +447,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/system/tasks': {
+      id: '/_authed/system/tasks'
+      path: '/system/tasks'
+      fullPath: '/system/tasks'
+      preLoaderRoute: typeof AuthedSystemTasksRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/system/status': {
       id: '/_authed/system/status'
@@ -570,6 +589,7 @@ interface AuthedRouteChildren {
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
+  AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
@@ -591,6 +611,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
+  AuthedSystemTasksRoute: AuthedSystemTasksRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,

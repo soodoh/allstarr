@@ -294,6 +294,27 @@ if (profilesBackfilled > 0) {
   console.log(`  Backfilled ${profilesBackfilled} profile(s)`);
 }
 
+// Seed scheduled tasks
+const defaultTasks = [
+  { id: "rss-sync", name: "RSS Sync", interval: 15 * 60 },
+  { id: "refresh-metadata", name: "Refresh Metadata", interval: 12 * 60 * 60 },
+  { id: "check-health", name: "Check Health", interval: 25 * 60 },
+  { id: "housekeeping", name: "Housekeeping", interval: 24 * 60 * 60 },
+  { id: "backup", name: "Backup Database", interval: 7 * 24 * 60 * 60 },
+  { id: "rescan-folders", name: "Rescan Folders", interval: 6 * 60 * 60 },
+  { id: "refresh-downloads", name: "Refresh Downloads", interval: 60 },
+];
+
+let tasksSeeded = 0;
+for (const task of defaultTasks) {
+  db.insert(schema.scheduledTasks)
+    .values({ ...task, enabled: true })
+    .onConflictDoNothing()
+    .run();
+  tasksSeeded += 1;
+}
+console.log(`  Seeded ${tasksSeeded} scheduled task(s)`);
+
 // Seed default settings
 for (const setting of defaultSettings) {
   db.insert(schema.settings).values(setting).onConflictDoNothing().run();

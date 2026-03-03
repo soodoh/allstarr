@@ -140,6 +140,12 @@ export const queryKeys = {
       ["blocklist", "list", params] as const,
   },
 
+  // ─── Tasks ─────────────────────────────────────────────────────────────
+  tasks: {
+    all: ["tasks"] as const,
+    list: () => ["tasks", "list"] as const,
+  },
+
   // ─── System Status ──────────────────────────────────────────────────────
   systemStatus: {
     all: ["systemStatus"] as const,
