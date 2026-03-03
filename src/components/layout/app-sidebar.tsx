@@ -15,6 +15,7 @@ import {
   Radar,
   Monitor,
   Activity,
+  ListTodo,
 } from "lucide-react";
 import {
   Sidebar,
@@ -88,6 +89,7 @@ const navGroups: NavGroup[] = [
     matchPrefixes: ["/system", "/history"],
     children: [
       { title: "Status", to: "/system/status", icon: Monitor },
+      { title: "Tasks", to: "/system/tasks", icon: ListTodo },
       { title: "History", to: "/history", icon: History },
     ],
   },

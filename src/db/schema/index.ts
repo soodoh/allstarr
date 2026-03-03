@@ -16,3 +16,4 @@ export * from "./download-clients";
 export * from "./indexers";
 export * from "./synced-indexers";
 export * from "./blocklist";
+export * from "./scheduled-tasks";
