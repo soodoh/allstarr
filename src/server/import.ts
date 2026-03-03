@@ -885,283 +885,131 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
 
 // ---------- Refresh Author Metadata ----------
 
-export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => refreshAuthorSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const authorization = getAuthorizationHeader();
+export async function refreshAuthorInternal(authorId: number): Promise<{
+  booksUpdated: number;
+  booksAdded: number;
+  editionsUpdated: number;
+  editionsAdded: number;
+}> {
+  const authorization = getAuthorizationHeader();
 
-    const localAuthor = db
-      .select()
-      .from(authors)
-      .where(eq(authors.id, data.authorId))
-      .get();
-    if (!localAuthor) {
-      throw new Error("Author not found.");
-    }
-    if (!localAuthor.foreignAuthorId) {
-      throw new Error("Author has no Hardcover ID.");
-    }
+  const localAuthor = db
+    .select()
+    .from(authors)
+    .where(eq(authors.id, authorId))
+    .get();
+  if (!localAuthor) {
+    throw new Error("Author not found.");
+  }
+  if (!localAuthor.foreignAuthorId) {
+    throw new Error("Author has no Hardcover ID.");
+  }
 
-    const foreignAuthorId = Number(localAuthor.foreignAuthorId);
+  const foreignAuthorId = Number(localAuthor.foreignAuthorId);
 
-    // Fetch fresh data from Hardcover
-    const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
-      foreignAuthorId,
-      authorization,
-    );
+  // Fetch fresh data from Hardcover
+  const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
+    foreignAuthorId,
+    authorization,
+  );
 
-    // Fetch editions only for author's own books
-    const authorBookIds = rawBooks.map((b) => b.id);
-    const editionsMap = await fetchBatchedEditions(
-      authorBookIds,
-      authorization,
-    );
+  // Fetch editions only for author's own books
+  const authorBookIds = rawBooks.map((b) => b.id);
+  const editionsMap = await fetchBatchedEditions(authorBookIds, authorization);
 
-    const now = new Date();
-    const metadataProfile = getMetadataProfile();
+  const now = new Date();
+  const metadataProfile = getMetadataProfile();
 
-    // oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches for orphan handling
-    return db.transaction((tx) => {
-      // Update author fields
-      tx.update(authors)
-        .set({
-          name: rawAuthor.name,
-          sortName: deriveSortName(rawAuthor.name),
-          slug: rawAuthor.slug,
-          bio: rawAuthor.bio,
-          bornYear: rawAuthor.bornYear,
-          deathYear: rawAuthor.deathYear,
-          status: rawAuthor.deathYear ? "deceased" : "continuing",
-          images: toImageArray(rawAuthor.imageUrl),
-          metadataUpdatedAt: now,
-          metadataSourceMissingSince: null,
-          updatedAt: now,
-        })
-        .where(eq(authors.id, data.authorId))
-        .run();
+  // oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches for orphan handling
+  return db.transaction((tx) => {
+    // Update author fields
+    tx.update(authors)
+      .set({
+        name: rawAuthor.name,
+        sortName: deriveSortName(rawAuthor.name),
+        slug: rawAuthor.slug,
+        bio: rawAuthor.bio,
+        bornYear: rawAuthor.bornYear,
+        deathYear: rawAuthor.deathYear,
+        status: rawAuthor.deathYear ? "deceased" : "continuing",
+        images: toImageArray(rawAuthor.imageUrl),
+        metadataUpdatedAt: now,
+        metadataSourceMissingSince: null,
+        updatedAt: now,
+      })
+      .where(eq(authors.id, authorId))
+      .run();
 
-      let booksUpdated = 0;
-      let booksAdded = 0;
-      let editionsUpdated = 0;
-      let editionsAdded = 0;
+    let booksUpdated = 0;
+    let booksAdded = 0;
+    let editionsUpdated = 0;
+    let editionsAdded = 0;
 
-      const seenForeignBookIds = new Set<string>();
+    const seenForeignBookIds = new Set<string>();
 
-      for (const rawBook of rawBooks) {
-        const foreignBookId = String(rawBook.id);
-        seenForeignBookIds.add(foreignBookId);
+    for (const rawBook of rawBooks) {
+      const foreignBookId = String(rawBook.id);
+      seenForeignBookIds.add(foreignBookId);
 
-        const existingBook = tx
-          .select({ id: books.id })
-          .from(books)
-          .where(eq(books.foreignBookId, foreignBookId))
-          .get();
+      const existingBook = tx
+        .select({ id: books.id })
+        .from(books)
+        .where(eq(books.foreignBookId, foreignBookId))
+        .get();
 
-        if (existingBook) {
-          // Update existing book
-          tx.update(books)
-            .set({
-              title: rawBook.title,
-              slug: rawBook.slug,
-              description: rawBook.description,
-              releaseDate: rawBook.releaseDate,
-              releaseYear: rawBook.releaseYear,
-              images: toImageArray(rawBook.coverUrl),
-              rating: rawBook.rating,
-              ratingsCount: rawBook.ratingsCount,
-              usersCount: rawBook.usersCount,
-              metadataUpdatedAt: now,
-              metadataSourceMissingSince: null,
-              updatedAt: now,
-            })
-            .where(eq(books.id, existingBook.id))
-            .run();
-          booksUpdated += 1;
+      if (existingBook) {
+        // Update existing book
+        tx.update(books)
+          .set({
+            title: rawBook.title,
+            slug: rawBook.slug,
+            description: rawBook.description,
+            releaseDate: rawBook.releaseDate,
+            releaseYear: rawBook.releaseYear,
+            images: toImageArray(rawBook.coverUrl),
+            rating: rawBook.rating,
+            ratingsCount: rawBook.ratingsCount,
+            usersCount: rawBook.usersCount,
+            metadataUpdatedAt: now,
+            metadataSourceMissingSince: null,
+            updatedAt: now,
+          })
+          .where(eq(books.id, existingBook.id))
+          .run();
+        booksUpdated += 1;
 
-          // Sync booksAuthors entries
-          syncBookAuthors(
-            tx,
-            existingBook.id,
-            rawBook.contributions,
-            foreignAuthorId,
-            data.authorId,
-          );
+        // Sync booksAuthors entries
+        syncBookAuthors(
+          tx,
+          existingBook.id,
+          rawBook.contributions,
+          foreignAuthorId,
+          authorId,
+        );
 
-          // Upsert editions for this book (filter new editions by metadata profile)
-          const bookEditions = editionsMap.get(rawBook.id) ?? [];
-          const filteredForNew = filterEditionsByProfile(
-            bookEditions,
-            metadataProfile,
-            rawBook.defaultCoverEditionId,
-          );
-          const filteredIds = new Set(filteredForNew.map((e) => e.id));
-          const seenEditionIds = new Set<string>();
-          for (const ed of bookEditions) {
-            const foreignEditionId = String(ed.id);
-            seenEditionIds.add(foreignEditionId);
+        // Upsert editions for this book (filter new editions by metadata profile)
+        const bookEditions = editionsMap.get(rawBook.id) ?? [];
+        const filteredForNew = filterEditionsByProfile(
+          bookEditions,
+          metadataProfile,
+          rawBook.defaultCoverEditionId,
+        );
+        const filteredIds = new Set(filteredForNew.map((e) => e.id));
+        const seenEditionIds = new Set<string>();
+        for (const ed of bookEditions) {
+          const foreignEditionId = String(ed.id);
+          seenEditionIds.add(foreignEditionId);
 
-            const existingEdition = tx
-              .select({ id: editions.id })
-              .from(editions)
-              .where(eq(editions.foreignEditionId, foreignEditionId))
-              .get();
-
-            if (existingEdition) {
-              // Always update existing editions regardless of language filter
-              tx.update(editions)
-                .set({
-                  title: ed.title,
-                  isbn10: ed.isbn10,
-                  isbn13: ed.isbn13,
-                  asin: ed.asin,
-                  format: ed.format,
-                  pageCount: ed.pageCount,
-                  publisher: ed.publisher,
-                  editionInformation: ed.editionInformation,
-                  releaseDate: ed.releaseDate,
-                  language: ed.language,
-                  languageCode: ed.languageCode,
-                  country: ed.country,
-                  usersCount: ed.usersCount,
-                  score: ed.score,
-                  images: toImageArray(ed.coverUrl),
-                  contributors: ed.contributors,
-                  isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-                  metadataUpdatedAt: now,
-                  metadataSourceMissingSince: null,
-                })
-                .where(eq(editions.id, existingEdition.id))
-                .run();
-              editionsUpdated += 1;
-            } else if (filteredIds.has(ed.id)) {
-              // Only insert new editions that pass the language filter
-              tx.insert(editions)
-                .values({
-                  bookId: existingBook.id,
-                  title: ed.title,
-                  isbn10: ed.isbn10,
-                  isbn13: ed.isbn13,
-                  asin: ed.asin,
-                  format: ed.format,
-                  pageCount: ed.pageCount,
-                  publisher: ed.publisher,
-                  editionInformation: ed.editionInformation,
-                  releaseDate: ed.releaseDate,
-                  language: ed.language,
-                  languageCode: ed.languageCode,
-                  country: ed.country,
-                  usersCount: ed.usersCount,
-                  score: ed.score,
-                  foreignEditionId,
-                  images: toImageArray(ed.coverUrl),
-                  contributors: ed.contributors,
-                  isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-                  metadataUpdatedAt: now,
-                })
-                .run();
-              editionsAdded += 1;
-            }
-          }
-
-          // Orphan detection for editions
-          const existingEditions = tx
-            .select({
-              id: editions.id,
-              foreignEditionId: editions.foreignEditionId,
-            })
+          const existingEdition = tx
+            .select({ id: editions.id })
             .from(editions)
-            .where(eq(editions.bookId, existingBook.id))
-            .all();
-
-          for (const ed of existingEditions) {
-            if (
-              ed.foreignEditionId &&
-              !seenEditionIds.has(ed.foreignEditionId)
-            ) {
-              // Check if edition has any quality profile links
-              const hasProfile = tx
-                .select({ id: editionQualityProfiles.id })
-                .from(editionQualityProfiles)
-                .where(eq(editionQualityProfiles.editionId, ed.id))
-                .limit(1)
-                .get();
-              // Check if parent book has any files
-              const fileCount = tx
-                .select({
-                  count: sql<number>`count(*)`,
-                })
-                .from(bookFiles)
-                .where(eq(bookFiles.bookId, existingBook.id))
-                .get();
-
-              if (!hasProfile && (fileCount?.count ?? 0) === 0) {
-                // Safe to auto-delete
-                tx.delete(editions).where(eq(editions.id, ed.id)).run();
-              } else {
-                // Stamp missing metadata
-                tx.update(editions)
-                  .set({ metadataSourceMissingSince: now })
-                  .where(
-                    and(
-                      eq(editions.id, ed.id),
-                      eq(
-                        editions.metadataSourceMissingSince,
-                        null as unknown as Date,
-                      ),
-                    ),
-                  )
-                  .run();
-              }
-            }
-          }
-        } else {
-          // Insert new book — apply metadata profile filtering
-          const rawEditions = editionsMap.get(rawBook.id) ?? [];
-          const filteredNewEditions = filterEditionsByProfile(
-            rawEditions,
-            metadataProfile,
-            rawBook.defaultCoverEditionId,
-          );
-
-          // Skip book if it doesn't pass metadata profile filters
-          if (shouldSkipBook(rawBook, filteredNewEditions, metadataProfile)) {
-            continue;
-          }
-
-          const newBook = tx
-            .insert(books)
-            .values({
-              title: rawBook.title,
-              slug: rawBook.slug,
-              description: rawBook.description,
-              releaseDate: rawBook.releaseDate,
-              releaseYear: rawBook.releaseYear,
-              foreignBookId,
-              images: toImageArray(rawBook.coverUrl),
-              rating: rawBook.rating,
-              ratingsCount: rawBook.ratingsCount,
-              usersCount: rawBook.usersCount,
-              metadataUpdatedAt: now,
-            })
-            .returning()
+            .where(eq(editions.foreignEditionId, foreignEditionId))
             .get();
-          booksAdded += 1;
 
-          // Insert booksAuthors entries
-          insertBookAuthors(
-            tx,
-            newBook.id,
-            rawBook.contributions,
-            foreignAuthorId,
-            data.authorId,
-          );
-
-          // Insert editions for new book (filtered)
-          for (const ed of filteredNewEditions) {
-            tx.insert(editions)
-              .values({
-                bookId: newBook.id,
+          if (existingEdition) {
+            // Always update existing editions regardless of language filter
+            tx.update(editions)
+              .set({
                 title: ed.title,
                 isbn10: ed.isbn10,
                 isbn13: ed.isbn13,
@@ -1176,310 +1024,140 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                 country: ed.country,
                 usersCount: ed.usersCount,
                 score: ed.score,
-                foreignEditionId: String(ed.id),
                 images: toImageArray(ed.coverUrl),
                 contributors: ed.contributors,
                 isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-                monitored: false,
+                metadataUpdatedAt: now,
+                metadataSourceMissingSince: null,
+              })
+              .where(eq(editions.id, existingEdition.id))
+              .run();
+            editionsUpdated += 1;
+          } else if (filteredIds.has(ed.id)) {
+            // Only insert new editions that pass the language filter
+            tx.insert(editions)
+              .values({
+                bookId: existingBook.id,
+                title: ed.title,
+                isbn10: ed.isbn10,
+                isbn13: ed.isbn13,
+                asin: ed.asin,
+                format: ed.format,
+                pageCount: ed.pageCount,
+                publisher: ed.publisher,
+                editionInformation: ed.editionInformation,
+                releaseDate: ed.releaseDate,
+                language: ed.language,
+                languageCode: ed.languageCode,
+                country: ed.country,
+                usersCount: ed.usersCount,
+                score: ed.score,
+                foreignEditionId,
+                images: toImageArray(ed.coverUrl),
+                contributors: ed.contributors,
+                isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
                 metadataUpdatedAt: now,
               })
               .run();
             editionsAdded += 1;
           }
+        }
 
-          // Series links
-          for (const s of rawBook.series) {
-            const existingSeries = tx
-              .select({ id: series.id })
-              .from(series)
-              .where(eq(series.foreignSeriesId, String(s.seriesId)))
+        // Orphan detection for editions
+        const existingEditions = tx
+          .select({
+            id: editions.id,
+            foreignEditionId: editions.foreignEditionId,
+          })
+          .from(editions)
+          .where(eq(editions.bookId, existingBook.id))
+          .all();
+
+        for (const ed of existingEditions) {
+          if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
+            // Check if edition has any quality profile links
+            const hasProfile = tx
+              .select({ id: editionQualityProfiles.id })
+              .from(editionQualityProfiles)
+              .where(eq(editionQualityProfiles.editionId, ed.id))
+              .limit(1)
+              .get();
+            // Check if parent book has any files
+            const fileCount = tx
+              .select({
+                count: sql<number>`count(*)`,
+              })
+              .from(bookFiles)
+              .where(eq(bookFiles.bookId, existingBook.id))
               .get();
 
-            let localSeriesId: number;
-            if (existingSeries) {
-              localSeriesId = existingSeries.id;
+            if (!hasProfile && (fileCount?.count ?? 0) === 0) {
+              // Safe to auto-delete
+              tx.delete(editions).where(eq(editions.id, ed.id)).run();
             } else {
-              const newSeries = tx
-                .insert(series)
-                .values({
-                  title: s.seriesTitle,
-                  slug: s.seriesSlug,
-                  foreignSeriesId: String(s.seriesId),
-                  isCompleted: s.isCompleted,
-                  metadataUpdatedAt: now,
-                })
-                .returning()
-                .get();
-              localSeriesId = newSeries.id;
+              // Stamp missing metadata
+              tx.update(editions)
+                .set({ metadataSourceMissingSince: now })
+                .where(
+                  and(
+                    eq(editions.id, ed.id),
+                    eq(
+                      editions.metadataSourceMissingSince,
+                      null as unknown as Date,
+                    ),
+                  ),
+                )
+                .run();
             }
-
-            tx.insert(seriesBookLinks)
-              .values({
-                seriesId: localSeriesId,
-                bookId: newBook.id,
-                position: s.position,
-              })
-              .run();
-          }
-
-          tx.insert(history)
-            .values({
-              eventType: "bookAdded",
-              bookId: newBook.id,
-              authorId: data.authorId,
-              data: { title: rawBook.title, source: "hardcover" },
-            })
-            .run();
-        }
-      }
-
-      // Orphan detection for books — find books linked to this author via booksAuthors
-      const authorBookEntries = tx
-        .select({
-          bookId: booksAuthors.bookId,
-        })
-        .from(booksAuthors)
-        .where(eq(booksAuthors.authorId, data.authorId))
-        .all();
-
-      const authorBookIdsLocal = new Set(
-        authorBookEntries.map((e) => e.bookId),
-      );
-      for (const bookId of authorBookIdsLocal) {
-        const bookRecord = tx
-          .select({
-            foreignBookId: books.foreignBookId,
-            title: books.title,
-          })
-          .from(books)
-          .where(eq(books.id, bookId))
-          .get();
-
-        if (
-          bookRecord?.foreignBookId &&
-          !seenForeignBookIds.has(bookRecord.foreignBookId)
-        ) {
-          // Check if any edition has quality profile links
-          const hasProfileLink = tx
-            .select({ id: editionQualityProfiles.id })
-            .from(editionQualityProfiles)
-            .innerJoin(
-              editions,
-              eq(editions.id, editionQualityProfiles.editionId),
-            )
-            .where(eq(editions.bookId, bookId))
-            .limit(1)
-            .get();
-          // Check if book has any files
-          const fileCount = tx
-            .select({
-              count: sql<number>`count(*)`,
-            })
-            .from(bookFiles)
-            .where(eq(bookFiles.bookId, bookId))
-            .get();
-
-          if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
-            // Safe to auto-delete — cascade will remove editions
-            tx.delete(books).where(eq(books.id, bookId)).run();
-            tx.insert(history)
-              .values({
-                eventType: "bookDeleted",
-                authorId: data.authorId,
-                data: {
-                  title: bookRecord.title,
-                  reason: "metadata_source_removed",
-                },
-              })
-              .run();
-          } else {
-            tx.update(books)
-              .set({ metadataSourceMissingSince: now })
-              .where(
-                and(
-                  eq(books.id, bookId),
-                  eq(books.metadataSourceMissingSince, null as unknown as Date),
-                ),
-              )
-              .run();
           }
         }
-      }
-
-      return { booksUpdated, booksAdded, editionsUpdated, editionsAdded };
-    });
-  });
-
-// ---------- Refresh Book Metadata ----------
-
-export const refreshBookMetadataFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => refreshBookSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const authorization = getAuthorizationHeader();
-
-    const localBook = db
-      .select()
-      .from(books)
-      .where(eq(books.id, data.bookId))
-      .get();
-    if (!localBook) {
-      throw new Error("Book not found.");
-    }
-    if (!localBook.foreignBookId) {
-      throw new Error("Book has no Hardcover ID.");
-    }
-
-    const foreignBookId = Number(localBook.foreignBookId);
-    const result = await fetchBookComplete(foreignBookId, authorization);
-    if (!result) {
-      // Book removed from Hardcover — auto-delete if safe, otherwise stamp
-      const hasProfileLink = db
-        .select({ id: editionQualityProfiles.id })
-        .from(editionQualityProfiles)
-        .innerJoin(editions, eq(editions.id, editionQualityProfiles.editionId))
-        .where(eq(editions.bookId, data.bookId))
-        .limit(1)
-        .get();
-      const fileCount = db
-        .select({ count: sql<number>`count(*)` })
-        .from(bookFiles)
-        .where(eq(bookFiles.bookId, data.bookId))
-        .get();
-
-      if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
-        const bookRecord = db
-          .select({ title: books.title })
-          .from(books)
-          .where(eq(books.id, data.bookId))
-          .get();
-        db.delete(books).where(eq(books.id, data.bookId)).run();
-        db.insert(history)
-          .values({
-            eventType: "bookDeleted",
-            data: {
-              title: bookRecord?.title ?? "Unknown",
-              reason: "metadata_source_removed",
-            },
-          })
-          .run();
       } else {
-        db.update(books)
-          .set({ metadataSourceMissingSince: new Date() })
-          .where(eq(books.id, data.bookId))
-          .run();
-      }
-      return {
-        booksUpdated: 0,
-        booksAdded: 0,
-        editionsUpdated: 0,
-        editionsAdded: 0,
-      };
-    }
-
-    const { book: rawBook, editions: rawEditions } = result;
-    const now = new Date();
-    const metadataProfile = getMetadataProfile();
-    const filteredForNew = filterEditionsByProfile(
-      rawEditions,
-      metadataProfile,
-      rawBook.defaultCoverEditionId,
-    );
-    const filteredIds = new Set(filteredForNew.map((e) => e.id));
-
-    // Look up the primary author from booksAuthors
-    const primaryEntry = db
-      .select({
-        authorId: booksAuthors.authorId,
-        foreignAuthorId: booksAuthors.foreignAuthorId,
-      })
-      .from(booksAuthors)
-      .where(
-        and(
-          eq(booksAuthors.bookId, data.bookId),
-          eq(booksAuthors.isPrimary, true),
-        ),
-      )
-      .get();
-
-    return db.transaction((tx) => {
-      // Update book
-      tx.update(books)
-        .set({
-          title: rawBook.title,
-          slug: rawBook.slug,
-          description: rawBook.description,
-          releaseDate: rawBook.releaseDate,
-          releaseYear: rawBook.releaseYear,
-          images: toImageArray(rawBook.coverUrl),
-          rating: rawBook.rating,
-          ratingsCount: rawBook.ratingsCount,
-          usersCount: rawBook.usersCount,
-          metadataUpdatedAt: now,
-          metadataSourceMissingSince: null,
-          updatedAt: now,
-        })
-        .where(eq(books.id, data.bookId))
-        .run();
-
-      // Sync booksAuthors from contributions
-      if (primaryEntry) {
-        syncBookAuthors(
-          tx,
-          data.bookId,
-          rawBook.contributions,
-          Number(primaryEntry.foreignAuthorId),
-          primaryEntry.authorId ?? 0,
+        // Insert new book — apply metadata profile filtering
+        const rawEditions = editionsMap.get(rawBook.id) ?? [];
+        const filteredNewEditions = filterEditionsByProfile(
+          rawEditions,
+          metadataProfile,
+          rawBook.defaultCoverEditionId,
         );
-      }
 
-      // Upsert editions (filter new editions by metadata profile)
-      let editionsUpdated = 0;
-      let editionsAdded = 0;
-      const seenEditionIds = new Set<string>();
+        // Skip book if it doesn't pass metadata profile filters
+        if (shouldSkipBook(rawBook, filteredNewEditions, metadataProfile)) {
+          continue;
+        }
 
-      for (const ed of rawEditions) {
-        const foreignEditionId = String(ed.id);
-        seenEditionIds.add(foreignEditionId);
-
-        const existingEdition = tx
-          .select({ id: editions.id })
-          .from(editions)
-          .where(eq(editions.foreignEditionId, foreignEditionId))
+        const newBook = tx
+          .insert(books)
+          .values({
+            title: rawBook.title,
+            slug: rawBook.slug,
+            description: rawBook.description,
+            releaseDate: rawBook.releaseDate,
+            releaseYear: rawBook.releaseYear,
+            foreignBookId,
+            images: toImageArray(rawBook.coverUrl),
+            rating: rawBook.rating,
+            ratingsCount: rawBook.ratingsCount,
+            usersCount: rawBook.usersCount,
+            metadataUpdatedAt: now,
+          })
+          .returning()
           .get();
+        booksAdded += 1;
 
-        if (existingEdition) {
-          // Always update existing editions
-          tx.update(editions)
-            .set({
-              title: ed.title,
-              isbn10: ed.isbn10,
-              isbn13: ed.isbn13,
-              asin: ed.asin,
-              format: ed.format,
-              pageCount: ed.pageCount,
-              publisher: ed.publisher,
-              editionInformation: ed.editionInformation,
-              releaseDate: ed.releaseDate,
-              language: ed.language,
-              languageCode: ed.languageCode,
-              country: ed.country,
-              usersCount: ed.usersCount,
-              score: ed.score,
-              images: toImageArray(ed.coverUrl),
-              contributors: ed.contributors,
-              isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-              metadataUpdatedAt: now,
-              metadataSourceMissingSince: null,
-            })
-            .where(eq(editions.id, existingEdition.id))
-            .run();
-          editionsUpdated += 1;
-        } else if (filteredIds.has(ed.id)) {
-          // Only insert new editions that pass the language filter
+        // Insert booksAuthors entries
+        insertBookAuthors(
+          tx,
+          newBook.id,
+          rawBook.contributions,
+          foreignAuthorId,
+          authorId,
+        );
+
+        // Insert editions for new book (filtered)
+        for (const ed of filteredNewEditions) {
           tx.insert(editions)
             .values({
-              bookId: data.bookId,
+              bookId: newBook.id,
               title: ed.title,
               isbn10: ed.isbn10,
               isbn13: ed.isbn13,
@@ -1494,118 +1172,441 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
               country: ed.country,
               usersCount: ed.usersCount,
               score: ed.score,
-              foreignEditionId,
+              foreignEditionId: String(ed.id),
               images: toImageArray(ed.coverUrl),
               contributors: ed.contributors,
               isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+              monitored: false,
               metadataUpdatedAt: now,
             })
             .run();
           editionsAdded += 1;
         }
-      }
 
-      // Orphan detection for editions
-      const existingEditions = tx
-        .select({
-          id: editions.id,
-          foreignEditionId: editions.foreignEditionId,
-        })
-        .from(editions)
-        .where(eq(editions.bookId, data.bookId))
-        .all();
-
-      for (const ed of existingEditions) {
-        if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
-          // Check if edition has any quality profile links
-          const hasProfile = tx
-            .select({ id: editionQualityProfiles.id })
-            .from(editionQualityProfiles)
-            .where(eq(editionQualityProfiles.editionId, ed.id))
-            .limit(1)
-            .get();
-          // Check if parent book has any files
-          const fileCount = tx
-            .select({ count: sql<number>`count(*)` })
-            .from(bookFiles)
-            .where(eq(bookFiles.bookId, data.bookId))
+        // Series links
+        for (const s of rawBook.series) {
+          const existingSeries = tx
+            .select({ id: series.id })
+            .from(series)
+            .where(eq(series.foreignSeriesId, String(s.seriesId)))
             .get();
 
-          if (!hasProfile && (fileCount?.count ?? 0) === 0) {
-            tx.delete(editions).where(eq(editions.id, ed.id)).run();
+          let localSeriesId: number;
+          if (existingSeries) {
+            localSeriesId = existingSeries.id;
           } else {
-            tx.update(editions)
-              .set({ metadataSourceMissingSince: now })
-              .where(
-                and(
-                  eq(editions.id, ed.id),
-                  eq(
-                    editions.metadataSourceMissingSince,
-                    null as unknown as Date,
-                  ),
-                ),
-              )
-              .run();
+            const newSeries = tx
+              .insert(series)
+              .values({
+                title: s.seriesTitle,
+                slug: s.seriesSlug,
+                foreignSeriesId: String(s.seriesId),
+                isCompleted: s.isCompleted,
+                metadataUpdatedAt: now,
+              })
+              .returning()
+              .get();
+            localSeriesId = newSeries.id;
           }
-        }
-      }
 
-      // Update series links
-      tx.delete(seriesBookLinks)
-        .where(eq(seriesBookLinks.bookId, data.bookId))
-        .run();
-
-      for (const s of rawBook.series) {
-        const existingSeries = tx
-          .select({ id: series.id })
-          .from(series)
-          .where(eq(series.foreignSeriesId, String(s.seriesId)))
-          .get();
-
-        let localSeriesId: number;
-        if (existingSeries) {
-          localSeriesId = existingSeries.id;
-          // Update series metadata
-          tx.update(series)
-            .set({
-              title: s.seriesTitle,
-              slug: s.seriesSlug,
-              isCompleted: s.isCompleted,
-              metadataUpdatedAt: now,
-            })
-            .where(eq(series.id, localSeriesId))
-            .run();
-        } else {
-          const newSeries = tx
-            .insert(series)
+          tx.insert(seriesBookLinks)
             .values({
-              title: s.seriesTitle,
-              slug: s.seriesSlug,
-              foreignSeriesId: String(s.seriesId),
-              isCompleted: s.isCompleted,
-              metadataUpdatedAt: now,
+              seriesId: localSeriesId,
+              bookId: newBook.id,
+              position: s.position,
             })
-            .returning()
-            .get();
-          localSeriesId = newSeries.id;
+            .run();
         }
 
-        tx.insert(seriesBookLinks)
+        tx.insert(history)
           .values({
-            seriesId: localSeriesId,
-            bookId: data.bookId,
-            position: s.position,
+            eventType: "bookAdded",
+            bookId: newBook.id,
+            authorId: authorId,
+            data: { title: rawBook.title, source: "hardcover" },
           })
           .run();
       }
+    }
 
-      return {
-        booksUpdated: 1,
-        booksAdded: 0,
-        editionsUpdated,
-        editionsAdded,
-      };
-    });
+    // Orphan detection for books — find books linked to this author via booksAuthors
+    const authorBookEntries = tx
+      .select({
+        bookId: booksAuthors.bookId,
+      })
+      .from(booksAuthors)
+      .where(eq(booksAuthors.authorId, authorId))
+      .all();
+
+    const authorBookIdsLocal = new Set(authorBookEntries.map((e) => e.bookId));
+    for (const bookId of authorBookIdsLocal) {
+      const bookRecord = tx
+        .select({
+          foreignBookId: books.foreignBookId,
+          title: books.title,
+        })
+        .from(books)
+        .where(eq(books.id, bookId))
+        .get();
+
+      if (
+        bookRecord?.foreignBookId &&
+        !seenForeignBookIds.has(bookRecord.foreignBookId)
+      ) {
+        // Check if any edition has quality profile links
+        const hasProfileLink = tx
+          .select({ id: editionQualityProfiles.id })
+          .from(editionQualityProfiles)
+          .innerJoin(
+            editions,
+            eq(editions.id, editionQualityProfiles.editionId),
+          )
+          .where(eq(editions.bookId, bookId))
+          .limit(1)
+          .get();
+        // Check if book has any files
+        const fileCount = tx
+          .select({
+            count: sql<number>`count(*)`,
+          })
+          .from(bookFiles)
+          .where(eq(bookFiles.bookId, bookId))
+          .get();
+
+        if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
+          // Safe to auto-delete — cascade will remove editions
+          tx.delete(books).where(eq(books.id, bookId)).run();
+          tx.insert(history)
+            .values({
+              eventType: "bookDeleted",
+              authorId: authorId,
+              data: {
+                title: bookRecord.title,
+                reason: "metadata_source_removed",
+              },
+            })
+            .run();
+        } else {
+          tx.update(books)
+            .set({ metadataSourceMissingSince: now })
+            .where(
+              and(
+                eq(books.id, bookId),
+                eq(books.metadataSourceMissingSince, null as unknown as Date),
+              ),
+            )
+            .run();
+        }
+      }
+    }
+
+    return { booksUpdated, booksAdded, editionsUpdated, editionsAdded };
+  });
+}
+
+export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => refreshAuthorSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return refreshAuthorInternal(data.authorId);
+  });
+
+// ---------- Refresh Book Metadata ----------
+
+export async function refreshBookInternal(bookId: number): Promise<{
+  booksUpdated: number;
+  booksAdded: number;
+  editionsUpdated: number;
+  editionsAdded: number;
+}> {
+  const authorization = getAuthorizationHeader();
+
+  const localBook = db.select().from(books).where(eq(books.id, bookId)).get();
+  if (!localBook) {
+    throw new Error("Book not found.");
+  }
+  if (!localBook.foreignBookId) {
+    throw new Error("Book has no Hardcover ID.");
+  }
+
+  const foreignBookId = Number(localBook.foreignBookId);
+  const result = await fetchBookComplete(foreignBookId, authorization);
+  if (!result) {
+    // Book removed from Hardcover — auto-delete if safe, otherwise stamp
+    const hasProfileLink = db
+      .select({ id: editionQualityProfiles.id })
+      .from(editionQualityProfiles)
+      .innerJoin(editions, eq(editions.id, editionQualityProfiles.editionId))
+      .where(eq(editions.bookId, bookId))
+      .limit(1)
+      .get();
+    const fileCount = db
+      .select({ count: sql<number>`count(*)` })
+      .from(bookFiles)
+      .where(eq(bookFiles.bookId, bookId))
+      .get();
+
+    if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
+      const bookRecord = db
+        .select({ title: books.title })
+        .from(books)
+        .where(eq(books.id, bookId))
+        .get();
+      db.delete(books).where(eq(books.id, bookId)).run();
+      db.insert(history)
+        .values({
+          eventType: "bookDeleted",
+          data: {
+            title: bookRecord?.title ?? "Unknown",
+            reason: "metadata_source_removed",
+          },
+        })
+        .run();
+    } else {
+      db.update(books)
+        .set({ metadataSourceMissingSince: new Date() })
+        .where(eq(books.id, bookId))
+        .run();
+    }
+    return {
+      booksUpdated: 0,
+      booksAdded: 0,
+      editionsUpdated: 0,
+      editionsAdded: 0,
+    };
+  }
+
+  const { book: rawBook, editions: rawEditions } = result;
+  const now = new Date();
+  const metadataProfile = getMetadataProfile();
+  const filteredForNew = filterEditionsByProfile(
+    rawEditions,
+    metadataProfile,
+    rawBook.defaultCoverEditionId,
+  );
+  const filteredIds = new Set(filteredForNew.map((e) => e.id));
+
+  // Look up the primary author from booksAuthors
+  const primaryEntry = db
+    .select({
+      authorId: booksAuthors.authorId,
+      foreignAuthorId: booksAuthors.foreignAuthorId,
+    })
+    .from(booksAuthors)
+    .where(
+      and(eq(booksAuthors.bookId, bookId), eq(booksAuthors.isPrimary, true)),
+    )
+    .get();
+
+  return db.transaction((tx) => {
+    // Update book
+    tx.update(books)
+      .set({
+        title: rawBook.title,
+        slug: rawBook.slug,
+        description: rawBook.description,
+        releaseDate: rawBook.releaseDate,
+        releaseYear: rawBook.releaseYear,
+        images: toImageArray(rawBook.coverUrl),
+        rating: rawBook.rating,
+        ratingsCount: rawBook.ratingsCount,
+        usersCount: rawBook.usersCount,
+        metadataUpdatedAt: now,
+        metadataSourceMissingSince: null,
+        updatedAt: now,
+      })
+      .where(eq(books.id, bookId))
+      .run();
+
+    // Sync booksAuthors from contributions
+    if (primaryEntry) {
+      syncBookAuthors(
+        tx,
+        bookId,
+        rawBook.contributions,
+        Number(primaryEntry.foreignAuthorId),
+        primaryEntry.authorId ?? 0,
+      );
+    }
+
+    // Upsert editions (filter new editions by metadata profile)
+    let editionsUpdated = 0;
+    let editionsAdded = 0;
+    const seenEditionIds = new Set<string>();
+
+    for (const ed of rawEditions) {
+      const foreignEditionId = String(ed.id);
+      seenEditionIds.add(foreignEditionId);
+
+      const existingEdition = tx
+        .select({ id: editions.id })
+        .from(editions)
+        .where(eq(editions.foreignEditionId, foreignEditionId))
+        .get();
+
+      if (existingEdition) {
+        // Always update existing editions
+        tx.update(editions)
+          .set({
+            title: ed.title,
+            isbn10: ed.isbn10,
+            isbn13: ed.isbn13,
+            asin: ed.asin,
+            format: ed.format,
+            pageCount: ed.pageCount,
+            publisher: ed.publisher,
+            editionInformation: ed.editionInformation,
+            releaseDate: ed.releaseDate,
+            language: ed.language,
+            languageCode: ed.languageCode,
+            country: ed.country,
+            usersCount: ed.usersCount,
+            score: ed.score,
+            images: toImageArray(ed.coverUrl),
+            contributors: ed.contributors,
+            isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+            metadataUpdatedAt: now,
+            metadataSourceMissingSince: null,
+          })
+          .where(eq(editions.id, existingEdition.id))
+          .run();
+        editionsUpdated += 1;
+      } else if (filteredIds.has(ed.id)) {
+        // Only insert new editions that pass the language filter
+        tx.insert(editions)
+          .values({
+            bookId: bookId,
+            title: ed.title,
+            isbn10: ed.isbn10,
+            isbn13: ed.isbn13,
+            asin: ed.asin,
+            format: ed.format,
+            pageCount: ed.pageCount,
+            publisher: ed.publisher,
+            editionInformation: ed.editionInformation,
+            releaseDate: ed.releaseDate,
+            language: ed.language,
+            languageCode: ed.languageCode,
+            country: ed.country,
+            usersCount: ed.usersCount,
+            score: ed.score,
+            foreignEditionId,
+            images: toImageArray(ed.coverUrl),
+            contributors: ed.contributors,
+            isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+            metadataUpdatedAt: now,
+          })
+          .run();
+        editionsAdded += 1;
+      }
+    }
+
+    // Orphan detection for editions
+    const existingEditions = tx
+      .select({
+        id: editions.id,
+        foreignEditionId: editions.foreignEditionId,
+      })
+      .from(editions)
+      .where(eq(editions.bookId, bookId))
+      .all();
+
+    for (const ed of existingEditions) {
+      if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
+        // Check if edition has any quality profile links
+        const hasProfile = tx
+          .select({ id: editionQualityProfiles.id })
+          .from(editionQualityProfiles)
+          .where(eq(editionQualityProfiles.editionId, ed.id))
+          .limit(1)
+          .get();
+        // Check if parent book has any files
+        const fileCount = tx
+          .select({ count: sql<number>`count(*)` })
+          .from(bookFiles)
+          .where(eq(bookFiles.bookId, bookId))
+          .get();
+
+        if (!hasProfile && (fileCount?.count ?? 0) === 0) {
+          tx.delete(editions).where(eq(editions.id, ed.id)).run();
+        } else {
+          tx.update(editions)
+            .set({ metadataSourceMissingSince: now })
+            .where(
+              and(
+                eq(editions.id, ed.id),
+                eq(
+                  editions.metadataSourceMissingSince,
+                  null as unknown as Date,
+                ),
+              ),
+            )
+            .run();
+        }
+      }
+    }
+
+    // Update series links
+    tx.delete(seriesBookLinks).where(eq(seriesBookLinks.bookId, bookId)).run();
+
+    for (const s of rawBook.series) {
+      const existingSeries = tx
+        .select({ id: series.id })
+        .from(series)
+        .where(eq(series.foreignSeriesId, String(s.seriesId)))
+        .get();
+
+      let localSeriesId: number;
+      if (existingSeries) {
+        localSeriesId = existingSeries.id;
+        // Update series metadata
+        tx.update(series)
+          .set({
+            title: s.seriesTitle,
+            slug: s.seriesSlug,
+            isCompleted: s.isCompleted,
+            metadataUpdatedAt: now,
+          })
+          .where(eq(series.id, localSeriesId))
+          .run();
+      } else {
+        const newSeries = tx
+          .insert(series)
+          .values({
+            title: s.seriesTitle,
+            slug: s.seriesSlug,
+            foreignSeriesId: String(s.seriesId),
+            isCompleted: s.isCompleted,
+            metadataUpdatedAt: now,
+          })
+          .returning()
+          .get();
+        localSeriesId = newSeries.id;
+      }
+
+      tx.insert(seriesBookLinks)
+        .values({
+          seriesId: localSeriesId,
+          bookId: bookId,
+          position: s.position,
+        })
+        .run();
+    }
+
+    return {
+      booksUpdated: 1,
+      booksAdded: 0,
+      editionsUpdated,
+      editionsAdded,
+    };
+  });
+}
+
+export const refreshBookMetadataFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => refreshBookSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return refreshBookInternal(data.bookId);
   });
 
 // ---------- Monitor Book ----------
