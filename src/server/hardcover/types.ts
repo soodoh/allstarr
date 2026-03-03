@@ -85,6 +85,23 @@ export type HardcoverRawSeries = {
   books: HardcoverRawSeriesBook[];
 };
 
+/** Lightweight edition from the series query (subset of HardcoverRawEdition) */
+export type HardcoverRawSeriesBookEdition = {
+  id: number;
+  title: string;
+  isbn10: string | null;
+  isbn13: string | null;
+  asin: string | null;
+  format: string | null;
+  pageCount: number | null;
+  releaseDate: string | null;
+  usersCount: number;
+  score: number;
+  languageCode: string | null;
+  coverUrl: string | null;
+  isDefaultCover: boolean;
+};
+
 /** Raw book entry within a series result */
 export type HardcoverRawSeriesBook = {
   bookId: number;
@@ -101,6 +118,8 @@ export type HardcoverRawSeriesBook = {
   authorName: string | null;
   authorSlug: string | null;
   authorImageUrl: string | null;
+  defaultCoverEditionId: number | null;
+  editions: HardcoverRawSeriesBookEdition[];
 };
 
 // ---------------------------------------------------------------------------

@@ -585,6 +585,7 @@ export const getSeriesFromHardcoverFn = createServerFn({ method: "GET" })
         usersCount: b.usersCount,
         coverUrl: b.coverUrl,
         authorName: b.authorName,
+        editions: b.editions,
       })),
     }));
   });

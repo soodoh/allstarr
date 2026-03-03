@@ -11,6 +11,7 @@ import type {
   HardcoverRawEdition,
   HardcoverRawSeries,
   HardcoverRawSeriesBook,
+  HardcoverRawSeriesBookEdition,
 } from "./types";
 import { AUTHOR_ROLE_FILTER } from "./constants";
 
@@ -411,6 +412,7 @@ query SeriesComplete($seriesIds: [Int!]!) {
         release_year
         rating
         users_count
+        default_cover_edition_id
         image { url }
         contributions(
           where: { ${AUTHOR_ROLE_FILTER} }
@@ -423,6 +425,23 @@ query SeriesComplete($seriesIds: [Int!]!) {
             slug
             image { url }
           }
+        }
+        editions(
+          order_by: [{ users_count: desc_nulls_last }]
+          limit: 10
+        ) {
+          id
+          title
+          isbn_10
+          isbn_13
+          asin
+          pages
+          release_date
+          score
+          users_count
+          image { url }
+          language { code2 }
+          reading_format { format }
         }
       }
     }
@@ -484,6 +503,40 @@ export async function fetchSeriesComplete(
             ? toRecord(primaryContribution.author)
             : undefined;
 
+          const defaultCoverEditionId =
+            firstNumber(bookRecord, [["default_cover_edition_id"]]) ?? null;
+
+          const editionRecords = toRecordArray(bookRecord.editions);
+          const bookEditions: HardcoverRawSeriesBookEdition[] = editionRecords
+            .map((edRec) => {
+              const edId = firstNumber(edRec, [["id"]]);
+              if (!edId) {
+                return undefined;
+              }
+              const langRecord = toRecord(edRec.language);
+              const formatRecord = toRecord(edRec.reading_format);
+              return {
+                id: edId,
+                title: firstString(edRec, [["title"]]) ?? "",
+                isbn10: firstString(edRec, [["isbn_10"]]) ?? null,
+                isbn13: firstString(edRec, [["isbn_13"]]) ?? null,
+                asin: firstString(edRec, [["asin"]]) ?? null,
+                format: formatRecord
+                  ? (firstString(formatRecord, [["format"]]) ?? null)
+                  : null,
+                pageCount: firstNumber(edRec, [["pages"]]) ?? null,
+                releaseDate: firstString(edRec, [["release_date"]]) ?? null,
+                usersCount: firstNumber(edRec, [["users_count"]]) ?? 0,
+                score: firstNumber(edRec, [["score"]]) ?? 0,
+                languageCode: langRecord
+                  ? (firstString(langRecord, [["code2"]]) ?? null)
+                  : null,
+                coverUrl: getCoverUrl(edRec) ?? null,
+                isDefaultCover: edId === defaultCoverEditionId,
+              } satisfies HardcoverRawSeriesBookEdition;
+            })
+            .filter(Boolean) as HardcoverRawSeriesBookEdition[];
+
           return {
             bookId,
             bookTitle,
@@ -507,6 +560,8 @@ export async function fetchSeriesComplete(
             authorImageUrl: primaryAuthor
               ? (getCoverUrl(primaryAuthor) ?? null)
               : null,
+            defaultCoverEditionId,
+            editions: bookEditions,
           };
         })
         .filter(Boolean) as HardcoverRawSeriesBook[];
