@@ -151,7 +151,9 @@ export function getWantedBooks(): WantedBook[] {
 
     // Check if any profile allows upgrades and the best file is below cutoff
     const upgradeNeeded = profiles.some((profile) => {
-      if (!profile.upgradeAllowed) return false;
+      if (!profile.upgradeAllowed) {
+        return false;
+      }
       const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
       return bestExistingWeight < cutoffWeight;
     });
@@ -338,8 +340,12 @@ export async function runAutoSearch(
 
     try {
       const detail = await searchAndGrabForBook(book, ixs);
-      if (detail.searched) result.searched += 1;
-      if (detail.grabbed) result.grabbed += 1;
+      if (detail.searched) {
+        result.searched += 1;
+      }
+      if (detail.grabbed) {
+        result.grabbed += 1;
+      }
       result.details.push(detail);
     } catch (error) {
       result.errors += 1;
@@ -394,13 +400,19 @@ function findBestRelease(
 
   for (const release of releases) {
     // Skip releases with rejections
-    if (release.rejections.length > 0) continue;
+    if (release.rejections.length > 0) {
+      continue;
+    }
 
     // Skip blocklisted releases
-    if (blocklistedTitles.has(release.title)) continue;
+    if (blocklistedTitles.has(release.title)) {
+      continue;
+    }
 
     // Skip already-grabbed releases
-    if (grabbedGuids.has(release.guid)) continue;
+    if (grabbedGuids.has(release.guid)) {
+      continue;
+    }
 
     // For upgrades, ensure the new quality is actually better
     if (
