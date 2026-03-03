@@ -15,6 +15,7 @@ export const createQualityProfileSchema = z.object({
   cutoff: z.number().default(0),
   items: z.array(qualityItemSchema).default([]),
   upgradeAllowed: z.boolean().default(false),
+  icon: z.string().min(1, "Icon is required"),
 });
 
 export const updateQualityProfileSchema = createQualityProfileSchema.extend({

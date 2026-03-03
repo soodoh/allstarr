@@ -18,6 +18,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import {
+  PROFILE_ICONS,
+  PROFILE_ICON_MAP,
+  getProfileIcon,
+} from "src/lib/profile-icons";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
@@ -39,6 +44,7 @@ type QualityItem = {
 type QualityProfileFormProps = {
   initialValues?: {
     name: string;
+    icon: string;
     rootFolderPath: string;
     cutoff: number;
     items: QualityItem[];
@@ -48,6 +54,7 @@ type QualityProfileFormProps = {
   rootFolders: Array<{ id: number; path: string }>;
   onSubmit: (values: {
     name: string;
+    icon: string;
     rootFolderPath: string;
     cutoff: number;
     items: QualityItem[];
@@ -114,6 +121,7 @@ export default function QualityProfileForm({
   loading,
 }: QualityProfileFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
+  const [icon, setIcon] = useState(initialValues?.icon ?? "book-open");
   const [rootFolderPath, setRootFolderPath] = useState(
     initialValues?.rootFolderPath || "",
   );
@@ -179,6 +187,7 @@ export default function QualityProfileForm({
     e.preventDefault();
     onSubmit({
       name,
+      icon,
       rootFolderPath,
       cutoff: upgradeAllowed ? cutoff : 0,
       items,
@@ -199,6 +208,38 @@ export default function QualityProfileForm({
           placeholder="Profile name"
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="profile-icon">Icon</Label>
+        <Select value={icon} onValueChange={setIcon}>
+          <SelectTrigger id="profile-icon" className="w-full">
+            <SelectValue>
+              {(() => {
+                const Icon = getProfileIcon(icon);
+                return (
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {PROFILE_ICONS[icon]}
+                  </span>
+                );
+              })()}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(PROFILE_ICONS).map(([key, label]) => {
+              const Icon = PROFILE_ICON_MAP[key];
+              return (
+                <SelectItem key={key} value={key}>
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

@@ -24,6 +24,7 @@ import {
   authorExistsQuery,
 } from "src/lib/queries";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
+import { getProfileIcon } from "src/lib/profile-icons";
 
 const DEFAULT_PARAMS = {
   page: 1,
@@ -84,6 +85,10 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
                   checked={qualityProfileIds.includes(p.id)}
                   onCheckedChange={() => toggleProfile(p.id)}
                 />
+                {(() => {
+                  const Icon = getProfileIcon(p.icon);
+                  return <Icon className="h-4 w-4 text-muted-foreground" />;
+                })()}
                 <span className="text-sm">{p.name}</span>
               </label>
             ))}

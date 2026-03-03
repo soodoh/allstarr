@@ -13,12 +13,13 @@ import {
 import Label from "src/components/ui/label";
 import type { HardcoverAuthorDetail } from "src/server/search";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
+import { getProfileIcon } from "src/lib/profile-icons";
 
 type AddAuthorDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   author: HardcoverAuthorDetail;
-  qualityProfiles: Array<{ id: number; name: string }>;
+  qualityProfiles: Array<{ id: number; name: string; icon: string }>;
   onSuccess: (authorId: number) => void;
 };
 
@@ -93,6 +94,10 @@ export default function AddAuthorDialog({
                       checked={qualityProfileIds.includes(p.id)}
                       onCheckedChange={() => toggleProfile(p.id)}
                     />
+                    {(() => {
+                      const Icon = getProfileIcon(p.icon);
+                      return <Icon className="h-4 w-4 text-muted-foreground" />;
+                    })()}
                     <span className="text-sm">{p.name}</span>
                   </label>
                 ))}

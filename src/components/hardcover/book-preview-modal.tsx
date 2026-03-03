@@ -24,6 +24,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/books/book-detail-content";
 import { useImportHardcoverBook } from "src/hooks/mutations";
+import { getProfileIcon } from "src/lib/profile-icons";
 
 // ── Add-to-bookshelf inline form ──────────────────────────────────────────────
 
@@ -87,6 +88,10 @@ function AddBookForm({
                   checked={qualityProfileIds.includes(p.id)}
                   onCheckedChange={() => toggleProfile(p.id)}
                 />
+                {(() => {
+                  const Icon = getProfileIcon(p.icon);
+                  return <Icon className="h-4 w-4 text-muted-foreground" />;
+                })()}
                 <span className="text-sm">{p.name}</span>
               </label>
             ))}
