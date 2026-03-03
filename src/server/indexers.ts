@@ -42,14 +42,14 @@ import type { ConnectionConfig } from "./download-clients/types";
 /** Newznab ebook categories — use specific subcategories, NOT the parent 7000
  *  (which includes comics/mags and floods results, pushing actual ebooks off the page).
  *  Matches Readarr's defaults: [3030, 7020, 8010]. */
-const EBOOK_CATEGORIES = [7020, 8010];
-const AUDIOBOOK_CATEGORIES = [3030];
+export const EBOOK_CATEGORIES = [7020, 8010];
+export const AUDIOBOOK_CATEGORIES = [3030];
 /** Quality definition IDs for audiobook formats (MP3, M4B, FLAC) */
-const AUDIOBOOK_QUALITY_IDS = new Set([6, 7, 8]);
+export const AUDIOBOOK_QUALITY_IDS = new Set([6, 7, 8]);
 
-type ProfileItem = { quality: { id: number }; allowed: boolean };
+export type ProfileItem = { quality: { id: number }; allowed: boolean };
 
-type ProfileInfo = {
+export type ProfileInfo = {
   id: number;
   name: string;
   items: ProfileItem[];
@@ -58,7 +58,7 @@ type ProfileInfo = {
 };
 
 /** Look up the quality profiles for a book's primary author */
-function getProfilesForBook(bookId: number): ProfileInfo[] | null {
+export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   const bookAuthor = db
     .select({ authorId: booksAuthors.authorId })
     .from(booksAuthors)
@@ -98,7 +98,9 @@ function getProfilesForBook(bookId: number): ProfileInfo[] | null {
 }
 
 /** Derive a union of profile items (a quality is allowed if ANY profile allows it) */
-function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
+export function unionProfileItems(
+  profiles: ProfileInfo[],
+): ProfileItem[] | null {
   const unionMap = new Map<number, ProfileItem>();
   for (const profile of profiles) {
     for (const item of profile.items) {
@@ -113,7 +115,7 @@ function unionProfileItems(profiles: ProfileInfo[]): ProfileItem[] | null {
 
 /** Derive search categories from quality profiles — includes audiobook categories
  *  when any profile allows an audiobook format (MP3, M4B, FLAC). */
-function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
+export function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
   const hasAudiobook = profiles.some((p) =>
     p.items.some((i) => i.allowed && AUDIOBOOK_QUALITY_IDS.has(i.quality.id)),
   );
@@ -129,7 +131,7 @@ function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
  * Removes: file extensions, format tags, release group tags, year/version tags,
  * series info in brackets, and normalizes separators to spaces.
  */
-function cleanReleaseTitle(title: string): string {
+export function cleanReleaseTitle(title: string): string {
   let cleaned = title;
   // Remove file extensions (ebook + audiobook formats)
   cleaned = cleaned.replace(
@@ -151,7 +153,7 @@ function cleanReleaseTitle(title: string): string {
   return cleaned;
 }
 
-type BookInfo = { title: string; authorName: string | null };
+export type BookInfo = { title: string; authorName: string | null };
 
 /**
  * Check whether a release title is relevant to the expected book.
@@ -162,7 +164,10 @@ type BookInfo = { title: string; authorName: string | null };
  * abbreviations like "R. Jordan" matching "Robert Jordan".
  * Title check uses the same approach to handle extra tokens and substrings.
  */
-function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
+export function isRelevantRelease(
+  releaseTitle: string,
+  bookInfo: BookInfo,
+): boolean {
   const cleaned = cleanReleaseTitle(releaseTitle);
 
   // Author check
@@ -190,7 +195,7 @@ function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
 }
 
 /** Compute rejections and format score for a release against the author's profiles */
-function computeReleaseMetrics(
+export function computeReleaseMetrics(
   release: IndexerRelease,
   profiles: ProfileInfo[] | null,
 ): {
@@ -418,7 +423,7 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
 // ─── Post-processing ─────────────────────────────────────────────────────────
 
 /** Deduplicate releases, apply profile scoring/rejections, and sort */
-function dedupeAndScoreReleases(
+export function dedupeAndScoreReleases(
   allReleases: IndexerRelease[],
   bookId: number | null,
   bookInfo: BookInfo | null,
