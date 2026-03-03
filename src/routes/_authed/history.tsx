@@ -37,6 +37,8 @@ const eventTypeLabels: Record<string, string> = {
   bookAdded: "Book Added",
   bookUpdated: "Book Updated",
   bookDeleted: "Book Deleted",
+  bookFileAdded: "File Added",
+  bookFileRemoved: "File Removed",
 };
 
 const eventTypeVariants: Record<
@@ -49,6 +51,8 @@ const eventTypeVariants: Record<
   bookAdded: "default",
   bookUpdated: "secondary",
   bookDeleted: "destructive",
+  bookFileAdded: "default",
+  bookFileRemoved: "destructive",
 };
 
 function HistoryPage() {
@@ -87,6 +91,8 @@ function HistoryPage() {
               <SelectItem value="bookAdded">Book Added</SelectItem>
               <SelectItem value="bookUpdated">Book Updated</SelectItem>
               <SelectItem value="bookDeleted">Book Deleted</SelectItem>
+              <SelectItem value="bookFileAdded">File Added</SelectItem>
+              <SelectItem value="bookFileRemoved">File Removed</SelectItem>
             </SelectContent>
           </Select>
         }
