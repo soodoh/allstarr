@@ -8,3 +8,4 @@ export * from "./download-clients";
 export * from "./indexers";
 export * from "./import";
 export * from "./indexer-search";
+export * from "./blocklist";

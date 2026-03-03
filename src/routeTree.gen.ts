@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedHistoryRouteImport } from './routes/_authed/history'
+import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
@@ -58,6 +59,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
 const AuthedHistoryRoute = AuthedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedActivityRoute = AuthedActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/activity': typeof AuthedActivityRoute
   '/history': typeof AuthedHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/activity': typeof AuthedActivityRoute
   '/history': typeof AuthedHistoryRoute
   '/': typeof AuthedIndexRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/_authed/activity': typeof AuthedActivityRoute
   '/_authed/history': typeof AuthedHistoryRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/activity'
     | '/history'
     | '/bookshelf/add'
     | '/settings/download-clients'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
+    | '/activity'
     | '/history'
     | '/'
     | '/bookshelf/add'
@@ -315,6 +326,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
+    | '/_authed/activity'
     | '/_authed/history'
     | '/_authed/'
     | '/_authed/bookshelf/add'
@@ -387,6 +399,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof AuthedHistoryRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/activity': {
+      id: '/_authed/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AuthedActivityRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/system/': {
@@ -540,6 +559,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
+  AuthedActivityRoute: typeof AuthedActivityRoute
   AuthedHistoryRoute: typeof AuthedHistoryRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
@@ -560,6 +580,7 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedActivityRoute: AuthedActivityRoute,
   AuthedHistoryRoute: AuthedHistoryRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,

@@ -57,6 +57,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: "Activity",
+    to: "/activity",
+    icon: Activity,
+    matchPrefixes: ["/activity"],
+    children: [{ title: "Queue", to: "/activity", icon: Download }],
+  },
+  {
     title: "Settings",
     to: "/settings",
     icon: Settings,
@@ -80,7 +87,7 @@ const navGroups: NavGroup[] = [
     icon: Monitor,
     matchPrefixes: ["/system", "/history"],
     children: [
-      { title: "Status", to: "/system/status", icon: Activity },
+      { title: "Status", to: "/system/status", icon: Monitor },
       { title: "History", to: "/history", icon: History },
     ],
   },
