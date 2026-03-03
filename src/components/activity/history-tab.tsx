@@ -31,6 +31,8 @@ const eventTypeLabels: Record<string, string> = {
   bookUpdated: "Book Updated",
   bookDeleted: "Book Deleted",
   bookGrabbed: "Grabbed",
+  bookFileAdded: "File Added",
+  bookFileRemoved: "File Removed",
 };
 
 const eventTypeVariants: Record<
@@ -44,6 +46,8 @@ const eventTypeVariants: Record<
   bookUpdated: "secondary",
   bookDeleted: "destructive",
   bookGrabbed: "outline",
+  bookFileAdded: "default",
+  bookFileRemoved: "destructive",
 };
 
 export default function HistoryTab(): JSX.Element {
@@ -86,6 +90,8 @@ export default function HistoryTab(): JSX.Element {
             <SelectItem value="bookUpdated">Book Updated</SelectItem>
             <SelectItem value="bookDeleted">Book Deleted</SelectItem>
             <SelectItem value="bookGrabbed">Grabbed</SelectItem>
+            <SelectItem value="bookFileAdded">File Added</SelectItem>
+            <SelectItem value="bookFileRemoved">File Removed</SelectItem>
           </SelectContent>
         </Select>
       </div>
