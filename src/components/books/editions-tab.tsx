@@ -20,6 +20,7 @@ import { TabsContent } from "src/components/ui/tabs";
 import TablePagination from "src/components/shared/table-pagination";
 import { cn } from "src/lib/utils";
 import { useUpdateEdition } from "src/hooks/mutations";
+import MetadataWarning from "src/components/shared/metadata-warning";
 
 type Edition = {
   id: number;
@@ -39,6 +40,7 @@ type Edition = {
   usersCount: number | null;
   score: number | null;
   monitored: boolean;
+  metadataSourceMissingSince: Date | null;
   images: Array<{ url: string; coverType: string }> | null;
 };
 
@@ -205,33 +207,42 @@ export default function EditionsTab({
                 return (
                   <TableRow key={edition.id}>
                     <TableCell className="px-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateEdition.mutate({
-                            id: edition.id,
-                            monitored: !edition.monitored,
-                          })
-                        }
-                        disabled={updateEdition.isPending}
-                        aria-label={
-                          edition.monitored
-                            ? `Unmonitor edition "${edition.title}"`
-                            : `Monitor edition "${edition.title}"`
-                        }
-                        className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
-                          edition.monitored
-                            ? "bg-primary/15 text-primary cursor-pointer hover:bg-destructive/15 hover:text-destructive"
-                            : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
-                        )}
-                      >
-                        {updateEdition.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <BookMarked className="h-3.5 w-3.5" />
-                        )}
-                      </button>
+                      {edition.metadataSourceMissingSince ? (
+                        <MetadataWarning
+                          type="edition"
+                          missingSince={edition.metadataSourceMissingSince}
+                          itemId={edition.id}
+                          itemTitle={edition.title}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateEdition.mutate({
+                              id: edition.id,
+                              monitored: !edition.monitored,
+                            })
+                          }
+                          disabled={updateEdition.isPending}
+                          aria-label={
+                            edition.monitored
+                              ? `Unmonitor edition "${edition.title}"`
+                              : `Monitor edition "${edition.title}"`
+                          }
+                          className={cn(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
+                            edition.monitored
+                              ? "bg-primary/15 text-primary cursor-pointer hover:bg-destructive/15 hover:text-destructive"
+                              : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
+                          )}
+                        >
+                          {updateEdition.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <BookMarked className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                     </TableCell>
                     <TableCell>
                       {coverUrl ? (

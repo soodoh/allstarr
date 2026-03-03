@@ -55,6 +55,8 @@ import {
   useRefreshBookMetadata,
 } from "src/hooks/mutations";
 import BookMonitorToggle from "src/components/hardcover/add-book-button";
+import MetadataWarning from "src/components/shared/metadata-warning";
+import ReassignFilesDialog from "src/components/books/reassign-files-dialog";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
@@ -81,6 +83,7 @@ function BookDetailPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState("editions");
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
 
   const updateBook = useUpdateBook();
   const deleteBook = useDeleteBook();
@@ -152,13 +155,43 @@ function BookDetailPage(): JSX.Element {
 
       {/* Page header */}
       <div className="flex items-start gap-3">
-        <BookMonitorToggle
-          bookId={book.id}
-          title={book.title}
-          monitored={book.monitored}
-          size="lg"
-          onToggled={() => router.invalidate()}
-        />
+        {(() => {
+          if (book.metadataSourceMissingSince) {
+            return (
+              <MetadataWarning
+                type="book"
+                missingSince={book.metadataSourceMissingSince}
+                itemId={book.id}
+                itemTitle={book.title}
+                fileCount={book.fileCount}
+                size="lg"
+                onDeleted={() => navigate({ to: "/bookshelf/books" })}
+                onReassignFiles={() => setReassignOpen(true)}
+              />
+            );
+          }
+          if (book.missingEditionsCount > 0) {
+            return (
+              <MetadataWarning
+                type="book-editions"
+                missingSince={new Date()}
+                missingEditionsCount={book.missingEditionsCount}
+                itemId={book.id}
+                itemTitle={book.title}
+                size="lg"
+              />
+            );
+          }
+          return (
+            <BookMonitorToggle
+              bookId={book.id}
+              title={book.title}
+              monitored={book.monitored}
+              size="lg"
+              onToggled={() => router.invalidate()}
+            />
+          );
+        })()}
         <div className="flex-1 min-w-0">
           <PageHeader
             title={book.title}
@@ -373,6 +406,16 @@ function BookDetailPage(): JSX.Element {
         description="Are you sure you want to delete this book? This cannot be undone."
         onConfirm={handleDelete}
         loading={deleteBook.isPending}
+      />
+
+      {/* Reassign files dialog */}
+      <ReassignFilesDialog
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        fromBookId={book.id}
+        fromBookTitle={book.title}
+        fileCount={book.fileCount}
+        onSuccess={() => router.invalidate()}
       />
     </div>
   );

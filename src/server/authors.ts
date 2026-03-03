@@ -4,6 +4,7 @@ import {
   authors,
   authorQualityProfiles,
   books,
+  bookFiles,
   booksAuthors,
   editions,
   history,
@@ -195,6 +196,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               usersCount: books.usersCount,
               tags: books.tags,
               metadataUpdatedAt: books.metadataUpdatedAt,
+              metadataSourceMissingSince: books.metadataSourceMissingSince,
               createdAt: books.createdAt,
               updatedAt: books.updatedAt,
             })
@@ -330,6 +332,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               images: editions.images,
               isDefaultCover: editions.isDefaultCover,
               monitored: editions.monitored,
+              metadataSourceMissingSince: editions.metadataSourceMissingSince,
             })
             .from(editions)
             .where(inArray(editions.bookId, bookIds))
@@ -368,6 +371,23 @@ export const getAuthorFn = createServerFn({ method: "GET" })
           }>)
         : [];
 
+    // Batch-query file counts for all author's books
+    const fileCountsMap = new Map<number, number>();
+    if (bookIds.length > 0) {
+      const fileCounts = db
+        .select({
+          bookId: bookFiles.bookId,
+          count: sql<number>`count(*)`,
+        })
+        .from(bookFiles)
+        .where(inArray(bookFiles.bookId, bookIds))
+        .groupBy(bookFiles.bookId)
+        .all();
+      for (const fc of fileCounts) {
+        fileCountsMap.set(fc.bookId, fc.count);
+      }
+    }
+
     const booksWithEditions = authorBooks.map((b) => {
       const ba = bookAuthorsMap.get(b.id) ?? [];
       const primaryAuthor = ba.find((a) => a.isPrimary);
@@ -381,6 +401,10 @@ export const getAuthorFn = createServerFn({ method: "GET" })
           ...new Set(bookEditions.map((e) => e.languageCode).filter(Boolean)),
         ] as string[],
         editions: bookEditions,
+        fileCount: fileCountsMap.get(b.id) ?? 0,
+        missingEditionsCount: bookEditions.filter(
+          (e) => e.metadataSourceMissingSince !== null,
+        ).length,
       });
     });
 

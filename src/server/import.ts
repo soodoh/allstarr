@@ -5,13 +5,14 @@ import {
   authors,
   authorQualityProfiles,
   books,
+  bookFiles,
   booksAuthors,
   editions,
   series,
   seriesBookLinks,
   history,
 } from "src/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   fetchAuthorComplete,
@@ -919,6 +920,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
     const now = new Date();
     const metadataProfile = getMetadataProfile();
 
+    // oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches for orphan handling
     return db.transaction((tx) => {
       // Update author fields
       tx.update(authors)
@@ -1076,18 +1078,39 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               ed.foreignEditionId &&
               !seenEditionIds.has(ed.foreignEditionId)
             ) {
-              tx.update(editions)
-                .set({ metadataSourceMissingSince: now })
-                .where(
-                  and(
-                    eq(editions.id, ed.id),
-                    eq(
-                      editions.metadataSourceMissingSince,
-                      null as unknown as Date,
+              // Check if edition is monitored
+              const editionDetail = tx
+                .select({ monitored: editions.monitored })
+                .from(editions)
+                .where(eq(editions.id, ed.id))
+                .get();
+              // Check if parent book has any files
+              const fileCount = tx
+                .select({
+                  count: sql<number>`count(*)`,
+                })
+                .from(bookFiles)
+                .where(eq(bookFiles.bookId, existingBook.id))
+                .get();
+
+              if (!editionDetail?.monitored && (fileCount?.count ?? 0) === 0) {
+                // Safe to auto-delete
+                tx.delete(editions).where(eq(editions.id, ed.id)).run();
+              } else {
+                // Stamp missing metadata
+                tx.update(editions)
+                  .set({ metadataSourceMissingSince: now })
+                  .where(
+                    and(
+                      eq(editions.id, ed.id),
+                      eq(
+                        editions.metadataSourceMissingSince,
+                        null as unknown as Date,
+                      ),
                     ),
-                  ),
-                )
-                .run();
+                  )
+                  .run();
+              }
             }
           }
         } else {
@@ -1224,6 +1247,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
         const bookRecord = tx
           .select({
             foreignBookId: books.foreignBookId,
+            title: books.title,
           })
           .from(books)
           .where(eq(books.id, bookId))
@@ -1233,15 +1257,48 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
           bookRecord?.foreignBookId &&
           !seenForeignBookIds.has(bookRecord.foreignBookId)
         ) {
-          tx.update(books)
-            .set({ metadataSourceMissingSince: now })
+          // Check if any edition is monitored
+          const hasMonitored = tx
+            .select({ id: editions.id })
+            .from(editions)
             .where(
-              and(
-                eq(books.id, bookId),
-                eq(books.metadataSourceMissingSince, null as unknown as Date),
-              ),
+              and(eq(editions.bookId, bookId), eq(editions.monitored, true)),
             )
-            .run();
+            .limit(1)
+            .get();
+          // Check if book has any files
+          const fileCount = tx
+            .select({
+              count: sql<number>`count(*)`,
+            })
+            .from(bookFiles)
+            .where(eq(bookFiles.bookId, bookId))
+            .get();
+
+          if (!hasMonitored && (fileCount?.count ?? 0) === 0) {
+            // Safe to auto-delete — cascade will remove editions
+            tx.delete(books).where(eq(books.id, bookId)).run();
+            tx.insert(history)
+              .values({
+                eventType: "bookDeleted",
+                authorId: data.authorId,
+                data: {
+                  title: bookRecord.title,
+                  reason: "metadata_source_removed",
+                },
+              })
+              .run();
+          } else {
+            tx.update(books)
+              .set({ metadataSourceMissingSince: now })
+              .where(
+                and(
+                  eq(books.id, bookId),
+                  eq(books.metadataSourceMissingSince, null as unknown as Date),
+                ),
+              )
+              .run();
+          }
         }
       }
 
@@ -1272,11 +1329,43 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
     const foreignBookId = Number(localBook.foreignBookId);
     const result = await fetchBookComplete(foreignBookId, authorization);
     if (!result) {
-      // Book removed from Hardcover
-      db.update(books)
-        .set({ metadataSourceMissingSince: new Date() })
-        .where(eq(books.id, data.bookId))
-        .run();
+      // Book removed from Hardcover — auto-delete if safe, otherwise stamp
+      const hasMonitored = db
+        .select({ id: editions.id })
+        .from(editions)
+        .where(
+          and(eq(editions.bookId, data.bookId), eq(editions.monitored, true)),
+        )
+        .limit(1)
+        .get();
+      const fileCount = db
+        .select({ count: sql<number>`count(*)` })
+        .from(bookFiles)
+        .where(eq(bookFiles.bookId, data.bookId))
+        .get();
+
+      if (!hasMonitored && (fileCount?.count ?? 0) === 0) {
+        const bookRecord = db
+          .select({ title: books.title })
+          .from(books)
+          .where(eq(books.id, data.bookId))
+          .get();
+        db.delete(books).where(eq(books.id, data.bookId)).run();
+        db.insert(history)
+          .values({
+            eventType: "bookDeleted",
+            data: {
+              title: bookRecord?.title ?? "Unknown",
+              reason: "metadata_source_removed",
+            },
+          })
+          .run();
+      } else {
+        db.update(books)
+          .set({ metadataSourceMissingSince: new Date() })
+          .where(eq(books.id, data.bookId))
+          .run();
+      }
       return {
         booksUpdated: 0,
         booksAdded: 0,
@@ -1425,18 +1514,35 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 
       for (const ed of existingEditions) {
         if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
-          tx.update(editions)
-            .set({ metadataSourceMissingSince: now })
-            .where(
-              and(
-                eq(editions.id, ed.id),
-                eq(
-                  editions.metadataSourceMissingSince,
-                  null as unknown as Date,
+          // Check if edition is monitored
+          const editionDetail = tx
+            .select({ monitored: editions.monitored })
+            .from(editions)
+            .where(eq(editions.id, ed.id))
+            .get();
+          // Check if parent book has any files
+          const fileCount = tx
+            .select({ count: sql<number>`count(*)` })
+            .from(bookFiles)
+            .where(eq(bookFiles.bookId, data.bookId))
+            .get();
+
+          if (!editionDetail?.monitored && (fileCount?.count ?? 0) === 0) {
+            tx.delete(editions).where(eq(editions.id, ed.id)).run();
+          } else {
+            tx.update(editions)
+              .set({ metadataSourceMissingSince: now })
+              .where(
+                and(
+                  eq(editions.id, ed.id),
+                  eq(
+                    editions.metadataSourceMissingSince,
+                    null as unknown as Date,
+                  ),
                 ),
-              ),
-            )
-            .run();
+              )
+              .run();
+          }
         }
       }
 
