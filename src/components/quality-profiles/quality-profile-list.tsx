@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
+import { getProfileIcon } from "src/lib/profile-icons";
 import { Button } from "src/components/ui/button";
 import {
   Table,
@@ -14,6 +15,7 @@ import { Badge } from "src/components/ui/badge";
 type QualityProfile = {
   id: number;
   name: string;
+  icon: string;
   rootFolderPath: string;
   cutoff: number;
   items: { quality: { id: number; name: string }; allowed: boolean }[] | null;
@@ -58,7 +60,17 @@ export default function QualityProfileList({
             : null;
           return (
             <TableRow key={profile.id}>
-              <TableCell className="font-medium">{profile.name}</TableCell>
+              <TableCell className="font-medium">
+                {(() => {
+                  const Icon = getProfileIcon(profile.icon);
+                  return (
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      {profile.name}
+                    </span>
+                  );
+                })()}
+              </TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {profile.rootFolderPath || "—"}
               </TableCell>

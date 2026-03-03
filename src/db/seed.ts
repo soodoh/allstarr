@@ -145,6 +145,7 @@ const defaultProfiles = [
     name: "Ebook",
     rootFolderPath: "",
     cutoff: 0,
+    icon: "book-marked",
     items: [
       { quality: { id: 4, name: "EPUB" }, allowed: true },
       { quality: { id: 5, name: "AZW3" }, allowed: true },
@@ -161,6 +162,7 @@ const defaultProfiles = [
     name: "Audiobook",
     rootFolderPath: "",
     cutoff: 0,
+    icon: "audio-lines",
     items: [
       { quality: { id: 6, name: "MP3" }, allowed: true },
       { quality: { id: 7, name: "M4B" }, allowed: true },
@@ -252,6 +254,29 @@ if (profiles.length === 0) {
     db.insert(schema.qualityProfiles).values(profile).run();
   }
   console.log(`  Seeded ${defaultProfiles.length} default quality profile(s)`);
+}
+
+// Backfill icons on existing profiles that lack them
+const iconBackfill: Record<string, string> = {
+  Ebook: "book-marked",
+  Audiobook: "audio-lines",
+};
+let iconsBackfilled = 0;
+const allProfiles = db.select().from(schema.qualityProfiles).all();
+for (const profile of allProfiles) {
+  if (
+    iconBackfill[profile.name] &&
+    profile.icon !== iconBackfill[profile.name]
+  ) {
+    db.update(schema.qualityProfiles)
+      .set({ icon: iconBackfill[profile.name] })
+      .where(eq(schema.qualityProfiles.id, profile.id))
+      .run();
+    iconsBackfilled += 1;
+  }
+}
+if (iconsBackfilled > 0) {
+  console.log(`  Backfilled icons on ${iconsBackfilled} profile(s)`);
 }
 
 // Seed default settings

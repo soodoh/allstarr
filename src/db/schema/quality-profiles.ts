@@ -11,4 +11,5 @@ export const qualityProfiles = sqliteTable("quality_profiles", {
   upgradeAllowed: integer("upgrade_allowed", { mode: "boolean" })
     .notNull()
     .default(false),
+  icon: text("icon").notNull().default("book-open"),
 });

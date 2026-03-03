@@ -69,6 +69,7 @@ function ProfilesPage() {
   // Profile handlers
   const handleCreateProfile = (values: {
     name: string;
+    icon: string;
     rootFolderPath: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
@@ -81,6 +82,7 @@ function ProfilesPage() {
 
   const handleUpdateProfile = (values: {
     name: string;
+    icon: string;
     rootFolderPath: string;
     cutoff: number;
     items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
@@ -236,6 +238,7 @@ function ProfilesPage() {
               editingProfile
                 ? {
                     name: editingProfile.name,
+                    icon: editingProfile.icon,
                     rootFolderPath: editingProfile.rootFolderPath,
                     cutoff: editingProfile.cutoff,
                     items:

@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
+import { getProfileIcon } from "src/lib/profile-icons";
 
 type AuthorFormProps = {
   initialValues?: {
@@ -19,7 +20,7 @@ type AuthorFormProps = {
     status: string;
     qualityProfileIds: number[];
   };
-  qualityProfiles: Array<{ id: number; name: string }>;
+  qualityProfiles: Array<{ id: number; name: string; icon: string }>;
   onSubmit: (values: {
     name: string;
     sortName: string;
@@ -130,6 +131,10 @@ export default function AuthorForm({
                   checked={qualityProfileIds.includes(p.id)}
                   onCheckedChange={() => toggleProfile(p.id)}
                 />
+                {(() => {
+                  const Icon = getProfileIcon(p.icon);
+                  return <Icon className="h-4 w-4 text-muted-foreground" />;
+                })()}
                 <span className="text-sm">{p.name}</span>
               </label>
             ))}
