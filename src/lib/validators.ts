@@ -154,11 +154,20 @@ export const createEditionSchema = z.object({
       }),
     )
     .nullable(),
-  monitored: z.boolean().default(true),
 });
 
 export const updateEditionSchema = createEditionSchema.partial().extend({
   id: z.number(),
+});
+
+export const toggleEditionProfileSchema = z.object({
+  editionId: z.number(),
+  qualityProfileId: z.number(),
+});
+
+export const toggleBookProfileSchema = z.object({
+  bookId: z.number(),
+  qualityProfileId: z.number(),
 });
 
 // Download Clients

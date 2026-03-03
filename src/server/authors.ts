@@ -7,6 +7,7 @@ import {
   bookFiles,
   booksAuthors,
   editions,
+  editionQualityProfiles,
   history,
   series,
   seriesBookLinks,
@@ -316,6 +317,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       bookIds.length > 0
         ? db
             .select({
+              id: editions.id,
               bookId: editions.bookId,
               title: editions.title,
               releaseDate: editions.releaseDate,
@@ -331,7 +333,6 @@ export const getAuthorFn = createServerFn({ method: "GET" })
               languageCode: editions.languageCode,
               images: editions.images,
               isDefaultCover: editions.isDefaultCover,
-              monitored: editions.monitored,
               metadataSourceMissingSince: editions.metadataSourceMissingSince,
             })
             .from(editions)
@@ -340,11 +341,38 @@ export const getAuthorFn = createServerFn({ method: "GET" })
             .all()
         : [];
 
-    // Group editions by bookId
-    const bookEditionsMap = new Map<number, typeof allEditions>();
+    // Batch-fetch edition quality profile links
+    const allEditionIds = allEditions.map((e) => e.id);
+    const editionProfileLinks =
+      allEditionIds.length > 0
+        ? db
+            .select({
+              editionId: editionQualityProfiles.editionId,
+              qualityProfileId: editionQualityProfiles.qualityProfileId,
+            })
+            .from(editionQualityProfiles)
+            .where(inArray(editionQualityProfiles.editionId, allEditionIds))
+            .all()
+        : [];
+
+    const editionProfilesMap = new Map<number, number[]>();
+    for (const link of editionProfileLinks) {
+      const arr = editionProfilesMap.get(link.editionId) ?? [];
+      arr.push(link.qualityProfileId);
+      editionProfilesMap.set(link.editionId, arr);
+    }
+
+    // Group editions by bookId (with qualityProfileIds)
+    const bookEditionsMap = new Map<
+      number,
+      Array<(typeof allEditions)[number] & { qualityProfileIds: number[] }>
+    >();
     for (const ed of allEditions) {
       const arr = bookEditionsMap.get(ed.bookId) ?? [];
-      arr.push(ed);
+      arr.push({
+        ...ed,
+        qualityProfileIds: editionProfilesMap.get(ed.id) ?? [],
+      });
       bookEditionsMap.set(ed.bookId, arr);
     }
 
@@ -392,11 +420,14 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       const ba = bookAuthorsMap.get(b.id) ?? [];
       const primaryAuthor = ba.find((a) => a.isPrimary);
       const bookEditions = bookEditionsMap.get(b.id) ?? [];
+      const bookQualityProfileIds = [
+        ...new Set(bookEditions.flatMap((e) => e.qualityProfileIds)),
+      ];
       return Object.assign(b, {
         bookAuthors: ba,
         authorName: primaryAuthor?.authorName ?? null,
         authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
-        monitored: bookEditions.some((e) => e.monitored),
+        qualityProfileIds: bookQualityProfileIds,
         languageCodes: [
           ...new Set(bookEditions.map((e) => e.languageCode).filter(Boolean)),
         ] as string[],

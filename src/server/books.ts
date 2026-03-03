@@ -5,6 +5,8 @@ import {
   bookFiles,
   booksAuthors,
   editions,
+  editionQualityProfiles,
+  authorQualityProfiles,
   authors,
   history,
   series,
@@ -18,6 +20,8 @@ import {
   updateBookSchema,
   createEditionSchema,
   updateEditionSchema,
+  toggleBookProfileSchema,
+  toggleEditionProfileSchema,
 } from "src/lib/validators";
 
 export const getBooksFn = createServerFn({ method: "GET" }).handler(
@@ -56,9 +60,11 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
           db
             .select({ one: sql`1` })
             .from(editions)
-            .where(
-              and(eq(editions.bookId, books.id), eq(editions.monitored, true)),
-            ),
+            .innerJoin(
+              editionQualityProfiles,
+              eq(editionQualityProfiles.editionId, editions.id),
+            )
+            .where(eq(editions.bookId, books.id)),
         ),
       )
       .orderBy(desc(books.usersCount))
@@ -179,9 +185,15 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     const conditions: SQL[] = [];
 
-    // Filter by edition monitored status
+    // Filter by edition monitored status (has any quality profile links)
     if (data.monitored !== undefined) {
-      conditions.push(eq(editions.monitored, data.monitored));
+      const hasProfile = exists(
+        db
+          .select({ one: sql`1` })
+          .from(editionQualityProfiles)
+          .where(eq(editionQualityProfiles.editionId, editions.id)),
+      );
+      conditions.push(data.monitored ? hasProfile : sql`NOT ${hasProfile}`);
     }
 
     if (data.search) {
@@ -343,7 +355,31 @@ export const getBookFn = createServerFn({ method: "GET" })
     const authorName = primaryAuthor?.authorName ?? null;
 
     const bookEditions = db
-      .select()
+      .select({
+        id: editions.id,
+        bookId: editions.bookId,
+        title: editions.title,
+        isbn10: editions.isbn10,
+        isbn13: editions.isbn13,
+        asin: editions.asin,
+        format: editions.format,
+        pageCount: editions.pageCount,
+        publisher: editions.publisher,
+        editionInformation: editions.editionInformation,
+        releaseDate: editions.releaseDate,
+        language: editions.language,
+        languageCode: editions.languageCode,
+        country: editions.country,
+        usersCount: editions.usersCount,
+        score: editions.score,
+        foreignEditionId: editions.foreignEditionId,
+        images: editions.images,
+        contributors: editions.contributors,
+        isDefaultCover: editions.isDefaultCover,
+        metadataUpdatedAt: editions.metadataUpdatedAt,
+        metadataSourceMissingSince: editions.metadataSourceMissingSince,
+        createdAt: editions.createdAt,
+      })
       .from(editions)
       .where(eq(editions.bookId, data.id))
       .all();
@@ -379,18 +415,64 @@ export const getBookFn = createServerFn({ method: "GET" })
       .where(eq(bookFiles.bookId, data.id))
       .get();
 
+    // Batch-fetch edition quality profile links
+    const editionIds = bookEditions.map((e) => e.id);
+    const editionProfileLinks =
+      editionIds.length > 0
+        ? db
+            .select({
+              editionId: editionQualityProfiles.editionId,
+              qualityProfileId: editionQualityProfiles.qualityProfileId,
+            })
+            .from(editionQualityProfiles)
+            .where(inArray(editionQualityProfiles.editionId, editionIds))
+            .all()
+        : [];
+
+    const editionProfilesMap = new Map<number, number[]>();
+    for (const link of editionProfileLinks) {
+      const arr = editionProfilesMap.get(link.editionId) ?? [];
+      arr.push(link.qualityProfileId);
+      editionProfilesMap.set(link.editionId, arr);
+    }
+
+    // Get author quality profile IDs from primary author
+    const authorQualityProfileIds = authorId
+      ? db
+          .select({
+            qualityProfileId: authorQualityProfiles.qualityProfileId,
+          })
+          .from(authorQualityProfiles)
+          .where(eq(authorQualityProfiles.authorId, authorId))
+          .all()
+          .map((l) => l.qualityProfileId)
+      : [];
+
     // Count editions with missing metadata
     const missingEditionsCount = bookEditions.filter(
       (e) => e.metadataSourceMissingSince !== null,
     ).length;
 
+    // Build editions with qualityProfileIds
+    const editionsWithProfiles = bookEditions.map((e) =>
+      Object.assign(e, {
+        qualityProfileIds: editionProfilesMap.get(e.id) ?? [],
+      }),
+    );
+
+    // Book-level qualityProfileIds = union of all edition profile IDs
+    const bookQualityProfileIds = [
+      ...new Set(editionsWithProfiles.flatMap((e) => e.qualityProfileIds)),
+    ];
+
     return {
       ...book,
-      monitored: bookEditions.some((e) => e.monitored),
+      qualityProfileIds: bookQualityProfileIds,
+      authorQualityProfileIds,
       authorId,
       authorName,
       bookAuthors: bookAuthorEntries,
-      editions: bookEditions,
+      editions: editionsWithProfiles,
       series: bookSeries,
       languages,
       fileCount: fileCountResult?.count ?? 0,
@@ -544,46 +626,60 @@ export const deleteBookFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-// Toggle book monitoring at the edition level
-export const toggleBookMonitorFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { bookId: number; monitor: boolean }) => d)
+// Toggle a quality profile on/off for a book's default cover edition
+export const toggleBookProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => toggleBookProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
 
-    if (data.monitor) {
-      // Monitor: set monitored=true on the default cover edition (or first by readers)
-      const defaultEdition = db
+    // Find the default cover edition (or first by readers)
+    const defaultEdition = db
+      .select({ id: editions.id })
+      .from(editions)
+      .where(
+        and(
+          eq(editions.bookId, data.bookId),
+          eq(editions.isDefaultCover, true),
+        ),
+      )
+      .get();
+
+    const targetEdition =
+      defaultEdition ??
+      db
         .select({ id: editions.id })
         .from(editions)
-        .where(
-          and(
-            eq(editions.bookId, data.bookId),
-            eq(editions.isDefaultCover, true),
-          ),
-        )
+        .where(eq(editions.bookId, data.bookId))
+        .orderBy(desc(editions.usersCount))
+        .limit(1)
         .get();
 
-      const targetEdition =
-        defaultEdition ??
-        db
-          .select({ id: editions.id })
-          .from(editions)
-          .where(eq(editions.bookId, data.bookId))
-          .orderBy(desc(editions.usersCount))
-          .limit(1)
-          .get();
+    if (!targetEdition) {
+      throw new Error("No edition found for this book");
+    }
 
-      if (targetEdition) {
-        db.update(editions)
-          .set({ monitored: true })
-          .where(eq(editions.id, targetEdition.id))
-          .run();
-      }
+    // Check if link exists
+    const existing = db
+      .select({ id: editionQualityProfiles.id })
+      .from(editionQualityProfiles)
+      .where(
+        and(
+          eq(editionQualityProfiles.editionId, targetEdition.id),
+          eq(editionQualityProfiles.qualityProfileId, data.qualityProfileId),
+        ),
+      )
+      .get();
+
+    if (existing) {
+      db.delete(editionQualityProfiles)
+        .where(eq(editionQualityProfiles.id, existing.id))
+        .run();
     } else {
-      // Unmonitor: set monitored=false on ALL editions for this book
-      db.update(editions)
-        .set({ monitored: false })
-        .where(eq(editions.bookId, data.bookId))
+      db.insert(editionQualityProfiles)
+        .values({
+          editionId: targetEdition.id,
+          qualityProfileId: data.qualityProfileId,
+        })
         .run();
     }
 
@@ -591,11 +687,48 @@ export const toggleBookMonitorFn = createServerFn({ method: "POST" })
       .values({
         eventType: "bookUpdated",
         bookId: data.bookId,
-        data: { action: data.monitor ? "monitored" : "unmonitored" },
+        data: {
+          action: existing ? "profile-removed" : "profile-added",
+          qualityProfileId: data.qualityProfileId,
+        },
       })
       .run();
 
     return { bookId: data.bookId };
+  });
+
+// Toggle a quality profile on/off for a specific edition
+export const toggleEditionProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => toggleEditionProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    // Check if link exists
+    const existing = db
+      .select({ id: editionQualityProfiles.id })
+      .from(editionQualityProfiles)
+      .where(
+        and(
+          eq(editionQualityProfiles.editionId, data.editionId),
+          eq(editionQualityProfiles.qualityProfileId, data.qualityProfileId),
+        ),
+      )
+      .get();
+
+    if (existing) {
+      db.delete(editionQualityProfiles)
+        .where(eq(editionQualityProfiles.id, existing.id))
+        .run();
+    } else {
+      db.insert(editionQualityProfiles)
+        .values({
+          editionId: data.editionId,
+          qualityProfileId: data.qualityProfileId,
+        })
+        .run();
+    }
+
+    return { editionId: data.editionId };
   });
 
 // Editions

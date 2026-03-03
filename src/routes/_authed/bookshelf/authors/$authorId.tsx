@@ -66,7 +66,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
-import BookMonitorToggle from "src/components/hardcover/add-book-button";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import AuthorForm from "src/components/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
@@ -83,6 +83,7 @@ import {
   useUpdateAuthor,
   useDeleteAuthor,
   useRefreshAuthorMetadata,
+  useToggleBookProfile,
 } from "src/hooks/mutations";
 import NotFound from "src/components/NotFound";
 
@@ -115,6 +116,7 @@ export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
 // ---------- Types ----------
 
 type EditionInfo = {
+  id: number;
   bookId: number;
   title: string;
   releaseDate: string | null;
@@ -130,7 +132,7 @@ type EditionInfo = {
   languageCode: string | null;
   images: Array<{ url: string; coverType: string }> | null;
   isDefaultCover: boolean;
-  monitored: boolean;
+  qualityProfileIds: number[];
   metadataSourceMissingSince: Date | null;
 };
 
@@ -151,7 +153,7 @@ type LocalBook = {
   description: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
-  monitored: boolean;
+  qualityProfileIds: number[];
   foreignBookId: string | null;
   images: Array<{ url: string; coverType: string }> | null;
   rating: number | null;
@@ -210,15 +212,20 @@ function pickBestEdition(
 // ---------- Books tab ----------
 
 // oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
+type QualityProfileInfo = { id: number; name: string; icon: string };
+
 function BooksTab({
   books,
   currentAuthorId,
   availableLanguages,
+  authorQualityProfiles,
 }: {
   books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
+  authorQualityProfiles: QualityProfileInfo[];
 }) {
+  const toggleBookProfile = useToggleBookProfile();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -500,10 +507,16 @@ function BooksTab({
                           );
                         }
                         return (
-                          <BookMonitorToggle
-                            bookId={book.id}
-                            title={book.title}
-                            monitored={book.monitored}
+                          <ProfileToggleIcons
+                            profiles={authorQualityProfiles}
+                            activeProfileIds={book.qualityProfileIds}
+                            onToggle={(profileId) =>
+                              toggleBookProfile.mutate({
+                                bookId: book.id,
+                                qualityProfileId: profileId,
+                              })
+                            }
+                            isPending={toggleBookProfile.isPending}
                           />
                         );
                       })()}
@@ -565,8 +578,14 @@ function BooksTab({
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant={book.monitored ? "default" : "secondary"}>
-                        {book.monitored ? "Yes" : "No"}
+                      <Badge
+                        variant={
+                          book.qualityProfileIds.length > 0
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {book.qualityProfileIds.length > 0 ? "Yes" : "No"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -671,13 +690,16 @@ function SeriesTab({
   currentAuthorId,
   availableLanguages,
   enabled,
+  authorQualityProfiles,
 }: {
   seriesList: AuthorSeries[];
   books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
   enabled: boolean;
+  authorQualityProfiles: QualityProfileInfo[];
 }) {
+  const toggleBookProfile = useToggleBookProfile();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
   const [language, setLanguage] = useState(
@@ -922,7 +944,7 @@ function SeriesTab({
         const isExpanded = expandedId === s.id;
         const entries = isExpanded ? getSeriesEntries(s) : [];
         const monitoredCount = s.books.filter(
-          (sb) => bookMap.get(sb.bookId)?.monitored,
+          (sb) => (bookMap.get(sb.bookId)?.qualityProfileIds?.length ?? 0) > 0,
         ).length;
 
         return (
@@ -1034,10 +1056,16 @@ function SeriesTab({
                                   );
                                 }
                                 return (
-                                  <BookMonitorToggle
-                                    bookId={book.id}
-                                    title={book.title}
-                                    monitored={book.monitored}
+                                  <ProfileToggleIcons
+                                    profiles={authorQualityProfiles}
+                                    activeProfileIds={book.qualityProfileIds}
+                                    onToggle={(profileId) =>
+                                      toggleBookProfile.mutate({
+                                        bookId: book.id,
+                                        qualityProfileId: profileId,
+                                      })
+                                    }
+                                    isPending={toggleBookProfile.isPending}
                                   />
                                 );
                               })()}
@@ -1243,10 +1271,20 @@ function AuthorDetailPage() {
     return filtered.length > 0 ? filtered : all;
   }, [author?.availableLanguages, metadataProfile.allowedLanguages]);
 
+  const authorQualityProfiles = useMemo(() => {
+    if (!author || !qualityProfiles) {
+      return [];
+    }
+    const profileIdSet = new Set(author.qualityProfileIds);
+    return qualityProfiles.filter((p) => profileIdSet.has(p.id));
+  }, [author, qualityProfiles]);
+
   if (!author) {
     return <NotFound />;
   }
-  const monitoredCount = books.filter((b) => b.monitored).length;
+  const monitoredCount = books.filter(
+    (b) => b.qualityProfileIds.length > 0,
+  ).length;
 
   const hardcoverSlug = author.slug || author.foreignAuthorId;
   const hardcoverUrl = hardcoverSlug
@@ -1418,6 +1456,7 @@ function AuthorDetailPage() {
                   books={books}
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
+                  authorQualityProfiles={authorQualityProfiles}
                 />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
@@ -1427,6 +1466,7 @@ function AuthorDetailPage() {
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
                   enabled={activeTab === "series"}
+                  authorQualityProfiles={authorQualityProfiles}
                 />
               </TabsContent>
             </CardContent>

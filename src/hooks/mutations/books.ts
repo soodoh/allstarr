@@ -5,7 +5,8 @@ import {
   createBookFn,
   updateBookFn,
   deleteBookFn,
-  toggleBookMonitorFn,
+  toggleBookProfileFn,
+  toggleEditionProfileFn,
   updateEditionFn,
   deleteEditionFn,
   reassignBookFilesFn,
@@ -60,11 +61,11 @@ export function useDeleteBook() {
   });
 }
 
-export function useToggleBookMonitor() {
+export function useToggleBookProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { bookId: number; monitor: boolean }) =>
-      toggleBookMonitorFn({ data }),
+    mutationFn: (data: { bookId: number; qualityProfileId: number }) =>
+      toggleBookProfileFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
@@ -74,11 +75,23 @@ export function useToggleBookMonitor() {
   });
 }
 
+export function useToggleEditionProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { editionId: number; qualityProfileId: number }) =>
+      toggleEditionProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+    },
+    onError: () => toast.error("Failed to update edition monitoring"),
+  });
+}
+
 export function useUpdateEdition() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { id: number; monitored?: boolean }) =>
-      updateEditionFn({ data }),
+    mutationFn: (data: { id: number }) => updateEditionFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });

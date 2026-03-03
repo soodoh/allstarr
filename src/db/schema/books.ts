@@ -82,7 +82,6 @@ export const editions = sqliteTable("editions", {
   contributors: text("contributors", { mode: "json" }).$type<
     Array<{ authorId: string; name: string; contribution: string | null }>
   >(),
-  monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
   isDefaultCover: integer("is_default_cover", { mode: "boolean" })
     .notNull()
     .default(false),

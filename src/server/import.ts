@@ -8,6 +8,7 @@ import {
   bookFiles,
   booksAuthors,
   editions,
+  editionQualityProfiles,
   series,
   seriesBookLinks,
   history,
@@ -1078,11 +1079,12 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
               ed.foreignEditionId &&
               !seenEditionIds.has(ed.foreignEditionId)
             ) {
-              // Check if edition is monitored
-              const editionDetail = tx
-                .select({ monitored: editions.monitored })
-                .from(editions)
-                .where(eq(editions.id, ed.id))
+              // Check if edition has any quality profile links
+              const hasProfile = tx
+                .select({ id: editionQualityProfiles.id })
+                .from(editionQualityProfiles)
+                .where(eq(editionQualityProfiles.editionId, ed.id))
+                .limit(1)
                 .get();
               // Check if parent book has any files
               const fileCount = tx
@@ -1093,7 +1095,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
                 .where(eq(bookFiles.bookId, existingBook.id))
                 .get();
 
-              if (!editionDetail?.monitored && (fileCount?.count ?? 0) === 0) {
+              if (!hasProfile && (fileCount?.count ?? 0) === 0) {
                 // Safe to auto-delete
                 tx.delete(editions).where(eq(editions.id, ed.id)).run();
               } else {
@@ -1257,13 +1259,15 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
           bookRecord?.foreignBookId &&
           !seenForeignBookIds.has(bookRecord.foreignBookId)
         ) {
-          // Check if any edition is monitored
-          const hasMonitored = tx
-            .select({ id: editions.id })
-            .from(editions)
-            .where(
-              and(eq(editions.bookId, bookId), eq(editions.monitored, true)),
+          // Check if any edition has quality profile links
+          const hasProfileLink = tx
+            .select({ id: editionQualityProfiles.id })
+            .from(editionQualityProfiles)
+            .innerJoin(
+              editions,
+              eq(editions.id, editionQualityProfiles.editionId),
             )
+            .where(eq(editions.bookId, bookId))
             .limit(1)
             .get();
           // Check if book has any files
@@ -1275,7 +1279,7 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
             .where(eq(bookFiles.bookId, bookId))
             .get();
 
-          if (!hasMonitored && (fileCount?.count ?? 0) === 0) {
+          if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
             // Safe to auto-delete — cascade will remove editions
             tx.delete(books).where(eq(books.id, bookId)).run();
             tx.insert(history)
@@ -1330,12 +1334,11 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
     const result = await fetchBookComplete(foreignBookId, authorization);
     if (!result) {
       // Book removed from Hardcover — auto-delete if safe, otherwise stamp
-      const hasMonitored = db
-        .select({ id: editions.id })
-        .from(editions)
-        .where(
-          and(eq(editions.bookId, data.bookId), eq(editions.monitored, true)),
-        )
+      const hasProfileLink = db
+        .select({ id: editionQualityProfiles.id })
+        .from(editionQualityProfiles)
+        .innerJoin(editions, eq(editions.id, editionQualityProfiles.editionId))
+        .where(eq(editions.bookId, data.bookId))
         .limit(1)
         .get();
       const fileCount = db
@@ -1344,7 +1347,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
         .where(eq(bookFiles.bookId, data.bookId))
         .get();
 
-      if (!hasMonitored && (fileCount?.count ?? 0) === 0) {
+      if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
         const bookRecord = db
           .select({ title: books.title })
           .from(books)
@@ -1514,11 +1517,12 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 
       for (const ed of existingEditions) {
         if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
-          // Check if edition is monitored
-          const editionDetail = tx
-            .select({ monitored: editions.monitored })
-            .from(editions)
-            .where(eq(editions.id, ed.id))
+          // Check if edition has any quality profile links
+          const hasProfile = tx
+            .select({ id: editionQualityProfiles.id })
+            .from(editionQualityProfiles)
+            .where(eq(editionQualityProfiles.editionId, ed.id))
+            .limit(1)
             .get();
           // Check if parent book has any files
           const fileCount = tx
@@ -1527,7 +1531,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
             .where(eq(bookFiles.bookId, data.bookId))
             .get();
 
-          if (!editionDetail?.monitored && (fileCount?.count ?? 0) === 0) {
+          if (!hasProfile && (fileCount?.count ?? 0) === 0) {
             tx.delete(editions).where(eq(editions.id, ed.id)).run();
           } else {
             tx.update(editions)
