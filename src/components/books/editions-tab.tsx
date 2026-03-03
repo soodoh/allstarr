@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import {
-  BookMarked,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
   ImageIcon,
-  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -18,8 +16,8 @@ import {
 } from "src/components/ui/table";
 import { TabsContent } from "src/components/ui/tabs";
 import TablePagination from "src/components/shared/table-pagination";
-import { cn } from "src/lib/utils";
-import { useUpdateEdition } from "src/hooks/mutations";
+import { useToggleEditionProfile } from "src/hooks/mutations";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
 
 type Edition = {
@@ -39,9 +37,15 @@ type Edition = {
   country: string | null;
   usersCount: number | null;
   score: number | null;
-  monitored: boolean;
+  qualityProfileIds: number[];
   metadataSourceMissingSince: Date | null;
   images: Array<{ url: string; coverType: string }> | null;
+};
+
+type QualityProfile = {
+  id: number;
+  name: string;
+  icon: string;
 };
 
 type EditionSortKey =
@@ -108,15 +112,17 @@ function getEditionSortValue(
 
 export default function EditionsTab({
   editions,
+  authorQualityProfiles,
 }: {
   editions: Edition[];
+  authorQualityProfiles: QualityProfile[];
 }): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sortBy, setSortBy] = useState<EditionSortKey>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const updateEdition = useUpdateEdition();
+  const toggleEditionProfile = useToggleEditionProfile();
 
   const handleSort = (key: EditionSortKey) => {
     if (sortBy === key) {
@@ -215,33 +221,17 @@ export default function EditionsTab({
                           itemTitle={edition.title}
                         />
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateEdition.mutate({
-                              id: edition.id,
-                              monitored: !edition.monitored,
+                        <ProfileToggleIcons
+                          profiles={authorQualityProfiles}
+                          activeProfileIds={edition.qualityProfileIds}
+                          onToggle={(profileId) =>
+                            toggleEditionProfile.mutate({
+                              editionId: edition.id,
+                              qualityProfileId: profileId,
                             })
                           }
-                          disabled={updateEdition.isPending}
-                          aria-label={
-                            edition.monitored
-                              ? `Unmonitor edition "${edition.title}"`
-                              : `Monitor edition "${edition.title}"`
-                          }
-                          className={cn(
-                            "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
-                            edition.monitored
-                              ? "bg-primary/15 text-primary cursor-pointer hover:bg-destructive/15 hover:text-destructive"
-                              : "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer",
-                          )}
-                        >
-                          {updateEdition.isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <BookMarked className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+                          isPending={toggleEditionProfile.isPending}
+                        />
                       )}
                     </TableCell>
                     <TableCell>

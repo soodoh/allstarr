@@ -48,13 +48,15 @@ import {
   bookDetailQuery,
   authorsListQuery,
   hasEnabledIndexersQuery,
+  qualityProfilesListQuery,
 } from "src/lib/queries";
 import {
   useUpdateBook,
   useDeleteBook,
   useRefreshBookMetadata,
+  useToggleBookProfile,
 } from "src/hooks/mutations";
-import BookMonitorToggle from "src/components/hardcover/add-book-button";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import ReassignFilesDialog from "src/components/books/reassign-files-dialog";
 import NotFound from "src/components/NotFound";
@@ -65,7 +67,10 @@ export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    await context.queryClient.ensureQueryData(bookDetailQuery(id));
+    await Promise.all([
+      context.queryClient.ensureQueryData(bookDetailQuery(id)),
+      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+    ]);
   },
   component: BookDetailPage,
   notFoundComponent: NotFound,
@@ -79,6 +84,9 @@ function BookDetailPage(): JSX.Element {
   const router = useRouter();
 
   const { data: book } = useSuspenseQuery(bookDetailQuery(Number(bookId)));
+  const { data: qualityProfiles } = useSuspenseQuery(
+    qualityProfilesListQuery(),
+  );
 
   const [activeTab, setActiveTab] = useState("editions");
   const [editOpen, setEditOpen] = useState(false);
@@ -88,6 +96,15 @@ function BookDetailPage(): JSX.Element {
   const updateBook = useUpdateBook();
   const deleteBook = useDeleteBook();
   const refreshMetadata = useRefreshBookMetadata();
+  const toggleBookProfile = useToggleBookProfile();
+
+  const authorQualityProfiles = useMemo(() => {
+    if (!book || !qualityProfiles) {
+      return [];
+    }
+    const profileIdSet = new Set(book.authorQualityProfileIds);
+    return qualityProfiles.filter((p) => profileIdSet.has(p.id));
+  }, [book, qualityProfiles]);
 
   const { data: authors } = useQuery({
     ...authorsListQuery(),
@@ -183,12 +200,18 @@ function BookDetailPage(): JSX.Element {
             );
           }
           return (
-            <BookMonitorToggle
-              bookId={book.id}
-              title={book.title}
-              monitored={book.monitored}
+            <ProfileToggleIcons
+              profiles={authorQualityProfiles}
+              activeProfileIds={book.qualityProfileIds}
+              onToggle={(profileId) =>
+                toggleBookProfile.mutate(
+                  { bookId: book.id, qualityProfileId: profileId },
+                  { onSuccess: () => router.invalidate() },
+                )
+              }
+              isPending={toggleBookProfile.isPending}
               size="lg"
-              onToggled={() => router.invalidate()}
+              direction="vertical"
             />
           );
         })()}
@@ -366,7 +389,10 @@ function BookDetailPage(): JSX.Element {
             </TabsList>
 
             <div className="p-4">
-              <EditionsTab editions={editionsList} />
+              <EditionsTab
+                editions={editionsList}
+                authorQualityProfiles={authorQualityProfiles}
+              />
               <SearchReleasesTab
                 book={book}
                 enabled={activeTab === "search"}
