@@ -243,6 +243,25 @@ export const testIndexerSchema = z.object({
   apiKey: z.string().min(1, "API Key is required"),
 });
 
+// Blocklist
+export const addToBlocklistSchema = z.object({
+  bookId: z.number().nullable(),
+  authorId: z.number().nullable(),
+  sourceTitle: z.string().min(1),
+  protocol: z.enum(["torrent", "usenet"]).nullable(),
+  indexer: z.string().nullable(),
+  message: z.string().nullable(),
+  source: z.enum(["automatic", "manual"]).default("manual"),
+});
+
+export const removeFromBlocklistSchema = z.object({
+  id: z.number(),
+});
+
+export const bulkRemoveFromBlocklistSchema = z.object({
+  ids: z.array(z.number()).min(1),
+});
+
 export const searchIndexersSchema = z.object({
   query: z.string().min(1, "Query is required"),
   bookId: z.number().nullable(),

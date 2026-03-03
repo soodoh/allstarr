@@ -15,3 +15,4 @@ export * from "./settings";
 export * from "./download-clients";
 export * from "./indexers";
 export * from "./synced-indexers";
+export * from "./blocklist";

@@ -127,6 +127,19 @@ export const queryKeys = {
       ["hardcover", "seriesComplete", ...foreignSeriesIds] as const,
   },
 
+  // ─── Queue ─────────────────────────────────────────────────────────────
+  queue: {
+    all: ["queue"] as const,
+    list: () => ["queue", "list"] as const,
+  },
+
+  // ─── Blocklist ────────────────────────────────────────────────────────
+  blocklist: {
+    all: ["blocklist"] as const,
+    list: (params: { page?: number; limit?: number }) =>
+      ["blocklist", "list", params] as const,
+  },
+
   // ─── System Status ──────────────────────────────────────────────────────
   systemStatus: {
     all: ["systemStatus"] as const,
