@@ -17,7 +17,6 @@ import type { SQL } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createBookSchema,
-  updateBookSchema,
   createEditionSchema,
   updateEditionSchema,
   toggleBookProfileSchema,
@@ -514,81 +513,6 @@ export const createBookFn = createServerFn({ method: "POST" })
         eventType: "bookAdded",
         bookId: book.id,
         authorId,
-        data: { title: book.title },
-      })
-      .run();
-
-    return book;
-  });
-
-export const updateBookFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => updateBookSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const { id, authorId, ...values } = data;
-    const book = db
-      .update(books)
-      .set({ ...values, updatedAt: new Date() })
-      .where(eq(books.id, id))
-      .returning()
-      .get();
-
-    // If authorId changed, update the primary booksAuthors entry
-    if (authorId !== undefined) {
-      const author = db
-        .select({
-          name: authors.name,
-          foreignAuthorId: authors.foreignAuthorId,
-        })
-        .from(authors)
-        .where(eq(authors.id, authorId))
-        .get();
-
-      if (author) {
-        // Update existing primary entry or insert new one
-        const existingPrimary = db
-          .select({ id: booksAuthors.id })
-          .from(booksAuthors)
-          .where(
-            and(eq(booksAuthors.bookId, id), eq(booksAuthors.isPrimary, true)),
-          )
-          .get();
-
-        if (existingPrimary) {
-          db.update(booksAuthors)
-            .set({
-              authorId,
-              foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
-              authorName: author.name,
-            })
-            .where(eq(booksAuthors.id, existingPrimary.id))
-            .run();
-        } else {
-          db.insert(booksAuthors)
-            .values({
-              bookId: id,
-              authorId,
-              foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
-              authorName: author.name,
-              isPrimary: true,
-            })
-            .run();
-        }
-      }
-    }
-
-    // Get primary authorId for history
-    const primaryEntry = db
-      .select({ authorId: booksAuthors.authorId })
-      .from(booksAuthors)
-      .where(and(eq(booksAuthors.bookId, id), eq(booksAuthors.isPrimary, true)))
-      .get();
-
-    db.insert(history)
-      .values({
-        eventType: "bookUpdated",
-        bookId: id,
-        authorId: primaryEntry?.authorId ?? undefined,
         data: { title: book.title },
       })
       .run();

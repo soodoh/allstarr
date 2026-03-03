@@ -485,25 +485,27 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { id, qualityProfileIds, ...values } = data;
-    const author = db
-      .update(authors)
-      .set({ ...values, updatedAt: new Date() })
-      .where(eq(authors.id, id))
-      .returning()
-      .get();
+    const { id, qualityProfileIds } = data;
 
-    // Update join table if qualityProfileIds was provided
-    if (qualityProfileIds !== undefined) {
-      db.delete(authorQualityProfiles)
-        .where(eq(authorQualityProfiles.authorId, id))
-        .run();
-      for (const profileId of qualityProfileIds) {
-        db.insert(authorQualityProfiles)
-          .values({ authorId: id, qualityProfileId: profileId })
-          .run();
-      }
+    const author = db.select().from(authors).where(eq(authors.id, id)).get();
+    if (!author) {
+      throw new Error("Author not found");
     }
+
+    // Update quality profile assignments
+    db.delete(authorQualityProfiles)
+      .where(eq(authorQualityProfiles.authorId, id))
+      .run();
+    for (const profileId of qualityProfileIds) {
+      db.insert(authorQualityProfiles)
+        .values({ authorId: id, qualityProfileId: profileId })
+        .run();
+    }
+
+    db.update(authors)
+      .set({ updatedAt: new Date() })
+      .where(eq(authors.id, id))
+      .run();
 
     db.insert(history)
       .values({

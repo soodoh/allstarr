@@ -95,8 +95,9 @@ export const createAuthorSchema = z.object({
   tags: z.array(z.number()).nullable(),
 });
 
-export const updateAuthorSchema = createAuthorSchema.partial().extend({
+export const updateAuthorSchema = z.object({
   id: z.number(),
+  qualityProfileIds: z.array(z.number()),
 });
 
 // Books
@@ -116,17 +117,6 @@ export const createBookSchema = z.object({
   usersCount: z.number().nullable(),
   tags: z.array(z.number()).nullable(),
 });
-
-export const updateBookSchema = z
-  .object({
-    id: z.number(),
-    title: z.string().min(1, "Title is required"),
-    authorId: z.number(),
-    description: z.string().nullable(),
-    releaseDate: z.string().nullable(),
-  })
-  .partial()
-  .required({ id: true });
 
 // Editions
 export const createEditionSchema = z.object({

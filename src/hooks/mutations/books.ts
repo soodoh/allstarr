@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   createBookFn,
-  updateBookFn,
   deleteBookFn,
   toggleBookProfileFn,
   toggleEditionProfileFn,
@@ -12,7 +11,7 @@ import {
   reassignBookFilesFn,
 } from "src/server/books";
 import { queryKeys } from "src/lib/query-keys";
-import type { createBookSchema, updateBookSchema } from "src/lib/validators";
+import type { createBookSchema } from "src/lib/validators";
 import type { z } from "zod";
 
 export function useCreateBook() {
@@ -28,21 +27,6 @@ export function useCreateBook() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to add book"),
-  });
-}
-
-export function useUpdateBook() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: z.infer<typeof updateBookSchema>) =>
-      updateBookFn({ data }),
-    onSuccess: () => {
-      toast.success("Book updated");
-      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
-    },
-    onError: () => toast.error("Failed to update book"),
   });
 }
 

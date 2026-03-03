@@ -13,18 +13,16 @@ import {
   ChevronDown,
   ExternalLink,
   Loader2,
-  Pencil,
   RefreshCw,
-  Trash2,
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import { BookDetailSkeleton } from "src/components/shared/loading-skeleton";
 import BookCover from "src/components/books/book-cover";
 import AdditionalAuthors from "src/components/books/additional-authors";
-import BookForm from "src/components/books/book-form";
+
 import EditionsTab from "src/components/books/editions-tab";
 import SearchReleasesTab from "src/components/books/search-releases-tab";
-import ConfirmDialog from "src/components/shared/confirm-dialog";
+
 import { Button } from "src/components/ui/button";
 import {
   Card,
@@ -38,21 +36,13 @@ import {
   PopoverContent,
 } from "src/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "src/components/ui/dialog";
+
 import {
   bookDetailQuery,
-  authorsListQuery,
   hasEnabledIndexersQuery,
   qualityProfilesListQuery,
 } from "src/lib/queries";
 import {
-  useUpdateBook,
-  useDeleteBook,
   useRefreshBookMetadata,
   useToggleBookProfile,
 } from "src/hooks/mutations";
@@ -77,7 +67,7 @@ export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
   pendingComponent: () => <BookDetailSkeleton />,
 });
 
-// oxlint-disable-next-line complexity -- Book detail page with multiple sections, tabs, edit/delete dialogs
+// oxlint-disable-next-line complexity -- Book detail page with multiple sections and tabs
 function BookDetailPage(): JSX.Element {
   const { bookId } = Route.useParams();
   const navigate = useNavigate();
@@ -89,12 +79,8 @@ function BookDetailPage(): JSX.Element {
   );
 
   const [activeTab, setActiveTab] = useState("editions");
-  const [editOpen, setEditOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
 
-  const updateBook = useUpdateBook();
-  const deleteBook = useDeleteBook();
   const refreshMetadata = useRefreshBookMetadata();
   const toggleBookProfile = useToggleBookProfile();
 
@@ -106,17 +92,11 @@ function BookDetailPage(): JSX.Element {
     return qualityProfiles.filter((p) => profileIdSet.has(p.id));
   }, [book, qualityProfiles]);
 
-  const { data: authors } = useQuery({
-    ...authorsListQuery(),
-    enabled: editOpen,
-  });
-
   const { data: hasIndexers } = useQuery({
     ...hasEnabledIndexersQuery(),
     enabled: activeTab === "search",
   });
 
-  const authorsList = useMemo(() => authors ?? [], [authors]);
   const editionsList = useMemo(() => book?.editions ?? [], [book?.editions]);
   if (!book) {
     return <NotFound />;
@@ -126,32 +106,6 @@ function BookDetailPage(): JSX.Element {
   const hardcoverUrl = book.slug
     ? `https://hardcover.app/books/${book.slug}`
     : null;
-
-  const handleUpdate = (values: {
-    title: string;
-    authorId: number;
-    description: string | null;
-    releaseDate: string | null;
-  }) => {
-    updateBook.mutate(
-      { ...values, id: book.id },
-      {
-        onSuccess: () => {
-          setEditOpen(false);
-          router.invalidate();
-        },
-      },
-    );
-  };
-
-  const handleDelete = () => {
-    deleteBook.mutate(book.id, {
-      onSuccess: () => {
-        setConfirmDelete(false);
-        navigate({ to: "/bookshelf/books" });
-      },
-    });
-  };
 
   const handleRefreshMetadata = () => {
     refreshMetadata.mutate(book.id, {
@@ -233,22 +187,6 @@ function BookDetailPage(): JSX.Element {
                     <RefreshCw className="h-4 w-4 mr-1" />
                   )}
                   Update Metadata
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditOpen(true)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
                 </Button>
                 {hardcoverUrl && (
                   <Button variant="outline" size="sm" asChild>
@@ -402,37 +340,6 @@ function BookDetailPage(): JSX.Element {
           </Tabs>
         </CardContent>
       </Card>
-
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Book</DialogTitle>
-          </DialogHeader>
-          <BookForm
-            initialValues={{
-              title: book.title,
-              authorId: book.authorId ?? 0,
-              description: book.description || null,
-              releaseDate: book.releaseDate || null,
-            }}
-            authors={authorsList}
-            onSubmit={handleUpdate}
-            onCancel={() => setEditOpen(false)}
-            loading={updateBook.isPending}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Delete Book"
-        description="Are you sure you want to delete this book? This cannot be undone."
-        onConfirm={handleDelete}
-        loading={deleteBook.isPending}
-      />
 
       {/* Reassign files dialog */}
       <ReassignFilesDialog
