@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { getProfileIcon } from "src/lib/profile-icons";
 import { Button } from "src/components/ui/button";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   Table,
   TableBody,
@@ -33,6 +35,8 @@ export default function QualityProfileList({
   onEdit,
   onDelete,
 }: QualityProfileListProps): JSX.Element {
+  const [deleteTarget, setDeleteTarget] = useState<QualityProfile | null>(null);
+
   if (profiles.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -42,92 +46,111 @@ export default function QualityProfileList({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Root Folder</TableHead>
-          <TableHead>Qualities</TableHead>
-          <TableHead>Upgrades</TableHead>
-          <TableHead className="w-24">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {profiles.map((profile) => {
-          const allowedItems = (profile.items || []).filter((i) => i.allowed);
-          const cutoffItem = profile.cutoff
-            ? allowedItems.find((i) => i.quality.id === profile.cutoff)
-            : null;
-          return (
-            <TableRow key={profile.id}>
-              <TableCell className="font-medium">
-                {(() => {
-                  const Icon = getProfileIcon(profile.icon);
-                  return (
-                    <span className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      {profile.name}
-                    </span>
-                  );
-                })()}
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm max-w-0">
-                <div className="truncate text-left font-mono" dir="rtl">
-                  <bdo dir="ltr" title={profile.rootFolderPath}>
-                    {profile.rootFolderPath || "—"}
-                  </bdo>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {allowedItems.map((item) => (
-                    <Badge
-                      key={item.quality.id}
-                      variant="secondary"
-                      className={
-                        profile.cutoff === item.quality.id
-                          ? "border-blue-500 bg-blue-500/20 text-blue-400"
-                          : ""
-                      }
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Root Folder</TableHead>
+            <TableHead>Qualities</TableHead>
+            <TableHead>Upgrades</TableHead>
+            <TableHead className="w-24">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {profiles.map((profile) => {
+            const allowedItems = (profile.items || []).filter((i) => i.allowed);
+            const cutoffItem = profile.cutoff
+              ? allowedItems.find((i) => i.quality.id === profile.cutoff)
+              : null;
+            return (
+              <TableRow key={profile.id}>
+                <TableCell className="font-medium">
+                  {(() => {
+                    const Icon = getProfileIcon(profile.icon);
+                    return (
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        {profile.name}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm max-w-0">
+                  <div className="truncate text-left font-mono" dir="rtl">
+                    <bdo dir="ltr" title={profile.rootFolderPath}>
+                      {profile.rootFolderPath || "—"}
+                    </bdo>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {allowedItems.map((item) => (
+                      <Badge
+                        key={item.quality.id}
+                        variant="secondary"
+                        className={
+                          profile.cutoff === item.quality.id
+                            ? "border-blue-500 bg-blue-500/20 text-blue-400"
+                            : ""
+                        }
+                      >
+                        {item.quality.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {(() => {
+                    if (!profile.upgradeAllowed) {
+                      return "No";
+                    }
+                    if (cutoffItem) {
+                      return `Until ${cutoffItem.quality.name}`;
+                    }
+                    return "Yes";
+                  })()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(profile)}
                     >
-                      {item.quality.name}
-                    </Badge>
-                  ))}
-                </div>
-              </TableCell>
-              <TableCell>
-                {(() => {
-                  if (!profile.upgradeAllowed) {
-                    return "No";
-                  }
-                  if (cutoffItem) {
-                    return `Until ${cutoffItem.quality.name}`;
-                  }
-                  return "Yes";
-                })()}
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onEdit(profile)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete(profile.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteTarget(profile)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Delete Profile"
+        description={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        onConfirm={() => {
+          if (deleteTarget) {
+            onDelete(deleteTarget.id);
+            setDeleteTarget(null);
+          }
+        }}
+      />
+    </>
   );
 }

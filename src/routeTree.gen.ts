@@ -26,6 +26,7 @@ import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/set
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
+import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
 import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
@@ -123,6 +124,11 @@ const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
   path: '/settings/general',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsFormatsRoute = AuthedSettingsFormatsRouteImport.update({
+  id: '/settings/formats',
+  path: '/settings/formats',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedSettingsDownloadClientsRoute =
   AuthedSettingsDownloadClientsRouteImport.update({
     id: '/settings/download-clients',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthedHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
+  '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
+  '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
+  '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/bookshelf/add'
     | '/settings/download-clients'
+    | '/settings/formats'
     | '/settings/general'
     | '/settings/indexers'
     | '/settings/metadata'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bookshelf/add'
     | '/settings/download-clients'
+    | '/settings/formats'
     | '/settings/general'
     | '/settings/indexers'
     | '/settings/metadata'
@@ -342,6 +353,7 @@ export interface FileRouteTypes {
     | '/_authed/'
     | '/_authed/bookshelf/add'
     | '/_authed/settings/download-clients'
+    | '/_authed/settings/formats'
     | '/_authed/settings/general'
     | '/_authed/settings/indexers'
     | '/_authed/settings/metadata'
@@ -497,6 +509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsGeneralRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/formats': {
+      id: '/_authed/settings/formats'
+      path: '/settings/formats'
+      fullPath: '/settings/formats'
+      preLoaderRoute: typeof AuthedSettingsFormatsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/download-clients': {
       id: '/_authed/settings/download-clients'
       path: '/settings/download-clients'
@@ -583,6 +602,7 @@ interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
+  AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
@@ -605,6 +625,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
+  AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
