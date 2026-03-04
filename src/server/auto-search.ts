@@ -203,10 +203,14 @@ async function searchAndGrabForBook(
   // Derive categories from profiles
   const categories = getCategoriesForProfiles(book.profiles);
 
-  // Search all indexers in parallel
-  const feedSearches = ixs.synced
-    .filter((s) => s.apiKey)
-    .map(async (synced) => {
+  // Search indexers sequentially to avoid rate-limiting
+  const DELAY_BETWEEN_INDEXERS = 1000;
+  const allReleases: IndexerRelease[] = [];
+
+  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+  for (let i = 0; i < syncedWithKey.length; i += 1) {
+    const synced = syncedWithKey[i];
+    try {
       const results = await searchNewznab(
         {
           baseUrl: synced.baseUrl,
@@ -217,42 +221,54 @@ async function searchAndGrabForBook(
         categories,
         bookParams,
       );
-      return results.map((r) =>
-        enrichRelease({
-          ...r,
-          indexer: r.indexer || synced.name,
-          allstarrIndexerId: synced.id,
-        }),
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || synced.name,
+            allstarrIndexerId: synced.id,
+          }),
+        ),
       );
-    });
+    } catch (error) {
+      console.error(
+        `[rss-sync] Indexer "${synced.name}" failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+    if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
+      await sleep(DELAY_BETWEEN_INDEXERS);
+    }
+  }
 
-  const internalSearches = ixs.manual.map(async (ix) => {
-    const results = await searchProwlarr(
-      {
-        host: ix.host,
-        port: ix.port,
-        useSsl: ix.useSsl,
-        urlBase: ix.urlBase,
-        apiKey: ix.apiKey,
-      },
-      query,
-      categories,
-      bookParams,
-    );
-    return results.map((r) =>
-      enrichRelease({ ...r, allstarrIndexerId: ix.id }),
-    );
-  });
-
-  const settled = await Promise.allSettled([
-    ...feedSearches,
-    ...internalSearches,
-  ]);
-
-  const allReleases: IndexerRelease[] = [];
-  for (const r of settled) {
-    if (r.status === "fulfilled") {
-      allReleases.push(...r.value);
+  for (let i = 0; i < ixs.manual.length; i += 1) {
+    const ix = ixs.manual[i];
+    try {
+      const results = await searchProwlarr(
+        {
+          host: ix.host,
+          port: ix.port,
+          useSsl: ix.useSsl,
+          urlBase: ix.urlBase,
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        bookParams,
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({ ...r, allstarrIndexerId: ix.id }),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[rss-sync] Manual indexer failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+    if (i < ixs.manual.length - 1) {
+      await sleep(DELAY_BETWEEN_INDEXERS);
     }
   }
 
