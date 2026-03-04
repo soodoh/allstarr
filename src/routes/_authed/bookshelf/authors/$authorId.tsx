@@ -88,6 +88,7 @@ import {
 import NotFound from "src/components/NotFound";
 import { pickBestEdition } from "src/lib/editions";
 import type { HardcoverRawSeriesBookEdition } from "src/server/hardcover/types";
+import type { MetadataProfile } from "src/server/metadata-profile";
 
 const DEFAULT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -670,6 +671,7 @@ function SeriesTab({
   availableLanguages,
   enabled,
   authorQualityProfiles,
+  metadataProfile,
 }: {
   seriesList: AuthorSeries[];
   books: LocalBook[];
@@ -677,6 +679,7 @@ function SeriesTab({
   availableLanguages: LanguageOption[];
   enabled: boolean;
   authorQualityProfiles: QualityProfileInfo[];
+  metadataProfile: MetadataProfile;
 }) {
   const toggleBookProfile = useToggleBookProfile();
   const navigate = useNavigate();
@@ -806,6 +809,26 @@ function SeriesTab({
         ) {
           continue;
         }
+
+        // Apply metadata profile filters to external book editions
+        let qualifyingEditions = hcBook.editions;
+        if (metadataProfile.skipMissingIsbnAsin) {
+          qualifyingEditions = qualifyingEditions.filter(
+            (e) => e.isbn10 || e.isbn13 || e.asin,
+          );
+        }
+        if (metadataProfile.skipMissingReleaseDate) {
+          qualifyingEditions = qualifyingEditions.filter((e) => e.releaseDate);
+        }
+        // Skip the book if no qualifying editions remain
+        if (qualifyingEditions.length === 0) {
+          continue;
+        }
+        // Skip the book itself if it has no release date (book-level check)
+        if (metadataProfile.skipMissingReleaseDate && !hcBook.releaseDate) {
+          continue;
+        }
+
         entries.push({ kind: "external", ...hcBook });
       }
     }
@@ -845,7 +868,7 @@ function SeriesTab({
       });
       return result;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getSeriesEntries depends on language, bookMap, hardcoverSeriesMap, localForeignBookIds, metadataProfile
     [
       seriesList,
       language,
@@ -853,6 +876,7 @@ function SeriesTab({
       hardcoverSeriesMap,
       localForeignBookIds,
       searchQuery,
+      metadataProfile,
     ],
   );
 
@@ -1465,6 +1489,7 @@ function AuthorDetailPage() {
                   availableLanguages={availableLanguages}
                   enabled={activeTab === "series"}
                   authorQualityProfiles={authorQualityProfiles}
+                  metadataProfile={metadataProfile}
                 />
               </TabsContent>
             </CardContent>

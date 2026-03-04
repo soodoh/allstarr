@@ -182,6 +182,23 @@ query BookLanguageFilter($ids: [Int!]!, $langCodes: [String!]!) {
 }
 `;
 
+const bookIsbnAsinFilterQuery = `
+query BookIsbnAsinFilter($ids: [Int!]!) {
+  books(where: {
+    id: { _in: $ids },
+    editions: {
+      _or: [
+        { isbn_10: { _is_null: false, _neq: "" } },
+        { isbn_13: { _is_null: false, _neq: "" } },
+        { asin: { _is_null: false, _neq: "" } }
+      ]
+    }
+  }) {
+    id
+  }
+}
+`;
+
 const authorDetailsMetaQuery = `
 query HardcoverAuthorMeta($authorId: Int!) {
   authors(where: { id: { _eq: $authorId } }, limit: 1) {
@@ -240,6 +257,8 @@ const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, {
 function bookWhereFilters(opts: {
   hasLanguage: boolean;
   skipCompilations: boolean;
+  skipMissingReleaseDate?: boolean;
+  skipMissingIsbnAsin?: boolean;
 }): string {
   const parts: string[] = [
     `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
@@ -247,9 +266,27 @@ function bookWhereFilters(opts: {
   if (opts.skipCompilations) {
     parts.push(BOOK_COMPILATION_FILTER);
   }
-  if (opts.hasLanguage) {
-    parts.push(`editions: { language: { code2: { _eq: $languageCode } } }`);
+  if (opts.skipMissingReleaseDate) {
+    parts.push(`release_date: { _is_null: false }`);
   }
+
+  // Build edition-level filters and merge into a single `editions:` clause
+  const editionConditions: string[] = [];
+  if (opts.hasLanguage) {
+    editionConditions.push(`language: { code2: { _eq: $languageCode } }`);
+  }
+  if (opts.skipMissingIsbnAsin) {
+    editionConditions.push(
+      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+    );
+  }
+  if (editionConditions.length === 1) {
+    parts.push(`editions: { ${editionConditions[0]} }`);
+  } else if (editionConditions.length > 1) {
+    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+    parts.push(`editions: { _and: [${merged}] }`);
+  }
+
   return parts.join("\n      ");
 }
 
@@ -259,14 +296,43 @@ function bookWhereFilters(opts: {
  * unreliable in series context (some legitimate volumes are miscategorised
  * as compilations on Hardcover).
  */
-function bookSeriesWhereFilters(opts: { hasLanguage: boolean }): string {
+function bookSeriesWhereFilters(opts: {
+  hasLanguage: boolean;
+  skipMissingReleaseDate?: boolean;
+  skipMissingIsbnAsin?: boolean;
+}): string {
   const parts: string[] = [
     `series_id: { _eq: $seriesId }`,
     BOOK_SERIES_COMPILATION_FILTER,
   ];
-  if (opts.hasLanguage) {
-    parts.push(`book: { editions: { language: { code2: { _eq: $lang } } } }`);
+
+  // Build book-level and edition-level conditions that go inside `book: { ... }`
+  const bookConditions: string[] = [];
+  if (opts.skipMissingReleaseDate) {
+    bookConditions.push(`release_date: { _is_null: false }`);
   }
+
+  const editionConditions: string[] = [];
+  if (opts.hasLanguage) {
+    editionConditions.push(`language: { code2: { _eq: $lang } }`);
+  }
+  if (opts.skipMissingIsbnAsin) {
+    editionConditions.push(
+      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+    );
+  }
+
+  if (editionConditions.length === 1) {
+    bookConditions.push(`editions: { ${editionConditions[0]} }`);
+  } else if (editionConditions.length > 1) {
+    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+    bookConditions.push(`editions: { _and: [${merged}] }`);
+  }
+
+  if (bookConditions.length > 0) {
+    parts.push(`book: { ${bookConditions.join(", ")} }`);
+  }
+
   return parts.join("\n      ");
 }
 
@@ -298,6 +364,8 @@ function seriesPositionsWhereFilters(opts: { hasLanguage: boolean }): string {
 function buildAuthorBooksPageQuery(
   hasLanguage: boolean,
   skipCompilations: boolean,
+  skipMissingReleaseDate = false,
+  skipMissingIsbnAsin = false,
 ): string {
   const varDefs = hasLanguage
     ? `$slug: String!, $limit: Int!, $offset: Int!, $languageCode: String!, $orderBy: [books_order_by!]!`
@@ -305,7 +373,12 @@ function buildAuthorBooksPageQuery(
   const queryName = hasLanguage
     ? "HardcoverAuthorBooksPageByLanguage"
     : "HardcoverAuthorBooksPage";
-  const where = bookWhereFilters({ hasLanguage, skipCompilations });
+  const where = bookWhereFilters({
+    hasLanguage,
+    skipCompilations,
+    skipMissingReleaseDate,
+    skipMissingIsbnAsin,
+  });
   const editionsWhere = hasLanguage
     ? `where: { language: { code2: { _eq: $languageCode } } }`
     : `where: { language: { code2: { _is_null: false } } }`;
@@ -380,14 +453,22 @@ query ${queryName}(${varDefs}) {
 /**
  * Builds the series books query (used when expanding a series row).
  */
-function buildSeriesBooksQuery(hasLanguage: boolean): string {
+function buildSeriesBooksQuery(
+  hasLanguage: boolean,
+  skipMissingReleaseDate = false,
+  skipMissingIsbnAsin = false,
+): string {
   const varDefs = hasLanguage
     ? `$seriesId: Int!, $lang: String!`
     : `$seriesId: Int!`;
   const queryName = hasLanguage
     ? "HardcoverSeriesBooksByLanguage"
     : "HardcoverSeriesBooks";
-  const where = bookSeriesWhereFilters({ hasLanguage });
+  const where = bookSeriesWhereFilters({
+    hasLanguage,
+    skipMissingReleaseDate,
+    skipMissingIsbnAsin,
+  });
 
   return `
 query ${queryName}(${varDefs}) {
@@ -557,6 +638,7 @@ async function fetchSeriesBooks(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const hasLanguageFilter = language !== "all";
+  const profile = getMetadataProfile();
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -566,7 +648,11 @@ async function fetchSeriesBooks(
         Authorization: authorization,
       },
       body: JSON.stringify({
-        query: buildSeriesBooksQuery(hasLanguageFilter),
+        query: buildSeriesBooksQuery(
+          hasLanguageFilter,
+          profile.skipMissingReleaseDate,
+          profile.skipMissingIsbnAsin,
+        ),
         variables: hasLanguageFilter
           ? { seriesId, lang: language }
           : { seriesId },
@@ -1142,6 +1228,63 @@ async function applyLanguageFilter(
 }
 
 /**
+ * Filters search results to only include books that have at least one edition
+ * with an ISBN-10, ISBN-13, or ASIN. Uses a secondary GraphQL query similar
+ * to applyLanguageFilter.
+ */
+async function applyIsbnAsinFilter(
+  items: HardcoverSearchItem[],
+  authorization: string,
+): Promise<HardcoverSearchItem[]> {
+  const bookIds = items
+    .map((item) => Number(item.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  if (bookIds.length === 0) {
+    return items;
+  }
+
+  try {
+    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({
+        query: bookIsbnAsinFilterQuery,
+        variables: { ids: bookIds },
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return items;
+    }
+
+    const body = (await response.json()) as {
+      data?: { books?: unknown[] };
+      errors?: Array<{ message: string }>;
+    };
+    if (body.errors && body.errors.length > 0) {
+      return items;
+    }
+
+    const matchingIds = new Set<string>();
+    for (const book of toRecordArray(body.data?.books)) {
+      const bookId = firstId(book, [["id"]]);
+      if (bookId) {
+        matchingIds.add(bookId);
+      }
+    }
+
+    return items.filter((item) => matchingIds.has(item.id));
+  } catch {
+    // If the ISBN/ASIN lookup fails, return unfiltered rather than breaking search
+    return items;
+  }
+}
+
+/**
  * Builds a batched GraphQL query that fetches the filtered book count for
  * multiple authors in a single request. Uses the same filters as the author
  * detail page: non-compilation, non-editor/translator contributions, and
@@ -1151,15 +1294,35 @@ function buildAuthorBookCountsQuery(
   slugs: string[],
   languages: string[],
   skipCompilations: boolean,
+  skipMissingReleaseDate = false,
+  skipMissingIsbnAsin = false,
 ): string {
   const hasLanguage = languages.length > 0;
   const varDefs = hasLanguage ? `($languageCodes: [String!]!)` : "";
   const compilationFilter = skipCompilations
     ? `\n      ${BOOK_COMPILATION_FILTER}`
     : "";
-  const languageFilter = hasLanguage
-    ? `\n        editions: { language: { code2: { _in: $languageCodes } } }`
+  const releaseDateFilter = skipMissingReleaseDate
+    ? `\n      release_date: { _is_null: false }`
     : "";
+
+  // Build edition-level filters
+  const editionConditions: string[] = [];
+  if (hasLanguage) {
+    editionConditions.push(`language: { code2: { _in: $languageCodes } }`);
+  }
+  if (skipMissingIsbnAsin) {
+    editionConditions.push(
+      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+    );
+  }
+  let editionFilter = "";
+  if (editionConditions.length === 1) {
+    editionFilter = `\n        editions: { ${editionConditions[0]} }`;
+  } else if (editionConditions.length > 1) {
+    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+    editionFilter = `\n        editions: { _and: [${merged}] }`;
+  }
 
   const fragments = slugs
     .map((slug, i) => {
@@ -1168,7 +1331,7 @@ function buildAuthorBookCountsQuery(
         .replaceAll("\\", String.raw`\\`)
         .replaceAll('"', String.raw`\"`);
       return `  a${i}: books_aggregate(where: {
-      contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }${compilationFilter}${languageFilter}
+      contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }${compilationFilter}${releaseDateFilter}${editionFilter}
     }) {
       aggregate { count }
     }`;
@@ -1188,6 +1351,8 @@ async function applyAuthorBookCounts(
   languages: string[],
   authorization: string,
   skipCompilations: boolean,
+  skipMissingReleaseDate = false,
+  skipMissingIsbnAsin = false,
 ): Promise<HardcoverSearchItem[]> {
   const authorSlugs = items
     .filter((item) => item.slug)
@@ -1201,6 +1366,8 @@ async function applyAuthorBookCounts(
       authorSlugs,
       languages,
       skipCompilations,
+      skipMissingReleaseDate,
+      skipMissingIsbnAsin,
     );
     const variables: Record<string, string[]> = {};
     if (languages.length > 0) {
@@ -1412,6 +1579,10 @@ async function fetchSearchResults(
       mapped = mapped.filter((item) => item.releaseYear !== null);
     }
 
+    if (profile.skipMissingIsbnAsin && queryType === "Book") {
+      mapped = await applyIsbnAsinFilter(mapped, authorization);
+    }
+
     if (filterByLanguage && queryType === "Book") {
       mapped = await applyLanguageFilter(
         mapped,
@@ -1430,6 +1601,8 @@ async function fetchSearchResults(
         allowedLanguages,
         authorization,
         profile.skipCompilations,
+        profile.skipMissingReleaseDate,
+        profile.skipMissingIsbnAsin,
       );
     }
 
@@ -1489,6 +1662,8 @@ async function fetchAuthorBooksPage(
         query: buildAuthorBooksPageQuery(
           hasLanguageFilter,
           profile.skipCompilations,
+          profile.skipMissingReleaseDate,
+          profile.skipMissingIsbnAsin,
         ),
         variables: {
           slug,
