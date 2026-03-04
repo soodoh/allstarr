@@ -71,8 +71,14 @@ export default function QualityProfileList({
                   );
                 })()}
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                {profile.rootFolderPath || "—"}
+              <TableCell className="text-muted-foreground text-sm max-w-0">
+                <div
+                  className="truncate text-left font-mono"
+                  dir="rtl"
+                  title={profile.rootFolderPath}
+                >
+                  {profile.rootFolderPath || "—"}
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
