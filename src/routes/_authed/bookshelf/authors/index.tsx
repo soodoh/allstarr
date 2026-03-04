@@ -5,8 +5,8 @@ import { LayoutGrid, List, Users, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
-import AuthorTable from "src/components/authors/author-table";
-import AuthorCard from "src/components/authors/author-card";
+import AuthorTable from "src/components/bookshelf/authors/author-table";
+import AuthorCard from "src/components/bookshelf/authors/author-card";
 import EmptyState from "src/components/shared/empty-state";
 import {
   AuthorTableRowsSkeleton,

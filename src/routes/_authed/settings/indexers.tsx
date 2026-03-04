@@ -10,10 +10,10 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import IndexerList from "src/components/indexers/indexer-list";
-import IndexerForm from "src/components/indexers/indexer-form";
-import SyncedIndexerViewDialog from "src/components/indexers/synced-indexer-view-dialog";
-import type { IndexerFormValues } from "src/components/indexers/indexer-form";
+import IndexerList from "src/components/settings/indexers/indexer-list";
+import IndexerForm from "src/components/settings/indexers/indexer-form";
+import SyncedIndexerViewDialog from "src/components/settings/indexers/synced-indexer-view-dialog";
+import type { IndexerFormValues } from "src/components/settings/indexers/indexer-form";
 import { indexersListQuery, syncedIndexersListQuery } from "src/lib/queries";
 import {
   useCreateIndexer,

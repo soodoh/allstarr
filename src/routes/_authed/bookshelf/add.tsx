@@ -21,8 +21,8 @@ import type {
   HardcoverSearchItem,
   HardcoverSearchMode,
 } from "src/server/search";
-import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
-import BookPreviewModal from "src/components/hardcover/book-preview-modal";
+import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-preview-modal";
+import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 export const Route = createFileRoute("/_authed/bookshelf/add")({
   component: AddToBookshelfPage,
 });

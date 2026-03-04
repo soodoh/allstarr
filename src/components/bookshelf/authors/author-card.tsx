@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { JSX } from "react";
-import AuthorPhoto from "src/components/authors/author-photo";
+import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 
 type AuthorCardProps = {
   author: {

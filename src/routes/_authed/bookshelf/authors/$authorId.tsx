@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import Skeleton from "src/components/ui/skeleton";
-import AuthorPhoto from "src/components/authors/author-photo";
+import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 import TablePagination from "src/components/shared/table-pagination";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
@@ -68,10 +68,10 @@ import {
 } from "src/components/ui/select";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
-import AuthorForm from "src/components/authors/author-form";
+import AuthorForm from "src/components/bookshelf/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
-import AdditionalAuthors from "src/components/books/additional-authors";
-import BookPreviewModal from "src/components/hardcover/book-preview-modal";
+import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
+import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 import type { HardcoverSearchItem } from "src/server/search";
 import {
   authorDetailQuery,

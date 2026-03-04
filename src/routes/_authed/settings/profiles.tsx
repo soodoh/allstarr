@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import QualityProfileList from "src/components/quality-profiles/quality-profile-list";
-import QualityProfileForm from "src/components/quality-profiles/quality-profile-form";
+import QualityProfileList from "src/components/settings/quality-profiles/quality-profile-list";
+import QualityProfileForm from "src/components/settings/quality-profiles/quality-profile-form";
 import {
   qualityProfilesListQuery,
   qualityDefinitionsListQuery,

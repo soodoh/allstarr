@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import BookCover from "src/components/books/book-cover";
-import AdditionalAuthors from "src/components/books/additional-authors";
-import type { BookAuthorEntry } from "src/components/books/additional-authors";
+import BookCover from "src/components/bookshelf/books/book-cover";
+import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
+import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
 import {
   Popover,
   PopoverTrigger,
