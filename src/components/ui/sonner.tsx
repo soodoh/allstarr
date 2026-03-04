@@ -15,6 +15,7 @@ const Toaster = ({ ...props }: ToasterProps): JSX.Element => {
 
   return (
     <Sonner
+      position="bottom-left"
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
