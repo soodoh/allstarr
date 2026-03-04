@@ -79,8 +79,12 @@ function FormatSearchDropdown({
 
   const availableItems = useMemo(() => {
     return qualityDefinitions.filter((def) => {
-      if (selectedSet.has(def.id)) {return false;}
-      if (!search) {return true;}
+      if (selectedSet.has(def.id)) {
+        return false;
+      }
+      if (!search) {
+        return true;
+      }
       return def.title.toLowerCase().includes(search.toLowerCase());
     });
   }, [qualityDefinitions, selectedSet, search]);
@@ -90,10 +94,14 @@ function FormatSearchDropdown({
   }, [search]);
 
   useEffect(() => {
-    if (!dropdownOpen || !listRef.current) {return;}
+    if (!dropdownOpen || !listRef.current) {
+      return;
+    }
     const els = listRef.current.querySelectorAll("[data-item]");
     const target = els[highlightIndex];
-    if (target) {target.scrollIntoView({ block: "nearest" });}
+    if (target) {
+      target.scrollIntoView({ block: "nearest" });
+    }
   }, [highlightIndex, dropdownOpen]);
 
   useEffect(() => {
@@ -145,7 +153,9 @@ function FormatSearchDropdown({
         value={search}
         onChange={(e) => {
           setSearch(e.target.value);
-          if (!dropdownOpen) {setDropdownOpen(true);}
+          if (!dropdownOpen) {
+            setDropdownOpen(true);
+          }
         }}
         onFocus={() => setDropdownOpen(true)}
         onKeyDown={handleSearchKeyDown}
@@ -301,7 +311,9 @@ export default function QualityProfileForm({
 
   const removeItem = (id: number) => {
     setItems((prev) => prev.filter((i) => i !== id));
-    if (cutoff === id) {setCutoff(0);}
+    if (cutoff === id) {
+      setCutoff(0);
+    }
   };
 
   // DnD
@@ -327,11 +339,18 @@ export default function QualityProfileForm({
 
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
-    if (!name.trim()) {errs.name = "Name is required";}
-    if (!rootFolderPath) {errs.rootFolderPath = "Root folder is required";}
-    if (items.length === 0) {errs.items = "At least one quality must be added";}
-    if (upgradeAllowed && !cutoff)
-      {errs.cutoff = "Upgrade cutoff quality is required";}
+    if (!name.trim()) {
+      errs.name = "Name is required";
+    }
+    if (!rootFolderPath) {
+      errs.rootFolderPath = "Root folder is required";
+    }
+    if (items.length === 0) {
+      errs.items = "At least one quality must be added";
+    }
+    if (upgradeAllowed && !cutoff) {
+      errs.cutoff = "Upgrade cutoff quality is required";
+    }
     return errs;
   };
 
@@ -339,7 +358,9 @@ export default function QualityProfileForm({
     e.preventDefault();
     const errs = validate();
     setErrors(errs);
-    if (Object.keys(errs).length > 0) {return;}
+    if (Object.keys(errs).length > 0) {
+      return;
+    }
 
     onSubmit({
       name,

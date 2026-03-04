@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { JSX } from 'react';
+import { useState } from "react";
+import type { JSX } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
@@ -65,133 +65,133 @@ export default function IndexerList({
 
   return (
     <>
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Host</TableHead>
-          <TableHead className="w-20">Priority</TableHead>
-          <TableHead className="w-16 text-center">RSS</TableHead>
-          <TableHead className="w-28 text-center">Auto Search</TableHead>
-          <TableHead className="w-28 text-center">Interactive</TableHead>
-          <TableHead className="w-24">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) =>
-          row.type === "manual" ? (
-            <TableRow key={`manual-${row.data.id}`}>
-              <TableCell className="font-medium">{row.data.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {row.data.host}:{row.data.port}
-              </TableCell>
-              <TableCell>{row.data.priority}</TableCell>
-              <TableCell className="text-center">
-                <Badge variant={row.data.enableRss ? "default" : "outline"}>
-                  {row.data.enableRss ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge
-                  variant={
-                    row.data.enableAutomaticSearch ? "default" : "outline"
-                  }
-                >
-                  {row.data.enableAutomaticSearch ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge
-                  variant={
-                    row.data.enableInteractiveSearch ? "default" : "outline"
-                  }
-                >
-                  {row.data.enableInteractiveSearch ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onEdit(row.data)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteId(row.data.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ) : (
-            <TableRow key={`synced-${row.data.id}`} className="opacity-75">
-              <TableCell className="font-medium">
-                <span className="flex items-center gap-2">
-                  {row.data.name}
-                  <Badge variant="outline" className="text-xs font-normal">
-                    Prowlarr Sync
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Host</TableHead>
+            <TableHead className="w-20">Priority</TableHead>
+            <TableHead className="w-16 text-center">RSS</TableHead>
+            <TableHead className="w-28 text-center">Auto Search</TableHead>
+            <TableHead className="w-28 text-center">Interactive</TableHead>
+            <TableHead className="w-24">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) =>
+            row.type === "manual" ? (
+              <TableRow key={`manual-${row.data.id}`}>
+                <TableCell className="font-medium">{row.data.name}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {row.data.host}:{row.data.port}
+                </TableCell>
+                <TableCell>{row.data.priority}</TableCell>
+                <TableCell className="text-center">
+                  <Badge variant={row.data.enableRss ? "default" : "outline"}>
+                    {row.data.enableRss ? "Yes" : "No"}
                   </Badge>
-                </span>
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm max-w-64 truncate">
-                {row.data.baseUrl}
-              </TableCell>
-              <TableCell>{row.data.priority}</TableCell>
-              <TableCell className="text-center">
-                <Badge variant={row.data.enableRss ? "default" : "outline"}>
-                  {row.data.enableRss ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge
-                  variant={
-                    row.data.enableAutomaticSearch ? "default" : "outline"
-                  }
-                >
-                  {row.data.enableAutomaticSearch ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge
-                  variant={
-                    row.data.enableInteractiveSearch ? "default" : "outline"
-                  }
-                >
-                  {row.data.enableInteractiveSearch ? "Yes" : "No"}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewSynced(row.data)}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ),
-        )}
-      </TableBody>
-    </Table>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge
+                    variant={
+                      row.data.enableAutomaticSearch ? "default" : "outline"
+                    }
+                  >
+                    {row.data.enableAutomaticSearch ? "Yes" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge
+                    variant={
+                      row.data.enableInteractiveSearch ? "default" : "outline"
+                    }
+                  >
+                    {row.data.enableInteractiveSearch ? "Yes" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(row.data)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteId(row.data.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              <TableRow key={`synced-${row.data.id}`} className="opacity-75">
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-2">
+                    {row.data.name}
+                    <Badge variant="outline" className="text-xs font-normal">
+                      Prowlarr Sync
+                    </Badge>
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm max-w-64 truncate">
+                  {row.data.baseUrl}
+                </TableCell>
+                <TableCell>{row.data.priority}</TableCell>
+                <TableCell className="text-center">
+                  <Badge variant={row.data.enableRss ? "default" : "outline"}>
+                    {row.data.enableRss ? "Yes" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge
+                    variant={
+                      row.data.enableAutomaticSearch ? "default" : "outline"
+                    }
+                  >
+                    {row.data.enableAutomaticSearch ? "Yes" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge
+                    variant={
+                      row.data.enableInteractiveSearch ? "default" : "outline"
+                    }
+                  >
+                    {row.data.enableInteractiveSearch ? "Yes" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewSynced(row.data)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ),
+          )}
+        </TableBody>
+      </Table>
 
-    <ConfirmDialog
-      open={deleteId !== null}
-      onOpenChange={(open) => !open && setDeleteId(null)}
-      title="Delete Indexer"
-      description={`Are you sure you want to delete "${deleteName}"? This action cannot be undone.`}
-      onConfirm={() => {
-        if (deleteId !== null) {
-          onDelete(deleteId);
-          setDeleteId(null);
-        }
-      }}
-    />
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Indexer"
+        description={`Are you sure you want to delete "${deleteName}"? This action cannot be undone.`}
+        onConfirm={() => {
+          if (deleteId !== null) {
+            onDelete(deleteId);
+            setDeleteId(null);
+          }
+        }}
+      />
     </>
   );
 }

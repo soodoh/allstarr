@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { JSX } from 'react';
+import { useState } from "react";
+import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { Button } from "src/components/ui/button";
