@@ -16,8 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "src/components/ui/table";
-import AdditionalAuthors from "src/components/books/additional-authors";
-import type { BookAuthorEntry } from "src/components/books/additional-authors";
+import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
+import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
 
 type Book = {
   id: number;

@@ -9,10 +9,10 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import DownloadClientList from "src/components/download-clients/download-client-list";
-import DownloadClientForm from "src/components/download-clients/download-client-form";
-import type { DownloadClientFormValues } from "src/components/download-clients/download-client-form";
-import ImplementationSelect from "src/components/download-clients/implementation-select";
+import DownloadClientList from "src/components/settings/download-clients/download-client-list";
+import DownloadClientForm from "src/components/settings/download-clients/download-client-form";
+import type { DownloadClientFormValues } from "src/components/settings/download-clients/download-client-form";
+import ImplementationSelect from "src/components/settings/download-clients/implementation-select";
 import { downloadClientsListQuery } from "src/lib/queries";
 import {
   useCreateDownloadClient,

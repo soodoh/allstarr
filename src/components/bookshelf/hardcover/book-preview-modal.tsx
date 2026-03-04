@@ -22,7 +22,7 @@ import {
   qualityProfilesListQuery,
 } from "src/lib/queries";
 import { useNavigate } from "@tanstack/react-router";
-import BookDetailContent from "src/components/books/book-detail-content";
+import BookDetailContent from "src/components/bookshelf/books/book-detail-content";
 import { useImportHardcoverBook } from "src/hooks/mutations";
 import { getProfileIcon } from "src/lib/profile-icons";
 
@@ -111,6 +111,51 @@ function AddBookForm({
   );
 }
 
+function getHardcoverOverrides(
+  book: HardcoverSearchItem,
+  hcBook: HardcoverBookDetail | undefined,
+) {
+  return {
+    coverUrl: hcBook?.coverUrl ?? book.coverUrl ?? null,
+    releaseDate:
+      hcBook?.releaseDate ??
+      (book.releaseYear ? String(book.releaseYear) : null),
+    series:
+      hcBook?.series.map((s) => ({
+        title: s.title,
+        position: s.position ?? null,
+      })) ?? null,
+    rating: hcBook?.rating ?? null,
+    ratingVotes: hcBook?.ratingsCount ?? null,
+    readers: hcBook?.usersCount ?? book.readers ?? null,
+    overview: hcBook?.description ?? book.description ?? null,
+    hardcoverUrl: book.hardcoverUrl ?? null,
+  };
+}
+
+function buildBookDetailData(
+  book: HardcoverSearchItem,
+  hcBook: HardcoverBookDetail | undefined,
+  languages: string[] | undefined,
+  primaryAuthor: string | null,
+  bookAuthors: Array<{
+    authorId: null;
+    foreignAuthorId: number;
+    authorName: string;
+    isPrimary: boolean;
+  }>,
+) {
+  return {
+    title: book.title,
+    images: null as Array<{ url: string; coverType: string }> | null,
+    author: null as { id: number; name: string } | null,
+    authorName: primaryAuthor,
+    bookAuthors,
+    availableLanguages: languages ?? null,
+    ...getHardcoverOverrides(book, hcBook),
+  };
+}
+
 // ── Main modal ──────────────────────────────────────────────────────────────
 
 type BookPreviewModalProps = {
@@ -170,28 +215,8 @@ export default function BookPreviewModal({
   }, [hcBook?.contributors, book.subtitle]);
 
   const bookDetailData = useMemo(
-    () => ({
-      title: book.title,
-      coverUrl: hcBook?.coverUrl ?? book.coverUrl ?? null,
-      images: null as Array<{ url: string; coverType: string }> | null,
-      author: null as { id: number; name: string } | null,
-      authorName: primaryAuthor,
-      bookAuthors,
-      releaseDate:
-        hcBook?.releaseDate ??
-        (book.releaseYear ? String(book.releaseYear) : null),
-      availableLanguages: languages ?? null,
-      series:
-        hcBook?.series.map((s) => ({
-          title: s.title,
-          position: s.position ?? null,
-        })) ?? null,
-      rating: hcBook?.rating ?? null,
-      ratingVotes: hcBook?.ratingsCount ?? null,
-      readers: hcBook?.usersCount ?? book.readers ?? null,
-      overview: hcBook?.description ?? book.description ?? null,
-      hardcoverUrl: book.hardcoverUrl ?? null,
-    }),
+    () =>
+      buildBookDetailData(book, hcBook, languages, primaryAuthor, bookAuthors),
     [book, hcBook, languages, primaryAuthor, bookAuthors],
   );
 

@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import QualityDefinitionList from "src/components/quality-profiles/quality-definition-list";
-import QualityDefinitionForm from "src/components/quality-profiles/quality-definition-form";
+import QualityDefinitionList from "src/components/settings/quality-profiles/quality-definition-list";
+import QualityDefinitionForm from "src/components/settings/quality-profiles/quality-definition-form";
 import { qualityDefinitionsListQuery } from "src/lib/queries";
 import {
   useCreateQualityDefinition,

@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import AuthorPhoto from "src/components/authors/author-photo";
+import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
 import {

@@ -3,8 +3,8 @@ import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { TabsContent } from "src/components/ui/tabs";
-import SearchToolbar from "src/components/indexers/search-toolbar";
-import ReleaseTable from "src/components/indexers/release-table";
+import SearchToolbar from "src/components/bookshelf/books/search-toolbar";
+import ReleaseTable from "src/components/bookshelf/books/release-table";
 import { useSearchIndexers, useGrabRelease } from "src/hooks/mutations";
 import type { IndexerRelease } from "src/server/indexers/types";
 

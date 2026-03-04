@@ -17,11 +17,11 @@ import {
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import { BookDetailSkeleton } from "src/components/shared/loading-skeleton";
-import BookCover from "src/components/books/book-cover";
-import AdditionalAuthors from "src/components/books/additional-authors";
+import BookCover from "src/components/bookshelf/books/book-cover";
+import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 
-import EditionsTab from "src/components/books/editions-tab";
-import SearchReleasesTab from "src/components/books/search-releases-tab";
+import EditionsTab from "src/components/bookshelf/books/editions-tab";
+import SearchReleasesTab from "src/components/bookshelf/books/search-releases-tab";
 
 import { Button } from "src/components/ui/button";
 import {
@@ -48,7 +48,7 @@ import {
 } from "src/hooks/mutations";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
-import ReassignFilesDialog from "src/components/books/reassign-files-dialog";
+import ReassignFilesDialog from "src/components/bookshelf/books/reassign-files-dialog";
 import NotFound from "src/components/NotFound";
 
 export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({

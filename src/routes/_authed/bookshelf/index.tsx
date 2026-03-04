@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpen, ImageIcon, Users } from "lucide-react";
-import AdditionalAuthors from "src/components/books/additional-authors";
+import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 import {
   Card,
   CardDescription,

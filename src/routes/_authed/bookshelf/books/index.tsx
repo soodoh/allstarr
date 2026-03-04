@@ -5,8 +5,8 @@ import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
-import BookTable from "src/components/books/book-table";
-import BookCard from "src/components/books/book-card";
+import BookTable from "src/components/bookshelf/books/book-table";
+import BookCard from "src/components/bookshelf/books/book-card";
 import EmptyState from "src/components/shared/empty-state";
 import {
   BookTableRowsSkeleton,

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
-import AuthorPreviewModal from "src/components/hardcover/author-preview-modal";
+import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-preview-modal";
 import type { HardcoverSearchItem } from "src/server/search";
 
 export type BookAuthorEntry = {
