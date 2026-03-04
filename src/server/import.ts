@@ -38,14 +38,30 @@ function filterEditionsByProfile(
   profile: MetadataProfile,
   defaultCoverEditionId: number | null,
 ): HardcoverRawEdition[] {
-  if (profile.allowedLanguages.length === 0) {
+  const hasLanguageFilter = profile.allowedLanguages.length > 0;
+  const hasIsbnAsinFilter = profile.skipMissingIsbnAsin;
+  const hasReleaseDateFilter = profile.skipMissingReleaseDate;
+
+  if (!hasLanguageFilter && !hasIsbnAsinFilter && !hasReleaseDateFilter) {
     return editions;
   }
 
-  const allowedSet = new Set(profile.allowedLanguages);
-  const filtered = editions.filter(
-    (ed) => !ed.languageCode || allowedSet.has(ed.languageCode),
-  );
+  const allowedSet = hasLanguageFilter
+    ? new Set(profile.allowedLanguages)
+    : null;
+
+  const filtered = editions.filter((ed) => {
+    if (allowedSet && ed.languageCode && !allowedSet.has(ed.languageCode)) {
+      return false;
+    }
+    if (hasIsbnAsinFilter && !ed.isbn10 && !ed.isbn13 && !ed.asin) {
+      return false;
+    }
+    if (hasReleaseDateFilter && !ed.releaseDate) {
+      return false;
+    }
+    return true;
+  });
 
   // Always include the default cover edition if any edition passed
   if (
@@ -1007,7 +1023,29 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
             .get();
 
           if (existingEdition) {
-            // Always update existing editions regardless of language filter
+            if (!filteredIds.has(ed.id)) {
+              // Existing edition no longer passes the profile filter — remove if safe
+              const hasProfile = tx
+                .select({ id: editionQualityProfiles.id })
+                .from(editionQualityProfiles)
+                .where(eq(editionQualityProfiles.editionId, existingEdition.id))
+                .limit(1)
+                .get();
+              const fileCount = tx
+                .select({ count: sql<number>`count(*)` })
+                .from(bookFiles)
+                .where(eq(bookFiles.bookId, existingBook.id))
+                .get();
+
+              if (!hasProfile && (fileCount?.count ?? 0) === 0) {
+                tx.delete(editions)
+                  .where(eq(editions.id, existingEdition.id))
+                  .run();
+              }
+              continue;
+            }
+
+            // Update existing editions that pass the filter
             tx.update(editions)
               .set({
                 title: ed.title,
@@ -1034,7 +1072,7 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
               .run();
             editionsUpdated += 1;
           } else if (filteredIds.has(ed.id)) {
-            // Only insert new editions that pass the language filter
+            // Only insert new editions that pass the profile filter
             tx.insert(editions)
               .values({
                 bookId: existingBook.id,
@@ -1445,7 +1483,30 @@ export async function refreshBookInternal(bookId: number): Promise<{
         .get();
 
       if (existingEdition) {
-        // Always update existing editions
+        if (!filteredIds.has(ed.id)) {
+          // Existing edition no longer passes the profile filter — remove if safe
+          const hasProfile = tx
+            .select({ id: editionQualityProfiles.id })
+            .from(editionQualityProfiles)
+            .where(eq(editionQualityProfiles.editionId, existingEdition.id))
+            .limit(1)
+            .get();
+          const fileCount = tx
+            .select({ count: sql<number>`count(*)` })
+            .from(bookFiles)
+            .where(eq(bookFiles.bookId, bookId))
+            .get();
+
+          if (!hasProfile && (fileCount?.count ?? 0) === 0) {
+            tx.delete(editions)
+              .where(eq(editions.id, existingEdition.id))
+              .run();
+          }
+          // Skip updating editions that don't pass the filter
+          continue;
+        }
+
+        // Update existing editions that pass the filter
         tx.update(editions)
           .set({
             title: ed.title,

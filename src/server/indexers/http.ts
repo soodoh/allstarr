@@ -335,14 +335,14 @@ async function fetchNewznabFeed(
 }
 
 /**
- * Query a single Newznab/Torznab feed — mirrors Readarr's search strategy.
+ * Query a single Newznab/Torznab feed — mirrors Readarr's tiered search
+ * strategy.
  *
- * When `bookParams` is provided, fires multiple queries in parallel and
- * deduplicates by guid.  Readarr never uses t=book for Newznab (usenet)
- * indexers, but does for Torznab — since we can't know which protocol the
- * feed uses, we include it as a best-effort attempt alongside text searches.
+ * When `bookParams` is provided, queries are tried **sequentially** (not in
+ * parallel) to respect indexer rate limits. Each tier is only tried if the
+ * previous tier returned no results — matching Readarr's approach.
  *
- * Queries (matching Readarr's tier layout):
+ * Tiers (matching Readarr's layout):
  *   1. t=book with separate author/title params (structured, if supported)
  *   2. t=search with "title author" (title-first — Readarr's preferred order)
  *   3. t=search with "author title" (author-first)
@@ -368,8 +368,9 @@ export async function searchNewznab(
   const cleanAuthor = cleanQueryTitle(bookParams.author);
   const cleanTitle = cleanQueryTitle(bookParams.title);
 
-  // Tiered queries — run in parallel, deduplicate by guid
-  const queries: URLSearchParams[] = [
+  // Tiered queries — tried sequentially, stop when results are found.
+  // This respects indexer rate limits (Readarr does the same).
+  const tiers: URLSearchParams[] = [
     // 1. Structured book search (t=book with author/title)
     (() => {
       const p = new URLSearchParams({ t: "book", cat });
@@ -397,33 +398,27 @@ export async function searchNewznab(
     }),
   ];
 
-  const settled = await Promise.allSettled(
-    queries.map((params) => fetchNewznabFeed(feed, params)),
-  );
+  let lastErrorMessage = "";
 
-  // Merge results, deduplicate by guid (first occurrence wins)
-  const seen = new Set<string>();
-  const merged: CoalescedResult[] = [];
-  for (const result of settled) {
-    if (result.status === "fulfilled") {
-      for (const r of result.value) {
-        if (!seen.has(r.guid)) {
-          seen.add(r.guid);
-          merged.push(r);
-        }
+  for (const params of tiers) {
+    try {
+      const results = await fetchNewznabFeed(feed, params);
+      if (results.length > 0) {
+        return results;
       }
+    } catch (error) {
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
+      // Continue to next tier — transient failures on one query type
+      // (e.g. t=book not supported) shouldn't block the fallbacks
     }
   }
 
-  // If every query failed, throw the first error
-  if (merged.length === 0 && settled.every((s) => s.status === "rejected")) {
-    const first = settled.find(
-      (s) => s.status === "rejected",
-    ) as PromiseRejectedResult;
-    throw first.reason;
+  // All tiers returned empty or failed — throw last error if every tier failed
+  if (lastErrorMessage) {
+    throw new Error(lastErrorMessage);
   }
 
-  return merged;
+  return [];
 }
 
 // ─── Prowlarr internal API search (legacy, kept for manual indexers) ──────────
@@ -492,8 +487,9 @@ export async function searchProwlarr(
   const cleanAuthor = cleanQueryTitle(bookParams.author);
   const cleanTitle = cleanQueryTitle(bookParams.title);
 
-  // Tiered queries — run in parallel, deduplicate by guid
-  const searches: URLSearchParams[] = [
+  // Tiered queries — tried sequentially, stop when results are found.
+  // This respects indexer rate limits (Readarr does the same).
+  const tiers: URLSearchParams[] = [
     // 1. Structured book search
     (() => {
       const p = new URLSearchParams({ type: "book" });
@@ -511,29 +507,22 @@ export async function searchProwlarr(
     makeParams("search", cleanTitle),
   ];
 
-  const settled = await Promise.allSettled(
-    searches.map((params) => fetchProwlarrSearch(base, headers, params)),
-  );
+  let lastErrorMessage = "";
 
-  const seen = new Set<string>();
-  const merged: CoalescedResult[] = [];
-  for (const result of settled) {
-    if (result.status === "fulfilled") {
-      for (const r of result.value) {
-        if (!seen.has(r.guid)) {
-          seen.add(r.guid);
-          merged.push(r);
-        }
+  for (const params of tiers) {
+    try {
+      const results = await fetchProwlarrSearch(base, headers, params);
+      if (results.length > 0) {
+        return results;
       }
+    } catch (error) {
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
     }
   }
 
-  if (merged.length === 0 && settled.every((s) => s.status === "rejected")) {
-    const first = settled.find(
-      (s) => s.status === "rejected",
-    ) as PromiseRejectedResult;
-    throw first.reason;
+  if (lastErrorMessage) {
+    throw new Error(lastErrorMessage);
   }
 
-  return merged;
+  return [];
 }
