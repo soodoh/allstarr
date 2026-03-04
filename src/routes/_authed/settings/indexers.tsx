@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import IndexerList from "src/components/indexers/indexer-list";
 import IndexerForm from "src/components/indexers/indexer-form";
+import SyncedIndexerViewDialog from "src/components/indexers/synced-indexer-view-dialog";
 import type { IndexerFormValues } from "src/components/indexers/indexer-form";
 import { indexersListQuery, syncedIndexersListQuery } from "src/lib/queries";
 import {
@@ -27,6 +29,9 @@ export const Route = createFileRoute("/_authed/settings/indexers")({
   component: IndexersPage,
 });
 
+const toSettings = (categories: number[]) =>
+  categories.length > 0 ? { categories } : null;
+
 function IndexersPage() {
   const { data: indexersList } = useSuspenseQuery(indexersListQuery());
   const { data: syncedList } = useSuspenseQuery(syncedIndexersListQuery());
@@ -39,6 +44,9 @@ function IndexersPage() {
   const [editing, setEditing] = useState<
     (typeof indexersList)[number] | undefined
   >(undefined);
+  const [viewingSynced, setViewingSynced] = useState<SyncedIndexer | null>(
+    null,
+  );
 
   const loading = createIndexer.isPending || updateIndexer.isPending;
 
@@ -53,7 +61,6 @@ function IndexersPage() {
     host: string;
     port: number;
     priority: number;
-    enabled: boolean;
   }) => {
     // Find the full indexer from the list to include all fields (e.g., apiKey)
     const fullIndexer = indexersList.find((i) => i.id === indexer.id);
@@ -73,7 +80,6 @@ function IndexersPage() {
     createIndexer.mutate(
       {
         name: values.name,
-        enabled: values.enabled,
         enableRss: values.enableRss,
         enableAutomaticSearch: values.enableAutomaticSearch,
         enableInteractiveSearch: values.enableInteractiveSearch,
@@ -83,7 +89,7 @@ function IndexersPage() {
         useSsl: values.useSsl,
         urlBase: values.urlBase || null,
         apiKey: values.apiKey,
-        settings: null,
+        settings: toSettings(values.categories),
       },
       { onSuccess: handleCloseDialog },
     );
@@ -97,7 +103,6 @@ function IndexersPage() {
       {
         id: editing.id,
         name: values.name,
-        enabled: values.enabled,
         enableRss: values.enableRss,
         enableAutomaticSearch: values.enableAutomaticSearch,
         enableInteractiveSearch: values.enableInteractiveSearch,
@@ -107,7 +112,7 @@ function IndexersPage() {
         useSsl: values.useSsl,
         urlBase: values.urlBase || null,
         apiKey: values.apiKey,
-        settings: null,
+        settings: toSettings(values.categories),
       },
       { onSuccess: handleCloseDialog },
     );
@@ -120,7 +125,6 @@ function IndexersPage() {
   const editingInitialValues = editing
     ? {
         name: editing.name,
-        enabled: editing.enabled,
         enableRss: editing.enableRss,
         enableAutomaticSearch: editing.enableAutomaticSearch,
         enableInteractiveSearch: editing.enableInteractiveSearch,
@@ -130,6 +134,9 @@ function IndexersPage() {
         urlBase: editing.urlBase ?? "",
         apiKey: editing.apiKey,
         priority: editing.priority,
+        categories:
+          (editing.settings as { categories?: number[] } | null)?.categories ??
+          [],
       }
     : undefined;
 
@@ -147,6 +154,7 @@ function IndexersPage() {
           syncedIndexers={syncedList}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onViewSynced={setViewingSynced}
         />
       </div>
 
@@ -166,6 +174,15 @@ function IndexersPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <SyncedIndexerViewDialog
+        indexer={viewingSynced}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingSynced(null);
+          }
+        }}
+      />
     </div>
   );
 }

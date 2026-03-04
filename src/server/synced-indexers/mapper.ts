@@ -1,4 +1,26 @@
 import type { SyncedIndexer, NewSyncedIndexer } from "src/db/schema";
+import { CATEGORY_MAP } from "src/lib/categories";
+
+/**
+ * Normalise a categories value from Prowlarr into a plain number[].
+ * Prowlarr may send either plain IDs [7020] or objects [{id:7020,name:"Books/EBook"}].
+ */
+function normaliseCategoryIds(raw: unknown): number[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((item: unknown) => {
+      if (typeof item === "number") {
+        return item;
+      }
+      if (typeof item === "object" && item !== null && "id" in item) {
+        return (item as { id: number }).id;
+      }
+      return null;
+    })
+    .filter((id): id is number => id !== null);
+}
 
 export type ReadarrField = {
   name: string;
@@ -27,13 +49,19 @@ export type ReadarrIndexerResource = {
  * Converts a DB row to a Readarr-style indexer resource that Prowlarr expects.
  */
 export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
-  const categories = (() => {
+  const categoryIds = (() => {
     try {
       return JSON.parse(row.categories ?? "[]") as number[];
     } catch {
       return [];
     }
   })();
+
+  // Send categories back as objects {id, name} to match Prowlarr's expected format
+  const categoryObjects = categoryIds.map((id) => ({
+    id,
+    name: CATEGORY_MAP.get(id) ?? `Unknown (${id})`,
+  }));
 
   return {
     id: row.id,
@@ -46,7 +74,7 @@ export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
       { name: "baseUrl", value: row.baseUrl },
       { name: "apiPath", value: row.apiPath ?? "/api" },
       { name: "apiKey", value: row.apiKey ?? "" },
-      { name: "categories", value: categories },
+      { name: "categories", value: categoryObjects },
     ],
     enableRss: row.enableRss,
     enableAutomaticSearch: row.enableAutomaticSearch,
@@ -68,13 +96,9 @@ export function fromReadarrResource(
   const getField = (name: string): unknown =>
     body.fields?.find((f) => f.name === name)?.value;
 
-  const categories = (() => {
-    const raw = getField("categories");
-    if (Array.isArray(raw)) {
-      return JSON.stringify(raw);
-    }
-    return "[]";
-  })();
+  const categories = JSON.stringify(
+    normaliseCategoryIds(getField("categories")),
+  );
 
   return {
     name: body.name.replace(/\s*\(Prowlarr\)$/i, ""),

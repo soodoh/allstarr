@@ -400,12 +400,7 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
     const manualCount = db
       .select()
       .from(indexers)
-      .where(
-        and(
-          eq(indexers.enabled, true),
-          eq(indexers.enableAutomaticSearch, true),
-        ),
-      )
+      .where(eq(indexers.enableAutomaticSearch, true))
       .all().length;
     if (manualCount > 0) {
       return true;
@@ -596,12 +591,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
     const enabledManual = db
       .select()
       .from(indexers)
-      .where(
-        and(
-          eq(indexers.enabled, true),
-          eq(indexers.enableAutomaticSearch, true),
-        ),
-      )
+      .where(eq(indexers.enableAutomaticSearch, true))
       .orderBy(asc(indexers.priority))
       .all();
 

@@ -1,0 +1,1 @@
+ALTER TABLE `indexers` DROP COLUMN `enabled`;

@@ -127,6 +127,27 @@ const nzbgetProvider: DownloadClientProvider = {
     return String(result ?? "");
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    _deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    await nzbgetCall(
+      baseUrl,
+      "editqueue",
+      ["GroupDelete", "", [Number(id)]],
+      config.username,
+      config.password,
+    );
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
-import { Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
   Table,
@@ -18,7 +18,6 @@ type Indexer = {
   host: string;
   port: number;
   priority: number;
-  enabled: boolean;
   enableRss: boolean;
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
@@ -33,6 +32,7 @@ type IndexerListProps = {
   syncedIndexers?: SyncedIndexer[];
   onEdit: (indexer: Indexer) => void;
   onDelete: (id: number) => void;
+  onViewSynced: (indexer: SyncedIndexer) => void;
 };
 
 export default function IndexerList({
@@ -40,6 +40,7 @@ export default function IndexerList({
   syncedIndexers = [],
   onEdit,
   onDelete,
+  onViewSynced,
 }: IndexerListProps): JSX.Element {
   const rows: UnifiedRow[] = [
     ...indexers.map((i) => ({ type: "manual" as const, data: i })),
@@ -77,40 +78,26 @@ export default function IndexerList({
               </TableCell>
               <TableCell>{row.data.priority}</TableCell>
               <TableCell className="text-center">
-                <Badge
-                  variant={
-                    row.data.enabled && row.data.enableRss
-                      ? "default"
-                      : "outline"
-                  }
-                >
-                  {row.data.enabled && row.data.enableRss ? "Yes" : "No"}
+                <Badge variant={row.data.enableRss ? "default" : "outline"}>
+                  {row.data.enableRss ? "Yes" : "No"}
                 </Badge>
               </TableCell>
               <TableCell className="text-center">
                 <Badge
                   variant={
-                    row.data.enabled && row.data.enableAutomaticSearch
-                      ? "default"
-                      : "outline"
+                    row.data.enableAutomaticSearch ? "default" : "outline"
                   }
                 >
-                  {row.data.enabled && row.data.enableAutomaticSearch
-                    ? "Yes"
-                    : "No"}
+                  {row.data.enableAutomaticSearch ? "Yes" : "No"}
                 </Badge>
               </TableCell>
               <TableCell className="text-center">
                 <Badge
                   variant={
-                    row.data.enabled && row.data.enableInteractiveSearch
-                      ? "default"
-                      : "outline"
+                    row.data.enableInteractiveSearch ? "default" : "outline"
                   }
                 >
-                  {row.data.enabled && row.data.enableInteractiveSearch
-                    ? "Yes"
-                    : "No"}
+                  {row.data.enableInteractiveSearch ? "Yes" : "No"}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -169,7 +156,15 @@ export default function IndexerList({
                   {row.data.enableInteractiveSearch ? "Yes" : "No"}
                 </Badge>
               </TableCell>
-              <TableCell />
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onViewSynced(row.data)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TableCell>
             </TableRow>
           ),
         )}

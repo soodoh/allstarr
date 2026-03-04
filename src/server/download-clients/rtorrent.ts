@@ -149,6 +149,31 @@ const rtorrentProvider: DownloadClientProvider = {
     throw new Error("No URL or torrent data provided");
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    _deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const responseXml = await xmlRpcCall(
+      baseUrl,
+      "d.erase",
+      [id],
+      config.username,
+      config.password,
+    );
+
+    if (responseXml.includes("<fault>")) {
+      throw new Error("rTorrent failed to remove torrent");
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

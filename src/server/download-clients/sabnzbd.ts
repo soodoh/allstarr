@@ -94,6 +94,27 @@ const sabnzbdProvider: DownloadClientProvider = {
     return ids && ids[0] ? ids[0] : "";
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    _deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const apiKey = encodeURIComponent(config.apiKey ?? "");
+
+    const url = `${baseUrl}/api?mode=queue&name=delete&value=${encodeURIComponent(id)}&apikey=${apiKey}&output=json`;
+    const response = await fetchWithTimeout(url, { method: "GET" });
+
+    if (!response.ok) {
+      throw new Error(`SABnzbd delete error: HTTP ${response.status}`);
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

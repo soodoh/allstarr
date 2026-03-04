@@ -135,6 +135,46 @@ const qbittorrentProvider: DownloadClientProvider = {
     return await response.text();
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const cookie = await getSessionCookie(
+      baseUrl,
+      config.username ?? "",
+      config.password ?? "",
+    );
+
+    const body = new URLSearchParams({
+      hashes: id,
+      deleteFiles: String(deleteFiles),
+    });
+
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api/v2/torrents/delete`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookie,
+          Referer: baseUrl,
+        },
+        body: body.toString(),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to remove torrent: HTTP ${response.status}`);
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

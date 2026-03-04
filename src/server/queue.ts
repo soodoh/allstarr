@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
-import { downloadClients } from "src/db/schema";
+import { blocklist, downloadClients } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig, DownloadItem } from "./download-clients/types";
+import { removeFromQueueSchema } from "src/lib/validators";
 
 export type QueueItem = DownloadItem & {
   downloadClientId: number;
@@ -13,6 +14,23 @@ export type QueueItem = DownloadItem & {
   progress: number;
   estimatedTimeLeft: number | null;
 };
+
+type DownloadClientRow = typeof downloadClients.$inferSelect;
+
+function toConnectionConfig(client: DownloadClientRow): ConnectionConfig {
+  return {
+    implementation: client.implementation as ConnectionConfig["implementation"],
+    host: client.host,
+    port: client.port,
+    useSsl: client.useSsl,
+    urlBase: client.urlBase,
+    username: client.username,
+    password: client.password,
+    apiKey: client.apiKey,
+    category: client.category,
+    settings: client.settings as Record<string, unknown> | null,
+  };
+}
 
 export const getQueueFn = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -31,19 +49,7 @@ export const getQueueFn = createServerFn({ method: "GET" }).handler(
     const results = await Promise.allSettled(
       enabledClients.map(async (client) => {
         const provider = getProvider(client.implementation);
-        const config: ConnectionConfig = {
-          implementation:
-            client.implementation as ConnectionConfig["implementation"],
-          host: client.host,
-          port: client.port,
-          useSsl: client.useSsl,
-          urlBase: client.urlBase,
-          username: client.username,
-          password: client.password,
-          apiKey: client.apiKey,
-          category: client.category,
-          settings: client.settings as Record<string, unknown> | null,
-        };
+        const config = toConnectionConfig(client);
 
         const downloads = await provider.getDownloads(config);
         return downloads.map(
@@ -81,3 +87,41 @@ export const getQueueFn = createServerFn({ method: "GET" }).handler(
     return { items, warnings };
   },
 );
+
+export const removeFromQueueFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => removeFromQueueSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    const client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, data.downloadClientId))
+      .get();
+
+    if (!client) {
+      throw new Error("Download client not found");
+    }
+
+    if (data.removeFromClient) {
+      const provider = getProvider(client.implementation);
+      const config = toConnectionConfig(client);
+      await provider.removeDownload(config, data.downloadItemId, true);
+    }
+
+    if (data.addToBlocklist && data.sourceTitle) {
+      db.insert(blocklist)
+        .values({
+          bookId: null,
+          authorId: null,
+          sourceTitle: data.sourceTitle,
+          protocol: data.protocol ?? null,
+          indexer: null,
+          message: "Manually removed from queue",
+          source: "manual",
+        })
+        .run();
+    }
+
+    return { success: true };
+  });

@@ -1,6 +1,7 @@
 import type { JSX } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -12,10 +13,12 @@ import {
 } from "src/components/ui/table";
 import Progress from "src/components/ui/progress";
 import { Badge } from "src/components/ui/badge";
+import { Button } from "src/components/ui/button";
 import EmptyState from "src/components/shared/empty-state";
+import RemoveDownloadDialog from "src/components/activity/remove-download-dialog";
 import { queueListQuery } from "src/lib/queries";
 import { formatBytes } from "src/lib/format";
-import { useEffect, useRef } from "react";
+import type { QueueItem } from "src/server/queue";
 
 function formatTimeLeft(seconds: number | null): string {
   if (seconds === null || seconds <= 0) {
@@ -35,6 +38,7 @@ function formatTimeLeft(seconds: number | null): string {
 export default function QueueTab(): JSX.Element {
   const { data, isLoading } = useQuery(queueListQuery());
   const shownWarnings = useRef(new Set<string>());
+  const [removeItem, setRemoveItem] = useState<QueueItem | null>(null);
 
   useEffect(() => {
     if (data?.warnings) {
@@ -68,50 +72,73 @@ export default function QueueTab(): JSX.Element {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Title</TableHead>
-          <TableHead className="w-48">Progress</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Size</TableHead>
-          <TableHead>Time Left</TableHead>
-          <TableHead>Speed</TableHead>
-          <TableHead>Client</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((item) => (
-          <TableRow key={`${item.downloadClientId}-${item.id}`}>
-            <TableCell className="font-medium max-w-xs truncate">
-              {item.name}
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <Progress value={item.progress} className="flex-1" />
-                <span className="text-xs text-muted-foreground w-10 text-right">
-                  {item.progress}%
-                </span>
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge variant="outline">{item.status}</Badge>
-            </TableCell>
-            <TableCell className="text-sm">{formatBytes(item.size)}</TableCell>
-            <TableCell className="text-sm">
-              {formatTimeLeft(item.estimatedTimeLeft)}
-            </TableCell>
-            <TableCell className="text-sm">
-              {item.downloadSpeed > 0
-                ? `${formatBytes(item.downloadSpeed)}/s`
-                : "-"}
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary">{item.downloadClientName}</Badge>
-            </TableCell>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Title</TableHead>
+            <TableHead className="w-48">Progress</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Size</TableHead>
+            <TableHead>Time Left</TableHead>
+            <TableHead>Speed</TableHead>
+            <TableHead>Client</TableHead>
+            <TableHead className="w-12" />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={`${item.downloadClientId}-${item.id}`}>
+              <TableCell className="font-medium max-w-xs truncate">
+                {item.name}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Progress value={item.progress} className="flex-1" />
+                  <span className="text-xs text-muted-foreground w-10 text-right">
+                    {item.progress}%
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{item.status}</Badge>
+              </TableCell>
+              <TableCell className="text-sm">
+                {formatBytes(item.size)}
+              </TableCell>
+              <TableCell className="text-sm">
+                {formatTimeLeft(item.estimatedTimeLeft)}
+              </TableCell>
+              <TableCell className="text-sm">
+                {item.downloadSpeed > 0
+                  ? `${formatBytes(item.downloadSpeed)}/s`
+                  : "-"}
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{item.downloadClientName}</Badge>
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setRemoveItem(item)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <RemoveDownloadDialog
+        item={removeItem}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveItem(null);
+          }
+        }}
+      />
+    </>
   );
 }

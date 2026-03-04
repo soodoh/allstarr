@@ -208,7 +208,6 @@ export const testDownloadClientSchema = z.object({
 // Indexers
 export const createIndexerSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  enabled: z.boolean().default(true),
   enableRss: z.boolean().default(true),
   enableAutomaticSearch: z.boolean().default(true),
   enableInteractiveSearch: z.boolean().default(true),
@@ -256,6 +255,15 @@ export const searchIndexersSchema = z.object({
   query: z.string().min(1, "Query is required"),
   bookId: z.number().nullable(),
   categories: z.array(z.number()).nullable(),
+});
+
+export const removeFromQueueSchema = z.object({
+  downloadClientId: z.number(),
+  downloadItemId: z.string().min(1),
+  removeFromClient: z.boolean().default(true),
+  addToBlocklist: z.boolean().default(false),
+  sourceTitle: z.string().optional(),
+  protocol: z.enum(["torrent", "usenet"]).optional(),
 });
 
 export const grabReleaseSchema = z.object({
