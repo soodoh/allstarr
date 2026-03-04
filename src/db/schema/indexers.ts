@@ -8,7 +8,6 @@ export type IndexerSettings = {
 export const indexers = sqliteTable("indexers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
-  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   enableRss: integer("enable_rss", { mode: "boolean" }).notNull().default(true),
   enableAutomaticSearch: integer("enable_automatic_search", {
     mode: "boolean",

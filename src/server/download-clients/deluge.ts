@@ -163,6 +163,31 @@ const delugeProvider: DownloadClientProvider = {
     return String(result.result ?? "");
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const authResult = await delugeCall(baseUrl, "auth.login", [
+      config.password ?? "",
+    ]);
+    const sessionCookie = authResult.cookie;
+
+    await delugeCall(
+      baseUrl,
+      "core.remove_torrent",
+      [id, deleteFiles],
+      sessionCookie,
+    );
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

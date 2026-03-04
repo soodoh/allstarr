@@ -135,6 +135,32 @@ const transmissionProvider: DownloadClientProvider = {
     return String(torrent?.id ?? "");
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    deleteFiles: boolean,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const result = await rpcCall(
+      baseUrl,
+      "torrent-remove",
+      { ids: [Number(id)], "delete-local-data": deleteFiles },
+      "",
+      config.username,
+      config.password,
+    );
+
+    if (result.result !== "success") {
+      throw new Error(`Failed to remove torrent: ${result.result}`);
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

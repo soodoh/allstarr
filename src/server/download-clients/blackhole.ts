@@ -79,6 +79,20 @@ const blackholeProvider: DownloadClientProvider = {
     throw new Error("No URL or file data provided for Blackhole download");
   },
 
+  async removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    _deleteFiles: boolean,
+  ): Promise<void> {
+    const folder = getWatchFolder(config);
+    const filePath = path.join(folder, id);
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // File may have already been picked up by the download client
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const folder = getWatchFolder(config);
 

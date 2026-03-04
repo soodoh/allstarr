@@ -334,7 +334,7 @@ export async function runAutoSearch(
     manual: db
       .select()
       .from(indexers)
-      .where(and(eq(indexers.enabled, true), eq(indexers.enableRss, true)))
+      .where(eq(indexers.enableRss, true))
       .orderBy(asc(indexers.priority))
       .all(),
     synced: db

@@ -6,11 +6,11 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
+import CategoryMultiSelect from "src/components/shared/category-multi-select";
 import { testIndexerFn } from "src/server/indexers";
 
 export type IndexerFormValues = {
   name: string;
-  enabled: boolean;
   enableRss: boolean;
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
@@ -20,6 +20,7 @@ export type IndexerFormValues = {
   useSsl: boolean;
   urlBase: string;
   apiKey: string;
+  categories: number[];
 };
 
 type TestResult = {
@@ -70,7 +71,6 @@ export default function IndexerForm({
   loading,
 }: IndexerFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name ?? "");
-  const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
   const [enableRss, setEnableRss] = useState(initialValues?.enableRss ?? true);
   const [enableAutomaticSearch, setEnableAutomaticSearch] = useState(
     initialValues?.enableAutomaticSearch ?? true,
@@ -84,6 +84,9 @@ export default function IndexerForm({
   const [urlBase, setUrlBase] = useState(initialValues?.urlBase ?? "");
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? "");
   const [priority, setPriority] = useState(initialValues?.priority ?? 25);
+  const [categories, setCategories] = useState<number[]>(
+    initialValues?.categories ?? [],
+  );
 
   const testMutation = useMutation({
     mutationFn: () =>
@@ -102,7 +105,6 @@ export default function IndexerForm({
     e.preventDefault();
     onSubmit({
       name,
-      enabled,
       enableRss,
       enableAutomaticSearch,
       enableInteractiveSearch,
@@ -112,31 +114,22 @@ export default function IndexerForm({
       urlBase,
       apiKey,
       priority,
+      categories,
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Name + Enable */}
-      <div className="flex items-end gap-4">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="ix-name">Name</Label>
-          <Input
-            id="ix-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Indexer"
-            required
-          />
-        </div>
-        <div className="flex items-center gap-2 pb-2">
-          <Switch
-            id="ix-enabled"
-            checked={enabled}
-            onCheckedChange={setEnabled}
-          />
-          <Label htmlFor="ix-enabled">Enabled</Label>
-        </div>
+      {/* Name */}
+      <div className="space-y-2">
+        <Label htmlFor="ix-name">Name</Label>
+        <Input
+          id="ix-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="My Indexer"
+          required
+        />
       </div>
 
       {/* RSS / Search toggles */}
@@ -233,6 +226,12 @@ export default function IndexerForm({
           value={priority}
           onChange={(e) => setPriority(Number(e.target.value))}
         />
+      </div>
+
+      {/* Categories */}
+      <div className="space-y-2">
+        <Label>Categories</Label>
+        <CategoryMultiSelect value={categories} onChange={setCategories} />
       </div>
 
       {/* Test connection */}

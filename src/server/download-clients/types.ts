@@ -53,4 +53,9 @@ export type DownloadClientProvider = {
     download: DownloadRequest,
   ): Promise<string>;
   getDownloads(config: ConnectionConfig): Promise<DownloadItem[]>;
+  removeDownload(
+    config: ConnectionConfig,
+    id: string,
+    deleteFiles: boolean,
+  ): Promise<void>;
 };

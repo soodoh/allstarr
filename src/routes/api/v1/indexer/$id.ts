@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
 
         const body = (await request.json()) as ReadarrIndexerResource;
         console.log(
-          `[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})`,
+          `[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})\n${JSON.stringify(body, null, 2)}`,
         );
         const data = fromReadarrResource(body);
 

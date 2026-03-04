@@ -9,3 +9,4 @@ export * from "./indexers";
 export * from "./import";
 export * from "./indexer-search";
 export * from "./blocklist";
+export * from "./queue";
