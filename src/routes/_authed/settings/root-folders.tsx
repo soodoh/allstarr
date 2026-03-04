@@ -15,10 +15,16 @@ import PageHeader from "src/components/shared/page-header";
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import { rootFoldersListQuery } from "src/lib/queries";
 import { useCreateRootFolder, useDeleteRootFolder } from "src/hooks/mutations";
+import { getServerCwdFn } from "src/server/filesystem";
 
 export const Route = createFileRoute("/_authed/settings/root-folders")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(rootFoldersListQuery()),
+  loader: async ({ context }) => {
+    const [, serverCwd] = await Promise.all([
+      context.queryClient.ensureQueryData(rootFoldersListQuery()),
+      getServerCwdFn(),
+    ]);
+    return { serverCwd };
+  },
   component: RootFoldersPage,
 });
 
@@ -31,6 +37,7 @@ function formatBytes(bytes: number | null) {
 }
 
 function RootFoldersPage() {
+  const { serverCwd } = Route.useLoaderData();
   const { data: folders } = useSuspenseQuery(rootFoldersListQuery());
   const createRootFolder = useCreateRootFolder();
   const deleteRootFolder = useDeleteRootFolder();
@@ -67,7 +74,7 @@ function RootFoldersPage() {
         }
       />
 
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-6">
         {folders.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No root folders configured. Add one above.
@@ -76,9 +83,9 @@ function RootFoldersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Path</TableHead>
-                <TableHead>Free Space</TableHead>
-                <TableHead>Total Space</TableHead>
+                <TableHead className="w-full">Path</TableHead>
+                <TableHead className="whitespace-nowrap">Free Space</TableHead>
+                <TableHead className="whitespace-nowrap">Total Space</TableHead>
                 <TableHead className="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -95,11 +102,21 @@ function RootFoldersPage() {
                     handleRowClick(folder.path);
                   }}
                 >
-                  <TableCell className="font-mono text-sm">
-                    {folder.path}
+                  <TableCell className="font-mono text-sm max-w-0">
+                    <div
+                      className="truncate text-left"
+                      dir="rtl"
+                      title={folder.path}
+                    >
+                      {folder.path}
+                    </div>
                   </TableCell>
-                  <TableCell>{formatBytes(folder.freeSpace)}</TableCell>
-                  <TableCell>{formatBytes(folder.totalSpace)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatBytes(folder.freeSpace)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatBytes(folder.totalSpace)}
+                  </TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"
@@ -121,6 +138,7 @@ function RootFoldersPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSelect={handleSelect}
+        initialPath={serverCwd}
       />
 
       <DirectoryBrowserDialog

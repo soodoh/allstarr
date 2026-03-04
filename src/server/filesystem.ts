@@ -13,7 +13,13 @@ type BrowseDirectoryResult = {
   directories: DirectoryEntry[];
 };
 
-// eslint-disable-next-line import/prefer-default-export
+export const getServerCwdFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+    return process.cwd();
+  },
+);
+
 export const browseDirectoryFn = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => browseDirectorySchema.parse(d))
   .handler(async ({ data }): Promise<BrowseDirectoryResult> => {
@@ -36,7 +42,8 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({
         name: entry.name,
-        path: `${normalized}/${entry.name}`,
+        path:
+          normalized === "/" ? `/${entry.name}` : `${normalized}/${entry.name}`,
       }));
 
     return { current, parent, directories };
