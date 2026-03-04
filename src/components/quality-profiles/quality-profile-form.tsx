@@ -183,8 +183,32 @@ export default function QualityProfileForm({
     );
   };
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!name.trim()) {
+      errs.name = "Name is required";
+    }
+    if (!rootFolderPath) {
+      errs.rootFolderPath = "Root folder is required";
+    }
+    if (!items.some((i) => i.allowed)) {
+      errs.items = "At least one quality must be enabled";
+    }
+    if (upgradeAllowed && !cutoff) {
+      errs.cutoff = "Upgrade cutoff quality is required";
+    }
+    return errs;
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      return;
+    }
     onSubmit({
       name,
       icon,
@@ -206,8 +230,10 @@ export default function QualityProfileForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Profile name"
-          required
         />
+        {errors.name && (
+          <p className="text-sm text-destructive">{errors.name}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -256,6 +282,9 @@ export default function QualityProfileForm({
             ))}
           </SelectContent>
         </Select>
+        {errors.rootFolderPath && (
+          <p className="text-sm text-destructive">{errors.rootFolderPath}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -292,6 +321,9 @@ export default function QualityProfileForm({
             Once this quality is reached, no further upgrades will be
             downloaded.
           </p>
+          {errors.cutoff && (
+            <p className="text-sm text-destructive">{errors.cutoff}</p>
+          )}
         </div>
       )}
 
@@ -321,6 +353,9 @@ export default function QualityProfileForm({
             </SortableContext>
           </DndContext>
         </div>
+        {errors.items && (
+          <p className="text-sm text-destructive">{errors.items}</p>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">

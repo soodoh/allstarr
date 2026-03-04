@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Settings,
   Sliders,
+  FileType,
   FolderOpen,
   Download,
   Radar,
@@ -35,11 +36,17 @@ const settingsItems = [
     description: "Configure language preferences and book import filters.",
   },
   {
+    title: "Formats",
+    to: "/settings/formats" as const,
+    icon: FileType,
+    description:
+      "Define format types like EPUB, MOBI, PDF and their matching rules.",
+  },
+  {
     title: "Profiles",
     to: "/settings/profiles" as const,
     icon: Sliders,
-    description:
-      "Manage quality profiles that define preferred formats and upgrade rules.",
+    description: "Configure format preferences and upgrade rules per author.",
   },
   {
     title: "Root Folders",
