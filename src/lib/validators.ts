@@ -1,19 +1,11 @@
 import { z } from "zod";
 
 // Quality Profiles
-export const qualityItemSchema = z.object({
-  quality: z.object({
-    id: z.number(),
-    name: z.string(),
-  }),
-  allowed: z.boolean(),
-});
-
 export const createQualityProfileSchema = z.object({
   name: z.string().min(1, "Name is required"),
   rootFolderPath: z.string().min(1, "Root folder is required"),
   cutoff: z.number().default(0),
-  items: z.array(qualityItemSchema).default([]),
+  items: z.array(z.number()).default([]),
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
 });

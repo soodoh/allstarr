@@ -54,7 +54,7 @@ function ProfilesPage() {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
+    items: number[];
     upgradeAllowed: boolean;
   }) => {
     createProfile.mutate(values, {
@@ -67,7 +67,7 @@ function ProfilesPage() {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: Array<{ quality: { id: number; name: string }; allowed: boolean }>;
+    items: number[];
     upgradeAllowed: boolean;
   }) => {
     if (!editingProfile) {
@@ -109,6 +109,7 @@ function ProfilesPage() {
       <div className="space-y-4">
         <QualityProfileList
           profiles={profiles}
+          definitions={definitions}
           onEdit={(profile) =>
             handleEditProfile(profiles.find((p) => p.id === profile.id)!)
           }
@@ -131,11 +132,7 @@ function ProfilesPage() {
                     icon: editingProfile.icon,
                     rootFolderPath: editingProfile.rootFolderPath,
                     cutoff: editingProfile.cutoff,
-                    items:
-                      (editingProfile.items as Array<{
-                        quality: { id: number; name: string };
-                        allowed: boolean;
-                      }>) || [],
+                    items: (editingProfile.items as number[]) ?? [],
                     upgradeAllowed: editingProfile.upgradeAllowed,
                   }
                 : undefined

@@ -47,12 +47,10 @@ export const AUDIOBOOK_CATEGORIES = [3030];
 /** Quality definition IDs for audiobook formats (MP3, M4B, FLAC) */
 export const AUDIOBOOK_QUALITY_IDS = new Set([6, 7, 8]);
 
-export type ProfileItem = { quality: { id: number }; allowed: boolean };
-
 export type ProfileInfo = {
   id: number;
   name: string;
-  items: ProfileItem[];
+  items: number[];
   cutoff: number;
   upgradeAllowed: boolean;
 };
@@ -91,33 +89,28 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   return rows.map((p) => ({
     id: p.id,
     name: p.name,
-    items: (p.items ?? []) as ProfileItem[],
+    items: (p.items ?? []) as number[],
     cutoff: p.cutoff,
     upgradeAllowed: p.upgradeAllowed,
   }));
 }
 
-/** Derive a union of profile items (a quality is allowed if ANY profile allows it) */
-export function unionProfileItems(
-  profiles: ProfileInfo[],
-): ProfileItem[] | null {
-  const unionMap = new Map<number, ProfileItem>();
+/** Derive a union of allowed definition IDs across all profiles */
+export function unionProfileItems(profiles: ProfileInfo[]): number[] | null {
+  const union = new Set<number>();
   for (const profile of profiles) {
-    for (const item of profile.items) {
-      const existing = unionMap.get(item.quality.id);
-      if (!existing || (!existing.allowed && item.allowed)) {
-        unionMap.set(item.quality.id, item);
-      }
+    for (const id of profile.items) {
+      union.add(id);
     }
   }
-  return unionMap.size > 0 ? [...unionMap.values()] : null;
+  return union.size > 0 ? [...union] : null;
 }
 
 /** Derive search categories from quality profiles — includes audiobook categories
  *  when any profile allows an audiobook format (MP3, M4B, FLAC). */
 export function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
   const hasAudiobook = profiles.some((p) =>
-    p.items.some((i) => i.allowed && AUDIOBOOK_QUALITY_IDS.has(i.quality.id)),
+    p.items.some((id) => AUDIOBOOK_QUALITY_IDS.has(id)),
   );
   return hasAudiobook
     ? [...EBOOK_CATEGORIES, ...AUDIOBOOK_CATEGORIES]
@@ -247,18 +240,16 @@ export function computeReleaseMetrics(
   let allowedInAny = false;
 
   for (const profile of profiles) {
-    const item = profile.items.find((i) => i.quality.id === release.quality.id);
-    if (item) {
+    const allowed = profile.items.includes(release.quality.id);
+    if (allowed) {
       const score = getProfileWeight(release.quality.id, profile.items);
       formatScoreDetails.push({
         profileName: profile.name,
         score,
-        allowed: item.allowed,
+        allowed: true,
       });
-      if (item.allowed) {
-        allowedInAny = true;
-        maxScore = Math.max(maxScore, score);
-      }
+      allowedInAny = true;
+      maxScore = Math.max(maxScore, score);
     } else {
       formatScoreDetails.push({
         profileName: profile.name,

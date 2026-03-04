@@ -47,7 +47,7 @@ type QualityProfileFormProps = {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: QualityItem[];
+    items: number[];
     upgradeAllowed: boolean;
   };
   qualityDefinitions: Array<{ id: number; title: string }>;
@@ -57,7 +57,7 @@ type QualityProfileFormProps = {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: QualityItem[];
+    items: number[];
     upgradeAllowed: boolean;
   }) => void;
   onCancel: () => void;
@@ -130,25 +130,34 @@ export default function QualityProfileForm({
   );
   const [cutoff, setCutoff] = useState(initialValues?.cutoff || 0);
 
-  // Build initial items: use existing profile items, then append any missing
-  // quality definitions at the bottom as unchecked
+  // Build initial items: reconstruct UI state from ID array + definitions
   const buildInitialItems = (): QualityItem[] => {
-    const existing = initialValues?.items || [];
-    const existingIds = new Set(existing.map((i) => i.quality.id));
-    const missing = qualityDefinitions
-      .filter((def) => !existingIds.has(def.id))
-      .map((def) => ({
-        quality: { id: def.id, name: def.title },
-        allowed: false,
-      }));
-    if (existing.length === 0) {
+    const defMap = new Map(qualityDefinitions.map((d) => [d.id, d.title]));
+    const existingIds = initialValues?.items ?? [];
+
+    if (existingIds.length === 0) {
       // No existing profile — use all definitions in definition order, all checked
       return qualityDefinitions.map((def) => ({
         quality: { id: def.id, name: def.title },
         allowed: true,
       }));
     }
-    return [...existing, ...missing];
+
+    // Reconstruct ordered items from IDs, then append missing definitions
+    const existingIdSet = new Set(existingIds);
+    const ordered: QualityItem[] = existingIds
+      .filter((id) => defMap.has(id))
+      .map((id) => ({
+        quality: { id, name: defMap.get(id)! },
+        allowed: true,
+      }));
+    const missing = qualityDefinitions
+      .filter((def) => !existingIdSet.has(def.id))
+      .map((def) => ({
+        quality: { id: def.id, name: def.title },
+        allowed: false,
+      }));
+    return [...ordered, ...missing];
   };
 
   const [items, setItems] = useState<QualityItem[]>(buildInitialItems);
@@ -209,12 +218,14 @@ export default function QualityProfileForm({
     if (Object.keys(errs).length > 0) {
       return;
     }
+    // Serialize: only allowed item IDs in order
+    const itemIds = items.filter((i) => i.allowed).map((i) => i.quality.id);
     onSubmit({
       name,
       icon,
       rootFolderPath,
       cutoff: upgradeAllowed ? cutoff : 0,
-      items,
+      items: itemIds,
       upgradeAllowed,
     });
   };

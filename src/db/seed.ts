@@ -148,16 +148,7 @@ const defaultProfiles = [
     rootFolderPath: defaultRootFolder,
     cutoff: 0,
     icon: "book-marked",
-    items: [
-      { quality: { id: 4, name: "EPUB" }, allowed: true },
-      { quality: { id: 5, name: "AZW3" }, allowed: true },
-      { quality: { id: 3, name: "MOBI" }, allowed: true },
-      { quality: { id: 2, name: "PDF" }, allowed: true },
-      { quality: { id: 1, name: "Unknown" }, allowed: false },
-      { quality: { id: 6, name: "MP3" }, allowed: false },
-      { quality: { id: 7, name: "M4B" }, allowed: false },
-      { quality: { id: 8, name: "FLAC" }, allowed: false },
-    ],
+    items: [4, 5, 3, 2],
     upgradeAllowed: false,
   },
   {
@@ -165,16 +156,7 @@ const defaultProfiles = [
     rootFolderPath: defaultRootFolder,
     cutoff: 0,
     icon: "audio-lines",
-    items: [
-      { quality: { id: 6, name: "MP3" }, allowed: true },
-      { quality: { id: 7, name: "M4B" }, allowed: true },
-      { quality: { id: 8, name: "FLAC" }, allowed: true },
-      { quality: { id: 1, name: "Unknown" }, allowed: false },
-      { quality: { id: 2, name: "PDF" }, allowed: false },
-      { quality: { id: 3, name: "MOBI" }, allowed: false },
-      { quality: { id: 4, name: "EPUB" }, allowed: false },
-      { quality: { id: 5, name: "AZW3" }, allowed: false },
-    ],
+    items: [6, 7, 8],
     upgradeAllowed: false,
   },
 ];
@@ -292,6 +274,32 @@ for (const profile of allProfiles) {
 }
 if (profilesBackfilled > 0) {
   console.log(`  Backfilled ${profilesBackfilled} profile(s)`);
+}
+
+// Migrate old-format profile items (object array → ID array)
+let profilesMigrated = 0;
+const profilesToMigrate = db.select().from(schema.qualityProfiles).all();
+for (const profile of profilesToMigrate) {
+  const raw = profile.items;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    continue;
+  }
+  // Detect old format: items are objects with {quality: {id}, allowed}
+  if (typeof raw[0] === "object" && raw[0] !== null && "quality" in raw[0]) {
+    const migrated = (
+      raw as Array<{ quality: { id: number }; allowed: boolean }>
+    )
+      .filter((i) => i.allowed)
+      .map((i) => i.quality.id);
+    db.update(schema.qualityProfiles)
+      .set({ items: migrated })
+      .where(eq(schema.qualityProfiles.id, profile.id))
+      .run();
+    profilesMigrated += 1;
+  }
+}
+if (profilesMigrated > 0) {
+  console.log(`  Migrated ${profilesMigrated} profile(s) to new items format`);
 }
 
 // Seed scheduled tasks
