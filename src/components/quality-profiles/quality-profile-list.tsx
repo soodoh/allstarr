@@ -72,12 +72,10 @@ export default function QualityProfileList({
                 })()}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm max-w-0">
-                <div
-                  className="truncate text-left font-mono"
-                  dir="rtl"
-                  title={profile.rootFolderPath}
-                >
-                  {profile.rootFolderPath || "—"}
+                <div className="truncate text-left font-mono" dir="rtl">
+                  <bdo dir="ltr" title={profile.rootFolderPath}>
+                    {profile.rootFolderPath || "—"}
+                  </bdo>
                 </div>
               </TableCell>
               <TableCell>

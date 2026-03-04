@@ -16,7 +16,10 @@ export function useCreateRootFolder() {
       queryClient.invalidateQueries({ queryKey: queryKeys.rootFolders.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
-    onError: () => toast.error("Failed to add root folder"),
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add root folder",
+      ),
   });
 }
 
