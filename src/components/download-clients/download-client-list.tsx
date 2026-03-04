@@ -1,5 +1,7 @@
-import type { JSX } from "react";
+import { useState } from 'react';
+import type { JSX } from 'react';
 import { Pencil, Trash2 } from "lucide-react";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { Button } from "src/components/ui/button";
 import {
   Table,
@@ -26,6 +28,11 @@ export default function DownloadClientList({
   onEdit,
   onDelete,
 }: DownloadClientListProps): JSX.Element {
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const deleteName = deleteId
+    ? clients.find((c) => c.id === deleteId)?.name
+    : undefined;
+
   if (clients.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -35,60 +42,75 @@ export default function DownloadClientList({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Host</TableHead>
-          <TableHead>Protocol</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="w-24">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {clients.map((client) => (
-          <TableRow key={client.id}>
-            <TableCell className="font-medium">{client.name}</TableCell>
-            <TableCell>{client.implementation}</TableCell>
-            <TableCell className="text-muted-foreground">
-              {client.host}:{client.port}
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant={
-                  client.protocol === "torrent" ? "default" : "secondary"
-                }
-              >
-                {client.protocol}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={client.enabled ? "default" : "outline"}>
-                {client.enabled ? "Enabled" : "Disabled"}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onEdit(client)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(client.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </TableCell>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Host</TableHead>
+            <TableHead>Protocol</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-24">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {clients.map((client) => (
+            <TableRow key={client.id}>
+              <TableCell className="font-medium">{client.name}</TableCell>
+              <TableCell>{client.implementation}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {client.host}:{client.port}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    client.protocol === "torrent" ? "default" : "secondary"
+                  }
+                >
+                  {client.protocol}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={client.enabled ? "default" : "outline"}>
+                  {client.enabled ? "Enabled" : "Disabled"}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(client)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteId(client.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Download Client"
+        description={`Are you sure you want to delete "${deleteName}"? This action cannot be undone.`}
+        onConfirm={() => {
+          if (deleteId !== null) {
+            onDelete(deleteId);
+            setDeleteId(null);
+          }
+        }}
+      />
+    </>
   );
 }

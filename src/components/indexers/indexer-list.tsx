@@ -1,6 +1,8 @@
-import type { JSX } from "react";
+import { useState } from 'react';
+import type { JSX } from 'react';
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { Eye, Pencil, Trash2 } from "lucide-react";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { Button } from "src/components/ui/button";
 import {
   Table,
@@ -42,10 +44,16 @@ export default function IndexerList({
   onDelete,
   onViewSynced,
 }: IndexerListProps): JSX.Element {
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
   const rows: UnifiedRow[] = [
     ...indexers.map((i) => ({ type: "manual" as const, data: i })),
     ...syncedIndexers.map((i) => ({ type: "synced" as const, data: i })),
   ].toSorted((a, b) => a.data.name.localeCompare(b.data.name));
+
+  const deleteName = deleteId
+    ? indexers.find((i) => i.id === deleteId)?.name
+    : undefined;
 
   if (rows.length === 0) {
     return (
@@ -56,6 +64,7 @@ export default function IndexerList({
   }
 
   return (
+    <>
     <Table>
       <TableHeader>
         <TableRow>
@@ -112,7 +121,7 @@ export default function IndexerList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => onDelete(row.data.id)}
+                    onClick={() => setDeleteId(row.data.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -170,5 +179,19 @@ export default function IndexerList({
         )}
       </TableBody>
     </Table>
+
+    <ConfirmDialog
+      open={deleteId !== null}
+      onOpenChange={(open) => !open && setDeleteId(null)}
+      title="Delete Indexer"
+      description={`Are you sure you want to delete "${deleteName}"? This action cannot be undone.`}
+      onConfirm={() => {
+        if (deleteId !== null) {
+          onDelete(deleteId);
+          setDeleteId(null);
+        }
+      }}
+    />
+    </>
   );
 }
