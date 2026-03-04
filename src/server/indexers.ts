@@ -502,6 +502,91 @@ export function dedupeAndScoreReleases(
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
+const DELAY_BETWEEN_INDEXERS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Search all indexers sequentially with a delay between each to avoid rate-limiting. */
+async function searchAllIndexers(
+  enabledSynced: Array<typeof syncedIndexers.$inferSelect>,
+  enabledManual: Array<typeof indexers.$inferSelect>,
+  query: string,
+  categories: number[],
+  bookParams?: BookSearchParams,
+): Promise<{ releases: IndexerRelease[]; warnings: string[] }> {
+  const allReleases: IndexerRelease[] = [];
+  const warnings: string[] = [];
+
+  const syncedWithKey = enabledSynced.filter((s) => s.apiKey);
+  for (let i = 0; i < syncedWithKey.length; i += 1) {
+    const synced = syncedWithKey[i];
+    try {
+      const results = await prowlarrHttp.searchNewznab(
+        {
+          baseUrl: synced.baseUrl,
+          apiPath: synced.apiPath ?? "/api",
+          apiKey: synced.apiKey!,
+        },
+        query,
+        categories,
+        bookParams,
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || synced.name,
+            allstarrIndexerId: synced.id,
+          }),
+        ),
+      );
+    } catch (error) {
+      warnings.push(
+        error instanceof Error ? error.message : "Unknown indexer error",
+      );
+    }
+    if (i < syncedWithKey.length - 1 || enabledManual.length > 0) {
+      await sleep(DELAY_BETWEEN_INDEXERS);
+    }
+  }
+
+  for (let i = 0; i < enabledManual.length; i += 1) {
+    const ix = enabledManual[i];
+    try {
+      const results = await prowlarrHttp.searchProwlarr(
+        {
+          host: ix.host,
+          port: ix.port,
+          useSsl: ix.useSsl,
+          urlBase: ix.urlBase,
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        bookParams,
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({ ...r, allstarrIndexerId: ix.id }),
+        ),
+      );
+    } catch (error) {
+      warnings.push(
+        error instanceof Error ? error.message : "Unknown indexer error",
+      );
+    }
+    if (i < enabledManual.length - 1) {
+      await sleep(DELAY_BETWEEN_INDEXERS);
+    }
+  }
+
+  return { releases: allReleases, warnings };
+}
+
 export const searchIndexersFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => searchIndexersSchema.parse(d))
   .handler(async ({ data }) => {
@@ -581,81 +666,19 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       categories = [...EBOOK_CATEGORIES];
     }
 
-    // ── Per-indexer Newznab feed searches (like Readarr) ──────────────────
-    // Each synced indexer has its own Newznab/Torznab proxy feed URL from
-    // Prowlarr.  Querying each feed individually avoids Prowlarr's internal
-    // category-capability filter that silently skips indexers whose caps
-    // don't advertise the requested categories.
-    //
-    // When bookParams is available, each indexer fires multiple tiered
-    // queries (structured book search, author+title, title-only) and
-    // deduplicates internally — matching Readarr's search strategy.
-    const feedSearches = enabledSynced
-      .filter((s) => s.apiKey)
-      .map(async (synced) => {
-        const results = await prowlarrHttp.searchNewznab(
-          {
-            baseUrl: synced.baseUrl,
-            apiPath: synced.apiPath ?? "/api",
-            apiKey: synced.apiKey!,
-          },
-          query,
-          categories,
-          bookParams,
-        );
-        return results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-          }),
-        );
-      });
-
-    // ── Fallback: Prowlarr internal API for manual indexers ───────────────
-    // Manual indexers are raw Prowlarr connections without individual feed
-    // URLs.  Use the internal search API as a fallback.
-    const internalSearches = enabledManual.map(async (ix) => {
-      const results = await prowlarrHttp.searchProwlarr(
-        {
-          host: ix.host,
-          port: ix.port,
-          useSsl: ix.useSsl,
-          urlBase: ix.urlBase,
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        bookParams,
-      );
-      return results.map((r) =>
-        enrichRelease({ ...r, allstarrIndexerId: ix.id }),
-      );
-    });
-
-    // Fan out all searches in parallel
-    const settled = await Promise.allSettled([
-      ...feedSearches,
-      ...internalSearches,
-    ]);
-
-    // Flatten results, collect warnings from failures
-    const allReleases: IndexerRelease[] = [];
-    const warnings: string[] = [];
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
-        allReleases.push(...result.value);
-      } else {
-        warnings.push(
-          result.reason instanceof Error
-            ? result.reason.message
-            : "Unknown indexer error",
-        );
-      }
-    }
+    // Search each indexer sequentially to avoid rate-limiting
+    const { releases: allReleases, warnings } = await searchAllIndexers(
+      enabledSynced,
+      enabledManual,
+      query,
+      categories,
+      bookParams,
+    );
 
     // If every indexer failed, throw so the client sees an error
-    if (settled.length > 0 && allReleases.length === 0 && warnings.length > 0) {
+    const totalIndexers =
+      enabledSynced.filter((s) => s.apiKey).length + enabledManual.length;
+    if (totalIndexers > 0 && allReleases.length === 0 && warnings.length > 0) {
       throw new Error(`All indexers failed: ${warnings.join("; ")}`);
     }
 

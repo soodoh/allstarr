@@ -271,6 +271,57 @@ function cleanQueryTitle(title: string): string {
   return cleaned || title;
 }
 
+/** Parse Retry-After header value into milliseconds. */
+function parseRetryAfter(res: Response): number {
+  const header = res.headers.get("Retry-After");
+  if (!header) {
+    return 0;
+  }
+  const seconds = Number(header);
+  if (!Number.isNaN(seconds)) {
+    return seconds * 1000;
+  }
+  // RFC 7231 HTTP-date format
+  const date = new Date(header).getTime();
+  if (!Number.isNaN(date)) {
+    return Math.max(0, date - Date.now());
+  }
+  return 0;
+}
+
+const MAX_RETRIES = 3;
+const BASE_BACKOFF_MS = 2000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Fetch with automatic retry on 429 (Too Many Requests). */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    const res = await fetchWithTimeout(url, options, timeoutMs);
+    if (res.status !== 429 || attempt === MAX_RETRIES) {
+      return res;
+    }
+    const retryAfter = parseRetryAfter(res);
+    const backoff = retryAfter || BASE_BACKOFF_MS * 2 ** attempt;
+    const capped = Math.min(backoff, 30_000);
+    // oxlint-disable-next-line no-console -- Rate-limit logging is intentional server-side diagnostics
+    console.log(
+      `[indexer] 429 rate-limited, retrying in ${Math.round(capped / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
+    );
+    await sleep(capped);
+  }
+  // Unreachable, but satisfies TypeScript
+  throw new Error("Exhausted retries after 429");
+}
+
 /** Fetch a single Newznab/Torznab feed URL and parse the XML into results. */
 async function fetchNewznabFeed(
   feed: NewznabFeedConfig,
@@ -295,7 +346,7 @@ async function fetchNewznabFeed(
   }
 
   const url = `${base}${apiPath}?${params.toString()}`;
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     url,
     { headers: { Accept: "application/xml" } },
     60_000,
@@ -429,7 +480,7 @@ async function fetchProwlarrSearch(
   headers: HeadersInit,
   params: URLSearchParams,
 ): Promise<CoalescedResult[]> {
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     `${base}/api/v1/search?${params.toString()}`,
     { headers },
     60_000,
