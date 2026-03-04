@@ -39,11 +39,23 @@ export const createRootFolderFn = createServerFn({ method: "POST" })
     } catch {
       // path may not exist yet
     }
-    return db
-      .insert(rootFolders)
-      .values({ path: data.path, freeSpace, totalSpace })
-      .returning()
-      .get();
+    try {
+      return db
+        .insert(rootFolders)
+        .values({ path: data.path, freeSpace, totalSpace })
+        .returning()
+        .get();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("UNIQUE constraint failed")
+      ) {
+        throw new Error("This folder has already been added as a root folder", {
+          cause: error,
+        });
+      }
+      throw error;
+    }
   });
 
 export const deleteRootFolderFn = createServerFn({ method: "POST" })

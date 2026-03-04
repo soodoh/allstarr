@@ -8,7 +8,7 @@ export type MultiSelectItem<T extends string | number> = {
   key: T;
   label: string;
   secondary?: string;
-}
+};
 
 export default function MultiSelect<T extends string | number>({
   items,

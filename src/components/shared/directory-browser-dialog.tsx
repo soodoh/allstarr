@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowUp, Folder, Loader2 } from "lucide-react";
@@ -28,13 +28,12 @@ export default function DirectoryBrowserDialog({
 }: DirectoryBrowserDialogProps): JSX.Element {
   const [currentPath, setCurrentPath] = useState(initialPath);
 
-  // Reset to initialPath when the dialog opens
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen) {
+  // Sync currentPath whenever the dialog opens
+  useEffect(() => {
+    if (open) {
       setCurrentPath(initialPath);
     }
-    onOpenChange(nextOpen);
-  };
+  }, [open, initialPath]);
 
   const { data, isLoading, error } = useQuery({
     ...browseDirectoryQuery(currentPath),
@@ -48,7 +47,6 @@ export default function DirectoryBrowserDialog({
 
   function handleSelect() {
     onSelect(currentPath);
-    onOpenChange(false);
   }
 
   function renderContent() {
@@ -112,7 +110,7 @@ export default function DirectoryBrowserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Browse for Folder</DialogTitle>

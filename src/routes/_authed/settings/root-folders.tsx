@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import PageHeader from "src/components/shared/page-header";
+import ConfirmDialog from "src/components/shared/confirm-dialog";
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import { rootFoldersListQuery } from "src/lib/queries";
 import { useCreateRootFolder, useDeleteRootFolder } from "src/hooks/mutations";
@@ -45,6 +46,10 @@ function RootFoldersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [browseDialogOpen, setBrowseDialogOpen] = useState(false);
   const [browseInitialPath, setBrowseInitialPath] = useState("/");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: number;
+    path: string;
+  } | null>(null);
 
   const handleRowClick = (path: string) => {
     setBrowseInitialPath(path);
@@ -57,8 +62,13 @@ function RootFoldersPage() {
     });
   };
 
-  const handleDelete = (id: number) => {
-    deleteRootFolder.mutate(id);
+  const handleDelete = () => {
+    if (!deleteTarget) {
+      return;
+    }
+    deleteRootFolder.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    });
   };
 
   return (
@@ -103,12 +113,10 @@ function RootFoldersPage() {
                   }}
                 >
                   <TableCell className="font-mono text-sm max-w-0">
-                    <div
-                      className="truncate text-left"
-                      dir="rtl"
-                      title={folder.path}
-                    >
-                      {folder.path}
+                    <div className="truncate text-left" dir="rtl">
+                      <bdo dir="ltr" title={folder.path}>
+                        {folder.path}
+                      </bdo>
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -121,8 +129,9 @@ function RootFoldersPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDelete(folder.id)}
-                      disabled={deleteRootFolder.isPending}
+                      onClick={() =>
+                        setDeleteTarget({ id: folder.id, path: folder.path })
+                      }
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -146,6 +155,19 @@ function RootFoldersPage() {
         onOpenChange={setBrowseDialogOpen}
         initialPath={browseInitialPath}
         onSelect={() => setBrowseDialogOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Delete Root Folder"
+        description={`Are you sure you want to remove "${deleteTarget?.path}"? This will not delete any files on disk.`}
+        onConfirm={handleDelete}
+        loading={deleteRootFolder.isPending}
       />
     </div>
   );
