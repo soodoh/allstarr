@@ -89,6 +89,9 @@ export function useUpdateQualityDefinition() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.qualityDefinitions.all,
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qualityProfiles.all,
+      });
     },
     onError: () => toast.error("Failed to update quality definition"),
   });

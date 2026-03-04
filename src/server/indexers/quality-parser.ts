@@ -262,18 +262,13 @@ export function enrichRelease(
   };
 }
 
-type ProfileItem = { quality: { id: number }; allowed: boolean };
-
 /**
  * Derive a quality weight from a profile's ordered items array.
  * Items at the top of the list (lower index) are more preferred and get a
  * higher weight.  Returns 0 for qualities not found in the profile.
  */
-export function getProfileWeight(
-  qualityId: number,
-  items: ProfileItem[],
-): number {
-  const idx = items.findIndex((i) => i.quality.id === qualityId);
+export function getProfileWeight(qualityId: number, items: number[]): number {
+  const idx = items.indexOf(qualityId);
   if (idx === -1) {
     return 0;
   }

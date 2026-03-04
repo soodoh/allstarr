@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { getProfileIcon } from "src/lib/profile-icons";
+import COLOR_BADGE_CLASSES from "src/lib/format-colors";
 import { Button } from "src/components/ui/button";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
@@ -20,22 +21,32 @@ type QualityProfile = {
   icon: string;
   rootFolderPath: string;
   cutoff: number;
-  items: { quality: { id: number; name: string }; allowed: boolean }[] | null;
+  items: number[] | null;
   upgradeAllowed: boolean;
+};
+
+type FormatDefinition = {
+  id: number;
+  title: string;
+  color: string;
 };
 
 type QualityProfileListProps = {
   profiles: QualityProfile[];
+  definitions: FormatDefinition[];
   onEdit: (profile: QualityProfile) => void;
   onDelete: (id: number) => void;
 };
 
 export default function QualityProfileList({
   profiles,
+  definitions,
   onEdit,
   onDelete,
 }: QualityProfileListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<QualityProfile | null>(null);
+
+  const defById = new Map(definitions.map((d) => [d.id, d]));
 
   if (profiles.length === 0) {
     return (
@@ -52,16 +63,16 @@ export default function QualityProfileList({
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Root Folder</TableHead>
-            <TableHead>Qualities</TableHead>
+            <TableHead>Formats</TableHead>
             <TableHead>Upgrades</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {profiles.map((profile) => {
-            const allowedItems = (profile.items || []).filter((i) => i.allowed);
-            const cutoffItem = profile.cutoff
-              ? allowedItems.find((i) => i.quality.id === profile.cutoff)
+            const itemIds = profile.items ?? [];
+            const cutoffDef = profile.cutoff
+              ? defById.get(profile.cutoff)
               : null;
             return (
               <TableRow key={profile.id}>
@@ -85,19 +96,29 @@ export default function QualityProfileList({
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {allowedItems.map((item) => (
-                      <Badge
-                        key={item.quality.id}
-                        variant="secondary"
-                        className={
-                          profile.cutoff === item.quality.id
-                            ? "border-blue-500 bg-blue-500/20 text-blue-400"
-                            : ""
-                        }
-                      >
-                        {item.quality.name}
-                      </Badge>
-                    ))}
+                    {itemIds.map((id) => {
+                      const def = defById.get(id);
+                      if (!def) {
+                        return null;
+                      }
+                      const isCutoff = profile.cutoff === id;
+                      let badgeClass = "";
+                      if (isCutoff) {
+                        badgeClass =
+                          "border-blue-500 bg-blue-500/20 text-blue-400";
+                      } else if (def.color) {
+                        badgeClass = COLOR_BADGE_CLASSES[def.color] ?? "";
+                      }
+                      return (
+                        <Badge
+                          key={id}
+                          variant="secondary"
+                          className={badgeClass}
+                        >
+                          {def.title}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -105,8 +126,8 @@ export default function QualityProfileList({
                     if (!profile.upgradeAllowed) {
                       return "No";
                     }
-                    if (cutoffItem) {
-                      return `Until ${cutoffItem.quality.name}`;
+                    if (cutoffDef) {
+                      return `Until ${cutoffDef.title}`;
                     }
                     return "Yes";
                   })()}
