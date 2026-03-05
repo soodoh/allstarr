@@ -511,7 +511,7 @@ async function fetchProwlarrSearch(
 export async function searchProwlarr(
   config: IndexerConnectionConfig,
   query: string,
-  categories: number[] = [7000, 7020],
+  categories: number[] = [],
   bookParams?: BookSearchParams,
 ): Promise<CoalescedResult[]> {
   const base = buildBaseUrl(

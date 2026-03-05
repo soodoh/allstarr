@@ -10,4 +10,5 @@ export const qualityProfiles = sqliteTable("quality_profiles", {
     .notNull()
     .default(false),
   icon: text("icon").notNull().default("book-open"),
+  categories: text("categories", { mode: "json" }).$type<number[]>(),
 });

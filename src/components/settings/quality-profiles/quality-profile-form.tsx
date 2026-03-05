@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
+import CategoryMultiSelect from "src/components/shared/category-multi-select";
 
 type QualityProfileFormProps = {
   initialValues?: {
@@ -45,6 +46,7 @@ type QualityProfileFormProps = {
     cutoff: number;
     items: number[];
     upgradeAllowed: boolean;
+    categories: number[];
   };
   qualityDefinitions: Array<{ id: number; title: string }>;
   serverCwd: string;
@@ -55,6 +57,7 @@ type QualityProfileFormProps = {
     cutoff: number;
     items: number[];
     upgradeAllowed: boolean;
+    categories: number[];
   }) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -267,6 +270,102 @@ function SortableQualityItem({
   );
 }
 
+function buildInitialItems(
+  qualityDefinitions: Array<{ id: number; title: string }>,
+  existingItems?: number[],
+): number[] {
+  const defIds = new Set(qualityDefinitions.map((d) => d.id));
+  const existingIds = existingItems ?? [];
+
+  if (existingIds.length === 0) {
+    return qualityDefinitions.map((d) => d.id);
+  }
+
+  return existingIds.filter((id) => defIds.has(id));
+}
+
+function UpgradeSection({
+  upgradeAllowed,
+  cutoff,
+  items,
+  defMap,
+  errors,
+  onUpgradeChange,
+  onCutoffChange,
+}: {
+  upgradeAllowed: boolean;
+  cutoff: number;
+  items: number[];
+  defMap: Map<number, string>;
+  errors: Record<string, string>;
+  onUpgradeChange: (v: boolean) => void;
+  onCutoffChange: (v: string) => void;
+}): JSX.Element {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="upgrade-allowed"
+          checked={upgradeAllowed}
+          onCheckedChange={onUpgradeChange}
+        />
+        <Label htmlFor="upgrade-allowed">Upgrades Allowed</Label>
+      </div>
+
+      {upgradeAllowed && (
+        <div className="space-y-2">
+          <Label htmlFor="upgrade-until">Upgrade Until</Label>
+          <Select
+            value={cutoff ? String(cutoff) : ""}
+            onValueChange={onCutoffChange}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select cutoff quality" />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((id) => (
+                <SelectItem key={id} value={String(id)}>
+                  {defMap.get(id) ?? String(id)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Once this quality is reached, no further upgrades will be
+            downloaded.
+          </p>
+          {errors.cutoff && (
+            <p className="text-sm text-destructive">{errors.cutoff}</p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function validateProfileForm(fields: {
+  name: string;
+  rootFolderPath: string;
+  items: number[];
+  upgradeAllowed: boolean;
+  cutoff: number;
+}): Record<string, string> {
+  const errs: Record<string, string> = {};
+  if (!fields.name.trim()) {
+    errs.name = "Name is required";
+  }
+  if (!fields.rootFolderPath) {
+    errs.rootFolderPath = "Root folder is required";
+  }
+  if (fields.items.length === 0) {
+    errs.items = "At least one quality must be added";
+  }
+  if (fields.upgradeAllowed && !fields.cutoff) {
+    errs.cutoff = "Upgrade cutoff quality is required";
+  }
+  return errs;
+}
+
 export default function QualityProfileForm({
   initialValues,
   qualityDefinitions,
@@ -285,22 +384,13 @@ export default function QualityProfileForm({
     initialValues?.upgradeAllowed || false,
   );
   const [cutoff, setCutoff] = useState(initialValues?.cutoff || 0);
+  const [categories, setCategories] = useState<number[]>(
+    initialValues?.categories ?? [],
+  );
 
-  // Items are just the selected definition IDs in priority order
-  const buildInitialItems = (): number[] => {
-    const defIds = new Set(qualityDefinitions.map((d) => d.id));
-    const existingIds = initialValues?.items ?? [];
-
-    if (existingIds.length === 0) {
-      // New profile — all definitions selected by default
-      return qualityDefinitions.map((d) => d.id);
-    }
-
-    // Filter to only valid definition IDs
-    return existingIds.filter((id) => defIds.has(id));
-  };
-
-  const [items, setItems] = useState<number[]>(buildInitialItems);
+  const [items, setItems] = useState<number[]>(() =>
+    buildInitialItems(qualityDefinitions, initialValues?.items),
+  );
 
   const defMap = useMemo(
     () => new Map(qualityDefinitions.map((d) => [d.id, d.title])),
@@ -339,26 +429,15 @@ export default function QualityProfileForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validate = (): Record<string, string> => {
-    const errs: Record<string, string> = {};
-    if (!name.trim()) {
-      errs.name = "Name is required";
-    }
-    if (!rootFolderPath) {
-      errs.rootFolderPath = "Root folder is required";
-    }
-    if (items.length === 0) {
-      errs.items = "At least one quality must be added";
-    }
-    if (upgradeAllowed && !cutoff) {
-      errs.cutoff = "Upgrade cutoff quality is required";
-    }
-    return errs;
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const errs = validate();
+    const errs = validateProfileForm({
+      name,
+      rootFolderPath,
+      items,
+      upgradeAllowed,
+      cutoff,
+    });
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
       return;
@@ -371,6 +450,7 @@ export default function QualityProfileForm({
       cutoff: upgradeAllowed ? cutoff : 0,
       items,
       upgradeAllowed,
+      categories,
     });
   };
 
@@ -454,42 +534,23 @@ export default function QualityProfileForm({
         />
       </div>
 
-      <div className="flex items-center gap-2">
-        <Switch
-          id="upgrade-allowed"
-          checked={upgradeAllowed}
-          onCheckedChange={setUpgradeAllowed}
-        />
-        <Label htmlFor="upgrade-allowed">Upgrades Allowed</Label>
+      <div className="space-y-2">
+        <Label>Search Categories</Label>
+        <CategoryMultiSelect value={categories} onChange={setCategories} />
+        <p className="text-xs text-muted-foreground">
+          Newznab/Torznab categories to search when using this profile.
+        </p>
       </div>
 
-      {upgradeAllowed && (
-        <div className="space-y-2">
-          <Label htmlFor="upgrade-until">Upgrade Until</Label>
-          <Select
-            value={cutoff ? String(cutoff) : ""}
-            onValueChange={(v) => setCutoff(Number(v))}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select cutoff quality" />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((id) => (
-                <SelectItem key={id} value={String(id)}>
-                  {defMap.get(id) ?? String(id)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Once this quality is reached, no further upgrades will be
-            downloaded.
-          </p>
-          {errors.cutoff && (
-            <p className="text-sm text-destructive">{errors.cutoff}</p>
-          )}
-        </div>
-      )}
+      <UpgradeSection
+        upgradeAllowed={upgradeAllowed}
+        cutoff={cutoff}
+        items={items}
+        defMap={defMap}
+        errors={errors}
+        onUpgradeChange={setUpgradeAllowed}
+        onCutoffChange={(v) => setCutoff(Number(v))}
+      />
 
       <div className="space-y-2">
         <Label>Qualities</Label>
