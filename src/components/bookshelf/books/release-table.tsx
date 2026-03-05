@@ -1,5 +1,12 @@
 import type { JSX } from "react";
-import { Download, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  AlertTriangle,
+  Check,
+  Clock,
+  CloudDownload,
+} from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Skeleton from "src/components/ui/skeleton";
 import { Badge } from "src/components/ui/badge";
@@ -23,13 +30,46 @@ import {
 } from "src/components/ui/popover";
 import SortableTableHead from "src/components/shared/sortable-table-head";
 import { useTableState } from "src/hooks/use-table-state";
-import type { IndexerRelease } from "src/server/indexers/types";
+import type {
+  IndexerRelease,
+  ReleaseStatusMap,
+} from "src/server/indexers/types";
+
+type ReleaseStatus = "inQueue" | "onDisk" | "grabbed" | "default";
+
+function getReleaseStatus(
+  release: IndexerRelease,
+  statusMap: ReleaseStatusMap | null,
+): ReleaseStatus {
+  if (!statusMap) {
+    return "default";
+  }
+
+  const isGrabbed = statusMap.grabbedGuids.includes(release.guid);
+  const inQueue =
+    isGrabbed &&
+    statusMap.queueTitles.some(
+      (qt) => qt.toLowerCase() === release.title.toLowerCase(),
+    );
+
+  if (inQueue) {
+    return "inQueue";
+  }
+  if (statusMap.existingQualityIds.includes(release.quality.id)) {
+    return "onDisk";
+  }
+  if (isGrabbed) {
+    return "grabbed";
+  }
+  return "default";
+}
 
 type ReleaseTableProps = {
   releases: IndexerRelease[];
   grabbingGuid: string | undefined;
   onGrab: (release: IndexerRelease) => void;
   loading?: boolean;
+  statusMap?: ReleaseStatusMap | null;
 };
 
 const QUALITY_BADGE_CLASS: Record<string, string> = {
@@ -158,6 +198,7 @@ export default function ReleaseTable({
   grabbingGuid,
   onGrab,
   loading,
+  statusMap,
 }: ReleaseTableProps): JSX.Element {
   const { sortColumn, sortDirection, handleSort, paginatedData } =
     useTableState({
@@ -279,19 +320,64 @@ export default function ReleaseTable({
                 </TableCell>
                 <RejectionsCell release={release} />
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={isGrabbing}
-                    onClick={() => onGrab(release)}
-                    title="Grab release"
-                  >
-                    {isGrabbing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {(() => {
+                    if (isGrabbing) {
+                      return (
+                        <Button variant="ghost" size="icon" disabled>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </Button>
+                      );
+                    }
+                    const status = getReleaseStatus(release, statusMap ?? null);
+                    const iconMap = {
+                      inQueue: {
+                        icon: Clock,
+                        className: "text-amber-400 hover:text-amber-300",
+                        title: "Downloading",
+                      },
+                      onDisk: {
+                        icon: Check,
+                        className: "text-green-400 hover:text-green-300",
+                        title: "Already on disk",
+                      },
+                      grabbed: {
+                        icon: CloudDownload,
+                        className:
+                          "text-muted-foreground hover:text-foreground",
+                        title: "Previously sent to client",
+                      },
+                      default: {
+                        icon: Download,
+                        className: "",
+                        title: "Grab release",
+                      },
+                    } as const;
+                    const { icon: Icon, className, title } = iconMap[status];
+                    if (status === "inQueue" || status === "onDisk") {
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`inline-flex items-center justify-center h-9 w-9 ${className}`}
+                            >
+                              <Icon className="h-4 w-4" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{title}</TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+                    return (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onGrab(release)}
+                        title={title}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </Button>
+                    );
+                  })()}
                 </TableCell>
               </TableRow>
             );

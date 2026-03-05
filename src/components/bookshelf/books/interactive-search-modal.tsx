@@ -26,7 +26,7 @@ export default function InteractiveSearchModal({
   open,
   onOpenChange,
 }: InteractiveSearchModalProps): JSX.Element {
-  const searchIndexers = useSearchIndexers();
+  const searchIndexers = useSearchIndexers(book.id);
   const grabRelease = useGrabRelease();
 
   const { data: hasIndexers } = useQuery({

@@ -12,13 +12,10 @@ import {
   downloadClients,
   history,
   blocklist,
+  downloadProfiles,
 } from "src/db/schema";
-import { eq, and, sql, asc } from "drizzle-orm";
-import {
-  getProfilesForBook,
-  getCategoriesForProfiles,
-  dedupeAndScoreReleases,
-} from "./indexers";
+import { eq, and, sql, asc, inArray } from "drizzle-orm";
+import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
 import type { ProfileInfo } from "./indexers";
 import { searchNewznab } from "./indexers/http";
 import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
@@ -51,13 +48,19 @@ export type AutoSearchResult = {
   details: SearchDetail[];
 };
 
+type EditionProfileTarget = {
+  editionId: number;
+  profile: ProfileInfo;
+};
+
 type WantedBook = {
   id: number;
   title: string;
   authorId: number | null;
   authorName: string | null;
-  bestExistingWeight: number;
+  editionTargets: EditionProfileTarget[];
   profiles: ProfileInfo[];
+  bestWeightByProfile: Map<number, number>;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -66,6 +69,53 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+// ─── Edition-level profile resolution ───────────────────────────────────────
+
+/** Get edition-level download profile targets for a book */
+function getEditionProfilesForBook(bookId: number): EditionProfileTarget[] {
+  const rows = db
+    .select({
+      editionId: editionDownloadProfiles.editionId,
+      profileId: editionDownloadProfiles.downloadProfileId,
+    })
+    .from(editionDownloadProfiles)
+    .innerJoin(editions, eq(editions.id, editionDownloadProfiles.editionId))
+    .where(eq(editions.bookId, bookId))
+    .all();
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const profileIds = [...new Set(rows.map((r) => r.profileId))];
+  const profiles = db
+    .select()
+    .from(downloadProfiles)
+    .where(inArray(downloadProfiles.id, profileIds))
+    .all();
+
+  const profileMap = new Map(
+    profiles.map((p) => [
+      p.id,
+      {
+        id: p.id,
+        name: p.name,
+        items: p.items,
+        cutoff: p.cutoff,
+        upgradeAllowed: p.upgradeAllowed,
+        categories: p.categories,
+      } satisfies ProfileInfo,
+    ]),
+  );
+
+  return rows
+    .filter((r) => profileMap.has(r.profileId))
+    .map((r) => ({
+      editionId: r.editionId,
+      profile: profileMap.get(r.profileId)!,
+    }));
 }
 
 // ─── Wanted books detection ─────────────────────────────────────────────────
@@ -104,10 +154,17 @@ export function getWantedBooks(): WantedBook[] {
       continue;
     }
 
-    const profiles = getProfilesForBook(book.id);
-    if (!profiles || profiles.length === 0) {
+    const editionTargets = getEditionProfilesForBook(book.id);
+    if (editionTargets.length === 0) {
       continue;
     }
+
+    // Derive unique profiles from edition targets
+    const profileMap = new Map<number, ProfileInfo>();
+    for (const target of editionTargets) {
+      profileMap.set(target.profile.id, target.profile);
+    }
+    const profiles = [...profileMap.values()];
 
     // Check existing files for this book
     const existingFiles = db
@@ -116,36 +173,39 @@ export function getWantedBooks(): WantedBook[] {
       .where(eq(bookFiles.bookId, book.id))
       .all();
 
+    // Compute per-profile best existing weight
+    const bestWeightByProfile = new Map<number, number>();
+    for (const profile of profiles) {
+      let best = 0;
+      for (const file of existingFiles) {
+        if (file.quality) {
+          const qualityId =
+            typeof file.quality === "object" &&
+            "quality" in file.quality &&
+            file.quality.quality
+              ? file.quality.quality.id
+              : 0;
+          const weight = getProfileWeight(qualityId, profile.items);
+          if (weight > best) {
+            best = weight;
+          }
+        }
+      }
+      bestWeightByProfile.set(profile.id, best);
+    }
+
     if (existingFiles.length === 0) {
-      // Missing — no files at all
+      // No files at all — wanted
       wanted.push({
         id: book.id,
         title: book.title,
         authorId: book.authorId,
         authorName: book.authorName,
-        bestExistingWeight: 0,
+        editionTargets,
         profiles,
+        bestWeightByProfile,
       });
       continue;
-    }
-
-    // Check if any profile allows upgrades and we're below cutoff
-    let bestExistingWeight = 0;
-    for (const file of existingFiles) {
-      if (file.quality) {
-        const qualityId =
-          typeof file.quality === "object" &&
-          "quality" in file.quality &&
-          file.quality.quality
-            ? file.quality.quality.id
-            : 0;
-        for (const profile of profiles) {
-          const weight = getProfileWeight(qualityId, profile.items);
-          if (weight > bestExistingWeight) {
-            bestExistingWeight = weight;
-          }
-        }
-      }
     }
 
     // Check if any profile allows upgrades and the best file is below cutoff
@@ -154,7 +214,8 @@ export function getWantedBooks(): WantedBook[] {
         return false;
       }
       const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-      return bestExistingWeight < cutoffWeight;
+      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+      return bestWeight < cutoffWeight;
     });
 
     if (upgradeNeeded) {
@@ -163,8 +224,9 @@ export function getWantedBooks(): WantedBook[] {
         title: book.title,
         authorId: book.authorId,
         authorName: book.authorName,
-        bestExistingWeight,
+        editionTargets,
         profiles,
+        bestWeightByProfile,
       });
     }
   }
@@ -281,27 +343,78 @@ async function searchAndGrabForBook(
     return detail;
   }
 
-  // Score and deduplicate
+  // Score, deduplicate, and grab per profile
   const bookInfo = { title: book.title, authorName: book.authorName };
   const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
+  const grabbedTitles = await grabPerProfile(scored, book);
 
-  // Find the best acceptable release
-  const bestRelease = findBestRelease(scored, book);
-  if (!bestRelease) {
-    return detail;
-  }
-
-  // Auto-grab the best release
-  const grabbed = await grabRelease(bestRelease, book);
-  if (grabbed) {
+  if (grabbedTitles.length > 0) {
     detail.grabbed = true;
-    detail.releaseTitle = bestRelease.title;
-    console.log(
-      `[rss-sync] Grabbed "${bestRelease.title}" for "${book.title}"`,
-    );
+    detail.releaseTitle = grabbedTitles.join(", ");
   }
 
   return detail;
+}
+
+/** Try to grab the best release for each unique profile on the book */
+async function grabPerProfile(
+  scored: IndexerRelease[],
+  book: WantedBook,
+): Promise<string[]> {
+  const blocklistedTitles = new Set(
+    db
+      .select({ sourceTitle: blocklist.sourceTitle })
+      .from(blocklist)
+      .where(eq(blocklist.bookId, book.id))
+      .all()
+      .map((b) => b.sourceTitle),
+  );
+
+  const grabbedGuids = new Set(
+    db
+      .select({ data: history.data })
+      .from(history)
+      .where(
+        and(eq(history.eventType, "bookGrabbed"), eq(history.bookId, book.id)),
+      )
+      .all()
+      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
+      .filter(Boolean),
+  );
+
+  const satisfiedProfiles = new Set<number>();
+  const grabbedTitles: string[] = [];
+
+  for (const profile of book.profiles) {
+    if (satisfiedProfiles.has(profile.id)) {
+      continue;
+    }
+
+    const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
+    const bestRelease = findBestReleaseForProfile(
+      scored,
+      profile,
+      bestExistingWeight,
+      blocklistedTitles,
+      grabbedGuids,
+    );
+
+    if (!bestRelease) {
+      continue;
+    }
+
+    const grabbed = await grabRelease(bestRelease, book);
+    if (grabbed) {
+      satisfiedProfiles.add(profile.id);
+      grabbedTitles.push(bestRelease.title);
+      grabbedGuids.add(bestRelease.guid);
+      console.log(
+        `[rss-sync] Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
+      );
+    }
+  }
+
+  return grabbedTitles;
 }
 
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
@@ -390,53 +503,46 @@ export async function runAutoSearch(
 
 // ─── Release filtering ──────────────────────────────────────────────────────
 
-function findBestRelease(
+function findBestReleaseForProfile(
   releases: IndexerRelease[],
-  book: WantedBook,
+  profile: ProfileInfo,
+  bestExistingWeight: number,
+  blocklistedTitles: Set<string>,
+  grabbedGuids: Set<string>,
 ): IndexerRelease | null {
-  // Get blocklisted source titles for this book
-  const blocklistedTitles = new Set(
-    db
-      .select({ sourceTitle: blocklist.sourceTitle })
-      .from(blocklist)
-      .where(eq(blocklist.bookId, book.id))
-      .all()
-      .map((b) => b.sourceTitle),
-  );
+  // If files exist but upgrades aren't allowed, skip
+  if (bestExistingWeight > 0 && !profile.upgradeAllowed) {
+    return null;
+  }
 
-  // Get previously grabbed GUIDs for this book
-  const grabbedGuids = new Set(
-    db
-      .select({ data: history.data })
-      .from(history)
-      .where(
-        and(eq(history.eventType, "bookGrabbed"), eq(history.bookId, book.id)),
-      )
-      .all()
-      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
-      .filter(Boolean),
-  );
+  // If at or above cutoff, skip
+  if (bestExistingWeight > 0) {
+    const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+    if (bestExistingWeight >= cutoffWeight) {
+      return null;
+    }
+  }
 
   for (const release of releases) {
-    // Skip releases with rejections
+    // Only consider formats allowed by this profile
+    if (!profile.items.includes(release.quality.id)) {
+      continue;
+    }
+
     if (release.rejections.length > 0) {
       continue;
     }
-
-    // Skip blocklisted releases
     if (blocklistedTitles.has(release.title)) {
       continue;
     }
-
-    // Skip already-grabbed releases
     if (grabbedGuids.has(release.guid)) {
       continue;
     }
 
     // For upgrades, ensure the new quality is actually better
     if (
-      book.bestExistingWeight > 0 &&
-      release.quality.weight <= book.bestExistingWeight
+      bestExistingWeight > 0 &&
+      release.quality.weight <= bestExistingWeight
     ) {
       continue;
     }

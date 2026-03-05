@@ -2,14 +2,17 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { searchIndexersFn, grabReleaseFn } from "src/server/indexers";
+import { queryKeys } from "src/lib/query-keys";
 import type {
   searchIndexersSchema,
   grabReleaseSchema,
 } from "src/lib/validators";
 import type { z } from "zod";
 
-export function useSearchIndexers() {
+export function useSearchIndexers(bookId?: number) {
   return useMutation({
+    mutationKey:
+      bookId === undefined ? undefined : queryKeys.indexers.search(bookId),
     mutationFn: (data: z.infer<typeof searchIndexersSchema>) =>
       searchIndexersFn({ data }),
     onSuccess: (data) => {
