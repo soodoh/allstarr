@@ -276,16 +276,20 @@ export default function IndexerForm({
             <span className="text-muted-foreground text-xs">(override)</span>
           </Label>
           <Select
-            value={downloadClientId?.toString() ?? "any"}
+            value={
+              downloadClientId === null
+                ? undefined
+                : downloadClientId.toString()
+            }
             onValueChange={(v) =>
-              setDownloadClientId(v === "any" ? null : Number(v))
+              setDownloadClientId(v === "none" ? null : Number(v))
             }
           >
             <SelectTrigger id="ix-download-client">
               <SelectValue placeholder="(Any)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">(Any)</SelectItem>
+              <SelectItem value="none">(Any)</SelectItem>
               {filteredClients.map((c) => (
                 <SelectItem key={c.id} value={c.id.toString()}>
                   {c.name}
