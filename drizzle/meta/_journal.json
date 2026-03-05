@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1772566298275,
-      "tag": "0000_smooth_franklin_storm",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1772654639391,
-      "tag": "0001_rich_lockjaw",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1772669046661,
-      "tag": "0002_friendly_lightspeed",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1772671952007,
-      "tag": "0003_shocking_komodo",
+      "when": 1772675172103,
+      "tag": "0000_puzzling_scarlet_spider",
       "breakpoints": true
     }
   ]
