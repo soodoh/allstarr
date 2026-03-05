@@ -67,6 +67,7 @@ export default function SearchReleasesTab({
       {
         guid: release.guid,
         indexerId: release.allstarrIndexerId,
+        indexerSource: release.indexerSource,
         title: release.title,
         downloadUrl: release.downloadUrl,
         protocol: release.protocol,

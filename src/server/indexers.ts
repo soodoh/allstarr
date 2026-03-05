@@ -10,13 +10,13 @@ import {
   authorDownloadProfiles,
   downloadProfiles,
 } from "src/db/schema";
-import type { IndexerSettings } from "src/db/schema/indexers";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createIndexerSchema,
   updateIndexerSchema,
   testIndexerSchema,
+  updateSyncedIndexerSchema,
   searchIndexersSchema,
   grabReleaseSchema,
 } from "src/lib/validators";
@@ -294,8 +294,18 @@ export const createIndexerFn = createServerFn({ method: "POST" })
     return db
       .insert(indexers)
       .values({
-        ...data,
-        settings: data.settings as IndexerSettings | null,
+        name: data.name,
+        implementation: data.implementation,
+        protocol: data.protocol,
+        baseUrl: data.baseUrl,
+        apiPath: data.apiPath,
+        apiKey: data.apiKey,
+        categories: JSON.stringify(data.categories),
+        enableRss: data.enableRss,
+        enableAutomaticSearch: data.enableAutomaticSearch,
+        enableInteractiveSearch: data.enableInteractiveSearch,
+        priority: data.priority,
+        downloadClientId: data.downloadClientId,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -311,8 +321,18 @@ export const updateIndexerFn = createServerFn({ method: "POST" })
     return db
       .update(indexers)
       .set({
-        ...values,
-        settings: values.settings as IndexerSettings | null,
+        name: values.name,
+        implementation: values.implementation,
+        protocol: values.protocol,
+        baseUrl: values.baseUrl,
+        apiPath: values.apiPath,
+        apiKey: values.apiKey,
+        categories: JSON.stringify(values.categories),
+        enableRss: values.enableRss,
+        enableAutomaticSearch: values.enableAutomaticSearch,
+        enableInteractiveSearch: values.enableInteractiveSearch,
+        priority: values.priority,
+        downloadClientId: values.downloadClientId,
         updatedAt: Date.now(),
       })
       .where(eq(indexers.id, id))
@@ -345,36 +365,28 @@ export const testIndexerFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => testIndexerSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    return prowlarrHttp.testConnection({
-      host: data.host,
-      port: data.port,
-      useSsl: data.useSsl,
-      urlBase: data.urlBase,
+    return prowlarrHttp.testNewznab({
+      baseUrl: data.baseUrl,
+      apiPath: data.apiPath,
       apiKey: data.apiKey,
     });
   });
 
-// ─── List Prowlarr's own indexers ─────────────────────────────────────────────
+// ─── Update synced indexer (download client only) ────────────────────────────
 
-export const listProwlarrIndexersFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { indexerId: number }) => d)
+export const updateSyncedIndexerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => updateSyncedIndexerSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const indexer = db
-      .select()
-      .from(indexers)
-      .where(eq(indexers.id, data.indexerId))
+    return db
+      .update(syncedIndexers)
+      .set({
+        downloadClientId: data.downloadClientId,
+        updatedAt: Date.now(),
+      })
+      .where(eq(syncedIndexers.id, data.id))
+      .returning()
       .get();
-    if (!indexer) {
-      throw new Error("Indexer not found");
-    }
-    return prowlarrHttp.listProwlarrIndexers({
-      host: indexer.host,
-      port: indexer.port,
-      useSsl: indexer.useSsl,
-      urlBase: indexer.urlBase,
-      apiKey: indexer.apiKey,
-    });
   });
 
 // ─── Enabled-indexer check ────────────────────────────────────────────────────
@@ -521,6 +533,7 @@ async function searchAllIndexers(
             ...r,
             indexer: r.indexer || synced.name,
             allstarrIndexerId: synced.id,
+            indexerSource: "synced" as const,
           }),
         ),
       );
@@ -537,12 +550,10 @@ async function searchAllIndexers(
   for (let i = 0; i < enabledManual.length; i += 1) {
     const ix = enabledManual[i];
     try {
-      const results = await prowlarrHttp.searchProwlarr(
+      const results = await prowlarrHttp.searchNewznab(
         {
-          host: ix.host,
-          port: ix.port,
-          useSsl: ix.useSsl,
-          urlBase: ix.urlBase,
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
           apiKey: ix.apiKey,
         },
         query,
@@ -551,7 +562,12 @@ async function searchAllIndexers(
       );
       allReleases.push(
         ...results.map((r) =>
-          enrichRelease({ ...r, allstarrIndexerId: ix.id }),
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || ix.name,
+            allstarrIndexerId: ix.id,
+            indexerSource: "manual" as const,
+          }),
         ),
       );
     } catch (error) {
@@ -683,21 +699,40 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
         throw new Error("Download client not found");
       }
     } else {
-      // Auto-select best enabled download client matching the release protocol
-      const matchingClients = db
-        .select()
-        .from(downloadClients)
-        .where(eq(downloadClients.enabled, true))
-        .orderBy(asc(downloadClients.priority))
-        .all()
-        .filter((c) => c.protocol === data.protocol);
+      // Check indexer-level download client override
+      const indexerTable =
+        data.indexerSource === "synced" ? syncedIndexers : indexers;
+      const indexerRow = db
+        .select({ downloadClientId: indexerTable.downloadClientId })
+        .from(indexerTable)
+        .where(eq(indexerTable.id, data.indexerId))
+        .get();
 
-      if (matchingClients.length === 0) {
-        throw new Error(
-          `No enabled ${data.protocol} download clients configured. Please add one in Settings > Download Clients.`,
-        );
+      if (indexerRow?.downloadClientId) {
+        client = db
+          .select()
+          .from(downloadClients)
+          .where(eq(downloadClients.id, indexerRow.downloadClientId))
+          .get();
       }
-      client = matchingClients[0];
+
+      if (!client) {
+        // Auto-select best enabled download client matching the release protocol
+        const matchingClients = db
+          .select()
+          .from(downloadClients)
+          .where(eq(downloadClients.enabled, true))
+          .orderBy(asc(downloadClients.priority))
+          .all()
+          .filter((c) => c.protocol === data.protocol);
+
+        if (matchingClients.length === 0) {
+          throw new Error(
+            `No enabled ${data.protocol} download clients configured. Please add one in Settings > Download Clients.`,
+          );
+        }
+        client = matchingClients[0];
+      }
     }
 
     const provider = getProvider(client.implementation);
@@ -712,7 +747,7 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       password: client.password,
       apiKey: client.apiKey,
       category: client.category,
-      settings: client.settings as IndexerSettings | null,
+      settings: client.settings as Record<string, unknown> | null,
     };
 
     await provider.addDownload(config, {

@@ -5,11 +5,13 @@ import {
   createIndexerFn,
   updateIndexerFn,
   deleteIndexerFn,
+  updateSyncedIndexerFn,
 } from "src/server/indexers";
 import { queryKeys } from "src/lib/query-keys";
 import type {
   createIndexerSchema,
   updateIndexerSchema,
+  updateSyncedIndexerSchema,
 } from "src/lib/validators";
 import type { z } from "zod";
 
@@ -48,5 +50,20 @@ export function useDeleteIndexer() {
       queryClient.invalidateQueries({ queryKey: queryKeys.indexers.all });
     },
     onError: () => toast.error("Failed to delete indexer"),
+  });
+}
+
+export function useUpdateSyncedIndexer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: z.infer<typeof updateSyncedIndexerSchema>) =>
+      updateSyncedIndexerFn({ data }),
+    onSuccess: () => {
+      toast.success("Synced indexer updated");
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.syncedIndexers.all,
+      });
+    },
+    onError: () => toast.error("Failed to update synced indexer"),
   });
 }

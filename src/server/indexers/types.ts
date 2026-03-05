@@ -79,6 +79,8 @@ export type IndexerRelease = Omit<
   /** Always present: coalesced from downloadUrl ?? magnetUrl at the HTTP layer. */
   downloadUrl: string;
   allstarrIndexerId: number;
+  /** Which table the allstarrIndexerId refers to */
+  indexerSource: "manual" | "synced";
   quality: ReleaseQuality;
   sizeFormatted: string;
   ageFormatted: string;

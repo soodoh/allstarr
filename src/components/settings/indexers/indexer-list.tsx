@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { JSX } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { Button } from "src/components/ui/button";
 import {
@@ -17,12 +17,17 @@ import { Badge } from "src/components/ui/badge";
 type Indexer = {
   id: number;
   name: string;
-  host: string;
-  port: number;
+  implementation: string;
+  protocol: string;
+  baseUrl: string;
+  apiPath: string | null;
+  apiKey: string;
+  categories: string | null;
   priority: number;
   enableRss: boolean;
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
+  downloadClientId: number | null;
 };
 
 type UnifiedRow =
@@ -36,6 +41,14 @@ type IndexerListProps = {
   onDelete: (id: number) => void;
   onViewSynced: (indexer: SyncedIndexer) => void;
 };
+
+function ProtocolBadge({ protocol }: { protocol: string }): JSX.Element {
+  return (
+    <Badge variant="outline" className="text-xs font-normal">
+      {protocol}
+    </Badge>
+  );
+}
 
 export default function IndexerList({
   indexers,
@@ -69,7 +82,8 @@ export default function IndexerList({
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Host</TableHead>
+            <TableHead>URL</TableHead>
+            <TableHead className="w-24">Protocol</TableHead>
             <TableHead className="w-20">Priority</TableHead>
             <TableHead className="w-16 text-center">RSS</TableHead>
             <TableHead className="w-28 text-center">Auto Search</TableHead>
@@ -82,8 +96,11 @@ export default function IndexerList({
             row.type === "manual" ? (
               <TableRow key={`manual-${row.data.id}`}>
                 <TableCell className="font-medium">{row.data.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {row.data.host}:{row.data.port}
+                <TableCell className="text-muted-foreground text-sm max-w-64 truncate">
+                  {row.data.baseUrl}
+                </TableCell>
+                <TableCell>
+                  <ProtocolBadge protocol={row.data.protocol} />
                 </TableCell>
                 <TableCell>{row.data.priority}</TableCell>
                 <TableCell className="text-center">
@@ -141,6 +158,9 @@ export default function IndexerList({
                 <TableCell className="text-muted-foreground text-sm max-w-64 truncate">
                   {row.data.baseUrl}
                 </TableCell>
+                <TableCell>
+                  <ProtocolBadge protocol={row.data.protocol} />
+                </TableCell>
                 <TableCell>{row.data.priority}</TableCell>
                 <TableCell className="text-center">
                   <Badge variant={row.data.enableRss ? "default" : "outline"}>
@@ -171,7 +191,7 @@ export default function IndexerList({
                     size="icon"
                     onClick={() => onViewSynced(row.data)}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>

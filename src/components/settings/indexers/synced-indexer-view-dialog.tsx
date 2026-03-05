@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import {
@@ -10,11 +11,28 @@ import {
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
+import { Button } from "src/components/ui/button";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 
-type SyncedIndexerViewDialogProps = {
+type DownloadClient = {
+  id: number;
+  name: string;
+  protocol: string;
+};
+
+type SyncedIndexerEditDialogProps = {
   indexer: SyncedIndexer | null;
+  downloadClients?: DownloadClient[];
+  onSave: (id: number, downloadClientId: number | null) => void;
   onOpenChange: (open: boolean) => void;
+  loading?: boolean;
 };
 
 function parseCategories(raw: string | null): number[] {
@@ -25,17 +43,33 @@ function parseCategories(raw: string | null): number[] {
   }
 }
 
-export default function SyncedIndexerViewDialog({
+export default function SyncedIndexerEditDialog({
   indexer,
+  downloadClients = [],
+  onSave,
   onOpenChange,
-}: SyncedIndexerViewDialogProps): JSX.Element {
+  loading,
+}: SyncedIndexerEditDialogProps): JSX.Element {
+  const [downloadClientId, setDownloadClientId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (indexer) {
+      setDownloadClientId(indexer.downloadClientId ?? null);
+    }
+  }, [indexer]);
+
+  const filteredClients = downloadClients.filter(
+    (c) => indexer && c.protocol === indexer.protocol,
+  );
+
   return (
     <Dialog open={indexer !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Synced Indexer</DialogTitle>
+          <DialogTitle>Edit Synced Indexer</DialogTitle>
           <DialogDescription>
-            This indexer is managed by Prowlarr and cannot be edited here.
+            Synced fields are managed by Prowlarr. You can set a download client
+            override.
           </DialogDescription>
         </DialogHeader>
 
@@ -94,6 +128,54 @@ export default function SyncedIndexerViewDialog({
                 value={parseCategories(indexer.categories)}
                 disabled
               />
+            </div>
+
+            {/* Download Client — editable */}
+            {filteredClients.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="synced-download-client">
+                  Download Client{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (override)
+                  </span>
+                </Label>
+                <Select
+                  value={downloadClientId?.toString() ?? "any"}
+                  onValueChange={(v) =>
+                    setDownloadClientId(v === "any" ? null : Number(v))
+                  }
+                >
+                  <SelectTrigger id="synced-download-client">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">(Any)</SelectItem>
+                    {filteredClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={loading}
+                onClick={() => onSave(indexer.id, downloadClientId)}
+              >
+                {loading ? "Saving..." : "Save"}
+              </Button>
             </div>
           </div>
         )}
