@@ -146,7 +146,7 @@ export default function SyncedIndexerEditDialog({
                   }
                 >
                   <SelectTrigger id="synced-download-client">
-                    <SelectValue />
+                    <SelectValue placeholder="(Any)" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">(Any)</SelectItem>
