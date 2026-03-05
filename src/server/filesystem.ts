@@ -27,7 +27,7 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
 
     await requireAuth();
 
-    const current = data.path;
+    const current = fs.existsSync(data.path) ? data.path : process.cwd();
 
     // Compute parent by stripping the last path segment (avoids node:path on client)
     const normalized =
