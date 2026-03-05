@@ -9,6 +9,8 @@ import {
   booksAuthors,
   authorDownloadProfiles,
   downloadProfiles,
+  bookFiles,
+  blocklist,
 } from "src/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
@@ -33,9 +35,11 @@ import type {
   IndexerRelease,
   ReleaseRejection,
   FormatScoreDetail,
+  ReleaseStatusMap,
 } from "./indexers/types";
 import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
+import { fetchQueueItems } from "./queue";
 
 // ─── Category constants ──────────────────────────────────────────────────────
 
@@ -472,12 +476,29 @@ export function dedupeAndScoreReleases(
     }
   }
 
+  // Load blocklist titles (all entries — global + book-specific)
+  const blocklistedTitles = new Set(
+    db
+      .select({ sourceTitle: blocklist.sourceTitle })
+      .from(blocklist)
+      .all()
+      .map((b) => b.sourceTitle),
+  );
+
   // Compute rejections and format scores
   for (const release of relevant) {
     const metrics = computeReleaseMetrics(release, profiles);
     release.rejections = metrics.rejections;
     release.formatScore = metrics.formatScore;
     release.formatScoreDetails = metrics.formatScoreDetails;
+
+    // Check blocklist
+    if (blocklistedTitles.has(release.title)) {
+      release.rejections.push({
+        reason: "blocklisted",
+        message: "Release title is on the blocklist",
+      });
+    }
   }
 
   // Sort by quality weight descending, then by size descending
@@ -676,7 +697,56 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       data.bookId ?? null,
       bookInfo,
     );
+
     return { releases, warnings };
+  });
+
+// ─── Release status ──────────────────────────────────────────────────────────
+
+export const getBookReleaseStatusFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { bookId: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    const grabbedGuids = db
+      .select({ data: history.data })
+      .from(history)
+      .where(
+        and(
+          eq(history.eventType, "bookGrabbed"),
+          eq(history.bookId, data.bookId),
+        ),
+      )
+      .all()
+      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
+      .filter(Boolean);
+
+    const { items: queueItems } = await fetchQueueItems();
+    const queueTitles = queueItems.map((item) => item.name);
+
+    const existingQualityIds = db
+      .select({ quality: bookFiles.quality })
+      .from(bookFiles)
+      .where(eq(bookFiles.bookId, data.bookId))
+      .all()
+      .map((f) => {
+        if (
+          f.quality &&
+          typeof f.quality === "object" &&
+          "quality" in f.quality &&
+          f.quality.quality
+        ) {
+          return f.quality.quality.id;
+        }
+        return 0;
+      })
+      .filter((id) => id > 0);
+
+    return {
+      grabbedGuids,
+      queueTitles,
+      existingQualityIds,
+    } satisfies ReleaseStatusMap;
   });
 
 // ─── Grab ─────────────────────────────────────────────────────────────────────

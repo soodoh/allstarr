@@ -5,6 +5,7 @@ import {
   getIndexersFn,
   getSyncedIndexersFn,
   hasEnabledIndexersFn,
+  getBookReleaseStatusFn,
 } from "src/server/indexers";
 import { queryKeys } from "../query-keys";
 
@@ -24,4 +25,11 @@ export const hasEnabledIndexersQuery = () =>
   queryOptions({
     queryKey: queryKeys.indexers.hasEnabled(),
     queryFn: () => hasEnabledIndexersFn(),
+  });
+
+export const bookReleaseStatusQuery = (bookId: number) =>
+  queryOptions({
+    queryKey: queryKeys.indexers.releaseStatus(bookId),
+    queryFn: () => getBookReleaseStatusFn({ data: { bookId } }),
+    staleTime: 30_000,
   });

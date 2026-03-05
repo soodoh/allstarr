@@ -15,6 +15,10 @@ export function useRemoveFromQueue() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.queue.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.blocklist.all });
+      // Invalidate release status so search page reflects the removal
+      queryClient.invalidateQueries({
+        queryKey: ["indexers", "releaseStatus"],
+      });
       toast.success("Removed from queue");
     },
     onError: (error) =>

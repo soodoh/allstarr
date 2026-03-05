@@ -56,7 +56,8 @@ export type ReleaseRejectionReason =
   | "unknownQuality"
   | "qualityNotWanted"
   | "belowMinimumSize"
-  | "aboveMaximumSize";
+  | "aboveMaximumSize"
+  | "blocklisted";
 
 /** A reason why a release would be rejected */
 export type ReleaseRejection = {
@@ -69,6 +70,13 @@ export type FormatScoreDetail = {
   profileName: string;
   score: number;
   allowed: boolean;
+};
+
+/** Status map for tracking release states on the search page */
+export type ReleaseStatusMap = {
+  grabbedGuids: string[];
+  queueTitles: string[];
+  existingQualityIds: number[];
 };
 
 /** Normalized release for the UI, enriched with quality info */
