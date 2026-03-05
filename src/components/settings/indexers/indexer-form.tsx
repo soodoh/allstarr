@@ -6,6 +6,13 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 import validateForm from "src/lib/form-validation";
 import { createIndexerSchema } from "src/lib/validators";
@@ -13,16 +20,17 @@ import { testIndexerFn } from "src/server/indexers";
 
 export type IndexerFormValues = {
   name: string;
+  implementation: "Newznab" | "Torznab";
+  protocol: "usenet" | "torrent";
+  baseUrl: string;
+  apiPath: string;
+  apiKey: string;
+  categories: number[];
   enableRss: boolean;
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
   priority: number;
-  host: string;
-  port: number;
-  useSsl: boolean;
-  urlBase: string;
-  apiKey: string;
-  categories: number[];
+  downloadClientId: number | null;
 };
 
 type TestResult = {
@@ -31,8 +39,17 @@ type TestResult = {
   version: string | null;
 };
 
+type DownloadClient = {
+  id: number;
+  name: string;
+  protocol: string;
+};
+
 type IndexerFormProps = {
+  implementation: "Newznab" | "Torznab";
+  protocol: "usenet" | "torrent";
   initialValues?: Partial<IndexerFormValues>;
+  downloadClients?: DownloadClient[];
   onSubmit: (values: IndexerFormValues) => void;
   onCancel: () => void;
   cancelLabel?: string;
@@ -66,7 +83,10 @@ function TestResultBanner({ result }: { result: TestResult }): JSX.Element {
 
 // oxlint-disable-next-line complexity -- Form component with many state fields and async handlers
 export default function IndexerForm({
+  implementation,
+  protocol,
   initialValues,
+  downloadClients = [],
   onSubmit,
   onCancel,
   cancelLabel = "Cancel",
@@ -80,25 +100,28 @@ export default function IndexerForm({
   const [enableInteractiveSearch, setEnableInteractiveSearch] = useState(
     initialValues?.enableInteractiveSearch ?? true,
   );
-  const [host, setHost] = useState(initialValues?.host ?? "localhost");
-  const [port, setPort] = useState(initialValues?.port ?? 9696);
-  const [useSsl, setUseSsl] = useState(initialValues?.useSsl ?? false);
-  const [urlBase, setUrlBase] = useState(initialValues?.urlBase ?? "");
+  const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? "");
+  const [apiPath, setApiPath] = useState(initialValues?.apiPath ?? "/api");
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? "");
   const [priority, setPriority] = useState(initialValues?.priority ?? 25);
   const [categories, setCategories] = useState<number[]>(
     initialValues?.categories ?? [],
   );
+  const [downloadClientId, setDownloadClientId] = useState<number | null>(
+    initialValues?.downloadClientId ?? null,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const filteredClients = downloadClients.filter(
+    (c) => c.protocol === protocol,
+  );
 
   const testMutation = useMutation({
     mutationFn: () =>
       testIndexerFn({
         data: {
-          host,
-          port,
-          useSsl,
-          urlBase: urlBase || null,
+          baseUrl,
+          apiPath,
           apiKey,
         },
       }),
@@ -108,16 +131,17 @@ export default function IndexerForm({
     e.preventDefault();
     const result = validateForm(createIndexerSchema, {
       name,
+      implementation,
+      protocol,
+      baseUrl,
+      apiPath,
+      apiKey,
+      categories,
       enableRss,
       enableAutomaticSearch,
       enableInteractiveSearch,
-      host,
-      port,
-      useSsl,
-      urlBase: urlBase || null,
-      apiKey,
       priority,
-      settings: { categories: categories.length > 0 ? categories : null },
+      downloadClientId,
     });
     if (!result.success) {
       setErrors(result.errors);
@@ -126,16 +150,17 @@ export default function IndexerForm({
     setErrors({});
     onSubmit({
       name,
+      implementation,
+      protocol,
+      baseUrl,
+      apiPath,
+      apiKey,
+      categories,
       enableRss,
       enableAutomaticSearch,
       enableInteractiveSearch,
-      host,
-      port,
-      useSsl,
-      urlBase,
-      apiKey,
       priority,
-      categories,
+      downloadClientId,
     });
   };
 
@@ -183,50 +208,30 @@ export default function IndexerForm({
         </div>
       </div>
 
-      {/* Host / Port / SSL */}
-      <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
-        <div className="space-y-2">
-          <Label htmlFor="ix-host">Host</Label>
-          <Input
-            id="ix-host"
-            value={host}
-            onChange={(e) => setHost(e.target.value)}
-            placeholder="localhost"
-          />
-          {errors.host && (
-            <p className="text-sm text-destructive">{errors.host}</p>
-          )}
-        </div>
-        <div className="space-y-2 w-24">
-          <Label htmlFor="ix-port">Port</Label>
-          <Input
-            id="ix-port"
-            type="number"
-            min={1}
-            max={65_535}
-            value={port}
-            onChange={(e) => setPort(Number(e.target.value))}
-          />
-          {errors.port && (
-            <p className="text-sm text-destructive">{errors.port}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 pb-2">
-          <Switch id="ix-ssl" checked={useSsl} onCheckedChange={setUseSsl} />
-          <Label htmlFor="ix-ssl">SSL</Label>
-        </div>
+      {/* Base URL */}
+      <div className="space-y-2">
+        <Label htmlFor="ix-baseurl">Base URL</Label>
+        <Input
+          id="ix-baseurl"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          placeholder="https://indexer.example.com"
+        />
+        {errors.baseUrl && (
+          <p className="text-sm text-destructive">{errors.baseUrl}</p>
+        )}
       </div>
 
-      {/* URL Base */}
+      {/* API Path */}
       <div className="space-y-2">
-        <Label htmlFor="ix-urlbase">
-          URL Base{" "}
+        <Label htmlFor="ix-apipath">
+          API Path{" "}
           <span className="text-muted-foreground text-xs">(optional)</span>
         </Label>
         <Input
-          id="ix-urlbase"
-          value={urlBase}
-          onChange={(e) => setUrlBase(e.target.value)}
+          id="ix-apipath"
+          value={apiPath}
+          onChange={(e) => setApiPath(e.target.value)}
           placeholder="/api"
         />
       </div>
@@ -263,13 +268,41 @@ export default function IndexerForm({
         <CategoryMultiSelect value={categories} onChange={setCategories} />
       </div>
 
+      {/* Download Client */}
+      {filteredClients.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="ix-download-client">
+            Download Client{" "}
+            <span className="text-muted-foreground text-xs">(override)</span>
+          </Label>
+          <Select
+            value={downloadClientId?.toString() ?? "any"}
+            onValueChange={(v) =>
+              setDownloadClientId(v === "any" ? null : Number(v))
+            }
+          >
+            <SelectTrigger id="ix-download-client">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">(Any)</SelectItem>
+              {filteredClients.map((c) => (
+                <SelectItem key={c.id} value={c.id.toString()}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Test connection */}
       <div className="space-y-2">
         <Button
           type="button"
           variant="outline"
           onClick={() => testMutation.mutate()}
-          disabled={testMutation.isPending || !apiKey}
+          disabled={testMutation.isPending || !apiKey || !baseUrl}
         >
           {testMutation.isPending && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

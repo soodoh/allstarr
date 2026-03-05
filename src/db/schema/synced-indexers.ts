@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { downloadClients } from "./download-clients";
 
 export const syncedIndexers = sqliteTable("synced_indexers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -23,6 +24,10 @@ export const syncedIndexers = sqliteTable("synced_indexers", {
     .default(true),
   priority: integer("priority").notNull().default(25),
   protocol: text("protocol").notNull(), // "torrent" or "usenet"
+  downloadClientId: integer("download_client_id").references(
+    () => downloadClients.id,
+    { onDelete: "set null" },
+  ),
   createdAt: integer("created_at").$defaultFn(() => Date.now()),
   updatedAt: integer("updated_at").$defaultFn(() => Date.now()),
 });

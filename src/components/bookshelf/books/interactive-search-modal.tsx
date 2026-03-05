@@ -74,6 +74,7 @@ export default function InteractiveSearchModal({
       {
         guid: release.guid,
         indexerId: release.allstarrIndexerId,
+        indexerSource: release.indexerSource,
         title: release.title,
         downloadUrl: release.downloadUrl,
         protocol: release.protocol,

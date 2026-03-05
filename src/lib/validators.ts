@@ -203,18 +203,22 @@ export const testDownloadClientSchema = z.object({
 });
 
 // Indexers
+export const indexerImplementationEnum = z.enum(["Newznab", "Torznab"]);
+export const indexerProtocolEnum = z.enum(["torrent", "usenet"]);
+
 export const createIndexerSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  implementation: indexerImplementationEnum,
+  protocol: indexerProtocolEnum,
+  baseUrl: z.string().min(1, "Base URL is required"),
+  apiPath: z.string().default("/api"),
+  apiKey: z.string().min(1, "API Key is required"),
+  categories: z.array(z.number()).default([]),
   enableRss: z.boolean().default(true),
   enableAutomaticSearch: z.boolean().default(true),
   enableInteractiveSearch: z.boolean().default(true),
   priority: z.number().int().min(1).default(25),
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65_535).default(9696),
-  useSsl: z.boolean().default(false),
-  urlBase: z.string().nullable(),
-  apiKey: z.string().min(1, "API Key is required"),
-  settings: z.object({ categories: z.array(z.number()).nullable() }).nullable(),
+  downloadClientId: z.number().nullable().default(null),
 });
 
 export const updateIndexerSchema = createIndexerSchema.extend({
@@ -222,11 +226,14 @@ export const updateIndexerSchema = createIndexerSchema.extend({
 });
 
 export const testIndexerSchema = z.object({
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65_535).default(9696),
-  useSsl: z.boolean().default(false),
-  urlBase: z.string().nullable(),
+  baseUrl: z.string().min(1, "Base URL is required"),
+  apiPath: z.string().default("/api"),
   apiKey: z.string().min(1, "API Key is required"),
+});
+
+export const updateSyncedIndexerSchema = z.object({
+  id: z.number(),
+  downloadClientId: z.number().nullable(),
 });
 
 // Blocklist
@@ -266,6 +273,7 @@ export const removeFromQueueSchema = z.object({
 export const grabReleaseSchema = z.object({
   guid: z.string().min(1),
   indexerId: z.number(),
+  indexerSource: z.enum(["manual", "synced"]),
   title: z.string().min(1),
   downloadUrl: z.string().min(1),
   protocol: z.enum(["torrent", "usenet"]),

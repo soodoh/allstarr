@@ -459,7 +459,58 @@ export async function searchNewznab(
   return runTieredSearch(tiers, (params) => fetchNewznabFeed(feed, params));
 }
 
-// ─── Prowlarr internal API search (legacy, kept for manual indexers) ──────────
+// ─── Newznab capabilities test ────────────────────────────────────────────────
+
+export async function testNewznab(
+  feed: NewznabFeedConfig,
+): Promise<{ success: boolean; message: string; version: string | null }> {
+  const base = feed.baseUrl.replace(/\/+$/, "");
+  const apiPath = feed.apiPath.startsWith("/")
+    ? feed.apiPath
+    : `/${feed.apiPath}`;
+  const params = new URLSearchParams({ t: "caps" });
+  if (feed.apiKey) {
+    params.set("apikey", feed.apiKey);
+  }
+
+  const url = `${base}${apiPath}?${params.toString()}`;
+
+  try {
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { Accept: "application/xml" } },
+      10_000,
+    );
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: `Indexer returned HTTP ${res.status}: ${res.statusText}`,
+        version: null,
+      };
+    }
+
+    const xml = await res.text();
+    const parsed = xmlParser.parse(xml);
+    const server = parsed?.caps?.server;
+    const version = server?.["@_version"] ?? null;
+
+    return {
+      success: true,
+      message: "Connected to indexer successfully",
+      version,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Unknown connection error",
+      version: null,
+    };
+  }
+}
+
+// ─── Prowlarr internal API search (legacy, kept for Prowlarr sync) ───────────
 
 /** Fetch a single Prowlarr internal API search and coalesce results. */
 async function fetchProwlarrSearch(

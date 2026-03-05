@@ -1,13 +1,15 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-
-export type IndexerSettings = {
-  categories?: number[];
-  [key: string]: string | number | boolean | number[] | undefined;
-};
+import { downloadClients } from "./download-clients";
 
 export const indexers = sqliteTable("indexers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  implementation: text("implementation").notNull().default("Newznab"), // "Newznab" or "Torznab"
+  protocol: text("protocol").notNull().default("usenet"), // "torrent" or "usenet"
+  baseUrl: text("base_url").notNull(),
+  apiPath: text("api_path").default("/api"),
+  apiKey: text("api_key").notNull(),
+  categories: text("categories").default("[]"), // JSON array of category IDs
   enableRss: integer("enable_rss", { mode: "boolean" }).notNull().default(true),
   enableAutomaticSearch: integer("enable_automatic_search", {
     mode: "boolean",
@@ -20,12 +22,10 @@ export const indexers = sqliteTable("indexers", {
     .notNull()
     .default(true),
   priority: integer("priority").notNull().default(25),
-  host: text("host").notNull().default("localhost"),
-  port: integer("port").notNull().default(9696),
-  useSsl: integer("use_ssl", { mode: "boolean" }).notNull().default(false),
-  urlBase: text("url_base"),
-  apiKey: text("api_key").notNull(),
-  settings: text("settings", { mode: "json" }).$type<IndexerSettings>(),
+  downloadClientId: integer("download_client_id").references(
+    () => downloadClients.id,
+    { onDelete: "set null" },
+  ),
   createdAt: integer("created_at").$defaultFn(() => Date.now()),
   updatedAt: integer("updated_at").$defaultFn(() => Date.now()),
 });

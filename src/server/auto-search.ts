@@ -20,11 +20,10 @@ import {
   dedupeAndScoreReleases,
 } from "./indexers";
 import type { ProfileInfo } from "./indexers";
-import { searchNewznab, searchProwlarr } from "./indexers/http";
+import { searchNewznab } from "./indexers/http";
 import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
-import type { IndexerSettings } from "src/db/schema/indexers";
 import type { IndexerRelease } from "./indexers/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -227,6 +226,7 @@ async function searchAndGrabForBook(
             ...r,
             indexer: r.indexer || synced.name,
             allstarrIndexerId: synced.id,
+            indexerSource: "synced" as const,
           }),
         ),
       );
@@ -244,12 +244,10 @@ async function searchAndGrabForBook(
   for (let i = 0; i < ixs.manual.length; i += 1) {
     const ix = ixs.manual[i];
     try {
-      const results = await searchProwlarr(
+      const results = await searchNewznab(
         {
-          host: ix.host,
-          port: ix.port,
-          useSsl: ix.useSsl,
-          urlBase: ix.urlBase,
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
           apiKey: ix.apiKey,
         },
         query,
@@ -258,7 +256,12 @@ async function searchAndGrabForBook(
       );
       allReleases.push(
         ...results.map((r) =>
-          enrichRelease({ ...r, allstarrIndexerId: ix.id }),
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || ix.name,
+            allstarrIndexerId: ix.id,
+            indexerSource: "manual" as const,
+          }),
         ),
       );
     } catch (error) {
@@ -450,23 +453,43 @@ async function grabRelease(
   release: IndexerRelease,
   book: WantedBook,
 ): Promise<boolean> {
-  // Find matching download client by protocol + priority
-  const matchingClients = db
-    .select()
-    .from(downloadClients)
-    .where(eq(downloadClients.enabled, true))
-    .orderBy(asc(downloadClients.priority))
-    .all()
-    .filter((c) => c.protocol === release.protocol);
+  let client;
 
-  if (matchingClients.length === 0) {
-    console.warn(
-      `[rss-sync] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
+  // Check indexer-level download client override
+  const indexerTable =
+    release.indexerSource === "synced" ? syncedIndexers : indexers;
+  const indexerRow = db
+    .select({ downloadClientId: indexerTable.downloadClientId })
+    .from(indexerTable)
+    .where(eq(indexerTable.id, release.allstarrIndexerId))
+    .get();
+
+  if (indexerRow?.downloadClientId) {
+    client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, indexerRow.downloadClientId))
+      .get();
   }
 
-  const client = matchingClients[0];
+  if (!client) {
+    // Find matching download client by protocol + priority
+    const matchingClients = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.enabled, true))
+      .orderBy(asc(downloadClients.priority))
+      .all()
+      .filter((c) => c.protocol === release.protocol);
+
+    if (matchingClients.length === 0) {
+      console.warn(
+        `[rss-sync] No enabled ${release.protocol} download client for "${release.title}"`,
+      );
+      return false;
+    }
+    client = matchingClients[0];
+  }
   const provider = getProvider(client.implementation);
   const config: ConnectionConfig = {
     implementation: client.implementation as ConnectionConfig["implementation"],
@@ -478,7 +501,7 @@ async function grabRelease(
     password: client.password,
     apiKey: client.apiKey,
     category: client.category,
-    settings: client.settings as IndexerSettings | null,
+    settings: client.settings as Record<string, unknown> | null,
   };
 
   await provider.addDownload(config, {
