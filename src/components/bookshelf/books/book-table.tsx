@@ -24,7 +24,7 @@ type Book = {
   title: string;
   editionId: number;
   editionTitle: string;
-  editionImages: Array<{ url: string; coverType: string }> | null;
+  editionImages: Array<{ url: string; coverType: string }>;
   language: string | null;
   bookAuthors: BookAuthorEntry[];
   authorName: string | null;
@@ -33,7 +33,7 @@ type Book = {
   ratingsCount: number | null;
   usersCount: number | null;
   series: Array<{ title: string; position: string | null }>;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
 };
 
 type BookTableProps = {

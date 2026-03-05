@@ -23,7 +23,7 @@ type Author = {
   status: string;
   bookCount: number;
   totalReaders: number;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
 };
 
 type AuthorTableProps = {

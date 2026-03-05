@@ -121,9 +121,9 @@ function deriveSortName(name: string): string {
 
 function toImageArray(
   url: string | null,
-): Array<{ url: string; coverType: string }> | null {
+): Array<{ url: string; coverType: string }> {
   if (!url) {
-    return null;
+    return [];
   }
   return [{ url, coverType: "poster" }];
 }

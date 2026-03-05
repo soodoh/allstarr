@@ -5,7 +5,7 @@ import { cn } from "src/lib/utils";
 
 type BookCoverProps = {
   title: string;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
   className?: string;
 };
 

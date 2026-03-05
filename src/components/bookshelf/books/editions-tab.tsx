@@ -39,7 +39,7 @@ type Edition = {
   score: number | null;
   qualityProfileIds: number[];
   metadataSourceMissingSince: Date | null;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
 };
 
 type QualityProfile = {

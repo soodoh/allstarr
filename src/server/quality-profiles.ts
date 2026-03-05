@@ -116,9 +116,8 @@ export const deleteQualityDefinitionFn = createServerFn({ method: "POST" })
     // Remove from all quality profiles' items arrays
     const profiles = db.select().from(qualityProfiles).all();
     for (const profile of profiles) {
-      const items = (profile.items ?? []) as number[];
-      const filtered = items.filter((id) => id !== data.id);
-      if (filtered.length !== items.length) {
+      const filtered = profile.items.filter((id) => id !== data.id);
+      if (filtered.length !== profile.items.length) {
         db.update(qualityProfiles)
           .set({ items: filtered })
           .where(eq(qualityProfiles.id, profile.id))

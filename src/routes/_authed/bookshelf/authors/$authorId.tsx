@@ -133,7 +133,7 @@ type EditionInfo = {
   usersCount: number | null;
   score: number | null;
   languageCode: string | null;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
   isDefaultCover: boolean;
   qualityProfileIds: number[];
   metadataSourceMissingSince: Date | null;
@@ -158,11 +158,11 @@ type LocalBook = {
   releaseYear: number | null;
   qualityProfileIds: number[];
   foreignBookId: string | null;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
   rating: number | null;
   ratingsCount: number | null;
   usersCount: number | null;
-  tags: number[] | null;
+  tags: number[];
   languageCodes: string[];
   editions: EditionInfo[];
   metadataSourceMissingSince: Date | null;

@@ -147,7 +147,7 @@ function buildBookDetailData(
 ) {
   return {
     title: book.title,
-    images: null as Array<{ url: string; coverType: string }> | null,
+    images: [] as Array<{ url: string; coverType: string }>,
     author: null as { id: number; name: string } | null,
     authorName: primaryAuthor,
     bookAuthors,

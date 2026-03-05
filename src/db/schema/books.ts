@@ -15,13 +15,14 @@ export const books = sqliteTable("books", {
   releaseDate: text("release_date"),
   releaseYear: integer("release_year"),
   foreignBookId: text("foreign_book_id"),
-  images: text("images", { mode: "json" }).$type<
-    Array<{ url: string; coverType: string }>
-  >(),
+  images: text("images", { mode: "json" })
+    .$type<Array<{ url: string; coverType: string }>>()
+    .notNull()
+    .default([]),
   rating: real("rating"),
   ratingsCount: integer("ratings_count"),
   usersCount: integer("users_count"),
-  tags: text("tags", { mode: "json" }).$type<number[]>(),
+  tags: text("tags", { mode: "json" }).$type<number[]>().notNull().default([]),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
   metadataSourceMissingSince: integer("metadata_source_missing_since", {
     mode: "timestamp",
@@ -76,12 +77,16 @@ export const editions = sqliteTable("editions", {
   usersCount: integer("users_count"),
   score: integer("score"),
   foreignEditionId: text("foreign_edition_id"),
-  images: text("images", { mode: "json" }).$type<
-    Array<{ url: string; coverType: string }>
-  >(),
-  contributors: text("contributors", { mode: "json" }).$type<
-    Array<{ authorId: string; name: string; contribution: string | null }>
-  >(),
+  images: text("images", { mode: "json" })
+    .$type<Array<{ url: string; coverType: string }>>()
+    .notNull()
+    .default([]),
+  contributors: text("contributors", { mode: "json" })
+    .$type<
+      Array<{ authorId: string; name: string; contribution: string | null }>
+    >()
+    .notNull()
+    .default([]),
   isDefaultCover: integer("is_default_cover", { mode: "boolean" })
     .notNull()
     .default(false),

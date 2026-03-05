@@ -57,6 +57,7 @@ function ProfilesPage() {
     cutoff: number;
     items: number[];
     upgradeAllowed: boolean;
+    categories: number[];
   }) => {
     createProfile.mutate(values, {
       onSuccess: () => setProfileDialogOpen(false),
@@ -70,6 +71,7 @@ function ProfilesPage() {
     cutoff: number;
     items: number[];
     upgradeAllowed: boolean;
+    categories: number[];
   }) => {
     if (!editingProfile) {
       return;
@@ -133,8 +135,9 @@ function ProfilesPage() {
                     icon: editingProfile.icon,
                     rootFolderPath: editingProfile.rootFolderPath,
                     cutoff: editingProfile.cutoff,
-                    items: (editingProfile.items as number[]) ?? [],
+                    items: editingProfile.items,
                     upgradeAllowed: editingProfile.upgradeAllowed,
+                    categories: editingProfile.categories,
                   }
                 : undefined
             }

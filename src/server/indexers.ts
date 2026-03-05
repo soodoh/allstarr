@@ -82,10 +82,10 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   return rows.map((p) => ({
     id: p.id,
     name: p.name,
-    items: (p.items ?? []) as number[],
+    items: p.items,
     cutoff: p.cutoff,
     upgradeAllowed: p.upgradeAllowed,
-    categories: (p.categories ?? []) as number[],
+    categories: p.categories,
   }));
 }
 

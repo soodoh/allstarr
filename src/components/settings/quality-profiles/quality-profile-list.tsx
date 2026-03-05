@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { getProfileIcon } from "src/lib/profile-icons";
+import { CATEGORY_MAP } from "src/lib/categories";
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
 import { Button } from "src/components/ui/button";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
@@ -21,8 +22,9 @@ type QualityProfile = {
   icon: string;
   rootFolderPath: string;
   cutoff: number;
-  items: number[] | null;
+  items: number[];
   upgradeAllowed: boolean;
+  categories: number[];
 };
 
 type FormatDefinition = {
@@ -64,13 +66,14 @@ export default function QualityProfileList({
             <TableHead>Name</TableHead>
             <TableHead>Root Folder</TableHead>
             <TableHead>Formats</TableHead>
+            <TableHead>Categories</TableHead>
             <TableHead>Upgrades</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {profiles.map((profile) => {
-            const itemIds = profile.items ?? [];
+            const itemIds = profile.items;
             const cutoffDef = profile.cutoff
               ? defById.get(profile.cutoff)
               : null;
@@ -119,6 +122,15 @@ export default function QualityProfileList({
                         </Badge>
                       );
                     })}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {profile.categories.map((catId) => (
+                      <Badge key={catId} variant="outline">
+                        {CATEGORY_MAP.get(catId) ?? String(catId)}
+                      </Badge>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
