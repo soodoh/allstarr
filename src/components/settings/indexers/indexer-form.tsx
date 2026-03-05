@@ -282,7 +282,7 @@ export default function IndexerForm({
             }
           >
             <SelectTrigger id="ix-download-client">
-              <SelectValue />
+              <SelectValue placeholder="(Any)" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="any">(Any)</SelectItem>
