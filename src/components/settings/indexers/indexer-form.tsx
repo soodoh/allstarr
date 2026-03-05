@@ -282,7 +282,10 @@ export default function IndexerForm({
             }
           >
             <SelectTrigger id="ix-download-client" className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {filteredClients.find((c) => c.id === downloadClientId)?.name ??
+                  "(Any)"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">(Any)</SelectItem>
