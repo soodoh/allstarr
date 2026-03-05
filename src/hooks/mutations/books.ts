@@ -10,6 +10,7 @@ import {
   deleteEditionFn,
   reassignBookFilesFn,
 } from "src/server/books";
+import { monitorBookFn } from "src/server/import";
 import { queryKeys } from "src/lib/query-keys";
 import type { createBookSchema } from "src/lib/validators";
 import type { z } from "zod";
@@ -94,6 +95,19 @@ export function useDeleteEdition() {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
     },
     onError: () => toast.error("Failed to delete edition"),
+  });
+}
+
+export function useToggleBookMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { bookId: number; monitor: boolean }) =>
+      monitorBookFn({ data: { bookId: data.bookId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+    },
+    onError: () => toast.error("Failed to update book monitoring"),
   });
 }
 

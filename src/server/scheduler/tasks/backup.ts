@@ -11,7 +11,7 @@ registerTask({
   name: "Backup Database",
   description: "Create a backup of the SQLite database file.",
   defaultInterval: 7 * 24 * 60 * 60, // 7 days
-  handler: (): TaskResult => {
+  handler: async (): Promise<TaskResult> => {
     const dbPath = process.env.DATABASE_URL || "data/sqlite.db";
     const backupDir = path.join(path.dirname(dbPath), "backups");
 

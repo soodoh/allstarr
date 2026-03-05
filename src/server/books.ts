@@ -712,13 +712,14 @@ export const reassignBookFilesFn = createServerFn({ method: "POST" })
       throw new Error("Target book not found");
     }
 
-    const result = db
+    const updated = db
       .update(bookFiles)
       .set({ bookId: data.toBookId })
       .where(eq(bookFiles.bookId, data.fromBookId))
-      .run();
+      .returning({ id: bookFiles.id })
+      .all();
 
-    return { reassigned: result.changes };
+    return { reassigned: updated.length };
   });
 
 // Get author's available languages from editions

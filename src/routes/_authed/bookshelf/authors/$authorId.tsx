@@ -204,6 +204,7 @@ function BooksTab({
   availableLanguages: LanguageOption[];
   authorQualityProfiles: QualityProfileInfo[];
 }) {
+  const router = useRouter();
   const toggleBookProfile = useToggleBookProfile();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
@@ -681,6 +682,7 @@ function SeriesTab({
   authorQualityProfiles: QualityProfileInfo[];
   metadataProfile: MetadataProfile;
 }) {
+  const router = useRouter();
   const toggleBookProfile = useToggleBookProfile();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
