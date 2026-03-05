@@ -195,6 +195,8 @@ const rtorrentProvider: DownloadClientProvider = {
         "d.completed_bytes=",
         "d.up.rate=",
         "d.down.rate=",
+        "d.directory=",
+        "d.complete=",
       ],
       config.username,
       config.password,
@@ -220,6 +222,8 @@ const rtorrentProvider: DownloadClientProvider = {
             uploadSpeed: ints[2] ?? 0,
             downloadSpeed: ints[3] ?? 0,
             category: null,
+            outputPath: strings[3] ?? null,
+            isCompleted: (ints[4] ?? 0) === 1,
           });
         }
       }

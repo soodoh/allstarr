@@ -13,6 +13,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as AuthedHistoryRouteImport } from './routes/_authed/history'
 import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
@@ -56,6 +57,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthedRoute,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedHistoryRoute = AuthedHistoryRouteImport.update({
   id: '/history',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/activity': typeof AuthedActivityRoute
   '/history': typeof AuthedHistoryRoute
+  '/api/events': typeof ApiEventsRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/activity': typeof AuthedActivityRoute
   '/history': typeof AuthedHistoryRoute
+  '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_authed/activity': typeof AuthedActivityRoute
   '/_authed/history': typeof AuthedHistoryRoute
+  '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/activity'
     | '/history'
+    | '/api/events'
     | '/bookshelf/add'
     | '/settings/download-clients'
     | '/settings/formats'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/activity'
     | '/history'
+    | '/api/events'
     | '/'
     | '/bookshelf/add'
     | '/settings/download-clients'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_authed/activity'
     | '/_authed/history'
+    | '/api/events'
     | '/_authed/'
     | '/_authed/bookshelf/add'
     | '/_authed/settings/download-clients'
@@ -367,6 +379,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ApiEventsRoute: typeof ApiEventsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1IndexerIdRoute: typeof ApiV1IndexerIdRoute
   ApiV1IndexerSchemaRoute: typeof ApiV1IndexerSchemaRoute
@@ -404,6 +417,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/history': {
       id: '/_authed/history'
@@ -627,6 +647,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ApiEventsRoute: ApiEventsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1IndexerIdRoute: ApiV1IndexerIdRoute,
   ApiV1IndexerSchemaRoute: ApiV1IndexerSchemaRoute,

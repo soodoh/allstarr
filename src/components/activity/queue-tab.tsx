@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Download, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -77,6 +78,8 @@ export default function QueueTab(): JSX.Element {
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
+            <TableHead>Book</TableHead>
+            <TableHead>Author</TableHead>
             <TableHead className="w-48">Progress</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Size</TableHead>
@@ -91,6 +94,24 @@ export default function QueueTab(): JSX.Element {
             <TableRow key={`${item.downloadClientId}-${item.id}`}>
               <TableCell className="font-medium max-w-xs truncate">
                 {item.name}
+              </TableCell>
+              <TableCell className="text-sm">
+                {item.bookId && item.bookTitle ? (
+                  <Link
+                    to="/bookshelf/books/$bookId"
+                    params={{ bookId: String(item.bookId) }}
+                    className="text-primary hover:underline"
+                  >
+                    {item.bookTitle}
+                  </Link>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              <TableCell className="text-sm">
+                {item.authorName ?? (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

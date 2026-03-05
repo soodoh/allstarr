@@ -218,6 +218,8 @@ const delugeProvider: DownloadClientProvider = {
           "all_time_download",
           "upload_rate",
           "download_rate",
+          "save_path",
+          "progress",
         ],
       ],
       sessionCookie,
@@ -239,6 +241,8 @@ const delugeProvider: DownloadClientProvider = {
       uploadSpeed: Number(t.upload_rate ?? 0),
       downloadSpeed: Number(t.download_rate ?? 0),
       category: null,
+      outputPath: t.save_path ? String(t.save_path) : null,
+      isCompleted: String(t.state) === "Seeding" || Number(t.progress) === 100,
     }));
   },
 };

@@ -181,6 +181,7 @@ const transmissionProvider: DownloadClientProvider = {
           "downloadedEver",
           "uploadSpeed",
           "rateDownload",
+          "downloadDir",
         ],
       },
       "",
@@ -199,6 +200,8 @@ const transmissionProvider: DownloadClientProvider = {
       uploadSpeed: Number(t.uploadSpeed ?? 0),
       downloadSpeed: Number(t.rateDownload ?? 0),
       category: null,
+      outputPath: t.downloadDir ? String(t.downloadDir) : null,
+      isCompleted: Number(t.status) === 6,
     }));
   },
 };

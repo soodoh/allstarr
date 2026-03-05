@@ -44,6 +44,8 @@ export type DownloadItem = {
   uploadSpeed: number;
   downloadSpeed: number;
   category: string | null;
+  outputPath: string | null;
+  isCompleted: boolean;
 };
 
 export type DownloadClientProvider = {

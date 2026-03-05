@@ -8,5 +8,5 @@ export const scheduledTasksQuery = () =>
   queryOptions({
     queryKey: queryKeys.tasks.list(),
     queryFn: () => getScheduledTasksFn(),
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
   });

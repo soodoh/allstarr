@@ -156,33 +156,60 @@ const nzbgetProvider: DownloadClientProvider = {
       config.urlBase,
     );
 
-    const result = await nzbgetCall(
-      baseUrl,
-      "listgroups",
-      [0],
-      config.username,
-      config.password,
-    );
+    // Fetch both active queue and history
+    const [activeResult, historyResult] = await Promise.all([
+      nzbgetCall(baseUrl, "listgroups", [0], config.username, config.password),
+      nzbgetCall(baseUrl, "history", [false], config.username, config.password),
+    ]);
 
-    const groups = result as Array<Record<string, unknown>> | undefined;
-    if (!groups) {
-      return [];
+    const items: DownloadItem[] = [];
+
+    // Active queue items
+    const groups = activeResult as Array<Record<string, unknown>> | undefined;
+    if (groups) {
+      for (const g of groups) {
+        const fileSizeMb = Number(g.FileSizeMB ?? 0);
+        const downloadedMb = Number(g.DownloadedSizeMB ?? 0);
+        items.push({
+          id: String(g.NZBID ?? ""),
+          name: String(g.NZBName ?? ""),
+          status: String(g.Status ?? ""),
+          size: Math.round(fileSizeMb * 1024 * 1024),
+          downloaded: Math.round(downloadedMb * 1024 * 1024),
+          uploadSpeed: 0,
+          downloadSpeed: Number(g.DownloadRateKB ?? 0) * 1024,
+          category: null,
+          outputPath: g.DestDir ? String(g.DestDir) : null,
+          isCompleted: false,
+        });
+      }
     }
 
-    return groups.map((g) => {
-      const fileSizeMb = Number(g.FileSizeMB ?? 0);
-      const downloadedMb = Number(g.DownloadedSizeMB ?? 0);
-      return {
-        id: String(g.NZBID ?? ""),
-        name: String(g.NZBName ?? ""),
-        status: String(g.Status ?? ""),
-        size: Math.round(fileSizeMb * 1024 * 1024),
-        downloaded: Math.round(downloadedMb * 1024 * 1024),
-        uploadSpeed: 0,
-        downloadSpeed: Number(g.DownloadRateKB ?? 0) * 1024,
-        category: null,
-      };
-    });
+    // Completed history items
+    const historyGroups = historyResult as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (historyGroups) {
+      for (const g of historyGroups) {
+        if (String(g.Status ?? "") === "SUCCESS") {
+          const fileSizeMb = Number(g.FileSizeMB ?? 0);
+          items.push({
+            id: String(g.NZBID ?? ""),
+            name: String(g.NZBName ?? ""),
+            status: "SUCCESS",
+            size: Math.round(fileSizeMb * 1024 * 1024),
+            downloaded: Math.round(fileSizeMb * 1024 * 1024),
+            uploadSpeed: 0,
+            downloadSpeed: 0,
+            category: null,
+            outputPath: g.DestDir ? String(g.DestDir) : null,
+            isCompleted: true,
+          });
+        }
+      }
+    }
+
+    return items;
   },
 };
 
