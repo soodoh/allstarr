@@ -5,7 +5,7 @@ import {
   books,
   booksAuthors,
   editions,
-  editionQualityProfiles,
+  editionDownloadProfiles,
 } from "src/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { refreshAuthorInternal, refreshBookInternal } from "src/server/import";
@@ -127,8 +127,8 @@ registerTask({
       .from(books)
       .where(
         sql`EXISTS (
-          SELECT 1 FROM ${editionQualityProfiles}
-          INNER JOIN ${editions} ON ${editions.id} = ${editionQualityProfiles.editionId}
+          SELECT 1 FROM ${editionDownloadProfiles}
+          INNER JOIN ${editions} ON ${editions.id} = ${editionDownloadProfiles.editionId}
           WHERE ${editions.bookId} = ${books.id}
         )`,
       )

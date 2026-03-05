@@ -5,8 +5,8 @@ import {
   bookFiles,
   booksAuthors,
   editions,
-  editionQualityProfiles,
-  authorQualityProfiles,
+  editionDownloadProfiles,
+  authorDownloadProfiles,
   authors,
   history,
   series,
@@ -60,8 +60,8 @@ export const getBooksFn = createServerFn({ method: "GET" }).handler(
             .select({ one: sql`1` })
             .from(editions)
             .innerJoin(
-              editionQualityProfiles,
-              eq(editionQualityProfiles.editionId, editions.id),
+              editionDownloadProfiles,
+              eq(editionDownloadProfiles.editionId, editions.id),
             )
             .where(eq(editions.bookId, books.id)),
         ),
@@ -184,13 +184,13 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     const conditions: SQL[] = [];
 
-    // Filter by edition monitored status (has any quality profile links)
+    // Filter by edition monitored status (has any download profile links)
     if (data.monitored !== undefined) {
       const hasProfile = exists(
         db
           .select({ one: sql`1` })
-          .from(editionQualityProfiles)
-          .where(eq(editionQualityProfiles.editionId, editions.id)),
+          .from(editionDownloadProfiles)
+          .where(eq(editionDownloadProfiles.editionId, editions.id)),
       );
       conditions.push(data.monitored ? hasProfile : sql`NOT ${hasProfile}`);
     }
@@ -414,37 +414,37 @@ export const getBookFn = createServerFn({ method: "GET" })
       .where(eq(bookFiles.bookId, data.id))
       .get();
 
-    // Batch-fetch edition quality profile links
+    // Batch-fetch edition download profile links
     const editionIds = bookEditions.map((e) => e.id);
     const editionProfileLinks =
       editionIds.length > 0
         ? db
             .select({
-              editionId: editionQualityProfiles.editionId,
-              qualityProfileId: editionQualityProfiles.qualityProfileId,
+              editionId: editionDownloadProfiles.editionId,
+              downloadProfileId: editionDownloadProfiles.downloadProfileId,
             })
-            .from(editionQualityProfiles)
-            .where(inArray(editionQualityProfiles.editionId, editionIds))
+            .from(editionDownloadProfiles)
+            .where(inArray(editionDownloadProfiles.editionId, editionIds))
             .all()
         : [];
 
     const editionProfilesMap = new Map<number, number[]>();
     for (const link of editionProfileLinks) {
       const arr = editionProfilesMap.get(link.editionId) ?? [];
-      arr.push(link.qualityProfileId);
+      arr.push(link.downloadProfileId);
       editionProfilesMap.set(link.editionId, arr);
     }
 
-    // Get author quality profile IDs from primary author
-    const authorQualityProfileIds = authorId
+    // Get author download profile IDs from primary author
+    const authorDownloadProfileIds = authorId
       ? db
           .select({
-            qualityProfileId: authorQualityProfiles.qualityProfileId,
+            downloadProfileId: authorDownloadProfiles.downloadProfileId,
           })
-          .from(authorQualityProfiles)
-          .where(eq(authorQualityProfiles.authorId, authorId))
+          .from(authorDownloadProfiles)
+          .where(eq(authorDownloadProfiles.authorId, authorId))
           .all()
-          .map((l) => l.qualityProfileId)
+          .map((l) => l.downloadProfileId)
       : [];
 
     // Count editions with missing metadata
@@ -452,22 +452,22 @@ export const getBookFn = createServerFn({ method: "GET" })
       (e) => e.metadataSourceMissingSince !== null,
     ).length;
 
-    // Build editions with qualityProfileIds
+    // Build editions with downloadProfileIds
     const editionsWithProfiles = bookEditions.map((e) =>
       Object.assign(e, {
-        qualityProfileIds: editionProfilesMap.get(e.id) ?? [],
+        downloadProfileIds: editionProfilesMap.get(e.id) ?? [],
       }),
     );
 
-    // Book-level qualityProfileIds = union of all edition profile IDs
-    const bookQualityProfileIds = [
-      ...new Set(editionsWithProfiles.flatMap((e) => e.qualityProfileIds)),
+    // Book-level downloadProfileIds = union of all edition profile IDs
+    const bookDownloadProfileIds = [
+      ...new Set(editionsWithProfiles.flatMap((e) => e.downloadProfileIds)),
     ];
 
     return {
       ...book,
-      qualityProfileIds: bookQualityProfileIds,
-      authorQualityProfileIds,
+      downloadProfileIds: bookDownloadProfileIds,
+      authorDownloadProfileIds,
       authorId,
       authorName,
       bookAuthors: bookAuthorEntries,
@@ -550,7 +550,7 @@ export const deleteBookFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-// Toggle a quality profile on/off for a book's default cover edition
+// Toggle a download profile on/off for a book's default cover edition
 export const toggleBookProfileFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => toggleBookProfileSchema.parse(d))
   .handler(async ({ data }) => {
@@ -584,25 +584,25 @@ export const toggleBookProfileFn = createServerFn({ method: "POST" })
 
     // Check if link exists
     const existing = db
-      .select({ id: editionQualityProfiles.id })
-      .from(editionQualityProfiles)
+      .select({ id: editionDownloadProfiles.id })
+      .from(editionDownloadProfiles)
       .where(
         and(
-          eq(editionQualityProfiles.editionId, targetEdition.id),
-          eq(editionQualityProfiles.qualityProfileId, data.qualityProfileId),
+          eq(editionDownloadProfiles.editionId, targetEdition.id),
+          eq(editionDownloadProfiles.downloadProfileId, data.downloadProfileId),
         ),
       )
       .get();
 
     if (existing) {
-      db.delete(editionQualityProfiles)
-        .where(eq(editionQualityProfiles.id, existing.id))
+      db.delete(editionDownloadProfiles)
+        .where(eq(editionDownloadProfiles.id, existing.id))
         .run();
     } else {
-      db.insert(editionQualityProfiles)
+      db.insert(editionDownloadProfiles)
         .values({
           editionId: targetEdition.id,
-          qualityProfileId: data.qualityProfileId,
+          downloadProfileId: data.downloadProfileId,
         })
         .run();
     }
@@ -613,7 +613,7 @@ export const toggleBookProfileFn = createServerFn({ method: "POST" })
         bookId: data.bookId,
         data: {
           action: existing ? "profile-removed" : "profile-added",
-          qualityProfileId: data.qualityProfileId,
+          downloadProfileId: data.downloadProfileId,
         },
       })
       .run();
@@ -621,7 +621,7 @@ export const toggleBookProfileFn = createServerFn({ method: "POST" })
     return { bookId: data.bookId };
   });
 
-// Toggle a quality profile on/off for a specific edition
+// Toggle a download profile on/off for a specific edition
 export const toggleEditionProfileFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => toggleEditionProfileSchema.parse(d))
   .handler(async ({ data }) => {
@@ -629,25 +629,25 @@ export const toggleEditionProfileFn = createServerFn({ method: "POST" })
 
     // Check if link exists
     const existing = db
-      .select({ id: editionQualityProfiles.id })
-      .from(editionQualityProfiles)
+      .select({ id: editionDownloadProfiles.id })
+      .from(editionDownloadProfiles)
       .where(
         and(
-          eq(editionQualityProfiles.editionId, data.editionId),
-          eq(editionQualityProfiles.qualityProfileId, data.qualityProfileId),
+          eq(editionDownloadProfiles.editionId, data.editionId),
+          eq(editionDownloadProfiles.downloadProfileId, data.downloadProfileId),
         ),
       )
       .get();
 
     if (existing) {
-      db.delete(editionQualityProfiles)
-        .where(eq(editionQualityProfiles.id, existing.id))
+      db.delete(editionDownloadProfiles)
+        .where(eq(editionDownloadProfiles.id, existing.id))
         .run();
     } else {
-      db.insert(editionQualityProfiles)
+      db.insert(editionDownloadProfiles)
         .values({
           editionId: data.editionId,
-          qualityProfileId: data.qualityProfileId,
+          downloadProfileId: data.downloadProfileId,
         })
         .run();
     }

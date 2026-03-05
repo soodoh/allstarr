@@ -7,8 +7,8 @@ import {
   history,
   books,
   booksAuthors,
-  authorQualityProfiles,
-  qualityProfiles,
+  authorDownloadProfiles,
+  downloadProfiles,
 } from "src/db/schema";
 import type { IndexerSettings } from "src/db/schema/indexers";
 import { eq, asc, and, inArray } from "drizzle-orm";
@@ -23,10 +23,10 @@ import {
 import * as prowlarrHttp from "./indexers/http";
 import {
   enrichRelease,
-  matchAllQualities,
+  matchAllFormats,
   getProfileWeight,
   getDefSizeLimits,
-} from "./indexers/quality-parser";
+} from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import * as fuzz from "fuzzball";
 import type {
@@ -48,7 +48,7 @@ export type ProfileInfo = {
   categories: number[];
 };
 
-/** Look up the quality profiles for a book's primary author */
+/** Look up the download profiles for a book's primary author */
 export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   const bookAuthor = db
     .select({ authorId: booksAuthors.authorId })
@@ -63,20 +63,20 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   }
 
   const profileLinks = db
-    .select({ qualityProfileId: authorQualityProfiles.qualityProfileId })
-    .from(authorQualityProfiles)
-    .where(eq(authorQualityProfiles.authorId, bookAuthor.authorId))
+    .select({ downloadProfileId: authorDownloadProfiles.downloadProfileId })
+    .from(authorDownloadProfiles)
+    .where(eq(authorDownloadProfiles.authorId, bookAuthor.authorId))
     .all();
 
   if (profileLinks.length === 0) {
     return null;
   }
 
-  const profileIds = profileLinks.map((l) => l.qualityProfileId);
+  const profileIds = profileLinks.map((l) => l.downloadProfileId);
   const rows = db
     .select()
-    .from(qualityProfiles)
-    .where(inArray(qualityProfiles.id, profileIds))
+    .from(downloadProfiles)
+    .where(inArray(downloadProfiles.id, profileIds))
     .all();
 
   return rows.map((p) => ({
@@ -100,7 +100,7 @@ export function unionProfileItems(profiles: ProfileInfo[]): number[] | null {
   return union.size > 0 ? [...union] : null;
 }
 
-/** Derive search categories from quality profiles as a union of each profile's stored categories */
+/** Derive search categories from download profiles as a union of each profile's stored categories */
 export function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
   const union = new Set<number>();
   for (const profile of profiles) {
@@ -256,7 +256,7 @@ export function computeReleaseMetrics(
   if (!allowedInAny) {
     rejections.push({
       reason: "qualityNotWanted",
-      message: `${release.quality.name} is not allowed in any quality profile`,
+      message: `${release.quality.name} is not allowed in any download profile`,
     });
   }
 
@@ -423,16 +423,16 @@ export function dedupeAndScoreReleases(
     ? unique.filter((r) => isRelevantRelease(r.title, bookInfo))
     : unique;
 
-  // Look up the author's quality profiles for scoring and rejections
+  // Look up the author's download profiles for scoring and rejections
   const profiles = bookId ? getProfilesForBook(bookId) : null;
   const profileItems = profiles ? unionProfileItems(profiles) : null;
 
   // Re-evaluate quality using profile priority when multiple formats match.
   // A release title like "mobi, epub, pdf or azw3" matches all four formats;
-  // pick the one ranked highest in the user's quality profile.
+  // pick the one ranked highest in the user's download profile.
   if (profileItems) {
     for (const release of relevant) {
-      const allMatches = matchAllQualities({
+      const allMatches = matchAllFormats({
         title: release.title,
         size: release.size,
         indexerFlags: release.indexerFlags ?? null,

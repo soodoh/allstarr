@@ -8,6 +8,13 @@
       "when": 1772675172103,
       "tag": "0000_puzzling_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772682209037,
+      "tag": "0001_brown_miss_america",
+      "breakpoints": true
     }
   ]
 }

@@ -2,12 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
   authors,
-  authorQualityProfiles,
+  authorDownloadProfiles,
   books,
   bookFiles,
   booksAuthors,
   editions,
-  editionQualityProfiles,
+  editionDownloadProfiles,
   history,
   series,
   seriesBookLinks,
@@ -48,29 +48,29 @@ export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(totalReadersExpr))
       .all();
 
-    // Batch-query quality profile IDs for all authors
+    // Batch-query download profile IDs for all authors
     const authorIds = rows.map((r) => r.id);
     const profileLinks =
       authorIds.length > 0
         ? db
             .select({
-              authorId: authorQualityProfiles.authorId,
-              qualityProfileId: authorQualityProfiles.qualityProfileId,
+              authorId: authorDownloadProfiles.authorId,
+              downloadProfileId: authorDownloadProfiles.downloadProfileId,
             })
-            .from(authorQualityProfiles)
-            .where(inArray(authorQualityProfiles.authorId, authorIds))
+            .from(authorDownloadProfiles)
+            .where(inArray(authorDownloadProfiles.authorId, authorIds))
             .all()
         : [];
 
     const profileMap = new Map<number, number[]>();
     for (const link of profileLinks) {
       const arr = profileMap.get(link.authorId) ?? [];
-      arr.push(link.qualityProfileId);
+      arr.push(link.downloadProfileId);
       profileMap.set(link.authorId, arr);
     }
 
     return rows.map((r) =>
-      Object.assign(r, { qualityProfileIds: profileMap.get(r.id) ?? [] }),
+      Object.assign(r, { downloadProfileIds: profileMap.get(r.id) ?? [] }),
     );
   },
 );
@@ -122,29 +122,29 @@ export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
     const rows = query.limit(pageSize).offset(offset).all();
     const total = countQuery.get()?.count || 0;
 
-    // Batch-query quality profile IDs
+    // Batch-query download profile IDs
     const authorIds = rows.map((r) => r.id);
     const profileLinks =
       authorIds.length > 0
         ? db
             .select({
-              authorId: authorQualityProfiles.authorId,
-              qualityProfileId: authorQualityProfiles.qualityProfileId,
+              authorId: authorDownloadProfiles.authorId,
+              downloadProfileId: authorDownloadProfiles.downloadProfileId,
             })
-            .from(authorQualityProfiles)
-            .where(inArray(authorQualityProfiles.authorId, authorIds))
+            .from(authorDownloadProfiles)
+            .where(inArray(authorDownloadProfiles.authorId, authorIds))
             .all()
         : [];
 
     const profileMap = new Map<number, number[]>();
     for (const link of profileLinks) {
       const arr = profileMap.get(link.authorId) ?? [];
-      arr.push(link.qualityProfileId);
+      arr.push(link.downloadProfileId);
       profileMap.set(link.authorId, arr);
     }
 
     const items = rows.map((r) =>
-      Object.assign(r, { qualityProfileIds: profileMap.get(r.id) ?? [] }),
+      Object.assign(r, { downloadProfileIds: profileMap.get(r.id) ?? [] }),
     );
 
     return {
@@ -341,37 +341,37 @@ export const getAuthorFn = createServerFn({ method: "GET" })
             .all()
         : [];
 
-    // Batch-fetch edition quality profile links
+    // Batch-fetch edition download profile links
     const allEditionIds = allEditions.map((e) => e.id);
     const editionProfileLinks =
       allEditionIds.length > 0
         ? db
             .select({
-              editionId: editionQualityProfiles.editionId,
-              qualityProfileId: editionQualityProfiles.qualityProfileId,
+              editionId: editionDownloadProfiles.editionId,
+              downloadProfileId: editionDownloadProfiles.downloadProfileId,
             })
-            .from(editionQualityProfiles)
-            .where(inArray(editionQualityProfiles.editionId, allEditionIds))
+            .from(editionDownloadProfiles)
+            .where(inArray(editionDownloadProfiles.editionId, allEditionIds))
             .all()
         : [];
 
     const editionProfilesMap = new Map<number, number[]>();
     for (const link of editionProfileLinks) {
       const arr = editionProfilesMap.get(link.editionId) ?? [];
-      arr.push(link.qualityProfileId);
+      arr.push(link.downloadProfileId);
       editionProfilesMap.set(link.editionId, arr);
     }
 
-    // Group editions by bookId (with qualityProfileIds)
+    // Group editions by bookId (with downloadProfileIds)
     const bookEditionsMap = new Map<
       number,
-      Array<(typeof allEditions)[number] & { qualityProfileIds: number[] }>
+      Array<(typeof allEditions)[number] & { downloadProfileIds: number[] }>
     >();
     for (const ed of allEditions) {
       const arr = bookEditionsMap.get(ed.bookId) ?? [];
       arr.push({
         ...ed,
-        qualityProfileIds: editionProfilesMap.get(ed.id) ?? [],
+        downloadProfileIds: editionProfilesMap.get(ed.id) ?? [],
       });
       bookEditionsMap.set(ed.bookId, arr);
     }
@@ -420,14 +420,14 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       const ba = bookAuthorsMap.get(b.id) ?? [];
       const primaryAuthor = ba.find((a) => a.isPrimary);
       const bookEditions = bookEditionsMap.get(b.id) ?? [];
-      const bookQualityProfileIds = [
-        ...new Set(bookEditions.flatMap((e) => e.qualityProfileIds)),
+      const bookDownloadProfileIds = [
+        ...new Set(bookEditions.flatMap((e) => e.downloadProfileIds)),
       ];
       return Object.assign(b, {
         bookAuthors: ba,
         authorName: primaryAuthor?.authorName ?? null,
         authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
-        qualityProfileIds: bookQualityProfileIds,
+        downloadProfileIds: bookDownloadProfileIds,
         languageCodes: [
           ...new Set(bookEditions.map((e) => e.languageCode).filter(Boolean)),
         ] as string[],
@@ -439,17 +439,17 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       });
     });
 
-    // Get quality profile IDs for this author
+    // Get download profile IDs for this author
     const profileLinks = db
-      .select({ qualityProfileId: authorQualityProfiles.qualityProfileId })
-      .from(authorQualityProfiles)
-      .where(eq(authorQualityProfiles.authorId, data.id))
+      .select({ downloadProfileId: authorDownloadProfiles.downloadProfileId })
+      .from(authorDownloadProfiles)
+      .where(eq(authorDownloadProfiles.authorId, data.id))
       .all();
-    const qualityProfileIds = profileLinks.map((l) => l.qualityProfileId);
+    const downloadProfileIds = profileLinks.map((l) => l.downloadProfileId);
 
     return {
       ...author,
-      qualityProfileIds,
+      downloadProfileIds,
       books: booksWithEditions,
       series: authorSeries,
       availableLanguages,
@@ -460,13 +460,13 @@ export const createAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => createAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { qualityProfileIds, ...authorData } = data;
+    const { downloadProfileIds, ...authorData } = data;
     const author = db.insert(authors).values(authorData).returning().get();
 
     // Insert join table rows
-    for (const profileId of qualityProfileIds) {
-      db.insert(authorQualityProfiles)
-        .values({ authorId: author.id, qualityProfileId: profileId })
+    for (const profileId of downloadProfileIds) {
+      db.insert(authorDownloadProfiles)
+        .values({ authorId: author.id, downloadProfileId: profileId })
         .run();
     }
 
@@ -485,20 +485,20 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { id, qualityProfileIds } = data;
+    const { id, downloadProfileIds } = data;
 
     const author = db.select().from(authors).where(eq(authors.id, id)).get();
     if (!author) {
       throw new Error("Author not found");
     }
 
-    // Update quality profile assignments
-    db.delete(authorQualityProfiles)
-      .where(eq(authorQualityProfiles.authorId, id))
+    // Update download profile assignments
+    db.delete(authorDownloadProfiles)
+      .where(eq(authorDownloadProfiles.authorId, id))
       .run();
-    for (const profileId of qualityProfileIds) {
-      db.insert(authorQualityProfiles)
-        .values({ authorId: id, qualityProfileId: profileId })
+    for (const profileId of downloadProfileIds) {
+      db.insert(authorDownloadProfiles)
+        .values({ authorId: id, downloadProfileId: profileId })
         .run();
     }
 

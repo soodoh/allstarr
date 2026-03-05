@@ -9,24 +9,24 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import QualityProfileList from "src/components/settings/quality-profiles/quality-profile-list";
-import QualityProfileForm from "src/components/settings/quality-profiles/quality-profile-form";
+import DownloadProfileList from "src/components/settings/download-profiles/download-profile-list";
+import DownloadProfileForm from "src/components/settings/download-profiles/download-profile-form";
 import {
-  qualityProfilesListQuery,
-  qualityDefinitionsListQuery,
+  downloadProfilesListQuery,
+  downloadFormatsListQuery,
 } from "src/lib/queries";
 import { getServerCwdFn } from "src/server/filesystem";
 import {
-  useCreateQualityProfile,
-  useUpdateQualityProfile,
-  useDeleteQualityProfile,
+  useCreateDownloadProfile,
+  useUpdateDownloadProfile,
+  useDeleteDownloadProfile,
 } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
   loader: async ({ context }) => {
     const results = await Promise.all([
-      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
-      context.queryClient.ensureQueryData(qualityDefinitionsListQuery()),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+      context.queryClient.ensureQueryData(downloadFormatsListQuery()),
       getServerCwdFn(),
     ]);
     return { serverCwd: results[2] };
@@ -36,12 +36,12 @@ export const Route = createFileRoute("/_authed/settings/profiles")({
 
 function ProfilesPage() {
   const { serverCwd } = Route.useLoaderData();
-  const { data: profiles } = useSuspenseQuery(qualityProfilesListQuery());
-  const { data: definitions } = useSuspenseQuery(qualityDefinitionsListQuery());
+  const { data: profiles } = useSuspenseQuery(downloadProfilesListQuery());
+  const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
 
-  const createProfile = useCreateQualityProfile();
-  const updateProfile = useUpdateQualityProfile();
-  const deleteProfile = useDeleteQualityProfile();
+  const createProfile = useCreateDownloadProfile();
+  const updateProfile = useUpdateDownloadProfile();
+  const deleteProfile = useDeleteDownloadProfile();
 
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<
@@ -112,7 +112,7 @@ function ProfilesPage() {
       />
 
       <div className="space-y-4">
-        <QualityProfileList
+        <DownloadProfileList
           profiles={profiles}
           definitions={definitions}
           onEdit={(profile) =>
@@ -129,7 +129,7 @@ function ProfilesPage() {
               {editingProfile ? "Edit Profile" : "Add Profile"}
             </DialogTitle>
           </DialogHeader>
-          <QualityProfileForm
+          <DownloadProfileForm
             initialValues={
               editingProfile
                 ? {
@@ -143,7 +143,7 @@ function ProfilesPage() {
                   }
                 : undefined
             }
-            qualityDefinitions={definitions}
+            downloadFormats={definitions}
             serverCwd={serverCwd}
             onSubmit={
               editingProfile ? handleUpdateProfile : handleCreateProfile

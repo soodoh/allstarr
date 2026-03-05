@@ -1,5 +1,5 @@
 import { db } from "src/db";
-import { qualityDefinitions } from "src/db/schema";
+import { downloadFormats } from "src/db/schema";
 import type { IndexerRelease, ReleaseQuality } from "./types";
 
 type Specification = {
@@ -37,9 +37,9 @@ function parseSpecs(raw: unknown): Specification[] {
   return [];
 }
 
-function getQualityDefs(): CachedDef[] {
+function getFormatDefs(): CachedDef[] {
   if (!cachedDefs) {
-    const rows = db.select().from(qualityDefinitions).all();
+    const rows = db.select().from(downloadFormats).all();
     cachedDefs = rows
       .filter((r) => parseSpecs(r.specifications).length > 0)
       .map((row) => ({
@@ -55,12 +55,12 @@ function getQualityDefs(): CachedDef[] {
   return cachedDefs;
 }
 
-export function invalidateQualityDefCache(): void {
+export function invalidateFormatDefCache(): void {
   cachedDefs = null;
   sizeLimitsCache = null;
 }
 
-/** Get min/max size limits (in MB) for a quality definition */
+/** Get min/max size limits (in MB) for a format definition */
 export function getDefSizeLimits(
   qualityId: number,
 ): { minSize: number; maxSize: number } | null {
@@ -68,7 +68,7 @@ export function getDefSizeLimits(
     return null;
   }
   if (!sizeLimitsCache) {
-    const rows = db.select().from(qualityDefinitions).all();
+    const rows = db.select().from(downloadFormats).all();
     sizeLimitsCache = new Map();
     for (const r of rows) {
       sizeLimitsCache.set(r.id, {
@@ -154,17 +154,17 @@ function evaluateSpec(spec: Specification, release: ReleaseInfo): boolean {
   return spec.negate ? !result : result;
 }
 
-/** Match a release against DB-defined quality specs — returns first (highest-weight) match */
-export function matchQuality(release: ReleaseInfo): ReleaseQuality {
-  const matches = matchAllQualities(release);
+/** Match a release against DB-defined format specs — returns first (highest-weight) match */
+export function matchFormat(release: ReleaseInfo): ReleaseQuality {
+  const matches = matchAllFormats(release);
   return matches[0] ?? { id: 0, name: "Unknown", weight: 0, color: "gray" };
 }
 
-/** Return ALL matching quality definitions for a release, ordered by global weight desc.
+/** Return ALL matching format definitions for a release, ordered by global weight desc.
  *  Used when a release title mentions multiple formats (e.g. "mobi, epub, pdf or azw3")
  *  so the caller can pick the best match based on profile priority. */
-export function matchAllQualities(release: ReleaseInfo): ReleaseQuality[] {
-  const defs = getQualityDefs();
+export function matchAllFormats(release: ReleaseInfo): ReleaseQuality[] {
+  const defs = getFormatDefs();
   const matches: ReleaseQuality[] = [];
 
   for (const def of defs) {
@@ -235,7 +235,7 @@ function formatAge(publishDate: string | null): string {
   return `${years} years ago`;
 }
 
-/** Enrich a partial IndexerRelease object with quality + formatted fields */
+/** Enrich a partial IndexerRelease object with format + formatted fields */
 export function enrichRelease(
   release: Omit<
     IndexerRelease,
@@ -249,7 +249,7 @@ export function enrichRelease(
 ): IndexerRelease {
   return {
     ...release,
-    quality: matchQuality({
+    quality: matchFormat({
       title: release.title,
       size: release.size,
       indexerFlags: release.indexerFlags ?? null,
@@ -263,9 +263,9 @@ export function enrichRelease(
 }
 
 /**
- * Derive a quality weight from a profile's ordered items array.
+ * Derive a format weight from a profile's ordered items array.
  * Items at the top of the list (lower index) are more preferred and get a
- * higher weight.  Returns 0 for qualities not found in the profile.
+ * higher weight.  Returns 0 for formats not found in the profile.
  */
 export function getProfileWeight(qualityId: number, items: number[]): number {
   const idx = items.indexOf(qualityId);

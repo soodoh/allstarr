@@ -37,12 +37,12 @@ type Edition = {
   country: string | null;
   usersCount: number | null;
   score: number | null;
-  qualityProfileIds: number[];
+  downloadProfileIds: number[];
   metadataSourceMissingSince: Date | null;
   images: Array<{ url: string; coverType: string }>;
 };
 
-type QualityProfile = {
+type DownloadProfile = {
   id: number;
   name: string;
   icon: string;
@@ -112,10 +112,10 @@ function getEditionSortValue(
 
 export default function EditionsTab({
   editions,
-  authorQualityProfiles,
+  authorDownloadProfiles,
 }: {
   editions: Edition[];
-  authorQualityProfiles: QualityProfile[];
+  authorDownloadProfiles: DownloadProfile[];
 }): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -222,12 +222,12 @@ export default function EditionsTab({
                         />
                       ) : (
                         <ProfileToggleIcons
-                          profiles={authorQualityProfiles}
-                          activeProfileIds={edition.qualityProfileIds}
+                          profiles={authorDownloadProfiles}
+                          activeProfileIds={edition.downloadProfileIds}
                           onToggle={(profileId) =>
                             toggleEditionProfile.mutate({
                               editionId: edition.id,
-                              qualityProfileId: profileId,
+                              downloadProfileId: profileId,
                             })
                           }
                           isPending={toggleEditionProfile.isPending}

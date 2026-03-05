@@ -4,7 +4,7 @@ import {
   books,
   booksAuthors,
   editions,
-  editionQualityProfiles,
+  editionDownloadProfiles,
   bookFiles,
   authors,
   indexers,
@@ -21,7 +21,7 @@ import {
 } from "./indexers";
 import type { ProfileInfo } from "./indexers";
 import { searchNewznab, searchProwlarr } from "./indexers/http";
-import { enrichRelease, getProfileWeight } from "./indexers/quality-parser";
+import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 import type { IndexerSettings } from "src/db/schema/indexers";
@@ -73,7 +73,7 @@ function sleep(ms: number): Promise<void> {
 
 /** Find books that need searching: missing files or upgrade-eligible */
 export function getWantedBooks(): WantedBook[] {
-  // Get all books that have at least one edition with a quality profile assigned
+  // Get all books that have at least one edition with a download profile assigned
   const monitoredBooks = db
     .select({
       id: books.id,
@@ -90,8 +90,8 @@ export function getWantedBooks(): WantedBook[] {
     .leftJoin(authors, eq(authors.id, booksAuthors.authorId))
     .where(
       sql`EXISTS (
-        SELECT 1 FROM ${editionQualityProfiles}
-        INNER JOIN ${editions} ON ${editions.id} = ${editionQualityProfiles.editionId}
+        SELECT 1 FROM ${editionDownloadProfiles}
+        INNER JOIN ${editions} ON ${editions.id} = ${editionDownloadProfiles.editionId}
         WHERE ${editions.bookId} = ${books.id}
       )`,
     )

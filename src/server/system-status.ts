@@ -49,14 +49,14 @@ const startTime = new Date().toISOString();
 function runHealthChecks(): HealthCheck[] {
   const checks: HealthCheck[] = [];
 
-  // Check root folders (derived from quality profiles)
+  // Check root folders (derived from download profiles)
   const folderPaths = getRootFolderPaths();
   if (folderPaths.length === 0) {
     checks.push({
       source: "RootFolderCheck",
       type: "warning",
       message:
-        "No root folders have been configured. Set a root folder path on at least one quality profile in Settings.",
+        "No root folders have been configured. Set a root folder path on at least one download profile in Settings.",
       wikiUrl: "/settings/profiles",
     });
   } else {

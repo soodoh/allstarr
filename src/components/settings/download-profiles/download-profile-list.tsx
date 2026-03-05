@@ -16,7 +16,7 @@ import {
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
 
-type QualityProfile = {
+type DownloadProfile = {
   id: number;
   name: string;
   icon: string;
@@ -33,27 +33,29 @@ type FormatDefinition = {
   color: string;
 };
 
-type QualityProfileListProps = {
-  profiles: QualityProfile[];
+type DownloadProfileListProps = {
+  profiles: DownloadProfile[];
   definitions: FormatDefinition[];
-  onEdit: (profile: QualityProfile) => void;
+  onEdit: (profile: DownloadProfile) => void;
   onDelete: (id: number) => void;
 };
 
-export default function QualityProfileList({
+export default function DownloadProfileList({
   profiles,
   definitions,
   onEdit,
   onDelete,
-}: QualityProfileListProps): JSX.Element {
-  const [deleteTarget, setDeleteTarget] = useState<QualityProfile | null>(null);
+}: DownloadProfileListProps): JSX.Element {
+  const [deleteTarget, setDeleteTarget] = useState<DownloadProfile | null>(
+    null,
+  );
 
   const defById = new Map(definitions.map((d) => [d.id, d]));
 
   if (profiles.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        No quality profiles found. Create one to get started.
+        No download profiles found. Create one to get started.
       </div>
     );
   }

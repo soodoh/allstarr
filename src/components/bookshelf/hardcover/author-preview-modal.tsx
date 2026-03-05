@@ -20,7 +20,7 @@ import type {
 } from "src/server/search";
 import {
   hardcoverAuthorQuery,
-  qualityProfilesListQuery,
+  downloadProfilesListQuery,
   authorExistsQuery,
 } from "src/lib/queries";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
@@ -43,15 +43,15 @@ type AddFormProps = {
 };
 
 function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
-  const { data: qualityProfiles = [] } = useQuery(qualityProfilesListQuery());
+  const { data: downloadProfiles = [] } = useQuery(downloadProfilesListQuery());
 
-  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
-    qualityProfiles.map((p) => p.id),
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    downloadProfiles.map((p) => p.id),
   );
   const importAuthor = useImportHardcoverAuthor();
 
   const toggleProfile = (id: number) => {
-    setQualityProfileIds((prev) =>
+    setDownloadProfileIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
@@ -59,7 +59,7 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   const handleSubmit = () => {
     importAuthor.mutate({
       foreignAuthorId: Number(fullAuthor.id),
-      qualityProfileIds,
+      downloadProfileIds,
     });
     onSuccess();
   };
@@ -69,20 +69,20 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
       <p className="text-sm font-medium">Add to Bookshelf</p>
 
       <div className="space-y-2">
-        <Label>Quality Profiles</Label>
-        {qualityProfiles.length === 0 ? (
+        <Label>Download Profiles</Label>
+        {downloadProfiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No quality profiles available.
+            No download profiles available.
           </p>
         ) : (
           <div className="space-y-2">
-            {qualityProfiles.map((p) => (
+            {downloadProfiles.map((p) => (
               <label
                 key={p.id}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Checkbox
-                  checked={qualityProfileIds.includes(p.id)}
+                  checked={downloadProfileIds.includes(p.id)}
                   onCheckedChange={() => toggleProfile(p.id)}
                 />
                 {(() => {

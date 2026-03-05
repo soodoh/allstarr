@@ -19,7 +19,7 @@ type AddAuthorDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   author: HardcoverAuthorDetail;
-  qualityProfiles: Array<{ id: number; name: string; icon: string }>;
+  downloadProfiles: Array<{ id: number; name: string; icon: string }>;
   onSuccess: (authorId: number) => void;
 };
 
@@ -27,16 +27,16 @@ export default function AddAuthorDialog({
   open,
   onOpenChange,
   author,
-  qualityProfiles,
+  downloadProfiles,
   onSuccess: _onSuccess,
 }: AddAuthorDialogProps): JSX.Element {
-  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
-    qualityProfiles.map((p) => p.id),
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    downloadProfiles.map((p) => p.id),
   );
   const importAuthor = useImportHardcoverAuthor();
 
   const toggleProfile = (id: number) => {
-    setQualityProfileIds((prev) =>
+    setDownloadProfileIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
@@ -44,7 +44,7 @@ export default function AddAuthorDialog({
   const handleSubmit = () => {
     importAuthor.mutate({
       foreignAuthorId: Number(author.id),
-      qualityProfileIds,
+      downloadProfileIds,
     });
     onOpenChange(false);
   };
@@ -76,22 +76,22 @@ export default function AddAuthorDialog({
             </div>
           </div>
 
-          {/* Quality profiles */}
+          {/* Download profiles */}
           <div className="space-y-2">
-            <Label>Quality Profiles</Label>
-            {qualityProfiles.length === 0 ? (
+            <Label>Download Profiles</Label>
+            {downloadProfiles.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No quality profiles available.
+                No download profiles available.
               </p>
             ) : (
               <div className="space-y-2">
-                {qualityProfiles.map((p) => (
+                {downloadProfiles.map((p) => (
                   <label
                     key={p.id}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <Checkbox
-                      checked={qualityProfileIds.includes(p.id)}
+                      checked={downloadProfileIds.includes(p.id)}
                       onCheckedChange={() => toggleProfile(p.id)}
                     />
                     {(() => {

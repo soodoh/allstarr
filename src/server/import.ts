@@ -3,12 +3,12 @@ import { z } from "zod";
 import { db } from "src/db";
 import {
   authors,
-  authorQualityProfiles,
+  authorDownloadProfiles,
   books,
   bookFiles,
   booksAuthors,
   editions,
-  editionQualityProfiles,
+  editionDownloadProfiles,
   series,
   seriesBookLinks,
   history,
@@ -317,12 +317,12 @@ function syncBookAuthors(
 
 const importAuthorSchema = z.object({
   foreignAuthorId: z.number().int().positive(),
-  qualityProfileIds: z.array(z.number().int().positive()).default([]),
+  downloadProfileIds: z.array(z.number().int().positive()).default([]),
 });
 
 const importBookSchema = z.object({
   foreignBookId: z.number().int().positive(),
-  qualityProfileIds: z.array(z.number().int().positive()).default([]),
+  downloadProfileIds: z.array(z.number().int().positive()).default([]),
 });
 
 const refreshAuthorSchema = z.object({
@@ -345,7 +345,7 @@ const monitorBookSchema = z.object({
  */
 async function importAuthorInternal(data: {
   foreignAuthorId: number;
-  qualityProfileIds: number[];
+  downloadProfileIds: number[];
 }): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
   const authorization = getAuthorizationHeader();
 
@@ -405,10 +405,10 @@ async function importAuthorInternal(data: {
         .run();
       author = { id: existingInTx.id, name: rawAuthor.name };
 
-      // Insert quality profile join rows
-      for (const profileId of data.qualityProfileIds) {
-        tx.insert(authorQualityProfiles)
-          .values({ authorId: author.id, qualityProfileId: profileId })
+      // Insert download profile join rows
+      for (const profileId of data.downloadProfileIds) {
+        tx.insert(authorDownloadProfiles)
+          .values({ authorId: author.id, downloadProfileId: profileId })
           .onConflictDoNothing()
           .run();
       }
@@ -432,10 +432,10 @@ async function importAuthorInternal(data: {
         .returning()
         .get();
 
-      // Insert quality profile join rows
-      for (const profileId of data.qualityProfileIds) {
-        tx.insert(authorQualityProfiles)
-          .values({ authorId: author.id, qualityProfileId: profileId })
+      // Insert download profile join rows
+      for (const profileId of data.downloadProfileIds) {
+        tx.insert(authorDownloadProfiles)
+          .values({ authorId: author.id, downloadProfileId: profileId })
           .run();
       }
 
@@ -677,7 +677,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     try {
       await importAuthorInternal({
         foreignAuthorId: primaryContrib.authorId,
-        qualityProfileIds: data.qualityProfileIds,
+        downloadProfileIds: data.downloadProfileIds,
       });
       primaryAuthorImported = true;
     } catch {
@@ -718,7 +718,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         try {
           await importAuthorInternal({
             foreignAuthorId: Number(coAuthor.foreignAuthorId),
-            qualityProfileIds: data.qualityProfileIds,
+            downloadProfileIds: data.downloadProfileIds,
           });
           additionalAuthorsImported += 1;
         } catch {
@@ -854,7 +854,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       try {
         await importAuthorInternal({
           foreignAuthorId: Number(coAuthor.foreignAuthorId),
-          qualityProfileIds: data.qualityProfileIds,
+          downloadProfileIds: data.downloadProfileIds,
         });
         additionalAuthorsImported += 1;
       } catch {
@@ -996,9 +996,11 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
             if (!filteredIds.has(ed.id)) {
               // Existing edition no longer passes the profile filter — remove if safe
               const hasProfile = tx
-                .select({ id: editionQualityProfiles.id })
-                .from(editionQualityProfiles)
-                .where(eq(editionQualityProfiles.editionId, existingEdition.id))
+                .select({ id: editionDownloadProfiles.id })
+                .from(editionDownloadProfiles)
+                .where(
+                  eq(editionDownloadProfiles.editionId, existingEdition.id),
+                )
                 .limit(1)
                 .get();
               const fileCount = tx
@@ -1083,11 +1085,11 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
 
         for (const ed of existingEditions) {
           if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
-            // Check if edition has any quality profile links
+            // Check if edition has any download profile links
             const hasProfile = tx
-              .select({ id: editionQualityProfiles.id })
-              .from(editionQualityProfiles)
-              .where(eq(editionQualityProfiles.editionId, ed.id))
+              .select({ id: editionDownloadProfiles.id })
+              .from(editionDownloadProfiles)
+              .where(eq(editionDownloadProfiles.editionId, ed.id))
               .limit(1)
               .get();
             // Check if parent book has any files
@@ -1260,13 +1262,13 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
         bookRecord?.foreignBookId &&
         !seenForeignBookIds.has(bookRecord.foreignBookId)
       ) {
-        // Check if any edition has quality profile links
+        // Check if any edition has download profile links
         const hasProfileLink = tx
-          .select({ id: editionQualityProfiles.id })
-          .from(editionQualityProfiles)
+          .select({ id: editionDownloadProfiles.id })
+          .from(editionDownloadProfiles)
           .innerJoin(
             editions,
-            eq(editions.id, editionQualityProfiles.editionId),
+            eq(editions.id, editionDownloadProfiles.editionId),
           )
           .where(eq(editions.bookId, bookId))
           .limit(1)
@@ -1341,9 +1343,9 @@ export async function refreshBookInternal(bookId: number): Promise<{
   if (!result) {
     // Book removed from Hardcover — auto-delete if safe, otherwise stamp
     const hasProfileLink = db
-      .select({ id: editionQualityProfiles.id })
-      .from(editionQualityProfiles)
-      .innerJoin(editions, eq(editions.id, editionQualityProfiles.editionId))
+      .select({ id: editionDownloadProfiles.id })
+      .from(editionDownloadProfiles)
+      .innerJoin(editions, eq(editions.id, editionDownloadProfiles.editionId))
       .where(eq(editions.bookId, bookId))
       .limit(1)
       .get();
@@ -1455,9 +1457,9 @@ export async function refreshBookInternal(bookId: number): Promise<{
         if (!filteredIds.has(ed.id)) {
           // Existing edition no longer passes the profile filter — remove if safe
           const hasProfile = tx
-            .select({ id: editionQualityProfiles.id })
-            .from(editionQualityProfiles)
-            .where(eq(editionQualityProfiles.editionId, existingEdition.id))
+            .select({ id: editionDownloadProfiles.id })
+            .from(editionDownloadProfiles)
+            .where(eq(editionDownloadProfiles.editionId, existingEdition.id))
             .limit(1)
             .get();
           const fileCount = tx
@@ -1543,11 +1545,11 @@ export async function refreshBookInternal(bookId: number): Promise<{
 
     for (const ed of existingEditions) {
       if (ed.foreignEditionId && !seenEditionIds.has(ed.foreignEditionId)) {
-        // Check if edition has any quality profile links
+        // Check if edition has any download profile links
         const hasProfile = tx
-          .select({ id: editionQualityProfiles.id })
-          .from(editionQualityProfiles)
-          .where(eq(editionQualityProfiles.editionId, ed.id))
+          .select({ id: editionDownloadProfiles.id })
+          .from(editionDownloadProfiles)
+          .where(eq(editionDownloadProfiles.editionId, ed.id))
           .limit(1)
           .get();
         // Check if parent book has any files

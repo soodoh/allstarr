@@ -7,16 +7,16 @@ import {
   books,
   booksAuthors,
   bookFiles,
-  qualityProfiles,
+  downloadProfiles,
   history,
 } from "src/db/schema";
 import { eq, like } from "drizzle-orm";
-import { matchQuality } from "src/server/indexers/quality-parser";
+import { matchFormat } from "src/server/indexers/format-parser";
 
 export function getRootFolderPaths(): string[] {
   const rows = db
-    .select({ rootFolderPath: qualityProfiles.rootFolderPath })
-    .from(qualityProfiles)
+    .select({ rootFolderPath: downloadProfiles.rootFolderPath })
+    .from(downloadProfiles)
     .all();
   return [...new Set(rows.map((r) => r.rootFolderPath).filter(Boolean))];
 }
@@ -216,7 +216,7 @@ function scanBookDirectory(
     const absolutePath = path.join(bookPath, file.name);
     try {
       const fileStat = fs.statSync(absolutePath);
-      const quality = matchQuality({
+      const quality = matchFormat({
         title: file.name,
         size: fileStat.size,
         indexerFlags: null,
