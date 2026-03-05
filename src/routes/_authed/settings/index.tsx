@@ -3,7 +3,6 @@ import {
   Settings,
   Sliders,
   FileType,
-  FolderOpen,
   Download,
   Radar,
   FileText,
@@ -47,12 +46,6 @@ const settingsItems = [
     to: "/settings/profiles" as const,
     icon: Sliders,
     description: "Configure format preferences and upgrade rules per author.",
-  },
-  {
-    title: "Root Folders",
-    to: "/settings/root-folders" as const,
-    icon: FolderOpen,
-    description: "Set up filesystem paths where your book files are stored.",
   },
   {
     title: "Download Clients",

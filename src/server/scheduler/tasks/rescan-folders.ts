@@ -1,7 +1,5 @@
 // oxlint-disable no-console -- Scheduler task logs are intentional server-side diagnostics
-import { db } from "src/db";
-import { rootFolders } from "src/db/schema";
-import { rescanRootFolder } from "src/server/disk-scan";
+import { rescanRootFolder, getRootFolderPaths } from "src/server/disk-scan";
 import type { ScanStats } from "src/server/disk-scan";
 import { registerTask } from "../registry";
 import type { TaskResult } from "../registry";
@@ -16,9 +14,9 @@ registerTask({
   description: "Scan root folders for new, changed, or removed book files.",
   defaultInterval: 6 * 60 * 60, // 6 hours
   handler: async (): Promise<TaskResult> => {
-    const folders = db.select().from(rootFolders).all();
+    const folderPaths = getRootFolderPaths();
 
-    if (folders.length === 0) {
+    if (folderPaths.length === 0) {
       return { success: true, message: "No root folders configured" };
     }
 
@@ -31,9 +29,9 @@ registerTask({
       errors: [],
     };
 
-    for (const folder of folders) {
+    for (const folderPath of folderPaths) {
       try {
-        const result = rescanRootFolder(folder.path);
+        const result = rescanRootFolder(folderPath);
         totals.filesAdded += result.filesAdded;
         totals.filesRemoved += result.filesRemoved;
         totals.filesUnchanged += result.filesUnchanged;
@@ -42,16 +40,16 @@ registerTask({
         totals.errors.push(...result.errors);
       } catch (error) {
         console.error(
-          `[rescan-folders] Failed to scan folder "${folder.path}":`,
+          `[rescan-folders] Failed to scan folder "${folderPath}":`,
           error,
         );
         totals.errors.push(
-          `Failed to scan ${folder.path}: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to scan ${folderPath}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
 
-    const parts: string[] = [`Scanned ${plural(folders.length, "folder")}`];
+    const parts: string[] = [`Scanned ${plural(folderPaths.length, "folder")}`];
     if (totals.filesAdded > 0) {
       parts.push(`${plural(totals.filesAdded, "file")} added`);
     }

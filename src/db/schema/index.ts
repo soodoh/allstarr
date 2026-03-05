@@ -8,7 +8,7 @@ export * from "./series";
 export * from "./book-files";
 export * from "./quality-profiles";
 export * from "./quality-definitions";
-export * from "./root-folders";
+
 export * from "./tags";
 export * from "./history";
 export * from "./settings";

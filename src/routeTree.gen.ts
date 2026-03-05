@@ -21,7 +21,6 @@ import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/books
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
-import { Route as AuthedSettingsRootFoldersRouteImport } from './routes/_authed/settings/root-folders'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
@@ -98,12 +97,6 @@ const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
   path: '/system/status',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsRootFoldersRoute =
-  AuthedSettingsRootFoldersRouteImport.update({
-    id: '/settings/root-folders',
-    path: '/settings/root-folders',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
   id: '/settings/profiles',
   path: '/settings/profiles',
@@ -203,7 +196,6 @@ export interface FileRoutesByFullPath {
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
-  '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -233,7 +225,6 @@ export interface FileRoutesByTo {
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
-  '/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -265,7 +256,6 @@ export interface FileRoutesById {
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
-  '/_authed/settings/root-folders': typeof AuthedSettingsRootFoldersRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/_authed/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -297,7 +287,6 @@ export interface FileRouteTypes {
     | '/settings/indexers'
     | '/settings/metadata'
     | '/settings/profiles'
-    | '/settings/root-folders'
     | '/system/status'
     | '/system/tasks'
     | '/api/auth/$'
@@ -327,7 +316,6 @@ export interface FileRouteTypes {
     | '/settings/indexers'
     | '/settings/metadata'
     | '/settings/profiles'
-    | '/settings/root-folders'
     | '/system/status'
     | '/system/tasks'
     | '/api/auth/$'
@@ -358,7 +346,6 @@ export interface FileRouteTypes {
     | '/_authed/settings/indexers'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
-    | '/_authed/settings/root-folders'
     | '/_authed/system/status'
     | '/_authed/system/tasks'
     | '/api/auth/$'
@@ -472,13 +459,6 @@ declare module '@tanstack/react-router' {
       path: '/system/status'
       fullPath: '/system/status'
       preLoaderRoute: typeof AuthedSystemStatusRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/root-folders': {
-      id: '/_authed/settings/root-folders'
-      path: '/settings/root-folders'
-      fullPath: '/settings/root-folders'
-      preLoaderRoute: typeof AuthedSettingsRootFoldersRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/settings/profiles': {
@@ -607,7 +587,6 @@ interface AuthedRouteChildren {
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
-  AuthedSettingsRootFoldersRoute: typeof AuthedSettingsRootFoldersRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
@@ -630,7 +609,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
-  AuthedSettingsRootFoldersRoute: AuthedSettingsRootFoldersRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,

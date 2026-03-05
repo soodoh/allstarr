@@ -45,11 +45,6 @@ export const updateQualityDefinitionSchema = z.object({
   specifications: z.array(specificationSchema).default([]),
 });
 
-// Root Folders
-export const createRootFolderSchema = z.object({
-  path: z.string().min(1, "Path is required"),
-});
-
 export const browseDirectorySchema = z.object({
   path: z.string().min(1, "Path is required"),
 });
