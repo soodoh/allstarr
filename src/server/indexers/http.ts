@@ -386,90 +386,77 @@ async function fetchNewznabFeed(
 }
 
 /**
- * Query a single Newznab/Torznab feed — mirrors Readarr's tiered search
- * strategy.
- *
- * When `bookParams` is provided, queries are tried **sequentially** (not in
- * parallel) to respect indexer rate limits. Each tier is only tried if the
- * previous tier returned no results — matching Readarr's approach.
- *
- * Tiers (matching Readarr's layout):
- *   1. t=book with separate author/title params (structured, if supported)
- *   2. t=search with "title author" (title-first — Readarr's preferred order)
- *   3. t=search with "author title" (author-first)
- *   4. t=search with "title" only (broadest fallback)
- *
- * All query terms are cleaned via cleanQueryTitle() to strip leading articles,
- * normalize punctuation, and remove accents — matching Readarr's GetQueryTitle.
+ * Run a tiered search — try each tier sequentially, returning the first
+ * non-empty result set. Continues on errors to allow fallback tiers.
  */
-export async function searchNewznab(
-  feed: NewznabFeedConfig,
-  query: string,
-  categories: number[] = [7000, 7020],
-  bookParams?: BookSearchParams,
-): Promise<CoalescedResult[]> {
-  const cat = categories.join(",");
-
-  // Manual/custom query — single search
-  if (!bookParams) {
-    const params = new URLSearchParams({ t: "search", q: query, cat });
-    return fetchNewznabFeed(feed, params);
-  }
-
-  const cleanAuthor = cleanQueryTitle(bookParams.author);
-  const cleanTitle = cleanQueryTitle(bookParams.title);
-
-  // Tiered queries — tried sequentially, stop when results are found.
-  // This respects indexer rate limits (Readarr does the same).
-  const tiers: URLSearchParams[] = [
-    // 1. Structured book search (t=book with author/title)
-    (() => {
-      const p = new URLSearchParams({ t: "book", cat });
-      p.set("author", cleanAuthor);
-      p.set("title", cleanTitle);
-      return p;
-    })(),
-    // 2. Title+author text search (title-first — Readarr's primary text query)
-    new URLSearchParams({
-      t: "search",
-      q: `${cleanTitle} ${cleanAuthor}`,
-      cat,
-    }),
-    // 3. Author+title text search (author-first)
-    new URLSearchParams({
-      t: "search",
-      q: `${cleanAuthor} ${cleanTitle}`,
-      cat,
-    }),
-    // 4. Title-only fallback
-    new URLSearchParams({
-      t: "search",
-      q: cleanTitle,
-      cat,
-    }),
-  ];
-
+async function runTieredSearch<T>(
+  tiers: URLSearchParams[],
+  fetcher: (params: URLSearchParams) => Promise<T[]>,
+): Promise<T[]> {
   let lastErrorMessage = "";
 
   for (const params of tiers) {
     try {
-      const results = await fetchNewznabFeed(feed, params);
+      const results = await fetcher(params);
       if (results.length > 0) {
         return results;
       }
     } catch (error) {
       lastErrorMessage = error instanceof Error ? error.message : String(error);
-      // Continue to next tier — transient failures on one query type
-      // (e.g. t=book not supported) shouldn't block the fallbacks
     }
   }
 
-  // All tiers returned empty or failed — throw last error if every tier failed
   if (lastErrorMessage) {
     throw new Error(lastErrorMessage);
   }
 
   return [];
+}
+
+/**
+ * Query a single Newznab/Torznab feed using Readarr's tiered search strategy.
+ *
+ * When `bookParams` is provided, tiers are tried sequentially (respecting
+ * indexer rate limits), stopping at the first tier that returns results:
+ *   1. t=book with separate author/title params (structured, if supported)
+ *   2. t=search with "title author" (title-first)
+ *   3. t=search with "author title" (author-first)
+ *   4. t=search with "title" only (broadest fallback)
+ *
+ * Query terms are cleaned via cleanQueryTitle() to strip leading articles,
+ * normalize punctuation, and remove accents — matching Readarr's GetQueryTitle.
+ */
+export async function searchNewznab(
+  feed: NewznabFeedConfig,
+  query: string,
+  categories: number[] = [],
+  bookParams?: BookSearchParams,
+): Promise<CoalescedResult[]> {
+  // Match Readarr: skip search entirely when no categories are configured
+  if (categories.length === 0) {
+    return [];
+  }
+
+  const cat = categories.join(",");
+
+  const makeParams = (t: string, q: string, extra?: Record<string, string>) =>
+    new URLSearchParams({ t, q, cat, ...extra });
+
+  if (!bookParams) {
+    return fetchNewznabFeed(feed, makeParams("search", query));
+  }
+
+  const cleanAuthor = cleanQueryTitle(bookParams.author);
+  const cleanTitle = cleanQueryTitle(bookParams.title);
+
+  const tiers = [
+    makeParams("book", "", { author: cleanAuthor, title: cleanTitle }),
+    makeParams("search", `${cleanTitle} ${cleanAuthor}`),
+    makeParams("search", `${cleanAuthor} ${cleanTitle}`),
+    makeParams("search", cleanTitle),
+  ];
+
+  return runTieredSearch(tiers, (params) => fetchNewznabFeed(feed, params));
 }
 
 // ─── Prowlarr internal API search (legacy, kept for manual indexers) ──────────
@@ -514,6 +501,10 @@ export async function searchProwlarr(
   categories: number[] = [],
   bookParams?: BookSearchParams,
 ): Promise<CoalescedResult[]> {
+  if (categories.length === 0) {
+    return [];
+  }
+
   const base = buildBaseUrl(
     config.host,
     config.port,
@@ -522,15 +513,14 @@ export async function searchProwlarr(
   );
   const headers = makeHeaders(config.apiKey);
 
-  function makeParams(type: string, q: string): URLSearchParams {
+  const makeParams = (type: string, q: string): URLSearchParams => {
     const params = new URLSearchParams({ query: q, type });
     for (const cat of categories) {
       params.append("categories", String(cat));
     }
     return params;
-  }
+  };
 
-  // Manual/custom query — single search
   if (!bookParams) {
     return fetchProwlarrSearch(base, headers, makeParams("search", query));
   }
@@ -538,42 +528,14 @@ export async function searchProwlarr(
   const cleanAuthor = cleanQueryTitle(bookParams.author);
   const cleanTitle = cleanQueryTitle(bookParams.title);
 
-  // Tiered queries — tried sequentially, stop when results are found.
-  // This respects indexer rate limits (Readarr does the same).
-  const tiers: URLSearchParams[] = [
-    // 1. Structured book search
-    (() => {
-      const p = new URLSearchParams({ type: "book" });
-      p.set("query", `${cleanAuthor} ${cleanTitle}`);
-      for (const cat of categories) {
-        p.append("categories", String(cat));
-      }
-      return p;
-    })(),
-    // 2. Title+author text search (title-first — Readarr's preferred order)
+  const tiers = [
+    makeParams("book", `${cleanAuthor} ${cleanTitle}`),
     makeParams("search", `${cleanTitle} ${cleanAuthor}`),
-    // 3. Author+title text search (author-first)
     makeParams("search", `${cleanAuthor} ${cleanTitle}`),
-    // 4. Title-only fallback
     makeParams("search", cleanTitle),
   ];
 
-  let lastErrorMessage = "";
-
-  for (const params of tiers) {
-    try {
-      const results = await fetchProwlarrSearch(base, headers, params);
-      if (results.length > 0) {
-        return results;
-      }
-    } catch (error) {
-      lastErrorMessage = error instanceof Error ? error.message : String(error);
-    }
-  }
-
-  if (lastErrorMessage) {
-    throw new Error(lastErrorMessage);
-  }
-
-  return [];
+  return runTieredSearch(tiers, (params) =>
+    fetchProwlarrSearch(base, headers, params),
+  );
 }
