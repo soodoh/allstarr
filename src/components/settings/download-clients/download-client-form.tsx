@@ -6,6 +6,8 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
+import validateForm from "src/lib/form-validation";
+import { createDownloadClientSchema } from "src/lib/validators";
 import { testDownloadClientFn } from "src/server/download-clients";
 
 type ImplementationType =
@@ -145,6 +147,7 @@ type ConnectionFieldsProps = {
   port: number;
   useSsl: boolean;
   urlBase: string;
+  errors: Record<string, string>;
   onHost: (v: string) => void;
   onPort: (v: number) => void;
   onSsl: (v: boolean) => void;
@@ -156,6 +159,7 @@ function ConnectionFields({
   port,
   useSsl,
   urlBase,
+  errors,
   onHost,
   onPort,
   onSsl,
@@ -171,8 +175,10 @@ function ConnectionFields({
             value={host}
             onChange={(e) => onHost(e.target.value)}
             placeholder="localhost"
-            required
           />
+          {errors.host && (
+            <p className="text-sm text-destructive">{errors.host}</p>
+          )}
         </div>
         <div className="space-y-2 w-24">
           <Label htmlFor="dc-port">Port</Label>
@@ -183,8 +189,10 @@ function ConnectionFields({
             max={65_535}
             value={port}
             onChange={(e) => onPort(Number(e.target.value))}
-            required
           />
+          {errors.port && (
+            <p className="text-sm text-destructive">{errors.port}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 pb-2">
           <Switch id="dc-ssl" checked={useSsl} onCheckedChange={onSsl} />
@@ -340,6 +348,7 @@ export default function DownloadClientForm({
     initialValues?.watchFolder ?? "",
   );
   const [priority, setPriority] = useState(initialValues?.priority ?? 1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const testMutation = useMutation({
     mutationFn: () =>
@@ -362,6 +371,27 @@ export default function DownloadClientForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    const result = validateForm(createDownloadClientSchema, {
+      name,
+      implementation: impl,
+      protocol: clientConfig.protocol,
+      enabled,
+      priority,
+      host: hideHostPort ? "localhost" : host,
+      port: hideHostPort ? 1 : port,
+      useSsl,
+      urlBase: urlBase || null,
+      username: username || null,
+      password: password || null,
+      apiKey: apiKey || null,
+      category,
+      settings: impl === "Blackhole" ? { watchFolder } : null,
+    });
+    if (!result.success) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
     onSubmit({
       name,
       implementation: impl,
@@ -391,8 +421,10 @@ export default function DownloadClientForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={`My ${impl}`}
-            required
           />
+          {errors.name && (
+            <p className="text-sm text-destructive">{errors.name}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 pb-2">
           <Switch
@@ -411,6 +443,7 @@ export default function DownloadClientForm({
           port={port}
           useSsl={useSsl}
           urlBase={urlBase}
+          errors={errors}
           onHost={setHost}
           onPort={setPort}
           onSsl={setUseSsl}

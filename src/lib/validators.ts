@@ -1,19 +1,27 @@
 import { z } from "zod";
 
 // Quality Profiles
-export const createQualityProfileSchema = z.object({
+const qualityProfileBaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   rootFolderPath: z.string().min(1, "Root folder is required"),
   cutoff: z.number().default(0),
-  items: z.array(z.number()).default([]),
+  items: z.array(z.number()).min(1, "At least one quality must be added"),
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
 });
 
-export const updateQualityProfileSchema = createQualityProfileSchema.extend({
-  id: z.number(),
-});
+export const createQualityProfileSchema = qualityProfileBaseSchema.refine(
+  (data) => !data.upgradeAllowed || data.cutoff > 0,
+  { message: "Upgrade cutoff quality is required", path: ["cutoff"] },
+);
+
+export const updateQualityProfileSchema = qualityProfileBaseSchema
+  .extend({ id: z.number() })
+  .refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
+    message: "Upgrade cutoff quality is required",
+    path: ["cutoff"],
+  });
 
 // Quality Definitions
 export const specificationSchema = z.object({

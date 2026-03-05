@@ -5,6 +5,8 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
+import validateForm from "src/lib/form-validation";
+import { createQualityDefinitionSchema } from "src/lib/validators";
 import {
   Select,
   SelectContent,
@@ -261,6 +263,7 @@ export default function QualityDefinitionForm({
   const [specifications, setSpecifications] = useState<SpecEntry[]>(() =>
     toEntries(initialValues?.specifications ?? []),
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleAddSpec = () => {
     setSpecifications((prev) => [
@@ -295,7 +298,21 @@ export default function QualityDefinitionForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    // _id is stripped by zod validation on the server
+    const strippedSpecs = specifications.map(({ _id, ...rest }) => rest);
+    const result = validateForm(createQualityDefinitionSchema, {
+      title,
+      weight,
+      color,
+      minSize,
+      maxSize,
+      preferredSize,
+      specifications: strippedSpecs,
+    });
+    if (!result.success) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
     onSubmit({
       title,
       weight,
@@ -303,7 +320,7 @@ export default function QualityDefinitionForm({
       minSize,
       maxSize,
       preferredSize,
-      specifications,
+      specifications: strippedSpecs,
     });
   };
 
@@ -320,8 +337,10 @@ export default function QualityDefinitionForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Format name"
-            required
           />
+          {errors.title && (
+            <p className="text-sm text-destructive">{errors.title}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="def-weight">Weight</Label>

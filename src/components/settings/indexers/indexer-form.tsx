@@ -7,6 +7,8 @@ import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
+import validateForm from "src/lib/form-validation";
+import { createIndexerSchema } from "src/lib/validators";
 import { testIndexerFn } from "src/server/indexers";
 
 export type IndexerFormValues = {
@@ -87,6 +89,7 @@ export default function IndexerForm({
   const [categories, setCategories] = useState<number[]>(
     initialValues?.categories ?? [],
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const testMutation = useMutation({
     mutationFn: () =>
@@ -103,6 +106,24 @@ export default function IndexerForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    const result = validateForm(createIndexerSchema, {
+      name,
+      enableRss,
+      enableAutomaticSearch,
+      enableInteractiveSearch,
+      host,
+      port,
+      useSsl,
+      urlBase: urlBase || null,
+      apiKey,
+      priority,
+      settings: { categories: categories.length > 0 ? categories : null },
+    });
+    if (!result.success) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
     onSubmit({
       name,
       enableRss,
@@ -128,8 +149,10 @@ export default function IndexerForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="My Indexer"
-          required
         />
+        {errors.name && (
+          <p className="text-sm text-destructive">{errors.name}</p>
+        )}
       </div>
 
       {/* RSS / Search toggles */}
@@ -169,8 +192,10 @@ export default function IndexerForm({
             value={host}
             onChange={(e) => setHost(e.target.value)}
             placeholder="localhost"
-            required
           />
+          {errors.host && (
+            <p className="text-sm text-destructive">{errors.host}</p>
+          )}
         </div>
         <div className="space-y-2 w-24">
           <Label htmlFor="ix-port">Port</Label>
@@ -181,8 +206,10 @@ export default function IndexerForm({
             max={65_535}
             value={port}
             onChange={(e) => setPort(Number(e.target.value))}
-            required
           />
+          {errors.port && (
+            <p className="text-sm text-destructive">{errors.port}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 pb-2">
           <Switch id="ix-ssl" checked={useSsl} onCheckedChange={setUseSsl} />
@@ -212,8 +239,10 @@ export default function IndexerForm({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           autoComplete="off"
-          required
         />
+        {errors.apiKey && (
+          <p className="text-sm text-destructive">{errors.apiKey}</p>
+        )}
       </div>
 
       {/* Priority */}

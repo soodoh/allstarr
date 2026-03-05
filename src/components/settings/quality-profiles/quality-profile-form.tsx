@@ -23,6 +23,8 @@ import {
   PROFILE_ICON_MAP,
   getProfileIcon,
 } from "src/lib/profile-icons";
+import validateForm from "src/lib/form-validation";
+import { createQualityProfileSchema } from "src/lib/validators";
 import { cn } from "src/lib/utils";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -397,29 +399,6 @@ function RootFolderSection({
   );
 }
 
-function validateProfileForm(fields: {
-  name: string;
-  rootFolderPath: string;
-  items: number[];
-  upgradeAllowed: boolean;
-  cutoff: number;
-}): Record<string, string> {
-  const errs: Record<string, string> = {};
-  if (!fields.name.trim()) {
-    errs.name = "Name is required";
-  }
-  if (!fields.rootFolderPath) {
-    errs.rootFolderPath = "Root folder is required";
-  }
-  if (fields.items.length === 0) {
-    errs.items = "At least one quality must be added";
-  }
-  if (fields.upgradeAllowed && !fields.cutoff) {
-    errs.cutoff = "Upgrade cutoff quality is required";
-  }
-  return errs;
-}
-
 export default function QualityProfileForm({
   initialValues,
   qualityDefinitions,
@@ -485,19 +464,7 @@ export default function QualityProfileForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const errs = validateProfileForm({
-      name,
-      rootFolderPath,
-      items,
-      upgradeAllowed,
-      cutoff,
-    });
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      return;
-    }
-
-    onSubmit({
+    const result = validateForm(createQualityProfileSchema, {
       name,
       icon,
       rootFolderPath,
@@ -506,6 +473,12 @@ export default function QualityProfileForm({
       upgradeAllowed,
       categories,
     });
+    if (!result.success) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
+    onSubmit(result.data);
   };
 
   return (
