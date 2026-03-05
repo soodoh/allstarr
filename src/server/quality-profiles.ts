@@ -11,6 +11,16 @@ import {
 } from "src/lib/validators";
 import { invalidateQualityDefCache } from "./indexers/quality-parser";
 
+async function validateRootFolderPath(rootFolderPath: string): Promise<void> {
+  if (!rootFolderPath) {
+    return;
+  }
+  const fs = await import("node:fs");
+  if (!fs.existsSync(rootFolderPath)) {
+    throw new Error(`Root folder does not exist: ${rootFolderPath}`);
+  }
+}
+
 export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
@@ -37,6 +47,7 @@ export const createQualityProfileFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => createQualityProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
+    await validateRootFolderPath(data.rootFolderPath);
     return db
       .insert(qualityProfiles)
       .values({
@@ -50,6 +61,7 @@ export const updateQualityProfileFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateQualityProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
+    await validateRootFolderPath(data.rootFolderPath);
     const { id, ...values } = data;
     return db
       .update(qualityProfiles)

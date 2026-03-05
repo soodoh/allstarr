@@ -61,6 +61,7 @@ type QualityProfileFormProps = {
   }) => void;
   onCancel: () => void;
   loading?: boolean;
+  serverError?: string;
 };
 
 function FormatSearchDropdown({
@@ -343,6 +344,59 @@ function UpgradeSection({
   );
 }
 
+function RootFolderSection({
+  rootFolderPath,
+  onPathChange,
+  serverCwd,
+  error,
+  serverError,
+}: {
+  rootFolderPath: string;
+  onPathChange: (path: string) => void;
+  serverCwd: string;
+  error?: string;
+  serverError?: string;
+}): JSX.Element {
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const displayError =
+    error || (serverError?.includes("Root folder") ? serverError : undefined);
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="root-folder">Root Folder</Label>
+      <div className="flex gap-2">
+        <Input
+          id="root-folder"
+          value={rootFolderPath}
+          onChange={(e) => onPathChange(e.target.value)}
+          placeholder="/path/to/books"
+          className="font-mono"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setBrowseOpen(true)}
+        >
+          <FolderOpen className="h-4 w-4" />
+        </Button>
+      </div>
+      {displayError && (
+        <p className="text-sm text-destructive">{displayError}</p>
+      )}
+      <DirectoryBrowserDialog
+        open={browseOpen}
+        onOpenChange={setBrowseOpen}
+        initialPath={rootFolderPath || serverCwd}
+        onSelect={(path) => {
+          onPathChange(path);
+          setBrowseOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
 function validateProfileForm(fields: {
   name: string;
   rootFolderPath: string;
@@ -373,8 +427,8 @@ export default function QualityProfileForm({
   onSubmit,
   onCancel,
   loading,
+  serverError,
 }: QualityProfileFormProps): JSX.Element {
-  const [browseOpen, setBrowseOpen] = useState(false);
   const [name, setName] = useState(initialValues?.name || "");
   const [icon, setIcon] = useState(initialValues?.icon ?? "book-open");
   const [rootFolderPath, setRootFolderPath] = useState(
@@ -501,38 +555,13 @@ export default function QualityProfileForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="root-folder">Root Folder</Label>
-        <div className="flex gap-2">
-          <Input
-            id="root-folder"
-            value={rootFolderPath}
-            onChange={(e) => setRootFolderPath(e.target.value)}
-            placeholder="/path/to/books"
-            className="font-mono"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => setBrowseOpen(true)}
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
-        </div>
-        {errors.rootFolderPath && (
-          <p className="text-sm text-destructive">{errors.rootFolderPath}</p>
-        )}
-        <DirectoryBrowserDialog
-          open={browseOpen}
-          onOpenChange={setBrowseOpen}
-          initialPath={rootFolderPath || serverCwd}
-          onSelect={(path) => {
-            setRootFolderPath(path);
-            setBrowseOpen(false);
-          }}
-        />
-      </div>
+      <RootFolderSection
+        rootFolderPath={rootFolderPath}
+        onPathChange={setRootFolderPath}
+        serverCwd={serverCwd}
+        error={errors.rootFolderPath}
+        serverError={serverError}
+      />
 
       <div className="space-y-2">
         <Label>Search Categories</Label>
@@ -594,6 +623,10 @@ export default function QualityProfileForm({
           <p className="text-sm text-destructive">{errors.items}</p>
         )}
       </div>
+
+      {serverError && !serverError.includes("Root folder") && (
+        <p className="text-sm text-destructive">{serverError}</p>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
