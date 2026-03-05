@@ -15,6 +15,8 @@ import PageHeader from "src/components/shared/page-header";
 import LanguageMultiSelect from "src/components/shared/language-multi-select";
 import { metadataProfileQuery } from "src/lib/queries";
 import { useUpdateMetadataProfile } from "src/hooks/mutations";
+import validateForm from "src/lib/form-validation";
+import { metadataProfileSchema } from "src/lib/validators";
 
 export const Route = createFileRoute("/_authed/settings/metadata")({
   loader: ({ context }) =>
@@ -38,14 +40,21 @@ function MetadataSettingsPage() {
   const [skipCompilations, setSkipCompilations] = useState(
     profile.skipCompilations,
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSave = () => {
-    updateProfile.mutate({
+    const result = validateForm(metadataProfileSchema, {
       allowedLanguages,
       skipMissingReleaseDate,
       skipMissingIsbnAsin,
       skipCompilations,
     });
+    if (!result.success) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
+    updateProfile.mutate(result.data);
   };
 
   return (
@@ -69,6 +78,11 @@ function MetadataSettingsPage() {
               value={allowedLanguages}
               onChange={setAllowedLanguages}
             />
+            {errors.allowedLanguages && (
+              <p className="text-sm text-destructive mt-2">
+                {errors.allowedLanguages}
+              </p>
+            )}
           </CardContent>
         </Card>
 
