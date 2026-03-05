@@ -13,6 +13,8 @@ import {
   history,
   blocklist,
   downloadProfiles,
+  trackedDownloads,
+  authorDownloadProfiles,
 } from "src/db/schema";
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
@@ -610,13 +612,43 @@ async function grabRelease(
     settings: client.settings as Record<string, unknown> | null,
   };
 
-  await provider.addDownload(config, {
+  const downloadId = await provider.addDownload(config, {
     url: release.downloadUrl,
     torrentData: null,
     nzbData: null,
     category: null,
     savePath: null,
   });
+
+  // Track the download
+  if (downloadId) {
+    let profileId: number | null = null;
+    if (book.authorId) {
+      const adp = db
+        .select({
+          downloadProfileId: authorDownloadProfiles.downloadProfileId,
+        })
+        .from(authorDownloadProfiles)
+        .where(eq(authorDownloadProfiles.authorId, book.authorId))
+        .get();
+      profileId = adp?.downloadProfileId ?? null;
+    }
+
+    db.insert(trackedDownloads)
+      .values({
+        downloadClientId: client.id,
+        downloadId,
+        bookId: book.id,
+        authorId: book.authorId ?? null,
+        downloadProfileId: profileId,
+        releaseTitle: release.title,
+        protocol: release.protocol,
+        indexerId: release.allstarrIndexerId,
+        guid: release.guid,
+        state: "queued",
+      })
+      .run();
+  }
 
   // Record history event
   db.insert(history)

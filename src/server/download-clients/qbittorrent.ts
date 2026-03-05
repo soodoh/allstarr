@@ -203,6 +203,12 @@ const qbittorrentProvider: DownloadClientProvider = {
     }
 
     const data = (await response.json()) as Array<Record<string, unknown>>;
+    const completedStates = new Set([
+      "uploading",
+      "stalledUP",
+      "pausedUP",
+      "forcedUP",
+    ]);
     return data.map((item) => ({
       id: String(item.hash ?? ""),
       name: String(item.name ?? ""),
@@ -212,6 +218,8 @@ const qbittorrentProvider: DownloadClientProvider = {
       uploadSpeed: Number(item.upspeed ?? 0),
       downloadSpeed: Number(item.dlspeed ?? 0),
       category: String(item.category ?? ""),
+      outputPath: item.save_path ? String(item.save_path) : null,
+      isCompleted: completedStates.has(String(item.state ?? "")),
     }));
   },
 };

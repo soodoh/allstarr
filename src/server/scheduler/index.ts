@@ -3,6 +3,7 @@ import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { getAllTasks, getTask } from "./registry";
+import { eventBus } from "../event-bus";
 
 // oxlint-disable import/no-unassigned-import -- Side-effect imports register tasks in the registry
 import "./tasks/check-health";
@@ -11,6 +12,7 @@ import "./tasks/backup";
 import "./tasks/refresh-metadata";
 import "./tasks/rss-sync";
 import "./tasks/rescan-folders";
+import "./tasks/refresh-downloads";
 // oxlint-enable import/no-unassigned-import
 
 let started = false;
@@ -63,6 +65,7 @@ async function executeTask(taskId: string): Promise<void> {
       .run();
 
     console.log(`[scheduler] ${task.name}: ${result.message} (${duration}ms)`);
+    eventBus.emit({ type: "taskUpdated", taskId });
   } catch (error) {
     const duration = Date.now() - start;
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -78,6 +81,7 @@ async function executeTask(taskId: string): Promise<void> {
       .run();
 
     console.error(`[scheduler] ${task.name} failed: ${message}`);
+    eventBus.emit({ type: "taskUpdated", taskId });
   } finally {
     runningTasks.delete(taskId);
   }

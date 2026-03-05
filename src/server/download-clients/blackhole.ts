@@ -112,6 +112,8 @@ const blackholeProvider: DownloadClientProvider = {
             uploadSpeed: 0,
             downloadSpeed: 0,
             category: null,
+            outputPath: null,
+            isCompleted: false,
           };
         });
     } catch {

@@ -8,7 +8,7 @@ export const queueListQuery = () =>
   queryOptions({
     queryKey: queryKeys.queue.list(),
     queryFn: () => getQueueFn(),
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
   });
 
 export const queueCountQuery = () =>
@@ -18,5 +18,5 @@ export const queueCountQuery = () =>
       const data = await getQueueFn();
       return data.items.length;
     },
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });

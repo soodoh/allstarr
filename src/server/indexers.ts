@@ -11,6 +11,7 @@ import {
   downloadProfiles,
   bookFiles,
   blocklist,
+  trackedDownloads,
 } from "src/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
@@ -820,13 +821,59 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       settings: client.settings as Record<string, unknown> | null,
     };
 
-    await provider.addDownload(config, {
+    const downloadId = await provider.addDownload(config, {
       url: data.downloadUrl,
       torrentData: null,
       nzbData: null,
       category: null,
       savePath: null,
     });
+
+    // Look up authorId from booksAuthors if bookId is available
+    let authorId: number | null = null;
+    let profileId: number | null = null;
+    if (data.bookId) {
+      const ba = db
+        .select({ authorId: booksAuthors.authorId })
+        .from(booksAuthors)
+        .where(
+          and(
+            eq(booksAuthors.bookId, data.bookId),
+            eq(booksAuthors.isPrimary, true),
+          ),
+        )
+        .get();
+      authorId = ba?.authorId ?? null;
+
+      if (authorId) {
+        const adp = db
+          .select({
+            downloadProfileId: authorDownloadProfiles.downloadProfileId,
+          })
+          .from(authorDownloadProfiles)
+          .where(eq(authorDownloadProfiles.authorId, authorId))
+          .get();
+        profileId = adp?.downloadProfileId ?? null;
+      }
+    }
+
+    // Track the download
+    if (downloadId) {
+      db.insert(trackedDownloads)
+        .values({
+          downloadClientId: client.id,
+          downloadId,
+          bookId: data.bookId ?? null,
+          authorId,
+          downloadProfileId: profileId,
+          releaseTitle: data.title,
+          protocol: data.protocol,
+          indexerId: data.indexerId,
+          guid: data.guid,
+          state: "queued",
+        })
+        .run();
+    }
 
     // Record history event
     db.insert(history)

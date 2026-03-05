@@ -20,7 +20,65 @@ type SabnzbdResponse = {
       mbleft?: string;
     }>;
   };
+  history?: {
+    slots?: Array<{
+      nzo_id?: string;
+      name?: string;
+      status?: string;
+      bytes?: number;
+      storage?: string;
+    }>;
+  };
 };
+
+type QueueSlot = NonNullable<SabnzbdResponse["queue"]>["slots"] extends
+  | Array<infer T>
+  | undefined
+  ? T
+  : never;
+type HistorySlot = NonNullable<SabnzbdResponse["history"]>["slots"] extends
+  | Array<infer T>
+  | undefined
+  ? T
+  : never;
+
+function parseQueueSlots(slots: QueueSlot[]): DownloadItem[] {
+  return slots.map((slot) => {
+    const sizeMb = Number.parseFloat(slot.mb ?? "0");
+    const sizeLeftMb = Number.parseFloat(slot.mbleft ?? "0");
+    const totalBytes = sizeMb * 1024 * 1024;
+    const leftBytes = sizeLeftMb * 1024 * 1024;
+    return {
+      id: slot.nzo_id ?? "",
+      name: slot.filename ?? "",
+      status: slot.status ?? "",
+      size: Math.round(totalBytes),
+      downloaded: Math.round(totalBytes - leftBytes),
+      uploadSpeed: 0,
+      downloadSpeed: 0,
+      category: null,
+      outputPath: null,
+      isCompleted: false,
+    };
+  });
+}
+
+function parseHistorySlots(slots: HistorySlot[]): DownloadItem[] {
+  return slots
+    .filter((slot) => slot.status === "Completed")
+    .map((slot) => ({
+      id: slot.nzo_id ?? "",
+      name: slot.name ?? "",
+      status: slot.status ?? "",
+      size: Number(slot.bytes ?? 0),
+      downloaded: Number(slot.bytes ?? 0),
+      uploadSpeed: 0,
+      downloadSpeed: 0,
+      category: null,
+      outputPath: slot.storage ?? null,
+      isCompleted: true,
+    }));
+}
 
 const sabnzbdProvider: DownloadClientProvider = {
   async testConnection(config: ConnectionConfig): Promise<TestResult> {
@@ -124,32 +182,31 @@ const sabnzbdProvider: DownloadClientProvider = {
     );
     const apiKey = encodeURIComponent(config.apiKey ?? "");
 
-    const url = `${baseUrl}/api?mode=queue&apikey=${apiKey}&output=json`;
-    const response = await fetchWithTimeout(url, { method: "GET" });
+    // Fetch both queue and history in parallel
+    const [queueResponse, historyResponse] = await Promise.all([
+      fetchWithTimeout(
+        `${baseUrl}/api?mode=queue&apikey=${apiKey}&output=json`,
+        { method: "GET" },
+      ),
+      fetchWithTimeout(
+        `${baseUrl}/api?mode=history&apikey=${apiKey}&output=json&limit=50`,
+        { method: "GET" },
+      ),
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`SABnzbd queue error: HTTP ${response.status}`);
+    if (!queueResponse.ok) {
+      throw new Error(`SABnzbd queue error: HTTP ${queueResponse.status}`);
     }
 
-    const data = (await response.json()) as SabnzbdResponse;
-    const slots = data.queue?.slots ?? [];
+    const queueData = (await queueResponse.json()) as SabnzbdResponse;
+    const items = parseQueueSlots(queueData.queue?.slots ?? []);
 
-    return slots.map((slot) => {
-      const sizeMb = Number.parseFloat(slot.mb ?? "0");
-      const sizeLeftMb = Number.parseFloat(slot.mbleft ?? "0");
-      const totalBytes = sizeMb * 1024 * 1024;
-      const leftBytes = sizeLeftMb * 1024 * 1024;
-      return {
-        id: slot.nzo_id ?? "",
-        name: slot.filename ?? "",
-        status: slot.status ?? "",
-        size: Math.round(totalBytes),
-        downloaded: Math.round(totalBytes - leftBytes),
-        uploadSpeed: 0,
-        downloadSpeed: 0,
-        category: null,
-      };
-    });
+    if (historyResponse.ok) {
+      const historyData = (await historyResponse.json()) as SabnzbdResponse;
+      items.push(...parseHistorySlots(historyData.history?.slots ?? []));
+    }
+
+    return items;
   },
 };
 
