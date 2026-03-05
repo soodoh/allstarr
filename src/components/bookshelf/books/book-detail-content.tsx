@@ -23,7 +23,7 @@ export type BookLanguageEntry = {
 export type BookDetailData = {
   title: string;
   coverUrl: string | null;
-  images: Array<{ url: string; coverType: string }> | null;
+  images: Array<{ url: string; coverType: string }>;
   author: AuthorLink | null;
   authorName: string | null;
   bookAuthors: BookAuthorEntry[];
@@ -47,12 +47,15 @@ export default function BookDetailContent({
   book,
   children,
 }: BookDetailContentProps): JSX.Element {
-  const coverImages = useMemo(
-    () =>
-      book.images ??
-      (book.coverUrl ? [{ url: book.coverUrl, coverType: "cover" }] : null),
-    [book.images, book.coverUrl],
-  );
+  const coverImages = useMemo(() => {
+    if (book.images.length > 0) {
+      return book.images;
+    }
+    if (book.coverUrl) {
+      return [{ url: book.coverUrl, coverType: "cover" }];
+    }
+    return [];
+  }, [book.images, book.coverUrl]);
 
   const displayAuthor = book.author?.name ?? book.authorName;
 

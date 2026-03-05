@@ -79,8 +79,8 @@ export const createAuthorSchema = z.object({
   foreignAuthorId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
-    .nullable(),
-  tags: z.array(z.number()).nullable(),
+    .default([]),
+  tags: z.array(z.number()).default([]),
 });
 
 export const updateAuthorSchema = z.object({
@@ -99,11 +99,11 @@ export const createBookSchema = z.object({
   foreignBookId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
-    .nullable(),
+    .default([]),
   rating: z.number().nullable(),
   ratingsCount: z.number().nullable(),
   usersCount: z.number().nullable(),
-  tags: z.array(z.number()).nullable(),
+  tags: z.array(z.number()).default([]),
 });
 
 // Editions
@@ -131,7 +131,7 @@ export const createEditionSchema = z.object({
         contribution: z.string().nullable(),
       }),
     )
-    .nullable(),
+    .default([]),
 });
 
 export const updateEditionSchema = createEditionSchema.partial().extend({

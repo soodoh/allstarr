@@ -7,7 +7,7 @@ type AuthorCardProps = {
     id: number;
     name: string;
     bookCount: number;
-    images: Array<{ url: string; coverType: string }> | null;
+    images: Array<{ url: string; coverType: string }>;
   };
 };
 

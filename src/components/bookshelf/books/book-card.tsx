@@ -9,11 +9,11 @@ type BookCardProps = {
     title: string;
     editionId: number;
     editionTitle: string;
-    editionImages: Array<{ url: string; coverType: string }> | null;
+    editionImages: Array<{ url: string; coverType: string }>;
     bookAuthors: BookAuthorEntry[];
     releaseDate: string | null;
     description: string | null;
-    images: Array<{ url: string; coverType: string }> | null;
+    images: Array<{ url: string; coverType: string }>;
   };
 };
 

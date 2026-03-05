@@ -335,4 +335,18 @@ for (const setting of defaultSettings) {
 }
 console.log("  Seeded default settings");
 
+// Backfill NULL array columns with empty arrays
+const nullFixQueries = [
+  `UPDATE authors SET images = '[]' WHERE images IS NULL`,
+  `UPDATE authors SET tags = '[]' WHERE tags IS NULL`,
+  `UPDATE books SET images = '[]' WHERE images IS NULL`,
+  `UPDATE books SET tags = '[]' WHERE tags IS NULL`,
+  `UPDATE editions SET images = '[]' WHERE images IS NULL`,
+  `UPDATE editions SET contributors = '[]' WHERE contributors IS NULL`,
+];
+for (const query of nullFixQueries) {
+  sqlite.run(query);
+}
+console.log("  Backfilled NULL array columns with empty arrays");
+
 console.log("Done!");

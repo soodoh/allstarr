@@ -11,11 +11,12 @@ export const authors = sqliteTable("authors", {
   status: text("status").notNull().default("continuing"),
   isStub: integer("is_stub", { mode: "boolean" }).notNull().default(false),
   foreignAuthorId: text("foreign_author_id"),
-  images: text("images", { mode: "json" }).$type<
-    Array<{ url: string; coverType: string }>
-  >(),
+  images: text("images", { mode: "json" })
+    .$type<Array<{ url: string; coverType: string }>>()
+    .notNull()
+    .default([]),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
-  tags: text("tags", { mode: "json" }).$type<number[]>(),
+  tags: text("tags", { mode: "json" }).$type<number[]>().notNull().default([]),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
   metadataSourceMissingSince: integer("metadata_source_missing_since", {
     mode: "timestamp",
