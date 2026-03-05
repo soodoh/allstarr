@@ -314,8 +314,8 @@ INSERT INTO `quality_definitions` (`title`, `weight`, `min_size`, `max_size`, `p
 --> statement-breakpoint
 -- Seed: Quality Profiles
 INSERT INTO `quality_profiles` (`name`, `root_folder_path`, `cutoff`, `icon`, `items`, `upgrade_allowed`, `categories`) VALUES
-	('Ebook', '/books', 0, 'book-marked', '[4,5,3,2]', false, '[7020,8010]'),
-	('Audiobook', '/books', 0, 'audio-lines', '[6,7,8]', false, '[3030]');
+	('Ebook', './data/books', 0, 'book-marked', '[4,5,3,2]', false, '[7020,8010]'),
+	('Audiobook', './data/audiobooks', 0, 'audio-lines', '[6,7,8]', false, '[3030]');
 --> statement-breakpoint
 -- Seed: Scheduled Tasks
 INSERT INTO `scheduled_tasks` (`id`, `name`, `interval`, `enabled`) VALUES
