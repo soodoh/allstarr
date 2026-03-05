@@ -17,10 +17,10 @@ bun run build        # Build for production
 bun run start        # Start production server (.output/server/index.mjs)
 
 # Database
-bun run db:generate  # Generate Drizzle migration files
-bun run db:push      # Push schema changes to the database
+bun run db:generate  # Generate Drizzle migration files after schema changes
+bun run db:migrate   # Run migrations (creates DB + seeds default data)
+bun run db:push      # Push schema directly (dev only, no seed data)
 bun run db:studio    # Open Drizzle Studio GUI
-bun run db:seed      # Seed the DB with default quality definitions/profiles/settings
 
 # Add shadcn/ui components
 bunx shadcn@latest add <component-name>
