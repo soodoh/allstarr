@@ -2,12 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import {
-  rootFolders,
   indexers,
   syncedIndexers,
   downloadClients,
   settings,
 } from "src/db/schema";
+import { getRootFolderPaths } from "src/server/disk-scan";
 import { requireAuth } from "./middleware";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -49,27 +49,27 @@ const startTime = new Date().toISOString();
 function runHealthChecks(): HealthCheck[] {
   const checks: HealthCheck[] = [];
 
-  // Check root folders
-  const folders = db.select().from(rootFolders).all();
-  if (folders.length === 0) {
+  // Check root folders (derived from quality profiles)
+  const folderPaths = getRootFolderPaths();
+  if (folderPaths.length === 0) {
     checks.push({
       source: "RootFolderCheck",
       type: "warning",
       message:
-        "No root folders have been configured. Add at least one root folder in Settings.",
-      wikiUrl: "/settings/root-folders",
+        "No root folders have been configured. Set a root folder path on at least one quality profile in Settings.",
+      wikiUrl: "/settings/profiles",
     });
   } else {
-    for (const folder of folders) {
+    for (const folderPath of folderPaths) {
       try {
         // oxlint-disable-next-line no-bitwise -- fs.constants require bitwise OR
-        fs.accessSync(folder.path, fs.constants.R_OK | fs.constants.W_OK);
+        fs.accessSync(folderPath, fs.constants.R_OK | fs.constants.W_OK);
       } catch {
         checks.push({
           source: "RootFolderCheck",
           type: "error",
-          message: `Root folder "${folder.path}" is not accessible or does not exist.`,
-          wikiUrl: "/settings/root-folders",
+          message: `Root folder "${folderPath}" is not accessible or does not exist.`,
+          wikiUrl: "/settings/profiles",
         });
       }
     }
@@ -122,20 +122,20 @@ function runHealthChecks(): HealthCheck[] {
 }
 
 function getDiskSpace(): DiskSpaceEntry[] {
-  const folders = db.select().from(rootFolders).all();
-  return folders.map((folder) => {
-    let freeSpace = folder.freeSpace || 0;
-    let totalSpace = folder.totalSpace || 0;
+  const folderPaths = getRootFolderPaths();
+  return folderPaths.map((folderPath) => {
+    let freeSpace = 0;
+    let totalSpace = 0;
     try {
-      const stats = fs.statfsSync(folder.path);
+      const stats = fs.statfsSync(folderPath);
       freeSpace = Number(stats.bfree * stats.bsize);
       totalSpace = Number(stats.blocks * stats.bsize);
     } catch {
       // folder may not exist
     }
     return {
-      path: folder.path,
-      label: folder.path,
+      path: folderPath,
+      label: folderPath,
       freeSpace,
       totalSpace,
     };

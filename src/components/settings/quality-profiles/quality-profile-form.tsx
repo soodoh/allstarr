@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X } from "lucide-react";
+import { FolderOpen, GripVertical, X } from "lucide-react";
 import {
   PROFILE_ICONS,
   PROFILE_ICON_MAP,
@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
+import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 
 type QualityProfileFormProps = {
   initialValues?: {
@@ -46,7 +47,7 @@ type QualityProfileFormProps = {
     upgradeAllowed: boolean;
   };
   qualityDefinitions: Array<{ id: number; title: string }>;
-  rootFolders: Array<{ id: number; path: string }>;
+  serverCwd: string;
   onSubmit: (values: {
     name: string;
     icon: string;
@@ -269,11 +270,12 @@ function SortableQualityItem({
 export default function QualityProfileForm({
   initialValues,
   qualityDefinitions,
-  rootFolders,
+  serverCwd,
   onSubmit,
   onCancel,
   loading,
 }: QualityProfileFormProps): JSX.Element {
+  const [browseOpen, setBrowseOpen] = useState(false);
   const [name, setName] = useState(initialValues?.name || "");
   const [icon, setIcon] = useState(initialValues?.icon ?? "book-open");
   const [rootFolderPath, setRootFolderPath] = useState(
@@ -421,21 +423,35 @@ export default function QualityProfileForm({
 
       <div className="space-y-2">
         <Label htmlFor="root-folder">Root Folder</Label>
-        <Select value={rootFolderPath} onValueChange={setRootFolderPath}>
-          <SelectTrigger id="root-folder" className="w-full">
-            <SelectValue placeholder="Select root folder" />
-          </SelectTrigger>
-          <SelectContent>
-            {rootFolders.map((f) => (
-              <SelectItem key={f.id} value={f.path}>
-                {f.path}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Input
+            id="root-folder"
+            value={rootFolderPath}
+            onChange={(e) => setRootFolderPath(e.target.value)}
+            placeholder="/path/to/books"
+            className="font-mono"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setBrowseOpen(true)}
+          >
+            <FolderOpen className="h-4 w-4" />
+          </Button>
+        </div>
         {errors.rootFolderPath && (
           <p className="text-sm text-destructive">{errors.rootFolderPath}</p>
         )}
+        <DirectoryBrowserDialog
+          open={browseOpen}
+          onOpenChange={setBrowseOpen}
+          initialPath={rootFolderPath || serverCwd}
+          onSelect={(path) => {
+            setRootFolderPath(path);
+            setBrowseOpen(false);
+          }}
+        />
       </div>
 
       <div className="flex items-center gap-2">

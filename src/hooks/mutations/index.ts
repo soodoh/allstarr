@@ -2,7 +2,7 @@
 export * from "./authors";
 export * from "./books";
 export * from "./quality-profiles";
-export * from "./root-folders";
+
 export * from "./settings";
 export * from "./download-clients";
 export * from "./indexers";

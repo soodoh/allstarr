@@ -50,12 +50,6 @@ export const queryKeys = {
     lists: () => ["qualityDefinitions", "list"] as const,
   },
 
-  // ─── Root Folders ─────────────────────────────────────────────────────────
-  rootFolders: {
-    all: ["rootFolders"] as const,
-    lists: () => ["rootFolders", "list"] as const,
-  },
-
   // ─── Dashboard ──────────────────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,

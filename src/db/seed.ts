@@ -231,14 +231,6 @@ if (defsUpdated > 0) {
   );
 }
 
-// Seed default root folder
-const existingFolders = db.select().from(schema.rootFolders).all();
-const folderExists = existingFolders.some((f) => f.path === defaultRootFolder);
-if (!folderExists) {
-  db.insert(schema.rootFolders).values({ path: defaultRootFolder }).run();
-  console.log(`  Seeded default root folder: ${defaultRootFolder}`);
-}
-
 // Seed default quality profiles
 const profiles = db.select().from(schema.qualityProfiles).all();
 if (profiles.length === 0) {

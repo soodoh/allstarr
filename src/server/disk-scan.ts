@@ -7,11 +7,19 @@ import {
   books,
   booksAuthors,
   bookFiles,
-  rootFolders,
+  qualityProfiles,
   history,
 } from "src/db/schema";
 import { eq, like } from "drizzle-orm";
 import { matchQuality } from "src/server/indexers/quality-parser";
+
+export function getRootFolderPaths(): string[] {
+  const rows = db
+    .select({ rootFolderPath: qualityProfiles.rootFolderPath })
+    .from(qualityProfiles)
+    .all();
+  return [...new Set(rows.map((r) => r.rootFolderPath).filter(Boolean))];
+}
 
 const SUPPORTED_EXTENSIONS = new Set([
   ".pdf",
@@ -318,22 +326,6 @@ export function rescanRootFolder(rootFolderPath: string): ScanStats {
   if (!fs.existsSync(rootFolderPath)) {
     stats.errors.push(`Root folder does not exist: ${rootFolderPath}`);
     return stats;
-  }
-
-  // Update disk space stats
-  try {
-    const fsStats = fs.statfsSync(rootFolderPath);
-    const freeSpace = fsStats.bfree * fsStats.bsize;
-    const totalSpace = fsStats.blocks * fsStats.bsize;
-    db.update(rootFolders)
-      .set({ freeSpace, totalSpace })
-      .where(eq(rootFolders.path, rootFolderPath))
-      .run();
-  } catch (error) {
-    console.warn(
-      `[rescan-folders] Could not update disk stats for ${rootFolderPath}:`,
-      error,
-    );
   }
 
   // Walk directories and discover files

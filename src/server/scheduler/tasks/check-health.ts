@@ -1,6 +1,5 @@
 import { db } from "src/db";
 import {
-  rootFolders,
   indexers,
   syncedIndexers,
   downloadClients,
@@ -8,20 +7,21 @@ import {
 } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "node:fs";
+import { getRootFolderPaths } from "src/server/disk-scan";
 import { registerTask } from "../registry";
 import type { TaskResult } from "../registry";
 
 function runHealthChecks(): number {
   let issues = 0;
 
-  const folders = db.select().from(rootFolders).all();
-  if (folders.length === 0) {
+  const folderPaths = getRootFolderPaths();
+  if (folderPaths.length === 0) {
     issues += 1;
   } else {
-    for (const folder of folders) {
+    for (const folderPath of folderPaths) {
       try {
         // oxlint-disable-next-line no-bitwise
-        fs.accessSync(folder.path, fs.constants.R_OK | fs.constants.W_OK);
+        fs.accessSync(folderPath, fs.constants.R_OK | fs.constants.W_OK);
       } catch {
         issues += 1;
       }

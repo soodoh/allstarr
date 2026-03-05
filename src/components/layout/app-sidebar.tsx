@@ -5,7 +5,6 @@ import {
   BookOpen,
   Users,
   Settings,
-  FolderOpen,
   Sliders,
   FileText,
   FileType,
@@ -75,7 +74,6 @@ const navGroups: NavGroup[] = [
       { title: "Metadata", to: "/settings/metadata", icon: FileText },
       { title: "Formats", to: "/settings/formats", icon: FileType },
       { title: "Profiles", to: "/settings/profiles", icon: Sliders },
-      { title: "Root Folders", to: "/settings/root-folders", icon: FolderOpen },
       {
         title: "Download Clients",
         to: "/settings/download-clients",

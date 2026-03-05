@@ -14,8 +14,8 @@ import QualityProfileForm from "src/components/settings/quality-profiles/quality
 import {
   qualityProfilesListQuery,
   qualityDefinitionsListQuery,
-  rootFoldersListQuery,
 } from "src/lib/queries";
+import { getServerCwdFn } from "src/server/filesystem";
 import {
   useCreateQualityProfile,
   useUpdateQualityProfile,
@@ -24,19 +24,20 @@ import {
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
   loader: async ({ context }) => {
-    await Promise.all([
+    const results = await Promise.all([
       context.queryClient.ensureQueryData(qualityProfilesListQuery()),
       context.queryClient.ensureQueryData(qualityDefinitionsListQuery()),
-      context.queryClient.ensureQueryData(rootFoldersListQuery()),
+      getServerCwdFn(),
     ]);
+    return { serverCwd: results[2] };
   },
   component: ProfilesPage,
 });
 
 function ProfilesPage() {
+  const { serverCwd } = Route.useLoaderData();
   const { data: profiles } = useSuspenseQuery(qualityProfilesListQuery());
   const { data: definitions } = useSuspenseQuery(qualityDefinitionsListQuery());
-  const { data: rootFolders } = useSuspenseQuery(rootFoldersListQuery());
 
   const createProfile = useCreateQualityProfile();
   const updateProfile = useUpdateQualityProfile();
@@ -138,7 +139,7 @@ function ProfilesPage() {
                 : undefined
             }
             qualityDefinitions={definitions}
-            rootFolders={rootFolders}
+            serverCwd={serverCwd}
             onSubmit={
               editingProfile ? handleUpdateProfile : handleCreateProfile
             }
