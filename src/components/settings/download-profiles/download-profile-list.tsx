@@ -15,6 +15,12 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "src/components/ui/tooltip";
 
 type DownloadProfile = {
   id: number;
@@ -93,11 +99,20 @@ export default function DownloadProfileList({
                   })()}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm max-w-0">
-                  <div className="truncate text-left font-mono" dir="rtl">
-                    <bdo dir="ltr" title={profile.rootFolderPath}>
-                      {profile.rootFolderPath || "—"}
-                    </bdo>
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="truncate text-left font-mono" dir="rtl">
+                          <bdo dir="ltr">{profile.rootFolderPath || "—"}</bdo>
+                        </div>
+                      </TooltipTrigger>
+                      {profile.rootFolderPath && (
+                        <TooltipContent>
+                          {profile.rootFolderPath}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
