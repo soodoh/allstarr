@@ -87,6 +87,8 @@ function ProfilesPage() {
     );
   };
 
+  const activeMutation = editingProfile ? updateProfile : createProfile;
+
   const handleEditProfile = (profile: (typeof profiles)[number]) => {
     setEditingProfile(profile);
     setProfileDialogOpen(true);
@@ -148,6 +150,7 @@ function ProfilesPage() {
             }
             onCancel={() => setProfileDialogOpen(false)}
             loading={profileLoading}
+            serverError={activeMutation.error?.message}
           />
         </DialogContent>
       </Dialog>

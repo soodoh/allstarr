@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "./middleware";
 import { browseDirectorySchema } from "src/lib/validators";
@@ -37,8 +38,29 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
     const parent = parentRaw === current ? null : parentRaw;
 
     const entries = fs.readdirSync(current, { withFileTypes: true });
+    const isDir = (entry: Dirent) => {
+      if (entry.isDirectory()) {
+        return true;
+      }
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.statSync(
+            normalized === "/"
+              ? `/${entry.name}`
+              : `${normalized}/${entry.name}`,
+          );
+          return target.isDirectory();
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    };
     const directories: DirectoryEntry[] = entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .filter(
+        (entry) =>
+          isDir(entry) && (data.showHidden || !entry.name.startsWith(".")),
+      )
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({
         name: entry.name,

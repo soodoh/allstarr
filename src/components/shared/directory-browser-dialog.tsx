@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowUp, Folder, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowUp, Folder, FolderDot, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,12 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import { ScrollArea } from "src/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "src/components/ui/tooltip";
 import { browseDirectoryQuery } from "src/lib/queries";
 
 type DirectoryBrowserDialogProps = {
@@ -26,27 +32,24 @@ export default function DirectoryBrowserDialog({
   onSelect,
   initialPath = "/",
 }: DirectoryBrowserDialogProps): JSX.Element {
-  const [currentPath, setCurrentPath] = useState(initialPath);
-
-  // Sync currentPath whenever the dialog opens
-  useEffect(() => {
-    if (open) {
-      setCurrentPath(initialPath);
-    }
-  }, [open, initialPath]);
+  const [requestedPath, setRequestedPath] = useState(initialPath);
+  const [showHidden, setShowHidden] = useState(true);
 
   const { data, isLoading, error } = useQuery({
-    ...browseDirectoryQuery(currentPath),
+    ...browseDirectoryQuery(requestedPath, showHidden),
     // Only fetch while the dialog is actually open
     enabled: open,
   });
 
+  // The server resolves the actual path (e.g. falls back to cwd if requested path doesn't exist)
+  const displayPath = data?.current ?? requestedPath;
+
   function handleNavigate(targetPath: string) {
-    setCurrentPath(targetPath);
+    setRequestedPath(targetPath);
   }
 
   function handleSelect() {
-    onSelect(currentPath);
+    onSelect(displayPath);
   }
 
   function renderContent() {
@@ -110,15 +113,46 @@ export default function DirectoryBrowserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setRequestedPath(initialPath);
+        }
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Browse for Folder</DialogTitle>
         </DialogHeader>
 
         {/* Current path display */}
-        <div className="rounded-md bg-muted px-3 py-2">
-          <span className="font-mono text-sm break-all">{currentPath}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 rounded-md bg-muted px-3 py-2">
+            <span className="font-mono text-sm break-all">{displayPath}</span>
+          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowHidden((v) => !v)}
+                >
+                  <FolderDot
+                    className={`h-4 w-4 ${showHidden ? "" : "opacity-40"}`}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showHidden
+                  ? "Hide hidden directories"
+                  : "Show hidden directories"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Directory listing */}

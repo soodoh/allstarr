@@ -48,6 +48,7 @@ export const updateQualityDefinitionSchema = z.object({
 
 export const browseDirectorySchema = z.object({
   path: z.string().min(1, "Path is required"),
+  showHidden: z.boolean().default(true),
 });
 
 // Settings

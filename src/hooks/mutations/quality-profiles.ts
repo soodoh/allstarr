@@ -29,7 +29,6 @@ export function useCreateQualityProfile() {
         queryKey: queryKeys.qualityProfiles.all,
       });
     },
-    onError: () => toast.error("Failed to create profile"),
   });
 }
 
@@ -44,7 +43,6 @@ export function useUpdateQualityProfile() {
         queryKey: queryKeys.qualityProfiles.all,
       });
     },
-    onError: () => toast.error("Failed to update profile"),
   });
 }
 
