@@ -150,6 +150,7 @@ const defaultProfiles = [
     icon: "book-marked",
     items: [4, 5, 3, 2],
     upgradeAllowed: false,
+    categories: [7020, 8010],
   },
   {
     name: "Audiobook",
@@ -158,6 +159,7 @@ const defaultProfiles = [
     icon: "audio-lines",
     items: [6, 7, 8],
     upgradeAllowed: false,
+    categories: [3030],
   },
 ];
 
@@ -240,21 +242,33 @@ if (profiles.length === 0) {
   console.log(`  Seeded ${defaultProfiles.length} default quality profile(s)`);
 }
 
-// Backfill root folder path and icons on existing profiles
-const profileBackfill: Record<string, { icon: string }> = {
-  Ebook: { icon: "book-marked" },
-  Audiobook: { icon: "audio-lines" },
-};
+// Backfill root folder path, icons, and categories on existing profiles
+const profileBackfill: Record<string, { icon: string; categories: number[] }> =
+  {
+    Ebook: { icon: "book-marked", categories: [7020, 8010] },
+    Audiobook: { icon: "audio-lines", categories: [3030] },
+  };
 let profilesBackfilled = 0;
 const allProfiles = db.select().from(schema.qualityProfiles).all();
 for (const profile of allProfiles) {
-  const updates: { icon?: string; rootFolderPath?: string } = {};
+  const updates: {
+    icon?: string;
+    rootFolderPath?: string;
+    categories?: number[];
+  } = {};
   const backfill = profileBackfill[profile.name];
   if (backfill && profile.icon !== backfill.icon) {
     updates.icon = backfill.icon;
   }
   if (!profile.rootFolderPath) {
     updates.rootFolderPath = defaultRootFolder;
+  }
+  if (
+    backfill &&
+    (!profile.categories ||
+      (Array.isArray(profile.categories) && profile.categories.length === 0))
+  ) {
+    updates.categories = backfill.categories;
   }
   if (Object.keys(updates).length > 0) {
     db.update(schema.qualityProfiles)

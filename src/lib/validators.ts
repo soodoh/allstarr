@@ -8,6 +8,7 @@ export const createQualityProfileSchema = z.object({
   items: z.array(z.number()).default([]),
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
+  categories: z.array(z.number()).default([]),
 });
 
 export const updateQualityProfileSchema = createQualityProfileSchema.extend({

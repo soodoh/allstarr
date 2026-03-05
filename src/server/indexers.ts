@@ -39,20 +39,13 @@ import type { ConnectionConfig } from "./download-clients/types";
 
 // ─── Category constants ──────────────────────────────────────────────────────
 
-/** Newznab ebook categories — use specific subcategories, NOT the parent 7000
- *  (which includes comics/mags and floods results, pushing actual ebooks off the page).
- *  Matches Readarr's defaults: [3030, 7020, 8010]. */
-export const EBOOK_CATEGORIES = [7020, 8010];
-export const AUDIOBOOK_CATEGORIES = [3030];
-/** Quality definition IDs for audiobook formats (MP3, M4B, FLAC) */
-export const AUDIOBOOK_QUALITY_IDS = new Set([6, 7, 8]);
-
 export type ProfileInfo = {
   id: number;
   name: string;
   items: number[];
   cutoff: number;
   upgradeAllowed: boolean;
+  categories: number[];
 };
 
 /** Look up the quality profiles for a book's primary author */
@@ -92,6 +85,7 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
     items: (p.items ?? []) as number[],
     cutoff: p.cutoff,
     upgradeAllowed: p.upgradeAllowed,
+    categories: (p.categories ?? []) as number[],
   }));
 }
 
@@ -106,15 +100,15 @@ export function unionProfileItems(profiles: ProfileInfo[]): number[] | null {
   return union.size > 0 ? [...union] : null;
 }
 
-/** Derive search categories from quality profiles — includes audiobook categories
- *  when any profile allows an audiobook format (MP3, M4B, FLAC). */
+/** Derive search categories from quality profiles as a union of each profile's stored categories */
 export function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
-  const hasAudiobook = profiles.some((p) =>
-    p.items.some((id) => AUDIOBOOK_QUALITY_IDS.has(id)),
-  );
-  return hasAudiobook
-    ? [...EBOOK_CATEGORIES, ...AUDIOBOOK_CATEGORIES]
-    : [...EBOOK_CATEGORIES];
+  const union = new Set<number>();
+  for (const profile of profiles) {
+    for (const cat of profile.categories) {
+      union.add(cat);
+    }
+  }
+  return union.size > 0 ? [...union] : [];
 }
 
 // ─── Release title cleaning & fuzzy matching ─────────────────────────────────
@@ -640,11 +634,9 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       categories = data.categories;
     } else if (data.bookId) {
       const profiles = getProfilesForBook(data.bookId);
-      categories = profiles
-        ? getCategoriesForProfiles(profiles)
-        : [...EBOOK_CATEGORIES];
+      categories = profiles ? getCategoriesForProfiles(profiles) : [];
     } else {
-      categories = [...EBOOK_CATEGORIES];
+      categories = [];
     }
 
     // Search each indexer sequentially to avoid rate-limiting
