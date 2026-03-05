@@ -1,1 +1,0 @@
-ALTER TABLE `quality_profiles` ADD `categories` text;

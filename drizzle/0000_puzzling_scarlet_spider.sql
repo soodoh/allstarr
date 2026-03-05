@@ -59,9 +59,9 @@ CREATE TABLE `authors` (
 	`status` text DEFAULT 'continuing' NOT NULL,
 	`is_stub` integer DEFAULT false NOT NULL,
 	`foreign_author_id` text,
-	`images` text,
+	`images` text DEFAULT '[]' NOT NULL,
 	`monitored` integer DEFAULT true NOT NULL,
-	`tags` text,
+	`tags` text DEFAULT '[]' NOT NULL,
 	`metadata_updated_at` integer,
 	`metadata_source_missing_since` integer,
 	`created_at` integer NOT NULL,
@@ -85,11 +85,11 @@ CREATE TABLE `books` (
 	`release_date` text,
 	`release_year` integer,
 	`foreign_book_id` text,
-	`images` text,
+	`images` text DEFAULT '[]' NOT NULL,
 	`rating` real,
 	`ratings_count` integer,
 	`users_count` integer,
-	`tags` text,
+	`tags` text DEFAULT '[]' NOT NULL,
 	`metadata_updated_at` integer,
 	`metadata_source_missing_since` integer,
 	`created_at` integer NOT NULL,
@@ -127,8 +127,8 @@ CREATE TABLE `editions` (
 	`users_count` integer,
 	`score` integer,
 	`foreign_edition_id` text,
-	`images` text,
-	`contributors` text,
+	`images` text DEFAULT '[]' NOT NULL,
+	`contributors` text DEFAULT '[]' NOT NULL,
 	`is_default_cover` integer DEFAULT false NOT NULL,
 	`metadata_updated_at` integer,
 	`metadata_source_missing_since` integer,
@@ -181,9 +181,10 @@ CREATE TABLE `quality_profiles` (
 	`name` text NOT NULL,
 	`root_folder_path` text DEFAULT '' NOT NULL,
 	`cutoff` integer DEFAULT 0 NOT NULL,
-	`items` text,
+	`items` text DEFAULT '[]' NOT NULL,
 	`upgrade_allowed` integer DEFAULT false NOT NULL,
-	`icon` text DEFAULT 'book-open' NOT NULL
+	`icon` text DEFAULT 'book-open' NOT NULL,
+	`categories` text DEFAULT '[]' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `quality_definitions` (
@@ -197,14 +198,6 @@ CREATE TABLE `quality_definitions` (
 	`specifications` text DEFAULT '[]' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `root_folders` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`path` text NOT NULL,
-	`free_space` integer,
-	`total_space` integer
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `root_folders_path_unique` ON `root_folders` (`path`);--> statement-breakpoint
 CREATE TABLE `tags` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`label` text NOT NULL
@@ -250,7 +243,6 @@ CREATE TABLE `download_clients` (
 CREATE TABLE `indexers` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
-	`enabled` integer DEFAULT true NOT NULL,
 	`enable_rss` integer DEFAULT true NOT NULL,
 	`enable_automatic_search` integer DEFAULT true NOT NULL,
 	`enable_interactive_search` integer DEFAULT true NOT NULL,
@@ -308,3 +300,37 @@ CREATE TABLE `scheduled_tasks` (
 	`last_message` text,
 	`enabled` integer DEFAULT true NOT NULL
 );
+--> statement-breakpoint
+-- Seed: Quality Definitions
+INSERT INTO `quality_definitions` (`title`, `weight`, `min_size`, `max_size`, `preferred_size`, `color`, `specifications`) VALUES
+	('Unknown', 1, 0, 0, 0, 'gray', '[]'),
+	('PDF', 2, 0, 100, 10, 'yellow', '[{"type":"releaseTitle","value":"\\bpdf\\b","negate":false,"required":true}]'),
+	('MOBI', 3, 0, 50, 5, 'amber', '[{"type":"releaseTitle","value":"\\bmobi\\b","negate":false,"required":true}]'),
+	('EPUB', 4, 0, 50, 5, 'green', '[{"type":"releaseTitle","value":"\\bepub\\b","negate":false,"required":true}]'),
+	('AZW3', 5, 0, 50, 5, 'blue', '[{"type":"releaseTitle","value":"\\bazw3?\\b","negate":false,"required":true}]'),
+	('MP3', 6, 0, 2000, 500, 'orange', '[{"type":"releaseTitle","value":"\\bmp3\\b","negate":false,"required":true}]'),
+	('M4B', 7, 0, 3000, 1000, 'cyan', '[{"type":"releaseTitle","value":"\\bm4b\\b","negate":false,"required":true}]'),
+	('FLAC', 8, 0, 5000, 2000, 'purple', '[{"type":"releaseTitle","value":"\\bflac\\b","negate":false,"required":true}]');
+--> statement-breakpoint
+-- Seed: Quality Profiles
+INSERT INTO `quality_profiles` (`name`, `root_folder_path`, `cutoff`, `icon`, `items`, `upgrade_allowed`, `categories`) VALUES
+	('Ebook', '/books', 0, 'book-marked', '[4,5,3,2]', false, '[7020,8010]'),
+	('Audiobook', '/books', 0, 'audio-lines', '[6,7,8]', false, '[3030]');
+--> statement-breakpoint
+-- Seed: Scheduled Tasks
+INSERT INTO `scheduled_tasks` (`id`, `name`, `interval`, `enabled`) VALUES
+	('rss-sync', 'RSS Sync', 900, true),
+	('refresh-metadata', 'Refresh Metadata', 43200, true),
+	('check-health', 'Check Health', 1500, true),
+	('housekeeping', 'Housekeeping', 86400, true),
+	('backup', 'Backup Database', 604800, true),
+	('rescan-folders', 'Rescan Folders', 21600, true),
+	('refresh-downloads', 'Refresh Downloads', 60, true);
+--> statement-breakpoint
+-- Seed: Default Settings
+INSERT INTO `settings` (`key`, `value`) VALUES
+	('naming.authorFolder', '"{Author Name}"'),
+	('naming.bookFolder', '"{Book Title} ({Release Year})"'),
+	('naming.bookFile', '"{Author Name} - {Book Title}"'),
+	('general.logLevel', '"info"'),
+	('metadata.profile', '{"allowedLanguages":["en"],"skipMissingReleaseDate":false,"skipMissingIsbnAsin":false,"skipCompilations":true}');
