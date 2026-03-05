@@ -293,7 +293,7 @@ for (const profile of profilesToMigrate) {
   // Detect old format: items are objects with {quality: {id}, allowed}
   if (typeof raw[0] === "object" && raw[0] !== null && "quality" in raw[0]) {
     const migrated = (
-      raw as Array<{ quality: { id: number }; allowed: boolean }>
+      raw as unknown as Array<{ quality: { id: number }; allowed: boolean }>
     )
       .filter((i) => i.allowed)
       .map((i) => i.quality.id);

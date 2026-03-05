@@ -13,7 +13,7 @@ import {
   seriesBookLinks,
   history,
 } from "src/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   fetchAuthorComplete,
@@ -606,7 +606,6 @@ async function importAuthorInternal(data: {
             images: toImageArray(ed.coverUrl),
             contributors: ed.contributors,
             isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-            monitored: false,
             metadataUpdatedAt: now,
           })
           .run();
@@ -705,35 +704,6 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       .get();
 
     if (alreadyImported) {
-      // Monitor the default cover edition (or first by readers)
-      const defaultEdition = db
-        .select({ id: editions.id })
-        .from(editions)
-        .where(
-          and(
-            eq(editions.bookId, alreadyImported.id),
-            eq(editions.isDefaultCover, true),
-          ),
-        )
-        .get();
-
-      const targetEdition =
-        defaultEdition ??
-        db
-          .select({ id: editions.id })
-          .from(editions)
-          .where(eq(editions.bookId, alreadyImported.id))
-          .orderBy(desc(editions.usersCount))
-          .limit(1)
-          .get();
-
-      if (targetEdition) {
-        db.update(editions)
-          .set({ monitored: true })
-          .where(eq(editions.id, targetEdition.id))
-          .run();
-      }
-
       db.update(books)
         .set({ updatedAt: now })
         .where(eq(books.id, alreadyImported.id))
@@ -1214,7 +1184,6 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
               images: toImageArray(ed.coverUrl),
               contributors: ed.contributors,
               isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-              monitored: false,
               metadataUpdatedAt: now,
             })
             .run();
@@ -1723,35 +1692,6 @@ export const monitorBookFn = createServerFn({ method: "POST" })
           });
         }
       }
-    }
-
-    // Monitor the default cover edition (or first by readers)
-    const defaultEdition = db
-      .select({ id: editions.id })
-      .from(editions)
-      .where(
-        and(
-          eq(editions.bookId, data.bookId),
-          eq(editions.isDefaultCover, true),
-        ),
-      )
-      .get();
-
-    const targetEdition =
-      defaultEdition ??
-      db
-        .select({ id: editions.id })
-        .from(editions)
-        .where(eq(editions.bookId, data.bookId))
-        .orderBy(desc(editions.usersCount))
-        .limit(1)
-        .get();
-
-    if (targetEdition) {
-      db.update(editions)
-        .set({ monitored: true })
-        .where(eq(editions.id, targetEdition.id))
-        .run();
     }
 
     db.insert(history)

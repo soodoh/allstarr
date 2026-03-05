@@ -12,6 +12,7 @@ import {
 } from "src/components/ui/dialog";
 import Label from "src/components/ui/label";
 import type {
+  BookLanguage,
   HardcoverBookDetail,
   HardcoverSearchItem,
 } from "src/server/search";
@@ -136,11 +137,11 @@ function getHardcoverOverrides(
 function buildBookDetailData(
   book: HardcoverSearchItem,
   hcBook: HardcoverBookDetail | undefined,
-  languages: string[] | undefined,
+  languages: BookLanguage[] | undefined,
   primaryAuthor: string | null,
   bookAuthors: Array<{
     authorId: null;
-    foreignAuthorId: number;
+    foreignAuthorId: string;
     authorName: string;
     isPrimary: boolean;
   }>,
@@ -207,7 +208,7 @@ export default function BookPreviewModal({
           : (book.subtitle ?? null),
       bookAuthors: contributors.map((c, i) => ({
         authorId: null,
-        foreignAuthorId: c.id,
+        foreignAuthorId: String(c.id),
         authorName: c.name,
         isPrimary: i === 0,
       })),

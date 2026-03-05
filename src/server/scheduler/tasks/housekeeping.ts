@@ -12,14 +12,18 @@ registerTask({
   handler: async (): Promise<TaskResult> => {
     // Delete history older than 90 days
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const deleted = db.delete(history).where(lt(history.date, cutoff)).run();
+    const deleted = db
+      .delete(history)
+      .where(lt(history.date, cutoff))
+      .returning({ id: history.id })
+      .all();
 
     // Optimize the database
     db.$client.run("PRAGMA optimize");
 
     return {
       success: true,
-      message: `Cleaned ${deleted.changes} old history record(s), optimized database`,
+      message: `Cleaned ${deleted.length} old history record(s), optimized database`,
     };
   },
 });
