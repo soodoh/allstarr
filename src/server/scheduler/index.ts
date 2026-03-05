@@ -8,7 +8,6 @@ import { getAllTasks, getTask } from "./registry";
 import "./tasks/check-health";
 import "./tasks/housekeeping";
 import "./tasks/backup";
-import "./tasks/refresh-downloads";
 import "./tasks/refresh-metadata";
 import "./tasks/rss-sync";
 import "./tasks/rescan-folders";

@@ -1,6 +1,8 @@
 import type { ComponentType, JSX } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import AllstarrIcon from "src/components/icons/allstarr-icon";
+import { queueCountQuery } from "src/lib/queries/queue";
 import {
   BookOpen,
   Users,
@@ -106,6 +108,7 @@ export default function AppSidebar(): JSX.Element {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const activeGroup = getActiveGroup(currentPath, navGroups);
+  const { data: queueCount } = useQuery(queueCountQuery());
 
   const isChildActive = (to: string) => {
     return currentPath.startsWith(to);
@@ -139,6 +142,13 @@ export default function AppSidebar(): JSX.Element {
                       <Link to={group.to}>
                         <group.icon className="h-4 w-4" />
                         <span>{group.title}</span>
+                        {group.title === "Activity" &&
+                          queueCount !== undefined &&
+                          queueCount > 0 && (
+                            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground">
+                              {queueCount}
+                            </span>
+                          )}
                       </Link>
                     </SidebarMenuButton>
 
