@@ -13,16 +13,16 @@ import {
 import { Badge } from "src/components/ui/badge";
 import Slider from "src/components/ui/slider";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
-import { useUpdateQualityDefinition } from "src/hooks/mutations";
+import { useUpdateDownloadFormat } from "src/hooks/mutations";
 
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
-import type { qualityDefinitions } from "src/db/schema";
+import type { downloadFormats } from "src/db/schema";
 
-type QualityDefinition = typeof qualityDefinitions.$inferSelect;
+type DownloadFormat = typeof downloadFormats.$inferSelect;
 
-type QualityDefinitionListProps = {
-  definitions: QualityDefinition[];
-  onEdit: (def: QualityDefinition) => void;
+type DownloadFormatListProps = {
+  definitions: DownloadFormat[];
+  onEdit: (def: DownloadFormat) => void;
   onDelete: (id: number) => void;
 };
 
@@ -30,9 +30,9 @@ function isAudioFormat(title: string): boolean {
   return /^(mp3|m4b|flac|aac|ogg|wma|wav)$/i.test(title);
 }
 
-function SizeSlider({ def }: { def: QualityDefinition }): JSX.Element {
+function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
   const maxRange = isAudioFormat(def.title) ? 5000 : 500;
-  const updateDef = useUpdateQualityDefinition();
+  const updateDef = useUpdateDownloadFormat();
 
   const [values, setValues] = useState<[number, number, number]>([
     def.minSize ?? 0,
@@ -92,19 +92,17 @@ function SizeSlider({ def }: { def: QualityDefinition }): JSX.Element {
   );
 }
 
-export default function QualityDefinitionList({
+export default function DownloadFormatList({
   definitions,
   onEdit,
   onDelete,
-}: QualityDefinitionListProps): JSX.Element {
-  const [deleteTarget, setDeleteTarget] = useState<QualityDefinition | null>(
-    null,
-  );
+}: DownloadFormatListProps): JSX.Element {
+  const [deleteTarget, setDeleteTarget] = useState<DownloadFormat | null>(null);
 
   if (definitions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        No quality definitions found. Create one to get started.
+        No download formats found. Create one to get started.
       </div>
     );
   }
@@ -165,8 +163,8 @@ export default function QualityDefinitionList({
             setDeleteTarget(null);
           }
         }}
-        title="Delete Quality Definition"
-        description={`Are you sure you want to delete "${deleteTarget?.title}"? It will be removed from all quality profiles.`}
+        title="Delete Download Format"
+        description={`Are you sure you want to delete "${deleteTarget?.title}"? It will be removed from all download profiles.`}
         onConfirm={() => {
           if (deleteTarget) {
             onDelete(deleteTarget.id);

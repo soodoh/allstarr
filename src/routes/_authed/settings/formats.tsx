@@ -9,28 +9,28 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
-import QualityDefinitionList from "src/components/settings/quality-profiles/quality-definition-list";
-import QualityDefinitionForm from "src/components/settings/quality-profiles/quality-definition-form";
-import { qualityDefinitionsListQuery } from "src/lib/queries";
+import DownloadFormatList from "src/components/settings/download-formats/download-format-list";
+import DownloadFormatForm from "src/components/settings/download-formats/download-format-form";
+import { downloadFormatsListQuery } from "src/lib/queries";
 import {
-  useCreateQualityDefinition,
-  useDeleteQualityDefinition,
-  useUpdateQualityDefinition,
+  useCreateDownloadFormat,
+  useDeleteDownloadFormat,
+  useUpdateDownloadFormat,
 } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/settings/formats")({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(qualityDefinitionsListQuery());
+    await context.queryClient.ensureQueryData(downloadFormatsListQuery());
   },
   component: FormatsPage,
 });
 
 function FormatsPage() {
-  const { data: definitions } = useSuspenseQuery(qualityDefinitionsListQuery());
+  const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
 
-  const createDefinition = useCreateQualityDefinition();
-  const updateDefinition = useUpdateQualityDefinition();
-  const deleteDefinition = useDeleteQualityDefinition();
+  const createDefinition = useCreateDownloadFormat();
+  const updateDefinition = useUpdateDownloadFormat();
+  const deleteDefinition = useDeleteDownloadFormat();
 
   const [defDialogOpen, setDefDialogOpen] = useState(false);
   const [editingDef, setEditingDef] = useState<
@@ -113,7 +113,7 @@ function FormatsPage() {
       />
 
       <div className="space-y-4">
-        <QualityDefinitionList
+        <DownloadFormatList
           definitions={definitions}
           onEdit={handleEditDef}
           onDelete={(id) => deleteDefinition.mutate(id)}
@@ -127,7 +127,7 @@ function FormatsPage() {
               {editingDef ? "Edit Format" : "Add Format"}
             </DialogTitle>
           </DialogHeader>
-          <QualityDefinitionForm
+          <DownloadFormatForm
             initialValues={
               editingDef
                 ? {

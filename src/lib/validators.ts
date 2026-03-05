@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// Quality Profiles
-const qualityProfileBaseSchema = z.object({
+// Download Profiles
+const downloadProfileBaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   rootFolderPath: z.string().min(1, "Root folder is required"),
   cutoff: z.number().default(0),
@@ -11,19 +11,19 @@ const qualityProfileBaseSchema = z.object({
   categories: z.array(z.number()).default([]),
 });
 
-export const createQualityProfileSchema = qualityProfileBaseSchema.refine(
+export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
   (data) => !data.upgradeAllowed || data.cutoff > 0,
   { message: "Upgrade cutoff quality is required", path: ["cutoff"] },
 );
 
-export const updateQualityProfileSchema = qualityProfileBaseSchema
+export const updateDownloadProfileSchema = downloadProfileBaseSchema
   .extend({ id: z.number() })
   .refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
     message: "Upgrade cutoff quality is required",
     path: ["cutoff"],
   });
 
-// Quality Definitions
+// Download Formats
 export const specificationSchema = z.object({
   type: z.enum(["releaseTitle", "releaseGroup", "size", "indexerFlag"]),
   value: z.string().default(""),
@@ -33,7 +33,7 @@ export const specificationSchema = z.object({
   required: z.boolean().default(true),
 });
 
-export const createQualityDefinitionSchema = z.object({
+export const createDownloadFormatSchema = z.object({
   title: z.string().min(1),
   weight: z.number().default(1),
   color: z.string().default("gray"),
@@ -43,7 +43,7 @@ export const createQualityDefinitionSchema = z.object({
   specifications: z.array(specificationSchema).default([]),
 });
 
-export const updateQualityDefinitionSchema = z.object({
+export const updateDownloadFormatSchema = z.object({
   id: z.number(),
   title: z.string().min(1),
   weight: z.number(),
@@ -84,7 +84,7 @@ export const createAuthorSchema = z.object({
   bornYear: z.number().nullable(),
   deathYear: z.number().nullable(),
   status: z.string().default("continuing"),
-  qualityProfileIds: z.array(z.number()).default([]),
+  downloadProfileIds: z.array(z.number()).default([]),
   foreignAuthorId: z.string().nullable(),
   images: z
     .array(z.object({ url: z.string(), coverType: z.string() }))
@@ -94,7 +94,7 @@ export const createAuthorSchema = z.object({
 
 export const updateAuthorSchema = z.object({
   id: z.number(),
-  qualityProfileIds: z.array(z.number()),
+  downloadProfileIds: z.array(z.number()),
 });
 
 // Books
@@ -149,12 +149,12 @@ export const updateEditionSchema = createEditionSchema.partial().extend({
 
 export const toggleEditionProfileSchema = z.object({
   editionId: z.number(),
-  qualityProfileId: z.number(),
+  downloadProfileId: z.number(),
 });
 
 export const toggleBookProfileSchema = z.object({
   bookId: z.number(),
-  qualityProfileId: z.number(),
+  downloadProfileId: z.number(),
 });
 
 // Download Clients

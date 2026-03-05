@@ -20,7 +20,7 @@ import {
   booksExistQuery,
   hardcoverBookLanguagesQuery,
   hardcoverSingleBookQuery,
-  qualityProfilesListQuery,
+  downloadProfilesListQuery,
 } from "src/lib/queries";
 import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/bookshelf/books/book-detail-content";
@@ -42,16 +42,16 @@ function AddBookForm({
   onSuccess,
   onCancel,
 }: AddBookFormProps) {
-  const { data: qualityProfiles = [] } = useQuery(qualityProfilesListQuery());
+  const { data: downloadProfiles = [] } = useQuery(downloadProfilesListQuery());
 
-  const [qualityProfileIds, setQualityProfileIds] = useState<number[]>(
-    qualityProfiles.map((p) => p.id),
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    downloadProfiles.map((p) => p.id),
   );
 
   const importBook = useImportHardcoverBook();
 
   const toggleProfile = (id: number) => {
-    setQualityProfileIds((prev) =>
+    setDownloadProfileIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
@@ -59,7 +59,7 @@ function AddBookForm({
   const handleSubmit = () => {
     importBook.mutate({
       foreignBookId: Number(book.id),
-      qualityProfileIds,
+      downloadProfileIds,
     });
     onSuccess();
   };
@@ -73,20 +73,20 @@ function AddBookForm({
       </p>
 
       <div className="space-y-2">
-        <Label>Quality Profiles</Label>
-        {qualityProfiles.length === 0 ? (
+        <Label>Download Profiles</Label>
+        {downloadProfiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No quality profiles available.
+            No download profiles available.
           </p>
         ) : (
           <div className="space-y-2">
-            {qualityProfiles.map((p) => (
+            {downloadProfiles.map((p) => (
               <label
                 key={p.id}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Checkbox
-                  checked={qualityProfileIds.includes(p.id)}
+                  checked={downloadProfileIds.includes(p.id)}
                   onCheckedChange={() => toggleProfile(p.id)}
                 />
                 {(() => {

@@ -24,7 +24,7 @@ import {
   getProfileIcon,
 } from "src/lib/profile-icons";
 import validateForm from "src/lib/form-validation";
-import { createQualityProfileSchema } from "src/lib/validators";
+import { createDownloadProfileSchema } from "src/lib/validators";
 import { cn } from "src/lib/utils";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -40,7 +40,7 @@ import {
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 
-type QualityProfileFormProps = {
+type DownloadProfileFormProps = {
   initialValues?: {
     name: string;
     icon: string;
@@ -50,7 +50,7 @@ type QualityProfileFormProps = {
     upgradeAllowed: boolean;
     categories: number[];
   };
-  qualityDefinitions: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string }>;
   serverCwd: string;
   onSubmit: (values: {
     name: string;
@@ -67,11 +67,11 @@ type QualityProfileFormProps = {
 };
 
 function FormatSearchDropdown({
-  qualityDefinitions,
+  downloadFormats,
   selectedIds,
   onAdd,
 }: {
-  qualityDefinitions: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string }>;
   selectedIds: number[];
   onAdd: (id: number) => void;
 }): JSX.Element {
@@ -85,7 +85,7 @@ function FormatSearchDropdown({
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const availableItems = useMemo(() => {
-    return qualityDefinitions.filter((def) => {
+    return downloadFormats.filter((def) => {
       if (selectedSet.has(def.id)) {
         return false;
       }
@@ -94,7 +94,7 @@ function FormatSearchDropdown({
       }
       return def.title.toLowerCase().includes(search.toLowerCase());
     });
-  }, [qualityDefinitions, selectedSet, search]);
+  }, [downloadFormats, selectedSet, search]);
 
   useEffect(() => {
     setHighlightIndex(0);
@@ -150,8 +150,7 @@ function FormatSearchDropdown({
   };
 
   const allAdded =
-    qualityDefinitions.length > 0 &&
-    selectedIds.length === qualityDefinitions.length;
+    downloadFormats.length > 0 && selectedIds.length === downloadFormats.length;
 
   return (
     <div ref={dropdownContainerRef} className="relative">
@@ -212,7 +211,7 @@ function FormatSearchDropdown({
   );
 }
 
-function SortableQualityItem({
+function SortableFormatItem({
   id,
   name,
   isCutoff,
@@ -274,14 +273,14 @@ function SortableQualityItem({
 }
 
 function buildInitialItems(
-  qualityDefinitions: Array<{ id: number; title: string }>,
+  downloadFormats: Array<{ id: number; title: string }>,
   existingItems?: number[],
 ): number[] {
-  const defIds = new Set(qualityDefinitions.map((d) => d.id));
+  const defIds = new Set(downloadFormats.map((d) => d.id));
   const existingIds = existingItems ?? [];
 
   if (existingIds.length === 0) {
-    return qualityDefinitions.map((d) => d.id);
+    return downloadFormats.map((d) => d.id);
   }
 
   return existingIds.filter((id) => defIds.has(id));
@@ -399,15 +398,15 @@ function RootFolderSection({
   );
 }
 
-export default function QualityProfileForm({
+export default function DownloadProfileForm({
   initialValues,
-  qualityDefinitions,
+  downloadFormats,
   serverCwd,
   onSubmit,
   onCancel,
   loading,
   serverError,
-}: QualityProfileFormProps): JSX.Element {
+}: DownloadProfileFormProps): JSX.Element {
   const [name, setName] = useState(initialValues?.name || "");
   const [icon, setIcon] = useState(initialValues?.icon ?? "book-open");
   const [rootFolderPath, setRootFolderPath] = useState(
@@ -422,12 +421,12 @@ export default function QualityProfileForm({
   );
 
   const [items, setItems] = useState<number[]>(() =>
-    buildInitialItems(qualityDefinitions, initialValues?.items),
+    buildInitialItems(downloadFormats, initialValues?.items),
   );
 
   const defMap = useMemo(
-    () => new Map(qualityDefinitions.map((d) => [d.id, d.title])),
-    [qualityDefinitions],
+    () => new Map(downloadFormats.map((d) => [d.id, d.title])),
+    [downloadFormats],
   );
 
   const addItem = (id: number) => {
@@ -464,7 +463,7 @@ export default function QualityProfileForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const result = validateForm(createQualityProfileSchema, {
+    const result = validateForm(createDownloadProfileSchema, {
       name,
       icon,
       rootFolderPath,
@@ -561,7 +560,7 @@ export default function QualityProfileForm({
         </p>
 
         <FormatSearchDropdown
-          qualityDefinitions={qualityDefinitions}
+          downloadFormats={downloadFormats}
           selectedIds={items}
           onAdd={addItem}
         />
@@ -579,7 +578,7 @@ export default function QualityProfileForm({
                 strategy={verticalListSortingStrategy}
               >
                 {items.map((id) => (
-                  <SortableQualityItem
+                  <SortableFormatItem
                     key={id}
                     id={id}
                     name={defMap.get(id) ?? String(id)}

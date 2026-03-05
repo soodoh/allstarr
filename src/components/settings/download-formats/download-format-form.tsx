@@ -6,7 +6,7 @@ import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
 import validateForm from "src/lib/form-validation";
-import { createQualityDefinitionSchema } from "src/lib/validators";
+import { createDownloadFormatSchema } from "src/lib/validators";
 import {
   Select,
   SelectContent,
@@ -26,7 +26,7 @@ type Specification = {
 
 type SpecEntry = Specification & { _id: string };
 
-type QualityDefinitionFormValues = {
+type DownloadFormatFormValues = {
   title: string;
   weight: number;
   color: string;
@@ -36,9 +36,9 @@ type QualityDefinitionFormValues = {
   specifications: Specification[];
 };
 
-type QualityDefinitionFormProps = {
-  initialValues?: QualityDefinitionFormValues;
-  onSubmit: (values: QualityDefinitionFormValues) => void;
+type DownloadFormatFormProps = {
+  initialValues?: DownloadFormatFormValues;
+  onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
 };
@@ -246,12 +246,12 @@ function SpecificationsEditor({
   );
 }
 
-export default function QualityDefinitionForm({
+export default function DownloadFormatForm({
   initialValues,
   onSubmit,
   onCancel,
   loading,
-}: QualityDefinitionFormProps): JSX.Element {
+}: DownloadFormatFormProps): JSX.Element {
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [weight, setWeight] = useState(initialValues?.weight ?? 1);
   const [color, setColor] = useState(initialValues?.color ?? "gray");
@@ -299,7 +299,7 @@ export default function QualityDefinitionForm({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const strippedSpecs = specifications.map(({ _id, ...rest }) => rest);
-    const result = validateForm(createQualityDefinitionSchema, {
+    const result = validateForm(createDownloadFormatSchema, {
       title,
       weight,
       color,

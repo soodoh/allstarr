@@ -49,7 +49,7 @@ export function useDeleteBook() {
 export function useToggleBookProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { bookId: number; qualityProfileId: number }) =>
+    mutationFn: (data: { bookId: number; downloadProfileId: number }) =>
       toggleBookProfileFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
@@ -63,7 +63,7 @@ export function useToggleBookProfile() {
 export function useToggleEditionProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { editionId: number; qualityProfileId: number }) =>
+    mutationFn: (data: { editionId: number; downloadProfileId: number }) =>
       toggleEditionProfileFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });

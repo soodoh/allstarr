@@ -37,17 +37,17 @@ export const queryKeys = {
       ["history", "list", params] as const,
   },
 
-  // ─── Quality Profiles ────────────────────────────────────────────────────
-  qualityProfiles: {
-    all: ["qualityProfiles"] as const,
-    lists: () => ["qualityProfiles", "list"] as const,
-    detail: (id: number) => ["qualityProfiles", "detail", id] as const,
+  // ─── Download Profiles ──────────────────────────────────────────────────
+  downloadProfiles: {
+    all: ["downloadProfiles"] as const,
+    lists: () => ["downloadProfiles", "list"] as const,
+    detail: (id: number) => ["downloadProfiles", "detail", id] as const,
   },
 
-  // ─── Quality Definitions ─────────────────────────────────────────────────
-  qualityDefinitions: {
-    all: ["qualityDefinitions"] as const,
-    lists: () => ["qualityDefinitions", "list"] as const,
+  // ─── Download Formats ─────────────────────────────────────────────────
+  downloadFormats: {
+    all: ["downloadFormats"] as const,
+    lists: () => ["downloadFormats", "list"] as const,
   },
 
   // ─── Dashboard ──────────────────────────────────────────────────────────

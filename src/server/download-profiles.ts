@@ -1,15 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
-import { qualityProfiles, qualityDefinitions } from "src/db/schema";
+import { downloadProfiles, downloadFormats } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
-  createQualityProfileSchema,
-  updateQualityProfileSchema,
-  createQualityDefinitionSchema,
-  updateQualityDefinitionSchema,
+  createDownloadProfileSchema,
+  updateDownloadProfileSchema,
+  createDownloadFormatSchema,
+  updateDownloadFormatSchema,
 } from "src/lib/validators";
-import { invalidateQualityDefCache } from "./indexers/quality-parser";
+import { invalidateFormatDefCache } from "./indexers/format-parser";
 
 async function validateRootFolderPath(rootFolderPath: string): Promise<void> {
   if (!rootFolderPath) {
@@ -21,35 +21,35 @@ async function validateRootFolderPath(rootFolderPath: string): Promise<void> {
   }
 }
 
-export const getQualityProfilesFn = createServerFn({ method: "GET" }).handler(
+export const getDownloadProfilesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
-    return db.select().from(qualityProfiles).all();
+    return db.select().from(downloadProfiles).all();
   },
 );
 
-export const getQualityProfileFn = createServerFn({ method: "GET" })
+export const getDownloadProfileFn = createServerFn({ method: "GET" })
   .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     const result = db
       .select()
-      .from(qualityProfiles)
-      .where(eq(qualityProfiles.id, data.id))
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, data.id))
       .get();
     if (!result) {
-      throw new Error("Quality profile not found");
+      throw new Error("Download profile not found");
     }
     return result;
   });
 
-export const createQualityProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => createQualityProfileSchema.parse(d))
+export const createDownloadProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => createDownloadProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     await validateRootFolderPath(data.rootFolderPath);
     return db
-      .insert(qualityProfiles)
+      .insert(downloadProfiles)
       .values({
         ...data,
       })
@@ -57,36 +57,36 @@ export const createQualityProfileFn = createServerFn({ method: "POST" })
       .get();
   });
 
-export const updateQualityProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => updateQualityProfileSchema.parse(d))
+export const updateDownloadProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => updateDownloadProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     await validateRootFolderPath(data.rootFolderPath);
     const { id, ...values } = data;
     return db
-      .update(qualityProfiles)
+      .update(downloadProfiles)
       .set({
         ...values,
       })
-      .where(eq(qualityProfiles.id, id))
+      .where(eq(downloadProfiles.id, id))
       .returning()
       .get();
   });
 
-export const deleteQualityProfileFn = createServerFn({ method: "POST" })
+export const deleteDownloadProfileFn = createServerFn({ method: "POST" })
   .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
-    db.delete(qualityProfiles).where(eq(qualityProfiles.id, data.id)).run();
+    db.delete(downloadProfiles).where(eq(downloadProfiles.id, data.id)).run();
     return { success: true };
   });
 
-// Quality Definitions
-export const getQualityDefinitionsFn = createServerFn({
+// Download Formats
+export const getDownloadFormatsFn = createServerFn({
   method: "GET",
 }).handler(async () => {
   await requireAuth();
-  const rows = db.select().from(qualityDefinitions).all();
+  const rows = db.select().from(downloadFormats).all();
   // Ensure specifications is always a parsed array
   for (const row of rows) {
     if (typeof row.specifications === "string") {
@@ -96,49 +96,47 @@ export const getQualityDefinitionsFn = createServerFn({
   return rows;
 });
 
-export const createQualityDefinitionFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => createQualityDefinitionSchema.parse(d))
+export const createDownloadFormatFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => createDownloadFormatSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const result = db.insert(qualityDefinitions).values(data).returning().get();
-    invalidateQualityDefCache();
+    const result = db.insert(downloadFormats).values(data).returning().get();
+    invalidateFormatDefCache();
     return result;
   });
 
-export const updateQualityDefinitionFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => updateQualityDefinitionSchema.parse(d))
+export const updateDownloadFormatFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => updateDownloadFormatSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
     const { id, ...values } = data;
     const result = db
-      .update(qualityDefinitions)
+      .update(downloadFormats)
       .set(values)
-      .where(eq(qualityDefinitions.id, id))
+      .where(eq(downloadFormats.id, id))
       .returning()
       .get();
 
-    invalidateQualityDefCache();
+    invalidateFormatDefCache();
     return result;
   });
 
-export const deleteQualityDefinitionFn = createServerFn({ method: "POST" })
+export const deleteDownloadFormatFn = createServerFn({ method: "POST" })
   .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
-    // Remove from all quality profiles' items arrays
-    const profiles = db.select().from(qualityProfiles).all();
+    // Remove from all download profiles' items arrays
+    const profiles = db.select().from(downloadProfiles).all();
     for (const profile of profiles) {
       const filtered = profile.items.filter((id) => id !== data.id);
       if (filtered.length !== profile.items.length) {
-        db.update(qualityProfiles)
+        db.update(downloadProfiles)
           .set({ items: filtered })
-          .where(eq(qualityProfiles.id, profile.id))
+          .where(eq(downloadProfiles.id, profile.id))
           .run();
       }
     }
-    db.delete(qualityDefinitions)
-      .where(eq(qualityDefinitions.id, data.id))
-      .run();
-    invalidateQualityDefCache();
+    db.delete(downloadFormats).where(eq(downloadFormats.id, data.id)).run();
+    invalidateFormatDefCache();
     return { success: true };
   });

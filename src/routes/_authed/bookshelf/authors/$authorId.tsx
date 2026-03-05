@@ -77,7 +77,7 @@ import {
   authorDetailQuery,
   hardcoverSeriesCompleteQuery,
   metadataProfileQuery,
-  qualityProfilesListQuery,
+  downloadProfilesListQuery,
 } from "src/lib/queries";
 import {
   useUpdateAuthor,
@@ -102,7 +102,7 @@ export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
 
     await Promise.all([
       context.queryClient.ensureQueryData(authorDetailQuery(id)),
-      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
       context.queryClient.ensureQueryData(metadataProfileQuery()),
     ]);
   },
@@ -135,7 +135,7 @@ type EditionInfo = {
   languageCode: string | null;
   images: Array<{ url: string; coverType: string }>;
   isDefaultCover: boolean;
-  qualityProfileIds: number[];
+  downloadProfileIds: number[];
   metadataSourceMissingSince: Date | null;
 };
 
@@ -156,7 +156,7 @@ type LocalBook = {
   description: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
-  qualityProfileIds: number[];
+  downloadProfileIds: number[];
   foreignBookId: string | null;
   images: Array<{ url: string; coverType: string }>;
   rating: number | null;
@@ -191,18 +191,18 @@ type BooksTabSortKey = "title" | "year" | "readers" | "rating";
 // ---------- Books tab ----------
 
 // oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
-type QualityProfileInfo = { id: number; name: string; icon: string };
+type DownloadProfileInfo = { id: number; name: string; icon: string };
 
 function BooksTab({
   books,
   currentAuthorId,
   availableLanguages,
-  authorQualityProfiles,
+  authorDownloadProfiles,
 }: {
   books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
-  authorQualityProfiles: QualityProfileInfo[];
+  authorDownloadProfiles: DownloadProfileInfo[];
 }) {
   const router = useRouter();
   const toggleBookProfile = useToggleBookProfile();
@@ -488,12 +488,12 @@ function BooksTab({
                         }
                         return (
                           <ProfileToggleIcons
-                            profiles={authorQualityProfiles}
-                            activeProfileIds={book.qualityProfileIds}
+                            profiles={authorDownloadProfiles}
+                            activeProfileIds={book.downloadProfileIds}
                             onToggle={(profileId) =>
                               toggleBookProfile.mutate({
                                 bookId: book.id,
-                                qualityProfileId: profileId,
+                                downloadProfileId: profileId,
                               })
                             }
                             isPending={toggleBookProfile.isPending}
@@ -560,12 +560,12 @@ function BooksTab({
                     <TableCell>
                       <Badge
                         variant={
-                          book.qualityProfileIds.length > 0
+                          book.downloadProfileIds.length > 0
                             ? "default"
                             : "secondary"
                         }
                       >
-                        {book.qualityProfileIds.length > 0 ? "Yes" : "No"}
+                        {book.downloadProfileIds.length > 0 ? "Yes" : "No"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -671,7 +671,7 @@ function SeriesTab({
   currentAuthorId,
   availableLanguages,
   enabled,
-  authorQualityProfiles,
+  authorDownloadProfiles,
   metadataProfile,
 }: {
   seriesList: AuthorSeries[];
@@ -679,7 +679,7 @@ function SeriesTab({
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
   enabled: boolean;
-  authorQualityProfiles: QualityProfileInfo[];
+  authorDownloadProfiles: DownloadProfileInfo[];
   metadataProfile: MetadataProfile;
 }) {
   const router = useRouter();
@@ -964,7 +964,7 @@ function SeriesTab({
         const isExpanded = expandedId === s.id;
         const entries = isExpanded ? getSeriesEntries(s) : [];
         const monitoredCount = s.books.filter(
-          (sb) => (bookMap.get(sb.bookId)?.qualityProfileIds?.length ?? 0) > 0,
+          (sb) => (bookMap.get(sb.bookId)?.downloadProfileIds?.length ?? 0) > 0,
         ).length;
 
         return (
@@ -1077,12 +1077,12 @@ function SeriesTab({
                                 }
                                 return (
                                   <ProfileToggleIcons
-                                    profiles={authorQualityProfiles}
-                                    activeProfileIds={book.qualityProfileIds}
+                                    profiles={authorDownloadProfiles}
+                                    activeProfileIds={book.downloadProfileIds}
                                     onToggle={(profileId) =>
                                       toggleBookProfile.mutate({
                                         bookId: book.id,
-                                        qualityProfileId: profileId,
+                                        downloadProfileId: profileId,
                                       })
                                     }
                                     isPending={toggleBookProfile.isPending}
@@ -1270,8 +1270,8 @@ function AuthorDetailPage() {
   const authorIdNum = Number(authorId);
 
   const { data: author } = useSuspenseQuery(authorDetailQuery(authorIdNum));
-  const { data: qualityProfiles } = useSuspenseQuery(
-    qualityProfilesListQuery(),
+  const { data: downloadProfiles } = useSuspenseQuery(
+    downloadProfilesListQuery(),
   );
   const { data: metadataProfile } = useSuspenseQuery(metadataProfileQuery());
 
@@ -1300,19 +1300,19 @@ function AuthorDetailPage() {
     return filtered.length > 0 ? filtered : all;
   }, [author?.availableLanguages, metadataProfile.allowedLanguages]);
 
-  const authorQualityProfiles = useMemo(() => {
-    if (!author || !qualityProfiles) {
+  const authorDownloadProfiles = useMemo(() => {
+    if (!author || !downloadProfiles) {
       return [];
     }
-    const profileIdSet = new Set(author.qualityProfileIds);
-    return qualityProfiles.filter((p) => profileIdSet.has(p.id));
-  }, [author, qualityProfiles]);
+    const profileIdSet = new Set(author.downloadProfileIds);
+    return downloadProfiles.filter((p) => profileIdSet.has(p.id));
+  }, [author, downloadProfiles]);
 
   if (!author) {
     return <NotFound />;
   }
   const monitoredCount = books.filter(
-    (b) => b.qualityProfileIds.length > 0,
+    (b) => b.downloadProfileIds.length > 0,
   ).length;
 
   const hardcoverSlug = author.slug || author.foreignAuthorId;
@@ -1325,7 +1325,7 @@ function AuthorDetailPage() {
       ? `${author.bornYear || "?"}-${author.deathYear || "Present"}`
       : null;
 
-  const handleUpdate = (values: { qualityProfileIds: number[] }) => {
+  const handleUpdate = (values: { downloadProfileIds: number[] }) => {
     updateAuthor.mutate(
       { ...values, id: author.id },
       {
@@ -1480,7 +1480,7 @@ function AuthorDetailPage() {
                   books={books}
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
-                  authorQualityProfiles={authorQualityProfiles}
+                  authorDownloadProfiles={authorDownloadProfiles}
                 />
               </TabsContent>
               <TabsContent value="series" className="mt-0">
@@ -1490,7 +1490,7 @@ function AuthorDetailPage() {
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
                   enabled={activeTab === "series"}
-                  authorQualityProfiles={authorQualityProfiles}
+                  authorDownloadProfiles={authorDownloadProfiles}
                   metadataProfile={metadataProfile}
                 />
               </TabsContent>
@@ -1506,9 +1506,9 @@ function AuthorDetailPage() {
           </DialogHeader>
           <AuthorForm
             initialValues={{
-              qualityProfileIds: author.qualityProfileIds ?? [],
+              downloadProfileIds: author.downloadProfileIds ?? [],
             }}
-            qualityProfiles={qualityProfiles}
+            downloadProfiles={downloadProfiles}
             onSubmit={handleUpdate}
             onCancel={() => setEditOpen(false)}
             loading={updateAuthor.isPending}

@@ -40,7 +40,7 @@ import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
 import {
   bookDetailQuery,
   hasEnabledIndexersQuery,
-  qualityProfilesListQuery,
+  downloadProfilesListQuery,
 } from "src/lib/queries";
 import {
   useRefreshBookMetadata,
@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
     }
     await Promise.all([
       context.queryClient.ensureQueryData(bookDetailQuery(id)),
-      context.queryClient.ensureQueryData(qualityProfilesListQuery()),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
     ]);
   },
   component: BookDetailPage,
@@ -74,8 +74,8 @@ function BookDetailPage(): JSX.Element {
   const router = useRouter();
 
   const { data: book } = useSuspenseQuery(bookDetailQuery(Number(bookId)));
-  const { data: qualityProfiles } = useSuspenseQuery(
-    qualityProfilesListQuery(),
+  const { data: downloadProfiles } = useSuspenseQuery(
+    downloadProfilesListQuery(),
   );
 
   const [activeTab, setActiveTab] = useState("editions");
@@ -84,13 +84,13 @@ function BookDetailPage(): JSX.Element {
   const refreshMetadata = useRefreshBookMetadata();
   const toggleBookProfile = useToggleBookProfile();
 
-  const authorQualityProfiles = useMemo(() => {
-    if (!book || !qualityProfiles) {
+  const authorDownloadProfiles = useMemo(() => {
+    if (!book || !downloadProfiles) {
       return [];
     }
-    const profileIdSet = new Set(book.authorQualityProfileIds);
-    return qualityProfiles.filter((p) => profileIdSet.has(p.id));
-  }, [book, qualityProfiles]);
+    const profileIdSet = new Set(book.authorDownloadProfileIds);
+    return downloadProfiles.filter((p) => profileIdSet.has(p.id));
+  }, [book, downloadProfiles]);
 
   const { data: hasIndexers } = useQuery({
     ...hasEnabledIndexersQuery(),
@@ -155,11 +155,11 @@ function BookDetailPage(): JSX.Element {
           }
           return (
             <ProfileToggleIcons
-              profiles={authorQualityProfiles}
-              activeProfileIds={book.qualityProfileIds}
+              profiles={authorDownloadProfiles}
+              activeProfileIds={book.downloadProfileIds}
               onToggle={(profileId) =>
                 toggleBookProfile.mutate(
-                  { bookId: book.id, qualityProfileId: profileId },
+                  { bookId: book.id, downloadProfileId: profileId },
                   { onSuccess: () => router.invalidate() },
                 )
               }
@@ -329,7 +329,7 @@ function BookDetailPage(): JSX.Element {
             <div className="p-4">
               <EditionsTab
                 editions={editionsList}
-                authorQualityProfiles={authorQualityProfiles}
+                authorDownloadProfiles={authorDownloadProfiles}
               />
               <SearchReleasesTab
                 book={book}

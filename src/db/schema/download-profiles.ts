@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-export const qualityProfiles = sqliteTable("quality_profiles", {
+export const downloadProfiles = sqliteTable("download_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   rootFolderPath: text("root_folder_path").notNull().default(""),
