@@ -73,6 +73,8 @@ export const metadataProfileSchema = z.object({
   skipMissingReleaseDate: z.boolean().default(false),
   skipMissingIsbnAsin: z.boolean().default(false),
   skipCompilations: z.boolean().default(false),
+  minimumPopularity: z.number().int().min(0).default(10),
+  minimumPages: z.number().int().min(0).default(0),
 });
 
 // Authors
