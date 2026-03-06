@@ -310,6 +310,7 @@ export const createIndexerFn = createServerFn({ method: "POST" })
         enableAutomaticSearch: data.enableAutomaticSearch,
         enableInteractiveSearch: data.enableInteractiveSearch,
         priority: data.priority,
+        tag: data.tag,
         downloadClientId: data.downloadClientId,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -337,6 +338,7 @@ export const updateIndexerFn = createServerFn({ method: "POST" })
         enableAutomaticSearch: values.enableAutomaticSearch,
         enableInteractiveSearch: values.enableInteractiveSearch,
         priority: values.priority,
+        tag: values.tag,
         downloadClientId: values.downloadClientId,
         updatedAt: Date.now(),
       })
@@ -386,6 +388,7 @@ export const updateSyncedIndexerFn = createServerFn({ method: "POST" })
     return db
       .update(syncedIndexers)
       .set({
+        tag: data.tag,
         downloadClientId: data.downloadClientId,
         updatedAt: Date.now(),
       })
@@ -806,6 +809,17 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       }
     }
 
+    // Look up indexer tag
+    const indexerTagTable =
+      data.indexerSource === "synced" ? syncedIndexers : indexers;
+    const indexerTagRow = db
+      .select({ tag: indexerTagTable.tag })
+      .from(indexerTagTable)
+      .where(eq(indexerTagTable.id, data.indexerId))
+      .get();
+    const combinedTag =
+      [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+
     const provider = getProvider(client.implementation);
     const config: ConnectionConfig = {
       implementation:
@@ -818,6 +832,7 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       password: client.password,
       apiKey: client.apiKey,
       category: client.category,
+      tag: client.tag,
       settings: client.settings as Record<string, unknown> | null,
     };
 
@@ -826,6 +841,7 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
       torrentData: null,
       nzbData: null,
       category: null,
+      tag: combinedTag,
       savePath: null,
     });
 

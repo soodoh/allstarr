@@ -38,6 +38,7 @@ function toConnectionConfig(client: DownloadClientRow): ConnectionConfig {
     password: client.password,
     apiKey: client.apiKey,
     category: client.category,
+    tag: client.tag,
     settings: client.settings as Record<string, unknown> | null,
   };
 }

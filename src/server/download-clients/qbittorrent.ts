@@ -118,6 +118,10 @@ const qbittorrentProvider: DownloadClientProvider = {
     if (config.category ?? download.category) {
       form.append("category", config.category ?? download.category ?? "");
     }
+    const combinedTags = [config.tag, download.tag].filter(Boolean).join(",");
+    if (combinedTags) {
+      form.append("tags", combinedTags);
+    }
     if (download.savePath) {
       form.append("savepath", download.savePath);
     }

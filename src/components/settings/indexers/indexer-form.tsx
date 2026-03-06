@@ -30,6 +30,7 @@ export type IndexerFormValues = {
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
   priority: number;
+  tag: string;
   downloadClientId: number | null;
 };
 
@@ -107,6 +108,7 @@ export default function IndexerForm({
   const [categories, setCategories] = useState<number[]>(
     initialValues?.categories ?? [],
   );
+  const [tag, setTag] = useState(initialValues?.tag ?? "");
   const [downloadClientId, setDownloadClientId] = useState<number | null>(
     initialValues?.downloadClientId ?? null,
   );
@@ -141,6 +143,7 @@ export default function IndexerForm({
       enableAutomaticSearch,
       enableInteractiveSearch,
       priority,
+      tag: tag || null,
       downloadClientId,
     });
     if (!result.success) {
@@ -160,6 +163,7 @@ export default function IndexerForm({
       enableAutomaticSearch,
       enableInteractiveSearch,
       priority,
+      tag,
       downloadClientId,
     });
   };
@@ -266,6 +270,28 @@ export default function IndexerForm({
       <div className="space-y-2">
         <Label>Categories</Label>
         <CategoryMultiSelect value={categories} onChange={setCategories} />
+      </div>
+
+      {/* Tag */}
+      <div className="space-y-2">
+        <Label htmlFor="ix-tag">
+          Tag <span className="text-muted-foreground text-xs">(optional)</span>
+        </Label>
+        <Input
+          id="ix-tag"
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder=""
+        />
+        <p className="text-xs text-muted-foreground">
+          Categories and tags can also be set on the{" "}
+          <a
+            href="/settings/download-clients"
+            className="text-primary underline underline-offset-2"
+          >
+            download client
+          </a>
+        </p>
       </div>
 
       {/* Download Client */}

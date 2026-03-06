@@ -24,6 +24,7 @@ export const syncedIndexers = sqliteTable("synced_indexers", {
     .default(true),
   priority: integer("priority").notNull().default(25),
   protocol: text("protocol").notNull(), // "torrent" or "usenet"
+  tag: text("tag"),
   downloadClientId: integer("download_client_id").references(
     () => downloadClients.id,
     { onDelete: "set null" },

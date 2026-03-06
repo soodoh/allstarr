@@ -121,6 +121,7 @@ export type DownloadClientFormValues = {
   password: string;
   apiKey: string;
   category: string;
+  tag: string;
   watchFolder: string;
 };
 
@@ -344,6 +345,7 @@ export default function DownloadClientForm({
   const [category, setCategory] = useState(
     initialValues?.category ?? "allstarr",
   );
+  const [tag, setTag] = useState(initialValues?.tag ?? "");
   const [watchFolder, setWatchFolder] = useState(
     initialValues?.watchFolder ?? "",
   );
@@ -385,6 +387,7 @@ export default function DownloadClientForm({
       password: password || null,
       apiKey: apiKey || null,
       category,
+      tag: tag || null,
       settings: impl === "Blackhole" ? { watchFolder } : null,
     });
     if (!result.success) {
@@ -406,6 +409,7 @@ export default function DownloadClientForm({
       password,
       apiKey,
       category,
+      tag,
       watchFolder,
     });
   };
@@ -464,17 +468,40 @@ export default function DownloadClientForm({
         onWatchFolder={setWatchFolder}
       />
 
-      {/* Category + Priority */}
+      {/* Category + Tag + Priority */}
       {!fields.watchFolder && (
-        <div className="space-y-2">
-          <Label htmlFor="dc-category">Category</Label>
-          <Input
-            id="dc-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="allstarr"
-          />
-        </div>
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="dc-category">Category</Label>
+            <Input
+              id="dc-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="allstarr"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dc-tag">
+              Tag{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              id="dc-tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder=""
+            />
+            <p className="text-xs text-muted-foreground">
+              You can also set tags per indexer in{" "}
+              <a
+                href="/settings/indexers"
+                className="text-primary underline underline-offset-2"
+              >
+                Indexers
+              </a>
+            </p>
+          </div>
+        </>
       )}
       <div className="space-y-2 w-24">
         <Label htmlFor="dc-priority">Priority</Label>
