@@ -57,7 +57,7 @@ export default function RemoveDownloadDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Remove Download</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-all">
             Remove &ldquo;{item?.name}&rdquo; from the download queue?
           </DialogDescription>
         </DialogHeader>
