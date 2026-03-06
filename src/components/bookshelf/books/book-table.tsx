@@ -70,6 +70,7 @@ function mapBookToRow(book: Book): BookTableRow {
     ratingsCount: book.ratingsCount,
     format: null,
     pageCount: null,
+    audioLength: null,
     isbn10: null,
     isbn13: null,
     asin: null,
