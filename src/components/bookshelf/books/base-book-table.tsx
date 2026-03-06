@@ -33,6 +33,7 @@ export type BookTableRow = {
   ratingsCount: number | null;
   format: string | null;
   pageCount: number | null;
+  audioLength: number | null;
   isbn10: string | null;
   isbn13: string | null;
   asin: string | null;
@@ -127,8 +128,15 @@ const COLUMN_REGISTRY: Record<ColumnKey, ColumnDef> = {
   },
   pages: {
     label: "Pages",
-    render: (row) => row.pageCount ?? "\u2014",
-    cellClassName: "text-muted-foreground",
+    render: (row) => {
+      if (row.audioLength) {
+        const h = Math.floor(row.audioLength / 3600);
+        const m = Math.floor((row.audioLength % 3600) / 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+      return row.pageCount ?? "\u2014";
+    },
+    cellClassName: "text-muted-foreground whitespace-nowrap",
   },
   isbn10: {
     label: "ISBN 10",

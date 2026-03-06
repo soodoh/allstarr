@@ -446,6 +446,7 @@ query SeriesComplete($seriesIds: [Int!]!) {
           isbn_13
           asin
           pages
+          audio_seconds
           release_date
           score
           users_count
@@ -537,6 +538,7 @@ export async function fetchSeriesComplete(
                     : null,
                 ),
                 pageCount: firstNumber(edRec, [["pages"]]) ?? null,
+                audioLength: firstNumber(edRec, [["audio_seconds"]]) ?? null,
                 releaseDate: firstString(edRec, [["release_date"]]) ?? null,
                 usersCount: firstNumber(edRec, [["users_count"]]) ?? 0,
                 score: firstNumber(edRec, [["score"]]) ?? 0,
@@ -607,6 +609,7 @@ function buildBatchedEditionsQuery(bookIds: number[]): string {
     isbn_13
     asin
     pages
+    audio_seconds
     release_date
     users_count
     score
@@ -676,6 +679,7 @@ function parseEdition(
         : null,
     ),
     pageCount: firstNumber(record, [["pages"]]) ?? null,
+    audioLength: firstNumber(record, [["audio_seconds"]]) ?? null,
     publisher: publisherRecord
       ? (firstString(publisherRecord, [["name"]]) ?? null)
       : null,
@@ -794,6 +798,7 @@ query BookComplete($bookId: Int!) {
     isbn_13
     asin
     pages
+    audio_seconds
     release_date
     users_count
     score

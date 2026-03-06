@@ -68,6 +68,7 @@ export const editions = sqliteTable("editions", {
   asin: text("asin"),
   format: text("format"),
   pageCount: integer("page_count"),
+  audioLength: integer("audio_length"),
   publisher: text("publisher"),
   editionInformation: text("edition_information"),
   releaseDate: text("release_date"),

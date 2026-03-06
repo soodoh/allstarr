@@ -60,6 +60,7 @@ export type HardcoverRawEdition = {
   asin: string | null;
   format: string | null;
   pageCount: number | null;
+  audioLength: number | null;
   publisher: string | null;
   editionInformation: string | null;
   releaseDate: string | null;
@@ -94,6 +95,7 @@ export type HardcoverRawSeriesBookEdition = {
   asin: string | null;
   format: string | null;
   pageCount: number | null;
+  audioLength: number | null;
   releaseDate: string | null;
   usersCount: number;
   score: number;

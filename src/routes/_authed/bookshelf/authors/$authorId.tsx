@@ -316,6 +316,7 @@ function BooksTab({
         ratingsCount: item.ratingsCount,
         format: item.format,
         pageCount: item.pageCount,
+        audioLength: null,
         isbn10: item.isbn10,
         isbn13: item.isbn13,
         asin: item.asin,
@@ -882,6 +883,7 @@ function SeriesTab({
                       <TableHead className="w-14" />
                       <TableHead>Title</TableHead>
                       <TableHead>Release Date</TableHead>
+                      <TableHead>Readers</TableHead>
                       <TableHead>Rating</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Pages</TableHead>
@@ -989,12 +991,25 @@ function SeriesTab({
                             </TableCell>
                             <TableCell>{displayDate}</TableCell>
                             <TableCell>
+                              {book.usersCount !== null &&
+                              book.usersCount !== undefined
+                                ? book.usersCount.toLocaleString()
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
                               {book.rating === null ? (
                                 "—"
                               ) : (
                                 <span className="inline-flex items-center gap-1">
                                   <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                                   {book.rating.toFixed(1)}
+                                  {book.ratingsCount !== null &&
+                                    book.ratingsCount !== undefined &&
+                                    book.ratingsCount > 0 && (
+                                      <span className="text-muted-foreground">
+                                        ({book.ratingsCount.toLocaleString()})
+                                      </span>
+                                    )}
                                 </span>
                               )}
                             </TableCell>
@@ -1078,6 +1093,12 @@ function SeriesTab({
                             <span className="font-medium">{displayTitle}</span>
                           </TableCell>
                           <TableCell>{displayDate}</TableCell>
+                          <TableCell>
+                            {entry.usersCount !== null &&
+                            entry.usersCount !== undefined
+                              ? entry.usersCount.toLocaleString()
+                              : "—"}
+                          </TableCell>
                           <TableCell>
                             {entry.rating === null ? (
                               "—"

@@ -101,6 +101,7 @@ export default function EditionsTab({
         ratingsCount: null,
         format: edition.format,
         pageCount: edition.pageCount,
+        audioLength: edition.audioLength ?? null,
         isbn10: edition.isbn10,
         isbn13: edition.isbn13,
         asin: edition.asin,
