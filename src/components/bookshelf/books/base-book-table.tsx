@@ -123,7 +123,7 @@ const COLUMN_REGISTRY: Record<ColumnKey, ColumnDef> = {
   format: {
     label: "Type",
     render: (row) => row.format || "\u2014",
-    cellClassName: "text-muted-foreground",
+    cellClassName: "text-muted-foreground whitespace-nowrap",
   },
   pages: {
     label: "Pages",

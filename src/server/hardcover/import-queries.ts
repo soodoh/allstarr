@@ -104,6 +104,16 @@ function getCoverUrl(record: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+const FORMAT_DISPLAY_NAMES: Record<string, string> = {
+  Read: "Physical Book",
+  Listened: "Audiobook",
+  Ebook: "E-Book",
+};
+
+function mapEditionFormat(raw: string | null): string | null {
+  return raw ? (FORMAT_DISPLAY_NAMES[raw] ?? raw) : null;
+}
+
 async function fetchGraphQL<T = Record<string, unknown>>(
   query: string,
   variables: Record<string, unknown>,
@@ -521,9 +531,11 @@ export async function fetchSeriesComplete(
                 isbn10: firstString(edRec, [["isbn_10"]]) ?? null,
                 isbn13: firstString(edRec, [["isbn_13"]]) ?? null,
                 asin: firstString(edRec, [["asin"]]) ?? null,
-                format: formatRecord
-                  ? (firstString(formatRecord, [["format"]]) ?? null)
-                  : null,
+                format: mapEditionFormat(
+                  formatRecord
+                    ? (firstString(formatRecord, [["format"]]) ?? null)
+                    : null,
+                ),
                 pageCount: firstNumber(edRec, [["pages"]]) ?? null,
                 releaseDate: firstString(edRec, [["release_date"]]) ?? null,
                 usersCount: firstNumber(edRec, [["users_count"]]) ?? 0,
@@ -658,9 +670,11 @@ function parseEdition(
     isbn10: firstString(record, [["isbn_10"]]) ?? null,
     isbn13: firstString(record, [["isbn_13"]]) ?? null,
     asin: firstString(record, [["asin"]]) ?? null,
-    format: readingFormatRecord
-      ? (firstString(readingFormatRecord, [["format"]]) ?? null)
-      : null,
+    format: mapEditionFormat(
+      readingFormatRecord
+        ? (firstString(readingFormatRecord, [["format"]]) ?? null)
+        : null,
+    ),
     pageCount: firstNumber(record, [["pages"]]) ?? null,
     publisher: publisherRecord
       ? (firstString(publisherRecord, [["name"]]) ?? null)
