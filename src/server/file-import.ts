@@ -11,24 +11,11 @@ import {
   bookFiles,
   downloadProfiles,
   history,
-  settings,
 } from "src/db/schema";
 import { eq, and } from "drizzle-orm";
 import { matchFormat } from "./indexers/format-parser";
 import { eventBus } from "./event-bus";
-
-function getMediaSetting<T>(key: string, defaultValue: T): T {
-  const row = db.select().from(settings).where(eq(settings.key, key)).get();
-  if (!row?.value) {
-    return defaultValue;
-  }
-  try {
-    const v = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-    return v as T;
-  } catch {
-    return defaultValue;
-  }
-}
+import { getMediaSetting } from "./settings-reader";
 
 function applyNamingTemplate(
   template: string,
@@ -392,6 +379,15 @@ export async function importCompletedDownload(
     }
   }
 
+  // Record existing files before import so we can clean them up on upgrade
+  const existingFiles = td.bookId
+    ? db
+        .select({ id: bookFiles.id, path: bookFiles.path })
+        .from(bookFiles)
+        .where(eq(bookFiles.bookId, td.bookId))
+        .all()
+    : [];
+
   const book = td.bookId
     ? db.select().from(books).where(eq(books.id, td.bookId)).get()
     : null;
@@ -432,6 +428,31 @@ export async function importCompletedDownload(
   if (importedCount === 0) {
     markFailed(td.id, "All file imports failed");
     return;
+  }
+
+  // Clean up old book files on upgrade
+  if (existingFiles.length > 0) {
+    const recyclingBin = getMediaSetting("mediaManagement.recyclingBin", "");
+    for (const oldFile of existingFiles) {
+      try {
+        if (recyclingBin) {
+          fs.mkdirSync(recyclingBin, { recursive: true });
+          const recycleDest = path.join(
+            recyclingBin,
+            path.basename(oldFile.path),
+          );
+          fs.renameSync(oldFile.path, recycleDest);
+        } else {
+          fs.unlinkSync(oldFile.path);
+        }
+      } catch {
+        // File may already be gone
+      }
+      db.delete(bookFiles).where(eq(bookFiles.id, oldFile.id)).run();
+    }
+    console.log(
+      `[file-import] Cleaned up ${existingFiles.length} old file(s) for "${bookTitle}"`,
+    );
   }
 
   db.insert(history)

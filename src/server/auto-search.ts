@@ -14,7 +14,6 @@ import {
   blocklist,
   downloadProfiles,
   trackedDownloads,
-  authorDownloadProfiles,
 } from "src/db/schema";
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
@@ -166,7 +165,38 @@ export function getWantedBooks(): WantedBook[] {
     for (const target of editionTargets) {
       profileMap.set(target.profile.id, target.profile);
     }
+
+    // Exclude profiles that already have an active tracked download
+    const activeDownloads = db
+      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
+      .from(trackedDownloads)
+      .where(
+        and(
+          eq(trackedDownloads.bookId, book.id),
+          inArray(trackedDownloads.state, [
+            "queued",
+            "downloading",
+            "completed",
+            "importPending",
+          ]),
+        ),
+      )
+      .all();
+
+    const activeProfileIds = new Set(
+      activeDownloads
+        .map((d) => d.downloadProfileId)
+        .filter((id): id is number => id !== null),
+    );
+
+    for (const id of activeProfileIds) {
+      profileMap.delete(id);
+    }
+
     const profiles = [...profileMap.values()];
+    if (profiles.length === 0) {
+      continue;
+    }
 
     // Check existing files for this book
     const existingFiles = db
@@ -405,7 +435,7 @@ async function grabPerProfile(
       continue;
     }
 
-    const grabbed = await grabRelease(bestRelease, book);
+    const grabbed = await grabRelease(bestRelease, book, profile.id);
     if (grabbed) {
       satisfiedProfiles.add(profile.id);
       grabbedTitles.push(bestRelease.title);
@@ -560,6 +590,7 @@ function findBestReleaseForProfile(
 async function grabRelease(
   release: IndexerRelease,
   book: WantedBook,
+  profileId: number,
 ): Promise<boolean> {
   let client;
 
@@ -633,18 +664,6 @@ async function grabRelease(
 
   // Track the download
   if (downloadId) {
-    let profileId: number | null = null;
-    if (book.authorId) {
-      const adp = db
-        .select({
-          downloadProfileId: authorDownloadProfiles.downloadProfileId,
-        })
-        .from(authorDownloadProfiles)
-        .where(eq(authorDownloadProfiles.authorId, book.authorId))
-        .get();
-      profileId = adp?.downloadProfileId ?? null;
-    }
-
     db.insert(trackedDownloads)
       .values({
         downloadClientId: client.id,

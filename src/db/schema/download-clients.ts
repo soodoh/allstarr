@@ -25,6 +25,11 @@ export const downloadClients = sqliteTable("download_clients", {
   apiKey: text("api_key"),
   category: text("category").notNull().default("allstarr"),
   tag: text("tag"),
+  removeCompletedDownloads: integer("remove_completed_downloads", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(true),
   settings: text("settings", { mode: "json" }).$type<DownloadClientSettings>(),
   createdAt: integer("created_at").$defaultFn(() => Date.now()),
   updatedAt: integer("updated_at").$defaultFn(() => Date.now()),

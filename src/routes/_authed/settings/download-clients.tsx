@@ -3,21 +3,30 @@ import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "src/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import Label from "src/components/ui/label";
+import Switch from "src/components/ui/switch";
 import PageHeader from "src/components/shared/page-header";
 import DownloadClientList from "src/components/settings/download-clients/download-client-list";
 import DownloadClientForm from "src/components/settings/download-clients/download-client-form";
 import type { DownloadClientFormValues } from "src/components/settings/download-clients/download-client-form";
 import ImplementationSelect from "src/components/settings/download-clients/implementation-select";
-import { downloadClientsListQuery } from "src/lib/queries";
+import { downloadClientsListQuery, settingsMapQuery } from "src/lib/queries";
 import {
   useCreateDownloadClient,
   useUpdateDownloadClient,
   useDeleteDownloadClient,
+  useUpdateSettings,
 } from "src/hooks/mutations";
 
 type ImplementationType =
@@ -30,17 +39,66 @@ type ImplementationType =
   | "Blackhole";
 
 export const Route = createFileRoute("/_authed/settings/download-clients")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(downloadClientsListQuery()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(downloadClientsListQuery()),
+      context.queryClient.ensureQueryData(settingsMapQuery()),
+    ]);
+  },
   component: DownloadClientsPage,
 });
 
+function getSetting<T>(
+  settings: Record<string, unknown>,
+  key: string,
+  defaultValue: T,
+): T {
+  const v = settings[key];
+  if (v === undefined || v === null) {
+    return defaultValue;
+  }
+  return v as T;
+}
+
 function DownloadClientsPage() {
   const { data: clients } = useSuspenseQuery(downloadClientsListQuery());
+  const { data: settings } = useSuspenseQuery(settingsMapQuery());
 
   const createClient = useCreateDownloadClient();
   const updateClient = useUpdateDownloadClient();
   const deleteClient = useDeleteDownloadClient();
+  const updateSettings = useUpdateSettings();
+
+  // Completed Download Handling
+  const [enableCompleted, setEnableCompleted] = useState(
+    getSetting(
+      settings,
+      "downloadClient.enableCompletedDownloadHandling",
+      true,
+    ),
+  );
+
+  // Failed Download Handling
+  const [redownloadFailed, setRedownloadFailed] = useState(
+    getSetting(settings, "downloadClient.redownloadFailed", true),
+  );
+  const [removeFailed, setRemoveFailed] = useState(
+    getSetting(settings, "downloadClient.removeFailed", true),
+  );
+
+  const handleSaveSettings = () => {
+    updateSettings.mutate([
+      {
+        key: "downloadClient.enableCompletedDownloadHandling",
+        value: String(enableCompleted),
+      },
+      {
+        key: "downloadClient.redownloadFailed",
+        value: String(redownloadFailed),
+      },
+      { key: "downloadClient.removeFailed", value: String(removeFailed) },
+    ]);
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectingImpl, setSelectingImpl] = useState(false);
@@ -101,6 +159,7 @@ function DownloadClientsPage() {
         apiKey: values.apiKey || null,
         category: values.category,
         tag: values.tag || null,
+        removeCompletedDownloads: values.removeCompletedDownloads,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
           : null,
@@ -130,6 +189,7 @@ function DownloadClientsPage() {
         apiKey: values.apiKey || null,
         category: values.category,
         tag: values.tag || null,
+        removeCompletedDownloads: values.removeCompletedDownloads,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
           : null,
@@ -157,6 +217,7 @@ function DownloadClientsPage() {
         category: editing.category,
         tag: editing.tag ?? "",
         priority: editing.priority,
+        removeCompletedDownloads: editing.removeCompletedDownloads,
         watchFolder:
           (editing.settings as { watchFolder?: string } | undefined)
             ?.watchFolder ?? "",
@@ -177,6 +238,71 @@ function DownloadClientsPage() {
         description="Configure connections to torrent and usenet download clients"
         actions={<Button onClick={handleOpenAdd}>Add Client</Button>}
       />
+
+      <div className="space-y-6 max-w-2xl mb-6">
+        {/* Completed Download Handling */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed Download Handling</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Enable</Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically import completed downloads from the download
+                  client
+                </p>
+              </div>
+              <Switch
+                checked={enableCompleted}
+                onCheckedChange={setEnableCompleted}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Failed Download Handling */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Failed Download Handling</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Redownload</Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically search for another release when a download fails
+                </p>
+              </div>
+              <Switch
+                checked={redownloadFailed}
+                onCheckedChange={setRedownloadFailed}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Remove</Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically remove failed downloads from the download client
+                </p>
+              </div>
+              <Switch
+                checked={removeFailed}
+                onCheckedChange={setRemoveFailed}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button
+          onClick={handleSaveSettings}
+          disabled={updateSettings.isPending}
+        >
+          {updateSettings.isPending ? "Saving..." : "Save Settings"}
+        </Button>
+      </div>
 
       <DownloadClientList
         clients={clients}

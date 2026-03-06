@@ -185,6 +185,7 @@ export const createDownloadClientSchema = z.object({
   apiKey: z.string().nullable(),
   category: z.string().default("allstarr"),
   tag: z.string().nullable().default(null),
+  removeCompletedDownloads: z.boolean().default(true),
   settings: z.record(z.string(), z.unknown()).nullable(),
 });
 

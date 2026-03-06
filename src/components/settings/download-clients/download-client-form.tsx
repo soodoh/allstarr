@@ -123,6 +123,7 @@ export type DownloadClientFormValues = {
   category: string;
   tag: string;
   watchFolder: string;
+  removeCompletedDownloads: boolean;
 };
 
 type TestResult = {
@@ -350,6 +351,9 @@ export default function DownloadClientForm({
     initialValues?.watchFolder ?? "",
   );
   const [priority, setPriority] = useState(initialValues?.priority ?? 1);
+  const [removeCompletedDownloads, setRemoveCompletedDownloads] = useState(
+    initialValues?.removeCompletedDownloads ?? true,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const testMutation = useMutation({
@@ -411,6 +415,7 @@ export default function DownloadClientForm({
       category,
       tag,
       watchFolder,
+      removeCompletedDownloads,
     });
   };
 
@@ -503,15 +508,27 @@ export default function DownloadClientForm({
           </div>
         </>
       )}
-      <div className="space-y-2 w-24">
-        <Label htmlFor="dc-priority">Priority</Label>
-        <Input
-          id="dc-priority"
-          type="number"
-          min={1}
-          value={priority}
-          onChange={(e) => setPriority(Number(e.target.value))}
-        />
+      <div className="flex items-end gap-6">
+        <div className="space-y-2 w-24">
+          <Label htmlFor="dc-priority">Priority</Label>
+          <Input
+            id="dc-priority"
+            type="number"
+            min={1}
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+          />
+        </div>
+        <div className="flex items-center gap-2 pb-2">
+          <Switch
+            id="dc-remove-completed"
+            checked={removeCompletedDownloads}
+            onCheckedChange={setRemoveCompletedDownloads}
+          />
+          <Label htmlFor="dc-remove-completed">
+            Remove Completed Downloads
+          </Label>
+        </div>
       </div>
 
       {/* Test connection */}
