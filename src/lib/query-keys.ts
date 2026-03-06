@@ -14,6 +14,22 @@ export const queryKeys = {
     all: ["authors"] as const,
     lists: () => ["authors", "list"] as const,
     infinite: (search: string) => ["authors", "infinite", search] as const,
+    booksInfinite: (
+      authorId: number,
+      search: string,
+      language: string,
+      sortKey?: string,
+      sortDir?: string,
+    ) =>
+      [
+        "authors",
+        "booksInfinite",
+        authorId,
+        search,
+        language,
+        sortKey,
+        sortDir,
+      ] as const,
     detail: (id: number) => ["authors", "detail", id] as const,
     existence: (foreignId: string) =>
       ["authors", "existence", foreignId] as const,
@@ -23,8 +39,14 @@ export const queryKeys = {
   books: {
     all: ["books"] as const,
     lists: () => ["books", "list"] as const,
-    infinite: (search: string, monitored?: boolean) =>
-      ["books", "infinite", search, monitored] as const,
+    infinite: (
+      search: string,
+      monitored?: boolean,
+      sortKey?: string,
+      sortDir?: string,
+    ) => ["books", "infinite", search, monitored, sortKey, sortDir] as const,
+    editionsInfinite: (bookId: number, sortKey?: string, sortDir?: string) =>
+      ["books", "editionsInfinite", bookId, sortKey, sortDir] as const,
     detail: (id: number) => ["books", "detail", id] as const,
     existence: (foreignBookIds: string[]) =>
       ["books", "existence", ...foreignBookIds] as const,

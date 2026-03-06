@@ -6,6 +6,7 @@ import {
   getAuthorFn,
   checkAuthorExistsFn,
 } from "src/server/authors";
+import { getAuthorBooksPaginatedFn } from "src/server/books";
 import { queryKeys } from "../query-keys";
 
 export const authorsListQuery = () =>
@@ -36,4 +37,36 @@ export const authorExistsQuery = (foreignAuthorId: string) =>
   queryOptions({
     queryKey: queryKeys.authors.existence(foreignAuthorId),
     queryFn: () => checkAuthorExistsFn({ data: { foreignAuthorId } }),
+  });
+
+export const authorBooksInfiniteQuery = (
+  authorId: number,
+  search = "",
+  language = "all",
+  sortKey?: string,
+  sortDir?: string,
+) =>
+  infiniteQueryOptions({
+    queryKey: queryKeys.authors.booksInfinite(
+      authorId,
+      search,
+      language,
+      sortKey,
+      sortDir,
+    ),
+    queryFn: ({ pageParam }) =>
+      getAuthorBooksPaginatedFn({
+        data: {
+          authorId,
+          page: pageParam,
+          pageSize: 25,
+          search: search || undefined,
+          language: language || undefined,
+          sortKey,
+          sortDir,
+        },
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
   });

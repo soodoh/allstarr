@@ -1,46 +1,17 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ImageIcon,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "src/components/ui/table";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { TabsContent } from "src/components/ui/tabs";
-import TablePagination from "src/components/shared/table-pagination";
 import { useToggleEditionProfile } from "src/hooks/mutations";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
-
-type Edition = {
-  id: number;
-  title: string;
-  foreignEditionId: string | null;
-  format: string | null;
-  publisher: string | null;
-  editionInformation: string | null;
-  pageCount: number | null;
-  releaseDate: string | null;
-  isbn10: string | null;
-  isbn13: string | null;
-  asin: string | null;
-  language: string | null;
-  languageCode: string | null;
-  country: string | null;
-  usersCount: number | null;
-  score: number | null;
-  downloadProfileIds: number[];
-  metadataSourceMissingSince: Date | null;
-  images: Array<{ url: string; coverType: string }>;
-};
+import BaseBookTable from "src/components/bookshelf/books/base-book-table";
+import type {
+  BookTableRow,
+  ColumnConfig,
+} from "src/components/bookshelf/books/base-book-table";
+import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
+import { bookEditionsInfiniteQuery } from "src/lib/queries";
 
 type DownloadProfile = {
   id: number;
@@ -48,131 +19,142 @@ type DownloadProfile = {
   icon: string;
 };
 
-type EditionSortKey =
-  | "title"
-  | "publisher"
-  | "information"
-  | "format"
-  | "pages"
-  | "releaseDate"
-  | "isbn13"
-  | "isbn10"
-  | "asin"
-  | "language"
-  | "country"
-  | "readers"
-  | "score";
-
-type EditionColumn = {
-  key: EditionSortKey;
-  label: string;
-};
-
-const EDITION_COLUMNS: EditionColumn[] = [
-  { key: "title", label: "Title" },
-  { key: "publisher", label: "Publisher" },
-  { key: "information", label: "Information" },
-  { key: "format", label: "Type" },
-  { key: "pages", label: "Pages" },
-  { key: "releaseDate", label: "Release Date" },
-  { key: "isbn13", label: "ISBN-13" },
-  { key: "isbn10", label: "ISBN-10" },
-  { key: "asin", label: "ASIN" },
-  { key: "language", label: "Language" },
-  { key: "country", label: "Country" },
-  { key: "readers", label: "Readers" },
-  { key: "score", label: "Data Score" },
+const COLUMNS: ColumnConfig[] = [
+  { key: "title", sortable: true },
+  { key: "publisher", sortable: true },
+  { key: "information", sortable: true },
+  { key: "format", sortable: true },
+  { key: "pages", sortable: true },
+  { key: "releaseDate", sortable: true },
+  { key: "isbn13", sortable: true },
+  { key: "isbn10", sortable: true },
+  { key: "asin", sortable: true },
+  { key: "language", sortable: true },
+  { key: "country", sortable: true },
+  { key: "readers", sortable: true },
+  { key: "score", sortable: true },
 ];
 
-const EDITION_SORT_ACCESSORS: Record<
-  EditionSortKey,
-  (e: Edition) => string | number
-> = {
-  title: (e) => e.title || "",
-  publisher: (e) => e.publisher || "",
-  information: (e) => e.editionInformation || "",
-  format: (e) => e.format || "",
-  pages: (e) => e.pageCount ?? -1,
-  releaseDate: (e) => e.releaseDate || "",
-  isbn13: (e) => e.isbn13 || "",
-  isbn10: (e) => e.isbn10 || "",
-  asin: (e) => e.asin || "",
-  language: (e) => e.language || "",
-  country: (e) => e.country || "",
-  readers: (e) => e.usersCount ?? -1,
-  score: (e) => e.score ?? -1,
-};
-
-function getEditionSortValue(
-  edition: Edition,
-  key: EditionSortKey,
-): string | number {
-  return EDITION_SORT_ACCESSORS[key](edition);
-}
-
 export default function EditionsTab({
-  editions,
+  bookId,
   authorDownloadProfiles,
 }: {
-  editions: Edition[];
+  bookId: number;
   authorDownloadProfiles: DownloadProfile[];
 }): JSX.Element {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [sortBy, setSortBy] = useState<EditionSortKey>("readers");
+  const [sortKey, setSortKey] = useState<string>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleEditionProfile = useToggleEditionProfile();
 
-  const handleSort = (key: EditionSortKey) => {
-    if (sortBy === key) {
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
-      setSortBy(key);
+      setSortKey(key);
       setSortDir("asc");
     }
-    setPage(1);
   };
 
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-  };
+  const { data, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useInfiniteQuery(bookEditionsInfiniteQuery(bookId, sortKey, sortDir));
 
-  const sortedEditions = useMemo(() => {
-    return [...editions].toSorted((a, b) => {
-      const av = getEditionSortValue(a, sortBy);
-      const bv = getEditionSortValue(b, sortBy);
-      let cmp: number;
-      if (typeof av === "number" && typeof bv === "number") {
-        cmp = av - bv;
-      } else {
-        cmp = String(av).localeCompare(String(bv));
-      }
-      if (cmp === 0 && sortBy !== "readers") {
-        cmp = (b.usersCount ?? 0) - (a.usersCount ?? 0);
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [editions, sortBy, sortDir]);
-
-  const total = sortedEditions.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pagedEditions = sortedEditions.slice(
-    (page - 1) * pageSize,
-    page * pageSize,
+  const editions = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
   );
 
-  const SortIcon = ({ col }: { col: EditionSortKey }) => {
-    if (sortBy !== col) {
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) {
+      return;
+    }
+    const observer = new IntersectionObserver(handleObserver, {
+      rootMargin: "200px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
+  const rows: BookTableRow[] = useMemo(
+    () =>
+      editions.map((edition) => ({
+        key: edition.id,
+        bookId: edition.bookId,
+        title: edition.title,
+        coverUrl: edition.images?.[0]?.url ?? null,
+        bookAuthors: [],
+        authorName: null,
+        releaseDate: edition.releaseDate,
+        usersCount: edition.usersCount,
+        rating: null,
+        ratingsCount: null,
+        format: edition.format,
+        pageCount: edition.pageCount,
+        isbn10: edition.isbn10,
+        isbn13: edition.isbn13,
+        asin: edition.asin,
+        score: edition.score,
+        publisher: edition.publisher,
+        editionInformation: edition.editionInformation,
+        language: edition.language,
+        country: edition.country,
+        series: [],
+        monitored: edition.downloadProfileIds.length > 0,
+        downloadProfileIds: edition.downloadProfileIds,
+      })),
+    [editions],
+  );
+
+  // Build a map of edition metadata warning info
+  const editionMetaMap = useMemo(() => {
+    const map = new Map<
+      number,
+      { metadataSourceMissingSince: Date | null; title: string }
+    >();
+    for (const edition of editions) {
+      map.set(edition.id, {
+        metadataSourceMissingSince: edition.metadataSourceMissingSince,
+        title: edition.title,
+      });
+    }
+    return map;
+  }, [editions]);
+
+  const renderLeadingCell = (row: BookTableRow) => {
+    const meta = editionMetaMap.get(row.key as number);
+    if (meta?.metadataSourceMissingSince) {
       return (
-        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
+        <MetadataWarning
+          type="edition"
+          missingSince={meta.metadataSourceMissingSince}
+          itemId={row.key as number}
+          itemTitle={meta.title}
+        />
       );
     }
-    return sortDir === "asc" ? (
-      <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
-    ) : (
-      <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
+    return (
+      <ProfileToggleIcons
+        profiles={authorDownloadProfiles}
+        activeProfileIds={row.downloadProfileIds}
+        onToggle={(profileId) =>
+          toggleEditionProfile.mutate({
+            editionId: row.key as number,
+            downloadProfileId: profileId,
+          })
+        }
+        isPending={toggleEditionProfile.isPending}
+      />
     );
   };
 
@@ -182,122 +164,22 @@ export default function EditionsTab({
       className="flex-1 min-h-0 flex flex-col gap-3"
     >
       <div className="overflow-auto flex-1 min-h-0">
-        <Table className="min-w-max">
-          <colgroup>
-            <col className="w-8" />
-            <col className="w-14" />
-            {EDITION_COLUMNS.map((col) => (
-              <col key={col.key} />
-            ))}
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead />
-              <TableHead />
-              {EDITION_COLUMNS.map(({ key, label }) => (
-                <TableHead
-                  key={key}
-                  className="cursor-pointer select-none hover:text-foreground"
-                  onClick={() => handleSort(key)}
-                >
-                  {label}
-                  <SortIcon col={key} />
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pagedEditions.length > 0 &&
-              pagedEditions.map((edition) => {
-                const coverUrl = edition.images?.[0]?.url;
-                return (
-                  <TableRow key={edition.id}>
-                    <TableCell className="px-2">
-                      {edition.metadataSourceMissingSince ? (
-                        <MetadataWarning
-                          type="edition"
-                          missingSince={edition.metadataSourceMissingSince}
-                          itemId={edition.id}
-                          itemTitle={edition.title}
-                        />
-                      ) : (
-                        <ProfileToggleIcons
-                          profiles={authorDownloadProfiles}
-                          activeProfileIds={edition.downloadProfileIds}
-                          onToggle={(profileId) =>
-                            toggleEditionProfile.mutate({
-                              editionId: edition.id,
-                              downloadProfileId: profileId,
-                            })
-                          }
-                          isPending={toggleEditionProfile.isPending}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {coverUrl ? (
-                        <img
-                          src={coverUrl}
-                          alt={edition.title}
-                          className="aspect-[2/3] w-full rounded-sm object-cover"
-                        />
-                      ) : (
-                        <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium max-w-48 truncate">
-                      {edition.title}
-                    </TableCell>
-                    <TableCell className="max-w-36 truncate">
-                      {edition.publisher || "\u2014"}
-                    </TableCell>
-                    <TableCell className="max-w-48 truncate">
-                      {edition.editionInformation || "\u2014"}
-                    </TableCell>
-                    <TableCell>{edition.format || "\u2014"}</TableCell>
-                    <TableCell>{edition.pageCount ?? "\u2014"}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {edition.releaseDate || "\u2014"}
-                    </TableCell>
-                    <TableCell>{edition.isbn13 || "\u2014"}</TableCell>
-                    <TableCell>{edition.isbn10 || "\u2014"}</TableCell>
-                    <TableCell>{edition.asin || "\u2014"}</TableCell>
-                    <TableCell>{edition.language || "\u2014"}</TableCell>
-                    <TableCell>{edition.country || "\u2014"}</TableCell>
-                    <TableCell>
-                      {(edition.usersCount ?? 0).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {(edition.score ?? 0).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            {pagedEditions.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={EDITION_COLUMNS.length + 2}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No editions found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <BaseBookTable
+          rows={rows}
+          columns={COLUMNS}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          renderLeadingCell={renderLeadingCell}
+          emptyMessage="No editions found."
+          className="min-w-max"
+        >
+          {isFetchingNextPage && (
+            <BookTableRowsSkeleton columns={COLUMNS.length} />
+          )}
+        </BaseBookTable>
+        <div ref={sentinelRef} className="h-1" />
       </div>
-      {total > 0 && (
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          totalItems={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
-      )}
     </TabsContent>
   );
 }

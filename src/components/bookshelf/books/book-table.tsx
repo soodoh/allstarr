@@ -1,23 +1,13 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ImageIcon,
-  Star,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "src/components/ui/table";
-import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
+import BaseBookTable from "src/components/bookshelf/books/base-book-table";
+import type {
+  BookTableRow,
+  ColumnConfig,
+} from "src/components/bookshelf/books/base-book-table";
 import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 
 type Book = {
   id: number;
@@ -34,212 +24,128 @@ type Book = {
   usersCount: number | null;
   series: Array<{ title: string; position: string | null }>;
   images: Array<{ url: string; coverType: string }>;
+  downloadProfileIds?: number[];
+  authorDownloadProfileIds?: number[];
+};
+
+type DownloadProfile = {
+  id: number;
+  name: string;
+  icon: string;
 };
 
 type BookTableProps = {
   books: Book[];
+  sortKey?: string;
+  sortDir?: "asc" | "desc";
+  onSort?: (key: string) => void;
+  downloadProfiles?: DownloadProfile[];
+  onToggleProfile?: (editionId: number, profileId: number) => void;
+  isTogglePending?: boolean;
   children?: ReactNode;
 };
 
-type SortKey =
-  | "title"
-  | "authorName"
-  | "releaseDate"
-  | "series"
-  | "language"
-  | "rating"
-  | "readers";
+const COLUMNS: ColumnConfig[] = [
+  { key: "title", sortable: true },
+  { key: "author", sortable: true },
+  { key: "releaseDate", sortable: true },
+  { key: "series", sortable: true },
+  { key: "language", sortable: true },
+  { key: "readers", sortable: true },
+  { key: "rating", sortable: true },
+];
 
-function compareRating(a: Book, b: Book): number {
-  return (a.rating ?? -1) - (b.rating ?? -1);
-}
-
-function compareSeries(a: Book, b: Book): number {
-  const cmp = (a.series[0]?.title ?? "").localeCompare(
-    b.series[0]?.title ?? "",
-  );
-  if (cmp !== 0) {
-    return cmp;
-  }
-  const ap =
-    Number.parseFloat(a.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
-  const bp =
-    Number.parseFloat(b.series[0]?.position ?? "") || Number.POSITIVE_INFINITY;
-  return ap - bp;
-}
-
-// oxlint-disable-next-line complexity -- sort dispatch across multiple keys
-function compareBooks(
-  a: Book,
-  b: Book,
-  key: SortKey,
-  dir: "asc" | "desc",
-): number {
-  let cmp: number;
-  if (key === "rating") {
-    cmp = compareRating(a, b);
-  } else if (key === "readers") {
-    cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
-  } else if (key === "series") {
-    cmp = compareSeries(a, b);
-  } else if (key === "title") {
-    cmp = (a.editionTitle ?? "").localeCompare(b.editionTitle ?? "");
-  } else if (key === "language") {
-    cmp = (a.language ?? "").localeCompare(b.language ?? "");
-  } else {
-    const av = a[key] ?? "";
-    const bv = b[key] ?? "";
-    cmp = String(av).localeCompare(String(bv));
-  }
-  const directed = dir === "asc" ? cmp : -cmp;
-  if (directed !== 0 || key === "readers") {
-    return directed;
-  }
-  // Tiebreaker: higher readers first
-  return (b.usersCount ?? 0) - (a.usersCount ?? 0);
+function mapBookToRow(book: Book): BookTableRow {
+  const coverUrl = (book.editionImages ?? book.images)?.[0]?.url ?? null;
+  return {
+    key: book.editionId,
+    bookId: book.id,
+    title: book.editionTitle,
+    coverUrl,
+    bookAuthors: book.bookAuthors,
+    authorName: book.authorName,
+    releaseDate: book.releaseDate,
+    usersCount: book.usersCount,
+    rating: book.rating,
+    ratingsCount: book.ratingsCount,
+    format: null,
+    pageCount: null,
+    isbn10: null,
+    isbn13: null,
+    asin: null,
+    score: null,
+    publisher: null,
+    editionInformation: null,
+    language: book.language,
+    country: null,
+    series: book.series,
+    monitored: (book.downloadProfileIds ?? []).length > 0,
+    downloadProfileIds: book.downloadProfileIds ?? [],
+  };
 }
 
 export default function BookTable({
   books,
+  sortKey,
+  sortDir,
+  onSort,
+  downloadProfiles,
+  onToggleProfile,
+  isTogglePending,
   children,
 }: BookTableProps): JSX.Element {
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<SortKey | undefined>("readers");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
+  const rows = useMemo(() => books.map(mapBookToRow), [books]);
+
+  // Build a lookup of authorDownloadProfileIds by bookId for leading cell
+  const authorProfilesMap = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const book of books) {
+      if (book.authorDownloadProfileIds) {
+        map.set(book.id, book.authorDownloadProfileIds);
+      }
     }
-  };
+    return map;
+  }, [books]);
 
-  const sorted = sortKey
-    ? [...books].toSorted((a, b) => compareBooks(a, b, sortKey, sortDir))
-    : books;
-
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) {
-      return (
-        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
-      );
-    }
-    return sortDir === "asc" ? (
-      <ChevronUp className="ml-1 h-3.5 w-3.5 inline" />
-    ) : (
-      <ChevronDown className="ml-1 h-3.5 w-3.5 inline" />
-    );
-  };
+  const renderLeadingCell =
+    downloadProfiles && onToggleProfile
+      ? (row: BookTableRow) => {
+          // Filter profiles: only show profiles the author is linked to
+          const authorProfileIds = authorProfilesMap.get(row.bookId) ?? [];
+          // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Dynamic per-row filtering
+          const visibleProfiles =
+            authorProfileIds.length > 0
+              ? downloadProfiles.filter((p) => authorProfileIds.includes(p.id))
+              : downloadProfiles;
+          return (
+            <ProfileToggleIcons
+              profiles={visibleProfiles}
+              activeProfileIds={row.downloadProfileIds}
+              onToggle={(profileId) => onToggleProfile(row.bookId, profileId)}
+              isPending={isTogglePending}
+            />
+          );
+        }
+      : undefined;
 
   return (
-    <Table>
-      <colgroup>
-        <col className="w-14" />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-      </colgroup>
-      <TableHeader>
-        <TableRow>
-          <TableHead />
-          {(
-            [
-              { key: "title", label: "Title" },
-              { key: "authorName", label: "Author" },
-              { key: "releaseDate", label: "Release Date" },
-              { key: "series", label: "Series" },
-              { key: "language", label: "Language" },
-              { key: "readers", label: "Readers" },
-              { key: "rating", label: "Rating" },
-            ] as Array<{ key: SortKey | undefined; label: string }>
-          ).map(({ key, label }) =>
-            key ? (
-              <TableHead
-                key={label}
-                className="cursor-pointer select-none hover:text-foreground"
-                onClick={() => handleSort(key)}
-              >
-                {label}
-                <SortIcon col={key} />
-              </TableHead>
-            ) : (
-              <TableHead key={label}>{label}</TableHead>
-            ),
-          )}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sorted.map((book) => {
-          const coverImage = (book.editionImages ?? book.images)?.[0]?.url;
-          return (
-            <TableRow
-              key={book.editionId}
-              className="cursor-pointer"
-              onClick={() =>
-                navigate({
-                  to: "/bookshelf/books/$bookId",
-                  params: { bookId: String(book.id) },
-                })
-              }
-            >
-              <TableCell>
-                {coverImage ? (
-                  <img
-                    src={coverImage}
-                    alt={book.editionTitle}
-                    className="aspect-[2/3] w-full rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-              </TableCell>
-              <TableCell className="font-medium">{book.editionTitle}</TableCell>
-              <TableCell>
-                <AdditionalAuthors bookAuthors={book.bookAuthors} />
-                {book.bookAuthors.length === 0 && book.authorName}
-              </TableCell>
-              <TableCell>{book.releaseDate || "Unknown"}</TableCell>
-              <TableCell>
-                {book.series.length > 0
-                  ? book.series
-                      .map((s) =>
-                        s.position ? `${s.title} (#${s.position})` : s.title,
-                      )
-                      .join(", ")
-                  : "—"}
-              </TableCell>
-              <TableCell>{book.language || "—"}</TableCell>
-              <TableCell>
-                {book.usersCount ? book.usersCount.toLocaleString() : "—"}
-              </TableCell>
-              <TableCell>
-                {book.rating ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                    {book.rating.toFixed(1)}
-                    {book.ratingsCount !== null && book.ratingsCount > 0 && (
-                      <span className="text-muted-foreground">
-                        ({book.ratingsCount.toLocaleString()})
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-        {children}
-      </TableBody>
-    </Table>
+    <BaseBookTable
+      rows={rows}
+      columns={COLUMNS}
+      sortKey={sortKey}
+      sortDir={sortDir}
+      onSort={onSort}
+      renderLeadingCell={renderLeadingCell}
+      onRowClick={(row) =>
+        navigate({
+          to: "/bookshelf/books/$bookId",
+          params: { bookId: String(row.bookId) },
+        })
+      }
+    >
+      {children}
+    </BaseBookTable>
   );
 }
