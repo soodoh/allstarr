@@ -92,28 +92,13 @@ function GeneralSettingsPage() {
   const [logLevel, setLogLevel] = useState(
     (settings["general.logLevel"] as string) || "info",
   );
-  const [authorFolder, setAuthorFolder] = useState(
-    (settings["naming.authorFolder"] as string) || "{Author Name}",
-  );
-  const [bookFolder, setBookFolder] = useState(
-    (settings["naming.bookFolder"] as string) ||
-      "{Book Title} ({Release Year})",
-  );
-  const [bookFile, setBookFile] = useState(
-    (settings["naming.bookFile"] as string) || "{Author Name} - {Book Title}",
-  );
   const [apiKey, setApiKey] = useState(
     (settings["general.apiKey"] as string | undefined) ?? "",
   );
   const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
 
   const handleSave = () => {
-    updateSettings.mutate([
-      { key: "general.logLevel", value: logLevel },
-      { key: "naming.authorFolder", value: authorFolder },
-      { key: "naming.bookFolder", value: bookFolder },
-      { key: "naming.bookFile", value: bookFile },
-    ]);
+    updateSettings.mutate([{ key: "general.logLevel", value: logLevel }]);
   };
 
   return (
@@ -121,38 +106,6 @@ function GeneralSettingsPage() {
       <PageHeader title="General Settings" />
 
       <div className="space-y-6 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Naming</CardTitle>
-            <CardDescription>
-              Configure how files and folders are named
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Author Folder Format</Label>
-              <Input
-                value={authorFolder}
-                onChange={(e) => setAuthorFolder(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Book Folder Format</Label>
-              <Input
-                value={bookFolder}
-                onChange={(e) => setBookFolder(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Book File Format</Label>
-              <Input
-                value={bookFile}
-                onChange={(e) => setBookFile(e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Logging</CardTitle>
