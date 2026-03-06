@@ -11,6 +11,7 @@ import {
   FileText,
   FileType,
   History,
+  ShieldBan,
   Library as LibraryIcon,
   Plus,
   Download,
@@ -65,7 +66,11 @@ const navGroups: NavGroup[] = [
     to: "/activity",
     icon: Activity,
     matchPrefixes: ["/activity"],
-    children: [{ title: "Queue", to: "/activity", icon: Download }],
+    children: [
+      { title: "Queue", to: "/activity", icon: Download },
+      { title: "History", to: "/activity/history", icon: History },
+      { title: "Blocklist", to: "/activity/blocklist", icon: ShieldBan },
+    ],
   },
   {
     title: "Settings",
@@ -94,11 +99,11 @@ const navGroups: NavGroup[] = [
     title: "System",
     to: "/system",
     icon: Monitor,
-    matchPrefixes: ["/system", "/history"],
+    matchPrefixes: ["/system"],
     children: [
       { title: "Status", to: "/system/status", icon: Monitor },
       { title: "Tasks", to: "/system/tasks", icon: ListTodo },
-      { title: "History", to: "/history", icon: History },
+      { title: "Events", to: "/system/events", icon: History },
     ],
   },
 ];
@@ -116,8 +121,11 @@ export default function AppSidebar(): JSX.Element {
   const activeGroup = getActiveGroup(currentPath, navGroups);
   const { data: queueCount } = useQuery(queueCountQuery());
 
-  const isChildActive = (to: string) => {
-    return currentPath.startsWith(to);
+  const isChildActive = (childTo: string, groupTo: string) => {
+    if (childTo === groupTo) {
+      return currentPath === childTo || currentPath === childTo + "/";
+    }
+    return currentPath.startsWith(childTo);
   };
 
   return (
@@ -164,7 +172,7 @@ export default function AppSidebar(): JSX.Element {
                           <SidebarMenuSubItem key={child.title}>
                             <SidebarMenuSubButton
                               asChild
-                              isActive={isChildActive(child.to)}
+                              isActive={isChildActive(child.to, group.to)}
                             >
                               <Link to={child.to}>
                                 <child.icon className="h-4 w-4" />

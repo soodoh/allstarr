@@ -14,14 +14,14 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
-import { Route as AuthedHistoryRouteImport } from './routes/_authed/history'
-import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
+import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
+import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/events'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
@@ -30,6 +30,8 @@ import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/sett
 import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
 import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
+import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
+import { Route as AuthedActivityBlocklistRouteImport } from './routes/_authed/activity/blocklist'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
 import { Route as AuthedBookshelfBooksIndexRouteImport } from './routes/_authed/bookshelf/books/index'
 import { Route as AuthedBookshelfAuthorsIndexRouteImport } from './routes/_authed/bookshelf/authors/index'
@@ -64,16 +66,6 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
   path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedHistoryRoute = AuthedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedActivityRoute = AuthedActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
   id: '/system/',
   path: '/system/',
@@ -89,6 +81,11 @@ const AuthedBookshelfIndexRoute = AuthedBookshelfIndexRouteImport.update({
   path: '/bookshelf/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedActivityIndexRoute = AuthedActivityIndexRouteImport.update({
+  id: '/activity/',
+  path: '/activity/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -102,6 +99,11 @@ const AuthedSystemTasksRoute = AuthedSystemTasksRouteImport.update({
 const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
   id: '/system/status',
   path: '/system/status',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSystemEventsRoute = AuthedSystemEventsRouteImport.update({
+  id: '/system/events',
+  path: '/system/events',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
@@ -144,6 +146,16 @@ const AuthedSettingsDownloadClientsRoute =
 const AuthedBookshelfAddRoute = AuthedBookshelfAddRouteImport.update({
   id: '/bookshelf/add',
   path: '/bookshelf/add',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedActivityHistoryRoute = AuthedActivityHistoryRouteImport.update({
+  id: '/activity/history',
+  path: '/activity/history',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedActivityBlocklistRoute = AuthedActivityBlocklistRouteImport.update({
+  id: '/activity/blocklist',
+  path: '/activity/blocklist',
   getParentRoute: () => AuthedRoute,
 } as any)
 const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
@@ -200,9 +212,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/activity': typeof AuthedActivityRoute
-  '/history': typeof AuthedHistoryRoute
   '/api/events': typeof ApiEventsRoute
+  '/activity/blocklist': typeof AuthedActivityBlocklistRoute
+  '/activity/history': typeof AuthedActivityHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -211,9 +223,11 @@ export interface FileRoutesByFullPath {
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/activity/': typeof AuthedActivityIndexRoute
   '/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
@@ -230,10 +244,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/activity': typeof AuthedActivityRoute
-  '/history': typeof AuthedHistoryRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
+  '/activity/blocklist': typeof AuthedActivityBlocklistRoute
+  '/activity/history': typeof AuthedActivityHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -242,9 +256,11 @@ export interface FileRoutesByTo {
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/activity': typeof AuthedActivityIndexRoute
   '/bookshelf': typeof AuthedBookshelfIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
@@ -263,10 +279,10 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/_authed/activity': typeof AuthedActivityRoute
-  '/_authed/history': typeof AuthedHistoryRoute
   '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/activity/blocklist': typeof AuthedActivityBlocklistRoute
+  '/_authed/activity/history': typeof AuthedActivityHistoryRoute
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -275,9 +291,11 @@ export interface FileRoutesById {
   '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/_authed/system/events': typeof AuthedSystemEventsRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/_authed/system/tasks': typeof AuthedSystemTasksRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
@@ -297,9 +315,9 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
-    | '/activity'
-    | '/history'
     | '/api/events'
+    | '/activity/blocklist'
+    | '/activity/history'
     | '/bookshelf/add'
     | '/settings/download-clients'
     | '/settings/formats'
@@ -308,9 +326,11 @@ export interface FileRouteTypes {
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
+    | '/system/events'
     | '/system/status'
     | '/system/tasks'
     | '/api/auth/$'
+    | '/activity/'
     | '/bookshelf/'
     | '/settings/'
     | '/system/'
@@ -327,10 +347,10 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
-    | '/activity'
-    | '/history'
     | '/api/events'
     | '/'
+    | '/activity/blocklist'
+    | '/activity/history'
     | '/bookshelf/add'
     | '/settings/download-clients'
     | '/settings/formats'
@@ -339,9 +359,11 @@ export interface FileRouteTypes {
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
+    | '/system/events'
     | '/system/status'
     | '/system/tasks'
     | '/api/auth/$'
+    | '/activity'
     | '/bookshelf'
     | '/settings'
     | '/system'
@@ -359,10 +381,10 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
-    | '/_authed/activity'
-    | '/_authed/history'
     | '/api/events'
     | '/_authed/'
+    | '/_authed/activity/blocklist'
+    | '/_authed/activity/history'
     | '/_authed/bookshelf/add'
     | '/_authed/settings/download-clients'
     | '/_authed/settings/formats'
@@ -371,9 +393,11 @@ export interface FileRouteTypes {
     | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
+    | '/_authed/system/events'
     | '/_authed/system/status'
     | '/_authed/system/tasks'
     | '/api/auth/$'
+    | '/_authed/activity/'
     | '/_authed/bookshelf/'
     | '/_authed/settings/'
     | '/_authed/system/'
@@ -438,20 +462,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/history': {
-      id: '/_authed/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthedHistoryRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/activity': {
-      id: '/_authed/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof AuthedActivityRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/system/': {
       id: '/_authed/system/'
       path: '/system'
@@ -473,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedBookshelfIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/activity/': {
+      id: '/_authed/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof AuthedActivityIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -492,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/system/status'
       fullPath: '/system/status'
       preLoaderRoute: typeof AuthedSystemStatusRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system/events': {
+      id: '/_authed/system/events'
+      path: '/system/events'
+      fullPath: '/system/events'
+      preLoaderRoute: typeof AuthedSystemEventsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/settings/profiles': {
@@ -548,6 +572,20 @@ declare module '@tanstack/react-router' {
       path: '/bookshelf/add'
       fullPath: '/bookshelf/add'
       preLoaderRoute: typeof AuthedBookshelfAddRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/activity/history': {
+      id: '/_authed/activity/history'
+      path: '/activity/history'
+      fullPath: '/activity/history'
+      preLoaderRoute: typeof AuthedActivityHistoryRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/activity/blocklist': {
+      id: '/_authed/activity/blocklist'
+      path: '/activity/blocklist'
+      fullPath: '/activity/blocklist'
+      preLoaderRoute: typeof AuthedActivityBlocklistRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/api/v1/indexer/': {
@@ -617,9 +655,9 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
-  AuthedActivityRoute: typeof AuthedActivityRoute
-  AuthedHistoryRoute: typeof AuthedHistoryRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedActivityBlocklistRoute: typeof AuthedActivityBlocklistRoute
+  AuthedActivityHistoryRoute: typeof AuthedActivityHistoryRoute
   AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
@@ -628,8 +666,10 @@ interface AuthedRouteChildren {
   AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
+  AuthedSystemEventsRoute: typeof AuthedSystemEventsRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
+  AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
@@ -640,9 +680,9 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedActivityRoute: AuthedActivityRoute,
-  AuthedHistoryRoute: AuthedHistoryRoute,
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedActivityBlocklistRoute: AuthedActivityBlocklistRoute,
+  AuthedActivityHistoryRoute: AuthedActivityHistoryRoute,
   AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
@@ -651,8 +691,10 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
+  AuthedSystemEventsRoute: AuthedSystemEventsRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
+  AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,

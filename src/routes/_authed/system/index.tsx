@@ -29,8 +29,8 @@ const systemItems = [
       "Scheduled background tasks like metadata refresh, health checks, and backups.",
   },
   {
-    title: "History",
-    to: "/history" as const,
+    title: "Events",
+    to: "/system/events" as const,
     icon: History,
     description:
       "View a log of all events — books added, updated, deleted, and more.",
