@@ -15,7 +15,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { matchFormat } from "./indexers/format-parser";
 import { eventBus } from "./event-bus";
-import { getMediaSetting } from "./settings-reader";
+import getMediaSetting from "./settings-reader";
 
 function applyNamingTemplate(
   template: string,
@@ -328,6 +328,7 @@ function markFailed(id: number, message: string): void {
   console.warn(`[file-import] Failed: ${message}`);
 }
 
+// oxlint-disable-next-line complexity -- Import pipeline with many validation and cleanup steps
 export async function importCompletedDownload(
   trackedDownloadId: number,
 ): Promise<void> {

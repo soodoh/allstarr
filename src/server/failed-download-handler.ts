@@ -3,14 +3,14 @@ import { db } from "src/db";
 import { trackedDownloads, blocklist } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { eventBus } from "./event-bus";
-import { getMediaSetting } from "./settings-reader";
+import getMediaSetting from "./settings-reader";
 import { runAutoSearch } from "./auto-search";
 import type {
   ConnectionConfig,
   DownloadClientProvider,
 } from "./download-clients/types";
 
-export async function handleFailedDownload(
+export default async function handleFailedDownload(
   trackedDownloadId: number,
   provider: DownloadClientProvider,
   config: ConnectionConfig,

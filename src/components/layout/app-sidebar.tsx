@@ -123,7 +123,7 @@ export default function AppSidebar(): JSX.Element {
 
   const isChildActive = (childTo: string, groupTo: string) => {
     if (childTo === groupTo) {
-      return currentPath === childTo || currentPath === childTo + "/";
+      return currentPath === childTo || currentPath === `${childTo}/`;
     }
     return currentPath.startsWith(childTo);
   };
