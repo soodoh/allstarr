@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createFileRoute,
   Link,
@@ -6,12 +6,13 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
   ChevronRight,
   ExternalLink,
   ImageIcon,
@@ -28,7 +29,6 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import Skeleton from "src/components/ui/skeleton";
 import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
-import TablePagination from "src/components/shared/table-pagination";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import Input from "src/components/ui/input";
@@ -72,9 +72,13 @@ import AuthorForm from "src/components/bookshelf/authors/author-form";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
+import BaseBookTable from "src/components/bookshelf/books/base-book-table";
+import type { BookTableRow } from "src/components/bookshelf/books/base-book-table";
+import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
 import type { HardcoverSearchItem } from "src/server/search";
 import {
   authorDetailQuery,
+  authorBooksInfiniteQuery,
   hardcoverSeriesCompleteQuery,
   metadataProfileQuery,
   downloadProfilesListQuery,
@@ -90,7 +94,6 @@ import { pickBestEdition } from "src/lib/editions";
 import type { HardcoverRawSeriesBookEdition } from "src/server/hardcover/types";
 import type { MetadataProfile } from "src/server/metadata-profile";
 
-const DEFAULT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
 
 export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
@@ -184,22 +187,32 @@ type AuthorSeries = {
   books: Array<{ bookId: number; position: string }>;
 };
 
-type BooksTabSortKey = "title" | "year" | "readers" | "rating";
-
 // ---------- Helpers ----------
 
 // ---------- Books tab ----------
 
-// oxlint-disable-next-line complexity -- Tab component with search, sort, pagination, and table rendering
 type DownloadProfileInfo = { id: number; name: string; icon: string };
 
+const BOOKS_TAB_COLUMNS = [
+  { key: "title" as const, sortable: true },
+  { key: "releaseDate" as const, sortable: true },
+  { key: "readers" as const, sortable: true },
+  { key: "rating" as const, sortable: true },
+  { key: "format" as const },
+  { key: "pages" as const },
+  { key: "isbn10" as const },
+  { key: "isbn13" as const },
+  { key: "asin" as const },
+  { key: "score" as const },
+  { key: "author" as const },
+  { key: "monitored" as const },
+];
+
 function BooksTab({
-  books,
   currentAuthorId,
   availableLanguages,
   authorDownloadProfiles,
 }: {
-  books: LocalBook[];
   currentAuthorId: number;
   availableLanguages: LanguageOption[];
   authorDownloadProfiles: DownloadProfileInfo[];
@@ -212,16 +225,15 @@ function BooksTab({
   const [language, setLanguage] = useState(
     availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
-  const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<BooksTabSortKey>("readers");
+  const [sortKey, setSortKey] = useState<string>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
-    setPage(1);
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -240,62 +252,146 @@ function BooksTab({
     }
     setSearchInput("");
     setSearchQuery("");
-    setPage(1);
   };
 
-  const handleSort = (key: BooksTabSortKey) => {
-    const newDir: "asc" | "desc" =
-      sortKey === key && sortDir === "asc" ? "desc" : "asc";
-    setSortKey(key);
-    setSortDir(newDir);
-    setPage(1);
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
-  const processedBooks = useMemo(() => {
-    let result = books;
+  const { data, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useInfiniteQuery(
+      authorBooksInfiniteQuery(
+        currentAuthorId,
+        searchQuery,
+        language,
+        sortKey,
+        sortDir,
+      ),
+    );
 
-    // Language filter
-    if (language !== "all") {
-      result = result.filter((b) => b.languageCodes.includes(language));
-    }
+  const items = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
+  );
+  const total = data?.pages[0]?.total ?? 0;
 
-    // Search filter
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((b) => b.title.toLowerCase().includes(q));
-    }
-
-    // Sort
-    result = [...result].toSorted((a, b) => {
-      let cmp = 0;
-      if (sortKey === "title") {
-        cmp = a.title.localeCompare(b.title);
-      } else if (sortKey === "year") {
-        cmp = (a.releaseDate ?? "").localeCompare(b.releaseDate ?? "");
-      } else if (sortKey === "readers") {
-        cmp = (a.usersCount ?? -1) - (b.usersCount ?? -1);
-      } else if (sortKey === "rating") {
-        cmp = (a.rating ?? -1) - (b.rating ?? -1);
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
       }
-      const directed = sortDir === "asc" ? cmp : -cmp;
-      if (directed !== 0 || sortKey === "readers") {
-        return directed;
-      }
-      // Tiebreaker: higher readers first
-      return (b.usersCount ?? 0) - (a.usersCount ?? 0);
-    });
-
-    return result;
-  }, [books, language, searchQuery, sortKey, sortDir]);
-
-  const totalItems = processedBooks.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / DEFAULT_PAGE_SIZE));
-  const pagedBooks = processedBooks.slice(
-    (page - 1) * DEFAULT_PAGE_SIZE,
-    page * DEFAULT_PAGE_SIZE,
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
   );
 
-  const colCount = 14;
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) {
+      return;
+    }
+    const observer = new IntersectionObserver(handleObserver, {
+      rootMargin: "200px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
+  const rows: BookTableRow[] = useMemo(
+    () =>
+      items.map((item) => ({
+        key: item.id,
+        bookId: item.id,
+        title: item.title,
+        coverUrl: item.coverUrl,
+        bookAuthors: item.bookAuthors,
+        authorName: item.authorName,
+        releaseDate: item.releaseDate,
+        usersCount: item.usersCount,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        format: item.format,
+        pageCount: item.pageCount,
+        isbn10: item.isbn10,
+        isbn13: item.isbn13,
+        asin: item.asin,
+        score: item.score,
+        publisher: item.publisher,
+        editionInformation: item.editionInformation,
+        language: item.language,
+        country: item.country,
+        series: item.series,
+        monitored: item.downloadProfileIds.length > 0,
+        downloadProfileIds: item.downloadProfileIds,
+      })),
+    [items],
+  );
+
+  // Build metadata warning info map
+  const metaMap = useMemo(() => {
+    const map = new Map<
+      number,
+      {
+        metadataSourceMissingSince: Date | null;
+        missingEditionsCount: number;
+        fileCount: number;
+        title: string;
+      }
+    >();
+    for (const item of items) {
+      map.set(item.id, {
+        metadataSourceMissingSince: item.metadataSourceMissingSince,
+        missingEditionsCount: item.missingEditionsCount,
+        fileCount: item.fileCount,
+        title: item.title,
+      });
+    }
+    return map;
+  }, [items]);
+
+  const renderLeadingCell = (row: BookTableRow) => {
+    const meta = metaMap.get(row.bookId);
+    if (meta?.metadataSourceMissingSince) {
+      return (
+        <MetadataWarning
+          type="book"
+          missingSince={meta.metadataSourceMissingSince}
+          itemId={row.bookId}
+          itemTitle={meta.title}
+          fileCount={meta.fileCount}
+          onDeleted={() => router.invalidate()}
+        />
+      );
+    }
+    if (meta && meta.missingEditionsCount > 0) {
+      return (
+        <MetadataWarning
+          type="book-editions"
+          missingSince={new Date()}
+          missingEditionsCount={meta.missingEditionsCount}
+          itemId={row.bookId}
+          itemTitle={meta.title}
+        />
+      );
+    }
+    return (
+      <ProfileToggleIcons
+        profiles={authorDownloadProfiles}
+        activeProfileIds={row.downloadProfileIds}
+        onToggle={(profileId) =>
+          toggleBookProfile.mutate({
+            bookId: row.bookId,
+            downloadProfileId: profileId,
+          })
+        }
+        isPending={toggleBookProfile.isPending}
+      />
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -321,13 +417,7 @@ function BooksTab({
             )}
           </div>
           {availableLanguages.length > 1 && (
-            <Select
-              value={language}
-              onValueChange={(v) => {
-                setLanguage(v);
-                setPage(1);
-              }}
-            >
+            <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="h-9 w-[160px] text-sm">
                 <SelectValue placeholder="Language" />
               </SelectTrigger>
@@ -342,252 +432,38 @@ function BooksTab({
             </Select>
           )}
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {totalItems} book{totalItems === 1 ? "" : "s"}
+            {total} book{total === 1 ? "" : "s"}
           </span>
         </div>
       </div>
 
-      {totalItems > 0 && (
-        <TablePagination
-          page={page}
-          pageSize={DEFAULT_PAGE_SIZE}
-          totalItems={totalItems}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={() => {
-            /* noop */
-          }}
-        />
-      )}
-
       <div className="overflow-x-auto">
-        <Table>
-          <colgroup>
-            <col className="w-10" />
-            <col className="w-14" />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10" />
-              <TableHead />
-              {(
-                [
-                  { key: "title", label: "Title" },
-                  { key: "year", label: "Release Date" },
-                  { key: "readers", label: "Readers" },
-                  { key: "rating", label: "Rating" },
-                ] as Array<{ key: BooksTabSortKey; label: string }>
-              ).map(({ key, label }) => {
-                let SortIcon = ChevronsUpDown;
-                if (sortKey === key) {
-                  SortIcon = sortDir === "asc" ? ChevronUp : ChevronDown;
-                }
-                return (
-                  <TableHead
-                    key={key}
-                    className="cursor-pointer select-none hover:text-foreground"
-                    onClick={() => handleSort(key)}
-                  >
-                    {label}
-                    <SortIcon className="ml-1 h-3.5 w-3.5 text-muted-foreground/50 inline" />
-                  </TableHead>
-                );
-              })}
-              <TableHead>Type</TableHead>
-              <TableHead>Pages</TableHead>
-              <TableHead>ISBN 10</TableHead>
-              <TableHead>ISBN 13</TableHead>
-              <TableHead>ASIN</TableHead>
-              <TableHead>Data Score</TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Monitored</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {searchQuery && processedBooks.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={colCount}
-                  className="text-sm text-muted-foreground"
-                >
-                  No books match &ldquo;{searchQuery}&rdquo;.
-                </TableCell>
-              </TableRow>
-            )}
-            {!searchQuery && books.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={colCount}
-                  className="text-sm text-muted-foreground"
-                >
-                  No books found for this author.
-                </TableCell>
-              </TableRow>
-            )}
-            {
-              // oxlint-disable-next-line complexity -- Table row render with many conditional cells
-              pagedBooks.map((book) => {
-                const edition = pickBestEdition(book.editions, language);
-                const coverUrl =
-                  edition?.images?.[0]?.url ?? book.images?.[0]?.url;
-                const displayTitle =
-                  !edition || edition.isDefaultCover
-                    ? book.title
-                    : edition.title;
-                const displayDate =
-                  edition?.releaseDate ??
-                  book.releaseDate ??
-                  (book.releaseYear ? String(book.releaseYear) : "Unknown");
-                return (
-                  <TableRow
-                    key={book.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      navigate({
-                        to: "/bookshelf/books/$bookId",
-                        params: { bookId: String(book.id) },
-                      })
-                    }
-                  >
-                    <TableCell>
-                      {(() => {
-                        if (book.metadataSourceMissingSince) {
-                          return (
-                            <MetadataWarning
-                              type="book"
-                              missingSince={book.metadataSourceMissingSince}
-                              itemId={book.id}
-                              itemTitle={book.title}
-                              fileCount={book.fileCount}
-                              onDeleted={() => router.invalidate()}
-                            />
-                          );
-                        }
-                        if (book.missingEditionsCount > 0) {
-                          return (
-                            <MetadataWarning
-                              type="book-editions"
-                              missingSince={new Date()}
-                              missingEditionsCount={book.missingEditionsCount}
-                              itemId={book.id}
-                              itemTitle={book.title}
-                            />
-                          );
-                        }
-                        return (
-                          <ProfileToggleIcons
-                            profiles={authorDownloadProfiles}
-                            activeProfileIds={book.downloadProfileIds}
-                            onToggle={(profileId) =>
-                              toggleBookProfile.mutate({
-                                bookId: book.id,
-                                downloadProfileId: profileId,
-                              })
-                            }
-                            isPending={toggleBookProfile.isPending}
-                          />
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      {coverUrl ? (
-                        <img
-                          src={coverUrl}
-                          alt={displayTitle}
-                          className="aspect-[2/3] w-full rounded-sm object-cover"
-                        />
-                      ) : (
-                        <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{displayTitle}</span>
-                    </TableCell>
-                    <TableCell>{displayDate}</TableCell>
-                    <TableCell>
-                      {book.usersCount === null
-                        ? "—"
-                        : book.usersCount.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {book.rating === null ? (
-                        "—"
-                      ) : (
-                        <span className="inline-flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                          {book.rating.toFixed(1)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.format ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.pageCount ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.isbn10 ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.isbn13 ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.asin ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {edition?.score ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <AdditionalAuthors
-                        bookAuthors={book.bookAuthors}
-                        currentAuthorId={currentAuthorId}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          book.downloadProfileIds.length > 0
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {book.downloadProfileIds.length > 0 ? "Yes" : "No"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            }
-          </TableBody>
-        </Table>
+        <BaseBookTable
+          rows={rows}
+          columns={BOOKS_TAB_COLUMNS}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          renderLeadingCell={renderLeadingCell}
+          currentAuthorId={currentAuthorId}
+          onRowClick={(row) =>
+            navigate({
+              to: "/bookshelf/books/$bookId",
+              params: { bookId: String(row.bookId) },
+            })
+          }
+          emptyMessage={
+            searchQuery
+              ? `No books match \u201C${searchQuery}\u201D.`
+              : "No books found for this author."
+          }
+        >
+          {isFetchingNextPage && (
+            <BookTableRowsSkeleton columns={BOOKS_TAB_COLUMNS.length} />
+          )}
+        </BaseBookTable>
+        <div ref={sentinelRef} className="h-1" />
       </div>
-
-      {totalItems > 0 && (
-        <TablePagination
-          page={page}
-          pageSize={DEFAULT_PAGE_SIZE}
-          totalItems={totalItems}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={() => {
-            /* noop */
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -1477,7 +1353,6 @@ function AuthorDetailPage() {
             <CardContent className="pt-4">
               <TabsContent value="books" className="mt-0">
                 <BooksTab
-                  books={books}
                   currentAuthorId={authorIdNum}
                   availableLanguages={availableLanguages}
                   authorDownloadProfiles={authorDownloadProfiles}

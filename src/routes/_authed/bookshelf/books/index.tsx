@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, BookOpen, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -12,21 +12,43 @@ import {
   BookTableRowsSkeleton,
   BookCardsSkeleton,
 } from "src/components/shared/loading-skeleton";
-import { booksInfiniteQuery } from "src/lib/queries";
+import { booksInfiniteQuery, downloadProfilesListQuery } from "src/lib/queries";
+import { useToggleBookProfile } from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/bookshelf/books/")({
-  loader: ({ context }) =>
-    context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+    ]);
+  },
   component: BooksPage,
 });
 
 function BooksPage() {
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<string>("readers");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useInfiniteQuery(booksInfiniteQuery(search, true));
+    useInfiniteQuery(booksInfiniteQuery(search, true, sortKey, sortDir));
+
+  const { data: downloadProfiles } = useSuspenseQuery(
+    downloadProfilesListQuery(),
+  );
+
+  const toggleBookProfile = useToggleBookProfile();
 
   const books = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
@@ -54,8 +76,6 @@ function BooksPage() {
     observer.observe(el);
     return () => observer.disconnect();
   }, [handleObserver]);
-
-  const tableBooks = useMemo(() => books, [books]);
 
   if (!isLoading && total === 0 && !search) {
     return (
@@ -119,12 +139,22 @@ function BooksPage() {
       </div>
 
       {view === "table" ? (
-        <BookTable books={tableBooks}>
-          {showLoading && <BookTableRowsSkeleton />}
+        <BookTable
+          books={books}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          downloadProfiles={downloadProfiles}
+          onToggleProfile={(bookId, profileId) =>
+            toggleBookProfile.mutate({ bookId, downloadProfileId: profileId })
+          }
+          isTogglePending={toggleBookProfile.isPending}
+        >
+          {showLoading && <BookTableRowsSkeleton columns={7} />}
         </BookTable>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {tableBooks.map((book) => (
+          {books.map((book) => (
             <BookCard key={book.editionId} book={book} />
           ))}
           {showLoading && <BookCardsSkeleton />}

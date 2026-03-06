@@ -203,9 +203,12 @@ export function AuthorCardsSkeleton({
 
 export function BookTableRowsSkeleton({
   rows = 5,
+  columns = 6,
 }: {
   rows?: number;
+  columns?: number;
 }): JSX.Element {
+  const widths = ["w-44", "w-32", "w-24", "w-28", "w-16", "w-20"];
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -213,21 +216,11 @@ export function BookTableRowsSkeleton({
           <td className="p-2">
             <Skeleton className="aspect-[2/3] w-full rounded-sm" />
           </td>
-          <td className="p-2">
-            <Skeleton className="h-4 w-44" />
-          </td>
-          <td className="p-2">
-            <Skeleton className="h-4 w-32" />
-          </td>
-          <td className="p-2">
-            <Skeleton className="h-4 w-24" />
-          </td>
-          <td className="p-2">
-            <Skeleton className="h-4 w-28" />
-          </td>
-          <td className="p-2">
-            <Skeleton className="h-4 w-16" />
-          </td>
+          {Array.from({ length: columns }).map((__, j) => (
+            <td key={j} className="p-2">
+              <Skeleton className={`h-4 ${widths[j % widths.length]}`} />
+            </td>
+          ))}
         </tr>
       ))}
     </>

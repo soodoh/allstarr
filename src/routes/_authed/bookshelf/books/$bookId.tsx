@@ -97,7 +97,6 @@ function BookDetailPage(): JSX.Element {
     enabled: activeTab === "search",
   });
 
-  const editionsList = useMemo(() => book?.editions ?? [], [book?.editions]);
   if (!book) {
     return <NotFound />;
   }
@@ -328,7 +327,7 @@ function BookDetailPage(): JSX.Element {
 
             <div className="p-4">
               <EditionsTab
-                editions={editionsList}
+                bookId={book.id}
                 authorDownloadProfiles={authorDownloadProfiles}
               />
               <SearchReleasesTab
