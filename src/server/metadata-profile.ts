@@ -8,6 +8,8 @@ export type MetadataProfile = {
   skipMissingReleaseDate: boolean;
   skipMissingIsbnAsin: boolean;
   skipCompilations: boolean;
+  minimumPopularity: number;
+  minimumPages: number;
 };
 
 const DEFAULT_METADATA_PROFILE: MetadataProfile = {
@@ -15,6 +17,8 @@ const DEFAULT_METADATA_PROFILE: MetadataProfile = {
   skipMissingReleaseDate: false,
   skipMissingIsbnAsin: false,
   skipCompilations: false,
+  minimumPopularity: 10,
+  minimumPages: 0,
 };
 
 /**

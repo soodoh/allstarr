@@ -333,4 +333,4 @@ INSERT INTO `settings` (`key`, `value`) VALUES
 	('naming.bookFolder', '"{Book Title} ({Release Year})"'),
 	('naming.bookFile', '"{Author Name} - {Book Title}"'),
 	('general.logLevel', '"info"'),
-	('metadata.profile', '{"allowedLanguages":["en"],"skipMissingReleaseDate":false,"skipMissingIsbnAsin":false,"skipCompilations":true}');
+	('metadata.profile', '{"allowedLanguages":["en"],"skipMissingReleaseDate":false,"skipMissingIsbnAsin":false,"skipCompilations":true,"minimumPopularity":10,"minimumPages":0}');

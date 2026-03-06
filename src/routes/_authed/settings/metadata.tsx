@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
 import {
@@ -40,6 +41,10 @@ function MetadataSettingsPage() {
   const [skipCompilations, setSkipCompilations] = useState(
     profile.skipCompilations,
   );
+  const [minimumPopularity, setMinimumPopularity] = useState(
+    profile.minimumPopularity,
+  );
+  const [minimumPages, setMinimumPages] = useState(profile.minimumPages);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSave = () => {
@@ -48,6 +53,8 @@ function MetadataSettingsPage() {
       skipMissingReleaseDate,
       skipMissingIsbnAsin,
       skipCompilations,
+      minimumPopularity,
+      minimumPages,
     });
     if (!result.success) {
       setErrors(result.errors);
@@ -133,6 +140,41 @@ function MetadataSettingsPage() {
               <Switch
                 checked={skipCompilations}
                 onCheckedChange={setSkipCompilations}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Minimum Popularity</Label>
+              <p className="text-sm text-muted-foreground">
+                Books with fewer readers than this value will be skipped. Set to
+                0 to disable.
+              </p>
+              <Input
+                type="number"
+                min={0}
+                value={minimumPopularity}
+                onChange={(e) =>
+                  setMinimumPopularity(Number.parseInt(e.target.value, 10) || 0)
+                }
+                className="w-32"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Minimum Pages</Label>
+              <p className="text-sm text-muted-foreground">
+                Books where no edition has at least this many pages will be
+                skipped. Audiobook editions are excluded from this check. Set to
+                0 to disable.
+              </p>
+              <Input
+                type="number"
+                min={0}
+                value={minimumPages}
+                onChange={(e) =>
+                  setMinimumPages(Number.parseInt(e.target.value, 10) || 0)
+                }
+                className="w-32"
               />
             </div>
           </CardContent>

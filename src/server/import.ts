@@ -41,8 +41,14 @@ function filterEditionsByProfile(
   const hasLanguageFilter = profile.allowedLanguages.length > 0;
   const hasIsbnAsinFilter = profile.skipMissingIsbnAsin;
   const hasReleaseDateFilter = profile.skipMissingReleaseDate;
+  const hasMinPagesFilter = profile.minimumPages > 0;
 
-  if (!hasLanguageFilter && !hasIsbnAsinFilter && !hasReleaseDateFilter) {
+  if (
+    !hasLanguageFilter &&
+    !hasIsbnAsinFilter &&
+    !hasReleaseDateFilter &&
+    !hasMinPagesFilter
+  ) {
     return editions;
   }
 
@@ -58,6 +64,14 @@ function filterEditionsByProfile(
       return false;
     }
     if (hasReleaseDateFilter && !ed.releaseDate) {
+      return false;
+    }
+    if (
+      hasMinPagesFilter &&
+      ed.format !== "Audiobook" &&
+      ed.pageCount !== null &&
+      ed.pageCount < profile.minimumPages
+    ) {
       return false;
     }
     return true;
@@ -105,6 +119,25 @@ function shouldSkipBook(
   // If all editions were filtered out by language, skip the book
   if (filteredEditions.length === 0 && profile.allowedLanguages.length > 0) {
     return true;
+  }
+  if (
+    profile.minimumPopularity > 0 &&
+    (book.usersCount ?? 0) < profile.minimumPopularity
+  ) {
+    return true;
+  }
+  if (profile.minimumPages > 0) {
+    const nonAudioEditions = filteredEditions.filter(
+      (ed) => ed.format !== "Audiobook",
+    );
+    if (nonAudioEditions.length > 0) {
+      const hasEnoughPages = nonAudioEditions.some(
+        (ed) => ed.pageCount !== null && ed.pageCount >= profile.minimumPages,
+      );
+      if (!hasEnoughPages) {
+        return true;
+      }
+    }
   }
   return false;
 }
