@@ -60,6 +60,7 @@ function getSetting<T>(
   return v as T;
 }
 
+// oxlint-disable-next-line complexity -- UI component with many dialog state handlers
 function DownloadClientsPage() {
   const { data: clients } = useSuspenseQuery(downloadClientsListQuery());
   const { data: settings } = useSuspenseQuery(settingsMapQuery());

@@ -10,8 +10,8 @@ import type {
   DownloadItem,
 } from "./download-clients/types";
 import { importCompletedDownload } from "./file-import";
-import { handleFailedDownload } from "./failed-download-handler";
-import { getMediaSetting } from "./settings-reader";
+import handleFailedDownload from "./failed-download-handler";
+import getMediaSetting from "./settings-reader";
 import { eventBus } from "./event-bus";
 import type { TaskResult } from "./scheduler/registry";
 
@@ -92,6 +92,7 @@ async function removeFromClient(
   }
 }
 
+// oxlint-disable-next-line complexity -- Download reconciliation with per-client error handling
 export async function refreshDownloads(): Promise<TaskResult> {
   const tracked = db
     .select()
@@ -185,11 +186,13 @@ export async function refreshDownloads(): Promise<TaskResult> {
             `[download-manager] Import failed for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
           );
           stats.failed += 1;
-          handleFailedDownload(td.id, provider, config).catch((error) =>
+          try {
+            await handleFailedDownload(td.id, provider, config);
+          } catch (handlerError) {
             console.error(
-              `[download-manager] Failed download handler error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            ),
-          );
+              `[download-manager] Failed download handler error: ${handlerError instanceof Error ? handlerError.message : "Unknown error"}`,
+            );
+          }
         }
       }
     }
