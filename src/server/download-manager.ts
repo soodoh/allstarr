@@ -4,8 +4,14 @@ import { db } from "src/db";
 import { trackedDownloads, downloadClients } from "src/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import getProvider from "./download-clients/registry";
-import type { ConnectionConfig, DownloadItem } from "./download-clients/types";
+import type {
+  ConnectionConfig,
+  DownloadClientProvider,
+  DownloadItem,
+} from "./download-clients/types";
 import { importCompletedDownload } from "./file-import";
+import { handleFailedDownload } from "./failed-download-handler";
+import { getMediaSetting } from "./settings-reader";
 import { eventBus } from "./event-bus";
 import type { TaskResult } from "./scheduler/registry";
 
@@ -63,7 +69,27 @@ function reconcileTrackedDownload(
       .run();
     stats.removed += 1;
   }
+
+  // Retry import for downloads stuck in completed/importPending (e.g. server crashed mid-import)
+  if (td.state === "completed" || td.state === "importPending") {
+    return "import";
+  }
+
   return null;
+}
+
+async function removeFromClient(
+  provider: DownloadClientProvider,
+  config: ConnectionConfig,
+  downloadId: string,
+): Promise<void> {
+  try {
+    await provider.removeDownload(config, downloadId, false);
+  } catch (error) {
+    console.warn(
+      `[download-manager] Failed to remove completed download from client: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
 }
 
 export async function refreshDownloads(): Promise<TaskResult> {
@@ -86,6 +112,10 @@ export async function refreshDownloads(): Promise<TaskResult> {
   }
 
   const stats: Stats = { updated: 0, completed: 0, removed: 0, failed: 0 };
+  const enableCompletedHandling = getMediaSetting(
+    "downloadClient.enableCompletedDownloadHandling",
+    true,
+  );
 
   for (const [clientId, downloads] of byClient) {
     const client = db
@@ -143,14 +173,23 @@ export async function refreshDownloads(): Promise<TaskResult> {
         itemMap.get(td.downloadId),
         stats,
       );
-      if (action === "import") {
+      if (action === "import" && enableCompletedHandling) {
         try {
           await importCompletedDownload(td.id);
+          // Remove completed download from client after successful import
+          if (client.removeCompletedDownloads) {
+            await removeFromClient(provider, config, td.downloadId);
+          }
         } catch (error) {
           console.error(
             `[download-manager] Import failed for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
           );
           stats.failed += 1;
+          handleFailedDownload(td.id, provider, config).catch((error) =>
+            console.error(
+              `[download-manager] Failed download handler error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            ),
+          );
         }
       }
     }
