@@ -979,6 +979,47 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
         .get();
 
       if (existingBook) {
+        // Check if the existing book should now be filtered out
+        const allEditions = editionsMap.get(rawBook.id) ?? [];
+        const filteredEditions = filterEditionsByProfile(
+          allEditions,
+          metadataProfile,
+          rawBook.defaultCoverEditionId,
+        );
+        if (shouldSkipBook(rawBook, filteredEditions, metadataProfile)) {
+          // Book no longer passes filters — remove if safe
+          const hasProfileLink = tx
+            .select({ id: editionDownloadProfiles.id })
+            .from(editionDownloadProfiles)
+            .innerJoin(
+              editions,
+              eq(editions.id, editionDownloadProfiles.editionId),
+            )
+            .where(eq(editions.bookId, existingBook.id))
+            .limit(1)
+            .get();
+          const fileCount = tx
+            .select({ count: sql<number>`count(*)` })
+            .from(bookFiles)
+            .where(eq(bookFiles.bookId, existingBook.id))
+            .get();
+
+          if (!hasProfileLink && (fileCount?.count ?? 0) === 0) {
+            tx.delete(books).where(eq(books.id, existingBook.id)).run();
+            tx.insert(history)
+              .values({
+                eventType: "bookDeleted",
+                authorId: authorId,
+                data: {
+                  title: rawBook.title,
+                  reason: "metadata_profile_filtered",
+                },
+              })
+              .run();
+          }
+          continue;
+        }
+
         // Update existing book
         tx.update(books)
           .set({
