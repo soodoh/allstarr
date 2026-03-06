@@ -155,7 +155,7 @@ const sabnzbdProvider: DownloadClientProvider = {
   async removeDownload(
     config: ConnectionConfig,
     id: string,
-    _deleteFiles: boolean,
+    deleteFiles: boolean,
   ): Promise<void> {
     const baseUrl = buildBaseUrl(
       config.host,
@@ -164,12 +164,23 @@ const sabnzbdProvider: DownloadClientProvider = {
       config.urlBase,
     );
     const apiKey = encodeURIComponent(config.apiKey ?? "");
+    const encodedId = encodeURIComponent(id);
 
-    const url = `${baseUrl}/api?mode=queue&name=delete&value=${encodeURIComponent(id)}&apikey=${apiKey}&output=json`;
-    const response = await fetchWithTimeout(url, { method: "GET" });
+    // Try removing from both queue and history — the item could be in either
+    const delFiles = deleteFiles ? "&del_files=1" : "";
+    const [queueRes, historyRes] = await Promise.all([
+      fetchWithTimeout(
+        `${baseUrl}/api?mode=queue&name=delete&value=${encodedId}&apikey=${apiKey}&output=json`,
+        { method: "GET" },
+      ),
+      fetchWithTimeout(
+        `${baseUrl}/api?mode=history&name=delete&value=${encodedId}${delFiles}&apikey=${apiKey}&output=json`,
+        { method: "GET" },
+      ),
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`SABnzbd delete error: HTTP ${response.status}`);
+    if (!queueRes.ok && !historyRes.ok) {
+      throw new Error(`SABnzbd delete error: HTTP ${queueRes.status}`);
     }
   },
 
