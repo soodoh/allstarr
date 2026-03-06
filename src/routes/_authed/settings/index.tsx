@@ -4,6 +4,7 @@ import {
   Sliders,
   FileType,
   Download,
+  HardDrive,
   Radar,
   FileText,
 } from "lucide-react";
@@ -25,8 +26,14 @@ const settingsItems = [
     title: "General",
     to: "/settings/general" as const,
     icon: Settings,
+    description: "Configure log levels, API key, and global app behavior.",
+  },
+  {
+    title: "Media Management",
+    to: "/settings/media-management" as const,
+    icon: HardDrive,
     description:
-      "Configure naming templates, log levels, and global app behavior.",
+      "Configure book naming, file import behavior, permissions, and recycling bin.",
   },
   {
     title: "Metadata",

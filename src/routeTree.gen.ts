@@ -24,6 +24,7 @@ import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/t
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
+import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
@@ -113,6 +114,12 @@ const AuthedSettingsMetadataRoute = AuthedSettingsMetadataRouteImport.update({
   path: '/settings/metadata',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsMediaManagementRoute =
+  AuthedSettingsMediaManagementRouteImport.update({
+    id: '/settings/media-management',
+    path: '/settings/media-management',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
   id: '/settings/indexers',
   path: '/settings/indexers',
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/system/status': typeof AuthedSystemStatusRoute
@@ -231,6 +239,7 @@ export interface FileRoutesByTo {
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/system/status': typeof AuthedSystemStatusRoute
@@ -263,6 +272,7 @@ export interface FileRoutesById {
   '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/settings/formats'
     | '/settings/general'
     | '/settings/indexers'
+    | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
     | '/system/status'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/settings/formats'
     | '/settings/general'
     | '/settings/indexers'
+    | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
     | '/system/status'
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/formats'
     | '/_authed/settings/general'
     | '/_authed/settings/indexers'
+    | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
     | '/_authed/system/status'
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsMetadataRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/media-management': {
+      id: '/_authed/settings/media-management'
+      path: '/settings/media-management'
+      fullPath: '/settings/media-management'
+      preLoaderRoute: typeof AuthedSettingsMediaManagementRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/indexers': {
       id: '/_authed/settings/indexers'
       path: '/settings/indexers'
@@ -605,6 +625,7 @@ interface AuthedRouteChildren {
   AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
+  AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
@@ -627,6 +648,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
+  AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,

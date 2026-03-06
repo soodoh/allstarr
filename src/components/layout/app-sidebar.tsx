@@ -14,6 +14,7 @@ import {
   Library as LibraryIcon,
   Plus,
   Download,
+  HardDrive,
   Radar,
   Monitor,
   Activity,
@@ -73,6 +74,11 @@ const navGroups: NavGroup[] = [
     matchPrefixes: ["/settings"],
     children: [
       { title: "General", to: "/settings/general", icon: Settings },
+      {
+        title: "Media Management",
+        to: "/settings/media-management",
+        icon: HardDrive,
+      },
       { title: "Metadata", to: "/settings/metadata", icon: FileText },
       { title: "Formats", to: "/settings/formats", icon: FileType },
       { title: "Profiles", to: "/settings/profiles", icon: Sliders },
