@@ -598,6 +598,15 @@ async function grabRelease(
     }
     client = matchingClients[0];
   }
+  // Look up indexer tag
+  const indexerTagRow = db
+    .select({ tag: indexerTable.tag })
+    .from(indexerTable)
+    .where(eq(indexerTable.id, release.allstarrIndexerId))
+    .get();
+  const combinedTag =
+    [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+
   const provider = getProvider(client.implementation);
   const config: ConnectionConfig = {
     implementation: client.implementation as ConnectionConfig["implementation"],
@@ -609,6 +618,7 @@ async function grabRelease(
     password: client.password,
     apiKey: client.apiKey,
     category: client.category,
+    tag: client.tag,
     settings: client.settings as Record<string, unknown> | null,
   };
 
@@ -617,6 +627,7 @@ async function grabRelease(
     torrentData: null,
     nzbData: null,
     category: null,
+    tag: combinedTag,
     savePath: null,
   });
 

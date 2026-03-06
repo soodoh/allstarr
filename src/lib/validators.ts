@@ -184,6 +184,7 @@ export const createDownloadClientSchema = z.object({
   password: z.string().nullable(),
   apiKey: z.string().nullable(),
   category: z.string().default("allstarr"),
+  tag: z.string().nullable().default(null),
   settings: z.record(z.string(), z.unknown()).nullable(),
 });
 
@@ -218,6 +219,7 @@ export const createIndexerSchema = z.object({
   enableAutomaticSearch: z.boolean().default(true),
   enableInteractiveSearch: z.boolean().default(true),
   priority: z.number().int().min(1).default(25),
+  tag: z.string().nullable().default(null),
   downloadClientId: z.number().nullable().default(null),
 });
 
@@ -233,6 +235,7 @@ export const testIndexerSchema = z.object({
 
 export const updateSyncedIndexerSchema = z.object({
   id: z.number(),
+  tag: z.string().nullable().default(null),
   downloadClientId: z.number().nullable(),
 });
 

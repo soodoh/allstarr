@@ -104,7 +104,10 @@ function IndexersPage() {
   };
 
   const handleCreate = (values: IndexerFormValues) => {
-    createIndexer.mutate(values, { onSuccess: handleCloseDialog });
+    createIndexer.mutate(
+      { ...values, tag: values.tag || null },
+      { onSuccess: handleCloseDialog },
+    );
   };
 
   const handleUpdate = (values: IndexerFormValues) => {
@@ -112,7 +115,7 @@ function IndexersPage() {
       return;
     }
     updateIndexer.mutate(
-      { ...values, id: editing.id },
+      { ...values, id: editing.id, tag: values.tag || null },
       { onSuccess: handleCloseDialog },
     );
   };
@@ -121,9 +124,13 @@ function IndexersPage() {
     deleteIndexer.mutate(id);
   };
 
-  const handleUpdateSynced = (id: number, downloadClientId: number | null) => {
+  const handleUpdateSynced = (
+    id: number,
+    downloadClientId: number | null,
+    tag: string | null,
+  ) => {
     updateSyncedIndexer.mutate(
-      { id, downloadClientId },
+      { id, downloadClientId, tag },
       { onSuccess: () => setViewingSynced(null) },
     );
   };
@@ -141,6 +148,7 @@ function IndexersPage() {
         enableAutomaticSearch: editing.enableAutomaticSearch,
         enableInteractiveSearch: editing.enableInteractiveSearch,
         priority: editing.priority,
+        tag: editing.tag ?? "",
         downloadClientId: editing.downloadClientId ?? null,
       }
     : undefined;

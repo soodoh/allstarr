@@ -22,6 +22,7 @@ export const indexers = sqliteTable("indexers", {
     .notNull()
     .default(true),
   priority: integer("priority").notNull().default(25),
+  tag: text("tag"),
   downloadClientId: integer("download_client_id").references(
     () => downloadClients.id,
     { onDelete: "set null" },

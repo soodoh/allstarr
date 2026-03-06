@@ -90,6 +90,7 @@ export const testDownloadClientFn = createServerFn({ method: "POST" })
       password: data.password,
       apiKey: data.apiKey,
       category: null,
+      tag: null,
       settings: null,
     };
     return provider.testConnection(config);

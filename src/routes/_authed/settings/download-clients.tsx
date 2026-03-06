@@ -100,6 +100,7 @@ function DownloadClientsPage() {
         password: values.password || null,
         apiKey: values.apiKey || null,
         category: values.category,
+        tag: values.tag || null,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
           : null,
@@ -128,6 +129,7 @@ function DownloadClientsPage() {
         password: values.password || null,
         apiKey: values.apiKey || null,
         category: values.category,
+        tag: values.tag || null,
         settings: values.watchFolder
           ? { watchFolder: values.watchFolder }
           : null,
@@ -153,6 +155,7 @@ function DownloadClientsPage() {
         password: editing.password ?? "",
         apiKey: editing.apiKey ?? "",
         category: editing.category,
+        tag: editing.tag ?? "",
         priority: editing.priority,
         watchFolder:
           (editing.settings as { watchFolder?: string } | undefined)

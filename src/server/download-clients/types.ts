@@ -18,6 +18,7 @@ export type ConnectionConfig = {
   password: string | null;
   apiKey: string | null;
   category: string | null;
+  tag: string | null;
   settings: Record<string, unknown> | null;
 };
 
@@ -32,6 +33,7 @@ export type DownloadRequest = {
   torrentData: Buffer | null;
   nzbData: Buffer | null;
   category: string | null;
+  tag: string | null;
   savePath: string | null;
 };
 

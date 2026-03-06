@@ -30,7 +30,11 @@ type DownloadClient = {
 type SyncedIndexerEditDialogProps = {
   indexer: SyncedIndexer | null;
   downloadClients?: DownloadClient[];
-  onSave: (id: number, downloadClientId: number | null) => void;
+  onSave: (
+    id: number,
+    downloadClientId: number | null,
+    tag: string | null,
+  ) => void;
   onOpenChange: (open: boolean) => void;
   loading?: boolean;
 };
@@ -51,10 +55,12 @@ export default function SyncedIndexerEditDialog({
   loading,
 }: SyncedIndexerEditDialogProps): JSX.Element {
   const [downloadClientId, setDownloadClientId] = useState<number | null>(null);
+  const [tag, setTag] = useState("");
 
   useEffect(() => {
     if (indexer) {
       setDownloadClientId(indexer.downloadClientId ?? null);
+      setTag(indexer.tag ?? "");
     }
   }, [indexer]);
 
@@ -163,6 +169,22 @@ export default function SyncedIndexerEditDialog({
               </div>
             )}
 
+            {/* Tag — editable */}
+            <div className="space-y-2">
+              <Label htmlFor="synced-tag">
+                Tag{" "}
+                <span className="text-muted-foreground text-xs">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="synced-tag"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                placeholder=""
+              />
+            </div>
+
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">
               <Button
@@ -175,7 +197,9 @@ export default function SyncedIndexerEditDialog({
               <Button
                 type="button"
                 disabled={loading}
-                onClick={() => onSave(indexer.id, downloadClientId)}
+                onClick={() =>
+                  onSave(indexer.id, downloadClientId, tag || null)
+                }
               >
                 {loading ? "Saving..." : "Save"}
               </Button>
