@@ -4,3 +4,11 @@ dist/
 data/
 .env
 .vinxi
+
+# Claude/Serena
+.worktrees/
+.serena/
+.playwright-mcp/
+.claude/worktrees/
+.claude/sessions/
+.claude/plans/
