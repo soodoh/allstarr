@@ -139,13 +139,9 @@ function handler(
       const categories = url.searchParams.get("cat") || "";
       state.searchLog.push({ type: t, query, categories });
 
-      const filtered = query
-        ? state.releases.filter((r) =>
-            r.title.toLowerCase().includes(query.toLowerCase()),
-          )
-        : state.releases;
-
-      return xml(buildSearchResponse(filtered));
+      // Return all configured releases — real Newznab does full-text search,
+      // not substring matching, so we skip client-side filtering.
+      return xml(buildSearchResponse(state.releases));
     }
 
     default: {

@@ -47,105 +47,117 @@ test.describe("Blocklist and Failure Recovery", () => {
   let profileId: number;
   let clientId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, tempDir, fakeServers }) => {
-    await ensureAuthenticated(page, appUrl);
+  test.beforeEach(
+    async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
+      await ensureAuthenticated(page, appUrl);
 
-    // Seed complete setup
-    const profile = seedDownloadProfile(db, {
-      name: "Failure Profile",
-      rootFolderPath: tempDir,
-      cutoff: 1,
-      items: [1, 2, 3],
-      upgradeAllowed: false,
-    });
-    profileId = profile.id;
+      // Seed complete setup
+      const profile = seedDownloadProfile(db, {
+        name: "Failure Profile",
+        rootFolderPath: tempDir,
+        cutoff: 1,
+        items: [1, 2, 3],
+        upgradeAllowed: false,
+        categories: [7020],
+      });
+      profileId = profile.id;
 
-    const author = seedAuthor(db, { name: "Failure Author", monitored: true });
-    authorId = author.id;
+      const author = seedAuthor(db, {
+        name: "Failure Author",
+        monitored: true,
+      });
+      authorId = author.id;
 
-    const book = seedBook(db, authorId, {
-      title: "Failure Book",
-      releaseYear: 2024,
-    });
-    bookId = book.id;
+      const book = seedBook(db, authorId, {
+        title: "Failure Book",
+        releaseYear: 2024,
+      });
+      bookId = book.id;
 
-    const edition = seedEdition(db, bookId, {
-      title: "Failure Book - EPUB",
-    });
+      const edition = seedEdition(db, bookId, {
+        title: "Failure Book - EPUB",
+      });
 
-    // Assign profile to author and edition
-    db.insert(schema.authorDownloadProfiles)
-      .values({ authorId, downloadProfileId: profileId })
-      .run();
-    db.insert(schema.editionDownloadProfiles)
-      .values({ editionId: edition.id, downloadProfileId: profileId })
-      .run();
+      // Assign profile to author and edition
+      db.insert(schema.authorDownloadProfiles)
+        .values({ authorId, downloadProfileId: profileId })
+        .run();
+      db.insert(schema.editionDownloadProfiles)
+        .values({ editionId: edition.id, downloadProfileId: profileId })
+        .run();
 
-    // Seed download client
-    const client = seedDownloadClient(db, {
-      name: "Failure qBittorrent",
-      implementation: "qBittorrent",
-      protocol: "torrent",
-      port: PORTS.QBITTORRENT,
-      removeCompletedDownloads: true,
-    });
-    clientId = client.id;
+      // Seed download client
+      const client = seedDownloadClient(db, {
+        name: "Failure qBittorrent",
+        implementation: "qBittorrent",
+        protocol: "torrent",
+        port: PORTS.QBITTORRENT,
+        removeCompletedDownloads: true,
+      });
+      clientId = client.id;
 
-    // Seed indexer
-    seedIndexer(db, {
-      name: "Failure Indexer",
-      implementation: "Torznab",
-      protocol: "torrent",
-      baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
-      apiKey: "test-newznab-api-key",
-      enableRss: true,
-      enableAutomaticSearch: true,
-    });
+      // Seed indexer
+      seedIndexer(db, {
+        name: "Failure Indexer",
+        implementation: "Torznab",
+        protocol: "torrent",
+        baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+        apiKey: "test-newznab-api-key",
+        enableRss: true,
+        enableAutomaticSearch: true,
+      });
 
-    // Configure settings for failure handling
-    seedSetting(db, "downloadClient.redownloadFailed", true);
-    seedSetting(db, "downloadClient.removeFailed", true);
-    seedSetting(db, "downloadClient.enableCompletedDownloadHandling", true);
+      // Configure settings for failure handling
+      seedSetting(db, "downloadClient.redownloadFailed", true);
+      seedSetting(db, "downloadClient.removeFailed", true);
+      seedSetting(db, "downloadClient.enableCompletedDownloadHandling", true);
 
-    // Configure fake qBittorrent
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({ version: "v4.6.3" }),
-    });
+      // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+      checkpoint();
 
-    // Configure fake Newznab with alternative releases for re-search
-    await fetch(`${fakeServers.NEWZNAB}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        releases: [
-          {
-            guid: "alt-r1",
-            title: "Failure Author - Failure Book [EPUB]",
-            size: 5_242_880,
-            downloadUrl: "http://example.com/alt-r1.torrent",
-            magnetUrl: "magnet:?xt=urn:btih:alt1",
-            publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-            seeders: 20,
-            peers: 30,
-            category: "7020",
-            protocol: "torrent",
-          },
-          {
-            guid: "alt-r2",
-            title: "Failure Author - Failure Book [MOBI]",
-            size: 3_145_728,
-            downloadUrl: "http://example.com/alt-r2.torrent",
-            magnetUrl: "magnet:?xt=urn:btih:alt2",
-            publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
-            seeders: 10,
-            peers: 15,
-            category: "7020",
-            protocol: "torrent",
-          },
-        ],
-      }),
-    });
-  });
+      // Navigate to force the app server's DB connection to see seeded data
+      await navigateTo(page, appUrl, "/settings/indexers");
+
+      // Configure fake qBittorrent
+      await fetch(`${fakeServers.QBITTORRENT}/__control`, {
+        method: "POST",
+        body: JSON.stringify({ version: "v4.6.3" }),
+      });
+
+      // Configure fake Newznab with alternative releases for re-search
+      await fetch(`${fakeServers.NEWZNAB}/__control`, {
+        method: "POST",
+        body: JSON.stringify({
+          releases: [
+            {
+              guid: "alt-r1",
+              title: "Failure Author - Failure Book [EPUB]",
+              size: 5_242_880,
+              downloadUrl: "http://example.com/alt-r1.torrent",
+              magnetUrl: "magnet:?xt=urn:btih:alt1",
+              publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
+              seeders: 20,
+              peers: 30,
+              category: "7020",
+              protocol: "torrent",
+            },
+            {
+              guid: "alt-r2",
+              title: "Failure Author - Failure Book [MOBI]",
+              size: 3_145_728,
+              downloadUrl: "http://example.com/alt-r2.torrent",
+              magnetUrl: "magnet:?xt=urn:btih:alt2",
+              publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
+              seeders: 10,
+              peers: 15,
+              category: "7020",
+              protocol: "torrent",
+            },
+          ],
+        }),
+      });
+    },
+  );
 
   test("failed download detected via error state", async ({
     page,

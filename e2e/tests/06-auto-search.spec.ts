@@ -47,7 +47,7 @@ test.describe("Auto-Search", () => {
   let profileId: number;
   let editionId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Seed complete setup
@@ -57,6 +57,7 @@ test.describe("Auto-Search", () => {
       cutoff: 1,
       items: [1, 2, 3],
       upgradeAllowed: false,
+      categories: [7020],
     });
     profileId = profile.id;
 
@@ -97,6 +98,12 @@ test.describe("Auto-Search", () => {
       enableRss: true,
       enableAutomaticSearch: true,
     });
+
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
+
+    // Navigate to force the app server's DB connection to see seeded data
+    await navigateTo(page, appUrl, "/settings/indexers");
 
     // Configure fake qBittorrent
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {

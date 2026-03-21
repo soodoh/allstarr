@@ -12,6 +12,8 @@ export type TestDbHandle = {
   dbPath: string;
   close: () => void;
   cleanup: () => void;
+  /** Force a WAL checkpoint so writes are visible to other processes (bun:sqlite). */
+  checkpoint: () => void;
 };
 
 export function getTestState(): {
@@ -46,6 +48,9 @@ export function createTestDb(suiteId: string): TestDbHandle {
       if (existsSync(dbPath)) {
         unlinkSync(dbPath);
       }
+    },
+    checkpoint: () => {
+      sqlite.pragma("wal_checkpoint(TRUNCATE)");
     },
   };
 }

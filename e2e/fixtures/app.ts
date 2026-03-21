@@ -26,6 +26,8 @@ type AppFixtures = {
   db: BetterSQLite3Database<typeof schema>;
   fakeServers: Record<string, string>;
   tempDir: string;
+  /** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
+  checkpoint: () => void;
 };
 
 async function waitForServer(url: string, timeoutMs: number): Promise<void> {
@@ -93,6 +95,10 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 
   fakeServers: async ({}, use) => {
     await use(getTestState().servers);
+  },
+
+  checkpoint: async ({ appServer }, use) => {
+    await use(() => appServer.dbHandle.checkpoint());
   },
 
   tempDir: async ({}, use) => {

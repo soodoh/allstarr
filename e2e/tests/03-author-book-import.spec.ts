@@ -169,18 +169,25 @@ const MOCK_SEARCH_RESULTS = [
 test.describe("Author and Book Import", () => {
   let seeded = false;
 
-  test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
     // Seed prerequisites once (idempotent via flag since db is shared across tests)
     if (!seeded) {
       seedDownloadProfile(db, {
         name: "Default Profile",
         rootFolderPath: "/books",
+        categories: [7020],
       });
       seedDownloadClient(db);
       seeded = true;
     }
 
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
+
     await ensureAuthenticated(page, appUrl);
+
+    // Navigate to force the app server's DB connection to see seeded data
+    await navigateTo(page, appUrl, "/settings/indexers");
 
     // Configure fake Hardcover server with mock data
     await fetch(`${fakeServers.HARDCOVER}/__control`, {
@@ -209,8 +216,8 @@ test.describe("Author and Book Import", () => {
       timeout: 10_000,
     });
 
-    // Should show the author result
-    await expect(page.getByText("Brandon Sanderson")).toBeVisible();
+    // Should show results containing the author name
+    await expect(page.getByText("Brandon Sanderson").first()).toBeVisible();
   });
 
   test("view author preview modal", async ({ page, appUrl }) => {
@@ -368,16 +375,25 @@ test.describe("Author and Book Import", () => {
   });
 
   test("browse bookshelf books page", async ({ page, appUrl, db }) => {
-    const { seedAuthor, seedBook, seedEdition } =
+    const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
       await import("../fixtures/seed-data");
+    const profile = seedDownloadProfile(db, {
+      name: "Books Browse Profile",
+      categories: [7020],
+    });
     const author = seedAuthor(db, { name: "Books Page Author" });
     const book = seedBook(db, author.id, { title: "Books Page Book" });
-    seedEdition(db, book.id, { title: "Books Page Edition" });
+    const edition = seedEdition(db, book.id, { title: "Books Page Edition" });
+
+    // Link edition to profile so it appears in the monitored books view
+    db.insert(schema.editionDownloadProfiles)
+      .values({ editionId: edition.id, downloadProfileId: profile.id })
+      .run();
 
     await navigateTo(page, appUrl, "/bookshelf/books");
 
     // Should see books/editions
-    await expect(page.getByText(/books page/i).first()).toBeVisible({
+    await expect(page.getByText("Books Page Book").first()).toBeVisible({
       timeout: 10_000,
     });
   });

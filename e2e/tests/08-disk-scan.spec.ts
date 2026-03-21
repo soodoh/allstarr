@@ -38,7 +38,7 @@ test.describe("Disk Scan", () => {
   let bookId: number;
   let authorId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, tempDir }) => {
+  test.beforeEach(async ({ page, appUrl, db, tempDir, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Seed download profile with rootFolderPath pointing to tempDir
@@ -48,6 +48,7 @@ test.describe("Disk Scan", () => {
       cutoff: 1,
       items: [1, 2, 3],
       upgradeAllowed: false,
+      categories: [7020],
     });
 
     const author = seedAuthor(db, { name: "Test Author" });
@@ -58,6 +59,12 @@ test.describe("Disk Scan", () => {
       releaseYear: 2024,
     });
     bookId = book.id;
+
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
+
+    // Navigate to force the app server's DB connection to see seeded data
+    await navigateTo(page, appUrl, "/settings/indexers");
   });
 
   test("scan discovers files in root folder", async ({
