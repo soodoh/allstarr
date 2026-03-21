@@ -6,7 +6,7 @@
 
 **Architecture:** Each test suite starts its own app server instance on a unique port with its own fresh SQLite DB (copied from a pre-migrated template). Fake HTTP servers (one per download client type + Newznab + Prowlarr + Hardcover) start once in global setup on fixed ports and use `/__control`/`/__reset` endpoints for per-test state management. Tests use a custom Playwright fixture providing authenticated pages, direct DB access (via better-sqlite3), fake server URLs, and temp directories.
 
-**Tech Stack:** Playwright Test, Bun.serve (fake servers), better-sqlite3 (test DB access), drizzle-orm (schema + queries)
+**Tech Stack:** Playwright Test, node:http (fake servers), better-sqlite3 (test DB access), drizzle-orm (schema + queries)
 
 **Spec:** `docs/superpowers/specs/2026-03-21-playwright-e2e-tests-design.md`
 
