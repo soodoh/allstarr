@@ -276,6 +276,22 @@ export const removeFromQueueSchema = z.object({
   protocol: z.enum(["torrent", "usenet"]).optional(),
 });
 
+export const pauseDownloadSchema = z.object({
+  downloadClientId: z.number(),
+  downloadItemId: z.string().min(1),
+});
+
+export const resumeDownloadSchema = z.object({
+  downloadClientId: z.number(),
+  downloadItemId: z.string().min(1),
+});
+
+export const setDownloadPrioritySchema = z.object({
+  downloadClientId: z.number(),
+  downloadItemId: z.string().min(1),
+  priority: z.number(),
+});
+
 export const grabReleaseSchema = z.object({
   guid: z.string().min(1),
   indexerId: z.number(),

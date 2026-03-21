@@ -11,7 +11,12 @@ import { eq, and } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig, DownloadItem } from "./download-clients/types";
-import { removeFromQueueSchema } from "src/lib/validators";
+import {
+  removeFromQueueSchema,
+  pauseDownloadSchema,
+  resumeDownloadSchema,
+  setDownloadPrioritySchema,
+} from "src/lib/validators";
 
 export type QueueItem = DownloadItem & {
   downloadClientId: number;
@@ -175,5 +180,68 @@ export const removeFromQueueFn = createServerFn({ method: "POST" })
         .run();
     }
 
+    return { success: true };
+  });
+
+export const pauseDownloadFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => pauseDownloadSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, data.downloadClientId))
+      .get();
+    if (!client) {
+      throw new Error("Download client not found");
+    }
+    const provider = getProvider(client.implementation);
+    if (!provider.pauseDownload) {
+      throw new Error("Client does not support pausing");
+    }
+    const config = toConnectionConfig(client);
+    await provider.pauseDownload(config, data.downloadItemId);
+    return { success: true };
+  });
+
+export const resumeDownloadFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => resumeDownloadSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, data.downloadClientId))
+      .get();
+    if (!client) {
+      throw new Error("Download client not found");
+    }
+    const provider = getProvider(client.implementation);
+    if (!provider.resumeDownload) {
+      throw new Error("Client does not support resuming");
+    }
+    const config = toConnectionConfig(client);
+    await provider.resumeDownload(config, data.downloadItemId);
+    return { success: true };
+  });
+
+export const setDownloadPriorityFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => setDownloadPrioritySchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, data.downloadClientId))
+      .get();
+    if (!client) {
+      throw new Error("Download client not found");
+    }
+    const provider = getProvider(client.implementation);
+    if (!provider.setPriority) {
+      throw new Error("Client does not support priority changes");
+    }
+    const config = toConnectionConfig(client);
+    await provider.setPriority(config, data.downloadItemId, data.priority);
     return { success: true };
   });
