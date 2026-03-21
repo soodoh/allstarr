@@ -51,6 +51,22 @@ test.describe("Blocklist and Failure Recovery", () => {
     async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
       await ensureAuthenticated(page, appUrl);
 
+      // Clean up data from previous tests to prevent interference
+      db.delete(schema.trackedDownloads).run();
+      db.delete(schema.history).run();
+      db.delete(schema.bookFiles).run();
+      db.delete(schema.blocklist).run();
+      db.delete(schema.editionDownloadProfiles).run();
+      db.delete(schema.authorDownloadProfiles).run();
+      db.delete(schema.booksAuthors).run();
+      db.delete(schema.editions).run();
+      db.delete(schema.books).run();
+      db.delete(schema.authors).run();
+      db.delete(schema.downloadClients).run();
+      db.delete(schema.indexers).run();
+      db.delete(schema.syncedIndexers).run();
+      db.delete(schema.downloadProfiles).run();
+
       // Seed complete setup
       const profile = seedDownloadProfile(db, {
         name: "Failure Profile",
