@@ -5,7 +5,8 @@ import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
 
-const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
+const HARDCOVER_GRAPHQL_URL =
+  process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
 
 export type HardcoverSearchMode = "all" | "books" | "authors";
 type HardcoverQueryType = "Book" | "Author";
