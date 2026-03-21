@@ -594,7 +594,7 @@ test.describe("Settings and Configuration", () => {
 
       // Reload and verify persistence
       await page.reload();
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       await expect(page.getByLabel("Minimum Popularity")).toHaveValue("50");
       await expect(page.getByLabel("Minimum Pages")).toHaveValue("100");

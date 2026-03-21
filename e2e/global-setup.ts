@@ -17,7 +17,36 @@ const PROJECT_ROOT = join(import.meta.dirname, "..");
 const TEMPLATE_DB_PATH = join(PROJECT_ROOT, "data", "test-template.db");
 const STATE_FILE = join(import.meta.dirname, ".test-state.json");
 
+async function killPortListeners(): Promise<void> {
+  const ports = Object.values(PORTS).filter(
+    (v) => typeof v === "number" && v !== PORTS.APP_BASE,
+  );
+  for (const port of ports) {
+    try {
+      const { execFileSync: efs } = await import("node:child_process");
+      const pids = efs("lsof", ["-ti", `:${String(port)}`], {
+        encoding: "utf8",
+      })
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+      for (const pid of pids) {
+        try {
+          process.kill(Number(pid), "SIGKILL");
+        } catch {
+          // Process may already be gone
+        }
+      }
+    } catch {
+      // No listeners on this port
+    }
+  }
+}
+
 async function globalSetup(): Promise<void> {
+  // 0. Kill any orphan listeners from previous runs
+  await killPortListeners();
+
   // 1. Create template DB via drizzle-kit push
   if (existsSync(TEMPLATE_DB_PATH)) {
     unlinkSync(TEMPLATE_DB_PATH);
