@@ -67,13 +67,14 @@ const USENET_RELEASES = [
 test.describe("Search and Grab", () => {
   let bookId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
-    // Seed prerequisites
+    // Seed prerequisites (include ebook categories so indexer search works)
     const profile = seedDownloadProfile(db, {
       name: "Search Profile",
       rootFolderPath: "/books",
+      categories: [7020],
     });
     const author = seedAuthor(db, { name: "Test Author" });
     const book = seedBook(db, author.id, { title: "Test Book" });
@@ -107,6 +108,12 @@ test.describe("Search and Grab", () => {
       baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
       apiKey: "test-newznab-api-key",
     });
+
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
+
+    // Navigate to force the app server's DB connection to see seeded data
+    await navigateTo(page, appUrl, "/settings/indexers");
 
     // Configure fake qBittorrent to accept auth
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {

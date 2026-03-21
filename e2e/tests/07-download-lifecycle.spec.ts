@@ -46,56 +46,65 @@ test.describe("Download Lifecycle", () => {
   let profileId: number;
   let clientId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, tempDir, fakeServers }) => {
-    await ensureAuthenticated(page, appUrl);
+  test.beforeEach(
+    async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
+      await ensureAuthenticated(page, appUrl);
 
-    // Use tempDir as root folder for real filesystem operations
-    const profile = seedDownloadProfile(db, {
-      name: "Lifecycle Profile",
-      rootFolderPath: tempDir,
-      cutoff: 1,
-      items: [1, 2, 3],
-      upgradeAllowed: false,
-    });
-    profileId = profile.id;
+      // Use tempDir as root folder for real filesystem operations
+      const profile = seedDownloadProfile(db, {
+        name: "Lifecycle Profile",
+        rootFolderPath: tempDir,
+        cutoff: 1,
+        items: [1, 2, 3],
+        upgradeAllowed: false,
+        categories: [7020],
+      });
+      profileId = profile.id;
 
-    const author = seedAuthor(db, { name: "Lifecycle Author" });
-    authorId = author.id;
+      const author = seedAuthor(db, { name: "Lifecycle Author" });
+      authorId = author.id;
 
-    const book = seedBook(db, authorId, {
-      title: "Lifecycle Book",
-      releaseYear: 2024,
-    });
-    bookId = book.id;
+      const book = seedBook(db, authorId, {
+        title: "Lifecycle Book",
+        releaseYear: 2024,
+      });
+      bookId = book.id;
 
-    const edition = seedEdition(db, bookId, {
-      title: "Lifecycle Book - EPUB",
-    });
+      const edition = seedEdition(db, bookId, {
+        title: "Lifecycle Book - EPUB",
+      });
 
-    // Assign profile to author and edition
-    db.insert(schema.authorDownloadProfiles)
-      .values({ authorId, downloadProfileId: profileId })
-      .run();
-    db.insert(schema.editionDownloadProfiles)
-      .values({ editionId: edition.id, downloadProfileId: profileId })
-      .run();
+      // Assign profile to author and edition
+      db.insert(schema.authorDownloadProfiles)
+        .values({ authorId, downloadProfileId: profileId })
+        .run();
+      db.insert(schema.editionDownloadProfiles)
+        .values({ editionId: edition.id, downloadProfileId: profileId })
+        .run();
 
-    // Seed download client
-    const client = seedDownloadClient(db, {
-      name: "Lifecycle qBittorrent",
-      implementation: "qBittorrent",
-      protocol: "torrent",
-      port: PORTS.QBITTORRENT,
-      removeCompletedDownloads: true,
-    });
-    clientId = client.id;
+      // Seed download client
+      const client = seedDownloadClient(db, {
+        name: "Lifecycle qBittorrent",
+        implementation: "qBittorrent",
+        protocol: "torrent",
+        port: PORTS.QBITTORRENT,
+        removeCompletedDownloads: true,
+      });
+      clientId = client.id;
 
-    // Configure fake qBittorrent
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({ version: "v4.6.3" }),
-    });
-  });
+      // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+      checkpoint();
+
+      // Navigate to force the app server's DB connection to see seeded data
+      await navigateTo(page, appUrl, "/settings/indexers");
+
+      // Configure fake qBittorrent
+      await fetch(`${fakeServers.QBITTORRENT}/__control`, {
+        method: "POST",
+        body: JSON.stringify({ version: "v4.6.3" }),
+      });
+    },
+  );
 
   test("download progresses from queued to downloading", async ({
     page,

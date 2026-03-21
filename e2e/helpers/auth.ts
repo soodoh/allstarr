@@ -8,17 +8,17 @@ export const TEST_USER = {
 
 /**
  * Wait for React to hydrate the page.
- * Checks for React's internal __reactFiber property on the form element.
- * This ensures event handlers are attached before we interact with the form.
+ * Checks for React's internal __reactFiber property on any interactive element.
+ * This ensures event handlers are attached before we interact with the page.
  */
 async function waitForHydration(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const form = document.querySelector("form");
-      if (!form) {
+      const el = document.querySelector('button, a, input, [role="button"]');
+      if (!el) {
         return false;
       }
-      return Object.keys(form).some(
+      return Object.keys(el).some(
         (k) => k.startsWith("__reactFiber") || k.startsWith("__reactProps"),
       );
     },

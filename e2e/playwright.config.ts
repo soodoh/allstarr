@@ -10,6 +10,7 @@ export default defineConfig({
   use: {
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    viewport: { width: 1280, height: 900 },
   },
   globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",

@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures/app";
-import { ensureAuthenticated } from "../helpers/auth";
+import { ensureAuthenticated, waitForHydration } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
 import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
@@ -160,7 +160,7 @@ test.describe("Settings and Configuration", () => {
       await page.locator("#dc-name").fill("Test SABnzbd");
       await page.locator("#dc-host").fill("localhost");
       await page.locator("#dc-port").fill(String(PORTS.SABNZBD));
-      await page.locator("#dc-apikey").fill("test-sab-api-key");
+      await page.locator("#dc-apikey").fill("test-sabnzbd-api-key");
 
       await page.getByRole("button", { name: "Test Connection" }).click();
       await expect(page.getByText("4.2.1")).toBeVisible({ timeout: 10_000 });
@@ -191,7 +191,7 @@ test.describe("Settings and Configuration", () => {
       await page.locator("#dc-host").fill("localhost");
       await page.locator("#dc-port").fill(String(PORTS.NZBGET));
       await page.locator("#dc-username").fill("nzbget");
-      await page.locator("#dc-password").fill("tegbzn6789");
+      await page.locator("#dc-password").fill("nzbget");
 
       await page.getByRole("button", { name: "Test Connection" }).click();
       await expect(page.getByText("21.1")).toBeVisible({ timeout: 10_000 });
@@ -280,13 +280,14 @@ test.describe("Settings and Configuration", () => {
 
       await page.getByRole("button", { name: "Test Connection" }).click();
 
-      // Should show error state
+      // Should show error state in the test result banner
       await expect(
         page
-          .locator("[class*='destructive'], [class*='error']")
-          .or(page.getByText(/failed|error|unable|connection refused/i))
+          .getByText(
+            /failed|error|unable|connection refused|timed out|ECONNREFUSED/i,
+          )
           .first(),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: 15_000 });
     });
   });
 
@@ -506,7 +507,9 @@ test.describe("Settings and Configuration", () => {
       await page.getByRole("button", { name: "Add Profile" }).click();
 
       // Fill profile form
-      await expect(page.getByText("Add Profile")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Add Profile" }),
+      ).toBeVisible();
 
       // Name field
       const nameInput = page.getByLabel("Name");
@@ -582,11 +585,19 @@ test.describe("Settings and Configuration", () => {
       await navigateTo(page, appUrl, "/settings/metadata");
 
       // Update minimum popularity
-      const popInput = page.getByLabel("Minimum Popularity");
+      const popSection = page
+        .locator("div")
+        .filter({ hasText: "Minimum Popularity" })
+        .last();
+      const popInput = popSection.locator('input[type="number"]');
       await popInput.fill("50");
 
       // Update minimum pages
-      const pagesInput = page.getByLabel("Minimum Pages");
+      const pagesSection = page
+        .locator("div")
+        .filter({ hasText: "Minimum Pages" })
+        .last();
+      const pagesInput = pagesSection.locator('input[type="number"]');
       await pagesInput.fill("100");
 
       // Save
@@ -595,9 +606,22 @@ test.describe("Settings and Configuration", () => {
       // Reload and verify persistence
       await page.reload();
       await page.waitForLoadState("load");
+      await waitForHydration(page);
 
-      await expect(page.getByLabel("Minimum Popularity")).toHaveValue("50");
-      await expect(page.getByLabel("Minimum Pages")).toHaveValue("100");
+      const popSectionReloaded = page
+        .locator("div")
+        .filter({ hasText: "Minimum Popularity" })
+        .last();
+      await expect(
+        popSectionReloaded.locator('input[type="number"]'),
+      ).toHaveValue("50");
+      const pagesSectionReloaded = page
+        .locator("div")
+        .filter({ hasText: "Minimum Pages" })
+        .last();
+      await expect(
+        pagesSectionReloaded.locator('input[type="number"]'),
+      ).toHaveValue("100");
     });
 
     test("toggle import filter switches", async ({ page, appUrl }) => {
@@ -663,7 +687,9 @@ test.describe("Settings and Configuration", () => {
       await page.getByRole("button", { name: "Save Settings" }).click();
 
       // Verify no error
-      await expect(page.getByText("Media Management")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Media Management" }),
+      ).toBeVisible();
     });
   });
 });

@@ -6,6 +6,7 @@ import {
   seedDownloadProfile,
   seedIndexer,
 } from "../fixtures/seed-data";
+import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
 test.describe("System Health", () => {
@@ -24,6 +25,7 @@ test.describe("System Health", () => {
     seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
+      categories: [7020],
     });
 
     seedDownloadClient(db, {
@@ -62,6 +64,7 @@ test.describe("System Health", () => {
     seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
+      categories: [7020],
     });
     seedDownloadClient(db, {
       name: "Health Client",
@@ -84,7 +87,9 @@ test.describe("System Health", () => {
 
     // With full config + env token, should be healthy
     // Navigate to status and verify the Health card exists
-    await expect(page.getByText("Health")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Health", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("warning when no indexers configured", async ({
@@ -93,10 +98,15 @@ test.describe("System Health", () => {
     db,
     tempDir,
   }) => {
+    // Clear indexers from prior tests
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.indexers).run();
+
     // Only seed profile and client — no indexers
     seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
+      categories: [7020],
     });
     seedDownloadClient(db, {
       name: "Health Client",
@@ -119,10 +129,14 @@ test.describe("System Health", () => {
     db,
     tempDir,
   }) => {
+    // Clear download clients from prior tests
+    db.delete(schema.downloadClients).run();
+
     // Only seed profile and indexer — no download clients
     seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
+      categories: [7020],
     });
     seedIndexer(db, {
       name: "Health Indexer",
@@ -149,6 +163,7 @@ test.describe("System Health", () => {
     seedDownloadProfile(db, {
       name: "Bad Path Profile",
       rootFolderPath: "/nonexistent/path/that/does/not/exist",
+      categories: [7020],
     });
     seedDownloadClient(db, {
       name: "Health Client",
@@ -181,12 +196,15 @@ test.describe("System Health", () => {
     seedDownloadProfile(db, {
       name: "Disk Profile",
       rootFolderPath: tempDir,
+      categories: [7020],
     });
 
     await navigateTo(page, appUrl, "/system/status");
 
     // The Disk Space card should show the tempDir path and free/total space
-    await expect(page.getByText("Disk Space")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Disk Space", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.getByText(tempDir)).toBeVisible();
     await expect(page.getByText(/free/).first()).toBeVisible();
     await expect(page.getByText(/total/).first()).toBeVisible();

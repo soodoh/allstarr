@@ -73,6 +73,7 @@ type State = {
   books: Book[];
   editions: Edition[];
   searchResults: SearchResult[];
+  requestLog: Array<{ query: string; variables: Record<string, unknown> }>;
 };
 
 function defaultState(): State {
@@ -81,6 +82,7 @@ function defaultState(): State {
     books: [],
     editions: [],
     searchResults: [],
+    requestLog: [],
   };
 }
 
@@ -91,18 +93,57 @@ function json(data: unknown): HandlerResult {
   };
 }
 
-function handleSearch(state: State): HandlerResult {
-  const results = state.searchResults.map((r) => ({
-    hit: {
+function handleSearch(
+  state: State,
+  vars: Record<string, unknown>,
+): HandlerResult {
+  const queryType = (vars.queryType as string | undefined) || "";
+
+  // Filter results by queryType when specified
+  const filtered = queryType
+    ? state.searchResults.filter(
+        (r) => r.type.toLowerCase() === queryType.toLowerCase(),
+      )
+    : state.searchResults;
+
+  // Build documents in the format the app expects (Typesense-like hits)
+  const hits = filtered.map((r) => ({
+    document: {
       id: r.id,
       slug: r.slug,
       title: r.title,
-      _type: r.type,
-      readers: r.readers || 0,
-      cover_url: r.coverUrl || "",
+      name: r.title,
+      users_count: r.readers || 0,
+      image: { url: r.coverUrl || "" },
+      // Book-specific fields
+      ...(r.type === "book"
+        ? {
+            release_year:
+              state.books.find((b) => b.id === r.id)?.release_year ?? null,
+            author_names: state.books
+              .find((b) => b.id === r.id)
+              ?.contributions.map((c) => c.author.name) ?? ["Unknown Author"],
+            compilation: false,
+          }
+        : {}),
+      // Author-specific fields
+      ...(r.type === "author"
+        ? {
+            books_count:
+              state.books.filter((b) => b.authorId === r.id).length || 0,
+          }
+        : {}),
     },
   }));
-  return json({ data: { search: results } });
+
+  return json({
+    data: {
+      search: {
+        error: null,
+        results: { hits },
+      },
+    },
+  });
 }
 
 function handleAuthorQuery(
@@ -215,9 +256,11 @@ function handler(
   const { query } = parsed;
   const vars = parsed.variables || {};
 
+  state.requestLog.push({ query, variables: vars });
+
   // Dispatch based on query content
   if (query.includes("search(") || query.includes("Search")) {
-    return handleSearch(state);
+    return handleSearch(state, vars);
   }
 
   if (query.includes("AuthorComplete") || query.includes("authors(where")) {
@@ -226,6 +269,13 @@ function handler(
 
   if (query.includes("editions(where")) {
     return handleEditionsQuery(state, query);
+  }
+
+  // Book filter queries (language, ISBN/ASIN, pages, popularity, contributors)
+  // Return all book IDs as matching — fake server doesn't enforce filters
+  if (query.includes("books(where")) {
+    const ids = state.books.map((b) => ({ id: b.id }));
+    return json({ data: { books: ids } });
   }
 
   if (query.includes("series(where")) {
