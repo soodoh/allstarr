@@ -214,6 +214,59 @@ const delugeProvider: DownloadClientProvider = {
     );
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const authResult = await delugeCall(baseUrl, "auth.login", [
+      config.password ?? "",
+    ]);
+    const sessionCookie = authResult.cookie;
+
+    await delugeCall(baseUrl, "core.pause_torrent", [id], sessionCookie);
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const authResult = await delugeCall(baseUrl, "auth.login", [
+      config.password ?? "",
+    ]);
+    const sessionCookie = authResult.cookie;
+
+    await delugeCall(baseUrl, "core.resume_torrent", [id], sessionCookie);
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const authResult = await delugeCall(baseUrl, "auth.login", [
+      config.password ?? "",
+    ]);
+    const sessionCookie = authResult.cookie;
+
+    const method = priority > 0 ? "core.queue_up" : "core.queue_down";
+    await delugeCall(baseUrl, method, [id], sessionCookie);
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

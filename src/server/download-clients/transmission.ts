@@ -188,6 +188,77 @@ const transmissionProvider: DownloadClientProvider = {
     }
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const result = await rpcCall(
+      baseUrl,
+      "torrent-stop",
+      { ids: [Number(id)] },
+      "",
+      config.username,
+      config.password,
+    );
+
+    if (result.result !== "success") {
+      throw new Error(`Failed to pause torrent: ${result.result}`);
+    }
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const result = await rpcCall(
+      baseUrl,
+      "torrent-start",
+      { ids: [Number(id)] },
+      "",
+      config.username,
+      config.password,
+    );
+
+    if (result.result !== "success") {
+      throw new Error(`Failed to resume torrent: ${result.result}`);
+    }
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const method = priority > 0 ? "queue-move-up" : "queue-move-down";
+    const result = await rpcCall(
+      baseUrl,
+      method,
+      { ids: [Number(id)] },
+      "",
+      config.username,
+      config.password,
+    );
+
+    if (result.result !== "success") {
+      throw new Error(`Failed to set torrent priority: ${result.result}`);
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,
