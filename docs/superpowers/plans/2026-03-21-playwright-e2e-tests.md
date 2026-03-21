@@ -172,7 +172,7 @@ git commit -m "chore: install Playwright and better-sqlite3, create e2e director
 
 ## Phase 2: Fake Servers
 
-Each fake server is a Bun HTTP server that speaks the real protocol. All share a common pattern:
+Each fake server is a Node.js HTTP server (`node:http`) that speaks the real protocol. **Important:** Playwright runs on Node.js, not Bun, so `Bun.serve` is unavailable in global setup and test code. All fake servers must use `http.createServer` from `node:http`. All share a common pattern:
 
 - `/__control` POST endpoint to set server state from tests
 - `/__reset` POST endpoint to clear state between tests
@@ -187,83 +187,104 @@ Each fake server is a Bun HTTP server that speaks the real protocol. All share a
 
 - [ ] **Step 1: Create the base server factory**
 
-Create `e2e/fixtures/fake-servers/base.ts`:
+Create `e2e/fixtures/fake-servers/base.ts` using `node:http` (NOT `Bun.serve`):
 
 ```ts
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+  type Server,
+} from "node:http";
+
+export type HandlerResult = {
+  status?: number;
+  headers?: Record<string, string>;
+  body: string;
+} | null;
+
 export type FakeServerOptions<TState> = {
   port: number;
   defaultState: () => TState;
-  handler: (req: Request, state: TState) => Response | Promise<Response> | null;
+  handler: (req: IncomingMessage, body: string, state: TState) => HandlerResult;
 };
 
 export type FakeServer<TState> = {
-  server: ReturnType<typeof Bun.serve>;
-  state: TState;
+  server: Server;
   url: string;
   reset: () => void;
-  stop: () => void;
+  stop: () => Promise<void>;
 };
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+  });
+}
 
 export function createFakeServer<TState>(
   opts: FakeServerOptions<TState>,
 ): FakeServer<TState> {
   let state = opts.defaultState();
 
-  const server = Bun.serve({
-    port: opts.port,
-    fetch(req) {
-      const url = new URL(req.url);
+  const server = createServer(
+    async (req: IncomingMessage, res: ServerResponse) => {
+      const url = new URL(req.url || "/", `http://localhost:${opts.port}`);
+
+      const body = await readBody(req);
 
       if (url.pathname === "/__control" && req.method === "POST") {
-        return req.json().then((body) => {
-          Object.assign(state, body);
-          return new Response("OK");
-        });
+        Object.assign(state, JSON.parse(body));
+        res.writeHead(200).end("OK");
+        return;
       }
-
       if (url.pathname === "/__reset" && req.method === "POST") {
         state = opts.defaultState();
-        return new Response("OK");
+        res.writeHead(200).end("OK");
+        return;
       }
-
       if (url.pathname === "/__state" && req.method === "GET") {
-        return json(state);
+        sendJson(res, state);
+        return;
       }
 
-      const result = opts.handler(req, state);
-      if (result) return result;
-
-      return new Response("Not Found", { status: 404 });
+      const result = opts.handler(req, body, state);
+      if (result) {
+        res
+          .writeHead(result.status || 200, result.headers || {})
+          .end(result.body);
+        return;
+      }
+      res.writeHead(404).end("Not Found");
     },
-  });
+  );
+
+  server.listen(opts.port);
 
   return {
     server,
-    state,
     url: `http://localhost:${opts.port}`,
     reset: () => {
       state = opts.defaultState();
     },
-    stop: () => server.stop(),
+    stop: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }
 
-export function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+export function sendJson(res: ServerResponse, data: unknown, status = 200) {
+  res
+    .writeHead(status, { "Content-Type": "application/json" })
+    .end(JSON.stringify(data));
 }
 
-export function xml(data: string, status = 200): Response {
-  return new Response(data, {
-    status,
-    headers: { "Content-Type": "application/xml" },
-  });
+export function sendXml(res: ServerResponse, data: string, status = 200) {
+  res.writeHead(status, { "Content-Type": "application/xml" }).end(data);
 }
 
-export function text(data: string, status = 200): Response {
-  return new Response(data, { status });
+export function sendText(res: ServerResponse, data: string, status = 200) {
+  res.writeHead(status).end(data);
 }
 ```
 
@@ -902,7 +923,9 @@ async function globalSetup() {
     JSON.stringify({
       templateDbPath: TEMPLATE_DB_PATH,
       servers: Object.fromEntries(
-        Object.entries(PORTS).map(([k, v]) => [k, `http://localhost:${v}`]),
+        Object.entries(PORTS)
+          .filter(([k]) => k !== "APP_BASE")
+          .map(([k, v]) => [k, `http://localhost:${v}`]),
       ),
     }),
   );
