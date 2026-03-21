@@ -1,4 +1,10 @@
 export type DownloadProtocol = "torrent" | "usenet";
+export type CanonicalStatus =
+  | "downloading"
+  | "completed"
+  | "paused"
+  | "queued"
+  | "failed";
 export type ImplementationType =
   | "qBittorrent"
   | "Transmission"
@@ -40,7 +46,7 @@ export type DownloadRequest = {
 export type DownloadItem = {
   id: string;
   name: string;
-  status: string;
+  status: CanonicalStatus;
   size: number;
   downloaded: number;
   uploadSpeed: number;
@@ -61,5 +67,12 @@ export type DownloadClientProvider = {
     config: ConnectionConfig,
     id: string,
     deleteFiles: boolean,
+  ): Promise<void>;
+  pauseDownload?(config: ConnectionConfig, id: string): Promise<void>;
+  resumeDownload?(config: ConnectionConfig, id: string): Promise<void>;
+  setPriority?(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
   ): Promise<void>;
 };
