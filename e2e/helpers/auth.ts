@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Locator } from "@playwright/test";
 
 export const TEST_USER = {
   name: "Test User",
@@ -6,21 +6,67 @@ export const TEST_USER = {
   password: "TestPassword123!",
 };
 
+/**
+ * Wait for React to hydrate the page.
+ * Checks for React's internal __reactFiber property on the form element.
+ * This ensures event handlers are attached before we interact with the form.
+ */
+async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const form = document.querySelector("form");
+      if (!form) {
+        return false;
+      }
+      return Object.keys(form).some(
+        (k) => k.startsWith("__reactFiber") || k.startsWith("__reactProps"),
+      );
+    },
+    undefined,
+    { timeout: 15_000 },
+  );
+}
+
+/**
+ * Fill an input and verify the value took effect.
+ * Retries if React hydration wipes the value (SSR race condition).
+ */
+async function fillInput(locator: Locator, value: string): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await locator.fill(value);
+    const actual = await locator.inputValue();
+    if (actual === value) {
+      return;
+    }
+    await locator.page().waitForTimeout(500);
+  }
+}
+
 export async function registerUser(page: Page, baseUrl: string): Promise<void> {
   await page.goto(`${baseUrl}/register`);
-  await page.getByLabel("Name").fill(TEST_USER.name);
-  await page.getByLabel("Email").fill(TEST_USER.email);
-  await page.getByLabel("Password").fill(TEST_USER.password);
-  await page.getByRole("button", { name: /register|sign up/i }).click();
-  await page.waitForURL(`${baseUrl}/`);
+  await waitForHydration(page);
+  await fillInput(page.getByLabel("Name"), TEST_USER.name);
+  await fillInput(page.getByLabel("Email"), TEST_USER.email);
+  await fillInput(page.getByLabel("Password"), TEST_USER.password);
+  await page.getByRole("button", { name: /create account/i }).click();
+  await page.waitForURL(
+    (url) =>
+      !url.pathname.includes("/register") && !url.pathname.includes("/login"),
+    { timeout: 15_000 },
+  );
 }
 
 export async function loginUser(page: Page, baseUrl: string): Promise<void> {
   await page.goto(`${baseUrl}/login`);
-  await page.getByLabel("Email").fill(TEST_USER.email);
-  await page.getByLabel("Password").fill(TEST_USER.password);
-  await page.getByRole("button", { name: /login|sign in/i }).click();
-  await page.waitForURL(`${baseUrl}/**`);
+  await waitForHydration(page);
+  await fillInput(page.getByLabel("Email"), TEST_USER.email);
+  await fillInput(page.getByLabel("Password"), TEST_USER.password);
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await page.waitForURL(
+    (url) =>
+      !url.pathname.includes("/login") && !url.pathname.includes("/register"),
+    { timeout: 15_000 },
+  );
 }
 
 export async function ensureAuthenticated(
@@ -28,13 +74,44 @@ export async function ensureAuthenticated(
   baseUrl: string,
 ): Promise<void> {
   await page.goto(`${baseUrl}/`);
-  const url = page.url();
-  if (url.includes("/login") || url.includes("/register")) {
-    // Try login first, fall back to register
+  await page.waitForLoadState("load");
+  await page.waitForTimeout(1000);
+
+  const currentUrl = page.url();
+
+  if (!currentUrl.includes("/login") && !currentUrl.includes("/register")) {
+    return;
+  }
+
+  if (currentUrl.includes("/login")) {
     try {
-      await loginUser(page, baseUrl);
+      await waitForHydration(page);
+      await fillInput(page.getByLabel("Email"), TEST_USER.email);
+      await fillInput(page.getByLabel("Password"), TEST_USER.password);
+      await page.getByRole("button", { name: /sign in/i }).click();
+      await page.waitForURL(
+        (url) =>
+          !url.pathname.includes("/login") &&
+          !url.pathname.includes("/register"),
+        { timeout: 10_000 },
+      );
+      return;
     } catch {
-      await registerUser(page, baseUrl);
+      // Login failed — register instead
     }
   }
+
+  await page.goto(`${baseUrl}/register`);
+  await waitForHydration(page);
+  await fillInput(page.getByLabel("Name"), TEST_USER.name);
+  await fillInput(page.getByLabel("Email"), TEST_USER.email);
+  await fillInput(page.getByLabel("Password"), TEST_USER.password);
+  await page.getByRole("button", { name: /create account/i }).click();
+  await page.waitForURL(
+    (url) =>
+      !url.pathname.includes("/register") && !url.pathname.includes("/login"),
+    { timeout: 15_000 },
+  );
 }
+
+export { fillInput, waitForHydration };

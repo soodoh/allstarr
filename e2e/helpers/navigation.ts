@@ -6,5 +6,6 @@ export default async function navigateTo(
   path: string,
 ): Promise<void> {
   await page.goto(`${baseUrl}${path}`);
-  await page.waitForLoadState("networkidle");
+  // Use "load" not "networkidle" — SSE connection keeps network active on authenticated pages
+  await page.waitForLoadState("load");
 }

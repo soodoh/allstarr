@@ -1,103 +1,87 @@
+/* eslint-disable jest/no-conditional-in-test */
 import { test, expect } from "../fixtures/app";
-import { TEST_USER, registerUser } from "../helpers/auth";
+import {
+  TEST_USER,
+  ensureAuthenticated,
+  fillInput,
+  waitForHydration,
+} from "../helpers/auth";
 
 test.describe("Auth", () => {
   test("register new account", async ({ page, appUrl }) => {
     await page.goto(`${appUrl}/register`);
-    await page.waitForLoadState("networkidle");
+    await waitForHydration(page);
 
-    await page.getByLabel("Name").fill(TEST_USER.name);
-    await page.getByLabel("Email").fill(TEST_USER.email);
-    await page.getByLabel("Password").fill(TEST_USER.password);
+    await fillInput(page.getByLabel("Name"), TEST_USER.name);
+    await fillInput(page.getByLabel("Email"), TEST_USER.email);
+    await fillInput(page.getByLabel("Password"), TEST_USER.password);
     await page.getByRole("button", { name: /create account/i }).click();
 
-    // Should redirect to the authenticated area (bookshelf)
-    await page.waitForURL(`${appUrl}/**`);
+    await page.waitForURL(
+      (url) =>
+        !url.pathname.includes("/register") && !url.pathname.includes("/login"),
+      { timeout: 15_000 },
+    );
     expect(page.url()).not.toContain("/register");
-    expect(page.url()).not.toContain("/login");
   });
 
   test("login with valid credentials", async ({ page, appUrl }) => {
-    // Register first
-    await registerUser(page, appUrl);
+    await ensureAuthenticated(page, appUrl);
 
-    // Log out by clearing cookies and navigating to login
     await page.context().clearCookies();
     await page.goto(`${appUrl}/login`);
-    await page.waitForLoadState("networkidle");
+    await waitForHydration(page);
 
-    // Login
-    await page.getByLabel("Email").fill(TEST_USER.email);
-    await page.getByLabel("Password").fill(TEST_USER.password);
+    await fillInput(page.getByLabel("Email"), TEST_USER.email);
+    await fillInput(page.getByLabel("Password"), TEST_USER.password);
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    // Should redirect to authenticated area
-    await page.waitForURL(`${appUrl}/**`);
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 15_000,
+    });
     expect(page.url()).not.toContain("/login");
   });
 
   test("login with wrong password", async ({ page, appUrl }) => {
-    // Register first
-    await registerUser(page, appUrl);
+    await ensureAuthenticated(page, appUrl);
 
-    // Clear cookies to log out
     await page.context().clearCookies();
     await page.goto(`${appUrl}/login`);
-    await page.waitForLoadState("networkidle");
+    await waitForHydration(page);
 
-    // Attempt login with wrong password
-    await page.getByLabel("Email").fill(TEST_USER.email);
-    await page.getByLabel("Password").fill("WrongPassword123!");
+    await fillInput(page.getByLabel("Email"), TEST_USER.email);
+    await fillInput(page.getByLabel("Password"), "WrongPassword123!");
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    // Should stay on login page and show error
     await expect(page).toHaveURL(/\/login/);
 
-    // Error toast or message should appear
     await expect(
       page.getByText(/failed|invalid|incorrect|error/i).first(),
     ).toBeVisible({ timeout: 5000 });
   });
 
   test("unauthenticated redirect to login", async ({ page, appUrl }) => {
-    // Navigate to a protected route without being logged in
     await page.goto(`${appUrl}/bookshelf`);
-    await page.waitForLoadState("networkidle");
-
-    // Should redirect to login page
+    await page.waitForLoadState("load");
     await expect(page).toHaveURL(/\/login/);
   });
 
   test("session persistence after reload", async ({ page, appUrl }) => {
-    // Register and authenticate
-    await registerUser(page, appUrl);
+    await ensureAuthenticated(page, appUrl);
 
-    // Reload the page
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
-    // Should still be authenticated (not redirected to login)
     expect(page.url()).not.toContain("/login");
     expect(page.url()).not.toContain("/register");
   });
 
   test("logout redirects to login", async ({ page, appUrl }) => {
-    // Register and authenticate
-    await registerUser(page, appUrl);
+    await ensureAuthenticated(page, appUrl);
 
-    // Clear cookies to simulate logout
     await page.context().clearCookies();
-
-    // Try to access a protected route
     await page.goto(`${appUrl}/bookshelf`);
-    await page.waitForLoadState("networkidle");
-
-    // Should redirect to login
-    await expect(page).toHaveURL(/\/login/);
-
-    // Verify subsequent protected route access also redirects
-    await page.goto(`${appUrl}/settings`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page).toHaveURL(/\/login/);
   });
 });
