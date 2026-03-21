@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { writeFileSync, existsSync, unlinkSync } from "node:fs";
+import Database from "better-sqlite3";
 import PORTS from "./ports";
 
 import createQBittorrentServer from "./fixtures/fake-servers/qbittorrent";
@@ -57,6 +58,23 @@ async function globalSetup(): Promise<void> {
     stdio: "pipe",
     env: { ...process.env, DATABASE_URL: TEMPLATE_DB_PATH },
   });
+
+  // 1b. Seed download format definitions (db:push creates tables but no seed data)
+  const templateDb = new Database(TEMPLATE_DB_PATH);
+  templateDb.exec(
+    [
+      "INSERT INTO download_formats (id, title, weight, color, specifications) VALUES",
+      "(1, 'Unknown', 1, 'gray', '[]'),",
+      `(2, 'PDF', 2, 'red', '[{"type":"releaseTitle","value":"\\\\bpdf\\\\b","negate":false,"required":true}]'),`,
+      `(3, 'MOBI', 3, 'orange', '[{"type":"releaseTitle","value":"\\\\bmobi\\\\b","negate":false,"required":true}]'),`,
+      `(4, 'EPUB', 4, 'green', '[{"type":"releaseTitle","value":"\\\\bepub\\\\b","negate":false,"required":true}]'),`,
+      `(5, 'AZW3', 5, 'blue', '[{"type":"releaseTitle","value":"\\\\bazw3\\\\b","negate":false,"required":true}]'),`,
+      `(6, 'MP3', 6, 'purple', '[{"type":"releaseTitle","value":"\\\\bmp3\\\\b","negate":false,"required":true}]'),`,
+      `(7, 'M4B', 7, 'pink', '[{"type":"releaseTitle","value":"\\\\bm4b\\\\b","negate":false,"required":true}]'),`,
+      `(8, 'FLAC', 8, 'indigo', '[{"type":"releaseTitle","value":"\\\\bflac\\\\b","negate":false,"required":true}]')`,
+    ].join("\n"),
+  );
+  templateDb.close();
 
   // 2. Start all fake servers
   const servers = {

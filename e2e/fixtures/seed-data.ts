@@ -15,7 +15,7 @@ export function seedDownloadProfile(
       name: "Default Profile",
       rootFolderPath: "/books",
       cutoff: 1,
-      items: [1, 2, 3],
+      items: [1, 2, 3, 4, 5],
       upgradeAllowed: false,
       icon: "book-open",
       categories: [],

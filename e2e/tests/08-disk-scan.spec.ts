@@ -46,7 +46,7 @@ test.describe("Disk Scan", () => {
       name: "Scan Profile",
       rootFolderPath: tempDir,
       cutoff: 1,
-      items: [1, 2, 3],
+      items: [1, 2, 3, 4, 5],
       upgradeAllowed: false,
       categories: [7020],
     });
