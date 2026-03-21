@@ -10,7 +10,7 @@ const shimPath = path.resolve("src/lib/bun-sqlite-browser-shim.ts");
 
 export default defineConfig({
   server: {
-    port: 3000,
+    port: Number(process.env.PORT) || 3000,
     host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
     allowedHosts: ["allstarr", "host.docker.internal"],
   },

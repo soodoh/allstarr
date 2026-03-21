@@ -15,7 +15,8 @@ import type {
 } from "./types";
 import { AUTHOR_ROLE_FILTER } from "./constants";
 
-const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
+const HARDCOVER_GRAPHQL_URL =
+  process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
 const REQUEST_TIMEOUT_MS = 30_000;
 const EDITIONS_BATCH_SIZE = 50;
 const MAX_RETRIES = 5;
