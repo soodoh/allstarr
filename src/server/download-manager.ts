@@ -13,6 +13,7 @@ import { importCompletedDownload } from "./file-import";
 import handleFailedDownload from "./failed-download-handler";
 import getMediaSetting from "./settings-reader";
 import { eventBus } from "./event-bus";
+import { fetchQueueItems } from "./queue";
 import type { TaskResult } from "./scheduler/registry";
 
 const ACTIVE_STATES = ["queued", "downloading", "completed", "importPending"];
@@ -198,7 +199,12 @@ export async function refreshDownloads(): Promise<TaskResult> {
     }
   }
 
-  eventBus.emit({ type: "queueUpdated" });
+  if (eventBus.getClientCount() > 0) {
+    const queueSnapshot = await fetchQueueItems();
+    eventBus.emit({ type: "queueProgress", data: queueSnapshot });
+  } else {
+    eventBus.emit({ type: "queueUpdated" });
+  }
 
   const parts: string[] = [];
   if (stats.updated > 0) {

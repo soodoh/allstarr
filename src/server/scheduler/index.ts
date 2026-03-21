@@ -4,6 +4,7 @@ import { scheduledTasks } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { getAllTasks, getTask } from "./registry";
 import { eventBus } from "../event-bus";
+import { getTimers, setTaskExecutor } from "./timers";
 
 // oxlint-disable import/no-unassigned-import -- Side-effect imports register tasks in the registry
 import "./tasks/check-health";
@@ -16,7 +17,7 @@ import "./tasks/refresh-downloads";
 // oxlint-enable import/no-unassigned-import
 
 let started = false;
-const timers = new Map<string, ReturnType<typeof setInterval>>();
+const timers = getTimers();
 const runningTasks = new Set<string>();
 
 function seedTasksIfNeeded(): void {
@@ -133,6 +134,7 @@ export function ensureSchedulerStarted(): void {
   }
   started = true;
 
+  setTaskExecutor((taskId) => void executeTask(taskId));
   seedTasksIfNeeded();
   startTimers();
   console.log(`[scheduler] Started with ${timers.size} task(s)`);
