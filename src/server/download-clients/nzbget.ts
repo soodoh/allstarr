@@ -175,6 +175,62 @@ const nzbgetProvider: DownloadClientProvider = {
     );
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    await nzbgetCall(
+      baseUrl,
+      "editqueue",
+      ["GroupPause", "", [Number(id)]],
+      config.username,
+      config.password,
+    );
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    await nzbgetCall(
+      baseUrl,
+      "editqueue",
+      ["GroupResume", "", [Number(id)]],
+      config.username,
+      config.password,
+    );
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const nzbPriority = priority > 0 ? 50 : -50;
+    await nzbgetCall(
+      baseUrl,
+      "editqueue",
+      ["GroupSetPriority", String(nzbPriority), [Number(id)]],
+      config.username,
+      config.password,
+    );
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

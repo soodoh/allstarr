@@ -192,6 +192,74 @@ const rtorrentProvider: DownloadClientProvider = {
     }
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const responseXml = await xmlRpcCall(
+      baseUrl,
+      "d.pause",
+      [id],
+      config.username,
+      config.password,
+    );
+
+    if (responseXml.includes("<fault>")) {
+      throw new Error("rTorrent failed to pause torrent");
+    }
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const responseXml = await xmlRpcCall(
+      baseUrl,
+      "d.resume",
+      [id],
+      config.username,
+      config.password,
+    );
+
+    if (responseXml.includes("<fault>")) {
+      throw new Error("rTorrent failed to resume torrent");
+    }
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+
+    const rtPriority = priority > 0 ? 3 : 1;
+    const responseXml = await xmlRpcCall(
+      baseUrl,
+      "d.priority.set",
+      [id, rtPriority],
+      config.username,
+      config.password,
+    );
+
+    if (responseXml.includes("<fault>")) {
+      throw new Error("rTorrent failed to set torrent priority");
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

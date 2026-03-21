@@ -217,6 +217,109 @@ const qbittorrentProvider: DownloadClientProvider = {
     }
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const cookie = await getSessionCookie(
+      baseUrl,
+      config.username ?? "",
+      config.password ?? "",
+    );
+
+    const body = new URLSearchParams({ hashes: id });
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api/v2/torrents/pause`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookie,
+          Referer: baseUrl,
+        },
+        body: body.toString(),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to pause torrent: HTTP ${response.status}`);
+    }
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const cookie = await getSessionCookie(
+      baseUrl,
+      config.username ?? "",
+      config.password ?? "",
+    );
+
+    const body = new URLSearchParams({ hashes: id });
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api/v2/torrents/resume`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookie,
+          Referer: baseUrl,
+        },
+        body: body.toString(),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to resume torrent: HTTP ${response.status}`);
+    }
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const cookie = await getSessionCookie(
+      baseUrl,
+      config.username ?? "",
+      config.password ?? "",
+    );
+
+    const endpoint =
+      priority > 0
+        ? "/api/v2/torrents/increasePrio"
+        : "/api/v2/torrents/decreasePrio";
+    const body = new URLSearchParams({ hashes: id });
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookie,
+        Referer: baseUrl,
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to set torrent priority: HTTP ${response.status}`,
+      );
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,

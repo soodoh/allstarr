@@ -218,6 +218,71 @@ const sabnzbdProvider: DownloadClientProvider = {
     }
   },
 
+  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const apiKey = encodeURIComponent(config.apiKey ?? "");
+    const encodedId = encodeURIComponent(id);
+
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api?mode=queue&name=pause&value=${encodedId}&apikey=${apiKey}&output=json`,
+      { method: "GET" },
+    );
+
+    if (!response.ok) {
+      throw new Error(`SABnzbd pause error: HTTP ${response.status}`);
+    }
+  },
+
+  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const apiKey = encodeURIComponent(config.apiKey ?? "");
+    const encodedId = encodeURIComponent(id);
+
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api?mode=queue&name=resume&value=${encodedId}&apikey=${apiKey}&output=json`,
+      { method: "GET" },
+    );
+
+    if (!response.ok) {
+      throw new Error(`SABnzbd resume error: HTTP ${response.status}`);
+    }
+  },
+
+  async setPriority(
+    config: ConnectionConfig,
+    id: string,
+    priority: number,
+  ): Promise<void> {
+    const baseUrl = buildBaseUrl(
+      config.host,
+      config.port,
+      config.useSsl,
+      config.urlBase,
+    );
+    const apiKey = encodeURIComponent(config.apiKey ?? "");
+    const encodedId = encodeURIComponent(id);
+    const sabPriority = priority > 0 ? 1 : -1;
+
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api?mode=queue&name=priority&value=${encodedId}&value2=${sabPriority}&apikey=${apiKey}&output=json`,
+      { method: "GET" },
+    );
+
+    if (!response.ok) {
+      throw new Error(`SABnzbd priority error: HTTP ${response.status}`);
+    }
+  },
+
   async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
     const baseUrl = buildBaseUrl(
       config.host,
