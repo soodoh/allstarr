@@ -55,7 +55,7 @@ test.describe("Auto-Search", () => {
       name: "Auto Profile",
       rootFolderPath: "/books",
       cutoff: 1,
-      items: [1, 2, 3],
+      items: [1, 2, 3, 4, 5],
       upgradeAllowed: false,
       categories: [7020],
     });
@@ -229,7 +229,7 @@ test.describe("Auto-Search", () => {
       .set({
         upgradeAllowed: true,
         cutoff: 2,
-        items: [1, 2, 3],
+        items: [1, 2, 3, 4, 5],
       })
       .run();
 
