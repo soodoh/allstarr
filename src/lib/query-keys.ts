@@ -150,7 +150,6 @@ export const queryKeys = {
   queue: {
     all: ["queue"] as const,
     list: () => ["queue", "list"] as const,
-    count: () => ["queue", "count"] as const,
   },
 
   // ─── Blocklist ────────────────────────────────────────────────────────

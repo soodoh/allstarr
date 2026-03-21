@@ -2,7 +2,7 @@ import type { ComponentType, JSX } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import AllstarrIcon from "src/components/icons/allstarr-icon";
-import { queueCountQuery } from "src/lib/queries/queue";
+import { queueListQuery } from "src/lib/queries/queue";
 import {
   BookOpen,
   Users,
@@ -119,7 +119,10 @@ export default function AppSidebar(): JSX.Element {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const activeGroup = getActiveGroup(currentPath, navGroups);
-  const { data: queueCount } = useQuery(queueCountQuery());
+  const { data: queueCount } = useQuery({
+    ...queueListQuery(),
+    select: (data) => data.items.length,
+  });
 
   const isChildActive = (childTo: string, groupTo: string) => {
     if (childTo === groupTo) {
