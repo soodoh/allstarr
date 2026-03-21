@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:e2e": "bunx playwright test --config e2e/playwright.config.ts"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -57,13 +58,16 @@
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@commitlint/types": "^20.4.0",
+    "@playwright/test": "^1.58.2",
     "@standard-config/oxlint": "^1.2.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query-devtools": "^5.91.3",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "^1.2.10",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.31.9",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
