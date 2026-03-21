@@ -7,7 +7,7 @@ Comprehensive Playwright e2e tests covering all critical flows in Allstarr witho
 ## Decisions
 
 - **Fake HTTP servers** for download clients (qBittorrent, Transmission, Deluge, rTorrent, SABnzbd, NZBGet) and indexers (Newznab/Torznab, Prowlarr) — exercises real HTTP/parsing/auth code
-- **Playwright route interception** for Hardcover GraphQL — read-only metadata API, simpler to mock at fetch level
+- **Fake Hardcover HTTP server** for GraphQL mock — requires a small app code change to make `HARDCOVER_GRAPHQL_URL` configurable via env var (currently hardcoded in `src/server/search.ts` and `src/server/hardcover/import-queries.ts`)
 - **Real temp directories** for filesystem operations — catches path-handling bugs that mocks would hide
 - **Fresh SQLite per test suite** — full isolation, no leaked state, safe for parallel execution
 - **No provider-level mocks** — fake servers catch protocol/parsing bugs that provider swaps would miss
@@ -17,7 +17,7 @@ Comprehensive Playwright e2e tests covering all critical flows in Allstarr witho
 ### Dependencies
 
 - `@playwright/test` — test runner and browser automation
-- No additional mock libraries — Playwright's `page.route()` handles Hardcover interception, Bun's native HTTP server powers fake download client/indexer servers
+- No additional mock libraries — Bun's native HTTP server powers all fake servers (download clients, indexers, and Hardcover)
 
 ### Project Structure
 
@@ -37,7 +37,7 @@ e2e/
 │   │   ├── nzbget.ts             # Fake NZBGet JSON-RPC
 │   │   ├── newznab.ts            # Fake Newznab/Torznab indexer
 │   │   └── prowlarr.ts           # Fake Prowlarr management API
-│   ├── hardcover-mock.ts         # Playwright route handler for Hardcover GraphQL
+│   │   └── hardcover.ts          # Fake Hardcover GraphQL API
 │   └── seed-data.ts              # DB seed helpers (authors, books, profiles, etc.)
 ├── helpers/
 │   ├── auth.ts                   # Login/register helpers
@@ -56,13 +56,27 @@ e2e/
     └── 10-blocklist-failure.spec.ts
 ```
 
-### App Startup
+### App Startup & Test Isolation
 
-- Playwright's `webServer` config runs `bun run dev` with env vars:
-  - `DATABASE_URL` pointing to the per-suite test SQLite file
-  - Fake server ports for download clients/indexers
-- Each test file gets a fresh SQLite DB copied from a pre-migrated template created in `global-setup.ts`
-- Fake servers start in `global-setup.ts` on fixed ports, shared across all tests (stateless request handlers with per-test state control)
+The DB connection is established at module load time in `src/db/index.ts`, so a single dev server cannot switch databases between test suites. Instead, **each test suite starts its own app server instance**:
+
+1. `global-setup.ts` runs migrations + seed on a template SQLite DB, and starts all fake servers on fixed ports (shared across suites since they're stateless with per-test `/__control`)
+2. Each spec file's `beforeAll`:
+   - Copies the template DB to a unique path (e.g., `data/test-{suite-name}-{pid}.db`)
+   - Starts a fresh `bun run dev` on a dynamic port with env vars:
+     - `DATABASE_URL` — the suite's unique DB path
+     - `HARDCOVER_GRAPHQL_URL` — fake Hardcover server URL
+     - `PORT` — unique port for this suite's app instance
+   - Waits for the server to be ready
+3. Each spec file's `afterAll` stops the app server and deletes the test DB
+4. Test suites can run in parallel since each has its own server + DB
+
+### Prerequisite App Changes
+
+The following small code changes are required before tests can run:
+
+- **Make Hardcover GraphQL URL configurable**: Replace the hardcoded `HARDCOVER_GRAPHQL_URL` constant in `src/server/search.ts` and `src/server/hardcover/import-queries.ts` with `process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql"`
+- **Make app port configurable**: Ensure `PORT` env var is respected by the dev server (may already work via Vite/Nitro config)
 
 ### Custom Test Fixture (`e2e/fixtures/app.ts`)
 
@@ -89,6 +103,7 @@ Each fake server is a Bun HTTP server (`Bun.serve`) speaking the real protocol. 
 | NZBGet       | JSON-RPC + basic auth        | `POST /jsonrpc` — methods: `listgroups`, `append`, `editqueue(pause)`, `editqueue(resume)`, `editqueue(delete)`, `version`                                                                                    |
 | Newznab      | Newznab XML over HTTP        | `GET /api?t=caps` (capabilities), `GET /api?t=search` (search results as RSS/XML), `GET /api/v1/health` + `/api/v1/system/status` (test connection)                                                           |
 | Prowlarr     | REST JSON                    | `GET /api/v1/indexer` (list indexers), `GET /api/v1/health`, `GET /api/v1/system/status`                                                                                                                      |
+| Hardcover    | GraphQL over HTTP            | `POST /v1/graphql` — operations: SearchBooks, GetAuthor, GetBook, GetSeries                                                                                                                                   |
 
 ### Controlling Fake Server State
 
@@ -119,18 +134,22 @@ await fetch(`http://localhost:${FAKE_QBIT_PORT}/__control`, {
 });
 ```
 
-### Hardcover GraphQL Mock
+### Fake Hardcover GraphQL Server
 
-Intercepted at the network level via Playwright's `page.route()` for client-side calls. For server-side calls (server functions fetching Hardcover), the app's Hardcover base URL is overridden via env var to point to a simple Bun HTTP server that returns canned GraphQL responses.
+A Bun HTTP server that handles GraphQL POST requests, matching on operation names or query content to return canned responses. The app's `HARDCOVER_GRAPHQL_URL` env var is pointed at this server.
 
 ```ts
-await page.route("**/hardcover.app/api/graphql", (route) => {
-  const body = JSON.parse(route.request().postData());
-  if (body.query.includes("SearchBooks")) {
-    return route.fulfill({ json: mockSearchResults });
-  }
-});
+// Fake Hardcover server handles GraphQL operations
+// POST /v1/graphql
+{
+  "SearchBooks" → canned search results (authors + books)
+  "GetAuthor"   → canned author detail with books + editions
+  "GetBook"     → canned book detail with editions + contributors
+  "GetSeries"   → canned series with books
+}
 ```
+
+Uses the same `/__control` / `/__reset` pattern as other fake servers so tests can configure which authors/books/editions are "available" on Hardcover for each test scenario.
 
 ### Filesystem
 
