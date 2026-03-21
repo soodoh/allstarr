@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,23 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeStatus(
+  state: number,
+  complete: number,
+  hashing: number,
+): CanonicalStatus {
+  if (complete === 1) {
+    return "completed";
+  }
+  if (hashing !== 0) {
+    return "queued";
+  }
+  if (state === 0) {
+    return "paused";
+  }
+  return "downloading";
+}
 
 function buildXmlRpcCall(method: string, params: unknown[]): string {
   const paramsXml = params
@@ -197,12 +215,15 @@ const rtorrentProvider: DownloadClientProvider = {
         "d.down.rate=",
         "d.directory=",
         "d.complete=",
+        "d.hashing=",
       ],
       config.username,
       config.password,
     );
 
     // Parse simple XML-RPC array of arrays response
+    // Field order: hash(str), name(str), state(i8), size(i8), downloaded(i8),
+    //              upRate(i8), downRate(i8), directory(str), complete(i8), hashing(i8)
     const rows: DownloadItem[] = [];
     const arrayMatches = responseXml.match(/<data>([\s\S]*?)<\/data>/g);
     if (arrayMatches) {
@@ -213,17 +234,22 @@ const rtorrentProvider: DownloadClientProvider = {
         const ints = intValues.map((v) => Number(v.replaceAll(/<\/?i8>/g, "")));
 
         if (strings.length >= 2) {
+          // ints: [state, size, downloaded, upRate, downRate, complete, hashing]
+          const rtState = ints[0] ?? 0;
+          const rtComplete = ints[5] ?? 0;
+          const rtHashing = ints[6] ?? 0;
+          const status = normalizeStatus(rtState, rtComplete, rtHashing);
           rows.push({
             id: strings[0] ?? "",
             name: strings[1] ?? "",
-            status: strings[2] ?? "",
-            size: ints[0] ?? 0,
-            downloaded: ints[1] ?? 0,
-            uploadSpeed: ints[2] ?? 0,
-            downloadSpeed: ints[3] ?? 0,
+            status,
+            size: ints[1] ?? 0,
+            downloaded: ints[2] ?? 0,
+            uploadSpeed: ints[3] ?? 0,
+            downloadSpeed: ints[4] ?? 0,
             category: null,
-            outputPath: strings[3] ?? null,
-            isCompleted: (ints[4] ?? 0) === 1,
+            outputPath: strings[2] ?? null,
+            isCompleted: status === "completed",
           });
         }
       }

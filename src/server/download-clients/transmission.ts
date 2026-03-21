@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,32 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeStatus(status: number): CanonicalStatus {
+  switch (status) {
+    case 4: {
+      return "downloading";
+    }
+    case 5:
+    case 6: {
+      return "completed";
+    }
+    case 0: {
+      return "paused";
+    }
+    case 1:
+    case 2:
+    case 3: {
+      return "queued";
+    }
+    case 7: {
+      return "failed";
+    }
+    default: {
+      return "downloading";
+    }
+  }
+}
 
 type TransmissionRpcResponse = {
   result?: string;
@@ -191,18 +218,21 @@ const transmissionProvider: DownloadClientProvider = {
 
     const torrents =
       (result.arguments?.torrents as Array<Record<string, unknown>>) ?? [];
-    return torrents.map((t) => ({
-      id: String(t.id ?? ""),
-      name: String(t.name ?? ""),
-      status: String(t.status ?? ""),
-      size: Number(t.totalSize ?? 0),
-      downloaded: Number(t.downloadedEver ?? 0),
-      uploadSpeed: Number(t.uploadSpeed ?? 0),
-      downloadSpeed: Number(t.rateDownload ?? 0),
-      category: null,
-      outputPath: t.downloadDir ? String(t.downloadDir) : null,
-      isCompleted: Number(t.status) === 6,
-    }));
+    return torrents.map((t) => {
+      const status = normalizeStatus(Number(t.status ?? 0));
+      return {
+        id: String(t.id ?? ""),
+        name: String(t.name ?? ""),
+        status,
+        size: Number(t.totalSize ?? 0),
+        downloaded: Number(t.downloadedEver ?? 0),
+        uploadSpeed: Number(t.uploadSpeed ?? 0),
+        downloadSpeed: Number(t.rateDownload ?? 0),
+        category: null,
+        outputPath: t.downloadDir ? String(t.downloadDir) : null,
+        isCompleted: status === "completed",
+      };
+    });
   },
 };
 

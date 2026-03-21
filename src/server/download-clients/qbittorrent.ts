@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,43 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeStatus(state: string): CanonicalStatus {
+  switch (state) {
+    case "downloading":
+    case "stalledDL":
+    case "forcedDL":
+    case "metaDL":
+    case "forcedMetaDL":
+    case "allocating":
+    case "checkingDL":
+    case "checkingResumeData": {
+      return "downloading";
+    }
+    case "uploading":
+    case "stalledUP":
+    case "forcedUP":
+    case "checkingUP": {
+      return "completed";
+    }
+    case "pausedDL":
+    case "pausedUP": {
+      return "paused";
+    }
+    case "queuedDL":
+    case "queuedUP":
+    case "queuedForChecking": {
+      return "queued";
+    }
+    case "error":
+    case "missingFiles": {
+      return "failed";
+    }
+    default: {
+      return "downloading";
+    }
+  }
+}
 
 async function getSessionCookie(
   baseUrl: string,
@@ -207,24 +245,22 @@ const qbittorrentProvider: DownloadClientProvider = {
     }
 
     const data = (await response.json()) as Array<Record<string, unknown>>;
-    const completedStates = new Set([
-      "uploading",
-      "stalledUP",
-      "pausedUP",
-      "forcedUP",
-    ]);
-    return data.map((item) => ({
-      id: String(item.hash ?? ""),
-      name: String(item.name ?? ""),
-      status: String(item.state ?? ""),
-      size: Number(item.size ?? 0),
-      downloaded: Number(item.downloaded ?? 0),
-      uploadSpeed: Number(item.upspeed ?? 0),
-      downloadSpeed: Number(item.dlspeed ?? 0),
-      category: String(item.category ?? ""),
-      outputPath: item.save_path ? String(item.save_path) : null,
-      isCompleted: completedStates.has(String(item.state ?? "")),
-    }));
+    return data.map((item) => {
+      const state = String(item.state ?? "");
+      const status = normalizeStatus(state);
+      return {
+        id: String(item.hash ?? ""),
+        name: String(item.name ?? ""),
+        status,
+        size: Number(item.size ?? 0),
+        downloaded: Number(item.downloaded ?? 0),
+        uploadSpeed: Number(item.upspeed ?? 0),
+        downloadSpeed: Number(item.dlspeed ?? 0),
+        category: String(item.category ?? ""),
+        outputPath: item.save_path ? String(item.save_path) : null,
+        isCompleted: status === "completed",
+      };
+    });
   },
 };
 

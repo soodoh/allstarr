@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,31 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeStatus(state: string, progress: number): CanonicalStatus {
+  switch (state) {
+    case "Downloading":
+    case "Allocating":
+    case "Checking": {
+      return "downloading";
+    }
+    case "Seeding": {
+      return "completed";
+    }
+    case "Paused": {
+      return progress >= 100 ? "completed" : "paused";
+    }
+    case "Queued": {
+      return "queued";
+    }
+    case "Error": {
+      return "failed";
+    }
+    default: {
+      return progress >= 100 ? "completed" : "downloading";
+    }
+  }
+}
 
 type DelugeRpcResponse = {
   id?: number;
@@ -232,18 +258,22 @@ const delugeProvider: DownloadClientProvider = {
       return [];
     }
 
-    return Object.entries(torrents).map(([hash, t]) => ({
-      id: hash,
-      name: String(t.name ?? ""),
-      status: String(t.state ?? ""),
-      size: Number(t.total_size ?? 0),
-      downloaded: Number(t.all_time_download ?? 0),
-      uploadSpeed: Number(t.upload_rate ?? 0),
-      downloadSpeed: Number(t.download_rate ?? 0),
-      category: null,
-      outputPath: t.save_path ? String(t.save_path) : null,
-      isCompleted: String(t.state) === "Seeding" || Number(t.progress) === 100,
-    }));
+    return Object.entries(torrents).map(([hash, t]) => {
+      const progress = Number(t.progress ?? 0);
+      const status = normalizeStatus(String(t.state ?? ""), progress);
+      return {
+        id: hash,
+        name: String(t.name ?? ""),
+        status,
+        size: Number(t.total_size ?? 0),
+        downloaded: Number(t.all_time_download ?? 0),
+        uploadSpeed: Number(t.upload_rate ?? 0),
+        downloadSpeed: Number(t.download_rate ?? 0),
+        category: null,
+        outputPath: t.save_path ? String(t.save_path) : null,
+        isCompleted: status === "completed",
+      };
+    });
   },
 };
 
