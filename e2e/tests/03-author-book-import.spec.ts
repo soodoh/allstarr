@@ -167,27 +167,35 @@ const MOCK_SEARCH_RESULTS = [
 ];
 
 test.describe("Author and Book Import", () => {
-  let seeded = false;
-
   test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
-    // Seed prerequisites once (idempotent via flag since db is shared across tests)
-    if (!seeded) {
-      seedDownloadProfile(db, {
-        name: "Default Profile",
-        rootFolderPath: "/books",
-        categories: [7020],
-      });
-      seedDownloadClient(db);
-      seeded = true;
-    }
+    // Clean up data from previous tests to prevent interference
+    db.delete(schema.trackedDownloads).run();
+    db.delete(schema.history).run();
+    db.delete(schema.bookFiles).run();
+    db.delete(schema.blocklist).run();
+    db.delete(schema.editionDownloadProfiles).run();
+    db.delete(schema.authorDownloadProfiles).run();
+    db.delete(schema.booksAuthors).run();
+    db.delete(schema.editions).run();
+    db.delete(schema.books).run();
+    db.delete(schema.authors).run();
+    db.delete(schema.downloadClients).run();
+    db.delete(schema.indexers).run();
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.downloadProfiles).run();
+
+    // Seed prerequisites
+    seedDownloadProfile(db, {
+      name: "Default Profile",
+      rootFolderPath: "/books",
+      categories: [7020],
+    });
+    seedDownloadClient(db);
 
     // Checkpoint WAL so bun:sqlite in the app server sees seeded data
     checkpoint();
 
     await ensureAuthenticated(page, appUrl);
-
-    // Navigate to force the app server's DB connection to see seeded data
-    await navigateTo(page, appUrl, "/settings/indexers");
 
     // Configure fake Hardcover server with mock data
     await fetch(`${fakeServers.HARDCOVER}/__control`, {
@@ -501,8 +509,12 @@ test.describe("Author and Book Import", () => {
   });
 
   test("toggle edition download profile", async ({ page, appUrl, db }) => {
-    const { seedAuthor, seedBook, seedEdition } =
+    const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
       await import("../fixtures/seed-data");
+    const profile = seedDownloadProfile(db, {
+      name: "Toggle Profile",
+      categories: [7020],
+    });
     const author = seedAuthor(db, { name: "Edition Toggle Author" });
     const book = seedBook(db, author.id, { title: "Edition Toggle Book" });
     seedEdition(db, book.id, { title: "Toggle Edition" });
@@ -511,7 +523,7 @@ test.describe("Author and Book Import", () => {
     db.insert(schema.authorDownloadProfiles)
       .values({
         authorId: author.id,
-        downloadProfileId: 1,
+        downloadProfileId: profile.id,
       })
       .run();
 
