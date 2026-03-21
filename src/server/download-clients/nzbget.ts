@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,32 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeActiveStatus(status: string): CanonicalStatus {
+  switch (status) {
+    case "DOWNLOADING":
+    case "POSTPROCESSING":
+    case "UNPACKING":
+    case "MOVING":
+    case "RENAMING": {
+      return "downloading";
+    }
+    case "PAUSED":
+    case "PAUSING": {
+      return "paused";
+    }
+    case "QUEUED": {
+      return "queued";
+    }
+    default: {
+      return "downloading";
+    }
+  }
+}
+
+function normalizeHistoryStatus(status: string): CanonicalStatus {
+  return status === "SUCCESS" ? "completed" : "failed";
+}
 
 type NzbgetRpcResponse = {
   result?: unknown;
@@ -173,7 +200,7 @@ const nzbgetProvider: DownloadClientProvider = {
         items.push({
           id: String(g.NZBID ?? ""),
           name: String(g.NZBName ?? ""),
-          status: String(g.Status ?? ""),
+          status: normalizeActiveStatus(String(g.Status ?? "")),
           size: Math.round(fileSizeMb * 1024 * 1024),
           downloaded: Math.round(downloadedMb * 1024 * 1024),
           uploadSpeed: 0,
@@ -191,21 +218,21 @@ const nzbgetProvider: DownloadClientProvider = {
       | undefined;
     if (historyGroups) {
       for (const g of historyGroups) {
-        if (String(g.Status ?? "") === "SUCCESS") {
-          const fileSizeMb = Number(g.FileSizeMB ?? 0);
-          items.push({
-            id: String(g.NZBID ?? ""),
-            name: String(g.NZBName ?? ""),
-            status: "SUCCESS",
-            size: Math.round(fileSizeMb * 1024 * 1024),
-            downloaded: Math.round(fileSizeMb * 1024 * 1024),
-            uploadSpeed: 0,
-            downloadSpeed: 0,
-            category: null,
-            outputPath: g.DestDir ? String(g.DestDir) : null,
-            isCompleted: true,
-          });
-        }
+        const rawStatus = String(g.Status ?? "");
+        const status = normalizeHistoryStatus(rawStatus);
+        const fileSizeMb = Number(g.FileSizeMB ?? 0);
+        items.push({
+          id: String(g.NZBID ?? ""),
+          name: String(g.NZBName ?? ""),
+          status,
+          size: Math.round(fileSizeMb * 1024 * 1024),
+          downloaded: Math.round(fileSizeMb * 1024 * 1024),
+          uploadSpeed: 0,
+          downloadSpeed: 0,
+          category: null,
+          outputPath: g.DestDir ? String(g.DestDir) : null,
+          isCompleted: status === "completed",
+        });
       }
     }
 

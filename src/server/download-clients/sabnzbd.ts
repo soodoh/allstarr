@@ -1,4 +1,5 @@
 import type {
+  CanonicalStatus,
   ConnectionConfig,
   DownloadClientProvider,
   DownloadItem,
@@ -6,6 +7,39 @@ import type {
   TestResult,
 } from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+
+function normalizeQueueStatus(status: string): CanonicalStatus {
+  switch (status) {
+    case "Downloading":
+    case "Fetching":
+    case "Grabbing": {
+      return "downloading";
+    }
+    case "Paused": {
+      return "paused";
+    }
+    case "Queued": {
+      return "queued";
+    }
+    default: {
+      return "downloading";
+    }
+  }
+}
+
+function normalizeHistoryStatus(status: string): CanonicalStatus {
+  switch (status) {
+    case "Completed": {
+      return "completed";
+    }
+    case "Failed": {
+      return "failed";
+    }
+    default: {
+      return "completed";
+    }
+  }
+}
 
 type SabnzbdResponse = {
   version?: string;
@@ -51,7 +85,7 @@ function parseQueueSlots(slots: QueueSlot[]): DownloadItem[] {
     return {
       id: slot.nzo_id ?? "",
       name: slot.filename ?? "",
-      status: slot.status ?? "",
+      status: normalizeQueueStatus(slot.status ?? ""),
       size: Math.round(totalBytes),
       downloaded: Math.round(totalBytes - leftBytes),
       uploadSpeed: 0,
@@ -69,7 +103,7 @@ function parseHistorySlots(slots: HistorySlot[]): DownloadItem[] {
     .map((slot) => ({
       id: slot.nzo_id ?? "",
       name: slot.name ?? "",
-      status: slot.status ?? "",
+      status: normalizeHistoryStatus(slot.status ?? ""),
       size: Number(slot.bytes ?? 0),
       downloaded: Number(slot.bytes ?? 0),
       uploadSpeed: 0,

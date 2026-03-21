@@ -106,7 +106,7 @@ const blackholeProvider: DownloadClientProvider = {
           return {
             id: f,
             name: f,
-            status: "Pending",
+            status: "queued" as const,
             size: stat.size,
             downloaded: stat.size,
             uploadSpeed: 0,
