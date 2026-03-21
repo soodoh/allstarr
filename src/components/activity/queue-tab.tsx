@@ -1,56 +1,40 @@
 import type { JSX } from "react";
-import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { Download, Loader2, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "src/components/ui/table";
-import Progress from "src/components/ui/progress";
-import { Badge } from "src/components/ui/badge";
-import { Button } from "src/components/ui/button";
 import EmptyState from "src/components/shared/empty-state";
 import RemoveDownloadDialog from "src/components/activity/remove-download-dialog";
+import QueueSummaryBar from "src/components/activity/queue-summary-bar";
+import QueueItemRow from "src/components/activity/queue-item-row";
+import QueueConnectionBanner from "src/components/activity/queue-connection-banner";
 import { queueListQuery } from "src/lib/queries";
-import { formatBytes } from "src/lib/format";
+import { queryKeys } from "src/lib/query-keys";
+import {
+  pauseDownloadFn,
+  resumeDownloadFn,
+  setDownloadPriorityFn,
+} from "src/server/queue";
 import type { QueueItem } from "src/server/queue";
+import type { CanonicalStatus } from "src/server/download-clients/types";
 
-function formatTimeLeft(seconds: number | null): string {
-  if (seconds === null || seconds <= 0) {
-    return "-";
-  }
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  if (seconds < 3600) {
-    return `${Math.floor(seconds / 60)}m`;
-  }
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  return `${hours}h ${mins}m`;
-}
+type StatusFilter = CanonicalStatus | "all";
 
-export default function QueueTab(): JSX.Element {
-  const { data, isLoading } = useQuery(queueListQuery());
-  const shownWarnings = useRef(new Set<string>());
+export default function QueueTab({
+  isConnected,
+}: {
+  isConnected: boolean;
+}): JSX.Element {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    ...queueListQuery(),
+    // Fallback polling when SSE is disconnected
+    refetchInterval: isConnected ? false : 15_000,
+  });
+  const [filter, setFilter] = useState<StatusFilter>("all");
   const [removeItem, setRemoveItem] = useState<QueueItem | null>(null);
-
-  useEffect(() => {
-    if (data?.warnings) {
-      for (const w of data.warnings) {
-        if (!shownWarnings.current.has(w)) {
-          shownWarnings.current.add(w);
-          toast.warning(w);
-        }
-      }
-    }
-  }, [data?.warnings]);
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
+  const warnings = useMemo(() => data?.warnings ?? [], [data?.warnings]);
 
   if (isLoading) {
     return (
@@ -60,9 +44,7 @@ export default function QueueTab(): JSX.Element {
     );
   }
 
-  const items = data?.items ?? [];
-
-  if (items.length === 0) {
+  if (items.length === 0 && warnings.length === 0) {
     return (
       <EmptyState
         icon={Download}
@@ -72,86 +54,104 @@ export default function QueueTab(): JSX.Element {
     );
   }
 
+  const filteredItems =
+    filter === "all" ? items : items.filter((i) => i.status === filter);
+
+  // Optimistic update helper
+  function optimisticStatusUpdate(item: QueueItem, newStatus: CanonicalStatus) {
+    queryClient.setQueryData(
+      queryKeys.queue.list(),
+      (old: { items: QueueItem[]; warnings: string[] } | undefined) => {
+        if (!old) {
+          return old;
+        }
+        return {
+          ...old,
+          items: old.items.map((i) =>
+            i.id === item.id && i.downloadClientId === item.downloadClientId
+              ? { ...i, status: newStatus }
+              : i,
+          ),
+        };
+      },
+    );
+  }
+
+  async function handlePause(item: QueueItem) {
+    optimisticStatusUpdate(item, "paused");
+    try {
+      await pauseDownloadFn({
+        data: {
+          downloadClientId: item.downloadClientId,
+          downloadItemId: item.id,
+        },
+      });
+    } catch (error) {
+      toast.error(
+        `Failed to pause: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  async function handleResume(item: QueueItem) {
+    optimisticStatusUpdate(item, "downloading");
+    try {
+      await resumeDownloadFn({
+        data: {
+          downloadClientId: item.downloadClientId,
+          downloadItemId: item.id,
+        },
+      });
+    } catch (error) {
+      toast.error(
+        `Failed to resume: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  async function handlePriority(item: QueueItem, direction: number) {
+    try {
+      await setDownloadPriorityFn({
+        data: {
+          downloadClientId: item.downloadClientId,
+          downloadItemId: item.id,
+          priority: direction,
+        },
+      });
+    } catch (error) {
+      toast.error(
+        `Failed to change priority: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Book</TableHead>
-            <TableHead>Author</TableHead>
-            <TableHead className="w-48">Progress</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead>Time Left</TableHead>
-            <TableHead>Speed</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={`${item.downloadClientId}-${item.id}`}>
-              <TableCell className="font-medium max-w-xs truncate">
-                {item.name}
-              </TableCell>
-              <TableCell className="text-sm">
-                {item.bookId && item.bookTitle ? (
-                  <Link
-                    to="/bookshelf/books/$bookId"
-                    params={{ bookId: String(item.bookId) }}
-                    className="text-primary hover:underline"
-                  >
-                    {item.bookTitle}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">-</span>
-                )}
-              </TableCell>
-              <TableCell className="text-sm">
-                {item.authorName ?? (
-                  <span className="text-muted-foreground">-</span>
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Progress value={item.progress} className="flex-1" />
-                  <span className="text-xs text-muted-foreground w-10 text-right">
-                    {item.progress}%
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{item.status}</Badge>
-              </TableCell>
-              <TableCell className="text-sm">
-                {formatBytes(item.size)}
-              </TableCell>
-              <TableCell className="text-sm">
-                {formatTimeLeft(item.estimatedTimeLeft)}
-              </TableCell>
-              <TableCell className="text-sm">
-                {item.downloadSpeed > 0
-                  ? `${formatBytes(item.downloadSpeed)}/s`
-                  : "-"}
-              </TableCell>
-              <TableCell>
-                <Badge variant="secondary">{item.downloadClientName}</Badge>
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setRemoveItem(item)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <QueueSummaryBar
+        items={items}
+        filter={filter}
+        onFilterChange={setFilter}
+        isConnected={isConnected}
+      />
+      <QueueConnectionBanner warnings={warnings} />
+      <div className="rounded-lg border border-border overflow-hidden">
+        {filteredItems.map((item) => (
+          <QueueItemRow
+            key={`${item.downloadClientId}-${item.id}`}
+            item={item}
+            onPause={handlePause}
+            onResume={handleResume}
+            onRemove={setRemoveItem}
+            onPriorityUp={(i) => handlePriority(i, 1)}
+            onPriorityDown={(i) => handlePriority(i, -1)}
+          />
+        ))}
+        {filteredItems.length === 0 && items.length > 0 && (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No {filter} downloads
+          </div>
+        )}
+      </div>
       <RemoveDownloadDialog
         item={removeItem}
         onOpenChange={(open) => {
