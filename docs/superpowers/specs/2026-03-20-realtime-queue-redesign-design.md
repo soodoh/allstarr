@@ -37,7 +37,11 @@ The `refresh-downloads` scheduler task currently runs at a fixed 60-second inter
 | Yes                   | No               | 15s           |
 | Yes                   | Yes              | 4s            |
 
-The event bus already tracks connected clients via its `Set` of stream controllers. The scheduler reads this count to decide its interval.
+The event bus already tracks connected clients via its `Set` of stream controllers. A new `getClientCount()` method on the event bus exposes this count. The scheduler calls `eventBus.getClientCount()` to decide its interval.
+
+### Scheduler Adaptive Interval Implementation
+
+The current scheduler uses fixed `setInterval` timers set once at startup. To support adaptive intervals, the `refresh-downloads` task switches from a fixed interval to a self-scheduling pattern: instead of `setInterval`, each execution schedules the next one via `setTimeout` with an interval determined by current conditions (client count + active downloads). This change is scoped to the refresh-downloads task only — other scheduler tasks keep their fixed intervals.
 
 ### SSE Progress Streaming
 
@@ -75,7 +79,7 @@ React Query stays as the state container for queue data, but its responsibilitie
 
 - `refetchInterval` — SSE replaces polling entirely
 - `queueUpdated` cache invalidation — SSE carries the data directly
-- `queueCountQuery` — derive count from the same cache key
+- `queueCountQuery` — derive count from the same cache key (sidebar badge uses `useQuery` with a `select` option on the queue list query key to extract `items.length`)
 
 **SSE disconnect fallback:** If SSE disconnects, re-enable a temporary `refetchInterval` (15s) until reconnected.
 
@@ -137,7 +141,7 @@ Methods are optional because not all clients support all actions (Blackhole supp
 
 A persistent bar above the queue showing aggregate stats and status filters:
 
-- **Left side:** Active count, Queued count, total download speed, total upload speed
+- **Left side:** Active count, Queued count, total download speed, total upload speed (upload speed only shown for torrent protocol; hidden for usenet-only queues)
 - **Right side:** Filter pills — All, Downloading, Queued, Paused, Failed
 
 ### Download Row Design
@@ -149,15 +153,31 @@ Each row uses a two-line layout with the progress bar as the row background:
 
 **Progress background:** An absolutely-positioned div behind the row content, width set to progress %, with the status color at low opacity. A subtle 2px border-right marks the progress edge.
 
+### Status Normalization
+
+Download clients return varied status strings (e.g., qBittorrent: `"stalledDL"`, `"pausedDL"`, `"uploading"`; Transmission: numeric states; SABnzbd: `"Downloading"`, `"Paused"`). A normalization layer maps these to five canonical statuses used by the UI for colors, filters, and action buttons:
+
+| Canonical Status | Example Raw Statuses                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `downloading`    | qBit: `downloading`, `stalledDL`, `forcedDL`; Transmission: status 4; SABnzbd: `Downloading` |
+| `completed`      | qBit: `uploading`, `stalledUP`; Transmission: status 6; SABnzbd: `Completed`                 |
+| `paused`         | qBit: `pausedDL`, `pausedUP`; Transmission: status 0; SABnzbd: `Paused`                      |
+| `queued`         | qBit: `queuedDL`, `queuedUP`; Transmission: status 3; SABnzbd: `Queued`                      |
+| `failed`         | qBit: `error`, `missingFiles`; NZBGet: `FAILURE`; SABnzbd: `Failed`                          |
+
+This normalization happens in each download client provider's `getDownloads()` method — the `DownloadItem.status` field returned is already one of these five canonical values. The `QueueItem` type adds `status` as a union type: `"downloading" | "completed" | "paused" | "queued" | "failed"`.
+
+"Completed" means the download client reports the download as finished but it has not yet been imported into the library (a transient state before the import process picks it up).
+
 ### Status Color System
 
 | Status      | Color | Dot Glow | Row Opacity |
 | ----------- | ----- | -------- | ----------- |
-| Downloading | Blue  | Yes      | 1.0         |
-| Completed   | Green | Yes      | 1.0         |
-| Paused      | Amber | No       | 0.7         |
-| Queued      | Gray  | No       | 0.6         |
-| Failed      | Red   | Yes      | 1.0         |
+| downloading | Blue  | Yes      | 1.0         |
+| completed   | Green | Yes      | 1.0         |
+| paused      | Amber | No       | 0.7         |
+| queued      | Gray  | No       | 0.6         |
+| failed      | Red   | Yes      | 1.0         |
 
 ### Action Buttons
 
@@ -203,15 +223,15 @@ src/components/activity/
 
 ### Server-Side Changes
 
-| File                                              | Change                                                                     |
-| ------------------------------------------------- | -------------------------------------------------------------------------- |
-| `src/server/queue.ts`                             | Add `pauseDownloadFn`, `resumeDownloadFn`, `setDownloadPriorityFn`         |
-| `src/server/download-clients/types.ts`            | Add optional `pauseDownload`, `resumeDownload`, `setPriority` to interface |
-| `src/server/download-clients/*.ts`                | Implement new methods per client                                           |
-| `src/server/event-bus.ts`                         | Add `queueProgress` event type with data payload                           |
-| `src/server/scheduler/tasks/refresh-downloads.ts` | Adaptive interval based on SSE client count + active downloads             |
-| `src/hooks/use-server-events.ts`                  | Handle `queueProgress` → write to React Query cache, expose `isConnected`  |
-| `src/lib/queries/queue.ts`                        | Remove `refetchInterval`, remove `queueCountQuery`                         |
+| File                                              | Change                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `src/server/queue.ts`                             | Add `pauseDownloadFn`, `resumeDownloadFn`, `setDownloadPriorityFn`              |
+| `src/server/download-clients/types.ts`            | Add optional `pauseDownload`, `resumeDownload`, `setPriority` to interface      |
+| `src/server/download-clients/*.ts`                | Implement new methods per client                                                |
+| `src/server/event-bus.ts`                         | Add `queueProgress` event type with data payload, add `getClientCount()` method |
+| `src/server/scheduler/tasks/refresh-downloads.ts` | Adaptive interval based on SSE client count + active downloads                  |
+| `src/hooks/use-server-events.ts`                  | Handle `queueProgress` → write to React Query cache, expose `isConnected`       |
+| `src/lib/queries/queue.ts`                        | Remove `refetchInterval`, remove `queueCountQuery`                              |
 
 ## Download Client API Reference
 
