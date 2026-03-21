@@ -1,7 +1,10 @@
 // oxlint-disable no-console -- Event bus logs are intentional server-side diagnostics
 
+import type { QueueItem } from "./queue";
+
 export type ServerEvent =
   | { type: "queueUpdated" }
+  | { type: "queueProgress"; data: { items: QueueItem[]; warnings: string[] } }
   | { type: "taskUpdated"; taskId: string }
   | { type: "downloadCompleted"; bookId: number | null; title: string }
   | {
@@ -21,6 +24,10 @@ class EventBus {
 
   removeClient(controller: ReadableStreamDefaultController): void {
     this.clients.delete(controller);
+  }
+
+  getClientCount(): number {
+    return this.clients.size;
   }
 
   emit(event: ServerEvent): void {
