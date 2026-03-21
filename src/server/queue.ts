@@ -62,78 +62,76 @@ export async function fetchQueueItems(): Promise<{
     return { items: [], warnings: [] };
   }
 
-  const results = await Promise.allSettled(
-    enabledClients.map(async (client) => {
-      const provider = getProvider(client.implementation);
-      const config = toConnectionConfig(client);
-
-      const downloads = await provider.getDownloads(config);
-      return downloads.map((dl): QueueItem => {
-        // Look up tracked download for book/author info
-        const tracked = db
-          .select()
-          .from(trackedDownloads)
-          .where(
-            and(
-              eq(trackedDownloads.downloadClientId, client.id),
-              eq(trackedDownloads.downloadId, dl.id),
-            ),
-          )
-          .get();
-
-        let bookTitle: string | null = null;
-        let authorName: string | null = null;
-
-        if (tracked?.bookId) {
-          const book = db
-            .select({ title: books.title })
-            .from(books)
-            .where(eq(books.id, tracked.bookId))
-            .get();
-          bookTitle = book?.title ?? null;
-        }
-        if (tracked?.authorId) {
-          const author = db
-            .select({ name: authors.name })
-            .from(authors)
-            .where(eq(authors.id, tracked.authorId))
-            .get();
-          authorName = author?.name ?? null;
-        }
-
-        return Object.assign(dl as QueueItem, {
-          downloadClientId: client.id,
-          downloadClientName: client.name,
-          protocol: client.protocol,
-          progress:
-            dl.size > 0 ? Math.round((dl.downloaded / dl.size) * 100) : 0,
-          estimatedTimeLeft:
-            dl.downloadSpeed > 0
-              ? Math.round((dl.size - dl.downloaded) / dl.downloadSpeed)
-              : null,
-          bookId: tracked?.bookId ?? null,
-          bookTitle,
-          authorName,
-          trackedState: tracked?.state ?? null,
-        });
-      });
-    }),
-  );
-
   const items: QueueItem[] = [];
   const warnings: string[] = [];
 
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      items.push(...result.value);
-    } else {
-      warnings.push(
-        result.reason instanceof Error
-          ? result.reason.message
-          : "Failed to connect to download client",
-      );
-    }
-  }
+  await Promise.allSettled(
+    enabledClients.map(async (client) => {
+      try {
+        const provider = getProvider(client.implementation);
+        const config = toConnectionConfig(client);
+
+        const downloads = await provider.getDownloads(config);
+        for (const dl of downloads) {
+          // Look up tracked download for book/author info
+          const tracked = db
+            .select()
+            .from(trackedDownloads)
+            .where(
+              and(
+                eq(trackedDownloads.downloadClientId, client.id),
+                eq(trackedDownloads.downloadId, dl.id),
+              ),
+            )
+            .get();
+
+          let bookTitle: string | null = null;
+          let authorName: string | null = null;
+
+          if (tracked?.bookId) {
+            const book = db
+              .select({ title: books.title })
+              .from(books)
+              .where(eq(books.id, tracked.bookId))
+              .get();
+            bookTitle = book?.title ?? null;
+          }
+          if (tracked?.authorId) {
+            const author = db
+              .select({ name: authors.name })
+              .from(authors)
+              .where(eq(authors.id, tracked.authorId))
+              .get();
+            authorName = author?.name ?? null;
+          }
+
+          items.push(
+            Object.assign(dl as QueueItem, {
+              downloadClientId: client.id,
+              downloadClientName: client.name,
+              protocol: client.protocol,
+              progress:
+                dl.size > 0 ? Math.round((dl.downloaded / dl.size) * 100) : 0,
+              estimatedTimeLeft:
+                dl.downloadSpeed > 0
+                  ? Math.round((dl.size - dl.downloaded) / dl.downloadSpeed)
+                  : null,
+              bookId: tracked?.bookId ?? null,
+              bookTitle,
+              authorName,
+              trackedState: tracked?.state ?? null,
+            }),
+          );
+        }
+      } catch (error) {
+        warnings.push(
+          `Failed to connect to ${client.name}: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
+    }),
+  );
 
   return { items, warnings };
 }
