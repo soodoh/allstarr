@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { getAuthSessionFn } from "src/server/middleware";
 import AppLayout from "src/components/layout/app-layout";
 import NotFound from "src/components/NotFound";
 import { useServerEvents } from "src/hooks/use-server-events";
+import { SSEContext } from "src/hooks/sse-context";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ location }) => {
@@ -20,10 +22,13 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
-  useServerEvents();
+  const { isConnected } = useServerEvents();
+  const sseValue = useMemo(() => ({ isConnected }), [isConnected]);
   return (
-    <AppLayout>
-      <Outlet />
-    </AppLayout>
+    <SSEContext.Provider value={sseValue}>
+      <AppLayout>
+        <Outlet />
+      </AppLayout>
+    </SSEContext.Provider>
   );
 }
