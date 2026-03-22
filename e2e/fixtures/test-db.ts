@@ -35,7 +35,9 @@ export function createTestDb(suiteId: string): TestDbHandle {
   copyFileSync(templateDbPath, dbPath);
 
   const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
+  // Use DELETE journal mode instead of WAL — WAL has cross-driver visibility
+  // issues between better-sqlite3 (test) and bun:sqlite (app server).
+  sqlite.pragma("journal_mode = DELETE");
   sqlite.pragma("foreign_keys = ON");
   const db = drizzle(sqlite, { schema });
 
