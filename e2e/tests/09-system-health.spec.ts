@@ -19,6 +19,7 @@ test.describe("System Health", () => {
     appUrl,
     db,
     tempDir,
+    checkpoint,
   }) => {
     // Seed a complete configuration: download profile with valid root folder,
     // download client, indexer, and Hardcover token
@@ -44,6 +45,7 @@ test.describe("System Health", () => {
     });
 
     // The HARDCOVER_TOKEN env var is set in the app fixture, so that check passes.
+    checkpoint();
 
     await navigateTo(page, appUrl, "/system/status");
 
