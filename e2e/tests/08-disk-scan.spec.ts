@@ -78,9 +78,6 @@ test.describe("Disk Scan", () => {
 
     // Checkpoint WAL so bun:sqlite in the app server sees seeded data
     checkpoint();
-
-    // Navigate to force the app server's DB connection to see seeded data
-    await navigateTo(page, appUrl, "/settings/indexers");
   });
 
   test("scan discovers files in root folder", async ({

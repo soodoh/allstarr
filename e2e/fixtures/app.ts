@@ -109,8 +109,13 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
   },
 });
 
-// Reset fake servers before each test
-test.beforeEach(async ({}) => {
+// Reset fake servers and app caches before each test
+test.beforeEach(async ({ appServer }) => {
+  // Reset server-side caches (format definitions, etc.)
+  await fetch(`${appServer.url}/api/__test-reset`, {
+    method: "POST",
+  }).catch(noop);
+
   const state = getTestState();
   await Promise.all(
     Object.values(state.servers).map((url) =>
