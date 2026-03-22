@@ -1,6 +1,7 @@
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
+import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
   seedBook,
@@ -66,43 +67,49 @@ const USENET_RELEASES = [
 test.describe("Search and Grab", () => {
   let bookId: number;
 
-  test.beforeEach(async ({ page, appUrl, testDb, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Clean up data from previous tests to prevent interference
-    await testDb.cleanAll();
+    db.delete(schema.trackedDownloads).run();
+    db.delete(schema.history).run();
+    db.delete(schema.bookFiles).run();
+    db.delete(schema.blocklist).run();
+    db.delete(schema.editionDownloadProfiles).run();
+    db.delete(schema.authorDownloadProfiles).run();
+    db.delete(schema.booksAuthors).run();
+    db.delete(schema.editions).run();
+    db.delete(schema.books).run();
+    db.delete(schema.authors).run();
+    db.delete(schema.downloadClients).run();
+    db.delete(schema.indexers).run();
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.downloadProfiles).run();
 
     // Seed prerequisites (include ebook categories so indexer search works)
-    const profile = await seedDownloadProfile(testDb, {
+    const profile = seedDownloadProfile(db, {
       name: "Search Profile",
       rootFolderPath: "/books",
       categories: [7020],
     });
-    const author = await seedAuthor(testDb, { name: "Test Author" });
-    const book = await seedBook(testDb, author.id as number, {
-      title: "Test Book",
-    });
-    await seedEdition(testDb, book.id as number, {
-      title: "Test Book - EPUB Edition",
-    });
-    bookId = book.id as number;
+    const author = seedAuthor(db, { name: "Test Author" });
+    const book = seedBook(db, author.id, { title: "Test Book" });
+    seedEdition(db, book.id, { title: "Test Book - EPUB Edition" });
+    bookId = book.id;
 
     // Assign download profile to author
-    await testDb.insert("authorDownloadProfiles", {
-      authorId: author.id,
-      downloadProfileId: profile.id,
-    });
+    db.insert(schema.authorDownloadProfiles)
+      .values({ authorId: author.id, downloadProfileId: profile.id })
+      .run();
 
     // Assign download profile to edition (so it counts as "wanted")
-    const editions = await testDb.select("editions");
-    const edition = editions[0];
-    await testDb.insert("editionDownloadProfiles", {
-      editionId: edition.id,
-      downloadProfileId: profile.id,
-    });
+    const edition = db.select().from(schema.editions).all()[0];
+    db.insert(schema.editionDownloadProfiles)
+      .values({ editionId: edition.id, downloadProfileId: profile.id })
+      .run();
 
     // Seed download client
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Test qBittorrent",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -110,13 +117,16 @@ test.describe("Search and Grab", () => {
     });
 
     // Seed indexer
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Test Torznab",
       implementation: "Torznab",
       protocol: "torrent",
       baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
       apiKey: "test-newznab-api-key",
     });
+
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
 
     // Configure fake qBittorrent to accept auth
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
@@ -186,7 +196,7 @@ test.describe("Search and Grab", () => {
   test("grab torrent release sends to download client", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     await fetch(`${fakeServers.NEWZNAB}/__control`, {
@@ -217,12 +227,12 @@ test.describe("Search and Grab", () => {
     expect(qbState.addedDownloads.length).toBeGreaterThanOrEqual(1);
 
     // Verify tracked download was created in DB
-    const tracked = await testDb.select("trackedDownloads");
+    const tracked = db.select().from(schema.trackedDownloads).all();
     expect(tracked.length).toBeGreaterThanOrEqual(1);
     expect(tracked[0].protocol).toBe("torrent");
 
     // Verify history entry was created
-    const historyEntries = await testDb.select("history");
+    const historyEntries = db.select().from(schema.history).all();
     const grabEntry = historyEntries.find((h) => h.eventType === "bookGrabbed");
     expect(grabEntry).toBeTruthy();
   });
@@ -230,11 +240,11 @@ test.describe("Search and Grab", () => {
   test("grab usenet release sends to SABnzbd client", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // Seed SABnzbd client
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Test SABnzbd",
       implementation: "SABnzbd",
       protocol: "usenet",
@@ -243,7 +253,7 @@ test.describe("Search and Grab", () => {
     });
 
     // Seed a usenet indexer
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Test Newznab Usenet",
       implementation: "Newznab",
       protocol: "usenet",
@@ -290,12 +300,12 @@ test.describe("Search and Grab", () => {
   test("indexer priority ordering is respected", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // The first indexer was seeded with default priority 25
     // Seed a second indexer with higher priority (lower number = higher priority)
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Priority Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -328,11 +338,11 @@ test.describe("Search and Grab", () => {
   test("blocklisted release is indicated in search", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // Seed a blocklist entry for a release title
-    await seedBlocklistEntry(testDb, {
+    seedBlocklistEntry(db, {
       sourceTitle: "Test Author - Test Book [MOBI]",
       bookId,
       protocol: "torrent",
@@ -361,24 +371,26 @@ test.describe("Search and Grab", () => {
   test("search with synced indexer returns results", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // Seed a synced indexer (from Prowlarr)
-    await testDb.insert("syncedIndexers", {
-      name: "Synced Torznab",
-      implementation: "Torznab",
-      configContract: "TorznabSettings",
-      protocol: "torrent",
-      baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
-      apiPath: "/api",
-      apiKey: "test-newznab-api-key",
-      categories: "[]",
-      enableRss: true,
-      enableAutomaticSearch: true,
-      enableInteractiveSearch: true,
-      priority: 25,
-    });
+    db.insert(schema.syncedIndexers)
+      .values({
+        name: "Synced Torznab",
+        implementation: "Torznab",
+        configContract: "TorznabSettings",
+        protocol: "torrent",
+        baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+        apiPath: "/api",
+        apiKey: "test-newznab-api-key",
+        categories: "[]",
+        enableRss: true,
+        enableAutomaticSearch: true,
+        enableInteractiveSearch: true,
+        priority: 25,
+      })
+      .run();
 
     await fetch(`${fakeServers.NEWZNAB}/__control`, {
       method: "POST",
@@ -404,11 +416,11 @@ test.describe("Search and Grab", () => {
   test("grab with indexer-specific client override", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // Seed a second download client specifically for this indexer
-    const overrideClient = await seedDownloadClient(testDb, {
+    const overrideClient = seedDownloadClient(db, {
       name: "Override qBittorrent",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -417,7 +429,9 @@ test.describe("Search and Grab", () => {
     });
 
     // Update the indexer to use the override client
-    await testDb.update("indexers", { downloadClientId: overrideClient.id });
+    db.update(schema.indexers)
+      .set({ downloadClientId: overrideClient.id })
+      .run();
 
     await fetch(`${fakeServers.NEWZNAB}/__control`, {
       method: "POST",
@@ -445,9 +459,9 @@ test.describe("Search and Grab", () => {
     expect(qbState.addedDownloads.length).toBeGreaterThanOrEqual(1);
 
     // Check the tracked download references the override client
-    const tracked = await testDb.select("trackedDownloads");
+    const tracked = db.select().from(schema.trackedDownloads).all();
     expect(tracked.length).toBeGreaterThanOrEqual(1);
     const last = tracked.at(-1);
-    expect(last!.downloadClientId).toBe(overrideClient.id);
+    expect(last.downloadClientId).toBe(overrideClient.id);
   });
 });

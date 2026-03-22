@@ -6,6 +6,7 @@ import {
   seedDownloadProfile,
   seedIndexer,
 } from "../fixtures/seed-data";
+import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
 test.describe("System Health", () => {
@@ -16,25 +17,26 @@ test.describe("System Health", () => {
   test("healthy status when fully configured", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
+    checkpoint,
   }) => {
     // Seed a complete configuration: download profile with valid root folder,
     // download client, indexer, and Hardcover token
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
       categories: [7020],
     });
 
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Health qBittorrent",
       implementation: "qBittorrent",
       protocol: "torrent",
       port: PORTS.QBITTORRENT,
     });
 
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Health Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -43,6 +45,7 @@ test.describe("System Health", () => {
     });
 
     // The HARDCOVER_TOKEN env var is set in the app fixture, so that check passes.
+    checkpoint();
 
     await navigateTo(page, appUrl, "/system/status");
 
@@ -55,23 +58,23 @@ test.describe("System Health", () => {
   test("warning when Hardcover token is missing", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     // Seed partial config (no Hardcover token in DB, but env var is set by fixture)
     // Clear the env-level token by setting it to empty in DB (DB overrides env)
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
       categories: [7020],
     });
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Health Client",
       implementation: "qBittorrent",
       protocol: "torrent",
       port: PORTS.QBITTORRENT,
     });
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Health Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -94,20 +97,20 @@ test.describe("System Health", () => {
   test("warning when no indexers configured", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     // Clear indexers from prior tests
-    await testDb.deleteAll("syncedIndexers");
-    await testDb.deleteAll("indexers");
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.indexers).run();
 
     // Only seed profile and client — no indexers
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
       categories: [7020],
     });
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Health Client",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -125,19 +128,19 @@ test.describe("System Health", () => {
   test("warning when no download clients configured", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     // Clear download clients from prior tests
-    await testDb.deleteAll("downloadClients");
+    db.delete(schema.downloadClients).run();
 
     // Only seed profile and indexer — no download clients
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Health Profile",
       rootFolderPath: tempDir,
       categories: [7020],
     });
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Health Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -156,21 +159,21 @@ test.describe("System Health", () => {
   test("warning when root folder path does not exist", async ({
     page,
     appUrl,
-    testDb,
+    db,
   }) => {
     // Seed profile with nonexistent path
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Bad Path Profile",
       rootFolderPath: "/nonexistent/path/that/does/not/exist",
       categories: [7020],
     });
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Health Client",
       implementation: "qBittorrent",
       protocol: "torrent",
       port: PORTS.QBITTORRENT,
     });
-    await seedIndexer(testDb, {
+    seedIndexer(db, {
       name: "Health Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -189,10 +192,10 @@ test.describe("System Health", () => {
   test("disk space displayed for root folder in tempDir", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Disk Profile",
       rootFolderPath: tempDir,
       categories: [7020],

@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
+import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
   seedBook,
@@ -44,14 +45,27 @@ test.describe("Disk Scan", () => {
   let bookId: number;
   let authorId: number;
 
-  test.beforeEach(async ({ page, appUrl, testDb, tempDir }) => {
+  test.beforeEach(async ({ page, appUrl, db, tempDir, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Clean up data from previous tests to prevent interference
-    await testDb.cleanAll();
+    db.delete(schema.trackedDownloads).run();
+    db.delete(schema.history).run();
+    db.delete(schema.bookFiles).run();
+    db.delete(schema.blocklist).run();
+    db.delete(schema.editionDownloadProfiles).run();
+    db.delete(schema.authorDownloadProfiles).run();
+    db.delete(schema.booksAuthors).run();
+    db.delete(schema.editions).run();
+    db.delete(schema.books).run();
+    db.delete(schema.authors).run();
+    db.delete(schema.downloadClients).run();
+    db.delete(schema.indexers).run();
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.downloadProfiles).run();
 
     // Seed download profile with rootFolderPath pointing to tempDir
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Scan Profile",
       rootFolderPath: tempDir,
       cutoff: 1,
@@ -60,20 +74,23 @@ test.describe("Disk Scan", () => {
       categories: [7020],
     });
 
-    const author = await seedAuthor(testDb, { name: "Test Author" });
-    authorId = author.id as number;
+    const author = seedAuthor(db, { name: "Test Author" });
+    authorId = author.id;
 
-    const book = await seedBook(testDb, authorId, {
+    const book = seedBook(db, authorId, {
       title: "Test Book",
       releaseYear: 2024,
     });
-    bookId = book.id as number;
+    bookId = book.id;
+
+    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
+    checkpoint();
   });
 
   test("scan discovers files in root folder", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     // Create the expected directory structure: {rootFolder}/{Author Name}/{Book Title (Year)}/
@@ -85,7 +102,7 @@ test.describe("Disk Scan", () => {
     await triggerTask(page, appUrl, "Rescan Folders");
 
     // Verify bookFiles entry was created in DB
-    const files = await testDb.select("bookFiles");
+    const files = db.select().from(schema.bookFiles).all();
     expect(files.length).toBeGreaterThanOrEqual(1);
 
     const bookFile = files.find((f) => f.bookId === bookId);
@@ -97,7 +114,7 @@ test.describe("Disk Scan", () => {
   test("quality matched — .epub maps to correct format", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     const bookDir = join(tempDir, "Test Author", "Test Book (2024)");
@@ -106,7 +123,7 @@ test.describe("Disk Scan", () => {
 
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const files = await testDb.select("bookFiles");
+    const files = db.select().from(schema.bookFiles).all();
     const bookFile = files.find((f) => f.bookId === bookId);
     expect(bookFile).toBeTruthy();
 
@@ -122,7 +139,7 @@ test.describe("Disk Scan", () => {
   test("multiple formats discovered for same book", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     const bookDir = join(tempDir, "Test Author", "Test Book (2024)");
@@ -132,11 +149,14 @@ test.describe("Disk Scan", () => {
 
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const allFiles = await testDb.select("bookFiles");
-    const files = allFiles.filter((f) => f.bookId === bookId);
+    const files = db
+      .select()
+      .from(schema.bookFiles)
+      .all()
+      .filter((f) => f.bookId === bookId);
     expect(files.length).toBe(2);
 
-    const paths = files.map((f) => f.path as string);
+    const paths = files.map((f) => f.path);
     expect(paths.some((p) => p.endsWith(".epub"))).toBe(true);
     expect(paths.some((p) => p.endsWith(".mobi"))).toBe(true);
   });
@@ -144,7 +164,7 @@ test.describe("Disk Scan", () => {
   test("unmatched file under unknown author folder", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     // Create a folder for an author NOT in the DB
@@ -155,14 +175,14 @@ test.describe("Disk Scan", () => {
     await triggerTask(page, appUrl, "Rescan Folders");
 
     // No bookFiles should be created for unknown authors
-    const files = await testDb.select("bookFiles");
+    const files = db.select().from(schema.bookFiles).all();
     expect(files).toHaveLength(0);
   });
 
   test("removed file detected on re-scan", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     const bookDir = join(tempDir, "Test Author", "Test Book (2024)");
@@ -173,7 +193,7 @@ test.describe("Disk Scan", () => {
     // First scan — file is added
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const filesAfterAdd = await testDb.select("bookFiles");
+    const filesAfterAdd = db.select().from(schema.bookFiles).all();
     expect(filesAfterAdd.length).toBeGreaterThanOrEqual(1);
 
     // Delete the file from disk
@@ -182,15 +202,18 @@ test.describe("Disk Scan", () => {
     // Re-scan — file should be removed from DB
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const allFiles = await testDb.select("bookFiles");
-    const filesAfterRemoval = allFiles.filter((f) => f.bookId === bookId);
+    const filesAfterRemoval = db
+      .select()
+      .from(schema.bookFiles)
+      .all()
+      .filter((f) => f.bookId === bookId);
     expect(filesAfterRemoval).toHaveLength(0);
   });
 
   test("changed file detected on re-scan", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     const bookDir = join(tempDir, "Test Author", "Test Book (2024)");
@@ -201,7 +224,7 @@ test.describe("Disk Scan", () => {
     // First scan
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const filesAfterFirst = await testDb.select("bookFiles");
+    const filesAfterFirst = db.select().from(schema.bookFiles).all();
     expect(filesAfterFirst.length).toBeGreaterThanOrEqual(1);
     const originalSize = filesAfterFirst[0].size;
 
@@ -218,7 +241,7 @@ test.describe("Disk Scan", () => {
     // Re-scan — size should be updated
     await triggerTask(page, appUrl, "Rescan Folders");
 
-    const filesAfterUpdate = await testDb.select("bookFiles");
+    const filesAfterUpdate = db.select().from(schema.bookFiles).all();
     expect(filesAfterUpdate.length).toBeGreaterThanOrEqual(1);
     expect(filesAfterUpdate[0].size).toBe(newStat.size);
   });
@@ -226,7 +249,7 @@ test.describe("Disk Scan", () => {
   test("history entries for fileAdded and fileRemoved", async ({
     page,
     appUrl,
-    testDb,
+    db,
     tempDir,
   }) => {
     const bookDir = join(tempDir, "Test Author", "Test Book (2024)");
@@ -238,10 +261,11 @@ test.describe("Disk Scan", () => {
     await triggerTask(page, appUrl, "Rescan Folders");
 
     // Verify fileAdded history entry
-    const allHistory = await testDb.select("history");
-    const addedEntries = allHistory.filter(
-      (h) => h.eventType === "bookFileAdded",
-    );
+    const addedEntries = db
+      .select()
+      .from(schema.history)
+      .all()
+      .filter((h) => h.eventType === "bookFileAdded");
     expect(addedEntries.length).toBeGreaterThanOrEqual(1);
     expect(addedEntries[0].bookId).toBe(bookId);
 
@@ -250,10 +274,11 @@ test.describe("Disk Scan", () => {
     await triggerTask(page, appUrl, "Rescan Folders");
 
     // Verify fileRemoved history entry
-    const allHistoryAfter = await testDb.select("history");
-    const removedEntries = allHistoryAfter.filter(
-      (h) => h.eventType === "bookFileRemoved",
-    );
+    const removedEntries = db
+      .select()
+      .from(schema.history)
+      .all()
+      .filter((h) => h.eventType === "bookFileRemoved");
     expect(removedEntries.length).toBeGreaterThanOrEqual(1);
     expect(removedEntries[0].bookId).toBe(bookId);
   });
