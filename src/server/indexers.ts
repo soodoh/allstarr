@@ -12,6 +12,8 @@ import {
   bookFiles,
   blocklist,
   trackedDownloads,
+  editions,
+  editionDownloadProfiles,
 } from "src/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
@@ -29,7 +31,9 @@ import {
   matchAllFormats,
   getProfileWeight,
   getDefSizeLimits,
+  getFormatType,
 } from "./indexers/format-parser";
+import type { EditionMeta } from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import * as fuzz from "fuzzball";
 import type {
@@ -186,10 +190,38 @@ export function isRelevantRelease(
   return true;
 }
 
+/** Build a human-readable context string for rejection messages */
+function getDimensionContext(
+  qualityId: number,
+  editionMeta?: EditionMeta | null,
+): string {
+  const formatType = getFormatType(qualityId);
+  if (!formatType) {
+    return "";
+  }
+
+  if (formatType === "ebook") {
+    const pages = editionMeta?.pageCount;
+    return pages
+      ? ` (based on ${pages} pages)`
+      : " (based on default page count)";
+  }
+  if (formatType === "audiobook") {
+    const minutes = editionMeta?.audioLength;
+    if (minutes) {
+      const hours = Math.round((minutes / 60) * 10) / 10;
+      return ` (based on ${hours}h duration)`;
+    }
+    return " (based on default duration)";
+  }
+  return "";
+}
+
 /** Compute rejections and format score for a release against the author's profiles */
 export function computeReleaseMetrics(
   release: IndexerRelease,
   profiles: ProfileInfo[] | null,
+  editionMeta?: EditionMeta | null,
 ): {
   rejections: ReleaseRejection[];
   formatScore: number;
@@ -208,19 +240,21 @@ export function computeReleaseMetrics(
   }
 
   // Check size limits from quality definition (values are in MB)
-  const sizeLimits = getDefSizeLimits(release.quality.id);
+  const sizeLimits = getDefSizeLimits(release.quality.id, editionMeta);
   if (sizeLimits) {
     const sizeMB = release.size / (1024 * 1024);
     if (sizeLimits.minSize > 0 && sizeMB < sizeLimits.minSize) {
+      const context = getDimensionContext(release.quality.id, editionMeta);
       rejections.push({
         reason: "belowMinimumSize",
-        message: `${release.sizeFormatted} is below minimum ${sizeLimits.minSize} MB for ${release.quality.name}`,
+        message: `${release.sizeFormatted} is below minimum ${Math.round(sizeLimits.minSize)} MB for ${release.quality.name}${context}`,
       });
     }
     if (sizeLimits.maxSize > 0 && sizeMB > sizeLimits.maxSize) {
+      const context = getDimensionContext(release.quality.id, editionMeta);
       rejections.push({
         reason: "aboveMaximumSize",
-        message: `${release.sizeFormatted} is above maximum ${sizeLimits.maxSize} MB for ${release.quality.name}`,
+        message: `${release.sizeFormatted} is above maximum ${Math.round(sizeLimits.maxSize)} MB for ${release.quality.name}${context}`,
       });
     }
   }
@@ -447,6 +481,30 @@ export function dedupeAndScoreReleases(
   const profiles = bookId ? getProfilesForBook(bookId) : null;
   const profileItems = profiles ? unionProfileItems(profiles) : null;
 
+  // Look up monitored edition metadata for dynamic size calculations
+  let editionMeta: EditionMeta | null = null;
+  if (bookId) {
+    const monitoredEdition = db
+      .select({
+        pageCount: editions.pageCount,
+        audioLength: editions.audioLength,
+      })
+      .from(editions)
+      .innerJoin(
+        editionDownloadProfiles,
+        eq(editionDownloadProfiles.editionId, editions.id),
+      )
+      .where(eq(editions.bookId, bookId))
+      .limit(1)
+      .get();
+    if (monitoredEdition) {
+      editionMeta = {
+        pageCount: monitoredEdition.pageCount,
+        audioLength: monitoredEdition.audioLength,
+      };
+    }
+  }
+
   // Re-evaluate quality using profile priority when multiple formats match.
   // A release title like "mobi, epub, pdf or azw3" matches all four formats;
   // pick the one ranked highest in the user's download profile.
@@ -491,7 +549,7 @@ export function dedupeAndScoreReleases(
 
   // Compute rejections and format scores
   for (const release of relevant) {
-    const metrics = computeReleaseMetrics(release, profiles);
+    const metrics = computeReleaseMetrics(release, profiles, editionMeta);
     release.rejections = metrics.rejections;
     release.formatScore = metrics.formatScore;
     release.formatScoreDetails = metrics.formatScoreDetails;
