@@ -1,6 +1,9 @@
 import { db } from "src/db";
-import { downloadFormats } from "src/db/schema";
+import { downloadFormats, settings } from "src/db/schema";
 import type { IndexerRelease, ReleaseQuality } from "./types";
+import { computeEffectiveSizes } from "src/lib/format-size-calc";
+import type { EditionMeta } from "src/lib/format-size-calc";
+import { eq } from "drizzle-orm";
 
 type Specification = {
   type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
@@ -20,8 +23,15 @@ type CachedDef = {
 };
 
 let cachedDefs: CachedDef[] | null = null;
-let sizeLimitsCache: Map<number, { minSize: number; maxSize: number }> | null =
-  null;
+let sizeLimitsCache: Map<
+  number,
+  { minSize: number; maxSize: number; type: string }
+> | null = null;
+// eslint-disable-next-line prefer-const
+let cachedDefaults: {
+  defaultPageCount: number;
+  defaultAudioDuration: number;
+} | null = null;
 
 function parseSpecs(raw: unknown): Specification[] {
   if (Array.isArray(raw)) {
@@ -58,11 +68,13 @@ function getFormatDefs(): CachedDef[] {
 export function invalidateFormatDefCache(): void {
   cachedDefs = null;
   sizeLimitsCache = null;
+  cachedDefaults = null;
 }
 
-/** Get min/max size limits (in MB) for a format definition */
+/** Get effective min/max size limits (in MB) for a format, computed from rates + edition metadata */
 export function getDefSizeLimits(
   qualityId: number,
+  editionMeta?: EditionMeta | null,
 ): { minSize: number; maxSize: number } | null {
   if (qualityId === 0) {
     return null;
@@ -74,10 +86,57 @@ export function getDefSizeLimits(
       sizeLimitsCache.set(r.id, {
         minSize: r.minSize ?? 0,
         maxSize: r.maxSize ?? 0,
+        type: r.type,
       });
     }
   }
-  return sizeLimitsCache.get(qualityId) ?? null;
+  const cached = sizeLimitsCache.get(qualityId);
+  if (!cached) {
+    return null;
+  }
+
+  // Cache default dimension settings (read once, cleared on invalidate)
+  if (!cachedDefaults) {
+    const defaultPageCountRow = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, "format.defaultPageCount"))
+      .get();
+    const defaultAudioDurationRow = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, "format.defaultAudioDuration"))
+      .get();
+    cachedDefaults = {
+      defaultPageCount: defaultPageCountRow?.value
+        ? Number(JSON.parse(String(defaultPageCountRow.value)))
+        : 300,
+      defaultAudioDuration: defaultAudioDurationRow?.value
+        ? Number(JSON.parse(String(defaultAudioDurationRow.value)))
+        : 600,
+    };
+  }
+
+  const effective = computeEffectiveSizes(
+    cached.type as "ebook" | "audiobook",
+    cached.minSize,
+    cached.maxSize,
+    0, // preferredSize not needed for rejection logic
+    editionMeta,
+    cachedDefaults,
+  );
+
+  return { minSize: effective.minSize, maxSize: effective.maxSize };
+}
+
+export type { EditionMeta } from "src/lib/format-size-calc";
+
+/** Get the format type for a quality ID (populates cache if needed) */
+export function getFormatType(qualityId: number): string | null {
+  if (!sizeLimitsCache) {
+    getDefSizeLimits(qualityId);
+  }
+  return sizeLimitsCache?.get(qualityId)?.type ?? null;
 }
 
 /** Extract trailing release group from a title (e.g. "Book Title-GROUP" → "GROUP") */
