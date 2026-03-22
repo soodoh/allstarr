@@ -4,7 +4,6 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
   seedBook,
@@ -54,140 +53,128 @@ test.describe("Blocklist and Failure Recovery", () => {
   let profileId: number;
   let clientId: number;
 
-  test.beforeEach(
-    async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
-      await ensureAuthenticated(page, appUrl);
+  test.beforeEach(async ({ page, appUrl, testDb, tempDir, fakeServers }) => {
+    await ensureAuthenticated(page, appUrl);
 
-      // Clean up data from previous tests to prevent interference
-      db.delete(schema.trackedDownloads).run();
-      db.delete(schema.history).run();
-      db.delete(schema.bookFiles).run();
-      db.delete(schema.blocklist).run();
-      db.delete(schema.editionDownloadProfiles).run();
-      db.delete(schema.authorDownloadProfiles).run();
-      db.delete(schema.booksAuthors).run();
-      db.delete(schema.editions).run();
-      db.delete(schema.books).run();
-      db.delete(schema.authors).run();
-      db.delete(schema.downloadClients).run();
-      db.delete(schema.indexers).run();
-      db.delete(schema.syncedIndexers).run();
-      db.delete(schema.downloadProfiles).run();
+    // Clean up data from previous tests to prevent interference
+    await testDb.cleanAll();
 
-      // Seed complete setup
-      const profile = seedDownloadProfile(db, {
-        name: "Failure Profile",
-        rootFolderPath: tempDir,
-        cutoff: 1,
-        items: [1, 2, 3, 4, 5],
-        upgradeAllowed: false,
-        categories: [7020],
-      });
-      profileId = profile.id;
+    // Seed complete setup
+    const profile = await seedDownloadProfile(testDb, {
+      name: "Failure Profile",
+      rootFolderPath: tempDir,
+      cutoff: 1,
+      items: [1, 2, 3, 4, 5],
+      upgradeAllowed: false,
+      categories: [7020],
+    });
+    profileId = profile.id as number;
 
-      const author = seedAuthor(db, {
-        name: "Failure Author",
-        monitored: true,
-      });
-      authorId = author.id;
+    const author = await seedAuthor(testDb, {
+      name: "Failure Author",
+      monitored: true,
+    });
+    authorId = author.id as number;
 
-      const book = seedBook(db, authorId, {
-        title: "Failure Book",
-        releaseYear: 2024,
-      });
-      bookId = book.id;
+    const book = await seedBook(testDb, authorId, {
+      title: "Failure Book",
+      releaseYear: 2024,
+    });
+    bookId = book.id as number;
 
-      const edition = seedEdition(db, bookId, {
-        title: "Failure Book - EPUB",
-      });
+    const edition = await seedEdition(testDb, bookId, {
+      title: "Failure Book - EPUB",
+    });
 
-      // Assign profile to author and edition
-      db.insert(schema.authorDownloadProfiles)
-        .values({ authorId, downloadProfileId: profileId })
-        .run();
-      db.insert(schema.editionDownloadProfiles)
-        .values({ editionId: edition.id, downloadProfileId: profileId })
-        .run();
+    // Assign profile to author and edition
+    await testDb.insert("authorDownloadProfiles", {
+      authorId,
+      downloadProfileId: profileId,
+    });
+    await testDb.insert("editionDownloadProfiles", {
+      editionId: edition.id,
+      downloadProfileId: profileId,
+    });
 
-      // Seed download client
-      const client = seedDownloadClient(db, {
-        name: "Failure qBittorrent",
-        implementation: "qBittorrent",
-        protocol: "torrent",
-        port: PORTS.QBITTORRENT,
-        removeCompletedDownloads: true,
-      });
-      clientId = client.id;
+    // Seed download client
+    const client = await seedDownloadClient(testDb, {
+      name: "Failure qBittorrent",
+      implementation: "qBittorrent",
+      protocol: "torrent",
+      port: PORTS.QBITTORRENT,
+      removeCompletedDownloads: true,
+    });
+    clientId = client.id as number;
 
-      // Seed indexer
-      seedIndexer(db, {
-        name: "Failure Indexer",
-        implementation: "Torznab",
-        protocol: "torrent",
-        baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
-        apiKey: "test-newznab-api-key",
-        enableRss: true,
-        enableAutomaticSearch: true,
-      });
+    // Seed indexer
+    await seedIndexer(testDb, {
+      name: "Failure Indexer",
+      implementation: "Torznab",
+      protocol: "torrent",
+      baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+      apiKey: "test-newznab-api-key",
+      enableRss: true,
+      enableAutomaticSearch: true,
+    });
 
-      // Configure settings for failure handling
-      seedSetting(db, "downloadClient.redownloadFailed", true);
-      seedSetting(db, "downloadClient.removeFailed", true);
-      seedSetting(db, "downloadClient.enableCompletedDownloadHandling", true);
+    // Configure settings for failure handling
+    await seedSetting(testDb, "downloadClient.redownloadFailed", true);
+    await seedSetting(testDb, "downloadClient.removeFailed", true);
+    await seedSetting(
+      testDb,
+      "downloadClient.enableCompletedDownloadHandling",
+      true,
+    );
 
-      // Checkpoint WAL so bun:sqlite in the app server sees seeded data
-      checkpoint();
+    // Configure fake qBittorrent
+    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
+      method: "POST",
+      body: JSON.stringify({ version: "v4.6.3" }),
+    });
 
-      // Configure fake qBittorrent
-      await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-        method: "POST",
-        body: JSON.stringify({ version: "v4.6.3" }),
-      });
-
-      // Configure fake Newznab with alternative releases for re-search
-      await fetch(`${fakeServers.NEWZNAB}/__control`, {
-        method: "POST",
-        body: JSON.stringify({
-          releases: [
-            {
-              guid: "alt-r1",
-              title: "Failure Author - Failure Book [EPUB]",
-              size: 5_242_880,
-              downloadUrl: "http://example.com/alt-r1.torrent",
-              magnetUrl: "magnet:?xt=urn:btih:alt1",
-              publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-              seeders: 20,
-              peers: 30,
-              category: "7020",
-              protocol: "torrent",
-            },
-            {
-              guid: "alt-r2",
-              title: "Failure Author - Failure Book [MOBI]",
-              size: 3_145_728,
-              downloadUrl: "http://example.com/alt-r2.torrent",
-              magnetUrl: "magnet:?xt=urn:btih:alt2",
-              publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
-              seeders: 10,
-              peers: 15,
-              category: "7020",
-              protocol: "torrent",
-            },
-          ],
-        }),
-      });
-    },
-  );
+    // Configure fake Newznab with alternative releases for re-search
+    await fetch(`${fakeServers.NEWZNAB}/__control`, {
+      method: "POST",
+      body: JSON.stringify({
+        releases: [
+          {
+            guid: "alt-r1",
+            title: "Failure Author - Failure Book [EPUB]",
+            size: 5_242_880,
+            downloadUrl: "http://example.com/alt-r1.torrent",
+            magnetUrl: "magnet:?xt=urn:btih:alt1",
+            publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
+            seeders: 20,
+            peers: 30,
+            category: "7020",
+            protocol: "torrent",
+          },
+          {
+            guid: "alt-r2",
+            title: "Failure Author - Failure Book [MOBI]",
+            size: 3_145_728,
+            downloadUrl: "http://example.com/alt-r2.torrent",
+            magnetUrl: "magnet:?xt=urn:btih:alt2",
+            publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
+            seeders: 10,
+            peers: 15,
+            category: "7020",
+            protocol: "torrent",
+          },
+        ],
+      }),
+    });
+  });
 
   test("failed download detected via error state", async ({
     page,
     appUrl,
-    db,
+    testDb,
     tempDir,
     fakeServers,
   }) => {
     // Seed a tracked download in downloading state
-    seedTrackedDownload(db, {
+    await seedTrackedDownload(testDb, {
       downloadClientId: clientId,
       downloadId: "fail-hash-1",
       releaseTitle: "Failure Author - Failure Book [EPUB]",
@@ -233,7 +220,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     // The tracked download should have been processed
     await expect(async () => {
-      const tracked = db.select().from(schema.trackedDownloads).all();
+      const tracked = await testDb.select("trackedDownloads");
       const dl = tracked.find((t) => t.downloadId === "fail-hash-1");
       expect(dl).toBeTruthy();
       // State should reflect processing (completed, imported, or removed)
@@ -246,12 +233,11 @@ test.describe("Blocklist and Failure Recovery", () => {
   test("auto-blocklist on failure when redownloadFailed enabled", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Seed a tracked download that will fail import
-    seedTrackedDownload(db, {
+    await seedTrackedDownload(testDb, {
       downloadClientId: clientId,
       downloadId: "fail-hash-2",
       releaseTitle: "Failure Author - Failure Book [EPUB]",
@@ -262,7 +248,6 @@ test.describe("Blocklist and Failure Recovery", () => {
       downloadProfileId: profileId,
       outputPath: "/nonexistent/path/that/will/fail",
     });
-    checkpoint();
 
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
       method: "POST",
@@ -287,7 +272,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     // Verify blocklist entry was created automatically
     await expect(async () => {
-      const entries = db.select().from(schema.blocklist).all();
+      const entries = await testDb.select("blocklist");
       const blocklistEntry = entries.find(
         (e) => e.sourceTitle === "Failure Author - Failure Book [EPUB]",
       );
@@ -299,12 +284,11 @@ test.describe("Blocklist and Failure Recovery", () => {
   test("auto re-search on failure creates new tracked download", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Seed a tracked download that will fail
-    seedTrackedDownload(db, {
+    await seedTrackedDownload(testDb, {
       downloadClientId: clientId,
       downloadId: "fail-hash-3",
       releaseTitle: "Failure Author - Failure Book [EPUB]",
@@ -315,7 +299,6 @@ test.describe("Blocklist and Failure Recovery", () => {
       downloadProfileId: profileId,
       outputPath: "/nonexistent/import/path",
     });
-    checkpoint();
 
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
       method: "POST",
@@ -341,14 +324,14 @@ test.describe("Blocklist and Failure Recovery", () => {
     // With redownloadFailed enabled, auto-search should have run and
     // potentially grabbed an alternative release
     await expect(async () => {
-      const tracked = db.select().from(schema.trackedDownloads).all();
+      const tracked = await testDb.select("trackedDownloads");
       // Should have more than just the original failed download
       // (the original + a new one from auto-search)
       const forBook = tracked.filter((t) => t.bookId === bookId);
       expect(forBook.length).toBeGreaterThanOrEqual(1);
 
       // The blocklist should contain the failed release
-      const entries = db.select().from(schema.blocklist).all();
+      const entries = await testDb.select("blocklist");
       expect(entries.length).toBeGreaterThanOrEqual(1);
     }).toPass({ timeout: 15_000 });
   });
@@ -356,10 +339,10 @@ test.describe("Blocklist and Failure Recovery", () => {
   test("failed download removed from client when removeFailed enabled", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
   }) => {
-    seedTrackedDownload(db, {
+    await seedTrackedDownload(testDb, {
       downloadClientId: clientId,
       downloadId: "fail-hash-4",
       releaseTitle: "Failure Author - Failure Book [EPUB]",
@@ -402,15 +385,19 @@ test.describe("Blocklist and Failure Recovery", () => {
     }).toPass({ timeout: 15_000 });
   });
 
-  test("view blocklist page shows entries", async ({ page, appUrl, db }) => {
+  test("view blocklist page shows entries", async ({
+    page,
+    appUrl,
+    testDb,
+  }) => {
     // Seed multiple blocklist entries
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Bad Release 1 [EPUB]",
       bookId,
       protocol: "torrent",
       indexer: "Failure Indexer",
     });
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Bad Release 2 [MOBI]",
       bookId,
       protocol: "torrent",
@@ -432,8 +419,12 @@ test.describe("Blocklist and Failure Recovery", () => {
     await expect(page.getByText("Source").first()).toBeVisible();
   });
 
-  test("remove single entry from blocklist", async ({ page, appUrl, db }) => {
-    seedBlocklistEntry(db, {
+  test("remove single entry from blocklist", async ({
+    page,
+    appUrl,
+    testDb,
+  }) => {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Remove Me Release [EPUB]",
       bookId,
       protocol: "torrent",
@@ -459,7 +450,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     // Verify DB is updated
     await expect(async () => {
-      const entries = db.select().from(schema.blocklist).all();
+      const entries = await testDb.select("blocklist");
       const stillExists = entries.find(
         (e) => e.sourceTitle === "Remove Me Release [EPUB]",
       );
@@ -467,20 +458,20 @@ test.describe("Blocklist and Failure Recovery", () => {
     }).toPass({ timeout: 5000 });
   });
 
-  test("bulk remove from blocklist", async ({ page, appUrl, db }) => {
-    seedBlocklistEntry(db, {
+  test("bulk remove from blocklist", async ({ page, appUrl, testDb }) => {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Bulk Remove 1 [EPUB]",
       bookId,
       protocol: "torrent",
       indexer: "Failure Indexer",
     });
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Bulk Remove 2 [MOBI]",
       bookId,
       protocol: "torrent",
       indexer: "Failure Indexer",
     });
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Bulk Remove 3 [PDF]",
       bookId,
       protocol: "torrent",
@@ -521,7 +512,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     // Verify the empty state or that all entries are gone
     await expect(async () => {
-      const entries = db.select().from(schema.blocklist).all();
+      const entries = await testDb.select("blocklist");
       expect(entries).toHaveLength(0);
     }).toPass({ timeout: 5000 });
   });
@@ -529,11 +520,11 @@ test.describe("Blocklist and Failure Recovery", () => {
   test("manual add to blocklist via queue remove dialog", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
   }) => {
     // Seed a tracked download in the queue
-    seedTrackedDownload(db, {
+    await seedTrackedDownload(testDb, {
       downloadClientId: clientId,
       downloadId: "blocklist-hash-1",
       releaseTitle: "Failure Author - Failure Book [EPUB]",
@@ -590,7 +581,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     // Verify blocklist entry was created
     await expect(async () => {
-      const entries = db.select().from(schema.blocklist).all();
+      const entries = await testDb.select("blocklist");
       expect(entries.length).toBeGreaterThanOrEqual(1);
       const entry = entries.find(
         (e) => e.sourceTitle === "Failure Author - Failure Book [EPUB]",
@@ -602,10 +593,10 @@ test.describe("Blocklist and Failure Recovery", () => {
   test("blocklisted release indicated in search results", async ({
     page,
     appUrl,
-    db,
+    testDb,
   }) => {
     // Seed a blocklist entry for the EPUB release
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Failure Author - Failure Book [EPUB]",
       bookId,
       protocol: "torrent",

@@ -14,7 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
-import { Route as Api_testResetRouteImport } from './routes/api/__test-reset'
+import { Route as Api_testDbRouteImport } from './routes/api/__test-db'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
@@ -67,8 +67,8 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
   path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Api_testResetRoute = Api_testResetRouteImport.update({
-  id: '/api/__test-reset',
+const Api_testDbRoute = Api_testDbRouteImport.update({
+  id: '/api/__test-db',
   path: '/api',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -218,7 +218,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api': typeof Api_testResetRoute
+  '/api': typeof Api_testDbRoute
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
@@ -251,7 +251,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api': typeof Api_testResetRoute
+  '/api': typeof Api_testDbRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -287,7 +287,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api/__test-reset': typeof Api_testResetRoute
+  '/api/__test-db': typeof Api_testDbRoute
   '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -392,7 +392,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
-    | '/api/__test-reset'
+    | '/api/__test-db'
     | '/api/events'
     | '/_authed/'
     | '/_authed/activity/blocklist'
@@ -428,7 +428,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
-  Api_testResetRoute: typeof Api_testResetRoute
+  Api_testDbRoute: typeof Api_testDbRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1IndexerIdRoute: typeof ApiV1IndexerIdRoute
@@ -475,11 +475,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/__test-reset': {
-      id: '/api/__test-reset'
+    '/api/__test-db': {
+      id: '/api/__test-db'
       path: '/api'
       fullPath: '/api'
-      preLoaderRoute: typeof Api_testResetRouteImport
+      preLoaderRoute: typeof Api_testDbRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/system/': {
@@ -731,7 +731,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
-  Api_testResetRoute: Api_testResetRoute,
+  Api_testDbRoute: Api_testDbRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1IndexerIdRoute: ApiV1IndexerIdRoute,

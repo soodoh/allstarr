@@ -6,10 +6,9 @@ import type { ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import PORTS from "../ports";
 import { createTestDb, getTestState } from "./test-db";
-import type * as schema from "../../src/db/schema";
+import { TestDbClient } from "./test-db-client";
 
 type AppServer = {
   url: string;
@@ -23,11 +22,9 @@ type WorkerFixtures = {
 
 type AppFixtures = {
   appUrl: string;
-  db: BetterSQLite3Database<typeof schema>;
+  testDb: TestDbClient;
   fakeServers: Record<string, string>;
   tempDir: string;
-  /** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
-  checkpoint: () => void;
 };
 
 async function waitForServer(url: string, timeoutMs: number): Promise<void> {
@@ -70,7 +67,6 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
             BETTER_AUTH_SECRET: "test-secret-for-e2e",
             BETTER_AUTH_URL: `http://localhost:${port}`,
             HARDCOVER_TOKEN: "Bearer test-hardcover-token",
-            SQLITE_JOURNAL_MODE: "DELETE",
             PORT: String(port),
           },
           cwd: join(import.meta.dirname, "..", ".."),
@@ -90,16 +86,12 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
     await use(appServer.url);
   },
 
-  db: async ({ appServer }, use) => {
-    await use(appServer.dbHandle.db);
+  testDb: async ({ appServer }, use) => {
+    await use(new TestDbClient(appServer.url));
   },
 
   fakeServers: async ({}, use) => {
     await use(getTestState().servers);
-  },
-
-  checkpoint: async ({ appServer }, use) => {
-    await use(() => appServer.dbHandle.checkpoint());
   },
 
   tempDir: async ({}, use) => {
@@ -112,8 +104,10 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 // Reset fake servers and app caches before each test
 test.beforeEach(async ({ appServer }) => {
   // Reset server-side caches (format definitions, etc.)
-  await fetch(`${appServer.url}/api/__test-reset`, {
+  await fetch(`${appServer.url}/api/__test-db`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "resetCaches" }),
   }).catch(noop);
 
   const state = getTestState();

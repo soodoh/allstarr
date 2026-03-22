@@ -2,7 +2,6 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
   seedBook,
@@ -50,27 +49,14 @@ test.describe("Auto-Search", () => {
   let profileId: number;
   let editionId: number;
 
-  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
+  test.beforeEach(async ({ page, appUrl, testDb, fakeServers }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Clean up data from previous tests to prevent interference
-    db.delete(schema.trackedDownloads).run();
-    db.delete(schema.history).run();
-    db.delete(schema.bookFiles).run();
-    db.delete(schema.blocklist).run();
-    db.delete(schema.editionDownloadProfiles).run();
-    db.delete(schema.authorDownloadProfiles).run();
-    db.delete(schema.booksAuthors).run();
-    db.delete(schema.editions).run();
-    db.delete(schema.books).run();
-    db.delete(schema.authors).run();
-    db.delete(schema.downloadClients).run();
-    db.delete(schema.indexers).run();
-    db.delete(schema.syncedIndexers).run();
-    db.delete(schema.downloadProfiles).run();
+    await testDb.cleanAll();
 
     // Seed complete setup
-    const profile = seedDownloadProfile(db, {
+    const profile = await seedDownloadProfile(testDb, {
       name: "Auto Profile",
       rootFolderPath: "/books",
       cutoff: 1,
@@ -78,29 +64,36 @@ test.describe("Auto-Search", () => {
       upgradeAllowed: false,
       categories: [7020],
     });
-    profileId = profile.id;
+    profileId = profile.id as number;
 
-    const author = seedAuthor(db, { name: "Auto Author", monitored: true });
-    authorId = author.id;
+    const author = await seedAuthor(testDb, {
+      name: "Auto Author",
+      monitored: true,
+    });
+    authorId = author.id as number;
 
-    const book = seedBook(db, authorId, { title: "Auto Book" });
-    bookId = book.id;
+    const book = await seedBook(testDb, authorId, { title: "Auto Book" });
+    bookId = book.id as number;
 
-    const edition = seedEdition(db, bookId, { title: "Auto Book - EPUB" });
-    editionId = edition.id;
+    const edition = await seedEdition(testDb, bookId, {
+      title: "Auto Book - EPUB",
+    });
+    editionId = edition.id as number;
 
     // Assign profile to author
-    db.insert(schema.authorDownloadProfiles)
-      .values({ authorId, downloadProfileId: profileId })
-      .run();
+    await testDb.insert("authorDownloadProfiles", {
+      authorId,
+      downloadProfileId: profileId,
+    });
 
     // Assign profile to edition (makes it "wanted")
-    db.insert(schema.editionDownloadProfiles)
-      .values({ editionId, downloadProfileId: profileId })
-      .run();
+    await testDb.insert("editionDownloadProfiles", {
+      editionId,
+      downloadProfileId: profileId,
+    });
 
     // Seed download client (torrent)
-    seedDownloadClient(db, {
+    await seedDownloadClient(testDb, {
       name: "Auto qBittorrent",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -108,7 +101,7 @@ test.describe("Auto-Search", () => {
     });
 
     // Seed indexer
-    seedIndexer(db, {
+    await seedIndexer(testDb, {
       name: "Auto Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -117,9 +110,6 @@ test.describe("Auto-Search", () => {
       enableRss: true,
       enableAutomaticSearch: true,
     });
-
-    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
-    checkpoint();
 
     // Configure fake qBittorrent
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
@@ -162,25 +152,22 @@ test.describe("Auto-Search", () => {
   });
 
   test("wanted books are identified when edition has profile but no files", async ({
-    db,
+    testDb,
   }) => {
     // The setup already creates an edition with a profile but no bookFiles.
     // Verify the book is identified as wanted by querying the DB state.
-    const editionProfiles = db
-      .select()
-      .from(schema.editionDownloadProfiles)
-      .all();
+    const editionProfiles = await testDb.select("editionDownloadProfiles");
     expect(editionProfiles.length).toBeGreaterThanOrEqual(1);
 
     // No book files exist
-    const files = db.select().from(schema.bookFiles).all();
+    const files = await testDb.select("bookFiles");
     expect(files).toHaveLength(0);
   });
 
   test("RSS sync finds and grabs releases", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
   }) => {
     // Trigger RSS sync task via the UI
@@ -193,11 +180,11 @@ test.describe("Auto-Search", () => {
     expect(qbState.addedDownloads.length).toBeGreaterThanOrEqual(1);
 
     // Verify a tracked download was created
-    const tracked = db.select().from(schema.trackedDownloads).all();
+    const tracked = await testDb.select("trackedDownloads");
     expect(tracked.length).toBeGreaterThanOrEqual(1);
 
     // Verify history entry
-    const historyEntries = db.select().from(schema.history).all();
+    const historyEntries = await testDb.select("history");
     const grabEntry = historyEntries.find((h) => h.eventType === "bookGrabbed");
     expect(grabEntry).toBeTruthy();
   });
@@ -205,23 +192,19 @@ test.describe("Auto-Search", () => {
   test("auto-search respects cutoff — does not search when at cutoff", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Seed a book file at the cutoff quality (id=1 which matches cutoff=1)
-    db.insert(schema.bookFiles)
-      .values({
-        bookId,
-        path: "/books/Auto Author/Auto Book/book.epub",
-        size: 5_000_000,
-        quality: {
-          quality: { id: 1, name: "EPUB" },
-          revision: { version: 1, real: 0 },
-        },
-      })
-      .run();
-    checkpoint();
+    await testDb.insert("bookFiles", {
+      bookId,
+      path: "/books/Auto Author/Auto Book/book.epub",
+      size: 5_000_000,
+      quality: {
+        quality: { id: 1, name: "EPUB" },
+        revision: { version: 1, real: 0 },
+      },
+    });
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -232,40 +215,34 @@ test.describe("Auto-Search", () => {
     expect(qbState.addedDownloads).toHaveLength(0);
 
     // No new tracked downloads
-    const tracked = db.select().from(schema.trackedDownloads).all();
+    const tracked = await testDb.select("trackedDownloads");
     expect(tracked).toHaveLength(0);
   });
 
   test("auto-search upgrades when below cutoff and upgrades allowed", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Update profile to allow upgrades, with cutoff at EPUB (id=4, weight=2)
     // items=[1,2,3,4,5] → weights: id1=5, id2=4, id3=3, id4=2, id5=1
-    db.update(schema.downloadProfiles)
-      .set({
-        upgradeAllowed: true,
-        cutoff: 4,
-        items: [1, 2, 3, 4, 5],
-      })
-      .run();
+    await testDb.update("downloadProfiles", {
+      upgradeAllowed: true,
+      cutoff: 4,
+      items: [1, 2, 3, 4, 5],
+    });
 
     // Seed a book file BELOW the cutoff (id=5/AZW3 weight=1 < cutoff id=4 weight=2)
-    db.insert(schema.bookFiles)
-      .values({
-        bookId,
-        path: "/books/Auto Author/Auto Book/book.azw3",
-        size: 3_000_000,
-        quality: {
-          quality: { id: 5, name: "AZW3" },
-          revision: { version: 1, real: 0 },
-        },
-      })
-      .run();
-    checkpoint();
+    await testDb.insert("bookFiles", {
+      bookId,
+      path: "/books/Auto Author/Auto Book/book.azw3",
+      size: 3_000_000,
+      quality: {
+        quality: { id: 5, name: "AZW3" },
+        revision: { version: 1, real: 0 },
+      },
+    });
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -279,22 +256,20 @@ test.describe("Auto-Search", () => {
   test("auto-search skips when upgrades disabled and file exists", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
   }) => {
     // Profile has upgradeAllowed: false (default from beforeEach)
     // Seed a book file with any quality
-    db.insert(schema.bookFiles)
-      .values({
-        bookId,
-        path: "/books/Auto Author/Auto Book/book.mobi",
-        size: 3_000_000,
-        quality: {
-          quality: { id: 3, name: "PDF" },
-          revision: { version: 1, real: 0 },
-        },
-      })
-      .run();
+    await testDb.insert("bookFiles", {
+      bookId,
+      path: "/books/Auto Author/Auto Book/book.mobi",
+      size: 3_000_000,
+      quality: {
+        quality: { id: 3, name: "PDF" },
+        revision: { version: 1, real: 0 },
+      },
+    });
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -308,11 +283,11 @@ test.describe("Auto-Search", () => {
   test("blocklisted release is skipped — next best grabbed", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
   }) => {
     // Blocklist the first (best) release
-    seedBlocklistEntry(db, {
+    await seedBlocklistEntry(testDb, {
       sourceTitle: "Auto Author - Auto Book [EPUB]",
       bookId,
       protocol: "torrent",
@@ -329,7 +304,7 @@ test.describe("Auto-Search", () => {
     expect(qbState.addedDownloads.length).toBeGreaterThanOrEqual(1);
 
     // Check the tracked download is for the MOBI release, not EPUB
-    const tracked = db.select().from(schema.trackedDownloads).all();
+    const tracked = await testDb.select("trackedDownloads");
     expect(tracked.length).toBeGreaterThanOrEqual(1);
     expect(tracked[0].releaseTitle).toContain("MOBI");
   });
@@ -337,12 +312,11 @@ test.describe("Auto-Search", () => {
   test("multiple indexers are searched", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Seed a second indexer
-    seedIndexer(db, {
+    await seedIndexer(testDb, {
       name: "Second Indexer",
       implementation: "Torznab",
       protocol: "torrent",
@@ -352,7 +326,6 @@ test.describe("Auto-Search", () => {
       enableAutomaticSearch: true,
       priority: 50,
     });
-    checkpoint();
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -401,27 +374,26 @@ test.describe("Auto-Search", () => {
   test("search respects maxBooks limit", async ({
     page,
     appUrl,
-    db,
+    testDb,
     fakeServers,
-    checkpoint,
   }) => {
     // Seed additional wanted books
     for (let i = 1; i <= 3; i += 1) {
-      const extraBook = seedBook(db, authorId, {
+      const extraBook = await seedBook(testDb, authorId, {
         title: `Extra Book ${i}`,
         slug: `extra-book-${i}`,
         foreignBookId: `hc-extra-${i}`,
       });
-      const extraEdition = seedEdition(db, extraBook.id, {
+      const extraEdition = await seedEdition(testDb, extraBook.id as number, {
         title: `Extra Edition ${i}`,
         foreignEditionId: `hc-extra-edition-${i}`,
         isbn13: `978123456789${i}`,
       });
-      db.insert(schema.editionDownloadProfiles)
-        .values({ editionId: extraEdition.id, downloadProfileId: profileId })
-        .run();
+      await testDb.insert("editionDownloadProfiles", {
+        editionId: extraEdition.id,
+        downloadProfileId: profileId,
+      });
     }
-    checkpoint();
 
     // The RSS sync task uses a default delayBetweenBooks, but we can verify
     // the indexer was searched for multiple books by checking searchLog

@@ -1,7 +1,6 @@
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated, waitForHydration } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
 test.describe("Settings and Configuration", () => {
@@ -203,10 +202,15 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("Test NZBGet")).toBeVisible();
     });
 
-    test("edit download client", async ({ page, appUrl, db, fakeServers }) => {
+    test("edit download client", async ({
+      page,
+      appUrl,
+      testDb,
+      fakeServers,
+    }) => {
       // Seed a client in the DB with a unique name
       const { seedDownloadClient } = await import("../fixtures/seed-data");
-      seedDownloadClient(db, { name: "Editable qBittorrent" });
+      await seedDownloadClient(testDb, { name: "Editable qBittorrent" });
 
       await fetch(`${fakeServers.QBITTORRENT}/__control`, {
         method: "POST",
@@ -237,9 +241,9 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("Edited qBittorrent")).toBeVisible();
     });
 
-    test("delete download client", async ({ page, appUrl, db }) => {
+    test("delete download client", async ({ page, appUrl, testDb }) => {
       const { seedDownloadClient } = await import("../fixtures/seed-data");
-      seedDownloadClient(db, { name: "Client To Delete" });
+      await seedDownloadClient(testDb, { name: "Client To Delete" });
 
       await navigateTo(page, appUrl, "/settings/download-clients");
 
@@ -372,11 +376,11 @@ test.describe("Settings and Configuration", () => {
     test("indexer with download client override", async ({
       page,
       appUrl,
-      db,
+      testDb,
     }) => {
       // Seed a download client first (usenet protocol)
       const { seedDownloadClient } = await import("../fixtures/seed-data");
-      seedDownloadClient(db, {
+      await seedDownloadClient(testDb, {
         name: "Override SABnzbd",
         implementation: "SABnzbd",
         protocol: "usenet",
@@ -408,9 +412,9 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("Indexer with Override")).toBeVisible();
     });
 
-    test("delete indexer", async ({ page, appUrl, db }) => {
+    test("delete indexer", async ({ page, appUrl, testDb }) => {
       const { seedIndexer } = await import("../fixtures/seed-data");
-      seedIndexer(db, { name: "Indexer To Delete" });
+      await seedIndexer(testDb, { name: "Indexer To Delete" });
 
       await navigateTo(page, appUrl, "/settings/indexers");
 
@@ -435,24 +439,26 @@ test.describe("Settings and Configuration", () => {
   // ─── Prowlarr Sync ────────────────────────────────────────────────────────
 
   test.describe("Prowlarr Sync", () => {
-    test("synced indexer appears with badge", async ({ page, appUrl, db }) => {
+    test("synced indexer appears with badge", async ({
+      page,
+      appUrl,
+      testDb,
+    }) => {
       // Seed a synced indexer directly
-      db.insert(schema.syncedIndexers)
-        .values({
-          name: "Prowlarr Synced",
-          implementation: "Newznab",
-          configContract: "NewznabSettings",
-          protocol: "usenet",
-          baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
-          apiPath: "/api",
-          apiKey: "synced-key",
-          categories: "[]",
-          enableRss: true,
-          enableAutomaticSearch: true,
-          enableInteractiveSearch: true,
-          priority: 25,
-        })
-        .run();
+      await testDb.insert("syncedIndexers", {
+        name: "Prowlarr Synced",
+        implementation: "Newznab",
+        configContract: "NewznabSettings",
+        protocol: "usenet",
+        baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+        apiPath: "/api",
+        apiKey: "synced-key",
+        categories: "[]",
+        enableRss: true,
+        enableAutomaticSearch: true,
+        enableInteractiveSearch: true,
+        priority: 25,
+      });
 
       await navigateTo(page, appUrl, "/settings/indexers");
 
@@ -461,31 +467,29 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("Prowlarr Sync")).toBeVisible();
     });
 
-    test("edit synced indexer override", async ({ page, appUrl, db }) => {
+    test("edit synced indexer override", async ({ page, appUrl, testDb }) => {
       const { seedDownloadClient } = await import("../fixtures/seed-data");
-      seedDownloadClient(db, {
+      await seedDownloadClient(testDb, {
         name: "Override Client",
         implementation: "SABnzbd",
         protocol: "usenet",
         port: PORTS.SABNZBD,
       });
 
-      db.insert(schema.syncedIndexers)
-        .values({
-          name: "Synced Override Test",
-          implementation: "Newznab",
-          configContract: "NewznabSettings",
-          protocol: "usenet",
-          baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
-          apiPath: "/api",
-          apiKey: "synced-key",
-          categories: "[]",
-          enableRss: true,
-          enableAutomaticSearch: true,
-          enableInteractiveSearch: true,
-          priority: 25,
-        })
-        .run();
+      await testDb.insert("syncedIndexers", {
+        name: "Synced Override Test",
+        implementation: "Newznab",
+        configContract: "NewznabSettings",
+        protocol: "usenet",
+        baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+        apiPath: "/api",
+        apiKey: "synced-key",
+        categories: "[]",
+        enableRss: true,
+        enableAutomaticSearch: true,
+        enableInteractiveSearch: true,
+        priority: 25,
+      });
 
       await navigateTo(page, appUrl, "/settings/indexers");
 
@@ -530,9 +534,9 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("EPUB Only")).toBeVisible();
     });
 
-    test("edit download profile", async ({ page, appUrl, db, tempDir }) => {
+    test("edit download profile", async ({ page, appUrl, testDb, tempDir }) => {
       const { seedDownloadProfile } = await import("../fixtures/seed-data");
-      seedDownloadProfile(db, {
+      await seedDownloadProfile(testDb, {
         name: "Editable Profile",
         rootFolderPath: tempDir,
       });
@@ -560,9 +564,9 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("Updated Profile")).toBeVisible();
     });
 
-    test("delete download profile", async ({ page, appUrl, db }) => {
+    test("delete download profile", async ({ page, appUrl, testDb }) => {
       const { seedDownloadProfile } = await import("../fixtures/seed-data");
-      seedDownloadProfile(db, { name: "Profile To Delete" });
+      await seedDownloadProfile(testDb, { name: "Profile To Delete" });
 
       await navigateTo(page, appUrl, "/settings/profiles");
 
