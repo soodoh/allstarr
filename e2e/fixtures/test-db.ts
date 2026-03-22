@@ -29,8 +29,11 @@ export function createTestDb(suiteId: string): TestDbHandle {
   return {
     dbPath,
     cleanup: () => {
-      if (existsSync(dbPath)) {
-        unlinkSync(dbPath);
+      for (const suffix of ["", "-wal", "-shm"]) {
+        const p = dbPath + suffix;
+        if (existsSync(p)) {
+          unlinkSync(p);
+        }
       }
     },
   };
