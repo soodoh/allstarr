@@ -24,20 +24,23 @@ async function triggerTask(
 ): Promise<void> {
   await navigateTo(page, appUrl, "/system/tasks");
 
-  // Find the row containing the task name
   const row = page.getByRole("row").filter({ hasText: taskName });
   await expect(row).toBeVisible({ timeout: 10_000 });
 
-  // Click the Play (Run Now) button in that row
-  await row.getByRole("button").last().click();
+  // Wait for the Run button to be enabled
+  const runBtn = row.getByRole("button").last();
+  await expect(runBtn).toBeEnabled({ timeout: 5000 });
+  await runBtn.click();
 
-  // Wait for the task to finish (status badge changes from Running)
+  // Wait for the task to start running, then wait for it to finish
   await expect(async () => {
-    const isRunning = await row.getByText("Running").isVisible();
-    expect(isRunning).toBe(false);
+    const status = await row
+      .getByText(/Running|Success|Error/)
+      .first()
+      .textContent();
+    expect(status).not.toBe("Running");
   }).toPass({ timeout: 30_000 });
 
-  // Small delay for DB writes to settle
   await page.waitForTimeout(500);
 }
 
@@ -240,23 +243,24 @@ test.describe("Auto-Search", () => {
     fakeServers,
     checkpoint,
   }) => {
-    // Update profile to allow upgrades, with cutoff at weight position 2
+    // Update profile to allow upgrades, with cutoff at EPUB (id=4, weight=2)
+    // items=[1,2,3,4,5] → weights: id1=5, id2=4, id3=3, id4=2, id5=1
     db.update(schema.downloadProfiles)
       .set({
         upgradeAllowed: true,
-        cutoff: 2,
+        cutoff: 4,
         items: [1, 2, 3, 4, 5],
       })
       .run();
 
-    // Seed a book file below the cutoff (quality id=1, cutoff=2)
+    // Seed a book file BELOW the cutoff (id=5/AZW3 weight=1 < cutoff id=4 weight=2)
     db.insert(schema.bookFiles)
       .values({
         bookId,
-        path: "/books/Auto Author/Auto Book/book.mobi",
+        path: "/books/Auto Author/Auto Book/book.azw3",
         size: 3_000_000,
         quality: {
-          quality: { id: 1, name: "MOBI" },
+          quality: { id: 5, name: "AZW3" },
           revision: { version: 1, real: 0 },
         },
       })
