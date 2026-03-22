@@ -151,3 +151,8 @@ export async function runTaskNow(taskId: string): Promise<void> {
 export function isTaskRunning(taskId: string): boolean {
   return runningTasks.has(taskId);
 }
+
+/** Clear stale running-task state (for E2E test isolation). */
+export function clearRunningTasks(): void {
+  runningTasks.clear();
+}

@@ -25,6 +25,11 @@ async function triggerTask(
   appUrl: string,
   taskName: string,
 ): Promise<void> {
+  // Reset server caches + clear stale running-task state before triggering
+  await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
+    /* best-effort */
+  });
+
   await navigateTo(page, appUrl, "/system/tasks");
 
   const row = page.getByRole("row").filter({ hasText: taskName });
