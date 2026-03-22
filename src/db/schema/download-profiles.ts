@@ -17,4 +17,6 @@ export const downloadProfiles = sqliteTable("download_profiles", {
     .$type<number[]>()
     .notNull()
     .default([]),
+  type: text("type").notNull().default("ebook"),
+  language: text("language").notNull().default("en"),
 });

@@ -29,6 +29,13 @@
       "when": 1772760000000,
       "tag": "0003_add_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1772880000000,
+      "tag": "0004_add_profile_type_language",
+      "breakpoints": true
     }
   ]
 }
