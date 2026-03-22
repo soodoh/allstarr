@@ -4,6 +4,7 @@ import { requireAuth } from "./middleware";
 import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
+import getProfileLanguages from "./profile-languages";
 
 const HARDCOVER_GRAPHQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -772,7 +773,7 @@ async function fetchSeriesBooks(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const profile = getMetadataProfile();
-  const langCodes = language === "all" ? profile.allowedLanguages : [language];
+  const langCodes = language === "all" ? getProfileLanguages() : [language];
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -1749,7 +1750,7 @@ async function fetchSearchResults(
   authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const profile = getMetadataProfile();
-  const allowedLanguages = profile.allowedLanguages;
+  const allowedLanguages = getProfileLanguages();
   const filterByLanguage = allowedLanguages.length > 0;
   // Request extra results when filtering by language to compensate for
   // books that will be removed, so we can still fill up to `limit`.
@@ -1897,7 +1898,7 @@ async function fetchAuthorBooksPage(
   const offset = (page - 1) * pageSize;
   const profile = getMetadataProfile();
   const langCodes =
-    selectedLanguage === "all" ? profile.allowedLanguages : [selectedLanguage];
+    selectedLanguage === "all" ? getProfileLanguages() : [selectedLanguage];
 
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
@@ -2185,7 +2186,7 @@ async function fetchAuthorSeries(
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const profile = getMetadataProfile();
   const hasLanguageFilter = language !== "all";
-  const langCodes = hasLanguageFilter ? [language] : profile.allowedLanguages;
+  const langCodes = hasLanguageFilter ? [language] : getProfileLanguages();
   try {
     const response = await fetch(HARDCOVER_GRAPHQL_URL, {
       method: "POST",
