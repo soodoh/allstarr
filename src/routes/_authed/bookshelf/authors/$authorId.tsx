@@ -1188,14 +1188,19 @@ function AuthorDetailPage() {
     () => (author?.series ?? []) as AuthorSeries[],
     [author?.series],
   );
+  const profileLanguages = useMemo(() => {
+    const langs = (downloadProfiles ?? []).map((p) => p.language);
+    return [...new Set(langs)];
+  }, [downloadProfiles]);
+
   const availableLanguages = useMemo(() => {
     const all = (author?.availableLanguages ?? []) as LanguageOption[];
-    const allowedSet = new Set(metadataProfile.allowedLanguages);
-    // Intersect: only show languages that are both available on the author AND in the allowed list
+    const allowedSet = new Set(profileLanguages);
+    // Intersect: only show languages that are both available on the author AND in the profile languages
     const filtered = all.filter((l) => allowedSet.has(l.languageCode));
-    // If nothing remains (e.g., allowed languages don't overlap with author's), fall back to all
+    // If nothing remains (e.g., profile languages don't overlap with author's), fall back to all
     return filtered.length > 0 ? filtered : all;
-  }, [author?.availableLanguages, metadataProfile.allowedLanguages]);
+  }, [author?.availableLanguages, profileLanguages]);
 
   const authorDownloadProfiles = useMemo(() => {
     if (!author || !downloadProfiles) {
