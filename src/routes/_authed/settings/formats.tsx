@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { settingsMapQuery, downloadFormatsListQuery } from "src/lib/queries";
+import { updateSettingFn } from "src/server/settings";
+import { queryKeys } from "src/lib/query-keys";
+import { Input } from "src/components/ui/input";
+import { Label } from "src/components/ui/label";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
@@ -17,7 +22,6 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import DownloadFormatList from "src/components/settings/download-formats/download-format-list";
 import DownloadFormatForm from "src/components/settings/download-formats/download-format-form";
-import { downloadFormatsListQuery } from "src/lib/queries";
 import {
   useCreateDownloadFormat,
   useDeleteDownloadFormat,
@@ -26,7 +30,10 @@ import {
 
 export const Route = createFileRoute("/_authed/settings/formats")({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(downloadFormatsListQuery());
+    await Promise.all([
+      context.queryClient.ensureQueryData(downloadFormatsListQuery()),
+      context.queryClient.ensureQueryData(settingsMapQuery()),
+    ]);
   },
   component: FormatsPage,
 });
@@ -49,8 +56,100 @@ type FormatValues = {
   type: "ebook" | "audiobook";
 };
 
+function DefaultsSection({
+  type,
+  defaultPageCount,
+  defaultAudioDuration,
+  onUpdate,
+}: {
+  type: "ebook" | "audiobook";
+  defaultPageCount: number;
+  defaultAudioDuration: number;
+  onUpdate: (key: string, value: number) => void;
+}) {
+  if (type === "ebook") {
+    return (
+      <div className="mb-4 rounded-lg border bg-muted/30 p-4">
+        <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
+        <div className="flex items-center gap-3">
+          <Label
+            htmlFor="defaultPageCount"
+            className="text-sm text-muted-foreground"
+          >
+            Default Page Count
+          </Label>
+          <Input
+            id="defaultPageCount"
+            type="number"
+            className="w-20 h-8"
+            defaultValue={defaultPageCount}
+            onBlur={(e) => {
+              const val = Number(e.target.value);
+              if (val > 0 && val !== defaultPageCount) {
+                onUpdate("format.defaultPageCount", val);
+              }
+            }}
+          />
+          <span className="text-xs text-muted-foreground">pages</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Used when an edition&apos;s page count is unavailable
+        </p>
+      </div>
+    );
+  }
+
+  const hours = Math.round((defaultAudioDuration / 60) * 10) / 10;
+  return (
+    <div className="mb-4 rounded-lg border bg-muted/30 p-4">
+      <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
+      <div className="flex items-center gap-3">
+        <Label
+          htmlFor="defaultAudioDuration"
+          className="text-sm text-muted-foreground"
+        >
+          Default Audio Duration
+        </Label>
+        <Input
+          id="defaultAudioDuration"
+          type="number"
+          className="w-20 h-8"
+          defaultValue={defaultAudioDuration}
+          onBlur={(e) => {
+            const val = Number(e.target.value);
+            if (val > 0 && val !== defaultAudioDuration) {
+              onUpdate("format.defaultAudioDuration", val);
+            }
+          }}
+        />
+        <span className="text-xs text-muted-foreground">
+          minutes ({hours} hours)
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Used when an edition&apos;s audio duration is unavailable
+      </p>
+    </div>
+  );
+}
+
 function FormatsPage() {
   const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
+
+  const { data: settingsMap } = useSuspenseQuery(settingsMapQuery());
+  const queryClient = useQueryClient();
+
+  const defaultPageCount = Number(
+    settingsMap["format.defaultPageCount"] ?? 300,
+  );
+  const defaultAudioDuration = Number(
+    settingsMap["format.defaultAudioDuration"] ?? 600,
+  );
+
+  const handleUpdateSetting = async (key: string, value: number) => {
+    await updateSettingFn({ data: { key, value } });
+    queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
+  };
 
   const createDefinition = useCreateDownloadFormat();
   const updateDefinition = useUpdateDownloadFormat();
@@ -125,6 +224,12 @@ function FormatsPage() {
           <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
         </TabsList>
         <TabsContent value="ebook">
+          <DefaultsSection
+            type="ebook"
+            defaultPageCount={defaultPageCount}
+            defaultAudioDuration={defaultAudioDuration}
+            onUpdate={handleUpdateSetting}
+          />
           <DownloadFormatList
             definitions={ebookFormats}
             onEdit={handleEditDef}
@@ -132,6 +237,12 @@ function FormatsPage() {
           />
         </TabsContent>
         <TabsContent value="audiobook">
+          <DefaultsSection
+            type="audiobook"
+            defaultPageCount={defaultPageCount}
+            defaultAudioDuration={defaultAudioDuration}
+            onUpdate={handleUpdateSetting}
+          />
           <DownloadFormatList
             definitions={audiobookFormats}
             onEdit={handleEditDef}
