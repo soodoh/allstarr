@@ -15,7 +15,7 @@ export class TestDbClient {
     table: string,
     data: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const res = await fetch(`${this.appUrl}/api/__test-db`, {
+    const res = await fetch(`${this.appUrl}/api/e2e-test-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "insertReturning", table, data }),
@@ -32,7 +32,7 @@ export class TestDbClient {
   }
 
   async select(table: string): Promise<Array<Record<string, unknown>>> {
-    const res = await fetch(`${this.appUrl}/api/__test-db`, {
+    const res = await fetch(`${this.appUrl}/api/e2e-test-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "select", table }),
@@ -49,7 +49,7 @@ export class TestDbClient {
   }
 
   async deleteAll(table: string): Promise<void> {
-    const res = await fetch(`${this.appUrl}/api/__test-db`, {
+    const res = await fetch(`${this.appUrl}/api/e2e-test-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", table }),
@@ -61,7 +61,7 @@ export class TestDbClient {
   }
 
   async update(table: string, data: Record<string, unknown>): Promise<void> {
-    const res = await fetch(`${this.appUrl}/api/__test-db`, {
+    const res = await fetch(`${this.appUrl}/api/e2e-test-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update", table, data }),
@@ -73,7 +73,7 @@ export class TestDbClient {
   }
 
   async resetCaches(): Promise<void> {
-    await fetch(`${this.appUrl}/api/__test-db`, {
+    await fetch(`${this.appUrl}/api/e2e-test-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "resetCaches" }),

@@ -38,12 +38,13 @@ function getTable(name: string) {
   return tableMap[name as TableName];
 }
 
-export const Route = createFileRoute("/api/__test-db")({
+export const Route = createFileRoute("/api/e2e-test-db")({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
-        // Only available in E2E test mode
-        if (process.env.E2E_TEST_MODE !== "1") {
+        // Guard: only available when app is running with a test database
+        const dbUrl = process.env.DATABASE_URL ?? "";
+        if (!dbUrl.includes("test-") && process.env.E2E_TEST_MODE !== "1") {
           return new Response("Not available", { status: 404 });
         }
 
