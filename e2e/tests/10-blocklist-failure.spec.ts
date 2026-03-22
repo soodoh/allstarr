@@ -244,6 +244,7 @@ test.describe("Blocklist and Failure Recovery", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Seed a tracked download that will fail import
     seedTrackedDownload(db, {
@@ -257,6 +258,7 @@ test.describe("Blocklist and Failure Recovery", () => {
       downloadProfileId: profileId,
       outputPath: "/nonexistent/path/that/will/fail",
     });
+    checkpoint();
 
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
       method: "POST",
@@ -295,6 +297,7 @@ test.describe("Blocklist and Failure Recovery", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Seed a tracked download that will fail
     seedTrackedDownload(db, {
@@ -308,6 +311,7 @@ test.describe("Blocklist and Failure Recovery", () => {
       downloadProfileId: profileId,
       outputPath: "/nonexistent/import/path",
     });
+    checkpoint();
 
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
       method: "POST",

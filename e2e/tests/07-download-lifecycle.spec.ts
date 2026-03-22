@@ -399,13 +399,25 @@ test.describe("Download Lifecycle", () => {
       }),
     });
 
-    // Capture SSE events during the refresh task
+    // Navigate to the tasks page first, then capture SSE events while clicking
+    // Run — this avoids navigating away (which destroys the EventSource context).
+    await navigateTo(page, appUrl, "/system/tasks");
+    const taskRow = page
+      .getByRole("row")
+      .filter({ hasText: "Refresh Downloads" });
+    await expect(taskRow).toBeVisible({ timeout: 10_000 });
+
     const events = await captureSSEEvents(
       page,
       appUrl,
       ["queueUpdated", "queueProgress", "downloadCompleted", "importCompleted"],
       async () => {
-        await triggerTask(page, appUrl, "Refresh Downloads");
+        await taskRow.getByRole("button").last().click();
+        // Wait for task to complete without navigating
+        await expect(async () => {
+          const isRunning = await taskRow.getByText("Running").isVisible();
+          expect(isRunning).toBe(false);
+        }).toPass({ timeout: 30_000 });
       },
       10_000,
     );

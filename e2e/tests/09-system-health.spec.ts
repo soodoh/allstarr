@@ -47,6 +47,8 @@ test.describe("System Health", () => {
     // The HARDCOVER_TOKEN env var is set in the app fixture, so that check passes.
     checkpoint();
 
+    // Warm up the app server's DB connection to see checkpointed data
+    await navigateTo(page, appUrl, "/settings/indexers");
     await navigateTo(page, appUrl, "/system/status");
 
     // When all config is present and valid, should show "All systems healthy"

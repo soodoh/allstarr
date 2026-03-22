@@ -329,7 +329,17 @@ test.describe("Queue Management", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("dismiss connection warning banner", async ({ page, appUrl, db }) => {
+  test("dismiss connection warning banner", async ({
+    page,
+    appUrl,
+    db,
+    checkpoint,
+  }) => {
+    // Clean up clients from prior tests so only one warning appears
+    db.delete(schema.trackedDownloads).run();
+    db.delete(schema.downloadClients).run();
+    checkpoint();
+
     // Seed unreachable client
     seedDownloadClient(db, {
       name: "Dismiss Client",
@@ -352,6 +362,7 @@ test.describe("Queue Management", () => {
       protocol: "torrent",
       state: "downloading",
     });
+    checkpoint();
 
     await navigateTo(page, appUrl, "/activity");
 
