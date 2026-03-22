@@ -239,6 +239,7 @@ test.describe("Auto-Search", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Update profile to allow upgrades, with cutoff at weight position 2
     db.update(schema.downloadProfiles)
@@ -261,6 +262,7 @@ test.describe("Auto-Search", () => {
         },
       })
       .run();
+    checkpoint();
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -334,6 +336,7 @@ test.describe("Auto-Search", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Seed a second indexer
     seedIndexer(db, {
@@ -346,6 +349,7 @@ test.describe("Auto-Search", () => {
       enableAutomaticSearch: true,
       priority: 50,
     });
+    checkpoint();
 
     await triggerTask(page, appUrl, "RSS Sync");
 
@@ -396,6 +400,7 @@ test.describe("Auto-Search", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Seed additional wanted books
     for (let i = 1; i <= 3; i += 1) {
@@ -413,6 +418,7 @@ test.describe("Auto-Search", () => {
         .values({ editionId: extraEdition.id, downloadProfileId: profileId })
         .run();
     }
+    checkpoint();
 
     // The RSS sync task uses a default delayBetweenBooks, but we can verify
     // the indexer was searched for multiple books by checking searchLog

@@ -204,9 +204,9 @@ test.describe("Settings and Configuration", () => {
     });
 
     test("edit download client", async ({ page, appUrl, db, fakeServers }) => {
-      // Seed a client in the DB
+      // Seed a client in the DB with a unique name
       const { seedDownloadClient } = await import("../fixtures/seed-data");
-      seedDownloadClient(db);
+      seedDownloadClient(db, { name: "Editable qBittorrent" });
 
       await fetch(`${fakeServers.QBITTORRENT}/__control`, {
         method: "POST",
@@ -216,8 +216,10 @@ test.describe("Settings and Configuration", () => {
       await navigateTo(page, appUrl, "/settings/download-clients");
 
       // Click edit button on the seeded client row
-      await expect(page.getByText("Test qBittorrent")).toBeVisible();
-      const row = page.getByRole("row").filter({ hasText: "Test qBittorrent" });
+      await expect(page.getByText("Editable qBittorrent")).toBeVisible();
+      const row = page
+        .getByRole("row")
+        .filter({ hasText: "Editable qBittorrent" });
       await row.getByRole("button").first().click();
 
       // Should open edit dialog
@@ -501,7 +503,7 @@ test.describe("Settings and Configuration", () => {
   // ─── Download Profiles ────────────────────────────────────────────────────
 
   test.describe("Download Profiles", () => {
-    test("create download profile", async ({ page, appUrl }) => {
+    test("create download profile", async ({ page, appUrl, tempDir }) => {
       await navigateTo(page, appUrl, "/settings/profiles");
 
       await page.getByRole("button", { name: "Add Profile" }).click();
@@ -515,9 +517,9 @@ test.describe("Settings and Configuration", () => {
       const nameInput = page.getByLabel("Name");
       await nameInput.fill("EPUB Only");
 
-      // Root folder path
-      const rootFolderInput = page.getByLabel("Root Folder Path");
-      await rootFolderInput.fill("/books/epub");
+      // Root folder path (must be a real path)
+      const rootFolderInput = page.getByLabel("Root Folder");
+      await rootFolderInput.fill(tempDir);
 
       // Save
       await page.getByRole("button", { name: "Save" }).click();
@@ -528,9 +530,12 @@ test.describe("Settings and Configuration", () => {
       await expect(page.getByText("EPUB Only")).toBeVisible();
     });
 
-    test("edit download profile", async ({ page, appUrl, db }) => {
+    test("edit download profile", async ({ page, appUrl, db, tempDir }) => {
       const { seedDownloadProfile } = await import("../fixtures/seed-data");
-      seedDownloadProfile(db, { name: "Editable Profile" });
+      seedDownloadProfile(db, {
+        name: "Editable Profile",
+        rootFolderPath: tempDir,
+      });
 
       await navigateTo(page, appUrl, "/settings/profiles");
 
