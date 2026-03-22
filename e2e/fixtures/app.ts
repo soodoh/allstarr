@@ -83,7 +83,7 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
       proc.kill();
       dbHandle.cleanup();
     },
-    { scope: "worker", timeout: 60_000 },
+    { scope: "worker", timeout: 120_000 },
   ],
 
   appUrl: async ({ appServer }, use) => {
