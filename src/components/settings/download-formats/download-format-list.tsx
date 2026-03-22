@@ -15,6 +15,10 @@ import Slider from "src/components/ui/slider";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { useUpdateDownloadFormat } from "src/hooks/mutations";
 
+import {
+  computeEffectiveSizes,
+  formatEffectiveSize,
+} from "src/lib/format-size-calc";
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
 import type { downloadFormats } from "src/db/schema";
 
@@ -69,22 +73,65 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
   }
 
   return (
-    <div className="flex items-center gap-3 min-w-[250px]">
-      <span className="text-xs text-muted-foreground w-8 text-right tabular-nums">
-        {values[0]}
-      </span>
-      <Slider
-        min={0}
-        max={maxRange}
-        step={1}
-        value={values}
-        onValueChange={handleChange}
-        onValueCommit={handleCommit}
-        className="flex-1"
-      />
-      <span className="text-xs text-muted-foreground w-12 tabular-nums">
-        {values[2]} MB
-      </span>
+    <div>
+      <div className="flex items-center gap-3 min-w-[250px]">
+        <span className="text-xs text-muted-foreground w-8 text-right tabular-nums">
+          {values[0]}
+        </span>
+        <Slider
+          min={0}
+          max={maxRange}
+          step={1}
+          value={values}
+          onValueChange={handleChange}
+          onValueCommit={handleCommit}
+          className="flex-1"
+        />
+        <span className="text-xs text-muted-foreground w-16 tabular-nums">
+          {values[2]} {def.type === "audiobook" ? "kbps" : "MB/100pg"}
+        </span>
+      </div>
+      <ExampleSizes def={def} />
+    </div>
+  );
+}
+
+function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
+  if (def.title.startsWith("Unknown")) {
+    return null;
+  }
+
+  const samples =
+    def.type === "audiobook"
+      ? [
+          { label: "5 hr", meta: { audioLength: 300 } },
+          { label: "10 hr", meta: { audioLength: 600 } },
+          { label: "20 hr", meta: { audioLength: 1200 } },
+        ]
+      : [
+          { label: "200 pg", meta: { pageCount: 200 } },
+          { label: "400 pg", meta: { pageCount: 400 } },
+          { label: "800 pg", meta: { pageCount: 800 } },
+        ];
+
+  return (
+    <div className="mt-1.5 flex gap-4 text-xs text-muted-foreground">
+      {samples.map((s) => {
+        const eff = computeEffectiveSizes(
+          def.type as "ebook" | "audiobook",
+          def.minSize ?? 0,
+          def.maxSize ?? 0,
+          def.preferredSize ?? 0,
+          s.meta,
+        );
+        return (
+          <span key={s.label}>
+            <span className="font-medium text-foreground/70">{s.label}:</span>{" "}
+            {formatEffectiveSize(eff.minSize)} –{" "}
+            {formatEffectiveSize(eff.maxSize)}
+          </span>
+        );
+      })}
     </div>
   );
 }
