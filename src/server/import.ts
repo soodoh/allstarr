@@ -25,6 +25,7 @@ import { NON_AUTHOR_ROLES } from "./hardcover/constants";
 import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
+import getProfileLanguages from "./profile-languages";
 
 // ---------- Metadata profile filtering ----------
 
@@ -33,12 +34,13 @@ import type { MetadataProfile } from "./metadata-profile";
  * If allowedLanguages is empty, all editions pass.
  * Always preserves the default cover edition (by defaultCoverEditionId) if any edition passes.
  */
-function filterEditionsByProfile(
+export function filterEditionsByProfile(
   editions: HardcoverRawEdition[],
   profile: MetadataProfile,
+  languages: string[],
   defaultCoverEditionId: number | null,
 ): HardcoverRawEdition[] {
-  const hasLanguageFilter = profile.allowedLanguages.length > 0;
+  const hasLanguageFilter = languages.length > 0;
   const hasIsbnAsinFilter = profile.skipMissingIsbnAsin;
   const hasReleaseDateFilter = profile.skipMissingReleaseDate;
   const hasMinPagesFilter = profile.minimumPages > 0;
@@ -52,9 +54,7 @@ function filterEditionsByProfile(
     return editions;
   }
 
-  const allowedSet = hasLanguageFilter
-    ? new Set(profile.allowedLanguages)
-    : null;
+  const allowedSet = hasLanguageFilter ? new Set(languages) : null;
 
   const filtered = editions.filter((ed) => {
     if (allowedSet && ed.languageCode && !allowedSet.has(ed.languageCode)) {
@@ -101,6 +101,7 @@ function shouldSkipBook(
   book: HardcoverRawBook,
   filteredEditions: HardcoverRawEdition[],
   profile: MetadataProfile,
+  languages: string[],
 ): boolean {
   if (profile.skipCompilations && book.isCompilation) {
     return true;
@@ -117,7 +118,7 @@ function shouldSkipBook(
     }
   }
   // If all editions were filtered out by language, skip the book
-  if (filteredEditions.length === 0 && profile.allowedLanguages.length > 0) {
+  if (filteredEditions.length === 0 && languages.length > 0) {
     return true;
   }
   if (
@@ -534,6 +535,7 @@ async function importAuthorInternal(data: {
 
     // Load metadata profile for filtering
     const metadataProfile = getMetadataProfile();
+    const profileLanguages = getProfileLanguages();
 
     // Insert all author books (unmonitored)
     let booksAdded = 0;
@@ -562,11 +564,19 @@ async function importAuthorInternal(data: {
       const filteredEditions = filterEditionsByProfile(
         rawEditions,
         metadataProfile,
+        profileLanguages,
         rawBook.defaultCoverEditionId,
       );
 
       // Check if book should be skipped
-      if (shouldSkipBook(rawBook, filteredEditions, metadataProfile)) {
+      if (
+        shouldSkipBook(
+          rawBook,
+          filteredEditions,
+          metadataProfile,
+          profileLanguages,
+        )
+      ) {
         continue;
       }
 
@@ -769,9 +779,11 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
 
     // Filter editions by metadata profile (book was explicitly chosen, so we don't skip it)
     const metadataProfile = getMetadataProfile();
+    const profileLanguages = getProfileLanguages();
     const filteredEditions = filterEditionsByProfile(
       rawEditions,
       metadataProfile,
+      profileLanguages,
       rawBook.defaultCoverEditionId,
     );
 
@@ -940,6 +952,7 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
 
   const now = new Date();
   const metadataProfile = getMetadataProfile();
+  const profileLanguages = getProfileLanguages();
 
   // oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches for orphan handling
   return db.transaction((tx) => {
@@ -984,9 +997,17 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
         const filteredEditions = filterEditionsByProfile(
           allEditions,
           metadataProfile,
+          profileLanguages,
           rawBook.defaultCoverEditionId,
         );
-        if (shouldSkipBook(rawBook, filteredEditions, metadataProfile)) {
+        if (
+          shouldSkipBook(
+            rawBook,
+            filteredEditions,
+            metadataProfile,
+            profileLanguages,
+          )
+        ) {
           // Book no longer passes filters — remove if safe
           const hasProfileLink = tx
             .select({ id: editionDownloadProfiles.id })
@@ -1054,6 +1075,7 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
         const filteredForNew = filterEditionsByProfile(
           bookEditions,
           metadataProfile,
+          profileLanguages,
           rawBook.defaultCoverEditionId,
         );
         const filteredIds = new Set(filteredForNew.map((e) => e.id));
@@ -1205,11 +1227,19 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
         const filteredNewEditions = filterEditionsByProfile(
           rawEditions,
           metadataProfile,
+          profileLanguages,
           rawBook.defaultCoverEditionId,
         );
 
         // Skip book if it doesn't pass metadata profile filters
-        if (shouldSkipBook(rawBook, filteredNewEditions, metadataProfile)) {
+        if (
+          shouldSkipBook(
+            rawBook,
+            filteredNewEditions,
+            metadataProfile,
+            profileLanguages,
+          )
+        ) {
           continue;
         }
 
@@ -1466,9 +1496,11 @@ export async function refreshBookInternal(bookId: number): Promise<{
   const { book: rawBook, editions: rawEditions } = result;
   const now = new Date();
   const metadataProfile = getMetadataProfile();
+  const profileLanguages = getProfileLanguages();
   const filteredForNew = filterEditionsByProfile(
     rawEditions,
     metadataProfile,
+    profileLanguages,
     rawBook.defaultCoverEditionId,
   );
   const filteredIds = new Set(filteredForNew.map((e) => e.id));

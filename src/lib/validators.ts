@@ -69,9 +69,6 @@ export const updateSettingSchema = z.object({
 
 // Metadata Profile
 export const metadataProfileSchema = z.object({
-  allowedLanguages: z
-    .array(z.string())
-    .min(1, "At least one language required"),
   skipMissingReleaseDate: z.boolean().default(false),
   skipMissingIsbnAsin: z.boolean().default(false),
   skipCompilations: z.boolean().default(false),
