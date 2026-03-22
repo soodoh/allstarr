@@ -14,7 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
-import { Route as Api_testDbRouteImport } from './routes/api/__test-db'
+import { Route as ApiE2eTestDbRouteImport } from './routes/api/e2e-test-db'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
@@ -67,9 +67,9 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
   path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Api_testDbRoute = Api_testDbRouteImport.update({
-  id: '/api/__test-db',
-  path: '/api',
+const ApiE2eTestDbRoute = ApiE2eTestDbRouteImport.update({
+  id: '/api/e2e-test-db',
+  path: '/api/e2e-test-db',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
@@ -218,7 +218,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api': typeof Api_testDbRoute
+  '/api/e2e-test-db': typeof ApiE2eTestDbRoute
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
@@ -251,7 +251,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api': typeof Api_testDbRoute
+  '/api/e2e-test-db': typeof ApiE2eTestDbRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -287,7 +287,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
-  '/api/__test-db': typeof Api_testDbRoute
+  '/api/e2e-test-db': typeof ApiE2eTestDbRoute
   '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -324,7 +324,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
-    | '/api'
+    | '/api/e2e-test-db'
     | '/api/events'
     | '/activity/blocklist'
     | '/activity/history'
@@ -357,7 +357,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
-    | '/api'
+    | '/api/e2e-test-db'
     | '/api/events'
     | '/'
     | '/activity/blocklist'
@@ -392,7 +392,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
-    | '/api/__test-db'
+    | '/api/e2e-test-db'
     | '/api/events'
     | '/_authed/'
     | '/_authed/activity/blocklist'
@@ -428,7 +428,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
-  Api_testDbRoute: typeof Api_testDbRoute
+  ApiE2eTestDbRoute: typeof ApiE2eTestDbRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1IndexerIdRoute: typeof ApiV1IndexerIdRoute
@@ -475,11 +475,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/__test-db': {
-      id: '/api/__test-db'
-      path: '/api'
-      fullPath: '/api'
-      preLoaderRoute: typeof Api_testDbRouteImport
+    '/api/e2e-test-db': {
+      id: '/api/e2e-test-db'
+      path: '/api/e2e-test-db'
+      fullPath: '/api/e2e-test-db'
+      preLoaderRoute: typeof ApiE2eTestDbRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/system/': {
@@ -731,7 +731,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
-  Api_testDbRoute: Api_testDbRoute,
+  ApiE2eTestDbRoute: ApiE2eTestDbRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1IndexerIdRoute: ApiV1IndexerIdRoute,
