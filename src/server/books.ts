@@ -7,6 +7,7 @@ import {
   editions,
   editionDownloadProfiles,
   authorDownloadProfiles,
+  downloadProfiles,
   authors,
   history,
   series,
@@ -15,13 +16,14 @@ import {
 import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { requireAuth } from "./middleware";
-import { pickBestEdition } from "src/lib/editions";
+import { pickBestEdition, pickBestEditionForProfile } from "src/lib/editions";
 import {
   createBookSchema,
   createEditionSchema,
   updateEditionSchema,
-  toggleBookProfileSchema,
-  toggleEditionProfileSchema,
+  monitorBookProfileSchema,
+  unmonitorBookProfileSchema,
+  setEditionForProfileSchema,
 } from "src/lib/validators";
 
 export const getBooksFn = createServerFn({ method: "GET" }).handler(
@@ -1014,109 +1016,175 @@ export const deleteBookFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-// Toggle a download profile on/off for a book's default cover edition
-export const toggleBookProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => toggleBookProfileSchema.parse(d))
+export const monitorBookProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => monitorBookProfileSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
+    const { bookId, downloadProfileId } = data;
 
-    // Find the default cover edition (or first by readers)
-    const defaultEdition = db
-      .select({ id: editions.id })
+    const profile = db
+      .select()
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, downloadProfileId))
+      .get();
+    if (!profile) {
+      throw new Error("Download profile not found");
+    }
+
+    const bookEditions = db
+      .select()
       .from(editions)
-      .where(
-        and(
-          eq(editions.bookId, data.bookId),
-          eq(editions.isDefaultCover, true),
-        ),
-      )
-      .get();
+      .where(eq(editions.bookId, bookId))
+      .all();
 
-    const targetEdition =
-      defaultEdition ??
-      db
-        .select({ id: editions.id })
-        .from(editions)
-        .where(eq(editions.bookId, data.bookId))
-        .orderBy(desc(editions.usersCount))
-        .limit(1)
-        .get();
-
-    if (!targetEdition) {
-      throw new Error("No edition found for this book");
+    const bestEdition = pickBestEditionForProfile(bookEditions, profile);
+    if (!bestEdition) {
+      throw new Error("No suitable edition found");
     }
 
-    // Check if link exists
-    const existing = db
-      .select({ id: editionDownloadProfiles.id })
-      .from(editionDownloadProfiles)
-      .where(
-        and(
-          eq(editionDownloadProfiles.editionId, targetEdition.id),
-          eq(editionDownloadProfiles.downloadProfileId, data.downloadProfileId),
-        ),
-      )
-      .get();
-
-    if (existing) {
+    // Remove any existing edition-profile links for this book + profile
+    const bookEditionIds = bookEditions.map((e) => e.id);
+    if (bookEditionIds.length > 0) {
       db.delete(editionDownloadProfiles)
-        .where(eq(editionDownloadProfiles.id, existing.id))
-        .run();
-    } else {
-      db.insert(editionDownloadProfiles)
-        .values({
-          editionId: targetEdition.id,
-          downloadProfileId: data.downloadProfileId,
-        })
+        .where(
+          and(
+            inArray(editionDownloadProfiles.editionId, bookEditionIds),
+            eq(editionDownloadProfiles.downloadProfileId, downloadProfileId),
+          ),
+        )
         .run();
     }
 
-    db.insert(history)
-      .values({
-        eventType: "bookUpdated",
-        bookId: data.bookId,
-        data: {
-          action: existing ? "profile-removed" : "profile-added",
-          downloadProfileId: data.downloadProfileId,
-        },
-      })
+    db.insert(editionDownloadProfiles)
+      .values({ editionId: bestEdition.id, downloadProfileId })
       .run();
 
-    return { bookId: data.bookId };
-  });
-
-// Toggle a download profile on/off for a specific edition
-export const toggleEditionProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => toggleEditionProfileSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-
-    // Check if link exists
-    const existing = db
-      .select({ id: editionDownloadProfiles.id })
-      .from(editionDownloadProfiles)
-      .where(
-        and(
-          eq(editionDownloadProfiles.editionId, data.editionId),
-          eq(editionDownloadProfiles.downloadProfileId, data.downloadProfileId),
-        ),
-      )
-      .get();
-
-    if (existing) {
-      db.delete(editionDownloadProfiles)
-        .where(eq(editionDownloadProfiles.id, existing.id))
-        .run();
-    } else {
-      db.insert(editionDownloadProfiles)
+    // Record history — data column is JSON mode, pass plain object (NOT JSON.stringify)
+    const book = db.select().from(books).where(eq(books.id, bookId)).get();
+    if (book) {
+      db.insert(history)
         .values({
-          editionId: data.editionId,
-          downloadProfileId: data.downloadProfileId,
+          eventType: "bookUpdated",
+          bookId,
+          data: {
+            action: "profile-added",
+            bookTitle: book.title,
+            editionId: bestEdition.id,
+            editionTitle: bestEdition.title,
+            downloadProfileId,
+            profileName: profile.name,
+          },
         })
         .run();
     }
 
-    return { editionId: data.editionId };
+    return { bookId, editionId: bestEdition.id };
+  });
+
+export const unmonitorBookProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => unmonitorBookProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const { bookId, downloadProfileId, deleteFiles } = data;
+
+    const bookEditions = db
+      .select({ id: editions.id })
+      .from(editions)
+      .where(eq(editions.bookId, bookId))
+      .all();
+
+    const bookEditionIds = bookEditions.map((e) => e.id);
+    if (bookEditionIds.length > 0) {
+      db.delete(editionDownloadProfiles)
+        .where(
+          and(
+            inArray(editionDownloadProfiles.editionId, bookEditionIds),
+            eq(editionDownloadProfiles.downloadProfileId, downloadProfileId),
+          ),
+        )
+        .run();
+    }
+
+    if (deleteFiles) {
+      const files = db
+        .select()
+        .from(bookFiles)
+        .where(eq(bookFiles.bookId, bookId))
+        .all();
+      const fs = await import("node:fs");
+      for (const file of files) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch {
+          /* file may not exist */
+        }
+      }
+      db.delete(bookFiles).where(eq(bookFiles.bookId, bookId)).run();
+    }
+
+    const profile = db
+      .select()
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, downloadProfileId))
+      .get();
+    const book = db.select().from(books).where(eq(books.id, bookId)).get();
+    if (book) {
+      db.insert(history)
+        .values({
+          eventType: "bookUpdated",
+          bookId,
+          data: {
+            action: "profile-removed",
+            bookTitle: book.title,
+            downloadProfileId,
+            profileName: profile?.name ?? null,
+            filesDeleted: deleteFiles,
+          },
+        })
+        .run();
+    }
+
+    return { bookId };
+  });
+
+export const setEditionForProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => setEditionForProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const { editionId, downloadProfileId } = data;
+
+    const edition = db
+      .select()
+      .from(editions)
+      .where(eq(editions.id, editionId))
+      .get();
+    if (!edition) {
+      throw new Error("Edition not found");
+    }
+
+    const bookEditions = db
+      .select({ id: editions.id })
+      .from(editions)
+      .where(eq(editions.bookId, edition.bookId))
+      .all();
+
+    const bookEditionIds = bookEditions.map((e) => e.id);
+    if (bookEditionIds.length > 0) {
+      db.delete(editionDownloadProfiles)
+        .where(
+          and(
+            inArray(editionDownloadProfiles.editionId, bookEditionIds),
+            eq(editionDownloadProfiles.downloadProfileId, downloadProfileId),
+          ),
+        )
+        .run();
+    }
+
+    db.insert(editionDownloadProfiles)
+      .values({ editionId, downloadProfileId })
+      .run();
+
+    return { editionId };
   });
 
 // Editions

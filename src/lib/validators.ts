@@ -148,13 +148,19 @@ export const updateEditionSchema = createEditionSchema.partial().extend({
   id: z.number(),
 });
 
-export const toggleEditionProfileSchema = z.object({
-  editionId: z.number(),
+export const monitorBookProfileSchema = z.object({
+  bookId: z.number(),
   downloadProfileId: z.number(),
 });
 
-export const toggleBookProfileSchema = z.object({
+export const unmonitorBookProfileSchema = z.object({
   bookId: z.number(),
+  downloadProfileId: z.number(),
+  deleteFiles: z.boolean(),
+});
+
+export const setEditionForProfileSchema = z.object({
+  editionId: z.number(),
   downloadProfileId: z.number(),
 });
 
