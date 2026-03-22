@@ -127,7 +127,7 @@ function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
         return (
           <span key={s.label}>
             <span className="font-medium text-foreground/70">{s.label}:</span>{" "}
-            {formatEffectiveSize(eff.minSize)} –{" "}
+            {formatEffectiveSize(eff.minSize, "min")} –{" "}
             {formatEffectiveSize(eff.maxSize)}
           </span>
         );
