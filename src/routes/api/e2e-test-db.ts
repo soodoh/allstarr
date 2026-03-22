@@ -77,6 +77,31 @@ export const Route = createFileRoute("/api/e2e-test-db")({
               return Response.json({ ok: true });
             }
 
+            case "cleanAll": {
+              // Delete from all test-relevant tables in FK-safe order
+              const cleanTables = [
+                "trackedDownloads",
+                "history",
+                "bookFiles",
+                "blocklist",
+                "editionDownloadProfiles",
+                "authorDownloadProfiles",
+                "booksAuthors",
+                "editions",
+                "books",
+                "authors",
+                "downloadClients",
+                "indexers",
+                "syncedIndexers",
+                "downloadProfiles",
+              ] as const;
+              for (const name of cleanTables) {
+                db.delete(tableMap[name]).run();
+              }
+              invalidateFormatDefCache();
+              return Response.json({ ok: true });
+            }
+
             case "resetCaches": {
               invalidateFormatDefCache();
               return Response.json({ ok: true });
