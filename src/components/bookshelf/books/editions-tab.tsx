@@ -1,8 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import { TabsContent } from "src/components/ui/tabs";
 import ProfileEditionCard from "src/components/bookshelf/books/profile-edition-card";
 import type { EditionData } from "src/components/bookshelf/books/profile-edition-card";
+import EditionSelectionModal from "src/components/bookshelf/books/edition-selection-modal";
+import { useSetEditionForProfile } from "src/hooks/mutations";
 
 type DownloadProfile = {
   id: number;
@@ -16,8 +18,15 @@ type Edition = EditionData & {
   downloadProfileIds: number[];
 };
 
+type ProfileType = {
+  id: number;
+  name: string;
+  icon: string;
+  type: "ebook" | "audiobook";
+};
+
 export default function EditionsTab({
-  bookId: _bookId,
+  bookId,
   authorDownloadProfiles,
   editions,
 }: {
@@ -25,6 +34,10 @@ export default function EditionsTab({
   authorDownloadProfiles: DownloadProfile[];
   editions: Edition[];
 }): JSX.Element {
+  const [selectingProfile, setSelectingProfile] = useState<ProfileType | null>(
+    null,
+  );
+  const setEditionForProfile = useSetEditionForProfile();
   // For each profile, find the edition whose downloadProfileIds includes that profile's ID
   const profileEditionMap = useMemo(() => {
     const map = new Map<number, EditionData | null>();
@@ -70,9 +83,14 @@ export default function EditionsTab({
                 type: profile.type as "ebook" | "audiobook",
               }}
               edition={edition}
-              onChooseEdition={() => {
-                // Stub: will be wired to edition selection modal in Task 9
-              }}
+              onChooseEdition={() =>
+                setSelectingProfile({
+                  id: profile.id,
+                  name: profile.name,
+                  icon: profile.icon,
+                  type: profile.type as "ebook" | "audiobook",
+                })
+              }
               onUnmonitor={() => {
                 // Stub: will be wired to unmonitor dialog in Task 10
               }}
@@ -85,6 +103,26 @@ export default function EditionsTab({
           </p>
         )}
       </div>
+      {selectingProfile && (
+        <EditionSelectionModal
+          open={Boolean(selectingProfile)}
+          onOpenChange={(open) => !open && setSelectingProfile(null)}
+          bookId={bookId}
+          profile={selectingProfile}
+          currentEditionId={
+            editions.find((e) =>
+              e.downloadProfileIds.includes(selectingProfile.id),
+            )?.id
+          }
+          onConfirm={(editionId) => {
+            setEditionForProfile.mutate(
+              { editionId, downloadProfileId: selectingProfile.id },
+              { onSuccess: () => setSelectingProfile(null) },
+            );
+          }}
+          isPending={setEditionForProfile.isPending}
+        />
+      )}
     </TabsContent>
   );
 }
