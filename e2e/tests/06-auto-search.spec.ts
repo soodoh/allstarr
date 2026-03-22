@@ -207,6 +207,7 @@ test.describe("Auto-Search", () => {
     appUrl,
     db,
     fakeServers,
+    checkpoint,
   }) => {
     // Seed a book file at the cutoff quality (id=1 which matches cutoff=1)
     db.insert(schema.bookFiles)
@@ -220,6 +221,7 @@ test.describe("Auto-Search", () => {
         },
       })
       .run();
+    checkpoint();
 
     await triggerTask(page, appUrl, "RSS Sync");
 
