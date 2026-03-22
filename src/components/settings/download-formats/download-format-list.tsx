@@ -31,7 +31,7 @@ type DownloadFormatListProps = {
 };
 
 function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
-  const maxRange = def.type === "audiobook" ? 5000 : 500;
+  const maxRange = def.type === "audiobook" ? 1500 : 100;
   const updateDef = useUpdateDownloadFormat();
 
   const [values, setValues] = useState<[number, number, number]>([
@@ -81,7 +81,7 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         <Slider
           min={0}
           max={maxRange}
-          step={1}
+          step={def.type === "audiobook" ? 1 : 0.5}
           value={values}
           onValueChange={handleChange}
           onValueCommit={handleCommit}
