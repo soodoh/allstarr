@@ -24,11 +24,18 @@ async function triggerTask(
   const row = page.getByRole("row").filter({ hasText: taskName });
   await expect(row).toBeVisible({ timeout: 10_000 });
 
-  await row.getByRole("button").last().click();
+  // Wait for the Run button to be enabled
+  const runBtn = row.getByRole("button").last();
+  await expect(runBtn).toBeEnabled({ timeout: 5000 });
+  await runBtn.click();
 
+  // Wait for the task to start running, then wait for it to finish
   await expect(async () => {
-    const isRunning = await row.getByText("Running").isVisible();
-    expect(isRunning).toBe(false);
+    const status = await row
+      .getByText(/Running|Success|Error/)
+      .first()
+      .textContent();
+    expect(status).not.toBe("Running");
   }).toPass({ timeout: 30_000 });
 
   await page.waitForTimeout(500);
