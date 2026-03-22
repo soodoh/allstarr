@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
 import {
@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "src/components/ui/tabs";
 import PageHeader from "src/components/shared/page-header";
 import DownloadFormatList from "src/components/settings/download-formats/download-format-list";
 import DownloadFormatForm from "src/components/settings/download-formats/download-format-form";
@@ -25,6 +31,24 @@ export const Route = createFileRoute("/_authed/settings/formats")({
   component: FormatsPage,
 });
 
+type FormatValues = {
+  title: string;
+  weight: number;
+  color: string;
+  minSize: number;
+  maxSize: number;
+  preferredSize: number;
+  specifications: Array<{
+    type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
+    value: string;
+    min?: number;
+    max?: number;
+    negate: boolean;
+    required: boolean;
+  }>;
+  type: "ebook" | "audiobook";
+};
+
 function FormatsPage() {
   const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
 
@@ -32,50 +56,30 @@ function FormatsPage() {
   const updateDefinition = useUpdateDownloadFormat();
   const deleteDefinition = useDeleteDownloadFormat();
 
+  const [activeTab, setActiveTab] = useState<"ebook" | "audiobook">("ebook");
   const [defDialogOpen, setDefDialogOpen] = useState(false);
   const [editingDef, setEditingDef] = useState<
     (typeof definitions)[number] | undefined
   >(undefined);
 
+  const ebookFormats = useMemo(
+    () => definitions.filter((d) => d.type === "ebook"),
+    [definitions],
+  );
+  const audiobookFormats = useMemo(
+    () => definitions.filter((d) => d.type === "audiobook"),
+    [definitions],
+  );
+
   const defLoading = createDefinition.isPending || updateDefinition.isPending;
 
-  const handleCreateDefinition = (values: {
-    title: string;
-    weight: number;
-    color: string;
-    minSize: number;
-    maxSize: number;
-    preferredSize: number;
-    specifications: Array<{
-      type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-      value: string;
-      min?: number;
-      max?: number;
-      negate: boolean;
-      required: boolean;
-    }>;
-  }) => {
+  const handleCreateDefinition = (values: FormatValues) => {
     createDefinition.mutate(values, {
       onSuccess: () => setDefDialogOpen(false),
     });
   };
 
-  const handleUpdateDefinition = (values: {
-    title: string;
-    weight: number;
-    color: string;
-    minSize: number;
-    maxSize: number;
-    preferredSize: number;
-    specifications: Array<{
-      type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-      value: string;
-      min?: number;
-      max?: number;
-      negate: boolean;
-      required: boolean;
-    }>;
-  }) => {
+  const handleUpdateDefinition = (values: FormatValues) => {
     if (!editingDef) {
       return;
     }
@@ -112,13 +116,29 @@ function FormatsPage() {
         }
       />
 
-      <div className="space-y-4">
-        <DownloadFormatList
-          definitions={definitions}
-          onEdit={handleEditDef}
-          onDelete={(id) => deleteDefinition.mutate(id)}
-        />
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "ebook" | "audiobook")}
+      >
+        <TabsList>
+          <TabsTrigger value="ebook">Ebook</TabsTrigger>
+          <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
+        </TabsList>
+        <TabsContent value="ebook">
+          <DownloadFormatList
+            definitions={ebookFormats}
+            onEdit={handleEditDef}
+            onDelete={(id) => deleteDefinition.mutate(id)}
+          />
+        </TabsContent>
+        <TabsContent value="audiobook">
+          <DownloadFormatList
+            definitions={audiobookFormats}
+            onEdit={handleEditDef}
+            onDelete={(id) => deleteDefinition.mutate(id)}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={defDialogOpen} onOpenChange={setDefDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -128,6 +148,7 @@ function FormatsPage() {
             </DialogTitle>
           </DialogHeader>
           <DownloadFormatForm
+            type={activeTab}
             initialValues={
               editingDef
                 ? {
@@ -137,6 +158,7 @@ function FormatsPage() {
                     minSize: editingDef.minSize ?? 0,
                     maxSize: editingDef.maxSize ?? 0,
                     preferredSize: editingDef.preferredSize ?? 0,
+                    type: editingDef.type as "ebook" | "audiobook",
                     specifications: Array.isArray(editingDef.specifications)
                       ? (editingDef.specifications as Array<{
                           type:

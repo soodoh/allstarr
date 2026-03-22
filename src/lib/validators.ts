@@ -43,6 +43,7 @@ export const createDownloadFormatSchema = z.object({
   maxSize: z.number().default(0),
   preferredSize: z.number().default(0),
   specifications: z.array(specificationSchema).default([]),
+  type: z.enum(["ebook", "audiobook"]).default("ebook"),
 });
 
 export const updateDownloadFormatSchema = z.object({
@@ -54,6 +55,7 @@ export const updateDownloadFormatSchema = z.object({
   maxSize: z.number().default(0),
   preferredSize: z.number().default(0),
   specifications: z.array(specificationSchema).default([]),
+  type: z.enum(["ebook", "audiobook"]).default("ebook"),
 });
 
 export const browseDirectorySchema = z.object({

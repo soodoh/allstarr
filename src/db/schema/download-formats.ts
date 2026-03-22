@@ -22,4 +22,5 @@ export const downloadFormats = sqliteTable("download_formats", {
     .$type<FormatSpecification[]>()
     .notNull()
     .default(sql`'[]'`),
+  type: text("type").notNull().default("ebook"),
 });
