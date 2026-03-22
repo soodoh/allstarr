@@ -3,7 +3,7 @@ import { Label as LabelPrimitive } from "radix-ui";
 
 import { cn } from "src/lib/utils";
 
-export default function Label({
+export function Label({
   className,
   ...props
 }: ComponentProps<typeof LabelPrimitive.Root>): JSX.Element {
@@ -18,3 +18,5 @@ export default function Label({
     />
   );
 }
+
+export default Label;

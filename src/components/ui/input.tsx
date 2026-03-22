@@ -2,7 +2,7 @@ import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
-export default function Input({
+export function Input({
   className,
   type,
   ...props
@@ -21,3 +21,5 @@ export default function Input({
     />
   );
 }
+
+export default Input;
