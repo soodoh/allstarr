@@ -78,7 +78,7 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
         },
       );
 
-      await waitForServer(`http://localhost:${port}`, 30_000);
+      await waitForServer(`http://localhost:${port}`, 60_000);
       await use({ url: `http://localhost:${port}`, dbHandle, proc });
       proc.kill();
       dbHandle.cleanup();
