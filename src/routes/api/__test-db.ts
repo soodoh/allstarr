@@ -42,8 +42,8 @@ export const Route = createFileRoute("/api/__test-db")({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
-        // Only available in E2E test mode (test DB paths contain "test-")
-        if (!process.env.DATABASE_URL?.includes("test-")) {
+        // Only available in E2E test mode
+        if (process.env.E2E_TEST_MODE !== "1") {
           return new Response("Not available", { status: 404 });
         }
 
