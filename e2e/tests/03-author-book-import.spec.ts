@@ -1,8 +1,6 @@
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import { eq } from "drizzle-orm";
-import * as schema from "../../src/db/schema";
 import { seedDownloadProfile, seedDownloadClient } from "../fixtures/seed-data";
 
 // Mock Hardcover data
@@ -167,33 +165,17 @@ const MOCK_SEARCH_RESULTS = [
 ];
 
 test.describe("Author and Book Import", () => {
-  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
+  test.beforeEach(async ({ page, appUrl, testDb, fakeServers }) => {
     // Clean up data from previous tests to prevent interference
-    db.delete(schema.trackedDownloads).run();
-    db.delete(schema.history).run();
-    db.delete(schema.bookFiles).run();
-    db.delete(schema.blocklist).run();
-    db.delete(schema.editionDownloadProfiles).run();
-    db.delete(schema.authorDownloadProfiles).run();
-    db.delete(schema.booksAuthors).run();
-    db.delete(schema.editions).run();
-    db.delete(schema.books).run();
-    db.delete(schema.authors).run();
-    db.delete(schema.downloadClients).run();
-    db.delete(schema.indexers).run();
-    db.delete(schema.syncedIndexers).run();
-    db.delete(schema.downloadProfiles).run();
+    await testDb.cleanAll();
 
     // Seed prerequisites
-    seedDownloadProfile(db, {
+    await seedDownloadProfile(testDb, {
       name: "Default Profile",
       rootFolderPath: "/books",
       categories: [7020],
     });
-    seedDownloadClient(db);
-
-    // Checkpoint WAL so bun:sqlite in the app server sees seeded data
-    checkpoint();
+    await seedDownloadClient(testDb);
 
     await ensureAuthenticated(page, appUrl);
 
@@ -301,7 +283,7 @@ test.describe("Author and Book Import", () => {
   test("metadata filtering applies language restrictions", async ({
     page,
     appUrl,
-    db,
+    testDb,
   }) => {
     // Import the author first
     await navigateTo(page, appUrl, "/bookshelf/add");
@@ -331,7 +313,7 @@ test.describe("Author and Book Import", () => {
 
     // Check editions in DB - default metadata profile allows English
     // The Spanish edition should be filtered out by default
-    const editions = db.select().from(schema.editions).all();
+    const editions = await testDb.select("editions");
     // Verify editions were imported (may be 0 if import is still processing)
     expect(editions.length).toBeGreaterThanOrEqual(0);
   });
@@ -361,13 +343,15 @@ test.describe("Author and Book Import", () => {
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
   });
 
-  test("browse bookshelf authors page", async ({ page, appUrl, db }) => {
+  test("browse bookshelf authors page", async ({ page, appUrl, testDb }) => {
     // Seed an author directly for browsing
     const { seedAuthor, seedBook, seedEdition } =
       await import("../fixtures/seed-data");
-    const author = seedAuthor(db, { name: "Test Browse Author" });
-    const book = seedBook(db, author.id, { title: "Browse Book" });
-    seedEdition(db, book.id);
+    const author = await seedAuthor(testDb, { name: "Test Browse Author" });
+    const book = await seedBook(testDb, author.id as number, {
+      title: "Browse Book",
+    });
+    await seedEdition(testDb, book.id as number);
 
     await navigateTo(page, appUrl, "/bookshelf/authors");
 
@@ -382,21 +366,26 @@ test.describe("Author and Book Import", () => {
     await expect(page.getByText("Test Browse Author")).toBeVisible();
   });
 
-  test("browse bookshelf books page", async ({ page, appUrl, db }) => {
+  test("browse bookshelf books page", async ({ page, appUrl, testDb }) => {
     const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
       await import("../fixtures/seed-data");
-    const profile = seedDownloadProfile(db, {
+    const profile = await seedDownloadProfile(testDb, {
       name: "Books Browse Profile",
       categories: [7020],
     });
-    const author = seedAuthor(db, { name: "Books Page Author" });
-    const book = seedBook(db, author.id, { title: "Books Page Book" });
-    const edition = seedEdition(db, book.id, { title: "Books Page Edition" });
+    const author = await seedAuthor(testDb, { name: "Books Page Author" });
+    const book = await seedBook(testDb, author.id as number, {
+      title: "Books Page Book",
+    });
+    const edition = await seedEdition(testDb, book.id as number, {
+      title: "Books Page Edition",
+    });
 
     // Link edition to profile so it appears in the monitored books view
-    db.insert(schema.editionDownloadProfiles)
-      .values({ editionId: edition.id, downloadProfileId: profile.id })
-      .run();
+    await testDb.insert("editionDownloadProfiles", {
+      editionId: edition.id,
+      downloadProfileId: profile.id,
+    });
 
     await navigateTo(page, appUrl, "/bookshelf/books");
 
@@ -406,15 +395,15 @@ test.describe("Author and Book Import", () => {
     });
   });
 
-  test("view book detail page", async ({ page, appUrl, db }) => {
+  test("view book detail page", async ({ page, appUrl, testDb }) => {
     const { seedAuthor, seedBook, seedEdition } =
       await import("../fixtures/seed-data");
-    const author = seedAuthor(db, { name: "Detail Author" });
-    const book = seedBook(db, author.id, {
+    const author = await seedAuthor(testDb, { name: "Detail Author" });
+    const book = await seedBook(testDb, author.id as number, {
       title: "Detail Test Book",
       description: "A detailed description for testing.",
     });
-    seedEdition(db, book.id, {
+    await seedEdition(testDb, book.id as number, {
       title: "Detail Edition",
       format: "Hardcover",
       pageCount: 500,
@@ -441,10 +430,10 @@ test.describe("Author and Book Import", () => {
     ).toBeVisible();
   });
 
-  test("edit author download profiles", async ({ page, appUrl, db }) => {
+  test("edit author download profiles", async ({ page, appUrl, testDb }) => {
     const { seedAuthor, seedBook } = await import("../fixtures/seed-data");
-    const author = seedAuthor(db, { name: "Editable Author" });
-    seedBook(db, author.id, { title: "Editable Book" });
+    const author = await seedAuthor(testDb, { name: "Editable Author" });
+    await seedBook(testDb, author.id as number, { title: "Editable Book" });
 
     await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
 
@@ -471,9 +460,15 @@ test.describe("Author and Book Import", () => {
     });
   });
 
-  test("assign download profile to author", async ({ page, appUrl, db }) => {
+  test("assign download profile to author", async ({
+    page,
+    appUrl,
+    testDb,
+  }) => {
     const { seedAuthor } = await import("../fixtures/seed-data");
-    const author = seedAuthor(db, { name: "Profile Assignment Author" });
+    const author = await seedAuthor(testDb, {
+      name: "Profile Assignment Author",
+    });
 
     await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
 
@@ -500,32 +495,29 @@ test.describe("Author and Book Import", () => {
     });
 
     // Verify in DB
-    const authorProfiles = db
-      .select()
-      .from(schema.authorDownloadProfiles)
-      .all();
+    const authorProfiles = await testDb.select("authorDownloadProfiles");
     // Should have at least one profile assignment
     expect(authorProfiles.length).toBeGreaterThanOrEqual(0);
   });
 
-  test("toggle edition download profile", async ({ page, appUrl, db }) => {
+  test("toggle edition download profile", async ({ page, appUrl, testDb }) => {
     const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
       await import("../fixtures/seed-data");
-    const profile = seedDownloadProfile(db, {
+    const profile = await seedDownloadProfile(testDb, {
       name: "Toggle Profile",
       categories: [7020],
     });
-    const author = seedAuthor(db, { name: "Edition Toggle Author" });
-    const book = seedBook(db, author.id, { title: "Edition Toggle Book" });
-    seedEdition(db, book.id, { title: "Toggle Edition" });
+    const author = await seedAuthor(testDb, { name: "Edition Toggle Author" });
+    const book = await seedBook(testDb, author.id as number, {
+      title: "Edition Toggle Book",
+    });
+    await seedEdition(testDb, book.id as number, { title: "Toggle Edition" });
 
     // First assign a profile to the author so edition toggles are visible
-    db.insert(schema.authorDownloadProfiles)
-      .values({
-        authorId: author.id,
-        downloadProfileId: profile.id,
-      })
-      .run();
+    await testDb.insert("authorDownloadProfiles", {
+      authorId: author.id,
+      downloadProfileId: profile.id,
+    });
 
     await navigateTo(page, appUrl, `/bookshelf/books/${book.id}`);
 
@@ -543,10 +535,10 @@ test.describe("Author and Book Import", () => {
     });
   });
 
-  test("delete author", async ({ page, appUrl, db }) => {
+  test("delete author", async ({ page, appUrl, testDb }) => {
     const { seedAuthor, seedBook } = await import("../fixtures/seed-data");
-    const author = seedAuthor(db, { name: "Author To Delete" });
-    seedBook(db, author.id, { title: "Book To Delete" });
+    const author = await seedAuthor(testDb, { name: "Author To Delete" });
+    await seedBook(testDb, author.id as number, { title: "Book To Delete" });
 
     await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
 
@@ -571,11 +563,10 @@ test.describe("Author and Book Import", () => {
     });
 
     // Verify in DB
-    const authors = db
-      .select()
-      .from(schema.authors)
-      .where(eq(schema.authors.name, "Author To Delete"))
-      .all();
-    expect(authors).toHaveLength(0);
+    const allAuthors = await testDb.select("authors");
+    const deletedAuthors = allAuthors.filter(
+      (a) => a.name === "Author To Delete",
+    );
+    expect(deletedAuthors).toHaveLength(0);
   });
 });
