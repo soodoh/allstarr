@@ -9,6 +9,8 @@ const downloadProfileBaseSchema = z.object({
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
+  type: z.enum(["ebook", "audiobook"]),
+  language: z.string().min(2).max(3),
 });
 
 export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
