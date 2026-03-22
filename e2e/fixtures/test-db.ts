@@ -1,11 +1,19 @@
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { copyFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import * as schema from "../../src/db/schema";
 
 const STATE_FILE = join(import.meta.dirname, "..", ".test-state.json");
 
 export type TestDbHandle = {
+  db: BetterSQLite3Database<typeof schema>;
   dbPath: string;
+  close: () => void;
   cleanup: () => void;
+  /** Force a WAL checkpoint so writes are visible to other processes (bun:sqlite). */
+  checkpoint: () => void;
 };
 
 export function getTestState(): {
@@ -26,15 +34,25 @@ export function createTestDb(suiteId: string): TestDbHandle {
   );
   copyFileSync(templateDbPath, dbPath);
 
+  const sqlite = new Database(dbPath);
+  // Use DELETE journal mode instead of WAL — WAL has cross-driver visibility
+  // issues between better-sqlite3 (test) and bun:sqlite (app server).
+  sqlite.pragma("journal_mode = DELETE");
+  sqlite.pragma("foreign_keys = ON");
+  const db = drizzle(sqlite, { schema });
+
   return {
+    db,
     dbPath,
+    close: () => sqlite.close(),
     cleanup: () => {
-      for (const suffix of ["", "-wal", "-shm"]) {
-        const p = dbPath + suffix;
-        if (existsSync(p)) {
-          unlinkSync(p);
-        }
+      sqlite.close();
+      if (existsSync(dbPath)) {
+        unlinkSync(dbPath);
       }
+    },
+    checkpoint: () => {
+      sqlite.pragma("wal_checkpoint(TRUNCATE)");
     },
   };
 }

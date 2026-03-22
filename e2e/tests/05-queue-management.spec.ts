@@ -1,6 +1,7 @@
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
+import * as schema from "../../src/db/schema";
 import {
   seedDownloadClient,
   seedDownloadProfile,
@@ -11,21 +12,19 @@ import {
 import PORTS from "../ports";
 
 test.describe("Queue Management", () => {
-  test.beforeEach(async ({ page, appUrl, testDb, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Seed baseline data
-    await seedDownloadProfile(testDb, {
+    seedDownloadProfile(db, {
       name: "Queue Profile",
       rootFolderPath: "/books",
     });
-    const author = await seedAuthor(testDb, { name: "Queue Author" });
-    const book = await seedBook(testDb, author.id as number, {
-      title: "Queue Book",
-    });
+    const author = seedAuthor(db, { name: "Queue Author" });
+    const book = seedBook(db, author.id, { title: "Queue Book" });
 
     // Seed qBittorrent client
-    const qbClient = await seedDownloadClient(testDb, {
+    const qbClient = seedDownloadClient(db, {
       name: "Test qBittorrent",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -33,7 +32,7 @@ test.describe("Queue Management", () => {
     });
 
     // Seed a tracked download
-    await seedTrackedDownload(testDb, {
+    seedTrackedDownload(db, {
       downloadClientId: qbClient.id,
       downloadId: "abc123",
       releaseTitle: "Queue Author - Queue Book [EPUB]",
@@ -120,9 +119,9 @@ test.describe("Queue Management", () => {
     }).toPass({ timeout: 5000 });
   });
 
-  test("resume download", async ({ page, appUrl, testDb, fakeServers }) => {
+  test("resume download", async ({ page, appUrl, db, fakeServers }) => {
     // Update the tracked download to paused state
-    await testDb.update("trackedDownloads", { state: "paused" });
+    db.update(schema.trackedDownloads).set({ state: "paused" }).run();
 
     // Update the fake qBittorrent to show paused state
     await fetch(`${fakeServers.QBITTORRENT}/__control`, {
@@ -201,7 +200,7 @@ test.describe("Queue Management", () => {
     }).toPass({ timeout: 5000 });
   });
 
-  test("remove and add to blocklist", async ({ page, appUrl, testDb }) => {
+  test("remove and add to blocklist", async ({ page, appUrl, db }) => {
     await navigateTo(page, appUrl, "/activity");
 
     await expect(
@@ -230,7 +229,7 @@ test.describe("Queue Management", () => {
 
     // Verify blocklist entry was created in DB
     await expect(async () => {
-      const blocklistEntries = await testDb.select("blocklist");
+      const blocklistEntries = db.select().from(schema.blocklist).all();
       expect(blocklistEntries.length).toBeGreaterThanOrEqual(1);
     }).toPass({ timeout: 5000 });
   });
@@ -238,11 +237,11 @@ test.describe("Queue Management", () => {
   test("mixed client queue shows items from multiple clients", async ({
     page,
     appUrl,
-    testDb,
+    db,
     fakeServers,
   }) => {
     // Seed a SABnzbd client
-    const sabClient = await seedDownloadClient(testDb, {
+    const sabClient = seedDownloadClient(db, {
       name: "Test SABnzbd",
       implementation: "SABnzbd",
       protocol: "usenet",
@@ -251,7 +250,7 @@ test.describe("Queue Management", () => {
     });
 
     // Seed a tracked download for SABnzbd
-    await seedTrackedDownload(testDb, {
+    seedTrackedDownload(db, {
       downloadClientId: sabClient.id,
       downloadId: "sab-nzo-123",
       releaseTitle: "Queue Author - Queue Book [MOBI]",
@@ -294,10 +293,10 @@ test.describe("Queue Management", () => {
   test("connection warning banner appears for unreachable client", async ({
     page,
     appUrl,
-    testDb,
+    db,
   }) => {
     // Seed a client pointing to unreachable port
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Unreachable Client",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -306,12 +305,13 @@ test.describe("Queue Management", () => {
     });
 
     // Seed a tracked download for the unreachable client
-    const clients = await testDb.select("downloadClients");
-    const unreachableClient = clients.find(
-      (c) => c.name === "Unreachable Client",
-    );
+    const unreachableClient = db
+      .select()
+      .from(schema.downloadClients)
+      .all()
+      .find((c) => c.name === "Unreachable Client");
     expect(unreachableClient).toBeTruthy();
-    await seedTrackedDownload(testDb, {
+    seedTrackedDownload(db, {
       downloadClientId: unreachableClient!.id,
       downloadId: "unreachable-dl",
       releaseTitle: "Unreachable Download",
@@ -332,14 +332,16 @@ test.describe("Queue Management", () => {
   test("dismiss connection warning banner", async ({
     page,
     appUrl,
-    testDb,
+    db,
+    checkpoint,
   }) => {
     // Clean up clients from prior tests so only one warning appears
-    await testDb.deleteAll("trackedDownloads");
-    await testDb.deleteAll("downloadClients");
+    db.delete(schema.trackedDownloads).run();
+    db.delete(schema.downloadClients).run();
+    checkpoint();
 
     // Seed unreachable client
-    await seedDownloadClient(testDb, {
+    seedDownloadClient(db, {
       name: "Dismiss Client",
       implementation: "qBittorrent",
       protocol: "torrent",
@@ -347,16 +349,20 @@ test.describe("Queue Management", () => {
       enabled: true,
     });
 
-    const clients = await testDb.select("downloadClients");
-    const dismissClient = clients.find((c) => c.name === "Dismiss Client");
+    const dismissClient = db
+      .select()
+      .from(schema.downloadClients)
+      .all()
+      .find((c) => c.name === "Dismiss Client");
     expect(dismissClient).toBeTruthy();
-    await seedTrackedDownload(testDb, {
+    seedTrackedDownload(db, {
       downloadClientId: dismissClient!.id,
       downloadId: "dismiss-dl",
       releaseTitle: "Dismiss Download",
       protocol: "torrent",
       state: "downloading",
     });
+    checkpoint();
 
     await navigateTo(page, appUrl, "/activity");
 
