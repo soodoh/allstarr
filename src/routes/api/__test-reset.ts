@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { invalidateFormatDefCache } from "src/server/indexers/format-parser";
+import { clearRunningTasks } from "src/server/scheduler";
 
 /**
- * Test-only endpoint that resets server-side caches.
+ * Test-only endpoint that resets server-side caches and state.
  * Only available when SQLITE_JOURNAL_MODE is set (i.e. during E2E tests).
  */
 export const Route = createFileRoute("/api/__test-reset")({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/api/__test-reset")({
           return new Response("Not available", { status: 404 });
         }
         invalidateFormatDefCache();
+        clearRunningTasks();
         return Response.json({ ok: true });
       },
     },
