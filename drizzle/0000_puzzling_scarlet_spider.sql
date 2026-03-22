@@ -302,15 +302,16 @@ CREATE TABLE `scheduled_tasks` (
 );
 --> statement-breakpoint
 -- Seed: Quality Definitions
-INSERT INTO `quality_definitions` (`title`, `weight`, `min_size`, `max_size`, `preferred_size`, `color`, `specifications`) VALUES
-	('Unknown', 1, 0, 0, 0, 'gray', '[]'),
-	('PDF', 2, 0, 100, 10, 'yellow', '[{"type":"releaseTitle","value":"\\bpdf\\b","negate":false,"required":true}]'),
-	('MOBI', 3, 0, 50, 5, 'amber', '[{"type":"releaseTitle","value":"\\bmobi\\b","negate":false,"required":true}]'),
-	('EPUB', 4, 0, 50, 5, 'green', '[{"type":"releaseTitle","value":"\\bepub\\b","negate":false,"required":true}]'),
-	('AZW3', 5, 0, 50, 5, 'blue', '[{"type":"releaseTitle","value":"\\bazw3?\\b","negate":false,"required":true}]'),
-	('MP3', 6, 0, 2000, 500, 'orange', '[{"type":"releaseTitle","value":"\\bmp3\\b","negate":false,"required":true}]'),
-	('M4B', 7, 0, 3000, 1000, 'cyan', '[{"type":"releaseTitle","value":"\\bm4b\\b","negate":false,"required":true}]'),
-	('FLAC', 8, 0, 5000, 2000, 'purple', '[{"type":"releaseTitle","value":"\\bflac\\b","negate":false,"required":true}]');
+INSERT INTO `quality_definitions` (`title`, `weight`, `min_size`, `max_size`, `preferred_size`, `color`, `specifications`, `type`) VALUES
+	('Unknown Text', 1, 0, 0, 0, 'gray', '[]', 'ebook'),
+	('PDF', 2, 0, 100, 10, 'yellow', '[{"type":"releaseTitle","value":"\\bpdf\\b","negate":false,"required":true}]', 'ebook'),
+	('MOBI', 3, 0, 50, 5, 'amber', '[{"type":"releaseTitle","value":"\\bmobi\\b","negate":false,"required":true}]', 'ebook'),
+	('EPUB', 4, 0, 50, 5, 'green', '[{"type":"releaseTitle","value":"\\bepub\\b","negate":false,"required":true}]', 'ebook'),
+	('AZW3', 5, 0, 50, 5, 'blue', '[{"type":"releaseTitle","value":"\\bazw3?\\b","negate":false,"required":true}]', 'ebook'),
+	('MP3', 6, 0, 2000, 500, 'orange', '[{"type":"releaseTitle","value":"\\bmp3\\b","negate":false,"required":true}]', 'audiobook'),
+	('M4B', 7, 0, 3000, 1000, 'cyan', '[{"type":"releaseTitle","value":"\\bm4b\\b","negate":false,"required":true}]', 'audiobook'),
+	('FLAC', 8, 0, 5000, 2000, 'purple', '[{"type":"releaseTitle","value":"\\bflac\\b","negate":false,"required":true}]', 'audiobook'),
+	('Unknown Audio', 1, 0, 0, 0, 'gray', '[]', 'audiobook');
 --> statement-breakpoint
 -- Seed: Quality Profiles
 INSERT INTO `quality_profiles` (`name`, `root_folder_path`, `cutoff`, `icon`, `items`, `upgrade_allowed`, `categories`) VALUES

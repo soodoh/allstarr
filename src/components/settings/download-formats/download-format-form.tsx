@@ -34,10 +34,12 @@ type DownloadFormatFormValues = {
   maxSize: number;
   preferredSize: number;
   specifications: Specification[];
+  type: "ebook" | "audiobook";
 };
 
 type DownloadFormatFormProps = {
   initialValues?: DownloadFormatFormValues;
+  type: "ebook" | "audiobook";
   onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -248,6 +250,7 @@ function SpecificationsEditor({
 
 export default function DownloadFormatForm({
   initialValues,
+  type,
   onSubmit,
   onCancel,
   loading,
@@ -321,6 +324,7 @@ export default function DownloadFormatForm({
       maxSize,
       preferredSize,
       specifications: strippedSpecs,
+      type: initialValues?.type ?? type,
     });
   };
 

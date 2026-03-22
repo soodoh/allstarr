@@ -147,7 +147,7 @@ export default function EditionSelectionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-[100vw] sm:max-w-[calc(100vw-4rem)] max-h-[100vh] sm:max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Select Edition for {profile.name}</DialogTitle>
         </DialogHeader>

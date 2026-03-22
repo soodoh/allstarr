@@ -31,6 +31,7 @@ type DownloadProfile = {
   items: number[];
   upgradeAllowed: boolean;
   categories: number[];
+  type: string;
 };
 
 type FormatDefinition = {
@@ -73,6 +74,7 @@ export default function DownloadProfileList({
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Root Folder</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Formats</TableHead>
             <TableHead>Categories</TableHead>
             <TableHead>Upgrades</TableHead>
@@ -113,6 +115,11 @@ export default function DownloadProfileList({
                       )}
                     </Tooltip>
                   </TooltipProvider>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {profile.type === "audiobook" ? "Audiobook" : "Ebook"}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">

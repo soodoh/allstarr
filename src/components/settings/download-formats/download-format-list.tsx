@@ -26,12 +26,8 @@ type DownloadFormatListProps = {
   onDelete: (id: number) => void;
 };
 
-function isAudioFormat(title: string): boolean {
-  return /^(mp3|m4b|flac|aac|ogg|wma|wav)$/i.test(title);
-}
-
 function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
-  const maxRange = isAudioFormat(def.title) ? 5000 : 500;
+  const maxRange = def.type === "audiobook" ? 5000 : 500;
   const updateDef = useUpdateDownloadFormat();
 
   const [values, setValues] = useState<[number, number, number]>([
@@ -62,12 +58,13 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         specifications: Array.isArray(def.specifications)
           ? def.specifications
           : [],
+        type: def.type as "ebook" | "audiobook",
       });
     },
     [def, updateDef],
   );
 
-  if ((def.maxSize ?? 0) === 0 && def.title === "Unknown") {
+  if ((def.maxSize ?? 0) === 0 && def.title.startsWith("Unknown")) {
     return <span className="text-sm text-muted-foreground">No limit</span>;
   }
 
