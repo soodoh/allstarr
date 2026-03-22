@@ -19,9 +19,12 @@ const TEMPLATE_DB_PATH = join(PROJECT_ROOT, "data", "test-template.db");
 const STATE_FILE = join(import.meta.dirname, ".test-state.json");
 
 async function killPortListeners(): Promise<void> {
-  const ports = Object.values(PORTS).filter(
-    (v) => typeof v === "number" && v !== PORTS.APP_BASE,
-  );
+  // Include app server ports (19100+) in cleanup to kill leftover dev servers
+  const ports = Object.values(PORTS).filter((v) => typeof v === "number");
+  // Also clean up potential worker ports (19100-19106)
+  for (let i = 0; i < 7; i += 1) {
+    ports.push(PORTS.APP_BASE + i);
+  }
   for (const port of ports) {
     try {
       const { execFileSync: efs } = await import("node:child_process");
