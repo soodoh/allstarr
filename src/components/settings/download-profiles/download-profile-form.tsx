@@ -53,7 +53,7 @@ type DownloadProfileFormProps = {
     type: string;
     language: string;
   };
-  downloadFormats: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string; type: string }>;
   serverCwd: string;
   onSubmit: (values: {
     name: string;
@@ -76,7 +76,7 @@ function FormatSearchDropdown({
   selectedIds,
   onAdd,
 }: {
-  downloadFormats: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string; type: string }>;
   selectedIds: number[];
   onAdd: (id: number) => void;
 }): JSX.Element {
@@ -329,7 +329,7 @@ function UpgradeSection({
   upgradeAllowed: boolean;
   cutoff: number;
   items: number[];
-  downloadFormats: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string; type: string }>;
   errors: Record<string, string>;
   onUpgradeChange: (v: boolean) => void;
   onCutoffChange: (v: string) => void;
@@ -388,7 +388,7 @@ function QualitiesSection({
   error,
   onItemsChange,
 }: {
-  downloadFormats: Array<{ id: number; title: string }>;
+  downloadFormats: Array<{ id: number; title: string; type: string }>;
   items: number[];
   cutoff: number;
   upgradeAllowed: boolean;
@@ -431,9 +431,9 @@ function QualitiesSection({
 
   return (
     <div className="space-y-2">
-      <Label>Qualities</Label>
+      <Label>File Formats</Label>
       <p className="text-xs text-muted-foreground">
-        Qualities higher in the list are more preferred. Drag to reorder.
+        File formats higher in the list are more preferred. Drag to reorder.
       </p>
 
       <FormatSearchDropdown
@@ -620,9 +620,23 @@ export default function DownloadProfileForm({
   const [type, setType] = useState(defaults.type);
   const [language, setLanguage] = useState(defaults.language);
 
+  const filteredFormats = useMemo(
+    () => downloadFormats.filter((d) => d.type === type),
+    [downloadFormats, type],
+  );
+
   const [items, setItems] = useState<number[]>(() =>
     buildInitialItems(downloadFormats, initialValues?.items),
   );
+
+  const handleTypeChange = (newType: string) => {
+    setType(newType);
+    const validIds = new Set(
+      downloadFormats.filter((d) => d.type === newType).map((d) => d.id),
+    );
+    setItems((prev) => prev.filter((id) => validIds.has(id)));
+    setCutoff(0);
+  };
 
   const handleItemsChange = (
     updater: (prev: number[]) => number[],
@@ -662,7 +676,7 @@ export default function DownloadProfileForm({
       <TypeLanguageSection
         type={type}
         language={language}
-        onTypeChange={setType}
+        onTypeChange={handleTypeChange}
         onLanguageChange={setLanguage}
       />
 
@@ -701,14 +715,14 @@ export default function DownloadProfileForm({
         upgradeAllowed={upgradeAllowed}
         cutoff={cutoff}
         items={items}
-        downloadFormats={downloadFormats}
+        downloadFormats={filteredFormats}
         errors={errors}
         onUpgradeChange={setUpgradeAllowed}
         onCutoffChange={(v) => setCutoff(Number(v))}
       />
 
       <QualitiesSection
-        downloadFormats={downloadFormats}
+        downloadFormats={filteredFormats}
         items={items}
         cutoff={cutoff}
         upgradeAllowed={upgradeAllowed}
