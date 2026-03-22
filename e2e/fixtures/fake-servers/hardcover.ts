@@ -278,6 +278,20 @@ function handler(
     return json({ data: { books: ids } });
   }
 
+  // AuthorBookCounts query — return non-zero counts for each aliased aggregate
+  if (query.includes("books_aggregate")) {
+    const aliasPattern = /\ba(\d+):\s*books_aggregate/g;
+    const result: Record<string, { aggregate: { count: number } }> = {};
+    let found = aliasPattern.exec(query);
+    while (found !== null) {
+      result[`a${found[1]}`] = {
+        aggregate: { count: state.books.length || 1 },
+      };
+      found = aliasPattern.exec(query);
+    }
+    return json({ data: result });
+  }
+
   if (query.includes("series(where")) {
     return handleSeriesQuery(state, vars);
   }
