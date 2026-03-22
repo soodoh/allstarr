@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { invalidateFormatDefCache } from "src/server/indexers/format-parser";
-import { clearRunningTasks } from "src/server/scheduler";
 
 /**
  * Test-only endpoint that resets server-side caches and state.
@@ -13,6 +11,10 @@ export const Route = createFileRoute("/api/__test-reset")({
         if (!process.env.SQLITE_JOURNAL_MODE) {
           return new Response("Not available", { status: 404 });
         }
+        // Lazy imports to avoid triggering heavy module compilation on route load
+        const { invalidateFormatDefCache } =
+          await import("src/server/indexers/format-parser");
+        const { clearRunningTasks } = await import("src/server/scheduler");
         invalidateFormatDefCache();
         clearRunningTasks();
         return Response.json({ ok: true });
