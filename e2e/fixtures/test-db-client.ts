@@ -82,26 +82,16 @@ export class TestDbClient {
     });
   }
 
-  /** Clean all test-relevant tables in FK-safe order. */
+  /** Clean all test-relevant tables in FK-safe order (single HTTP call). */
   async cleanAll(): Promise<void> {
-    const tables = [
-      "trackedDownloads",
-      "history",
-      "bookFiles",
-      "blocklist",
-      "editionDownloadProfiles",
-      "authorDownloadProfiles",
-      "booksAuthors",
-      "editions",
-      "books",
-      "authors",
-      "downloadClients",
-      "indexers",
-      "syncedIndexers",
-      "downloadProfiles",
-    ];
-    for (const table of tables) {
-      await this.deleteAll(table);
+    const res = await fetch(`${this.appUrl}/api/e2e-test-db`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cleanAll" }),
+    });
+    const json = (await res.json()) as { ok: boolean; error?: string };
+    if (!json.ok) {
+      throw new Error(`cleanAll() failed: ${json.error}`);
     }
   }
 }
