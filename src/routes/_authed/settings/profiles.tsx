@@ -58,6 +58,8 @@ function ProfilesPage() {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
+    type: string;
+    language: string;
   }) => {
     createProfile.mutate(values, {
       onSuccess: () => setProfileDialogOpen(false),
@@ -72,6 +74,8 @@ function ProfilesPage() {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
+    type: string;
+    language: string;
   }) => {
     if (!editingProfile) {
       return;
@@ -140,6 +144,8 @@ function ProfilesPage() {
                     items: editingProfile.items,
                     upgradeAllowed: editingProfile.upgradeAllowed,
                     categories: editingProfile.categories,
+                    type: editingProfile.type,
+                    language: editingProfile.language,
                   }
                 : undefined
             }
