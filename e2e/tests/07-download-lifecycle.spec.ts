@@ -111,9 +111,6 @@ test.describe("Download Lifecycle", () => {
       // Checkpoint WAL so bun:sqlite in the app server sees seeded data
       checkpoint();
 
-      // Navigate to force the app server's DB connection to see seeded data
-      await navigateTo(page, appUrl, "/settings/indexers");
-
       // Configure fake qBittorrent
       await fetch(`${fakeServers.QBITTORRENT}/__control`, {
         method: "POST",
