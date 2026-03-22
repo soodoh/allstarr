@@ -9,6 +9,8 @@ const downloadProfileBaseSchema = z.object({
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
+  type: z.enum(["ebook", "audiobook"]),
+  language: z.string().min(2).max(3),
 });
 
 export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
@@ -67,9 +69,6 @@ export const updateSettingSchema = z.object({
 
 // Metadata Profile
 export const metadataProfileSchema = z.object({
-  allowedLanguages: z
-    .array(z.string())
-    .min(1, "At least one language required"),
   skipMissingReleaseDate: z.boolean().default(false),
   skipMissingIsbnAsin: z.boolean().default(false),
   skipCompilations: z.boolean().default(false),
@@ -149,13 +148,19 @@ export const updateEditionSchema = createEditionSchema.partial().extend({
   id: z.number(),
 });
 
-export const toggleEditionProfileSchema = z.object({
-  editionId: z.number(),
+export const monitorBookProfileSchema = z.object({
+  bookId: z.number(),
   downloadProfileId: z.number(),
 });
 
-export const toggleBookProfileSchema = z.object({
+export const unmonitorBookProfileSchema = z.object({
   bookId: z.number(),
+  downloadProfileId: z.number(),
+  deleteFiles: z.boolean(),
+});
+
+export const setEditionForProfileSchema = z.object({
+  editionId: z.number(),
   downloadProfileId: z.number(),
 });
 

@@ -39,6 +39,7 @@ import {
 } from "src/components/ui/select";
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
+import LanguageSingleSelect from "src/components/shared/language-single-select";
 
 type DownloadProfileFormProps = {
   initialValues?: {
@@ -49,6 +50,8 @@ type DownloadProfileFormProps = {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
+    type: string;
+    language: string;
   };
   downloadFormats: Array<{ id: number; title: string }>;
   serverCwd: string;
@@ -60,6 +63,8 @@ type DownloadProfileFormProps = {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
+    type: string;
+    language: string;
   }) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -272,6 +277,32 @@ function SortableFormatItem({
   );
 }
 
+type ProfileDefaults = {
+  name: string;
+  icon: string;
+  rootFolderPath: string;
+  upgradeAllowed: boolean;
+  cutoff: number;
+  categories: number[];
+  type: string;
+  language: string;
+};
+
+function getDefaults(
+  initialValues: DownloadProfileFormProps["initialValues"],
+): ProfileDefaults {
+  return {
+    name: initialValues?.name ?? "",
+    icon: initialValues?.icon ?? "book-open",
+    rootFolderPath: initialValues?.rootFolderPath ?? "",
+    upgradeAllowed: initialValues?.upgradeAllowed ?? false,
+    cutoff: initialValues?.cutoff ?? 0,
+    categories: initialValues?.categories ?? [],
+    type: initialValues?.type ?? "ebook",
+    language: initialValues?.language ?? "en",
+  };
+}
+
 function buildInitialItems(
   downloadFormats: Array<{ id: number; title: string }>,
   existingItems?: number[],
@@ -290,7 +321,7 @@ function UpgradeSection({
   upgradeAllowed,
   cutoff,
   items,
-  defMap,
+  downloadFormats,
   errors,
   onUpgradeChange,
   onCutoffChange,
@@ -298,11 +329,15 @@ function UpgradeSection({
   upgradeAllowed: boolean;
   cutoff: number;
   items: number[];
-  defMap: Map<number, string>;
+  downloadFormats: Array<{ id: number; title: string }>;
   errors: Record<string, string>;
   onUpgradeChange: (v: boolean) => void;
   onCutoffChange: (v: string) => void;
 }): JSX.Element {
+  const defMap = useMemo(
+    () => new Map(downloadFormats.map((d) => [d.id, d.title])),
+    [downloadFormats],
+  );
   return (
     <>
       <div className="flex items-center gap-2">
@@ -341,6 +376,174 @@ function UpgradeSection({
           )}
         </div>
       )}
+    </>
+  );
+}
+
+function QualitiesSection({
+  downloadFormats,
+  items,
+  cutoff,
+  upgradeAllowed,
+  error,
+  onItemsChange,
+}: {
+  downloadFormats: Array<{ id: number; title: string }>;
+  items: number[];
+  cutoff: number;
+  upgradeAllowed: boolean;
+  error?: string;
+  onItemsChange: (
+    updater: (prev: number[]) => number[],
+    removedId?: number,
+  ) => void;
+}): JSX.Element {
+  const defMap = useMemo(
+    () => new Map(downloadFormats.map((d) => [d.id, d.title])),
+    [downloadFormats],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      onItemsChange((prev) => {
+        const oldIndex = prev.indexOf(active.id as number);
+        const newIndex = prev.indexOf(over.id as number);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const addItem = (id: number) => {
+    onItemsChange((prev) => [...prev, id]);
+  };
+
+  const removeItem = (id: number) => {
+    onItemsChange((prev) => prev.filter((i) => i !== id), id);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>Qualities</Label>
+      <p className="text-xs text-muted-foreground">
+        Qualities higher in the list are more preferred. Drag to reorder.
+      </p>
+
+      <FormatSearchDropdown
+        downloadFormats={downloadFormats}
+        selectedIds={items}
+        onAdd={addItem}
+      />
+
+      {items.length > 0 && (
+        <div className="space-y-1 rounded-md border border-border p-2">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={items}
+              strategy={verticalListSortingStrategy}
+            >
+              {items.map((id) => (
+                <SortableFormatItem
+                  key={id}
+                  id={id}
+                  name={defMap.get(id) ?? String(id)}
+                  isCutoff={upgradeAllowed && cutoff === id}
+                  onRemove={() => removeItem(id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function IconSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="profile-icon">Icon</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="profile-icon" className="w-full">
+          <SelectValue>
+            {(() => {
+              const Icon = getProfileIcon(value);
+              return (
+                <span className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  {PROFILE_ICONS[value]}
+                </span>
+              );
+            })()}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(PROFILE_ICONS).map(([key, label]) => {
+            const Icon = PROFILE_ICON_MAP[key];
+            return (
+              <SelectItem key={key} value={key}>
+                <span className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function TypeLanguageSection({
+  type,
+  language,
+  onTypeChange,
+  onLanguageChange,
+}: {
+  type: string;
+  language: string;
+  onTypeChange: (v: string) => void;
+  onLanguageChange: (v: string) => void;
+}): JSX.Element {
+  return (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="profile-type">Type</Label>
+        <Select value={type} onValueChange={onTypeChange}>
+          <SelectTrigger id="profile-type" className="w-full">
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ebook">Ebook</SelectItem>
+            <SelectItem value="audiobook">Audiobook</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="profile-language">Language</Label>
+        <LanguageSingleSelect value={language} onChange={onLanguageChange} />
+      </div>
     </>
   );
 }
@@ -407,55 +610,27 @@ export default function DownloadProfileForm({
   loading,
   serverError,
 }: DownloadProfileFormProps): JSX.Element {
-  const [name, setName] = useState(initialValues?.name || "");
-  const [icon, setIcon] = useState(initialValues?.icon ?? "book-open");
-  const [rootFolderPath, setRootFolderPath] = useState(
-    initialValues?.rootFolderPath || "",
-  );
-  const [upgradeAllowed, setUpgradeAllowed] = useState(
-    initialValues?.upgradeAllowed || false,
-  );
-  const [cutoff, setCutoff] = useState(initialValues?.cutoff || 0);
-  const [categories, setCategories] = useState<number[]>(
-    initialValues?.categories ?? [],
-  );
+  const defaults = useMemo(() => getDefaults(initialValues), [initialValues]);
+  const [name, setName] = useState(defaults.name);
+  const [icon, setIcon] = useState(defaults.icon);
+  const [rootFolderPath, setRootFolderPath] = useState(defaults.rootFolderPath);
+  const [upgradeAllowed, setUpgradeAllowed] = useState(defaults.upgradeAllowed);
+  const [cutoff, setCutoff] = useState(defaults.cutoff);
+  const [categories, setCategories] = useState<number[]>(defaults.categories);
+  const [type, setType] = useState(defaults.type);
+  const [language, setLanguage] = useState(defaults.language);
 
   const [items, setItems] = useState<number[]>(() =>
     buildInitialItems(downloadFormats, initialValues?.items),
   );
 
-  const defMap = useMemo(
-    () => new Map(downloadFormats.map((d) => [d.id, d.title])),
-    [downloadFormats],
-  );
-
-  const addItem = (id: number) => {
-    setItems((prev) => [...prev, id]);
-  };
-
-  const removeItem = (id: number) => {
-    setItems((prev) => prev.filter((i) => i !== id));
-    if (cutoff === id) {
+  const handleItemsChange = (
+    updater: (prev: number[]) => number[],
+    removedId?: number,
+  ) => {
+    setItems(updater);
+    if (removedId !== undefined && cutoff === removedId) {
       setCutoff(0);
-    }
-  };
-
-  // DnD
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setItems((prev) => {
-        const oldIndex = prev.indexOf(active.id as number);
-        const newIndex = prev.indexOf(over.id as number);
-        return arrayMove(prev, oldIndex, newIndex);
-      });
     }
   };
 
@@ -471,6 +646,8 @@ export default function DownloadProfileForm({
       items,
       upgradeAllowed,
       categories,
+      type,
+      language,
     });
     if (!result.success) {
       setErrors(result.errors);
@@ -482,6 +659,13 @@ export default function DownloadProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <TypeLanguageSection
+        type={type}
+        language={language}
+        onTypeChange={setType}
+        onLanguageChange={setLanguage}
+      />
+
       <div className="space-y-2">
         <Label htmlFor="profile-name">Name</Label>
         <Input
@@ -495,37 +679,7 @@ export default function DownloadProfileForm({
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="profile-icon">Icon</Label>
-        <Select value={icon} onValueChange={setIcon}>
-          <SelectTrigger id="profile-icon" className="w-full">
-            <SelectValue>
-              {(() => {
-                const Icon = getProfileIcon(icon);
-                return (
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    {PROFILE_ICONS[icon]}
-                  </span>
-                );
-              })()}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(PROFILE_ICONS).map(([key, label]) => {
-              const Icon = PROFILE_ICON_MAP[key];
-              return (
-                <SelectItem key={key} value={key}>
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </span>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </div>
+      <IconSelect value={icon} onChange={setIcon} />
 
       <RootFolderSection
         rootFolderPath={rootFolderPath}
@@ -547,54 +701,20 @@ export default function DownloadProfileForm({
         upgradeAllowed={upgradeAllowed}
         cutoff={cutoff}
         items={items}
-        defMap={defMap}
+        downloadFormats={downloadFormats}
         errors={errors}
         onUpgradeChange={setUpgradeAllowed}
         onCutoffChange={(v) => setCutoff(Number(v))}
       />
 
-      <div className="space-y-2">
-        <Label>Qualities</Label>
-        <p className="text-xs text-muted-foreground">
-          Qualities higher in the list are more preferred. Drag to reorder.
-        </p>
-
-        <FormatSearchDropdown
-          downloadFormats={downloadFormats}
-          selectedIds={items}
-          onAdd={addItem}
-        />
-
-        {/* Sortable quality list */}
-        {items.length > 0 && (
-          <div className="space-y-1 rounded-md border border-border p-2">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={items}
-                strategy={verticalListSortingStrategy}
-              >
-                {items.map((id) => (
-                  <SortableFormatItem
-                    key={id}
-                    id={id}
-                    name={defMap.get(id) ?? String(id)}
-                    isCutoff={upgradeAllowed && cutoff === id}
-                    onRemove={() => removeItem(id)}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-          </div>
-        )}
-
-        {errors.items && (
-          <p className="text-sm text-destructive">{errors.items}</p>
-        )}
-      </div>
+      <QualitiesSection
+        downloadFormats={downloadFormats}
+        items={items}
+        cutoff={cutoff}
+        upgradeAllowed={upgradeAllowed}
+        error={errors.items}
+        onItemsChange={handleItemsChange}
+      />
 
       {serverError && !serverError.includes("Root folder") && (
         <p className="text-sm text-destructive">{serverError}</p>

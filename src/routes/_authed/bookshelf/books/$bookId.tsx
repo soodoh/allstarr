@@ -44,8 +44,10 @@ import {
 } from "src/lib/queries";
 import {
   useRefreshBookMetadata,
-  useToggleBookProfile,
+  useMonitorBookProfile,
+  useUnmonitorBookProfile,
 } from "src/hooks/mutations";
+import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import ReassignFilesDialog from "src/components/bookshelf/books/reassign-files-dialog";
@@ -80,16 +82,28 @@ function BookDetailPage(): JSX.Element {
 
   const [activeTab, setActiveTab] = useState("editions");
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
+    null,
+  );
 
   const refreshMetadata = useRefreshBookMetadata();
-  const toggleBookProfile = useToggleBookProfile();
+  const monitorBookProfile = useMonitorBookProfile();
+  const unmonitorBookProfile = useUnmonitorBookProfile();
 
   const authorDownloadProfiles = useMemo(() => {
     if (!book || !downloadProfiles) {
       return [];
     }
     const profileIdSet = new Set(book.authorDownloadProfileIds);
-    return downloadProfiles.filter((p) => profileIdSet.has(p.id));
+    return downloadProfiles
+      .filter((p) => profileIdSet.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        icon: p.icon,
+        type: p.type,
+        language: p.language,
+      }));
   }, [book, downloadProfiles]);
 
   const { data: hasIndexers } = useQuery({
@@ -156,13 +170,19 @@ function BookDetailPage(): JSX.Element {
             <ProfileToggleIcons
               profiles={authorDownloadProfiles}
               activeProfileIds={book.downloadProfileIds}
-              onToggle={(profileId) =>
-                toggleBookProfile.mutate(
-                  { bookId: book.id, downloadProfileId: profileId },
-                  { onSuccess: () => router.invalidate() },
-                )
+              onToggle={(profileId) => {
+                if (book.downloadProfileIds.includes(profileId)) {
+                  setUnmonitorProfileId(profileId);
+                } else {
+                  monitorBookProfile.mutate(
+                    { bookId: book.id, downloadProfileId: profileId },
+                    { onSuccess: () => router.invalidate() },
+                  );
+                }
+              }}
+              isPending={
+                monitorBookProfile.isPending || unmonitorBookProfile.isPending
               }
-              isPending={toggleBookProfile.isPending}
               size="lg"
               direction="vertical"
             />
@@ -328,7 +348,10 @@ function BookDetailPage(): JSX.Element {
             <div className="p-4">
               <EditionsTab
                 bookId={book.id}
+                bookTitle={book.title}
+                fileCount={book.fileCount}
                 authorDownloadProfiles={authorDownloadProfiles}
+                editions={book.editions}
               />
               <SearchReleasesTab
                 book={book}
@@ -339,6 +362,36 @@ function BookDetailPage(): JSX.Element {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Unmonitor profile dialog (triggered from header toggle) */}
+      {unmonitorProfileId !== null && (
+        <UnmonitorDialog
+          open={unmonitorProfileId !== null}
+          onOpenChange={(open) => !open && setUnmonitorProfileId(null)}
+          profileName={
+            authorDownloadProfiles.find((p) => p.id === unmonitorProfileId)
+              ?.name ?? ""
+          }
+          bookTitle={book.title}
+          fileCount={book.fileCount}
+          onConfirm={(deleteFiles) => {
+            unmonitorBookProfile.mutate(
+              {
+                bookId: book.id,
+                downloadProfileId: unmonitorProfileId,
+                deleteFiles,
+              },
+              {
+                onSuccess: () => {
+                  setUnmonitorProfileId(null);
+                  router.invalidate();
+                },
+              },
+            );
+          }}
+          isPending={unmonitorBookProfile.isPending}
+        />
+      )}
 
       {/* Reassign files dialog */}
       <ReassignFilesDialog

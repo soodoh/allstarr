@@ -4,7 +4,6 @@ import { eq } from "drizzle-orm";
 import { metadataProfileSchema } from "src/lib/validators";
 
 export type MetadataProfile = {
-  allowedLanguages: string[];
   skipMissingReleaseDate: boolean;
   skipMissingIsbnAsin: boolean;
   skipCompilations: boolean;
@@ -13,7 +12,6 @@ export type MetadataProfile = {
 };
 
 const DEFAULT_METADATA_PROFILE: MetadataProfile = {
-  allowedLanguages: ["en"],
   skipMissingReleaseDate: false,
   skipMissingIsbnAsin: false,
   skipCompilations: false,

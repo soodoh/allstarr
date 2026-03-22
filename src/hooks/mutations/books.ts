@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import {
   createBookFn,
   deleteBookFn,
-  toggleBookProfileFn,
-  toggleEditionProfileFn,
+  monitorBookProfileFn,
+  unmonitorBookProfileFn,
+  setEditionForProfileFn,
   updateEditionFn,
   deleteEditionFn,
   reassignBookFilesFn,
@@ -46,30 +47,47 @@ export function useDeleteBook() {
   });
 }
 
-export function useToggleBookProfile() {
+export function useMonitorBookProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { bookId: number; downloadProfileId: number }) =>
-      toggleBookProfileFn({ data }),
+      monitorBookProfileFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
-    onError: () => toast.error("Failed to update monitoring"),
+    onError: () => toast.error("Failed to monitor profile"),
   });
 }
 
-export function useToggleEditionProfile() {
+export function useUnmonitorBookProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      bookId: number;
+      downloadProfileId: number;
+      deleteFiles: boolean;
+    }) => unmonitorBookProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    },
+    onError: () => toast.error("Failed to unmonitor profile"),
+  });
+}
+
+export function useSetEditionForProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { editionId: number; downloadProfileId: number }) =>
-      toggleEditionProfileFn({ data }),
+      setEditionForProfileFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
     },
-    onError: () => toast.error("Failed to update edition monitoring"),
+    onError: () => toast.error("Failed to set edition"),
   });
 }
 
