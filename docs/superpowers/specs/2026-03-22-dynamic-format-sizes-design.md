@@ -37,6 +37,8 @@ effectiveMaxMB = maxSize * (effectivePages / 100)
 effectivePreferredMB = preferredSize * (effectivePages / 100)
 ```
 
+`preferredSize` is UI-only — it controls the slider's middle thumb to show the user's ideal target. It is not used in rejection logic.
+
 ### Audiobook formats
 
 ```
@@ -47,7 +49,7 @@ effectiveMaxMB = (maxSize * 128 * effectiveDurationSec) / (1024 * 1024)
 effectivePreferredMB = (preferredSize * 128 * effectiveDurationSec) / (1024 * 1024)
 ```
 
-Where `kbps * 128` converts kilobits/sec to bytes/sec (Lidarr convention).
+The factor `128` converts kbps to bytes/sec using the binary computing convention (1 kbit = 1024 bits, so 1024/8 = 128). This matches Lidarr's `NumberExtensions.Kilobits()` implementation and is consistent with the rest of the codebase which uses binary MB (`/ (1024 * 1024)`).
 
 ### Special cases
 
@@ -63,18 +65,20 @@ Where `kbps * 128` converts kilobits/sec to bytes/sec (Lidarr convention).
 
 ### New behavior
 
-1. `getDefSizeLimits` is updated to accept edition metadata and return **calculated** MB values:
+1. **Cache stores raw rates + type.** The `sizeLimitsCache` is updated to store `{ minSize, maxSize, type }` (raw rate values and format type). Effective MB is computed on each call, not cached, since it varies per edition.
+
+2. **`getDefSizeLimits` accepts edition metadata:**
    - Signature: `getDefSizeLimits(qualityId, editionMeta?)` where `editionMeta = { pageCount?: number, audioLength?: number }`
-   - Internally reads format type, applies the rate formula with edition metadata or settings fallbacks
-   - Returns `{ minSize, maxSize }` in effective MB (same shape, callers don't change)
+   - Reads cached raw rates + type, applies the rate formula with edition metadata or settings fallbacks
+   - Returns `{ minSize, maxSize }` in effective MB (same return shape, callers don't change)
 
-2. `computeReleaseMetrics` threads `bookId` through to look up edition metadata from the DB, then passes it to `getDefSizeLimits`.
+3. **Edition metadata lookup:** `dedupeAndScoreReleases` already receives `bookId`. It looks up the **monitored edition** for the book once (not per-release), extracts `{ pageCount, audioLength }`, and passes this to `computeReleaseMetrics`. When a book has multiple editions, use the edition that is currently monitored/selected. `computeReleaseMetrics` gains an `editionMeta?` parameter and threads it to `getDefSizeLimits`. This avoids N+1 queries.
 
-3. When `bookId` is null (free-form search), uses the default dimension settings for calculation.
+4. When `bookId` is null (free-form search), `editionMeta` is omitted and `getDefSizeLimits` uses the default dimension settings for calculation.
 
-4. Rejection messages include the dimension context:
-   - `"150 MB is above maximum 98 MB for EPUB (based on 300 pages)"`
-   - `"50 MB is below minimum 120 MB for MP3 (based on 10h duration)"`
+5. Rejection messages include the dimension context:
+   - `"150 MB is above maximum 45 MB for EPUB (based on 300 pages)"`
+   - `"250 MB is above maximum 192 MB for MP3 (based on 10h duration)"`
 
 ## Default Seed Values
 
@@ -118,12 +122,12 @@ These inputs read/write to the `settings` table via existing settings server fun
 
 #### Example size table
 
-Below each format's slider, add an "Example sizes" row showing calculated effective sizes at sample dimensions:
+Below each format row's slider, add an "Example sizes" row showing calculated effective sizes at sample dimensions using that row's specific rates:
 
 - **Ebook**: 200 pages, 400 pages, 800 pages
 - **Audiobook**: 5 hours, 10 hours, 20 hours
 
-Format: `"200 pg: 0 – 30 MB"` / `"5 hr: 0 – 787 MB"`
+Format: `"200 pg: 0 – 30 MB"` / `"5 hr: 0 – 769 MB"`
 
 When max is unlimited (0), show "No limit".
 
@@ -135,9 +139,18 @@ The create/edit format dialog does not need changes — it already has fields fo
 
 ### Migration file: `drizzle/0006_dynamic_format_sizes.sql`
 
-1. Update ebook format rows with new MB/100pg rate values
-2. Update audiobook format rows with new kbps values
-3. Insert `defaultPageCount` and `defaultAudioDuration` into settings table
+For **new/default installations** (formats still at seed values), the migration replaces flat MB values with the new rate-based defaults from the seed tables above.
+
+For **existing users with customized values**, the migration converts their values using these formulas:
+
+- **Ebook formats**: `newRate = existingMB / (defaultPageCount / 100)` → i.e., divide by 3 (assuming 300 pages). Example: existing EPUB maxSize=50 MB → `50 / 3 = 16.67` MB/100pg.
+- **Audiobook formats**: `newRate = (existingMB * 1024 * 1024) / (128 * defaultDurationSec)` → convert flat MB back to kbps assuming 10h duration. Example: existing MP3 maxSize=2000 MB → `(2000 * 1048576) / (128 * 36000) = 455` kbps.
+
+In practice, since the app is pre-release, we can simplify by just setting the new seed defaults unconditionally. If preserving custom values becomes important, the conversion formulas above can be applied.
+
+Additional migration steps:
+
+1. Insert `defaultPageCount = 300` and `defaultAudioDuration = 600` into settings table
 
 No DDL changes — only data updates. The column types and names remain the same.
 
@@ -149,8 +162,8 @@ Update the initial seed in `drizzle/0000_puzzling_scarlet_spider.sql` (or equiva
 
 ### Server/logic
 
-- `src/server/indexers/format-parser.ts` — update `getDefSizeLimits` to accept edition metadata and compute dynamic sizes; update cache to include format type
-- `src/server/indexers.ts` — thread `bookId`/edition metadata through `computeReleaseMetrics`; update rejection messages
+- `src/server/indexers/format-parser.ts` — update `sizeLimitsCache` to store raw rates + type; update `getDefSizeLimits` to accept edition metadata and compute dynamic sizes per call
+- `src/server/indexers.ts` — look up monitored edition metadata in `dedupeAndScoreReleases`; thread `editionMeta` through `computeReleaseMetrics` to `getDefSizeLimits`; update rejection messages to include dimension context
 - `src/server/settings.ts` — add server functions to read/write the new default settings (if not already generic)
 
 ### UI
