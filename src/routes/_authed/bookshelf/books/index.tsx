@@ -13,7 +13,11 @@ import {
   BookCardsSkeleton,
 } from "src/components/shared/loading-skeleton";
 import { booksInfiniteQuery, downloadProfilesListQuery } from "src/lib/queries";
-import { useToggleBookProfile } from "src/hooks/mutations";
+import {
+  useMonitorBookProfile,
+  useUnmonitorBookProfile,
+} from "src/hooks/mutations";
+import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 
 export const Route = createFileRoute("/_authed/bookshelf/books/")({
   loader: async ({ context }) => {
@@ -48,7 +52,15 @@ function BooksPage() {
     downloadProfilesListQuery(),
   );
 
-  const toggleBookProfile = useToggleBookProfile();
+  const monitorBookProfile = useMonitorBookProfile();
+  const unmonitorBookProfile = useUnmonitorBookProfile();
+
+  const [unmonitorTarget, setUnmonitorTarget] = useState<{
+    bookId: number;
+    downloadProfileId: number;
+    bookTitle: string;
+    profileName: string;
+  } | null>(null);
 
   const books = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
@@ -145,10 +157,25 @@ function BooksPage() {
           sortDir={sortDir}
           onSort={handleSort}
           downloadProfiles={downloadProfiles}
-          onToggleProfile={(bookId, profileId) =>
-            toggleBookProfile.mutate({ bookId, downloadProfileId: profileId })
-          }
-          isTogglePending={toggleBookProfile.isPending}
+          onToggleProfile={(bookId, profileId) => {
+            const book = books.find((b) => b.id === bookId);
+            const isActive = book?.downloadProfileIds?.includes(profileId);
+            if (isActive) {
+              const profile = downloadProfiles.find((p) => p.id === profileId);
+              setUnmonitorTarget({
+                bookId,
+                downloadProfileId: profileId,
+                bookTitle: book?.title ?? "Unknown",
+                profileName: profile?.name ?? "Unknown",
+              });
+            } else {
+              monitorBookProfile.mutate({
+                bookId,
+                downloadProfileId: profileId,
+              });
+            }
+          }}
+          isTogglePending={monitorBookProfile.isPending}
         >
           {showLoading && <BookTableRowsSkeleton columns={7} />}
         </BookTable>
@@ -162,6 +189,31 @@ function BooksPage() {
       )}
 
       <div ref={sentinelRef} className="h-1" />
+
+      <UnmonitorDialog
+        open={unmonitorTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnmonitorTarget(null);
+          }
+        }}
+        profileName={unmonitorTarget?.profileName ?? ""}
+        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        fileCount={0}
+        onConfirm={(deleteFiles) => {
+          if (unmonitorTarget) {
+            unmonitorBookProfile.mutate(
+              {
+                bookId: unmonitorTarget.bookId,
+                downloadProfileId: unmonitorTarget.downloadProfileId,
+                deleteFiles,
+              },
+              { onSuccess: () => setUnmonitorTarget(null) },
+            );
+          }
+        }}
+        isPending={unmonitorBookProfile.isPending}
+      />
     </div>
   );
 }

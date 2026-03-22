@@ -87,8 +87,10 @@ import {
   useUpdateAuthor,
   useDeleteAuthor,
   useRefreshAuthorMetadata,
-  useToggleBookProfile,
+  useMonitorBookProfile,
+  useUnmonitorBookProfile,
 } from "src/hooks/mutations";
+import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 import NotFound from "src/components/NotFound";
 import { pickBestEdition } from "src/lib/editions";
 import type { HardcoverRawSeriesBookEdition } from "src/server/hardcover/types";
@@ -218,10 +220,18 @@ function BooksTab({
   authorDownloadProfiles: DownloadProfileInfo[];
 }) {
   const router = useRouter();
-  const toggleBookProfile = useToggleBookProfile();
+  const monitorBookProfile = useMonitorBookProfile();
+  const unmonitorBookProfile = useUnmonitorBookProfile();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [unmonitorTarget, setUnmonitorTarget] = useState<{
+    bookId: number;
+    downloadProfileId: number;
+    bookTitle: string;
+    profileName: string;
+    fileCount: number;
+  } | null>(null);
   const [language, setLanguage] = useState(
     availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
   );
@@ -383,13 +393,27 @@ function BooksTab({
       <ProfileToggleIcons
         profiles={authorDownloadProfiles}
         activeProfileIds={row.downloadProfileIds}
-        onToggle={(profileId) =>
-          toggleBookProfile.mutate({
-            bookId: row.bookId,
-            downloadProfileId: profileId,
-          })
-        }
-        isPending={toggleBookProfile.isPending}
+        onToggle={(profileId) => {
+          const isActive = row.downloadProfileIds.includes(profileId);
+          if (isActive) {
+            const profile = authorDownloadProfiles.find(
+              (p) => p.id === profileId,
+            );
+            setUnmonitorTarget({
+              bookId: row.bookId,
+              downloadProfileId: profileId,
+              bookTitle: row.title,
+              profileName: profile?.name ?? "Unknown",
+              fileCount: meta?.fileCount ?? 0,
+            });
+          } else {
+            monitorBookProfile.mutate({
+              bookId: row.bookId,
+              downloadProfileId: profileId,
+            });
+          }
+        }}
+        isPending={monitorBookProfile.isPending}
       />
     );
   };
@@ -465,6 +489,31 @@ function BooksTab({
         </BaseBookTable>
         <div ref={sentinelRef} className="h-1" />
       </div>
+
+      <UnmonitorDialog
+        open={unmonitorTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnmonitorTarget(null);
+          }
+        }}
+        profileName={unmonitorTarget?.profileName ?? ""}
+        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        fileCount={unmonitorTarget?.fileCount ?? 0}
+        onConfirm={(deleteFiles) => {
+          if (unmonitorTarget) {
+            unmonitorBookProfile.mutate(
+              {
+                bookId: unmonitorTarget.bookId,
+                downloadProfileId: unmonitorTarget.downloadProfileId,
+                deleteFiles,
+              },
+              { onSuccess: () => setUnmonitorTarget(null) },
+            );
+          }
+        }}
+        isPending={unmonitorBookProfile.isPending}
+      />
     </div>
   );
 }
@@ -560,7 +609,8 @@ function SeriesTab({
   metadataProfile: MetadataProfile;
 }) {
   const router = useRouter();
-  const toggleBookProfile = useToggleBookProfile();
+  const monitorBookProfile = useMonitorBookProfile();
+  const unmonitorBookProfile = useUnmonitorBookProfile();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
   const [language, setLanguage] = useState(
@@ -569,6 +619,13 @@ function SeriesTab({
   const [previewBook, setPreviewBook] = useState<
     HardcoverSearchItem | undefined
   >(undefined);
+  const [unmonitorTarget, setUnmonitorTarget] = useState<{
+    bookId: number;
+    downloadProfileId: number;
+    bookTitle: string;
+    profileName: string;
+    fileCount: number;
+  } | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -957,13 +1014,32 @@ function SeriesTab({
                                   <ProfileToggleIcons
                                     profiles={authorDownloadProfiles}
                                     activeProfileIds={book.downloadProfileIds}
-                                    onToggle={(profileId) =>
-                                      toggleBookProfile.mutate({
-                                        bookId: book.id,
-                                        downloadProfileId: profileId,
-                                      })
-                                    }
-                                    isPending={toggleBookProfile.isPending}
+                                    onToggle={(profileId) => {
+                                      const isActive =
+                                        book.downloadProfileIds.includes(
+                                          profileId,
+                                        );
+                                      if (isActive) {
+                                        const profile =
+                                          authorDownloadProfiles.find(
+                                            (p) => p.id === profileId,
+                                          );
+                                        setUnmonitorTarget({
+                                          bookId: book.id,
+                                          downloadProfileId: profileId,
+                                          bookTitle: book.title,
+                                          profileName:
+                                            profile?.name ?? "Unknown",
+                                          fileCount: book.fileCount,
+                                        });
+                                      } else {
+                                        monitorBookProfile.mutate({
+                                          bookId: book.id,
+                                          downloadProfileId: profileId,
+                                        });
+                                      }
+                                    }}
+                                    isPending={monitorBookProfile.isPending}
                                   />
                                 );
                               })()}
@@ -1152,6 +1228,31 @@ function SeriesTab({
           }}
         />
       )}
+
+      <UnmonitorDialog
+        open={unmonitorTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnmonitorTarget(null);
+          }
+        }}
+        profileName={unmonitorTarget?.profileName ?? ""}
+        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        fileCount={unmonitorTarget?.fileCount ?? 0}
+        onConfirm={(deleteFiles) => {
+          if (unmonitorTarget) {
+            unmonitorBookProfile.mutate(
+              {
+                bookId: unmonitorTarget.bookId,
+                downloadProfileId: unmonitorTarget.downloadProfileId,
+                deleteFiles,
+              },
+              { onSuccess: () => setUnmonitorTarget(null) },
+            );
+          }
+        }}
+        isPending={unmonitorBookProfile.isPending}
+      />
     </div>
   );
 }
