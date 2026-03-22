@@ -64,9 +64,12 @@ export function computeEffectiveSizes(
 }
 
 /** Format a size in MB as a human-readable string (e.g., "45 MB", "1.5 GB", "No limit") */
-export function formatEffectiveSize(mb: number): string {
+export function formatEffectiveSize(
+  mb: number,
+  context: "min" | "max" = "max",
+): string {
   if (mb === 0) {
-    return "No limit";
+    return context === "min" ? "0" : "No limit";
   }
   if (mb >= 1024) {
     return `${(mb / 1024).toFixed(1)} GB`;
