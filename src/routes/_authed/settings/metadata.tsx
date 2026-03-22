@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import PageHeader from "src/components/shared/page-header";
-import LanguageMultiSelect from "src/components/shared/language-multi-select";
 import { metadataProfileQuery } from "src/lib/queries";
 import { useUpdateMetadataProfile } from "src/hooks/mutations";
 import validateForm from "src/lib/form-validation";
@@ -29,9 +28,6 @@ function MetadataSettingsPage() {
   const { data: profile } = useSuspenseQuery(metadataProfileQuery());
   const updateProfile = useUpdateMetadataProfile();
 
-  const [allowedLanguages, setAllowedLanguages] = useState(
-    profile.allowedLanguages,
-  );
   const [skipMissingReleaseDate, setSkipMissingReleaseDate] = useState(
     profile.skipMissingReleaseDate,
   );
@@ -49,7 +45,6 @@ function MetadataSettingsPage() {
 
   const handleSave = () => {
     const result = validateForm(metadataProfileSchema, {
-      allowedLanguages,
       skipMissingReleaseDate,
       skipMissingIsbnAsin,
       skipCompilations,
@@ -72,27 +67,6 @@ function MetadataSettingsPage() {
       />
 
       <div className="space-y-6 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Allowed Languages</CardTitle>
-            <CardDescription>
-              Only editions in these languages will be imported from Hardcover.
-              At least one language must be selected.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LanguageMultiSelect
-              value={allowedLanguages}
-              onChange={setAllowedLanguages}
-            />
-            {errors.allowedLanguages && (
-              <p className="text-sm text-destructive mt-2">
-                {errors.allowedLanguages}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Import Filters</CardTitle>
