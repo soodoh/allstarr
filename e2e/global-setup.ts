@@ -59,8 +59,11 @@ async function globalSetup(): Promise<void> {
     env: { ...process.env, DATABASE_URL: TEMPLATE_DB_PATH },
   });
 
-  // 1b. Seed download format definitions (db:push creates tables but no seed data)
+  // 1b. Seed download format definitions and checkpoint to main DB file.
+  // db:push may create the DB in WAL mode; checkpointing ensures the copy
+  // (which only copies the main file) includes the seeded data.
   const templateDb = new Database(TEMPLATE_DB_PATH);
+  templateDb.pragma("journal_mode = DELETE");
   templateDb.exec(
     [
       "INSERT INTO download_formats (id, title, weight, color, specifications) VALUES",
@@ -74,6 +77,7 @@ async function globalSetup(): Promise<void> {
       `(8, 'FLAC', 8, 'indigo', '[{"type":"releaseTitle","value":"\\\\bflac\\\\b","negate":false,"required":true}]')`,
     ].join("\n"),
   );
+  templateDb.pragma("wal_checkpoint(TRUNCATE)");
   templateDb.close();
 
   // 2. Start all fake servers
