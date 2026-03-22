@@ -6,6 +6,7 @@ import {
   ImageIcon,
   Star,
 } from "lucide-react";
+import { cn } from "src/lib/utils";
 import {
   Table,
   TableBody,
@@ -211,6 +212,7 @@ type BaseBookTableProps = {
   onSort?: (key: string) => void;
   renderLeadingCell?: (row: BookTableRow) => ReactNode;
   onRowClick?: (row: BookTableRow) => void;
+  selectedRowKey?: number | string;
   emptyMessage?: string;
   currentAuthorId?: number;
   children?: ReactNode;
@@ -246,6 +248,7 @@ export default function BaseBookTable({
   onSort,
   renderLeadingCell,
   onRowClick,
+  selectedRowKey,
   emptyMessage = "No items found.",
   currentAuthorId,
   children,
@@ -290,7 +293,11 @@ export default function BaseBookTable({
           ? rows.map((row) => (
               <TableRow
                 key={row.key}
-                className={onRowClick ? "cursor-pointer" : undefined}
+                className={cn(
+                  onRowClick && "cursor-pointer",
+                  selectedRowKey === row.key &&
+                    "bg-primary/10 ring-1 ring-primary/30",
+                )}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
               >
                 {hasLeading && (
