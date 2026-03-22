@@ -44,7 +44,7 @@ import {
 } from "src/lib/queries";
 import {
   useRefreshBookMetadata,
-  useToggleBookProfile,
+  useMonitorBookProfile,
 } from "src/hooks/mutations";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
@@ -82,14 +82,22 @@ function BookDetailPage(): JSX.Element {
   const [reassignOpen, setReassignOpen] = useState(false);
 
   const refreshMetadata = useRefreshBookMetadata();
-  const toggleBookProfile = useToggleBookProfile();
+  const monitorBookProfile = useMonitorBookProfile();
 
   const authorDownloadProfiles = useMemo(() => {
     if (!book || !downloadProfiles) {
       return [];
     }
     const profileIdSet = new Set(book.authorDownloadProfileIds);
-    return downloadProfiles.filter((p) => profileIdSet.has(p.id));
+    return downloadProfiles
+      .filter((p) => profileIdSet.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        icon: p.icon,
+        type: p.type,
+        language: p.language,
+      }));
   }, [book, downloadProfiles]);
 
   const { data: hasIndexers } = useQuery({
@@ -157,12 +165,12 @@ function BookDetailPage(): JSX.Element {
               profiles={authorDownloadProfiles}
               activeProfileIds={book.downloadProfileIds}
               onToggle={(profileId) =>
-                toggleBookProfile.mutate(
+                monitorBookProfile.mutate(
                   { bookId: book.id, downloadProfileId: profileId },
                   { onSuccess: () => router.invalidate() },
                 )
               }
-              isPending={toggleBookProfile.isPending}
+              isPending={monitorBookProfile.isPending}
               size="lg"
               direction="vertical"
             />
@@ -329,6 +337,7 @@ function BookDetailPage(): JSX.Element {
               <EditionsTab
                 bookId={book.id}
                 authorDownloadProfiles={authorDownloadProfiles}
+                editions={book.editions}
               />
               <SearchReleasesTab
                 book={book}
