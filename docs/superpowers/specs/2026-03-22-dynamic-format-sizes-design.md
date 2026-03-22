@@ -78,7 +78,7 @@ The factor `128` converts kbps to bytes/sec using the binary computing conventio
 
 5. Rejection messages include the dimension context:
    - `"150 MB is above maximum 45 MB for EPUB (based on 300 pages)"`
-   - `"250 MB is above maximum 192 MB for MP3 (based on 10h duration)"`
+   - `"1600 MB is above maximum 1538 MB for MP3 (based on 10h duration)"`
 
 ## Default Seed Values
 
