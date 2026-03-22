@@ -4,7 +4,11 @@ import { TabsContent } from "src/components/ui/tabs";
 import ProfileEditionCard from "src/components/bookshelf/books/profile-edition-card";
 import type { EditionData } from "src/components/bookshelf/books/profile-edition-card";
 import EditionSelectionModal from "src/components/bookshelf/books/edition-selection-modal";
-import { useSetEditionForProfile } from "src/hooks/mutations";
+import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
+import {
+  useSetEditionForProfile,
+  useUnmonitorBookProfile,
+} from "src/hooks/mutations";
 
 type DownloadProfile = {
   id: number;
@@ -27,17 +31,25 @@ type ProfileType = {
 
 export default function EditionsTab({
   bookId,
+  bookTitle,
+  fileCount,
   authorDownloadProfiles,
   editions,
 }: {
   bookId: number;
+  bookTitle: string;
+  fileCount: number;
   authorDownloadProfiles: DownloadProfile[];
   editions: Edition[];
 }): JSX.Element {
   const [selectingProfile, setSelectingProfile] = useState<ProfileType | null>(
     null,
   );
+  const [unmonitorProfile, setUnmonitorProfile] = useState<ProfileType | null>(
+    null,
+  );
   const setEditionForProfile = useSetEditionForProfile();
+  const unmonitorBookProfile = useUnmonitorBookProfile();
   // For each profile, find the edition whose downloadProfileIds includes that profile's ID
   const profileEditionMap = useMemo(() => {
     const map = new Map<number, EditionData | null>();
@@ -91,9 +103,14 @@ export default function EditionsTab({
                   type: profile.type as "ebook" | "audiobook",
                 })
               }
-              onUnmonitor={() => {
-                // Stub: will be wired to unmonitor dialog in Task 10
-              }}
+              onUnmonitor={() =>
+                setUnmonitorProfile({
+                  id: profile.id,
+                  name: profile.name,
+                  icon: profile.icon,
+                  type: profile.type as "ebook" | "audiobook",
+                })
+              }
             />
           );
         })}
@@ -121,6 +138,26 @@ export default function EditionsTab({
             );
           }}
           isPending={setEditionForProfile.isPending}
+        />
+      )}
+      {unmonitorProfile && (
+        <UnmonitorDialog
+          open={Boolean(unmonitorProfile)}
+          onOpenChange={(open) => !open && setUnmonitorProfile(null)}
+          profileName={unmonitorProfile.name}
+          bookTitle={bookTitle}
+          fileCount={fileCount}
+          onConfirm={(deleteFiles) => {
+            unmonitorBookProfile.mutate(
+              {
+                bookId,
+                downloadProfileId: unmonitorProfile.id,
+                deleteFiles,
+              },
+              { onSuccess: () => setUnmonitorProfile(null) },
+            );
+          }}
+          isPending={unmonitorBookProfile.isPending}
         />
       )}
     </TabsContent>
