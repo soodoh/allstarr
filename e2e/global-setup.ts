@@ -80,6 +80,14 @@ async function globalSetup(): Promise<void> {
   templateDb.pragma("wal_checkpoint(TRUNCATE)");
   templateDb.close();
 
+  // Remove WAL/SHM files so copies start fresh
+  for (const suffix of ["-wal", "-shm"]) {
+    const walPath = TEMPLATE_DB_PATH + suffix;
+    if (existsSync(walPath)) {
+      unlinkSync(walPath);
+    }
+  }
+
   // 2. Start all fake servers
   const servers = {
     qbittorrent: createQBittorrentServer(PORTS.QBITTORRENT),
