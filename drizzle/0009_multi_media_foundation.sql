@@ -4,9 +4,10 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. Rename audiobook -> audio in download_formats.type
+-- 1. Rename audiobook -> audio in download_formats.type and download_profiles.type
 -- ------------------------------------------------------------
 UPDATE download_formats SET type = 'audio' WHERE type = 'audiobook';--> statement-breakpoint
+UPDATE download_profiles SET type = 'audio' WHERE type = 'audiobook';--> statement-breakpoint
 
 -- ------------------------------------------------------------
 -- 2. Add columns to download_formats: source, resolution, enabled
