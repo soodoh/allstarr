@@ -502,7 +502,7 @@ test.describe("Download Lifecycle", () => {
     fakeServers,
   }) => {
     // Enable rename books and set custom naming template
-    seedSetting(db, "mediaManagement.renameBooks", true);
+    seedSetting(db, "mediaManagement.ebook.renameBooks", true);
     seedSetting(
       db,
       "naming.ebook.bookFile",
@@ -569,7 +569,7 @@ test.describe("Download Lifecycle", () => {
     fakeServers,
   }) => {
     // Enable hard links
-    seedSetting(db, "mediaManagement.useHardLinks", true);
+    seedSetting(db, "mediaManagement.ebook.useHardLinks", true);
 
     const downloadDir = join(
       tempDir,
