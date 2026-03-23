@@ -20,6 +20,9 @@ import {
   Monitor,
   Activity,
   ListTodo,
+  Film,
+  Tv,
+  Calendar,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,14 +54,36 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Bookshelf",
+    title: "Books",
     to: "/bookshelf",
     icon: LibraryIcon,
-    matchPrefixes: ["/bookshelf"],
+    matchPrefixes: ["/bookshelf", "/books"],
     children: [
       { title: "Add New", to: "/bookshelf/add", icon: Plus },
       { title: "Authors", to: "/bookshelf/authors", icon: Users },
       { title: "Books", to: "/bookshelf/books", icon: BookOpen },
+    ],
+  },
+  {
+    title: "TV Shows",
+    to: "/tv",
+    icon: Tv,
+    matchPrefixes: ["/tv"],
+    children: [
+      { title: "Add New", to: "/tv/add", icon: Plus },
+      { title: "Series", to: "/tv/series", icon: Tv },
+      { title: "Calendar", to: "/tv/calendar", icon: Calendar },
+    ],
+  },
+  {
+    title: "Movies",
+    to: "/movies",
+    icon: Film,
+    matchPrefixes: ["/movies"],
+    children: [
+      { title: "Add New", to: "/movies/add", icon: Plus },
+      { title: "Movies", to: "/movies", icon: Film },
+      { title: "Calendar", to: "/movies/calendar", icon: Calendar },
     ],
   },
   {
