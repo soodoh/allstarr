@@ -112,6 +112,20 @@ function resolveRootFolder(downloadProfileId: number | null): string | null {
   return fallback?.rootFolderPath ?? null;
 }
 
+function resolveProfileType(downloadProfileId: number | null): MediaType {
+  if (downloadProfileId) {
+    const profile = db
+      .select({ type: downloadProfiles.type })
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, downloadProfileId))
+      .get();
+    if (profile?.type === "audiobook") {
+      return "audiobook";
+    }
+  }
+  return "ebook";
+}
+
 function scanForBookFiles(
   dir: string,
   extensions: Set<string> = SUPPORTED_EXTENSIONS,
@@ -201,28 +215,42 @@ type ImportSettings = {
   importExtraFiles: boolean;
 };
 
-function readImportSettings(): ImportSettings {
+function readImportSettings(type: MediaType): ImportSettings {
   return {
-    useHardLinks: getMediaSetting("mediaManagement.useHardLinks", true),
+    useHardLinks: getMediaSetting(`mediaManagement.${type}.useHardLinks`, true),
     skipFreeSpaceCheck: getMediaSetting(
-      "mediaManagement.skipFreeSpaceCheck",
+      `mediaManagement.${type}.skipFreeSpaceCheck`,
       false,
     ),
-    minimumFreeSpace: getMediaSetting("mediaManagement.minimumFreeSpace", 100),
-    renameBooks: getMediaSetting("mediaManagement.renameBooks", false),
-    applyPermissions: getMediaSetting("mediaManagement.setPermissions", false),
-    fileChmod: getMediaSetting("mediaManagement.fileChmod", "0644"),
-    folderChmod: getMediaSetting("mediaManagement.folderChmod", "0755"),
+    minimumFreeSpace: getMediaSetting(
+      `mediaManagement.${type}.minimumFreeSpace`,
+      100,
+    ),
+    renameBooks: getMediaSetting(`mediaManagement.${type}.renameBooks`, false),
+    applyPermissions: getMediaSetting(
+      `mediaManagement.${type}.setPermissions`,
+      false,
+    ),
+    fileChmod: getMediaSetting(`mediaManagement.${type}.fileChmod`, "0644"),
+    folderChmod: getMediaSetting(`mediaManagement.${type}.folderChmod`, "0755"),
     importExtraFiles: getMediaSetting(
-      "mediaManagement.importExtraFiles",
+      `mediaManagement.${type}.importExtraFiles`,
       false,
     ),
   };
 }
 
-function buildScanExtensions(cfg: ImportSettings): Set<string> {
+function buildScanExtensions(): Set<string> {
   const extensions = new Set(SUPPORTED_EXTENSIONS);
-  if (cfg.importExtraFiles) {
+  const ebookImportExtra = getMediaSetting(
+    "mediaManagement.ebook.importExtraFiles",
+    false,
+  );
+  const audioImportExtra = getMediaSetting(
+    "mediaManagement.audiobook.importExtraFiles",
+    false,
+  );
+  if (ebookImportExtra || audioImportExtra) {
     const ebookExtra = getMediaSetting(
       "mediaManagement.ebook.extraFileExtensions",
       "",
@@ -461,8 +489,9 @@ export async function importCompletedDownload(
     return;
   }
 
-  const cfg = readImportSettings();
-  const files = scanForBookFiles(sourceDir, buildScanExtensions(cfg));
+  const primaryType = resolveProfileType(td.downloadProfileId);
+  const cfg = readImportSettings(primaryType);
+  const files = scanForBookFiles(sourceDir, buildScanExtensions());
   if (files.length === 0) {
     markFailed(td.id, "No book files found in download");
     return;
@@ -510,14 +539,14 @@ export async function importCompletedDownload(
 
   const authorFolderName = sanitizePath(
     applyNamingTemplate(
-      getMediaSetting("naming.ebook.authorFolder", "{Author Name}"),
+      getMediaSetting(`naming.${primaryType}.authorFolder`, "{Author Name}"),
       namingVars,
     ),
   );
   const bookFolderName = sanitizePath(
     applyNamingTemplate(
       getMediaSetting(
-        "naming.ebook.bookFolder",
+        `naming.${primaryType}.bookFolder`,
         "{Book Title} ({Release Year})",
       ),
       namingVars,
@@ -567,8 +596,15 @@ export async function importCompletedDownload(
 
   // Clean up old book files on upgrade
   if (existingFiles.length > 0) {
-    const recyclingBin = getMediaSetting("mediaManagement.recyclingBin", "");
     for (const oldFile of existingFiles) {
+      const ext = path.extname(oldFile.path).toLowerCase();
+      const fileType: MediaType = AUDIO_EXTENSIONS.has(ext)
+        ? "audiobook"
+        : "ebook";
+      const recyclingBin = getMediaSetting(
+        `mediaManagement.${fileType}.recyclingBin`,
+        "",
+      );
       try {
         if (recyclingBin) {
           fs.mkdirSync(recyclingBin, { recursive: true });
