@@ -27,7 +27,7 @@ export function getMetadataProfile(): MetadataProfile {
   const row = db
     .select()
     .from(settings)
-    .where(eq(settings.key, "metadata.profile"))
+    .where(eq(settings.key, "metadata.hardcover.profile"))
     .get();
   if (!row?.value) {
     return DEFAULT_METADATA_PROFILE;
