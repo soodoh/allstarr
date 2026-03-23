@@ -301,14 +301,14 @@ function buildMovieState(settings: Record<string, unknown>): MovieTabState {
 // --- Validation ---
 
 function validateBookFile(
-  variant: "ebook" | "audiobook",
+  variant: "ebook" | "audio",
   value: string,
 ): string | null {
   if (!value.includes("{Book Title}")) {
     return "Template must include {Book Title}";
   }
   if (
-    variant === "audiobook" &&
+    variant === "audio" &&
     !value.includes("{PartNumber}") &&
     !value.includes("{PartNumber:00}") &&
     !value.includes("{PartCount}")
@@ -832,7 +832,7 @@ function MediaManagementPage() {
 
   const ebookFileError = validateBookFile("ebook", state.book.ebookBookFile);
   const audiobookFileError = validateBookFile(
-    "audiobook",
+    "audio",
     state.book.audiobookBookFile,
   );
   const hasBookErrors = Boolean(ebookFileError) || Boolean(audiobookFileError);
