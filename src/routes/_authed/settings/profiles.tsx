@@ -58,7 +58,9 @@ function ProfilesPage() {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
-    type: string;
+    mediaType: string;
+    contentType: string;
+    enabled: boolean;
     language: string;
   }) => {
     createProfile.mutate(values, {
@@ -74,7 +76,9 @@ function ProfilesPage() {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
-    type: string;
+    mediaType: string;
+    contentType: string;
+    enabled: boolean;
     language: string;
   }) => {
     if (!editingProfile) {
@@ -89,6 +93,26 @@ function ProfilesPage() {
         },
       },
     );
+  };
+
+  const handleToggleEnabled = (
+    profile: (typeof profiles)[number],
+    enabled: boolean,
+  ) => {
+    updateProfile.mutate({
+      id: profile.id,
+      name: profile.name,
+      icon: profile.icon,
+      rootFolderPath: profile.rootFolderPath,
+      cutoff: profile.cutoff,
+      items: profile.items,
+      upgradeAllowed: profile.upgradeAllowed,
+      categories: profile.categories,
+      mediaType: profile.mediaType,
+      contentType: profile.contentType,
+      enabled,
+      language: profile.language,
+    });
   };
 
   const activeMutation = editingProfile ? updateProfile : createProfile;
@@ -123,6 +147,7 @@ function ProfilesPage() {
             handleEditProfile(profiles.find((p) => p.id === profile.id)!)
           }
           onDelete={(id) => deleteProfile.mutate(id)}
+          onToggleEnabled={handleToggleEnabled}
         />
       </div>
 
@@ -144,7 +169,9 @@ function ProfilesPage() {
                     items: editingProfile.items,
                     upgradeAllowed: editingProfile.upgradeAllowed,
                     categories: editingProfile.categories,
-                    type: editingProfile.type,
+                    mediaType: editingProfile.mediaType,
+                    contentType: editingProfile.contentType,
+                    enabled: editingProfile.enabled,
                     language: editingProfile.language,
                   }
                 : undefined
