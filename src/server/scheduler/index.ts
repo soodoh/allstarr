@@ -14,6 +14,7 @@ import "./tasks/refresh-metadata";
 import "./tasks/rss-sync";
 import "./tasks/rescan-folders";
 import "./tasks/refresh-downloads";
+import "./tasks/refresh-tmdb-metadata";
 // oxlint-enable import/no-unassigned-import
 
 let started = false;
