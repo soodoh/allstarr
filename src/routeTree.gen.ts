@@ -32,6 +32,7 @@ import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/sett
 import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
+import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
 import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
 import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
 import { Route as AuthedActivityBlocklistRouteImport } from './routes/_authed/activity/blocklist'
@@ -161,6 +162,11 @@ const AuthedMoviesAddRoute = AuthedMoviesAddRouteImport.update({
   path: '/movies/add',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
+  id: '/movies/$movieId',
+  path: '/movies/$movieId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedBookshelfAddRoute = AuthedBookshelfAddRouteImport.update({
   id: '/bookshelf/add',
   path: '/bookshelf/add',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByTo {
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -309,6 +317,7 @@ export interface FileRoutesById {
   '/_authed/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/_authed/activity/history': typeof AuthedActivityHistoryRoute
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
@@ -347,6 +356,7 @@ export interface FileRouteTypes {
     | '/activity/blocklist'
     | '/activity/history'
     | '/bookshelf/add'
+    | '/movies/$movieId'
     | '/movies/add'
     | '/settings/download-clients'
     | '/settings/formats'
@@ -383,6 +393,7 @@ export interface FileRouteTypes {
     | '/activity/blocklist'
     | '/activity/history'
     | '/bookshelf/add'
+    | '/movies/$movieId'
     | '/movies/add'
     | '/settings/download-clients'
     | '/settings/formats'
@@ -420,6 +431,7 @@ export interface FileRouteTypes {
     | '/_authed/activity/blocklist'
     | '/_authed/activity/history'
     | '/_authed/bookshelf/add'
+    | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
     | '/_authed/settings/download-clients'
     | '/_authed/settings/formats'
@@ -625,6 +637,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesAddRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/movies/$movieId': {
+      id: '/_authed/movies/$movieId'
+      path: '/movies/$movieId'
+      fullPath: '/movies/$movieId'
+      preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/bookshelf/add': {
       id: '/_authed/bookshelf/add'
       path: '/bookshelf/add'
@@ -717,6 +736,7 @@ interface AuthedRouteChildren {
   AuthedActivityBlocklistRoute: typeof AuthedActivityBlocklistRoute
   AuthedActivityHistoryRoute: typeof AuthedActivityHistoryRoute
   AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
+  AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
@@ -744,6 +764,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedActivityBlocklistRoute: AuthedActivityBlocklistRoute,
   AuthedActivityHistoryRoute: AuthedActivityHistoryRoute,
   AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
+  AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
