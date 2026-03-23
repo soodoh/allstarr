@@ -156,6 +156,40 @@ test.describe("System Health", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
+  test("warning when ffprobe is not installed", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+  }) => {
+    // Seed full config so ffprobe is the only warning
+    seedDownloadProfile(db, {
+      name: "Health Profile",
+      rootFolderPath: tempDir,
+      categories: [7020],
+    });
+    seedDownloadClient(db, {
+      name: "Health Client",
+      implementation: "qBittorrent",
+      protocol: "torrent",
+      port: PORTS.QBITTORRENT,
+    });
+    seedIndexer(db, {
+      name: "Health Indexer",
+      implementation: "Torznab",
+      protocol: "torrent",
+      baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+      apiKey: "test-key",
+    });
+
+    // ffprobe is not installed in test environments, so the warning should appear
+    await navigateTo(page, appUrl, "/system/status");
+
+    await expect(page.getByText(/ffmpeg is not installed/i)).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("warning when root folder path does not exist", async ({
     page,
     appUrl,

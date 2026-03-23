@@ -628,4 +628,75 @@ test.describe("Download Lifecycle", () => {
     // On the same filesystem, hard links share the same inode
     expect(destIno).toBe(sourceIno);
   });
+
+  test("multi-file audiobook import assigns part numbers", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    fakeServers,
+  }) => {
+    const downloadDir = join(
+      tempDir,
+      "downloads",
+      "Lifecycle Author - Lifecycle Book [MP3]",
+    );
+    mkdirSync(downloadDir, { recursive: true });
+
+    // Create 3 chapter files
+    writeFileSync(join(downloadDir, "Chapter 01.mp3"), "audio chapter 1");
+    writeFileSync(join(downloadDir, "Chapter 02.mp3"), "audio chapter 2");
+    writeFileSync(join(downloadDir, "Chapter 03.mp3"), "audio chapter 3");
+
+    seedTrackedDownload(db, {
+      downloadClientId: clientId,
+      downloadId: "lifecycle-hash-audiobook",
+      releaseTitle: "Lifecycle Author - Lifecycle Book [MP3]",
+      protocol: "torrent",
+      state: "queued",
+      bookId,
+      authorId,
+      downloadProfileId: profileId,
+    });
+
+    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
+      method: "POST",
+      body: JSON.stringify({
+        torrents: [
+          {
+            hash: "lifecycle-hash-audiobook",
+            name: "Lifecycle Author - Lifecycle Book [MP3]",
+            state: "uploading",
+            size: 15_000_000,
+            downloaded: 15_000_000,
+            dlspeed: 0,
+            upspeed: 0,
+            category: "allstarr",
+            save_path: downloadDir,
+          },
+        ],
+      }),
+    });
+
+    await triggerTask(page, appUrl, "Refresh Downloads");
+
+    // Verify all 3 files were imported with correct part numbers
+    await expect(async () => {
+      const files = db
+        .select()
+        .from(schema.bookFiles)
+        .all()
+        .filter((f) => f.path.endsWith(".mp3"));
+      expect(files.length).toBe(3);
+
+      // Sort by part number for predictable assertions
+      const sorted = files.toSorted((a, b) => a.part! - b.part!);
+      expect(sorted[0].part).toBe(1);
+      expect(sorted[0].partCount).toBe(3);
+      expect(sorted[1].part).toBe(2);
+      expect(sorted[1].partCount).toBe(3);
+      expect(sorted[2].part).toBe(3);
+      expect(sorted[2].partCount).toBe(3);
+    }).toPass({ timeout: 10_000 });
+  });
 });
