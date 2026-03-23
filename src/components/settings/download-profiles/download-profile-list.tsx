@@ -5,6 +5,7 @@ import { getProfileIcon } from "src/lib/profile-icons";
 import { CATEGORY_MAP } from "src/lib/categories";
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
 import { Button } from "src/components/ui/button";
+import Switch from "src/components/ui/switch";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   Table,
@@ -31,7 +32,9 @@ type DownloadProfile = {
   items: number[];
   upgradeAllowed: boolean;
   categories: number[];
-  type: string;
+  mediaType: string;
+  contentType: string;
+  enabled: boolean;
 };
 
 type FormatDefinition = {
@@ -45,13 +48,43 @@ type DownloadProfileListProps = {
   definitions: FormatDefinition[];
   onEdit: (profile: DownloadProfile) => void;
   onDelete: (id: number) => void;
+  onToggleEnabled: (profile: DownloadProfile, enabled: boolean) => void;
 };
+
+function contentTypeLabel(contentType: string): string {
+  switch (contentType) {
+    case "tv": {
+      return "TV";
+    }
+    case "movie": {
+      return "Movie";
+    }
+    default: {
+      return "Book";
+    }
+  }
+}
+
+function mediaTypeLabel(mediaType: string): string {
+  switch (mediaType) {
+    case "audio": {
+      return "Audio";
+    }
+    case "video": {
+      return "Video";
+    }
+    default: {
+      return "Ebook";
+    }
+  }
+}
 
 export default function DownloadProfileList({
   profiles,
   definitions,
   onEdit,
   onDelete,
+  onToggleEnabled,
 }: DownloadProfileListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<DownloadProfile | null>(
     null,
@@ -74,10 +107,12 @@ export default function DownloadProfileList({
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Root Folder</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead>Content</TableHead>
+            <TableHead>Media</TableHead>
             <TableHead>Formats</TableHead>
             <TableHead>Categories</TableHead>
             <TableHead>Upgrades</TableHead>
+            <TableHead>Enabled</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -88,7 +123,10 @@ export default function DownloadProfileList({
               ? defById.get(profile.cutoff)
               : null;
             return (
-              <TableRow key={profile.id}>
+              <TableRow
+                key={profile.id}
+                className={profile.enabled ? "" : "opacity-50"}
+              >
                 <TableCell className="font-medium">
                   {(() => {
                     const Icon = getProfileIcon(profile.icon);
@@ -118,7 +156,12 @@ export default function DownloadProfileList({
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">
-                    {profile.type === "audiobook" ? "Audiobook" : "Ebook"}
+                    {contentTypeLabel(profile.contentType)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {mediaTypeLabel(profile.mediaType)}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -167,6 +210,14 @@ export default function DownloadProfileList({
                     }
                     return "Yes";
                   })()}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={profile.enabled}
+                    onCheckedChange={(checked) =>
+                      onToggleEnabled(profile, checked)
+                    }
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

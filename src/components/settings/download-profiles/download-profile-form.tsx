@@ -50,7 +50,9 @@ type DownloadProfileFormProps = {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
-    type: string;
+    mediaType: string;
+    contentType: string;
+    enabled: boolean;
     language: string;
   };
   downloadFormats: Array<{ id: number; title: string; type: string }>;
@@ -63,7 +65,9 @@ type DownloadProfileFormProps = {
     items: number[];
     upgradeAllowed: boolean;
     categories: number[];
-    type: string;
+    mediaType: string;
+    contentType: string;
+    enabled: boolean;
     language: string;
   }) => void;
   onCancel: () => void;
@@ -284,22 +288,42 @@ type ProfileDefaults = {
   upgradeAllowed: boolean;
   cutoff: number;
   categories: number[];
-  type: string;
+  mediaType: string;
+  contentType: string;
+  enabled: boolean;
   language: string;
+};
+
+const PROFILE_DEFAULTS: ProfileDefaults = {
+  name: "",
+  icon: "book-open",
+  rootFolderPath: "",
+  upgradeAllowed: false,
+  cutoff: 0,
+  categories: [],
+  mediaType: "ebook",
+  contentType: "book",
+  enabled: true,
+  language: "en",
 };
 
 function getDefaults(
   initialValues: DownloadProfileFormProps["initialValues"],
 ): ProfileDefaults {
+  if (!initialValues) {
+    return PROFILE_DEFAULTS;
+  }
   return {
-    name: initialValues?.name ?? "",
-    icon: initialValues?.icon ?? "book-open",
-    rootFolderPath: initialValues?.rootFolderPath ?? "",
-    upgradeAllowed: initialValues?.upgradeAllowed ?? false,
-    cutoff: initialValues?.cutoff ?? 0,
-    categories: initialValues?.categories ?? [],
-    type: initialValues?.type ?? "ebook",
-    language: initialValues?.language ?? "en",
+    name: initialValues.name,
+    icon: initialValues.icon,
+    rootFolderPath: initialValues.rootFolderPath,
+    upgradeAllowed: initialValues.upgradeAllowed,
+    cutoff: initialValues.cutoff,
+    categories: initialValues.categories,
+    mediaType: initialValues.mediaType,
+    contentType: initialValues.contentType,
+    enabled: initialValues.enabled,
+    language: initialValues.language,
   };
 }
 
@@ -514,30 +538,65 @@ function IconSelect({
   );
 }
 
-function TypeLanguageSection({
-  type,
+function ContentMediaSection({
+  contentType,
+  mediaType,
   language,
-  onTypeChange,
+  onContentTypeChange,
+  onMediaTypeChange,
   onLanguageChange,
 }: {
-  type: string;
+  contentType: string;
+  mediaType: string;
   language: string;
-  onTypeChange: (v: string) => void;
+  onContentTypeChange: (v: string) => void;
+  onMediaTypeChange: (v: string) => void;
   onLanguageChange: (v: string) => void;
 }): JSX.Element {
+  const isBookContent = contentType === "book";
+
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="profile-type">Type</Label>
-        <Select value={type} onValueChange={onTypeChange}>
-          <SelectTrigger id="profile-type" className="w-full">
-            <SelectValue placeholder="Select type" />
+        <Label htmlFor="profile-content-type">Content Type</Label>
+        <Select value={contentType} onValueChange={onContentTypeChange}>
+          <SelectTrigger id="profile-content-type" className="w-full">
+            <SelectValue placeholder="Select content type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ebook">Ebook</SelectItem>
-            <SelectItem value="audiobook">Audiobook</SelectItem>
+            <SelectItem value="book">Book</SelectItem>
+            <SelectItem value="tv">TV</SelectItem>
+            <SelectItem value="movie">Movie</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="profile-media-type">Media Type</Label>
+        <Select
+          value={mediaType}
+          onValueChange={onMediaTypeChange}
+          disabled={!isBookContent}
+        >
+          <SelectTrigger id="profile-media-type" className="w-full">
+            <SelectValue placeholder="Select media type" />
+          </SelectTrigger>
+          <SelectContent>
+            {isBookContent ? (
+              <>
+                <SelectItem value="ebook">Ebook</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+              </>
+            ) : (
+              <SelectItem value="video">Video</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        {!isBookContent && (
+          <p className="text-xs text-muted-foreground">
+            Media type is fixed to Video for TV and Movie content.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -617,22 +676,40 @@ export default function DownloadProfileForm({
   const [upgradeAllowed, setUpgradeAllowed] = useState(defaults.upgradeAllowed);
   const [cutoff, setCutoff] = useState(defaults.cutoff);
   const [categories, setCategories] = useState<number[]>(defaults.categories);
-  const [type, setType] = useState(defaults.type);
+  const [mediaType, setMediaType] = useState(defaults.mediaType);
+  const [contentType, setContentType] = useState(defaults.contentType);
+  const [enabled, setEnabled] = useState(defaults.enabled);
   const [language, setLanguage] = useState(defaults.language);
 
   const filteredFormats = useMemo(
-    () => downloadFormats.filter((d) => d.type === type),
-    [downloadFormats, type],
+    () => downloadFormats.filter((d) => d.type === mediaType),
+    [downloadFormats, mediaType],
   );
 
   const [items, setItems] = useState<number[]>(() =>
     buildInitialItems(downloadFormats, initialValues?.items),
   );
 
-  const handleTypeChange = (newType: string) => {
-    setType(newType);
+  const handleContentTypeChange = (newContentType: string) => {
+    setContentType(newContentType);
+    let newMediaType: string;
+    if (newContentType === "tv" || newContentType === "movie") {
+      newMediaType = "video";
+    } else {
+      newMediaType = "ebook";
+    }
+    setMediaType(newMediaType);
     const validIds = new Set(
-      downloadFormats.filter((d) => d.type === newType).map((d) => d.id),
+      downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
+    );
+    setItems((prev) => prev.filter((id) => validIds.has(id)));
+    setCutoff(0);
+  };
+
+  const handleMediaTypeChange = (newMediaType: string) => {
+    setMediaType(newMediaType);
+    const validIds = new Set(
+      downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
     );
     setItems((prev) => prev.filter((id) => validIds.has(id)));
     setCutoff(0);
@@ -660,7 +737,9 @@ export default function DownloadProfileForm({
       items,
       upgradeAllowed,
       categories,
-      type,
+      mediaType,
+      contentType,
+      enabled,
       language,
     });
     if (!result.success) {
@@ -673,10 +752,12 @@ export default function DownloadProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <TypeLanguageSection
-        type={type}
+      <ContentMediaSection
+        contentType={contentType}
+        mediaType={mediaType}
         language={language}
-        onTypeChange={handleTypeChange}
+        onContentTypeChange={handleContentTypeChange}
+        onMediaTypeChange={handleMediaTypeChange}
         onLanguageChange={setLanguage}
       />
 
@@ -729,6 +810,15 @@ export default function DownloadProfileForm({
         error={errors.items}
         onItemsChange={handleItemsChange}
       />
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="profile-enabled"
+          checked={enabled}
+          onCheckedChange={setEnabled}
+        />
+        <Label htmlFor="profile-enabled">Enabled</Label>
+      </div>
 
       {serverError && !serverError.includes("Root folder") && (
         <p className="text-sm text-destructive">{serverError}</p>
