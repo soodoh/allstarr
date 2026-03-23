@@ -9,6 +9,13 @@ export * from "./book-files";
 export * from "./download-profiles";
 export * from "./download-formats";
 
+export * from "./shows";
+export * from "./episode-files";
+export * from "./show-download-profiles";
+export * from "./movies";
+export * from "./movie-files";
+export * from "./movie-download-profiles";
+
 export * from "./tags";
 export * from "./history";
 export * from "./settings";

@@ -3,6 +3,8 @@ import { downloadClients } from "./download-clients";
 import { books } from "./books";
 import { authors } from "./authors";
 import { downloadProfiles } from "./download-profiles";
+import { shows, episodes } from "./shows";
+import { movies } from "./movies";
 
 export const trackedDownloads = sqliteTable("tracked_downloads", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -20,6 +22,15 @@ export const trackedDownloads = sqliteTable("tracked_downloads", {
     () => downloadProfiles.id,
     { onDelete: "set null" },
   ),
+  showId: integer("show_id").references(() => shows.id, {
+    onDelete: "set null",
+  }),
+  episodeId: integer("episode_id").references(() => episodes.id, {
+    onDelete: "set null",
+  }),
+  movieId: integer("movie_id").references(() => movies.id, {
+    onDelete: "set null",
+  }),
   releaseTitle: text("release_title").notNull(),
   protocol: text("protocol").notNull(),
   indexerId: integer("indexer_id"),
