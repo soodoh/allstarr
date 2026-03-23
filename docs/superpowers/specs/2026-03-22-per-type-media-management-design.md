@@ -226,7 +226,7 @@ const bookFolderName = sanitizePath(
 
 ### `buildScanExtensions()`
 
-During disk scan, union both types' extra extensions if either type has `importExtraFiles` enabled (since scan doesn't know file types in advance). At import time, use the specific type's `importExtraFiles` flag to decide whether extras are actually imported.
+During disk scan, union both types' extra extensions if either type has `importExtraFiles` enabled (since scan doesn't know file types in advance). This function reads both types' `importExtraFiles` flags directly via `getMediaSetting()` rather than relying on the single-type `cfg` object. At import time, use the specific type's `importExtraFiles` flag to decide whether extras are actually imported.
 
 ### Recycling bin
 
