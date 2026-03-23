@@ -16,12 +16,37 @@ import { eq, and } from "drizzle-orm";
 import { matchFormat } from "./indexers/format-parser";
 import { eventBus } from "./event-bus";
 import getMediaSetting from "./settings-reader";
+import { probeAudioFile, probeEbookFile } from "./media-probe";
+
+type ImportResult = {
+  bookFileId: number | null;
+  destPath: string;
+} | null;
+
+const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
+const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
+
+type MediaType = "ebook" | "audiobook";
+
+function getMediaType(filePath: string): MediaType {
+  const ext = path.extname(filePath).toLowerCase();
+  return AUDIO_EXTENSIONS.has(ext) ? "audiobook" : "ebook";
+}
 
 function applyNamingTemplate(
   template: string,
   vars: Record<string, string>,
 ): string {
-  let result = template;
+  // First pass: handle padded tokens like {PartNumber:00}
+  // The number of 0 chars after the colon = minimum output width
+  let result = template.replaceAll(
+    /\{([\w\s]+):(0+)\}/g,
+    (_match, key: string, zeros: string) => {
+      const value = vars[key.trim()] ?? "";
+      return value ? value.padStart(zeros.length, "0") : "";
+    },
+  );
+  // Second pass: handle plain tokens like {Author Name}
   for (const [key, value] of Object.entries(vars)) {
     result = result.replaceAll(`{${key}}`, value);
   }
@@ -115,10 +140,11 @@ function importFile(
   useHardLinks: boolean,
   applyPermissions: boolean,
   fileChmod: string,
-): boolean {
+  part: number | null,
+  partCount: number | null,
+): ImportResult {
   const filename = path.basename(filePath);
   const destPath = path.join(destDir, filename);
-
   try {
     if (useHardLinks) {
       try {
@@ -129,19 +155,17 @@ function importFile(
     } else {
       fs.copyFileSync(filePath, destPath);
     }
-
     if (applyPermissions && fileChmod) {
       fs.chmodSync(destPath, Number.parseInt(fileChmod, 8));
     }
-
     const quality = matchFormat({
       title: filename,
       size: fs.statSync(filePath).size,
       indexerFlags: 0,
     });
-
     if (bookId) {
-      db.insert(bookFiles)
+      const inserted = db
+        .insert(bookFiles)
         .values({
           bookId,
           path: destPath,
@@ -150,16 +174,19 @@ function importFile(
             quality: { id: quality.id, name: quality.name },
             revision: { version: 1, real: 0 },
           },
+          part,
+          partCount,
         })
-        .run();
+        .returning({ id: bookFiles.id })
+        .get();
+      return { bookFileId: inserted.id, destPath };
     }
-
-    return true;
+    return { bookFileId: null, destPath };
   } catch (error) {
     console.error(
       `[file-import] Failed to import ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
-    return false;
+    return null;
   }
 }
 
@@ -172,7 +199,6 @@ type ImportSettings = {
   fileChmod: string;
   folderChmod: string;
   importExtraFiles: boolean;
-  extraFileExtensions: string;
 };
 
 function readImportSettings(): ImportSettings {
@@ -191,20 +217,26 @@ function readImportSettings(): ImportSettings {
       "mediaManagement.importExtraFiles",
       false,
     ),
-    extraFileExtensions: getMediaSetting(
-      "mediaManagement.extraFileExtensions",
-      "",
-    ),
   };
 }
 
 function buildScanExtensions(cfg: ImportSettings): Set<string> {
   const extensions = new Set(SUPPORTED_EXTENSIONS);
-  if (cfg.importExtraFiles && cfg.extraFileExtensions) {
-    for (const ext of cfg.extraFileExtensions.split(",")) {
-      const trimmed = ext.trim();
-      if (trimmed) {
-        extensions.add(trimmed.startsWith(".") ? trimmed : `.${trimmed}`);
+  if (cfg.importExtraFiles) {
+    const ebookExtra = getMediaSetting(
+      "mediaManagement.ebook.extraFileExtensions",
+      "",
+    );
+    const audioExtra = getMediaSetting(
+      "mediaManagement.audiobook.extraFileExtensions",
+      "",
+    );
+    for (const extStr of [ebookExtra, audioExtra]) {
+      for (const ext of extStr.split(",")) {
+        const trimmed = ext.trim();
+        if (trimmed) {
+          extensions.add(trimmed.startsWith(".") ? trimmed : `.${trimmed}`);
+        }
       }
     }
   }
@@ -233,7 +265,9 @@ function importRenamedFile(
   newName: string,
   bookId: number | null,
   cfg: ImportSettings,
-): boolean {
+  part: number | null,
+  partCount: number | null,
+): ImportResult {
   const destPath = path.join(destDir, newName);
   try {
     if (cfg.useHardLinks) {
@@ -254,7 +288,8 @@ function importRenamedFile(
       indexerFlags: 0,
     });
     if (bookId) {
-      db.insert(bookFiles)
+      const inserted = db
+        .insert(bookFiles)
         .values({
           bookId,
           path: destPath,
@@ -263,15 +298,19 @@ function importRenamedFile(
             quality: { id: quality.id, name: quality.name },
             revision: { version: 1, real: 0 },
           },
+          part,
+          partCount,
         })
-        .run();
+        .returning({ id: bookFiles.id })
+        .get();
+      return { bookFileId: inserted.id, destPath };
     }
-    return true;
+    return { bookFileId: null, destPath };
   } catch (error) {
     console.error(
       `[file-import] Failed to import ${path.basename(filePath)}: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
-    return false;
+    return null;
   }
 }
 
@@ -284,37 +323,101 @@ function resolveSourceDir(outputPath: string): string | null {
   }
 }
 
-function importFiles(
+function naturalCompare(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+async function importFiles(
   files: string[],
   destDir: string,
   bookId: number | null,
   namingVars: Record<string, string>,
   cfg: ImportSettings,
-): number {
+  mediaType: MediaType,
+): Promise<number> {
+  const sorted = [...files].toSorted((a, b) =>
+    naturalCompare(path.basename(a), path.basename(b)),
+  );
+  const isMultiPart = mediaType === "audiobook" && sorted.length > 1;
+  const partCount = isMultiPart ? sorted.length : null;
+
+  const templateKey =
+    mediaType === "audiobook"
+      ? "naming.audiobook.bookFile"
+      : "naming.ebook.bookFile";
+  const defaultTemplate =
+    mediaType === "audiobook"
+      ? "{Author Name} - {Book Title} - Part {PartNumber:00}"
+      : "{Author Name} - {Book Title}";
+
   let count = 0;
-  for (const filePath of files) {
+  for (let i = 0; i < sorted.length; i += 1) {
+    const filePath = sorted[i];
+    const part = isMultiPart ? i + 1 : null;
+    const fileVars = {
+      ...namingVars,
+      PartNumber: part ? String(part) : "",
+      PartCount: partCount ? String(partCount) : "",
+    };
+
+    let result: ImportResult;
     if (cfg.renameBooks) {
-      const template = getMediaSetting(
-        "naming.bookFile",
-        "{Author Name} - {Book Title}",
-      );
+      const template = getMediaSetting(templateKey, defaultTemplate);
       const ext = path.extname(filePath);
       const newName =
-        sanitizePath(applyNamingTemplate(template, namingVars)) + ext;
-      if (importRenamedFile(filePath, destDir, newName, bookId, cfg)) {
-        count += 1;
-      }
-    } else if (
-      importFile(
+        sanitizePath(applyNamingTemplate(template, fileVars)) + ext;
+      result = importRenamedFile(
+        filePath,
+        destDir,
+        newName,
+        bookId,
+        cfg,
+        part,
+        partCount,
+      );
+    } else {
+      result = importFile(
         filePath,
         destDir,
         bookId,
         cfg.useHardLinks,
         cfg.applyPermissions,
         cfg.fileChmod,
-      )
-    ) {
+        part,
+        partCount,
+      );
+    }
+
+    if (result) {
       count += 1;
+      if (result.bookFileId) {
+        if (mediaType === "audiobook") {
+          const meta = await probeAudioFile(result.destPath);
+          if (meta) {
+            db.update(bookFiles)
+              .set({
+                duration: meta.duration,
+                bitrate: meta.bitrate,
+                sampleRate: meta.sampleRate,
+                channels: meta.channels,
+                codec: meta.codec,
+              })
+              .where(eq(bookFiles.id, result.bookFileId))
+              .run();
+          }
+        } else {
+          const meta = probeEbookFile(result.destPath);
+          if (meta) {
+            db.update(bookFiles)
+              .set({
+                pageCount: meta.pageCount,
+                language: meta.language,
+              })
+              .where(eq(bookFiles.id, result.bookFileId))
+              .run();
+          }
+        }
+      }
     }
   }
   return count;
@@ -402,29 +505,60 @@ export async function importCompletedDownload(
     "Book Series": "",
     "Book SeriesPosition": "",
     PartNumber: "",
+    PartCount: "",
   };
 
   const authorFolderName = sanitizePath(
     applyNamingTemplate(
-      getMediaSetting("naming.authorFolder", "{Author Name}"),
+      getMediaSetting("naming.ebook.authorFolder", "{Author Name}"),
       namingVars,
     ),
   );
   const bookFolderName = sanitizePath(
     applyNamingTemplate(
-      getMediaSetting("naming.bookFolder", "{Book Title} ({Release Year})"),
+      getMediaSetting(
+        "naming.ebook.bookFolder",
+        "{Book Title} ({Release Year})",
+      ),
       namingVars,
     ),
   );
 
   const destDir = path.join(rootFolderPath, authorFolderName, bookFolderName);
   fs.mkdirSync(destDir, { recursive: true });
-
   if (cfg.applyPermissions && cfg.folderChmod) {
     fs.chmodSync(destDir, Number.parseInt(cfg.folderChmod, 8));
   }
 
-  const importedCount = importFiles(files, destDir, td.bookId, namingVars, cfg);
+  // Split files by media type
+  const audioFiles = files.filter((f) =>
+    AUDIO_EXTENSIONS.has(path.extname(f).toLowerCase()),
+  );
+  const ebookFiles = files.filter((f) =>
+    EBOOK_EXTENSIONS.has(path.extname(f).toLowerCase()),
+  );
+
+  let importedCount = 0;
+  if (ebookFiles.length > 0) {
+    importedCount += await importFiles(
+      ebookFiles,
+      destDir,
+      td.bookId,
+      namingVars,
+      cfg,
+      "ebook",
+    );
+  }
+  if (audioFiles.length > 0) {
+    importedCount += await importFiles(
+      audioFiles,
+      destDir,
+      td.bookId,
+      namingVars,
+      cfg,
+      "audiobook",
+    );
+  }
 
   if (importedCount === 0) {
     markFailed(td.id, "All file imports failed");
