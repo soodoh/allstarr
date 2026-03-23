@@ -13,3 +13,4 @@ export * from "./system-status";
 export * from "./queue";
 export * from "./blocklist";
 export * from "./tasks";
+export * from "./movies";
