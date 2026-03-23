@@ -118,7 +118,7 @@ export function getDefSizeLimits(
   }
 
   const effective = computeEffectiveSizes(
-    cached.type as "ebook" | "audiobook",
+    cached.type as "ebook" | "audio",
     cached.minSize,
     cached.maxSize,
     0, // preferredSize not needed for rejection logic

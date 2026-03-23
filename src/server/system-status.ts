@@ -129,7 +129,7 @@ function runHealthChecks(): HealthCheck[] {
       source: "SystemDependencyCheck",
       type: "warning",
       message:
-        "FFmpeg is not installed. Audio and video metadata extraction will be unavailable. Install ffmpeg for full audiobook support.",
+        "FFmpeg is not installed. Audio and video metadata extraction will be unavailable. Install ffmpeg for full audio support.",
       wikiUrl: null,
     });
   }
