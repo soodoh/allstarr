@@ -11,3 +11,4 @@ export * from "./indexer-search";
 export * from "./blocklist";
 export * from "./queue";
 export * from "./movies";
+export * from "./shows";
