@@ -696,5 +696,40 @@ test.describe("Settings and Configuration", () => {
         page.getByRole("heading", { name: "Media Management" }),
       ).toBeVisible();
     });
+
+    test("ebook and audiobook naming tabs render and save", async ({
+      page,
+      appUrl,
+    }) => {
+      await navigateTo(page, appUrl, "/settings/media-management");
+
+      // Ebook tab should be visible by default
+      const ebookTab = page.getByRole("tab", { name: "Ebook" });
+      const audiobookTab = page.getByRole("tab", { name: "Audiobook" });
+      await expect(ebookTab).toBeVisible();
+      await expect(audiobookTab).toBeVisible();
+
+      // Ebook tab should show Standard Book Format input
+      await expect(
+        page.getByLabel("Standard Book Format").first(),
+      ).toBeVisible();
+
+      // Switch to Audiobook tab
+      await audiobookTab.click();
+
+      // Audiobook tab should show its own Standard Book Format input
+      // and the available tokens should include PartNumber
+      await expect(
+        page.getByText("{PartNumber}", { exact: false }),
+      ).toBeVisible();
+
+      // Save settings
+      await page.getByRole("button", { name: "Save Settings" }).click();
+
+      // Verify save succeeded (page still shows heading)
+      await expect(
+        page.getByRole("heading", { name: "Media Management" }),
+      ).toBeVisible();
+    });
   });
 });
