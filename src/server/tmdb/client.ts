@@ -1,6 +1,8 @@
 // oxlint-disable import/prefer-default-export -- named export used by TMDB server functions
 import getMediaSetting from "../settings-reader";
 
+export { TMDB_IMAGE_BASE } from "./types";
+
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
 function getTmdbApiKey(): string {
