@@ -64,9 +64,9 @@ New module wrapping `ffprobe` subprocess calls. Provides:
 - `isProbeAvailable(): boolean` — cached check for `ffprobe` in `$PATH`. Runs `ffprobe -version` once and caches the result for the process lifetime.
 - `probeAudioFile(filePath: string): Promise<AudioMeta | null>` — runs `ffprobe -v quiet -print_format json -show_format -show_streams <file>`, parses JSON output, returns `{ duration, bitrate, sampleRate, channels, codec }`. Returns null if ffprobe unavailable or file unreadable.
 - `probeEbookFile(filePath: string): Promise<EbookMeta | null>` — extracts ebook metadata without ffprobe:
-  - **EPUB:** Parse `content.opf` from the zip archive, read `<dc:language>` and count spine items or read `meta[name="calibre:page_count"]` if present.
-  - **PDF:** Read the PDF header/trailer to extract `/Count` (page count) from the page tree root.
-  - Returns `{ pageCount, language }`. Returns null on failure.
+  - **EPUB:** Parse `content.opf` from the zip archive using Node's built-in zip support. Read `<dc:language>` for language. For page count, check `meta[name="calibre:page_count"]` if present (Calibre-produced EPUBs include this). If absent, page count returns null — EPUB page count is inherently unreliable since it depends on rendering.
+  - **PDF:** Scan the binary for the page tree root's `/Count \d+` entry as a heuristic. PDF internal structure is complex (xref tables, catalog dictionaries), so this is a best-effort extraction. Returns null if the pattern isn't found or the file structure is non-standard.
+  - Returns `{ pageCount, language }`. Returns null on any failure — ebook metadata is best-effort.
 
 Types:
 
@@ -97,35 +97,62 @@ In `importCompletedDownload()`, after `scanForBookFiles()`:
 2. If there are multiple audio files, sort them by filename (natural sort to handle `Chapter 1`, `Chapter 2`, ..., `Chapter 10` correctly) and assign `part` = 1..N, `partCount` = N.
 3. Single-file imports (whether ebook or audio) leave `part`/`partCount` as null.
 
+#### Structural Refactor of Import Helpers
+
+The current `importFile()` and `importRenamedFile()` functions perform the copy AND the `db.insert(bookFiles)` internally, returning only a boolean. To support metadata write-back, refactor these functions to return the inserted `bookFiles.id` and the destination path:
+
+```ts
+type ImportResult = { bookFileId: number | null; destPath: string } | null;
+```
+
+Both `importFile()` and `importRenamedFile()` return `ImportResult` (null on failure). The caller in `importFiles()` then uses the returned `destPath` and `bookFileId` to probe metadata and update the row.
+
+#### File Batching by Type
+
+In `importCompletedDownload()`, after scanning, split files into two typed batches based on extension:
+
+- `audioFiles`: `.mp3`, `.m4b`, `.flac`
+- `ebookFiles`: `.pdf`, `.epub`, `.mobi`, `.azw3`, `.azw`
+
+Each batch is processed separately through `importFiles()`, which receives the media type as a parameter. This determines:
+
+- Which naming template to use (`naming.ebook.*` vs `naming.audiobook.*`)
+- Which extra file extensions to scan for
+- Whether to assign `part`/`partCount` (audio batches with multiple files only)
+- Which probe function to call (`probeAudioFile` vs `probeEbookFile`)
+
 #### Metadata Extraction
 
-After copying/hardlinking each file to the destination:
+After each file is copied/hardlinked (inside the `importFiles()` loop):
 
-1. For audio files: call `probeAudioFile(destPath)` and store results on the `bookFile` row.
-2. For ebook files: call `probeEbookFile(destPath)` and store results on the `bookFile` row.
-3. If probe returns null (ffprobe missing or parse failure), the metadata columns stay null.
+1. The import helper returns `{ bookFileId, destPath }`.
+2. For audio files: call `probeAudioFile(destPath)` and `UPDATE book_files SET duration=?, bitrate=?, ... WHERE id=?`.
+3. For ebook files: call `probeEbookFile(destPath)` and `UPDATE book_files SET page_count=?, language=? WHERE id=?`.
+4. If probe returns null (ffprobe missing or parse failure), skip the update — metadata columns stay null.
 
 #### Naming Template Resolution
 
-When `renameBooks` is enabled, determine the media type of each file by extension:
+When `renameBooks` is enabled, the media type (passed to `importFiles()`) determines which template to use:
 
-- Audio extensions (`.mp3`, `.m4b`, `.flac`): use `naming.audiobook.bookFile` template
-- Ebook extensions (`.pdf`, `.epub`, `.mobi`, `.azw3`, `.azw`): use `naming.ebook.bookFile` template
+- Audio batch: `naming.audiobook.bookFile`, `naming.audiobook.authorFolder`, `naming.audiobook.bookFolder`
+- Ebook batch: `naming.ebook.bookFile`, `naming.ebook.authorFolder`, `naming.ebook.bookFolder`
 
-Add `{PartNumber}` and `{PartCount}` to `namingVars`. Support zero-padded format: `{PartNumber:00}` pads to 2 digits, `{PartNumber:000}` pads to 3.
-
-Similarly, use per-type author folder and book folder templates when building destination paths.
+Add `{PartNumber}` and `{PartCount}` to `namingVars` for audio batches. Support zero-padded format: `{PartNumber:00}` pads to 2 digits, `{PartNumber:000}` pads to 3. For ebook batches, these vars are empty strings.
 
 #### Extra File Extensions
 
-When building scan extensions, read the per-type setting based on what file types are present in the download. If the download contains audio files, include `mediaManagement.audiobook.extraFileExtensions`. If it contains ebook files, include `mediaManagement.ebook.extraFileExtensions`.
+When building scan extensions, merge per-type settings based on which batches are present in the download. If the download contains audio files, include `mediaManagement.audiobook.extraFileExtensions`. If it contains ebook files, include `mediaManagement.ebook.extraFileExtensions`. Both lists are merged if the download contains both types.
+
+#### Mixed Downloads (Ebook + Audio)
+
+If a single download contains both ebook and audio files, they are processed as two independent batches. Each batch uses its own naming templates and probe functions. The destination folder is determined by the first batch's folder template (ebook takes precedence since it's the primary content type). Both batches write to the same destination directory.
 
 ### 4. Disk Scan Updates: `src/server/disk-scan.ts`
 
 When `rescanRootFolder()` discovers files:
 
 1. After creating/updating a `bookFile` record, probe the file for metadata if the existing record has null metadata fields.
-2. For audio files within the same book directory, auto-assign `part`/`partCount` by sorted filename (same logic as import).
+2. For audio files within the same book directory, explicitly sort by filename (natural sort) before assigning `part`/`partCount`. Note: `fs.readdirSync()` returns entries in filesystem order which is not guaranteed to be alphabetical — an explicit `.sort()` is required.
 3. This ensures existing libraries get metadata populated on rescan, not just new imports.
 
 ### 5. Media Management Settings
@@ -155,13 +182,15 @@ When `rescanRootFolder()` discovers files:
 
 #### Migration of Existing Settings
 
-The database migration:
+All settings values in the `settings` table are stored as JSON-encoded strings (e.g., `'"{Author Name}"'` not `'{Author Name}'`). The migration must preserve this encoding by copying the raw `value` column bytes as-is.
 
-1. Reads existing values for `naming.bookFile`, `naming.authorFolder`, `naming.bookFolder`, and `mediaManagement.extraFileExtensions`.
-2. Copies each value to both the `naming.ebook.*` and `naming.audiobook.*` variants.
-3. Deletes the old keys.
+The migration in `0007_multi_file_metadata.sql` handles **both** existing installs and fresh installs:
 
-If old keys don't exist (fresh install), the seed data creates the new keys with their defaults.
+1. For each old key (`naming.bookFile`, `naming.authorFolder`, `naming.bookFolder`, `mediaManagement.extraFileExtensions`), copy the raw `value` to the new per-type keys using `INSERT INTO settings ... SELECT`.
+2. Delete the old keys.
+3. Use `INSERT OR IGNORE` to seed defaults for all new keys — this covers fresh installs where old keys don't exist and the copy step produced no rows.
+
+**Do NOT modify `drizzle/0000_puzzling_scarlet_spider.sql`.** That migration has already been applied on existing installs and won't re-run. All seeding for new keys happens in `0007`.
 
 #### UI: Media Management Page
 
@@ -171,6 +200,7 @@ The "Book Naming" card in `src/routes/_authed/settings/media-management.tsx` add
 - Each tab shows: Standard Book Format, Author Folder Format, Book Folder Format, Extra File Extensions
 - The "Available tokens" hint for audiobook tab includes `{PartNumber}`, `{PartCount}`, `{PartNumber:00}`
 - All other cards (Folders, Importing, File Management, Permissions, Root Folders) remain unchanged
+- The `handleSave()` function must be updated to write the new per-type keys (`naming.ebook.*`, `naming.audiobook.*`, `mediaManagement.ebook.extraFileExtensions`, `mediaManagement.audiobook.extraFileExtensions`) and stop writing the old keys
 
 ### 6. Dockerfile
 
@@ -189,10 +219,14 @@ Add a `SystemDependencyCheck` to `runHealthChecks()`:
 
 ```ts
 // Check system dependencies
+// Note: Bun.spawnSync throws a system error when the binary is not in $PATH
+// (unlike Node's child_process.spawnSync which returns {status: null, error: ...}).
+// The try/catch is necessary to handle both "not found" (throws) and
+// "found but failed" (non-zero exitCode) cases.
 try {
   const result = Bun.spawnSync(["ffprobe", "-version"]);
   if (result.exitCode !== 0) {
-    throw new Error("ffprobe not found");
+    throw new Error("ffprobe returned non-zero exit code");
   }
 } catch {
   checks.push({
@@ -220,14 +254,13 @@ Implementation: extend `applyNamingTemplate()` to detect `{Key:0+}` patterns and
 
 ## File Changes Summary
 
-| File                                               | Change                                               |
-| -------------------------------------------------- | ---------------------------------------------------- |
-| `src/db/schema/book-files.ts`                      | Add part, metadata columns                           |
-| `drizzle/0007_multi_file_metadata.sql`             | Migration for new columns + settings migration       |
-| `drizzle/0000_puzzling_scarlet_spider.sql`         | Update seed SQL with new naming keys                 |
-| `src/server/media-probe.ts`                        | New module: ffprobe wrapper + ebook metadata parser  |
-| `src/server/file-import.ts`                        | Part numbering, metadata extraction, per-type naming |
-| `src/server/disk-scan.ts`                          | Metadata extraction on rescan, part assignment       |
-| `src/server/system-status.ts`                      | Add SystemDependencyCheck for ffprobe                |
-| `src/routes/_authed/settings/media-management.tsx` | Ebook/Audiobook tabs in naming card                  |
-| `Dockerfile`                                       | Add `ffmpeg` package                                 |
+| File                                               | Change                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| `src/db/schema/book-files.ts`                      | Add part, metadata columns                                    |
+| `drizzle/0007_multi_file_metadata.sql`             | Migration: new columns, settings migration, seed new defaults |
+| `src/server/media-probe.ts`                        | New module: ffprobe wrapper + ebook metadata parser           |
+| `src/server/file-import.ts`                        | Refactor helpers, file batching, metadata extraction, naming  |
+| `src/server/disk-scan.ts`                          | Metadata extraction on rescan, explicit sort, part assignment |
+| `src/server/system-status.ts`                      | Add SystemDependencyCheck for ffprobe                         |
+| `src/routes/_authed/settings/media-management.tsx` | Ebook/Audiobook tabs in naming card, update handleSave        |
+| `Dockerfile`                                       | Add `ffmpeg` package                                          |
