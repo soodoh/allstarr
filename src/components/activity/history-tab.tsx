@@ -20,7 +20,7 @@ import {
 } from "src/components/ui/table";
 import TablePagination from "src/components/shared/table-pagination";
 import { historyListQuery } from "src/lib/queries";
-import type { HistoryResult } from "src/lib/queries";
+import type { HistoryItem, HistoryResult } from "src/lib/queries";
 import { formatBytes } from "src/lib/format";
 
 const eventTypeLabels: Record<string, string> = {
@@ -33,6 +33,14 @@ const eventTypeLabels: Record<string, string> = {
   bookGrabbed: "Grabbed",
   bookFileAdded: "File Added",
   bookFileRemoved: "File Removed",
+  movieAdded: "Movie Added",
+  movieDeleted: "Movie Deleted",
+  movieFileImported: "Movie File Imported",
+  movieFileDeleted: "Movie File Deleted",
+  showAdded: "Show Added",
+  showDeleted: "Show Deleted",
+  episodeFileImported: "Episode File Imported",
+  episodeFileDeleted: "Episode File Deleted",
 };
 
 const eventTypeVariants: Record<
@@ -48,6 +56,14 @@ const eventTypeVariants: Record<
   bookGrabbed: "outline",
   bookFileAdded: "default",
   bookFileRemoved: "destructive",
+  movieAdded: "default",
+  movieDeleted: "destructive",
+  movieFileImported: "default",
+  movieFileDeleted: "destructive",
+  showAdded: "default",
+  showDeleted: "destructive",
+  episodeFileImported: "default",
+  episodeFileDeleted: "destructive",
 };
 
 export default function HistoryTab(): JSX.Element {
@@ -92,6 +108,20 @@ export default function HistoryTab(): JSX.Element {
             <SelectItem value="bookGrabbed">Grabbed</SelectItem>
             <SelectItem value="bookFileAdded">File Added</SelectItem>
             <SelectItem value="bookFileRemoved">File Removed</SelectItem>
+            <SelectItem value="movieAdded">Movie Added</SelectItem>
+            <SelectItem value="movieDeleted">Movie Deleted</SelectItem>
+            <SelectItem value="movieFileImported">
+              Movie File Imported
+            </SelectItem>
+            <SelectItem value="movieFileDeleted">Movie File Deleted</SelectItem>
+            <SelectItem value="showAdded">Show Added</SelectItem>
+            <SelectItem value="showDeleted">Show Deleted</SelectItem>
+            <SelectItem value="episodeFileImported">
+              Episode File Imported
+            </SelectItem>
+            <SelectItem value="episodeFileDeleted">
+              Episode File Deleted
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -138,19 +168,7 @@ export default function HistoryTab(): JSX.Element {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {item.bookId ? (
-                      <Link
-                        to="/bookshelf/books/$bookId"
-                        params={{ bookId: String(item.bookId) }}
-                        className="hover:underline"
-                      >
-                        {item.bookTitle || `Book #${item.bookId}`}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
+                  <TableCell>{renderMediaTitle(item)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
                     {renderDetails(item.eventType, item.data)}
                   </TableCell>
@@ -171,6 +189,37 @@ export default function HistoryTab(): JSX.Element {
       )}
     </div>
   );
+}
+
+function renderMediaTitle(item: HistoryItem): JSX.Element {
+  if (item.bookId) {
+    return (
+      <Link
+        to="/bookshelf/books/$bookId"
+        params={{ bookId: String(item.bookId) }}
+        className="hover:underline"
+      >
+        {item.bookTitle || `Book #${item.bookId}`}
+      </Link>
+    );
+  }
+
+  const isMovieEvent = item.eventType.startsWith("movie");
+  const isShowEvent =
+    item.eventType.startsWith("show") || item.eventType.startsWith("episode");
+
+  if (isMovieEvent && item.data?.title) {
+    return <span>{String(item.data.title)}</span>;
+  }
+
+  if (isShowEvent) {
+    const title = item.data?.title ?? item.data?.showTitle;
+    if (title) {
+      return <span>{String(title)}</span>;
+    }
+  }
+
+  return <span className="text-muted-foreground">-</span>;
 }
 
 function renderDetails(
