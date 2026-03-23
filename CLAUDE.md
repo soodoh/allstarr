@@ -47,6 +47,7 @@ Copy `.env.example` to `.env`:
 - **Auth**: [better-auth](https://better-auth.com/) with email/password, handled at `/api/auth/$`
 - **UI**: shadcn/ui (new-york style, zinc base) + Tailwind CSS v4 + Radix UI
 - **Forms**: react-hook-form + zod
+- **Media probing**: `ffprobe` (FFmpeg) for audio metadata extraction, `adm-zip` for EPUB parsing â€” `src/server/media-probe.ts`
 - **Path alias**: `src/*` maps to `./src/*`
 
 ### Data Flow Pattern
@@ -79,10 +80,11 @@ After modifying routes, TanStack Router auto-generates `src/routeTree.gen.ts` â€
 - **Authors** have a `qualityProfileId`, `rootFolderPath`, and `monitored` flag (tracked vs. ignored)
 - **Books** belong to an Author; each book can have multiple **Editions** (format, publisher, ISBN, etc.)
 - **Quality Profiles** define allowed file formats (EPUB, MOBI, PDF, AZW3, etc.) with cutoff/upgrade rules
-- **Quality Definitions** are the format weights/size limits that quality profiles reference
+- **Quality Definitions** are the format weights/size limits that quality profiles reference; each has a `type` field (`ebook` or `audiobook`)
+- **Book Files** track physical files on disk, linked to a book. Audiobooks can have multiple files (one per chapter) with `part`/`partCount` tracking. Files store extracted metadata: audio files have duration/bitrate/codec, ebooks have pageCount/language.
 - **Root Folders** are filesystem paths where books are stored; the dashboard shows disk usage
 - **History** records events (`bookAdded`, `bookUpdated`, `bookDeleted`, `authorAdded`, etc.)
-- **Settings** are key/value pairs stored in the DB (naming templates, log level, etc.)
+- **Settings** are key/value pairs stored in the DB. Naming templates and extra file extensions are per media type (`naming.ebook.*`, `naming.audiobook.*`)
 
 ### Hardcover Integration
 
