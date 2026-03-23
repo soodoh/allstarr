@@ -697,28 +697,32 @@ test.describe("Settings and Configuration", () => {
       ).toBeVisible();
     });
 
-    test("ebook and audiobook naming tabs render and save", async ({
+    test("media management tabs render and ebook/audiobook naming sections visible", async ({
       page,
       appUrl,
     }) => {
       await navigateTo(page, appUrl, "/settings/media-management");
 
-      // Ebook tab should be visible by default
-      const ebookTab = page.getByRole("tab", { name: "Ebook" });
-      const audiobookTab = page.getByRole("tab", { name: "Audiobook" });
-      await expect(ebookTab).toBeVisible();
-      await expect(audiobookTab).toBeVisible();
+      // Top-level tabs: Books, TV Shows, Movies
+      const booksTab = page.getByRole("tab", { name: "Books" });
+      const tvTab = page.getByRole("tab", { name: "TV Shows" });
+      const movieTab = page.getByRole("tab", { name: "Movies" });
+      await expect(booksTab).toBeVisible();
+      await expect(tvTab).toBeVisible();
+      await expect(movieTab).toBeVisible();
 
-      // Ebook tab should show Standard Book Format input
+      // Books tab is active by default — should show Ebook Naming section
+      await expect(page.getByText("Ebook Naming")).toBeVisible();
+
+      // Audiobook Naming section should also be visible on the Books tab
+      await expect(page.getByText("Audiobook Naming")).toBeVisible();
+
+      // Standard Book Format input should be present (at least one)
       await expect(
         page.getByLabel("Standard Book Format").first(),
       ).toBeVisible();
 
-      // Switch to Audiobook tab
-      await audiobookTab.click();
-
-      // Audiobook tab should show its own Standard Book Format input
-      // and the available tokens should include PartNumber
+      // Audiobook section should include PartNumber token
       await expect(
         page.getByText("{PartNumber}", { exact: false }),
       ).toBeVisible();
