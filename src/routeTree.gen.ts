@@ -17,6 +17,7 @@ import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as Api_testResetRouteImport } from './routes/api/__test-reset'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -80,6 +81,11 @@ const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
 const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
+  id: '/movies/',
+  path: '/movies/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedBookshelfIndexRoute = AuthedBookshelfIndexRouteImport.update({
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity/': typeof AuthedActivityIndexRoute
   '/bookshelf/': typeof AuthedBookshelfIndexRoute
+  '/movies/': typeof AuthedMoviesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
   '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity': typeof AuthedActivityIndexRoute
   '/bookshelf': typeof AuthedBookshelfIndexRoute
+  '/movies': typeof AuthedMoviesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
   '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
+  '/_authed/movies/': typeof AuthedMoviesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
   '/_authed/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/activity/'
     | '/bookshelf/'
+    | '/movies/'
     | '/settings/'
     | '/system/'
     | '/bookshelf/authors/$authorId'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/activity'
     | '/bookshelf'
+    | '/movies'
     | '/settings'
     | '/system'
     | '/bookshelf/authors/$authorId'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/_authed/activity/'
     | '/_authed/bookshelf/'
+    | '/_authed/movies/'
     | '/_authed/settings/'
     | '/_authed/system/'
     | '/_authed/bookshelf/authors/$authorId'
@@ -494,6 +506,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/': {
+      id: '/_authed/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof AuthedMoviesIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/bookshelf/': {
@@ -691,6 +710,7 @@ interface AuthedRouteChildren {
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
+  AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
   AuthedBookshelfAuthorsAuthorIdRoute: typeof AuthedBookshelfAuthorsAuthorIdRoute
@@ -716,6 +736,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
+  AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
   AuthedBookshelfAuthorsAuthorIdRoute: AuthedBookshelfAuthorsAuthorIdRoute,
