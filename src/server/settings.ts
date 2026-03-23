@@ -88,7 +88,10 @@ export const updateMetadataProfileFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
     db.insert(settings)
-      .values({ key: "metadata.profile", value: JSON.stringify(data) })
+      .values({
+        key: "metadata.hardcover.profile",
+        value: JSON.stringify(data),
+      })
       .onConflictDoUpdate({
         target: settings.key,
         set: { value: JSON.stringify(data) },
