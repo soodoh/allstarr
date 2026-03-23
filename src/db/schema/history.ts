@@ -1,6 +1,8 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { authors } from "./authors";
 import { books } from "./books";
+import { shows, episodes } from "./shows";
+import { movies } from "./movies";
 
 export const history = sqliteTable("history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -9,6 +11,15 @@ export const history = sqliteTable("history", {
     onDelete: "set null",
   }),
   authorId: integer("author_id").references(() => authors.id, {
+    onDelete: "set null",
+  }),
+  showId: integer("show_id").references(() => shows.id, {
+    onDelete: "set null",
+  }),
+  episodeId: integer("episode_id").references(() => episodes.id, {
+    onDelete: "set null",
+  }),
+  movieId: integer("movie_id").references(() => movies.id, {
     onDelete: "set null",
   }),
   data: text("data", { mode: "json" }).$type<
