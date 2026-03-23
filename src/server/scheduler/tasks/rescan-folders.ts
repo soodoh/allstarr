@@ -31,7 +31,7 @@ registerTask({
 
     for (const folderPath of folderPaths) {
       try {
-        const result = rescanRootFolder(folderPath);
+        const result = await rescanRootFolder(folderPath);
         totals.filesAdded += result.filesAdded;
         totals.filesRemoved += result.filesRemoved;
         totals.filesUnchanged += result.filesUnchanged;

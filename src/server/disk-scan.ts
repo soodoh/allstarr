@@ -10,8 +10,9 @@ import {
   downloadProfiles,
   history,
 } from "src/db/schema";
-import { eq, like } from "drizzle-orm";
+import { eq, like, and, sql } from "drizzle-orm";
 import { matchFormat } from "src/server/indexers/format-parser";
+import { probeAudioFile, probeEbookFile } from "src/server/media-probe";
 
 export function getRootFolderPaths(): string[] {
   const rows = db
@@ -20,6 +21,8 @@ export function getRootFolderPaths(): string[] {
     .all();
   return [...new Set(rows.map((r) => r.rootFolderPath).filter(Boolean))];
 }
+
+const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 
 const SUPPORTED_EXTENSIONS = new Set([
   ".pdf",
@@ -49,6 +52,8 @@ type DiscoveredFile = {
     quality: { id: number; name: string };
     revision: { version: number; real: number };
   };
+  part: number | null;
+  partCount: number | null;
 };
 
 function normalize(name: string): string {
@@ -212,8 +217,33 @@ function scanBookDirectory(
     return;
   }
 
+  // Sort with natural order so part numbers are assigned correctly
+  files.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+
+  const audioFiles = files.filter((f) =>
+    AUDIO_EXTENSIONS.has(path.extname(f.name).toLowerCase()),
+  );
+  const audioCount = audioFiles.length;
+  let audioIndex = 0;
+
   for (const file of files) {
     const absolutePath = path.join(bookPath, file.name);
+    const ext = path.extname(file.name).toLowerCase();
+    const isAudio = AUDIO_EXTENSIONS.has(ext);
+
+    let part: number | null = null;
+    let partCount: number | null = null;
+    if (isAudio && audioCount > 1) {
+      audioIndex += 1;
+      part = audioIndex;
+      partCount = audioCount;
+    }
+
     try {
       const fileStat = fs.statSync(absolutePath);
       const quality = matchFormat({
@@ -230,6 +260,8 @@ function scanBookDirectory(
           quality: { id: quality.id, name: quality.name },
           revision: { version: 1, real: 0 },
         },
+        part,
+        partCount,
       });
     } catch (error) {
       stats.errors.push(
@@ -263,6 +295,8 @@ function syncBookFiles(
           path: discovered.absolutePath,
           size: discovered.size,
           quality: discovered.quality,
+          part: discovered.part,
+          partCount: discovered.partCount,
         })
         .run();
       db.insert(history)
@@ -313,7 +347,9 @@ function syncBookFiles(
   }
 }
 
-export function rescanRootFolder(rootFolderPath: string): ScanStats {
+export async function rescanRootFolder(
+  rootFolderPath: string,
+): Promise<ScanStats> {
   const stats: ScanStats = {
     filesAdded: 0,
     filesRemoved: 0,
@@ -334,6 +370,48 @@ export function rescanRootFolder(rootFolderPath: string): ScanStats {
 
   // Sync discovered files with DB
   syncBookFiles(rootFolderPath, discoveredFiles, stats);
+
+  // Probe metadata for files that don't have it yet
+  const filesNeedingMeta = db
+    .select()
+    .from(bookFiles)
+    .where(
+      and(
+        like(bookFiles.path, `${rootFolderPath}%`),
+        sql`(${bookFiles.duration} IS NULL AND ${bookFiles.pageCount} IS NULL)`,
+      ),
+    )
+    .all();
+
+  for (const file of filesNeedingMeta) {
+    const ext = path.extname(file.path).toLowerCase();
+    if (AUDIO_EXTENSIONS.has(ext)) {
+      const meta = await probeAudioFile(file.path);
+      if (meta) {
+        db.update(bookFiles)
+          .set({
+            duration: meta.duration,
+            bitrate: meta.bitrate,
+            sampleRate: meta.sampleRate,
+            channels: meta.channels,
+            codec: meta.codec,
+          })
+          .where(eq(bookFiles.id, file.id))
+          .run();
+      }
+    } else {
+      const meta = probeEbookFile(file.path);
+      if (meta) {
+        db.update(bookFiles)
+          .set({
+            pageCount: meta.pageCount,
+            language: meta.language,
+          })
+          .where(eq(bookFiles.id, file.id))
+          .run();
+      }
+    }
+  }
 
   return stats;
 }
