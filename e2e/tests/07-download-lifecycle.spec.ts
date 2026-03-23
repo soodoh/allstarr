@@ -505,7 +505,7 @@ test.describe("Download Lifecycle", () => {
     seedSetting(db, "mediaManagement.renameBooks", true);
     seedSetting(
       db,
-      "naming.bookFile",
+      "naming.ebook.bookFile",
       "{Author Name} - {Book Title} ({Release Year})",
     );
 
