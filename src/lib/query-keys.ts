@@ -52,6 +52,22 @@ export const queryKeys = {
       ["books", "existence", ...foreignBookIds] as const,
   },
 
+  // ─── Movies ──────────────────────────────────────────────────────────────
+  movies: {
+    all: ["movies"] as const,
+    lists: () => ["movies", "list"] as const,
+    detail: (id: number) => ["movies", "detail", id] as const,
+    existence: (tmdbId: number) => ["movies", "existence", tmdbId] as const,
+  },
+
+  // ─── TMDB ────────────────────────────────────────────────────────────────
+  tmdb: {
+    all: ["tmdb"] as const,
+    searchMovies: (query: string) => ["tmdb", "searchMovies", query] as const,
+    searchShows: (query: string) => ["tmdb", "searchShows", query] as const,
+    searchMulti: (query: string) => ["tmdb", "searchMulti", query] as const,
+  },
+
   // ─── History ─────────────────────────────────────────────────────────────
   history: {
     all: ["history"] as const,
