@@ -31,6 +31,7 @@ import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/set
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
+import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
 import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
 import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
@@ -157,6 +158,11 @@ const AuthedSettingsDownloadClientsRoute =
     path: '/settings/download-clients',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedMoviesCalendarRoute = AuthedMoviesCalendarRouteImport.update({
+  id: '/movies/calendar',
+  path: '/movies/calendar',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedMoviesAddRoute = AuthedMoviesAddRouteImport.update({
   id: '/movies/add',
   path: '/movies/add',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
+  '/movies/calendar': typeof AuthedMoviesCalendarRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
+  '/movies/calendar': typeof AuthedMoviesCalendarRoute
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
   '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
+  '/_authed/movies/calendar': typeof AuthedMoviesCalendarRoute
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/bookshelf/add'
     | '/movies/$movieId'
     | '/movies/add'
+    | '/movies/calendar'
     | '/settings/download-clients'
     | '/settings/formats'
     | '/settings/general'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/bookshelf/add'
     | '/movies/$movieId'
     | '/movies/add'
+    | '/movies/calendar'
     | '/settings/download-clients'
     | '/settings/formats'
     | '/settings/general'
@@ -433,6 +444,7 @@ export interface FileRouteTypes {
     | '/_authed/bookshelf/add'
     | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
+    | '/_authed/movies/calendar'
     | '/_authed/settings/download-clients'
     | '/_authed/settings/formats'
     | '/_authed/settings/general'
@@ -630,6 +642,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsDownloadClientsRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/movies/calendar': {
+      id: '/_authed/movies/calendar'
+      path: '/movies/calendar'
+      fullPath: '/movies/calendar'
+      preLoaderRoute: typeof AuthedMoviesCalendarRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/movies/add': {
       id: '/_authed/movies/add'
       path: '/movies/add'
@@ -738,6 +757,7 @@ interface AuthedRouteChildren {
   AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
   AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
+  AuthedMoviesCalendarRoute: typeof AuthedMoviesCalendarRoute
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
@@ -766,6 +786,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
   AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
+  AuthedMoviesCalendarRoute: AuthedMoviesCalendarRoute,
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
