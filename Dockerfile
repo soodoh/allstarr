@@ -14,6 +14,9 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
+# Install ffmpeg for audio metadata extraction (provides ffprobe)
+RUN apk add --no-cache ffmpeg
+
 # Copy Nitro server output
 COPY --from=builder /app/.output ./.output
 
