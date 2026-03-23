@@ -9,7 +9,9 @@ const downloadProfileBaseSchema = z.object({
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
-  type: z.enum(["ebook", "audiobook"]),
+  mediaType: z.enum(["ebook", "audio", "video"]),
+  contentType: z.enum(["book", "tv", "movie"]),
+  enabled: z.boolean().default(true),
   language: z.string().min(2).max(3),
 });
 
@@ -40,10 +42,13 @@ export const createDownloadFormatSchema = z.object({
   weight: z.number().default(1),
   color: z.string().default("gray"),
   minSize: z.number().default(0),
-  maxSize: z.number().default(0),
-  preferredSize: z.number().default(0),
+  maxSize: z.number().nullable().default(null),
+  preferredSize: z.number().nullable().default(null),
   specifications: z.array(specificationSchema).default([]),
-  type: z.enum(["ebook", "audiobook"]).default("ebook"),
+  type: z.enum(["ebook", "audio", "video"]).default("ebook"),
+  source: z.string().nullable().default(null),
+  resolution: z.number().default(0),
+  enabled: z.boolean().default(true),
 });
 
 export const updateDownloadFormatSchema = z.object({
@@ -52,10 +57,13 @@ export const updateDownloadFormatSchema = z.object({
   weight: z.number(),
   color: z.string().default("gray"),
   minSize: z.number().default(0),
-  maxSize: z.number().default(0),
-  preferredSize: z.number().default(0),
+  maxSize: z.number().nullable().default(null),
+  preferredSize: z.number().nullable().default(null),
   specifications: z.array(specificationSchema).default([]),
-  type: z.enum(["ebook", "audiobook"]).default("ebook"),
+  type: z.enum(["ebook", "audio", "video"]).default("ebook"),
+  source: z.string().nullable().default(null),
+  resolution: z.number().default(0),
+  enabled: z.boolean().default(true),
 });
 
 export const browseDirectorySchema = z.object({
