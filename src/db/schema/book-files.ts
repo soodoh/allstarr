@@ -15,4 +15,13 @@ export const bookFiles = sqliteTable("book_files", {
   dateAdded: integer("date_added", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
+  part: integer("part"),
+  partCount: integer("part_count"),
+  duration: integer("duration"),
+  bitrate: integer("bitrate"),
+  sampleRate: integer("sample_rate"),
+  channels: integer("channels"),
+  codec: text("codec"),
+  pageCount: integer("page_count"),
+  language: text("language"),
 });
