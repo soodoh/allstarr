@@ -45,11 +45,13 @@ Sonarr and Radarr are separate applications, each handling one content type. All
 UPDATE download_formats SET type = 'audio' WHERE type = 'audiobook';
 UPDATE download_profiles SET type = 'audio' WHERE type = 'audiobook';
 
--- Rename settings keys
-UPDATE settings SET key = REPLACE(key, 'mediaManagement.audiobook.', 'mediaManagement.audio.')
-  WHERE key LIKE 'mediaManagement.audiobook.%';
+-- Rename settings keys: audiobook -> audio in naming keys
 UPDATE settings SET key = REPLACE(key, 'naming.audiobook.', 'naming.audio.')
   WHERE key LIKE 'naming.audiobook.%';
+
+-- Rename settings keys: media management audiobook -> audio
+UPDATE settings SET key = REPLACE(key, 'mediaManagement.audiobook.', 'mediaManagement.audio.')
+  WHERE key LIKE 'mediaManagement.audiobook.%';
 ```
 
 ### Code Changes
@@ -65,14 +67,30 @@ No behavioral changes — purely a rename plus enum expansion.
 
 ### Schema Change
 
-The `type` column on `download_profiles` is renamed to `contentType` with values `"book" | "tv" | "movie"`.
+Add a `contentType` column to `download_profiles` with values `"book" | "tv" | "movie"`. **Keep the existing `type` column** (renamed from `"audiobook"` to `"audio"` in Section 2) as `mediaType` to preserve the distinction between ebook and audiobook profiles.
 
 ```sql
-ALTER TABLE download_profiles RENAME COLUMN type TO contentType;
-UPDATE download_profiles SET contentType = 'book' WHERE contentType IN ('ebook', 'audio');
+-- Add contentType column
+ALTER TABLE download_profiles ADD COLUMN contentType TEXT NOT NULL DEFAULT 'book';
+
+-- Set contentType based on existing type
+UPDATE download_profiles SET contentType = 'book';
+
+-- Rename type -> mediaType for clarity
+ALTER TABLE download_profiles RENAME COLUMN type TO mediaType;
 ```
 
-Existing ebook and audiobook profiles both become `contentType = 'book'`. The formats included in the profile's `items` array implicitly carry the media type (ebook format IDs vs audio format IDs).
+This means book profiles carry both:
+
+- `contentType = 'book'` (what content this manages)
+- `mediaType = 'ebook'` or `'audio'` (what file formats this targets)
+
+Video profiles carry:
+
+- `contentType = 'tv'` or `'movie'`
+- `mediaType = 'video'`
+
+This preserves the ability for `resolveProfileType()` in `file-import.ts` and `readImportSettings()` in `settings-reader.ts` to determine the correct media type and settings namespace from the profile, without needing to infer from format IDs.
 
 ### Enabled/Disabled Profiles
 
@@ -126,7 +144,7 @@ Preferred and max values are effectively unlimited in both TRaSH guides (Sonarr:
 | HDTV-720p     | 10     | 10           | NULL      | NULL | Television | 720        | video      |
 | WEBRip-720p   | 11     | 10           | NULL      | NULL | WebRip     | 720        | video      |
 | WEBDL-720p    | 12     | 10           | NULL      | NULL | Web        | 720        | video      |
-| Bluray-720p   | 13     | 17.1         | NULL      | NULL | Television | 720        | video      |
+| Bluray-720p   | 13     | 17.1         | NULL      | NULL | Bluray     | 720        | video      |
 | HDTV-1080p    | 20     | 15           | NULL      | NULL | Television | 1080       | video      |
 | WEBRip-1080p  | 21     | 15           | NULL      | NULL | WebRip     | 1080       | video      |
 | WEBDL-1080p   | 22     | 15           | NULL      | NULL | Web        | 1080       | video      |
@@ -138,6 +156,8 @@ Preferred and max values are effectively unlimited in both TRaSH guides (Sonarr:
 | Bluray-2160p  | 33     | 94.6         | NULL      | NULL | Bluray     | 2160       | video      |
 | Remux-2160p   | 34     | 187.4        | NULL      | NULL | BlurayRaw  | 2160       | video      |
 
+Note: SD/480p minimum values (5 MB/min) are Allstarr defaults, not from TRaSH. TRaSH guides only cover HD (720p+) and above. Unknown Video (weight 0, min 1) is an Allstarr-specific addition for unrecognized files — it does not exist in TRaSH or Sonarr/Radarr.
+
 **Conservative Video Formats (disabled by default):**
 
 Same format names with `min: 0`, `preferred: NULL`, `max: NULL` for all — matching Sonarr/Radarr out-of-box behavior (no restrictions).
@@ -146,48 +166,50 @@ Same format names with `min: 0`, `preferred: NULL`, `max: NULL` for all — matc
 
 - Format names, sources, and resolutions match Sonarr's `Quality.cs` (22 qualities) and Radarr's `Quality.cs` (30 qualities). We use the common subset that appears in both.
 - Radarr has additional pre-release qualities (WORKPRINT, CAM, TELESYNC, TELECINE, DVDSCR, REGIONAL, BR-DISK) that are not included since they are niche and can be added later.
-- TRaSH minimum values are taken from [Sonarr series quality-size JSON](https://github.com/TRaSH-Guides/Guides/tree/master/docs/json/sonarr/quality-size/series.json) to be x265-safe.
+- Sonarr has `Bluray-576p` (ID 22) and `Raw-HD` (ID 10) which are omitted as uncommon — can be added later.
+- TRaSH minimum values for HD+ taken from [Sonarr series quality-size JSON](https://github.com/TRaSH-Guides/Guides/tree/master/docs/json/sonarr/quality-size/series.json) to be x265-safe.
 - Sonarr max=1000 and Radarr max=2000 both represent "unlimited" — we use `NULL`.
+- Source names use Sonarr conventions (Web, WebRip). The release parser handles both Sonarr-style and Radarr-style source names (WEBDL, WEBRIP) when matching actual release titles.
 
 ### Existing Book Formats
 
-Existing ebook and audiobook formats are unchanged (already well-tuned). Conservative book formats are added (disabled) matching Readarr defaults: `min: 0`, `max: 350 MB` for all except FLAC which has `max: NULL`.
+Existing ebook and audiobook formats are unchanged (already well-tuned). Conservative book formats are added (disabled) matching Readarr defaults: `min: 0`, `max: 350 MB` (absolute MB, not per-minute — books don't have a duration concept) for all except FLAC which has `max: NULL`.
 
-| Title                        | Weight | Min | Preferred | Max  | Media Type | Enabled |
-| ---------------------------- | ------ | --- | --------- | ---- | ---------- | ------- |
-| Unknown Text (Conservative)  | 0      | 0   | NULL      | 350  | ebook      | false   |
-| PDF (Conservative)           | 1      | 0   | NULL      | 350  | ebook      | false   |
-| MOBI (Conservative)          | 2      | 0   | NULL      | 350  | ebook      | false   |
-| EPUB (Conservative)          | 3      | 0   | NULL      | 350  | ebook      | false   |
-| AZW3 (Conservative)          | 4      | 0   | NULL      | 350  | ebook      | false   |
-| Unknown Audio (Conservative) | 5      | 0   | NULL      | 350  | audio      | false   |
-| MP3 (Conservative)           | 6      | 0   | NULL      | 350  | audio      | false   |
-| M4B (Conservative)           | 7      | 0   | NULL      | 350  | audio      | false   |
-| FLAC (Conservative)          | 8      | 0   | NULL      | NULL | audio      | false   |
+| Title                        | Weight | Min | Preferred | Max (MB) | Media Type | Enabled |
+| ---------------------------- | ------ | --- | --------- | -------- | ---------- | ------- |
+| Unknown Text (Conservative)  | 0      | 0   | NULL      | 350      | ebook      | false   |
+| PDF (Conservative)           | 1      | 0   | NULL      | 350      | ebook      | false   |
+| MOBI (Conservative)          | 2      | 0   | NULL      | 350      | ebook      | false   |
+| EPUB (Conservative)          | 3      | 0   | NULL      | 350      | ebook      | false   |
+| AZW3 (Conservative)          | 4      | 0   | NULL      | 350      | ebook      | false   |
+| Unknown Audio (Conservative) | 5      | 0   | NULL      | 350      | audio      | false   |
+| MP3 (Conservative)           | 6      | 0   | NULL      | 350      | audio      | false   |
+| M4B (Conservative)           | 7      | 0   | NULL      | 350      | audio      | false   |
+| FLAC (Conservative)          | 8      | 0   | NULL      | NULL     | audio      | false   |
 
 ## 5. Download Profiles
 
 ### TRaSH-Style Profiles (enabled by default)
 
-| Name              | Content Type | Items (format names in priority order)                                                       | Cutoff       | Upgrade | Icon         |
-| ----------------- | ------------ | -------------------------------------------------------------------------------------------- | ------------ | ------- | ------------ |
-| Ebook             | book         | EPUB, AZW3, MOBI, PDF                                                                        | EPUB         | false   | book-marked  |
-| Audiobook         | book         | M4B, MP3, FLAC                                                                               | M4B          | false   | audio-lines  |
-| WEB-1080p         | tv           | WEBDL-1080p, WEBRip-1080p, HDTV-1080p                                                        | WEBDL-1080p  | true    | tv           |
-| WEB-2160p         | tv           | WEBDL-2160p, WEBRip-2160p, Bluray-2160p                                                      | WEBDL-2160p  | true    | tv-minimal   |
-| HD Bluray + WEB   | movie        | Bluray-1080p, WEBDL-1080p, WEBRip-1080p, Bluray-720p, WEBDL-720p, WEBRip-720p                | Bluray-1080p | true    | film         |
-| Remux + WEB 2160p | movie        | Remux-2160p, Bluray-2160p, WEBDL-2160p, WEBRip-2160p, Remux-1080p, Bluray-1080p, WEBDL-1080p | Remux-2160p  | true    | clapperboard |
+| Name              | Content Type | Media Type | Items (format names in priority order)                                                       | Cutoff       | Upgrade | Icon         |
+| ----------------- | ------------ | ---------- | -------------------------------------------------------------------------------------------- | ------------ | ------- | ------------ |
+| Ebook             | book         | ebook      | EPUB, AZW3, MOBI, PDF                                                                        | EPUB         | false   | book-marked  |
+| Audiobook         | book         | audio      | M4B, MP3, FLAC                                                                               | M4B          | false   | audio-lines  |
+| WEB-1080p         | tv           | video      | WEBDL-1080p, WEBRip-1080p, HDTV-1080p                                                        | WEBDL-1080p  | true    | tv           |
+| WEB-2160p         | tv           | video      | WEBDL-2160p, WEBRip-2160p, Bluray-2160p                                                      | WEBDL-2160p  | true    | tv-minimal   |
+| HD Bluray + WEB   | movie        | video      | Bluray-1080p, WEBDL-1080p, WEBRip-1080p, Bluray-720p, WEBDL-720p, WEBRip-720p                | Bluray-1080p | true    | film         |
+| Remux + WEB 2160p | movie        | video      | Remux-2160p, Bluray-2160p, WEBDL-2160p, WEBRip-2160p, Remux-1080p, Bluray-1080p, WEBDL-1080p | Remux-2160p  | true    | clapperboard |
 
 ### Conservative Profiles (disabled by default)
 
-| Name                     | Content Type | Items                                                            | Cutoff | Upgrade | Icon         |
-| ------------------------ | ------------ | ---------------------------------------------------------------- | ------ | ------- | ------------ |
-| Ebook (Conservative)     | book         | EPUB, AZW3, MOBI, PDF, Unknown Text                              | none   | false   | book-marked  |
-| Audiobook (Conservative) | book         | MP3, M4B, FLAC, Unknown Audio                                    | none   | false   | audio-lines  |
-| Any 1080p                | tv           | WEBDL-1080p, WEBRip-1080p, HDTV-1080p, Bluray-1080p              | none   | false   | tv           |
-| Any 2160p                | tv           | WEBDL-2160p, WEBRip-2160p, HDTV-2160p, Bluray-2160p              | none   | false   | tv-minimal   |
-| Any 1080p                | movie        | WEBDL-1080p, WEBRip-1080p, HDTV-1080p, Bluray-1080p, Remux-1080p | none   | false   | film         |
-| Any 2160p                | movie        | WEBDL-2160p, WEBRip-2160p, HDTV-2160p, Bluray-2160p, Remux-2160p | none   | false   | clapperboard |
+| Name                     | Content Type | Media Type | Items                                                            | Cutoff | Upgrade | Icon         |
+| ------------------------ | ------------ | ---------- | ---------------------------------------------------------------- | ------ | ------- | ------------ |
+| Ebook (Conservative)     | book         | ebook      | EPUB, AZW3, MOBI, PDF, Unknown Text                              | none   | false   | book-marked  |
+| Audiobook (Conservative) | book         | audio      | MP3, M4B, FLAC, Unknown Audio                                    | none   | false   | audio-lines  |
+| Any 1080p                | tv           | video      | WEBDL-1080p, WEBRip-1080p, HDTV-1080p, Bluray-1080p              | none   | false   | tv           |
+| Any 2160p                | tv           | video      | WEBDL-2160p, WEBRip-2160p, HDTV-2160p, Bluray-2160p              | none   | false   | tv-minimal   |
+| Any 1080p                | movie        | video      | WEBDL-1080p, WEBRip-1080p, HDTV-1080p, Bluray-1080p, Remux-1080p | none   | false   | film         |
+| Any 2160p                | movie        | video      | WEBDL-2160p, WEBRip-2160p, HDTV-2160p, Bluray-2160p, Remux-2160p | none   | false   | clapperboard |
 
 ### Default Newznab/Torznab Categories per Profile
 
@@ -211,31 +233,35 @@ Existing ebook and audiobook formats are unchanged (already well-tuned). Conserv
 
 **`shows`**
 
-| Column     | Type       | Notes                                         |
-| ---------- | ---------- | --------------------------------------------- |
-| id         | integer PK | auto-increment                                |
-| title      | text       |                                               |
-| sortTitle  | text       | for alphabetical sorting                      |
-| overview   | text       | synopsis                                      |
-| tmdbId     | integer    | TMDB series ID, unique                        |
-| imdbId     | text       | nullable                                      |
-| status     | text       | "continuing", "ended", "upcoming", "canceled" |
-| seriesType | text       | "standard", "daily", "anime" — matches Sonarr |
-| network    | text       | e.g., "HBO", "Netflix"                        |
-| year       | integer    | first air year                                |
-| runtime    | integer    | typical episode minutes                       |
-| genres     | JSON       | string array                                  |
-| posterUrl  | text       |                                               |
-| fanartUrl  | text       | backdrop                                      |
-| monitored  | boolean    | default true                                  |
-| path       | text       | filesystem path                               |
-| added      | text       | ISO date                                      |
+| Column     | Type       | Notes                                                                                                        |
+| ---------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| id         | integer PK | auto-increment                                                                                               |
+| title      | text       |                                                                                                              |
+| sortTitle  | text       | for alphabetical sorting                                                                                     |
+| overview   | text       | synopsis                                                                                                     |
+| tmdbId     | integer    | TMDB series ID, unique                                                                                       |
+| imdbId     | text       | nullable                                                                                                     |
+| status     | text       | "continuing", "ended", "upcoming", "canceled"                                                                |
+| seriesType | text       | "standard", "daily", "anime" — matches Sonarr                                                                |
+| network    | text       | e.g., "HBO", "Netflix"                                                                                       |
+| year       | integer    | first air year                                                                                               |
+| runtime    | integer    | typical episode minutes                                                                                      |
+| genres     | JSON       | string array                                                                                                 |
+| tags       | JSON       | integer array (tag IDs), matching authors/books pattern                                                      |
+| posterUrl  | text       |                                                                                                              |
+| fanartUrl  | text       | backdrop                                                                                                     |
+| monitored  | boolean    | default true                                                                                                 |
+| path       | text       | cached computed path (profile root + show folder naming template). Updated when profile root folder changes. |
+| createdAt  | integer    | timestamp mode, matching existing convention                                                                 |
+| updatedAt  | integer    | timestamp mode, matching existing convention                                                                 |
 
 The `seriesType` field matches Sonarr's series types which affect search behavior:
 
 - `standard` — searches by S00E00 pattern
 - `daily` — searches by air date (YYYY-MM-DD)
 - `anime` — searches by absolute episode number in addition to S00E00
+
+The `path` column is a cached computed value derived from the profile's root folder path + the show folder naming template. It is recomputed when the profile root folder changes (see Section 10, Root Folder File Move). The profile remains the source of truth for root folder; `path` is a convenience cache for file operations.
 
 **`seasons`**
 
@@ -250,76 +276,80 @@ The `seriesType` field matches Sonarr's series types which affect search behavio
 
 **`episodes`**
 
-| Column         | Type       | Notes                        |
-| -------------- | ---------- | ---------------------------- |
-| id             | integer PK |                              |
-| showId         | integer FK | references shows             |
-| seasonId       | integer FK | references seasons           |
-| episodeNumber  | integer    |                              |
-| absoluteNumber | integer    | nullable, for anime          |
-| title          | text       |                              |
-| overview       | text       | nullable                     |
-| airDate        | text       | ISO date, nullable (unaired) |
-| runtime        | integer    | minutes, nullable            |
-| tmdbId         | integer    |                              |
-| hasFile        | boolean    | default false                |
-| monitored      | boolean    | default true                 |
+| Column         | Type       | Notes                                                                                                       |
+| -------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| id             | integer PK |                                                                                                             |
+| showId         | integer FK | references shows                                                                                            |
+| seasonId       | integer FK | references seasons                                                                                          |
+| episodeNumber  | integer    |                                                                                                             |
+| absoluteNumber | integer    | nullable, for anime                                                                                         |
+| title          | text       |                                                                                                             |
+| overview       | text       | nullable                                                                                                    |
+| airDate        | text       | ISO date, nullable (unaired)                                                                                |
+| runtime        | integer    | minutes, nullable                                                                                           |
+| tmdbId         | integer    |                                                                                                             |
+| hasFile        | boolean    | default false (denormalized — kept in sync on import/delete for query performance, matching Sonarr pattern) |
+| monitored      | boolean    | default true                                                                                                |
 
 **`episode_files`**
 
-| Column    | Type       | Notes                              |
-| --------- | ---------- | ---------------------------------- |
-| id        | integer PK |                                    |
-| episodeId | integer FK | references episodes                |
-| path      | text       |                                    |
-| size      | integer    | bytes                              |
-| quality   | JSON       | `{ formatId, source, resolution }` |
-| dateAdded | text       | ISO date                           |
-| sceneName | text       | original release name              |
-| duration  | integer    | seconds                            |
-| codec     | text       | x264, x265, etc.                   |
-| container | text       | mkv, mp4                           |
+| Column    | Type       | Notes                                                                                  |
+| --------- | ---------- | -------------------------------------------------------------------------------------- |
+| id        | integer PK |                                                                                        |
+| episodeId | integer FK | references episodes                                                                    |
+| path      | text       |                                                                                        |
+| size      | integer    | bytes                                                                                  |
+| quality   | JSON       | `{ quality: { id, name }, revision: { version, real } }` — matches `book_files` schema |
+| dateAdded | integer    | timestamp mode, matching `book_files` convention                                       |
+| sceneName | text       | original release name                                                                  |
+| duration  | integer    | seconds                                                                                |
+| codec     | text       | x264, x265, etc.                                                                       |
+| container | text       | mkv, mp4                                                                               |
 
 ### New Tables: Movies
 
 **`movies`**
 
-| Column              | Type       | Notes                                |
-| ------------------- | ---------- | ------------------------------------ |
-| id                  | integer PK |                                      |
-| title               | text       |                                      |
-| sortTitle           | text       |                                      |
-| overview            | text       |                                      |
-| tmdbId              | integer    | unique                               |
-| imdbId              | text       | nullable                             |
-| status              | text       | "released", "announced", "inCinemas" |
-| studio              | text       |                                      |
-| year                | integer    |                                      |
-| runtime             | integer    | minutes                              |
-| genres              | JSON       | string array                         |
-| posterUrl           | text       |                                      |
-| fanartUrl           | text       | backdrop                             |
-| monitored           | boolean    | default true                         |
-| minimumAvailability | text       | "announced", "inCinemas", "released" |
-| path                | text       | filesystem path                      |
-| added               | text       | ISO date                             |
+| Column              | Type       | Notes                                                              |
+| ------------------- | ---------- | ------------------------------------------------------------------ |
+| id                  | integer PK |                                                                    |
+| title               | text       |                                                                    |
+| sortTitle           | text       |                                                                    |
+| overview            | text       |                                                                    |
+| tmdbId              | integer    | unique                                                             |
+| imdbId              | text       | nullable                                                           |
+| status              | text       | "tba", "announced", "inCinemas", "released"                        |
+| studio              | text       |                                                                    |
+| year                | integer    |                                                                    |
+| runtime             | integer    | minutes                                                            |
+| genres              | JSON       | string array                                                       |
+| tags                | JSON       | integer array (tag IDs), matching authors/books pattern            |
+| posterUrl           | text       |                                                                    |
+| fanartUrl           | text       | backdrop                                                           |
+| monitored           | boolean    | default true                                                       |
+| minimumAvailability | text       | "announced", "inCinemas", "released"                               |
+| path                | text       | cached computed path (profile root + movie folder naming template) |
+| createdAt           | integer    | timestamp mode                                                     |
+| updatedAt           | integer    | timestamp mode                                                     |
+
+`status` includes `"tba"` for movies in a "rumored" or "planned" state on TMDB that haven't been formally announced. TMDB statuses "Rumored" and "Planned" map to `"tba"`.
 
 `minimumAvailability` matches Radarr's options (excluding `preDB` which Radarr documents as deprecated — it behaves identically to `released`).
 
 **`movie_files`**
 
-| Column    | Type       | Notes                              |
-| --------- | ---------- | ---------------------------------- |
-| id        | integer PK |                                    |
-| movieId   | integer FK | references movies                  |
-| path      | text       |                                    |
-| size      | integer    | bytes                              |
-| quality   | JSON       | `{ formatId, source, resolution }` |
-| dateAdded | text       | ISO date                           |
-| sceneName | text       | original release name              |
-| duration  | integer    | seconds                            |
-| codec     | text       |                                    |
-| container | text       |                                    |
+| Column    | Type       | Notes                                                                                  |
+| --------- | ---------- | -------------------------------------------------------------------------------------- |
+| id        | integer PK |                                                                                        |
+| movieId   | integer FK | references movies                                                                      |
+| path      | text       |                                                                                        |
+| size      | integer    | bytes                                                                                  |
+| quality   | JSON       | `{ quality: { id, name }, revision: { version, real } }` — matches `book_files` schema |
+| dateAdded | integer    | timestamp mode, matching `book_files` convention                                       |
+| sceneName | text       | original release name                                                                  |
+| duration  | integer    | seconds                                                                                |
+| codec     | text       |                                                                                        |
+| container | text       |                                                                                        |
 
 ### Profile Association Tables
 
@@ -341,22 +371,36 @@ Existing `bookId` column unchanged.
 - `showId` (integer FK, nullable)
 - `movieId` (integer FK, nullable)
 
-**`history`** — extend event types:
+**`history`** — add nullable columns and extend event types:
+
+New nullable columns:
+
+- `showId` (integer FK, nullable)
+- `episodeId` (integer FK, nullable)
+- `movieId` (integer FK, nullable)
+
+New event types:
 
 - `showAdded`, `showDeleted`, `episodeFileImported`, `episodeFileDeleted`
 - `movieAdded`, `movieDeleted`, `movieFileImported`, `movieFileDeleted`
 
+### Download Profile `language` Column
+
+The existing `language` column on `download_profiles` is used for book edition language filtering (Hardcover). For TV/movie profiles, this column is ignored — TMDB language preferences are handled via the `metadata.tmdb.language` setting (Section 8). The column remains on all profiles for schema simplicity but is only functionally relevant for `contentType = 'book'`.
+
 ### Cross-reference with Sonarr/Radarr
 
-- `shows` table maps to Sonarr's `Series` entity. Fields match: title, sortTitle, overview, tvdbId (we use tmdbId), imdbId, status, seriesType, network, year, runtime, genres, images, monitored, path.
+- `shows` table maps to Sonarr's `Series` entity. Fields match: title, sortTitle, overview, tvdbId (we use tmdbId), imdbId, status, seriesType, network, year, runtime, genres, images, monitored, path, tags.
 - `seasons` and `episodes` match Sonarr's Season and Episode entities. `absoluteNumber` on episodes supports anime (Sonarr feature).
 - `episode_files` matches Sonarr's EpisodeFile: path, size, quality JSON, sceneName, mediaInfo fields.
-- `movies` table maps to Radarr's Movie entity. Fields match: title, sortTitle, overview, tmdbId, imdbId, status, studio, year, runtime, genres, images, monitored, minimumAvailability, path.
+- `movies` table maps to Radarr's Movie entity. Fields match: title, sortTitle, overview, tmdbId, imdbId, status, studio, year, runtime, genres, images, monitored, minimumAvailability, path, tags.
 - `movie_files` matches Radarr's MovieFile.
 - `seriesType` values ("standard", "daily", "anime") match Sonarr exactly.
-- Movie `status` values ("released", "announced", "inCinemas") match Radarr. `preDB` is excluded per Radarr's own deprecation.
+- Movie `status` includes `"tba"` mapping from TMDB's "Rumored"/"Planned" states, matching Radarr's `TBA (0)` status.
+- Quality JSON on file tables uses the same `{ quality: { id, name }, revision: { version, real } }` structure as existing `book_files`, enabling shared code for quality comparison, upgrade detection, and propers/repacks tracking.
+- Timestamps use `integer` with timestamp mode matching existing `authors`/`books` convention, not text ISO dates.
 
-**Deliberate difference:** Root folders are on the profile, not on the show/movie. Sonarr/Radarr store `rootFolderPath` on both the series/movie AND use it from the quality profile. Allstarr uses profile-only, which is already the established pattern from the book system.
+**Deliberate difference:** Root folders are on the profile, not on the show/movie. Sonarr/Radarr store `rootFolderPath` on both the series/movie AND use it from the quality profile. Allstarr uses profile-only, which is already the established pattern from the book system. The `path` column on shows/movies is a computed cache, not a root folder.
 
 ## 7. TMDB Integration
 
@@ -394,7 +438,7 @@ All TMDB API interactions, mirroring `src/server/search.ts` for Hardcover.
 1. User searches TMDB, selects a movie
 2. `getTmdbMovieDetailFn` fetches detail
 3. Insert into `movies` table
-4. User assigns profile + sets minimum availability via `movie_download_profiles`
+4. User assigns profile + sets minimum availability on the `movies` row
 
 **Monitoring options for TV (matching Sonarr):**
 
@@ -404,13 +448,15 @@ All TMDB API interactions, mirroring `src/server/search.ts` for Hardcover.
 - `existing` — episodes that already have files
 - `pilot` — only the first episode
 - `firstSeason` — only season 1
-- `latestSeason` — only the most recent season
+- `lastSeason` — only the most recent season (Sonarr's current name; `latestSeason` is deprecated)
 - `none` — add but don't monitor
+
+Intentionally omitted Sonarr options: `recent` (monitor recent episodes only), `monitorSpecials`, `unmonitorSpecials`, `skip`. These are less commonly used and can be added later without schema changes.
 
 **Metadata refresh:**
 
 - New scheduled task: `refresh-tmdb-metadata` (12-hour interval)
-- Updates: show status changes, new episodes for continuing shows, air dates, movie status transitions (announced -> inCinemas -> released)
+- Updates: show status changes, new episodes for continuing shows, air dates, movie status transitions (tba -> announced -> inCinemas -> released)
 - Rate limiting: TMDB allows ~40 requests per 10 seconds. Implement request queue with throttle.
 
 **Attribution:**
@@ -419,7 +465,7 @@ Per TMDB terms of use, include in the app: "This product uses the TMDB API but i
 ### Cross-reference with Sonarr/Radarr
 
 - Sonarr uses TVDB as its metadata source. Allstarr uses TMDB for TV, which Radarr already uses for movies. TMDB has equivalent TV data (shows, seasons, episodes, images) and is free without per-user subscription.
-- Sonarr's monitoring options (all, future, missing, existing, pilot, firstSeason, latestSeason, none) are replicated exactly.
+- Sonarr's monitoring options are replicated with the exception of `recent`, `monitorSpecials`, `unmonitorSpecials`, and `skip` which are intentionally deferred. `latestSeason` is renamed to `lastSeason` to match Sonarr's non-deprecated name.
 - Radarr's minimum availability concept is replicated (announced, inCinemas, released) minus deprecated preDB.
 - Metadata refresh interval (12 hours) matches Sonarr/Radarr defaults.
 
@@ -431,7 +477,7 @@ Two tabs organized by metadata source:
 
 **Hardcover tab:**
 
-- API Token (masked input). Reads from `metadata.hardcover.apiKey` setting, falls back to `HARDCOVER_TOKEN` env var for backwards compatibility. Shows note "Currently using environment variable" when DB setting is empty but env var is set. Once saved to DB, DB value takes precedence.
+- API Token (masked input). Reads from `metadata.hardcover.apiKey` setting, falls back to `HARDCOVER_TOKEN` env var for backwards compatibility. Shows note "Currently using environment variable" when DB setting is empty but env var is set. Once saved to DB, DB value takes precedence. The code change to `src/server/search.ts` (reading from DB setting with env var fallback) is part of Phase 1.
 - Skip books with missing release date (boolean)
 - Skip books with no ISBN or ASIN (boolean)
 - Skip compilations and box sets (boolean)
@@ -518,6 +564,44 @@ mediaManagement.tv.*
 mediaManagement.movie.*
 ```
 
+### Settings Key Migration (Complete)
+
+```sql
+-- Naming: ebook keys move under book namespace
+UPDATE settings SET key = REPLACE(key, 'naming.ebook.', 'naming.book.ebook.')
+  WHERE key LIKE 'naming.ebook.%';
+
+-- Naming: audio keys move under book namespace (after audiobook->audio rename in Section 2)
+UPDATE settings SET key = REPLACE(key, 'naming.audio.', 'naming.book.audio.')
+  WHERE key LIKE 'naming.audio.%';
+
+-- Media management: ebook keys move to book namespace
+UPDATE settings SET key = REPLACE(key, 'mediaManagement.ebook.', 'mediaManagement.book.')
+  WHERE key LIKE 'mediaManagement.ebook.%';
+
+-- Media management: audio keys also move to book namespace (books share one set of media mgmt settings)
+-- Only migrate keys that don't already exist under book namespace (ebook keys take precedence)
+INSERT OR IGNORE INTO settings (key, value)
+  SELECT REPLACE(key, 'mediaManagement.audio.', 'mediaManagement.book.'), value
+  FROM settings WHERE key LIKE 'mediaManagement.audio.%';
+DELETE FROM settings WHERE key LIKE 'mediaManagement.audio.%';
+
+-- Seed TV and Movie naming defaults
+INSERT OR IGNORE INTO settings (key, value) VALUES
+  ('naming.tv.standardEpisode', '"{Show Title} - S{Season:00}E{Episode:00} - {Episode Title}"'),
+  ('naming.tv.dailyEpisode', '"{Show Title} - {Air-Date} - {Episode Title}"'),
+  ('naming.tv.animeEpisode', '"{Show Title} - S{Season:00}E{Episode:00} - {Absolute:000} - {Episode Title}"'),
+  ('naming.tv.seasonFolder', '"Season {Season:00}"'),
+  ('naming.tv.showFolder', '"{Show Title} ({Year})"'),
+  ('naming.movie.movieFile', '"{Movie Title} ({Year})"'),
+  ('naming.movie.movieFolder', '"{Movie Title} ({Year})"');
+
+-- Seed TV and Movie media management defaults (same defaults as books)
+-- These will be seeded programmatically using the same default values as mediaManagement.book.*
+```
+
+Note: Media management settings are per-content-type (`mediaManagement.book.*`, `mediaManagement.tv.*`, `mediaManagement.movie.*`). Books share one set for both ebook and audiobook imports — the media type distinction for books is only in naming templates, not media management behavior. This is a simplification from the previous per-media-type pattern.
+
 ### Cross-reference with Sonarr/Radarr/TRaSH
 
 - TV naming defaults are simplified versions of the [TRaSH Sonarr recommended naming scheme](https://trash-guides.info/Sonarr/Sonarr-recommended-naming-scheme/). The full TRaSH scheme includes mediainfo tokens (audio codec, channels, HDR type, video codec, release group) which are available as tokens but not in the default template for simplicity.
@@ -597,7 +681,7 @@ When editing a download profile's root folder path:
 - Detect if existing files (book files, episode files, movie files) reference paths under the old root
 - Show confirmation dialog: "X files will be moved from /old/path to /new/path. Proceed?"
 - File move executes as a background task with progress indicator
-- On completion, update all affected file path records in the DB
+- On completion, update all affected file path records in the DB and recompute `path` on shows/movies
 
 ## 11. File Import & Video Probing
 
@@ -670,18 +754,20 @@ Status transitions are detected during `refresh-tmdb-metadata` task.
 
 ### Phase 1: Foundation
 
-No new UI pages. Structural changes only.
+No new content UI pages. Structural and settings changes only.
 
-- DB migration: rename audiobook -> audio, add contentType, add source/resolution/enabled columns, migrate settings keys, NULL for unlimited, seed video formats + profiles + conservative book formats
-- Update enums, validators, settings-reader, file-import
-- Update download formats UI: "No Limit" checkbox
-- Update download profiles UI: enabled toggle, contentType
+- DB migration: rename audiobook -> audio, add contentType + keep mediaType on profiles, add source/resolution/enabled columns to formats, migrate all settings keys to new namespaces, NULL for unlimited max/preferred sizes, seed video formats + profiles + conservative book formats
+- Update enums, validators, settings-reader, file-import to use new column names
+- Update download formats UI: "No Limit" checkbox for max size
+- Update download profiles UI: enabled toggle, contentType + mediaType fields
 - Update media management settings: Books/TV/Movies tabs
-- Update metadata settings: Hardcover/TMDB tabs, API token in DB
+- Update metadata settings: Hardcover/TMDB tabs, move Hardcover API token to DB with env var fallback
+
+**API compatibility note:** Phase 1 changes column names and settings keys. All existing server functions and UI components that reference the old names must be updated atomically. The book UI must remain fully functional after Phase 1.
 
 ### Phase 2: Data Model & TMDB Integration
 
-- DB migration: create shows, seasons, episodes, episode_files, movies, movie_files, join tables, extend tracked_downloads/blocklist/history
+- DB migration: create shows, seasons, episodes, episode_files, movies, movie_files, join tables, extend tracked_downloads/blocklist/history with showId/episodeId/movieId columns
 - Implement `src/server/tmdb.ts`
 - Implement `src/server/release-parser.ts`
 - Video file probing extensions
