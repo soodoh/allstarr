@@ -190,7 +190,39 @@ function readImportSettings(type: "ebook" | "audiobook"): ImportSettings {
 }
 ```
 
-Callers already know media type from file extension or quality definition context.
+### Calling convention in `importCompletedDownload()`
+
+The current code calls `readImportSettings()` once at the top (line 464), then uses the returned config for pre-split operations (free space check, directory creation) and post-split operations (passed to `importFiles()`).
+
+The download profile already has a `type` field. The tracked download references a `downloadProfileId`, so the primary type is known before the import starts. The refactored flow:
+
+1. Look up the download profile's `type` from `td.downloadProfileId` — this is the **primary type**
+2. Call `readImportSettings(primaryType)` for pre-split operations (free space check, directory creation with chmod)
+3. For `importFiles()` calls: pass the per-batch type (`"ebook"` or `"audiobook"`) and read type-specific settings within `importFiles()` as needed (e.g., `renameBooks`, naming template selection)
+
+This means a download containing mixed file types (rare but possible) uses the profile's type for shared operations and each batch's type for file-level operations.
+
+### Folder template resolution
+
+The `authorFolderName` and `bookFolderName` resolution (lines 511-525) is currently hardcoded to `naming.ebook.*`. This must become per-type using the primary type from the download profile:
+
+```ts
+const authorFolderName = sanitizePath(
+  applyNamingTemplate(
+    getMediaSetting(`naming.${primaryType}.authorFolder`, "{Author Name}"),
+    namingVars,
+  ),
+);
+const bookFolderName = sanitizePath(
+  applyNamingTemplate(
+    getMediaSetting(
+      `naming.${primaryType}.bookFolder`,
+      "{Book Title} ({Release Year})",
+    ),
+    namingVars,
+  ),
+);
+```
 
 ### `buildScanExtensions()`
 
@@ -198,11 +230,25 @@ During disk scan, union both types' extra extensions if either type has `importE
 
 ### Recycling bin
 
-The `recyclingBin` read at line 570 of `file-import.ts` similarly becomes `getMediaSetting(\`mediaManagement.${type}.recyclingBin\`, "")`.
+The cleanup loop at line 569 iterates over old files that could be a mix of types. Determine each file's type from its extension (audio extensions → audiobook, otherwise → ebook) and read the corresponding recycling bin path:
+
+```ts
+for (const oldFile of existingFiles) {
+  const ext = path.extname(oldFile.path).toLowerCase();
+  const fileType = AUDIO_EXTENSIONS.has(ext) ? "audiobook" : "ebook";
+  const recyclingBin = getMediaSetting(
+    `mediaManagement.${fileType}.recyclingBin`,
+    "",
+  );
+  // ...
+}
+```
 
 ## Files Changed
 
 - `drizzle/0008_per_type_media_management.sql` — new migration
 - `drizzle/meta/_journal.json` — migration journal entry
 - `src/routes/_authed/settings/media-management.tsx` — full UI restructure
-- `src/server/file-import.ts` — `readImportSettings(type)`, `buildScanExtensions()`, recycling bin
+- `src/server/file-import.ts` — `readImportSettings(type)`, folder templates, `buildScanExtensions()`, recycling bin
+- `e2e/tests/07-download-lifecycle.spec.ts` — update seeded settings keys from global to per-type
+- `e2e/tests/02-settings-config.spec.ts` — update for new tab-based UI structure
