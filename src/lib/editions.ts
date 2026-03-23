@@ -50,9 +50,9 @@ const AUDIOBOOK_FORMATS = new Set<string | null>(["Audiobook"]);
 
 export function matchesProfileFormat(
   format: string | null,
-  profileType: "ebook" | "audiobook",
+  profileType: "ebook" | "audio",
 ): boolean {
-  return profileType === "audiobook"
+  return profileType === "audio"
     ? AUDIOBOOK_FORMATS.has(format)
     : EBOOK_FORMATS.has(format);
 }
@@ -77,14 +77,14 @@ function byPopularity(
  */
 export function pickBestEditionForProfile<T extends ProfilePickableEdition>(
   editions: T[],
-  profile: { language: string; type: "ebook" | "audiobook" },
+  profile: { language: string; mediaType: "ebook" | "audio" },
 ): T | undefined {
   if (editions.length === 0) {
     return undefined;
   }
 
   const formatMatched = editions.filter((e) =>
-    matchesProfileFormat(e.format, profile.type),
+    matchesProfileFormat(e.format, profile.mediaType),
   );
 
   const pick = (candidates: T[]): T | undefined => {

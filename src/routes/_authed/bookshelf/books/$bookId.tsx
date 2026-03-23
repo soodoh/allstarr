@@ -101,7 +101,7 @@ function BookDetailPage(): JSX.Element {
         id: p.id,
         name: p.name,
         icon: p.icon,
-        type: p.type,
+        mediaType: p.mediaType,
         language: p.language,
       }));
   }, [book, downloadProfiles]);
