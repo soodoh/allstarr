@@ -60,6 +60,14 @@ export const queryKeys = {
     existence: (tmdbId: number) => ["movies", "existence", tmdbId] as const,
   },
 
+  // ─── Shows ───────────────────────────────────────────────────────────────
+  shows: {
+    all: ["shows"] as const,
+    lists: () => ["shows", "list"] as const,
+    detail: (id: number) => ["shows", "detail", id] as const,
+    existence: (tmdbId: number) => ["shows", "existence", tmdbId] as const,
+  },
+
   // ─── TMDB ────────────────────────────────────────────────────────────────
   tmdb: {
     all: ["tmdb"] as const,
