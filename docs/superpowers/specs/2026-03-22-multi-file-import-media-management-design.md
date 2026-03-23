@@ -64,7 +64,7 @@ New module wrapping `ffprobe` subprocess calls. Provides:
 - `isProbeAvailable(): boolean` — cached check for `ffprobe` in `$PATH`. Runs `ffprobe -version` once and caches the result for the process lifetime.
 - `probeAudioFile(filePath: string): Promise<AudioMeta | null>` — runs `ffprobe -v quiet -print_format json -show_format -show_streams <file>`, parses JSON output, returns `{ duration, bitrate, sampleRate, channels, codec }`. Returns null if ffprobe unavailable or file unreadable.
 - `probeEbookFile(filePath: string): Promise<EbookMeta | null>` — extracts ebook metadata without ffprobe:
-  - **EPUB:** Parse `content.opf` from the zip archive using Node's built-in zip support. Read `<dc:language>` for language. For page count, check `meta[name="calibre:page_count"]` if present (Calibre-produced EPUBs include this). If absent, page count returns null — EPUB page count is inherently unreliable since it depends on rendering.
+  - **EPUB:** EPUB files are ZIP archives. Use a lightweight pure-JS ZIP library (e.g., `adm-zip`) to read entries without native dependencies. Extract and parse `META-INF/container.xml` to locate the OPF file, then parse the OPF XML for `<dc:language>` (language) and `meta[name="calibre:page_count"]` (page count, present in Calibre-produced EPUBs). If page count metadata is absent, return null — EPUB page count is inherently unreliable since it depends on rendering.
   - **PDF:** Scan the binary for the page tree root's `/Count \d+` entry as a heuristic. PDF internal structure is complex (xref tables, catalog dictionaries), so this is a best-effort extraction. Returns null if the pattern isn't found or the file structure is non-standard.
   - Returns `{ pageCount, language }`. Returns null on any failure — ebook metadata is best-effort.
 
@@ -145,7 +145,9 @@ When building scan extensions, merge per-type settings based on which batches ar
 
 #### Mixed Downloads (Ebook + Audio)
 
-If a single download contains both ebook and audio files, they are processed as two independent batches. Each batch uses its own naming templates and probe functions. The destination folder is determined by the first batch's folder template (ebook takes precedence since it's the primary content type). Both batches write to the same destination directory.
+If a single download contains both ebook and audio files, they are processed as two independent batches. Each batch uses its own naming templates (for file names) and probe functions.
+
+The destination directory (`destDir`) is computed **once** in `importCompletedDownload()` before either batch is processed, using the **ebook** folder templates (`naming.ebook.authorFolder`, `naming.ebook.bookFolder`) since ebooks are the primary content type. Both batches write to the same `destDir`. The `importFiles()` function receives the pre-computed `destDir` — it does not recompute folder paths from per-type templates. Only the **file naming** template (`naming.{type}.bookFile`) varies per batch.
 
 ### 4. Disk Scan Updates: `src/server/disk-scan.ts`
 
@@ -250,7 +252,9 @@ The `applyNamingTemplate()` function in `file-import.ts` needs to handle the new
 - `{PartNumber:000}` → zero-padded to 3 digits (e.g., `001`)
 - `{PartCount}` → total parts (e.g., `15`)
 
-Implementation: extend `applyNamingTemplate()` to detect `{Key:0+}` patterns and apply `String.padStart()` with the appropriate length.
+Implementation: extend `applyNamingTemplate()` to detect `{Key:0+}` patterns via regex. The number of `0` characters after the colon equals the minimum output width — e.g., `{PartNumber:00}` → `padStart(2, "0")`, `{PartNumber:000}` → `padStart(3, "0")`. Process padded tokens first (via regex), then fall through to the existing `replaceAll` loop for plain `{Key}` tokens.
+
+Note: The existing `namingVars` already includes `PartNumber: ""`. The refactored code should set `PartNumber` and `PartCount` per-batch: numeric strings for audio batches, empty strings for ebook batches.
 
 ## File Changes Summary
 
