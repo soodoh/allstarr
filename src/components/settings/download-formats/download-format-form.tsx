@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent, JSX } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
+import Checkbox from "src/components/ui/checkbox";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
@@ -31,15 +32,18 @@ type DownloadFormatFormValues = {
   weight: number;
   color: string;
   minSize: number;
-  maxSize: number;
-  preferredSize: number;
+  maxSize: number | null;
+  preferredSize: number | null;
   specifications: Specification[];
-  type: "ebook" | "audiobook";
+  type: "ebook" | "audio" | "video";
+  source: string | null;
+  resolution: number;
+  enabled: boolean;
 };
 
 type DownloadFormatFormProps = {
   initialValues?: DownloadFormatFormValues;
-  type: "ebook" | "audiobook";
+  type: "ebook" | "audio" | "video";
   onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -61,6 +65,25 @@ const SPEC_TYPES = [
   { value: "releaseGroup", label: "Release Group" },
   { value: "size", label: "Size" },
   { value: "indexerFlag", label: "Indexer Flag" },
+] as const;
+
+const VIDEO_SOURCES = [
+  { value: "Television", label: "Television" },
+  { value: "Web", label: "Web" },
+  { value: "WebRip", label: "WebRip" },
+  { value: "Bluray", label: "Bluray" },
+  { value: "BlurayRaw", label: "Bluray Raw" },
+  { value: "DVD", label: "DVD" },
+  { value: "Unknown", label: "Unknown" },
+] as const;
+
+const VIDEO_RESOLUTIONS = [
+  { value: 0, label: "Unknown" },
+  { value: 480, label: "480p" },
+  { value: 576, label: "576p" },
+  { value: 720, label: "720p" },
+  { value: 1080, label: "1080p" },
+  { value: 2160, label: "2160p (4K)" },
 ] as const;
 
 const COLOR_CLASSES: Record<string, string> = {
@@ -248,6 +271,186 @@ function SpecificationsEditor({
   );
 }
 
+function defaultMaxSize(t: "ebook" | "audio" | "video"): number {
+  if (t === "audio") {
+    return 350;
+  }
+  if (t === "video") {
+    return 1000;
+  }
+  return 100;
+}
+
+function SizeLimitField({
+  id,
+  label,
+  value,
+  noLimit,
+  onValueChange,
+  onNoLimitChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  noLimit: boolean;
+  onValueChange: (v: number) => void;
+  onNoLimitChange: (checked: boolean) => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        type="number"
+        value={value}
+        disabled={noLimit}
+        onChange={(e) => onValueChange(Number(e.target.value))}
+      />
+      <div className="flex items-center gap-1.5">
+        <Checkbox
+          id={id}
+          checked={noLimit}
+          onCheckedChange={(v) => onNoLimitChange(v === true)}
+        />
+        <label
+          htmlFor={id}
+          className="text-xs text-muted-foreground cursor-pointer"
+        >
+          No Limit
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function VideoFields({
+  source,
+  resolution,
+  onSourceChange,
+  onResolutionChange,
+}: {
+  source: string;
+  resolution: number;
+  onSourceChange: (v: string) => void;
+  onResolutionChange: (v: number) => void;
+}): JSX.Element {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="video-source">Source</Label>
+        <Select value={source} onValueChange={onSourceChange}>
+          <SelectTrigger id="video-source" className="w-full">
+            <SelectValue placeholder="Any source" />
+          </SelectTrigger>
+          <SelectContent>
+            {VIDEO_SOURCES.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="video-resolution">Resolution</Label>
+        <Select
+          value={String(resolution)}
+          onValueChange={(v) => onResolutionChange(Number(v))}
+        >
+          <SelectTrigger id="video-resolution" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {VIDEO_RESOLUTIONS.map((r) => (
+              <SelectItem key={r.value} value={String(r.value)}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function updateSpecById(
+  prev: SpecEntry[],
+  id: string,
+  updated: Specification,
+): SpecEntry[] {
+  return prev.map((s) => (s._id === id ? { ...updated, _id: id } : s));
+}
+
+function useBasicFormFields(
+  initialValues: DownloadFormatFormValues | undefined,
+  type: "ebook" | "audio" | "video",
+) {
+  const resolvedType = initialValues?.type ?? type;
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [weight, setWeight] = useState(initialValues?.weight ?? 1);
+  const [color, setColor] = useState(initialValues?.color ?? "gray");
+  const [source, setSource] = useState<string>(initialValues?.source ?? "");
+  const [resolution, setResolution] = useState<number>(
+    initialValues?.resolution ?? 0,
+  );
+  const [enabled, setEnabled] = useState<boolean>(
+    initialValues?.enabled ?? true,
+  );
+  return {
+    resolvedType,
+    title,
+    setTitle,
+    weight,
+    setWeight,
+    color,
+    setColor,
+    source,
+    setSource,
+    resolution,
+    setResolution,
+    enabled,
+    setEnabled,
+  };
+}
+
+function useSizeFormFields(
+  initialValues: DownloadFormatFormValues | undefined,
+  type: "ebook" | "audio" | "video",
+) {
+  const [minSize, setMinSize] = useState(initialValues?.minSize ?? 0);
+  const [maxSize, setMaxSize] = useState<number>(
+    initialValues?.maxSize ?? defaultMaxSize(type),
+  );
+  const [maxNoLimit, setMaxNoLimit] = useState<boolean>(
+    initialValues?.maxSize === null,
+  );
+  const [preferredSize, setPreferredSize] = useState<number>(
+    initialValues?.preferredSize ?? defaultMaxSize(type),
+  );
+  const [preferredNoLimit, setPreferredNoLimit] = useState<boolean>(
+    initialValues?.preferredSize === null,
+  );
+  const [specifications, setSpecifications] = useState<SpecEntry[]>(() =>
+    toEntries(initialValues?.specifications ?? []),
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  return {
+    minSize,
+    setMinSize,
+    maxSize,
+    setMaxSize,
+    maxNoLimit,
+    setMaxNoLimit,
+    preferredSize,
+    setPreferredSize,
+    preferredNoLimit,
+    setPreferredNoLimit,
+    specifications,
+    setSpecifications,
+    errors,
+    setErrors,
+  };
+}
+
 export default function DownloadFormatForm({
   initialValues,
   type,
@@ -255,18 +458,38 @@ export default function DownloadFormatForm({
   onCancel,
   loading,
 }: DownloadFormatFormProps): JSX.Element {
-  const [title, setTitle] = useState(initialValues?.title ?? "");
-  const [weight, setWeight] = useState(initialValues?.weight ?? 1);
-  const [color, setColor] = useState(initialValues?.color ?? "gray");
-  const [minSize, setMinSize] = useState(initialValues?.minSize ?? 0);
-  const [maxSize, setMaxSize] = useState(initialValues?.maxSize ?? 0);
-  const [preferredSize, setPreferredSize] = useState(
-    initialValues?.preferredSize ?? 0,
-  );
-  const [specifications, setSpecifications] = useState<SpecEntry[]>(() =>
-    toEntries(initialValues?.specifications ?? []),
-  );
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const {
+    resolvedType,
+    title,
+    setTitle,
+    weight,
+    setWeight,
+    color,
+    setColor,
+    source,
+    setSource,
+    resolution,
+    setResolution,
+    enabled,
+    setEnabled,
+  } = useBasicFormFields(initialValues, type);
+
+  const {
+    minSize,
+    setMinSize,
+    maxSize,
+    setMaxSize,
+    maxNoLimit,
+    setMaxNoLimit,
+    preferredSize,
+    setPreferredSize,
+    preferredNoLimit,
+    setPreferredNoLimit,
+    specifications,
+    setSpecifications,
+    errors,
+    setErrors,
+  } = useSizeFormFields(initialValues, type);
 
   const handleAddSpec = () => {
     setSpecifications((prev) => [
@@ -282,17 +505,7 @@ export default function DownloadFormatForm({
   };
 
   const handleUpdateSpec = (id: string, updated: Specification) => {
-    setSpecifications((prev) => {
-      const next: SpecEntry[] = [];
-      for (const s of prev) {
-        if (s._id === id) {
-          next.push({ ...updated, _id: id });
-        } else {
-          next.push(s);
-        }
-      }
-      return next;
-    });
+    setSpecifications((prev) => updateSpecById(prev, id, updated));
   };
 
   const handleRemoveSpec = (id: string) => {
@@ -302,30 +515,28 @@ export default function DownloadFormatForm({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const strippedSpecs = specifications.map(({ _id, ...rest }) => rest);
-    const result = validateForm(createDownloadFormatSchema, {
+    const effectiveMax = maxNoLimit ? null : maxSize;
+    const effectivePreferred = preferredNoLimit ? null : preferredSize;
+    const payload: DownloadFormatFormValues = {
       title,
       weight,
       color,
       minSize,
-      maxSize,
-      preferredSize,
+      maxSize: effectiveMax,
+      preferredSize: effectivePreferred,
       specifications: strippedSpecs,
-    });
+      type: resolvedType,
+      source: source || null,
+      resolution,
+      enabled,
+    };
+    const result = validateForm(createDownloadFormatSchema, payload);
     if (!result.success) {
       setErrors(result.errors);
       return;
     }
     setErrors({});
-    onSubmit({
-      title,
-      weight,
-      color,
-      minSize,
-      maxSize,
-      preferredSize,
-      specifications: strippedSpecs,
-      type: initialValues?.type ?? type,
-    });
+    onSubmit(payload);
   };
 
   return (
@@ -389,23 +600,53 @@ export default function DownloadFormatForm({
               onChange={(e) => setMinSize(Number(e.target.value))}
             />
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Preferred</Label>
-            <Input
-              type="number"
-              value={preferredSize}
-              onChange={(e) => setPreferredSize(Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Max</Label>
-            <Input
-              type="number"
-              value={maxSize}
-              onChange={(e) => setMaxSize(Number(e.target.value))}
-            />
-          </div>
+          <SizeLimitField
+            id="preferred-no-limit"
+            label="Preferred"
+            value={preferredSize}
+            noLimit={preferredNoLimit}
+            onValueChange={setPreferredSize}
+            onNoLimitChange={(checked) => {
+              setPreferredNoLimit(checked);
+              if (!checked) {
+                setPreferredSize(defaultMaxSize(resolvedType));
+              }
+            }}
+          />
+          <SizeLimitField
+            id="max-no-limit"
+            label="Max"
+            value={maxSize}
+            noLimit={maxNoLimit}
+            onValueChange={setMaxSize}
+            onNoLimitChange={(checked) => {
+              setMaxNoLimit(checked);
+              if (!checked) {
+                setMaxSize(defaultMaxSize(resolvedType));
+              }
+            }}
+          />
         </div>
+      </div>
+
+      {resolvedType === "video" && (
+        <VideoFields
+          source={source}
+          resolution={resolution}
+          onSourceChange={setSource}
+          onResolutionChange={setResolution}
+        />
+      )}
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="format-enabled"
+          checked={enabled}
+          onCheckedChange={setEnabled}
+        />
+        <Label htmlFor="format-enabled" className="text-sm">
+          Enabled
+        </Label>
       </div>
 
       <SpecificationsEditor

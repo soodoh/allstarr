@@ -2,12 +2,14 @@
  * Convert rate-based format size limits to effective MB values.
  *
  * Ebook rates are in MB per 100 pages.
- * Audiobook rates are in kbps (kilobits/sec, binary convention: 1 kbit = 1024 bits).
+ * Audio rates are in kbps (kilobits/sec, binary convention: 1 kbit = 1024 bits).
+ * Video rates are in MB/min (stored directly, pass through multiplied by duration).
  */
 
 export type EditionMeta = {
   pageCount?: number | null;
   audioLength?: number | null; // in minutes
+  videoLength?: number | null; // in minutes
 };
 
 export type EffectiveSizeLimits = {
@@ -18,19 +20,20 @@ export type EffectiveSizeLimits = {
 
 const DEFAULT_PAGE_COUNT = 300;
 const DEFAULT_AUDIO_DURATION = 600; // minutes
+const DEFAULT_VIDEO_DURATION = 120; // minutes
 
 /**
  * Compute effective MB size limits from rate values.
  *
- * @param type - "ebook" or "audiobook"
- * @param minRate - rate value (MB/100pg for ebook, kbps for audiobook)
+ * @param type - "ebook", "audio", or "video"
+ * @param minRate - rate value (MB/100pg for ebook, kbps for audio, MB/min for video)
  * @param maxRate - rate value
  * @param preferredRate - rate value
- * @param editionMeta - optional edition metadata (pageCount, audioLength)
+ * @param editionMeta - optional edition metadata (pageCount, audioLength, videoLength)
  * @param defaults - optional override for default dimensions
  */
 export function computeEffectiveSizes(
-  type: "ebook" | "audiobook",
+  type: "ebook" | "audio" | "video",
   minRate: number,
   maxRate: number,
   preferredRate: number,
@@ -49,7 +52,17 @@ export function computeEffectiveSizes(
     };
   }
 
-  // audiobook: kbps → MB
+  if (type === "video") {
+    // video: MB/min × duration
+    const durationMin = editionMeta?.videoLength ?? DEFAULT_VIDEO_DURATION;
+    return {
+      minSize: minRate * durationMin,
+      maxSize: maxRate === 0 ? 0 : maxRate * durationMin,
+      preferredSize: preferredRate * durationMin,
+    };
+  }
+
+  // audio: kbps → MB
   const durationMin =
     editionMeta?.audioLength ??
     defaults?.defaultAudioDuration ??

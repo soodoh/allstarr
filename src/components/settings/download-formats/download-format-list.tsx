@@ -30,8 +30,30 @@ type DownloadFormatListProps = {
   onDelete: (id: number) => void;
 };
 
+function sliderMaxRange(type: string): number {
+  if (type === "audio") {
+    return 1500;
+  }
+  if (type === "video") {
+    return 2000;
+  }
+  return 100;
+}
+
+function sliderUnit(type: string): string {
+  if (type === "audio") {
+    return "kbps";
+  }
+  if (type === "video") {
+    return "MB/min";
+  }
+  return "MB/100pg";
+}
+
 function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
-  const maxRange = def.type === "audiobook" ? 1500 : 100;
+  const maxRange = sliderMaxRange(def.type);
+  const step = def.type === "audio" || def.type === "video" ? 1 : 0.5;
+  const unit = sliderUnit(def.type);
   const updateDef = useUpdateDownloadFormat();
 
   const [values, setValues] = useState<[number, number, number]>([
@@ -62,7 +84,10 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         specifications: Array.isArray(def.specifications)
           ? def.specifications
           : [],
-        type: def.type as "ebook" | "audiobook",
+        type: def.type as "ebook" | "audio" | "video",
+        source: def.source ?? null,
+        resolution: def.resolution ?? 0,
+        enabled: def.enabled ?? true,
       });
     },
     [def, updateDef],
@@ -81,14 +106,14 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         <Slider
           min={0}
           max={maxRange}
-          step={def.type === "audiobook" ? 1 : 0.5}
+          step={step}
           value={values}
           onValueChange={handleChange}
           onValueCommit={handleCommit}
           className="flex-1"
         />
         <span className="text-xs text-muted-foreground w-16 tabular-nums">
-          {values[2]} {def.type === "audiobook" ? "kbps" : "MB/100pg"}
+          {values[2]} {unit}
         </span>
       </div>
       <ExampleSizes def={def} />
@@ -96,29 +121,42 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
   );
 }
 
+type SampleEntry = { label: string; meta: Record<string, number> };
+
+function exampleSamples(type: string): SampleEntry[] {
+  if (type === "audio") {
+    return [
+      { label: "5 hr", meta: { audioLength: 300 } },
+      { label: "10 hr", meta: { audioLength: 600 } },
+      { label: "20 hr", meta: { audioLength: 1200 } },
+    ];
+  }
+  if (type === "video") {
+    return [
+      { label: "1 hr", meta: { videoLength: 60 } },
+      { label: "2 hr", meta: { videoLength: 120 } },
+      { label: "3 hr", meta: { videoLength: 180 } },
+    ];
+  }
+  return [
+    { label: "200 pg", meta: { pageCount: 200 } },
+    { label: "400 pg", meta: { pageCount: 400 } },
+    { label: "800 pg", meta: { pageCount: 800 } },
+  ];
+}
+
 function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
   if (def.title.startsWith("Unknown")) {
     return null;
   }
 
-  const samples =
-    def.type === "audiobook"
-      ? [
-          { label: "5 hr", meta: { audioLength: 300 } },
-          { label: "10 hr", meta: { audioLength: 600 } },
-          { label: "20 hr", meta: { audioLength: 1200 } },
-        ]
-      : [
-          { label: "200 pg", meta: { pageCount: 200 } },
-          { label: "400 pg", meta: { pageCount: 400 } },
-          { label: "800 pg", meta: { pageCount: 800 } },
-        ];
+  const samples = exampleSamples(def.type);
 
   return (
     <div className="mt-1.5 flex gap-4 text-xs text-muted-foreground">
       {samples.map((s) => {
         const eff = computeEffectiveSizes(
-          def.type as "ebook" | "audiobook",
+          def.type as "ebook" | "audio" | "video",
           def.minSize ?? 0,
           def.maxSize ?? 0,
           def.preferredSize ?? 0,
@@ -163,16 +201,26 @@ export default function DownloadFormatList({
         </TableHeader>
         <TableBody>
           {definitions.map((def) => (
-            <TableRow key={def.id}>
+            <TableRow
+              key={def.id}
+              className={def.enabled ? undefined : "opacity-50"}
+            >
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className={
-                    COLOR_BADGE_CLASSES[def.color] ?? COLOR_BADGE_CLASSES.gray
-                  }
-                >
-                  {def.title}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      COLOR_BADGE_CLASSES[def.color] ?? COLOR_BADGE_CLASSES.gray
+                    }
+                  >
+                    {def.title}
+                  </Badge>
+                  {!def.enabled && (
+                    <span className="text-xs text-muted-foreground">
+                      Disabled
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <SizeSlider def={def} />

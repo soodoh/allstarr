@@ -43,8 +43,8 @@ type FormatValues = {
   weight: number;
   color: string;
   minSize: number;
-  maxSize: number;
-  preferredSize: number;
+  maxSize: number | null;
+  preferredSize: number | null;
   specifications: Array<{
     type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
     value: string;
@@ -53,7 +53,10 @@ type FormatValues = {
     negate: boolean;
     required: boolean;
   }>;
-  type: "ebook" | "audiobook";
+  type: "ebook" | "audio" | "video";
+  source: string | null;
+  resolution: number;
+  enabled: boolean;
 };
 
 function DefaultsSection({
@@ -62,7 +65,7 @@ function DefaultsSection({
   defaultAudioDuration,
   onUpdate,
 }: {
-  type: "ebook" | "audiobook";
+  type: "ebook" | "audio";
   defaultPageCount: number;
   defaultAudioDuration: number;
   onUpdate: (key: string, value: number) => void;
@@ -99,6 +102,7 @@ function DefaultsSection({
     );
   }
 
+  // type === "audio"
   const hours = Math.round((defaultAudioDuration / 60) * 10) / 10;
   return (
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
@@ -155,7 +159,9 @@ function FormatsPage() {
   const updateDefinition = useUpdateDownloadFormat();
   const deleteDefinition = useDeleteDownloadFormat();
 
-  const [activeTab, setActiveTab] = useState<"ebook" | "audiobook">("ebook");
+  const [activeTab, setActiveTab] = useState<"ebook" | "audio" | "video">(
+    "ebook",
+  );
   const [defDialogOpen, setDefDialogOpen] = useState(false);
   const [editingDef, setEditingDef] = useState<
     (typeof definitions)[number] | undefined
@@ -165,8 +171,12 @@ function FormatsPage() {
     () => definitions.filter((d) => d.type === "ebook"),
     [definitions],
   );
-  const audiobookFormats = useMemo(
-    () => definitions.filter((d) => d.type === "audiobook"),
+  const audioFormats = useMemo(
+    () => definitions.filter((d) => d.type === "audio"),
+    [definitions],
+  );
+  const videoFormats = useMemo(
+    () => definitions.filter((d) => d.type === "video"),
     [definitions],
   );
 
@@ -217,11 +227,12 @@ function FormatsPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "ebook" | "audiobook")}
+        onValueChange={(v) => setActiveTab(v as "ebook" | "audio" | "video")}
       >
         <TabsList>
           <TabsTrigger value="ebook">Ebook</TabsTrigger>
-          <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
+          <TabsTrigger value="audio">Audio</TabsTrigger>
+          <TabsTrigger value="video">Video</TabsTrigger>
         </TabsList>
         <TabsContent value="ebook">
           <DefaultsSection
@@ -236,15 +247,22 @@ function FormatsPage() {
             onDelete={(id) => deleteDefinition.mutate(id)}
           />
         </TabsContent>
-        <TabsContent value="audiobook">
+        <TabsContent value="audio">
           <DefaultsSection
-            type="audiobook"
+            type="audio"
             defaultPageCount={defaultPageCount}
             defaultAudioDuration={defaultAudioDuration}
             onUpdate={handleUpdateSetting}
           />
           <DownloadFormatList
-            definitions={audiobookFormats}
+            definitions={audioFormats}
+            onEdit={handleEditDef}
+            onDelete={(id) => deleteDefinition.mutate(id)}
+          />
+        </TabsContent>
+        <TabsContent value="video">
+          <DownloadFormatList
+            definitions={videoFormats}
             onEdit={handleEditDef}
             onDelete={(id) => deleteDefinition.mutate(id)}
           />
@@ -267,9 +285,12 @@ function FormatsPage() {
                     weight: editingDef.weight,
                     color: editingDef.color ?? "gray",
                     minSize: editingDef.minSize ?? 0,
-                    maxSize: editingDef.maxSize ?? 0,
-                    preferredSize: editingDef.preferredSize ?? 0,
-                    type: editingDef.type as "ebook" | "audiobook",
+                    maxSize: editingDef.maxSize ?? null,
+                    preferredSize: editingDef.preferredSize ?? null,
+                    type: editingDef.type as "ebook" | "audio" | "video",
+                    source: editingDef.source ?? null,
+                    resolution: editingDef.resolution ?? 0,
+                    enabled: editingDef.enabled ?? true,
                     specifications: Array.isArray(editingDef.specifications)
                       ? (editingDef.specifications as Array<{
                           type:
