@@ -15,12 +15,15 @@ export const downloadFormats = sqliteTable("download_formats", {
   title: text("title").notNull(),
   weight: integer("weight").notNull().default(1),
   minSize: real("min_size").default(0),
-  maxSize: real("max_size").default(0),
-  preferredSize: real("preferred_size").default(0),
+  maxSize: real("max_size"),
+  preferredSize: real("preferred_size"),
   color: text("color").notNull().default("gray"),
   specifications: text("specifications", { mode: "json" })
     .$type<FormatSpecification[]>()
     .notNull()
     .default(sql`'[]'`),
   type: text("type").notNull().default("ebook"),
+  source: text("source"),
+  resolution: integer("resolution").notNull().default(0),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
 });
