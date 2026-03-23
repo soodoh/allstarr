@@ -118,6 +118,22 @@ function runHealthChecks(): HealthCheck[] {
     });
   }
 
+  // Check system dependencies (ffprobe for audio metadata)
+  try {
+    const result = Bun.spawnSync(["ffprobe", "-version"]);
+    if (result.exitCode !== 0) {
+      throw new Error("ffprobe returned non-zero exit code");
+    }
+  } catch {
+    checks.push({
+      source: "SystemDependencyCheck",
+      type: "warning",
+      message:
+        "FFmpeg is not installed. Audio and video metadata extraction will be unavailable. Install ffmpeg for full audiobook support.",
+      wikiUrl: null,
+    });
+  }
+
   return checks;
 }
 
