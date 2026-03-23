@@ -19,6 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "src/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "src/components/ui/tabs";
 import PageHeader from "src/components/shared/page-header";
 import { settingsMapQuery, downloadProfilesListQuery } from "src/lib/queries";
 import { useUpdateSettings } from "src/hooks/mutations";
@@ -45,8 +51,10 @@ function getSetting<T>(
   return v as T;
 }
 
-const NAMING_TOKENS =
-  "{Author Name}, {Book Title}, {Book Series}, {Book SeriesPosition}, {Release Year}, {PartNumber}";
+const EBOOK_NAMING_TOKENS =
+  "{Author Name}, {Book Title}, {Book Series}, {Book SeriesPosition}, {Release Year}";
+const AUDIOBOOK_NAMING_TOKENS =
+  "{Author Name}, {Book Title}, {Book Series}, {Book SeriesPosition}, {Release Year}, {PartNumber}, {PartNumber:00}, {PartCount}";
 
 function MediaManagementPage() {
   const { data: settings } = useSuspenseQuery(settingsMapQuery());
@@ -60,14 +68,53 @@ function MediaManagementPage() {
   const [replaceIllegalCharacters, setReplaceIllegalCharacters] = useState(
     getSetting(settings, "mediaManagement.replaceIllegalCharacters", true),
   );
-  const [bookFile, setBookFile] = useState(
-    getSetting(settings, "naming.bookFile", "{Author Name} - {Book Title}"),
+
+  // Ebook Naming
+  const [ebookBookFile, setEbookBookFile] = useState(
+    getSetting(
+      settings,
+      "naming.ebook.bookFile",
+      "{Author Name} - {Book Title}",
+    ),
   );
-  const [authorFolder, setAuthorFolder] = useState(
-    getSetting(settings, "naming.authorFolder", "{Author Name}"),
+  const [ebookAuthorFolder, setEbookAuthorFolder] = useState(
+    getSetting(settings, "naming.ebook.authorFolder", "{Author Name}"),
   );
-  const [bookFolder, setBookFolder] = useState(
-    getSetting(settings, "naming.bookFolder", "{Book Title} ({Release Year})"),
+  const [ebookBookFolder, setEbookBookFolder] = useState(
+    getSetting(
+      settings,
+      "naming.ebook.bookFolder",
+      "{Book Title} ({Release Year})",
+    ),
+  );
+  const [ebookExtraExtensions, setEbookExtraExtensions] = useState(
+    getSetting(settings, "mediaManagement.ebook.extraFileExtensions", ""),
+  );
+
+  // Audiobook Naming
+  const [audiobookBookFile, setAudiobookBookFile] = useState(
+    getSetting(
+      settings,
+      "naming.audiobook.bookFile",
+      "{Author Name} - {Book Title} - Part {PartNumber:00}",
+    ),
+  );
+  const [audiobookAuthorFolder, setAudiobookAuthorFolder] = useState(
+    getSetting(settings, "naming.audiobook.authorFolder", "{Author Name}"),
+  );
+  const [audiobookBookFolder, setAudiobookBookFolder] = useState(
+    getSetting(
+      settings,
+      "naming.audiobook.bookFolder",
+      "{Book Title} ({Release Year})",
+    ),
+  );
+  const [audiobookExtraExtensions, setAudiobookExtraExtensions] = useState(
+    getSetting(
+      settings,
+      "mediaManagement.audiobook.extraFileExtensions",
+      ".cue,.nfo",
+    ),
   );
 
   // Folders
@@ -90,9 +137,6 @@ function MediaManagementPage() {
   );
   const [importExtraFiles, setImportExtraFiles] = useState(
     getSetting(settings, "mediaManagement.importExtraFiles", false),
-  );
-  const [extraFileExtensions, setExtraFileExtensions] = useState(
-    getSetting(settings, "mediaManagement.extraFileExtensions", ""),
   );
 
   // File Management
@@ -147,9 +191,12 @@ function MediaManagementPage() {
         key: "mediaManagement.replaceIllegalCharacters",
         value: String(replaceIllegalCharacters),
       },
-      { key: "naming.bookFile", value: bookFile },
-      { key: "naming.authorFolder", value: authorFolder },
-      { key: "naming.bookFolder", value: bookFolder },
+      { key: "naming.ebook.bookFile", value: ebookBookFile },
+      { key: "naming.ebook.authorFolder", value: ebookAuthorFolder },
+      { key: "naming.ebook.bookFolder", value: ebookBookFolder },
+      { key: "naming.audiobook.bookFile", value: audiobookBookFile },
+      { key: "naming.audiobook.authorFolder", value: audiobookAuthorFolder },
+      { key: "naming.audiobook.bookFolder", value: audiobookBookFolder },
       {
         key: "mediaManagement.createEmptyAuthorFolders",
         value: String(createEmptyAuthorFolders),
@@ -172,8 +219,12 @@ function MediaManagementPage() {
         value: String(importExtraFiles),
       },
       {
-        key: "mediaManagement.extraFileExtensions",
-        value: extraFileExtensions,
+        key: "mediaManagement.ebook.extraFileExtensions",
+        value: ebookExtraExtensions,
+      },
+      {
+        key: "mediaManagement.audiobook.extraFileExtensions",
+        value: audiobookExtraExtensions,
       },
       {
         key: "mediaManagement.propersAndRepacks",
@@ -233,39 +284,108 @@ function MediaManagementPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Standard Book Format</Label>
-              <Input
-                value={bookFile}
-                onChange={(e) => setBookFile(e.target.value)}
-                disabled={!renameBooks}
-              />
-              <p className="text-xs text-muted-foreground">
-                Available tokens: {NAMING_TOKENS}
-              </p>
-            </div>
+            <Tabs defaultValue="ebook">
+              <TabsList>
+                <TabsTrigger value="ebook">Ebook</TabsTrigger>
+                <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
+              </TabsList>
 
-            <div className="space-y-2">
-              <Label>Author Folder Format</Label>
-              <Input
-                value={authorFolder}
-                onChange={(e) => setAuthorFolder(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Available tokens: {NAMING_TOKENS}
-              </p>
-            </div>
+              <TabsContent value="ebook" className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Standard Book Format</Label>
+                  <Input
+                    value={ebookBookFile}
+                    onChange={(e) => setEbookBookFile(e.target.value)}
+                    disabled={!renameBooks}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {EBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
 
-            <div className="space-y-2">
-              <Label>Book Folder Format</Label>
-              <Input
-                value={bookFolder}
-                onChange={(e) => setBookFolder(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Available tokens: {NAMING_TOKENS}
-              </p>
-            </div>
+                <div className="space-y-2">
+                  <Label>Author Folder Format</Label>
+                  <Input
+                    value={ebookAuthorFolder}
+                    onChange={(e) => setEbookAuthorFolder(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {EBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Book Folder Format</Label>
+                  <Input
+                    value={ebookBookFolder}
+                    onChange={(e) => setEbookBookFolder(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {EBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                {importExtraFiles && (
+                  <div className="space-y-2">
+                    <Label>Extra File Extensions</Label>
+                    <Input
+                      value={ebookExtraExtensions}
+                      onChange={(e) => setEbookExtraExtensions(e.target.value)}
+                      placeholder=".jpg,.opf"
+                    />
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="audiobook" className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Standard Book Format</Label>
+                  <Input
+                    value={audiobookBookFile}
+                    onChange={(e) => setAudiobookBookFile(e.target.value)}
+                    disabled={!renameBooks}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {AUDIOBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Author Folder Format</Label>
+                  <Input
+                    value={audiobookAuthorFolder}
+                    onChange={(e) => setAudiobookAuthorFolder(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {AUDIOBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Book Folder Format</Label>
+                  <Input
+                    value={audiobookBookFolder}
+                    onChange={(e) => setAudiobookBookFolder(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {AUDIOBOOK_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                {importExtraFiles && (
+                  <div className="space-y-2">
+                    <Label>Extra File Extensions</Label>
+                    <Input
+                      value={audiobookExtraExtensions}
+                      onChange={(e) =>
+                        setAudiobookExtraExtensions(e.target.value)
+                      }
+                      placeholder=".cue,.nfo"
+                    />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -351,7 +471,8 @@ function MediaManagementPage() {
               <div className="space-y-0.5">
                 <Label>Import Extra Files</Label>
                 <p className="text-sm text-muted-foreground">
-                  Import additional non-book files alongside the book.
+                  Import additional non-book files alongside the book. Configure
+                  extensions per format type in the Book Naming section above.
                 </p>
               </div>
               <Switch
@@ -359,17 +480,6 @@ function MediaManagementPage() {
                 onCheckedChange={setImportExtraFiles}
               />
             </div>
-
-            {importExtraFiles && (
-              <div className="space-y-2">
-                <Label>Extra File Extensions</Label>
-                <Input
-                  value={extraFileExtensions}
-                  onChange={(e) => setExtraFileExtensions(e.target.value)}
-                  placeholder=".cue,.nfo,.jpg"
-                />
-              </div>
-            )}
           </CardContent>
         </Card>
 
