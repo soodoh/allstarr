@@ -71,6 +71,13 @@
       "when": 1774483200000,
       "tag": "0009_multi_media_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1774569600000,
+      "tag": "0010_tv_movies_schema",
+      "breakpoints": true
     }
   ]
 }
