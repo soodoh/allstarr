@@ -1,6 +1,7 @@
 // oxlint-disable no-console -- Media probe logs are intentional server-side diagnostics
 import AdmZip from "adm-zip";
 import fs from "node:fs";
+import path from "node:path";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,15 @@ export type AudioMeta = {
 export type EbookMeta = {
   pageCount: number | null;
   language: string | null;
+};
+
+export type VideoMeta = {
+  duration: number; // seconds
+  codec: string; // "h264", "hevc", "av1", etc.
+  container: string; // "mkv", "mp4", etc.
+  width: number; // pixels
+  height: number; // pixels
+  bitrate: number; // kbps
 };
 
 // ─── ffprobe availability ───────────────────────────────────────────────────
@@ -85,6 +95,64 @@ export async function probeAudioFile(
   } catch (error) {
     console.warn(
       `[media-probe] Failed to probe audio "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+    return null;
+  }
+}
+
+// ─── Video probing ──────────────────────────────────────────────────────────
+
+/** Extract video metadata from a file using ffprobe. Returns null if unavailable. */
+export async function probeVideoFile(
+  filePath: string,
+): Promise<VideoMeta | null> {
+  if (!isProbeAvailable()) {
+    return null;
+  }
+
+  try {
+    const proc = Bun.spawn([
+      "ffprobe",
+      "-v",
+      "quiet",
+      "-print_format",
+      "json",
+      "-show_format",
+      "-show_streams",
+      filePath,
+    ]);
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      return null;
+    }
+
+    const data = JSON.parse(output) as {
+      format?: { duration?: string; bit_rate?: string };
+      streams?: Array<{
+        codec_type?: string;
+        codec_name?: string;
+        width?: number;
+        height?: number;
+      }>;
+    };
+
+    const videoStream = data.streams?.find((s) => s.codec_type === "video");
+    if (!videoStream) {
+      return null;
+    }
+
+    return {
+      duration: Math.round(Number(data.format?.duration ?? 0)),
+      bitrate: Math.round(Number(data.format?.bit_rate ?? 0) / 1000),
+      codec: videoStream.codec_name ?? "unknown",
+      width: videoStream.width ?? 0,
+      height: videoStream.height ?? 0,
+      container: path.extname(filePath).replace(/^\./, "").toLowerCase(),
+    };
+  } catch (error) {
+    console.warn(
+      `[media-probe] Failed to probe video "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
     );
     return null;
   }
