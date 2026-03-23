@@ -206,7 +206,7 @@ function getDimensionContext(
       ? ` (based on ${pages} pages)`
       : " (based on default page count)";
   }
-  if (formatType === "audiobook") {
+  if (formatType === "audio") {
     const minutes = editionMeta?.audioLength;
     if (minutes) {
       const hours = Math.round((minutes / 60) * 10) / 10;
