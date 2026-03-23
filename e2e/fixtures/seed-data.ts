@@ -19,6 +19,9 @@ export function seedDownloadProfile(
       upgradeAllowed: false,
       icon: "book-open",
       categories: [],
+      mediaType: "ebook",
+      contentType: "book",
+      enabled: true,
       ...overrides,
     })
     .returning()
