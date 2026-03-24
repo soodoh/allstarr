@@ -304,6 +304,8 @@ export function enrichRelease(
     | "rejections"
     | "formatScore"
     | "formatScoreDetails"
+    | "cfScore"
+    | "cfDetails"
   >,
 ): IndexerRelease {
   return {
@@ -318,6 +320,8 @@ export function enrichRelease(
     rejections: [],
     formatScore: 0,
     formatScoreDetails: [],
+    cfScore: 0,
+    cfDetails: [],
   };
 }
 

@@ -33,6 +33,7 @@ import {
   isFormatInProfile,
   getDefSizeLimits,
   getFormatType,
+  parseReleaseGroup,
 } from "./indexers/format-parser";
 import type { EditionMeta } from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
@@ -43,6 +44,8 @@ import type {
   FormatScoreDetail,
   ReleaseStatusMap,
 } from "./indexers/types";
+import { calculateCFScore } from "./indexers/cf-scoring";
+import type { ReleaseAttributes } from "./indexers/cf-scoring";
 import type { BookSearchParams } from "./indexers/http";
 import type { ConnectionConfig } from "./download-clients/types";
 import { fetchQueueItems } from "./queue";
@@ -56,6 +59,8 @@ export type ProfileInfo = {
   cutoff: number;
   upgradeAllowed: boolean;
   categories: number[];
+  minCustomFormatScore: number;
+  upgradeUntilCustomFormatScore: number;
 };
 
 /** Look up the download profiles for a book's primary author */
@@ -96,6 +101,8 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
     cutoff: p.cutoff,
     upgradeAllowed: p.upgradeAllowed,
     categories: p.categories,
+    minCustomFormatScore: p.minCustomFormatScore,
+    upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
   }));
 }
 
@@ -237,6 +244,8 @@ export function computeReleaseMetrics(
   rejections: ReleaseRejection[];
   formatScore: number;
   formatScoreDetails: FormatScoreDetail[];
+  cfScore: number;
+  cfDetails: Array<{ cfId: number; name: string; score: number }>;
 } {
   const rejections: ReleaseRejection[] = [];
   const formatScoreDetails: FormatScoreDetail[] = [];
@@ -247,7 +256,13 @@ export function computeReleaseMetrics(
       reason: "unknownQuality",
       message: "Unknown quality — no format matched this release",
     });
-    return { rejections, formatScore: 0, formatScoreDetails };
+    return {
+      rejections,
+      formatScore: 0,
+      formatScoreDetails,
+      cfScore: 0,
+      cfDetails: [],
+    };
   }
 
   // Check size limits from quality definition (values are in MB)
@@ -276,12 +291,24 @@ export function computeReleaseMetrics(
       rejections,
       formatScore: release.quality.weight,
       formatScoreDetails,
+      cfScore: 0,
+      cfDetails: [],
     };
   }
+
+  // Build release attributes for CF scoring
+  const cfAttrs: ReleaseAttributes = {
+    title: release.title,
+    group: parseReleaseGroup(release.title) ?? undefined,
+    sizeMB: release.size > 0 ? release.size / (1024 * 1024) : undefined,
+    indexerFlags: release.indexerFlags ?? undefined,
+  };
 
   // Compute per-profile scores
   let maxScore = 0;
   let allowedInAny = false;
+  let bestCFScore = 0;
+  let bestCFDetails: Array<{ cfId: number; name: string; score: number }> = [];
 
   for (const profile of profiles) {
     const allowed = isFormatInProfile(release.quality.id, profile.items);
@@ -294,6 +321,21 @@ export function computeReleaseMetrics(
       });
       allowedInAny = true;
       maxScore = Math.max(maxScore, score);
+
+      // Calculate CF score for this profile
+      const cfResult = calculateCFScore(profile.id, cfAttrs);
+      if (cfResult.totalScore > bestCFScore || bestCFDetails.length === 0) {
+        bestCFScore = cfResult.totalScore;
+        bestCFDetails = cfResult.matchedFormats;
+      }
+
+      // Check minimum CF score threshold
+      if (cfResult.totalScore < profile.minCustomFormatScore) {
+        rejections.push({
+          reason: "belowMinimumCFScore",
+          message: `Custom format score ${cfResult.totalScore} is below minimum ${profile.minCustomFormatScore} for profile "${profile.name}"`,
+        });
+      }
     } else {
       formatScoreDetails.push({
         profileName: profile.name,
@@ -310,7 +352,13 @@ export function computeReleaseMetrics(
     });
   }
 
-  return { rejections, formatScore: maxScore, formatScoreDetails };
+  return {
+    rejections,
+    formatScore: maxScore,
+    formatScoreDetails,
+    cfScore: bestCFScore,
+    cfDetails: bestCFDetails,
+  };
 }
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
@@ -558,12 +606,14 @@ export function dedupeAndScoreReleases(
       .map((b) => b.sourceTitle),
   );
 
-  // Compute rejections and format scores
+  // Compute rejections and format scores (including CF scores)
   for (const release of relevant) {
     const metrics = computeReleaseMetrics(release, profiles, editionMeta);
     release.rejections = metrics.rejections;
     release.formatScore = metrics.formatScore;
     release.formatScoreDetails = metrics.formatScoreDetails;
+    release.cfScore = metrics.cfScore;
+    release.cfDetails = metrics.cfDetails;
 
     // Check blocklist
     if (blocklistedTitles.has(release.title)) {
@@ -574,11 +624,15 @@ export function dedupeAndScoreReleases(
     }
   }
 
-  // Sort by quality weight descending, then by size descending
+  // Sort by quality weight descending, then CF score descending, then by size descending
   relevant.sort((a, b) => {
     const qualityDiff = b.quality.weight - a.quality.weight;
     if (qualityDiff !== 0) {
       return qualityDiff;
+    }
+    const cfDiff = b.cfScore - a.cfScore;
+    if (cfDiff !== 0) {
+      return cfDiff;
     }
     return b.size - a.size;
   });

@@ -57,7 +57,8 @@ export type ReleaseRejectionReason =
   | "qualityNotWanted"
   | "belowMinimumSize"
   | "aboveMaximumSize"
-  | "blocklisted";
+  | "blocklisted"
+  | "belowMinimumCFScore";
 
 /** A reason why a release would be rejected */
 export type ReleaseRejection = {
@@ -96,4 +97,6 @@ export type IndexerRelease = Omit<
   rejections: ReleaseRejection[];
   formatScore: number;
   formatScoreDetails: FormatScoreDetail[];
+  cfScore: number;
+  cfDetails: Array<{ cfId: number; name: string; score: number }>;
 };

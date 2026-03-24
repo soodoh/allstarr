@@ -7,6 +7,7 @@ import {
   createCustomFormatSchema,
   updateCustomFormatSchema,
 } from "src/lib/validators";
+import { invalidateCFCache } from "./indexers/cf-scoring";
 
 // ---------------------------------------------------------------------------
 // CRUD
@@ -65,7 +66,7 @@ export const updateCustomFormatFn = createServerFn({ method: "POST" })
     const extraFields =
       existing?.origin === "builtin" ? { userModified: true } : {};
 
-    return db
+    const result = db
       .update(customFormats)
       .set({
         ...values,
@@ -74,6 +75,8 @@ export const updateCustomFormatFn = createServerFn({ method: "POST" })
       .where(eq(customFormats.id, id))
       .returning()
       .get();
+    invalidateCFCache();
+    return result;
   });
 
 export const deleteCustomFormatFn = createServerFn({ method: "POST" })
@@ -82,6 +85,7 @@ export const deleteCustomFormatFn = createServerFn({ method: "POST" })
     await requireAuth();
     // Cascade on profileCustomFormats handles join table cleanup
     db.delete(customFormats).where(eq(customFormats.id, data.id)).run();
+    invalidateCFCache();
     return { success: true };
   });
 
@@ -145,7 +149,7 @@ export const setProfileCFScoreFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
     // Upsert: insert or replace on conflict
-    return db
+    const result = db
       .insert(profileCustomFormats)
       .values({
         profileId: data.profileId,
@@ -161,6 +165,8 @@ export const setProfileCFScoreFn = createServerFn({ method: "POST" })
       })
       .returning()
       .get();
+    invalidateCFCache();
+    return result;
   });
 
 export const bulkSetProfileCFScoresFn = createServerFn({ method: "POST" })
@@ -178,10 +184,11 @@ export const bulkSetProfileCFScoresFn = createServerFn({ method: "POST" })
       .run();
 
     if (data.scores.length === 0) {
+      invalidateCFCache();
       return [];
     }
 
-    return db
+    const result = db
       .insert(profileCustomFormats)
       .values(
         data.scores.map((s) => ({
@@ -192,6 +199,8 @@ export const bulkSetProfileCFScoresFn = createServerFn({ method: "POST" })
       )
       .returning()
       .all();
+    invalidateCFCache();
+    return result;
   });
 
 export const removeProfileCFsFn = createServerFn({ method: "POST" })
@@ -209,6 +218,7 @@ export const removeProfileCFsFn = createServerFn({ method: "POST" })
         ),
       )
       .run();
+    invalidateCFCache();
     return { success: true };
   });
 
@@ -258,7 +268,7 @@ export const addCategoryToProfileFn = createServerFn({ method: "POST" })
       return [];
     }
 
-    return db
+    const result = db
       .insert(profileCustomFormats)
       .values(
         toInsert.map((cf) => ({
@@ -269,4 +279,6 @@ export const addCategoryToProfileFn = createServerFn({ method: "POST" })
       )
       .returning()
       .all();
+    invalidateCFCache();
+    return result;
   });

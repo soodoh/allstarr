@@ -111,6 +111,8 @@ function getEditionProfilesForBook(bookId: number): EditionProfileTarget[] {
         cutoff: p.cutoff,
         upgradeAllowed: p.upgradeAllowed,
         categories: p.categories,
+        minCustomFormatScore: p.minCustomFormatScore,
+        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
       } satisfies ProfileInfo,
     ]),
   );
@@ -245,13 +247,24 @@ export function getWantedBooks(): WantedBook[] {
     }
 
     // Check if any profile allows upgrades and the best file is below cutoff
+    // or if a CF upgrade threshold is set (may need CF-based upgrade even at cutoff)
     const upgradeNeeded = profiles.some((profile) => {
       if (!profile.upgradeAllowed) {
         return false;
       }
       const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
       const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-      return bestWeight < cutoffWeight;
+      // Below quality cutoff — definitely needs upgrade
+      if (bestWeight < cutoffWeight) {
+        return true;
+      }
+      // At or above cutoff but CF upgrade threshold is set — may still need
+      // a CF-based upgrade (we can't compute CF scores for existing files here,
+      // so we optimistically include the book and let findBestReleaseForProfile decide)
+      if (profile.upgradeUntilCustomFormatScore > 0) {
+        return true;
+      }
+      return false;
     });
 
     if (upgradeNeeded) {
@@ -539,32 +552,84 @@ export async function runAutoSearch(
 
 // ─── Release filtering ──────────────────────────────────────────────────────
 
+/** Check if the profile has reached its upgrade ceiling (quality cutoff + CF threshold) */
+function isUpgradeCeiling(
+  profile: ProfileInfo,
+  bestExistingWeight: number,
+  bestExistingCFScore: number,
+): boolean {
+  const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+  const atCutoffTier = bestExistingWeight >= cutoffWeight;
+  if (!atCutoffTier) {
+    return false;
+  }
+  // No CF threshold set — quality cutoff alone is the ceiling
+  if (profile.upgradeUntilCustomFormatScore === 0) {
+    return true;
+  }
+  // Both quality cutoff and CF threshold must be met
+  return bestExistingCFScore >= profile.upgradeUntilCustomFormatScore;
+}
+
+/** Check if a release is an acceptable upgrade over existing files */
+function isUpgradeCandidate(
+  release: IndexerRelease,
+  bestExistingWeight: number,
+  bestExistingCFScore: number,
+): boolean {
+  if (release.quality.weight > bestExistingWeight) {
+    return true;
+  }
+  // Same tier — only upgrade if CF score is better
+  return (
+    release.quality.weight === bestExistingWeight &&
+    release.cfScore > bestExistingCFScore
+  );
+}
+
+/** Compare two candidates — return true if release is better than current best */
+function isBetterCandidate(
+  release: IndexerRelease,
+  current: IndexerRelease,
+  profileItems: number[][],
+): boolean {
+  const currentWeight = getProfileWeight(current.quality.id, profileItems);
+  const releaseWeight = getProfileWeight(release.quality.id, profileItems);
+  if (releaseWeight > currentWeight) {
+    return true;
+  }
+  return releaseWeight === currentWeight && release.cfScore > current.cfScore;
+}
+
 function findBestReleaseForProfile(
   releases: IndexerRelease[],
   profile: ProfileInfo,
   bestExistingWeight: number,
   blocklistedTitles: Set<string>,
   grabbedGuids: Set<string>,
+  bestExistingCFScore = 0,
 ): IndexerRelease | null {
+  const existingCF = bestExistingCFScore;
+
   // If files exist but upgrades aren't allowed, skip
   if (bestExistingWeight > 0 && !profile.upgradeAllowed) {
     return null;
   }
 
-  // If at or above cutoff, skip
-  if (bestExistingWeight > 0) {
-    const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-    if (bestExistingWeight >= cutoffWeight) {
-      return null;
-    }
+  // If at or above upgrade ceiling, skip
+  if (
+    bestExistingWeight > 0 &&
+    isUpgradeCeiling(profile, bestExistingWeight, existingCF)
+  ) {
+    return null;
   }
 
+  let bestCandidate: IndexerRelease | null = null;
+
   for (const release of releases) {
-    // Only consider formats allowed by this profile
     if (!isFormatInProfile(release.quality.id, profile.items)) {
       continue;
     }
-
     if (release.rejections.length > 0) {
       continue;
     }
@@ -574,19 +639,27 @@ function findBestReleaseForProfile(
     if (grabbedGuids.has(release.guid)) {
       continue;
     }
+    if (release.cfScore < profile.minCustomFormatScore) {
+      continue;
+    }
 
-    // For upgrades, ensure the new quality is actually better
+    // For upgrades, ensure the release is actually better
     if (
       bestExistingWeight > 0 &&
-      release.quality.weight <= bestExistingWeight
+      !isUpgradeCandidate(release, bestExistingWeight, existingCF)
     ) {
       continue;
     }
 
-    return release;
+    if (
+      !bestCandidate ||
+      isBetterCandidate(release, bestCandidate, profile.items)
+    ) {
+      bestCandidate = release;
+    }
   }
 
-  return null;
+  return bestCandidate;
 }
 
 // ─── Grab helper ────────────────────────────────────────────────────────────
