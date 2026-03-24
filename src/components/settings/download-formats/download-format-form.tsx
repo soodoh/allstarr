@@ -243,9 +243,6 @@ function useSizeFormFields(
   const [preferredSize, setPreferredSize] = useState<number>(
     initialValues?.preferredSize ?? defaultMaxSize(mode),
   );
-  const [preferredNoLimit, setPreferredNoLimit] = useState<boolean>(
-    Boolean(initialValues?.noPreferredLimit),
-  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   return {
     minSize,
@@ -256,8 +253,6 @@ function useSizeFormFields(
     setMaxNoLimit,
     preferredSize,
     setPreferredSize,
-    preferredNoLimit,
-    setPreferredNoLimit,
     errors,
     setErrors,
   };
@@ -294,8 +289,6 @@ export default function DownloadFormatForm({
     setMaxNoLimit,
     preferredSize,
     setPreferredSize,
-    preferredNoLimit,
-    setPreferredNoLimit,
     errors,
     setErrors,
   } = useSizeFormFields(initialValues, defaultContentTypes);
@@ -312,7 +305,7 @@ export default function DownloadFormatForm({
       maxSize,
       preferredSize,
       noMaxLimit: maxNoLimit ? 1 : 0,
-      noPreferredLimit: preferredNoLimit ? 1 : 0,
+      noPreferredLimit: 0,
       contentTypes,
       source: source || null,
       resolution,
@@ -403,7 +396,7 @@ export default function DownloadFormatForm({
       <div className="space-y-2">
         <Label>Size Limits (MB)</Label>
         <div className="grid grid-cols-3 gap-2">
-          <div>
+          <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Min</Label>
             <Input
               type="number"
@@ -411,19 +404,14 @@ export default function DownloadFormatForm({
               onChange={(e) => setMinSize(Number(e.target.value))}
             />
           </div>
-          <SizeLimitField
-            id="preferred-no-limit"
-            label="Preferred"
-            value={preferredSize}
-            noLimit={preferredNoLimit}
-            onValueChange={setPreferredSize}
-            onNoLimitChange={(checked) => {
-              setPreferredNoLimit(checked);
-              if (!checked) {
-                setPreferredSize(defaultMaxSize(currentMode));
-              }
-            }}
-          />
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Preferred</Label>
+            <Input
+              type="number"
+              value={preferredSize}
+              onChange={(e) => setPreferredSize(Number(e.target.value))}
+            />
+          </div>
           <SizeLimitField
             id="max-no-limit"
             label="Max"
