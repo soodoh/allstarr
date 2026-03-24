@@ -6,7 +6,7 @@ export const downloadProfiles = sqliteTable("download_profiles", {
   rootFolderPath: text("root_folder_path").notNull().default(""),
   cutoff: integer("cutoff").notNull().default(0),
   items: text("items", { mode: "json" })
-    .$type<number[]>()
+    .$type<number[][]>()
     .notNull()
     .default([]),
   upgradeAllowed: integer("upgrade_allowed", { mode: "boolean" })

@@ -5,7 +5,9 @@ const downloadProfileBaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   rootFolderPath: z.string().min(1, "Root folder is required"),
   cutoff: z.number().default(0),
-  items: z.array(z.number()).min(1, "At least one quality must be added"),
+  items: z
+    .array(z.array(z.number()).min(1))
+    .min(1, "At least one quality must be added"),
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
