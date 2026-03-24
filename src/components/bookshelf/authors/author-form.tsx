@@ -1,9 +1,7 @@
 import { useState } from "react";
 import type { FormEvent, JSX } from "react";
 import { Button } from "src/components/ui/button";
-import Label from "src/components/ui/label";
-import Checkbox from "src/components/ui/checkbox";
-import { getProfileIcon } from "src/lib/profile-icons";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 
 type AuthorFormProps = {
   initialValues?: {
@@ -41,33 +39,11 @@ export default function AuthorForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-      <div className="space-y-2">
-        <Label>Download Profiles</Label>
-        {downloadProfiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No download profiles available. Create one in Settings.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {downloadProfiles.map((p) => (
-              <label
-                key={p.id}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={downloadProfileIds.includes(p.id)}
-                  onCheckedChange={() => toggleProfile(p.id)}
-                />
-                {(() => {
-                  const Icon = getProfileIcon(p.icon);
-                  return <Icon className="h-4 w-4 text-muted-foreground" />;
-                })()}
-                <span className="text-sm">{p.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <ProfileCheckboxGroup
+        profiles={downloadProfiles}
+        selectedIds={downloadProfileIds}
+        onToggle={toggleProfile}
+      />
 
       <div className="flex gap-2">
         {onCancel && (

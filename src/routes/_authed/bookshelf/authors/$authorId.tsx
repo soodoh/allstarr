@@ -1311,6 +1311,13 @@ function AuthorDetailPage() {
     return downloadProfiles.filter((p) => profileIdSet.has(p.id));
   }, [author, downloadProfiles]);
 
+  const bookDownloadProfiles = useMemo(
+    () =>
+      downloadProfiles?.filter((p) => p.contentType === "book" && p.enabled) ??
+      [],
+    [downloadProfiles],
+  );
+
   if (!author) {
     return <NotFound />;
   }
@@ -1510,7 +1517,7 @@ function AuthorDetailPage() {
             initialValues={{
               downloadProfileIds: author.downloadProfileIds ?? [],
             }}
-            downloadProfiles={downloadProfiles}
+            downloadProfiles={bookDownloadProfiles}
             onSubmit={handleUpdate}
             onCancel={() => setEditOpen(false)}
             loading={updateAuthor.isPending}
