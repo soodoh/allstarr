@@ -29,7 +29,7 @@ type DownloadProfile = {
   icon: string;
   rootFolderPath: string;
   cutoff: number;
-  items: number[];
+  items: number[][];
   upgradeAllowed: boolean;
   categories: number[];
   mediaType: string;
@@ -118,7 +118,7 @@ export default function DownloadProfileList({
         </TableHeader>
         <TableBody>
           {profiles.map((profile) => {
-            const itemIds = profile.items;
+            const itemIds = profile.items.flat();
             const cutoffDef = profile.cutoff
               ? defById.get(profile.cutoff)
               : null;
