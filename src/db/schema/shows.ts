@@ -18,7 +18,6 @@ export const shows = sqliteTable(
     tags: text("tags", { mode: "json" }).$type<number[]>(),
     posterUrl: text("poster_url").notNull().default(""),
     fanartUrl: text("fanart_url").notNull().default(""),
-    monitored: integer("monitored", { mode: "boolean" }).default(true),
     path: text("path").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
       () => new Date(),
@@ -38,7 +37,6 @@ export const seasons = sqliteTable(
       .notNull()
       .references(() => shows.id, { onDelete: "cascade" }),
     seasonNumber: integer("season_number").notNull(),
-    monitored: integer("monitored", { mode: "boolean" }).default(true),
     overview: text("overview"),
     posterUrl: text("poster_url"),
   },
@@ -63,7 +61,6 @@ export const episodes = sqliteTable(
     runtime: integer("runtime"),
     tmdbId: integer("tmdb_id").notNull(),
     hasFile: integer("has_file", { mode: "boolean" }).default(false),
-    monitored: integer("monitored", { mode: "boolean" }).default(true),
   },
   (t) => [unique("episodes_tmdb_id_unique").on(t.tmdbId)],
 );
