@@ -42,6 +42,7 @@ import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshe
 import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
 import { Route as AuthedActivityBlocklistRouteImport } from './routes/_authed/activity/blocklist'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
+import { Route as AuthedBookshelfBooksIndexRouteImport } from './routes/_authed/bookshelf/books/index'
 import { Route as AuthedBookshelfAuthorsIndexRouteImport } from './routes/_authed/bookshelf/authors/index'
 import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
 import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
@@ -218,6 +219,12 @@ const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
   path: '/api/v1/indexer/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedBookshelfBooksIndexRoute =
+  AuthedBookshelfBooksIndexRouteImport.update({
+    id: '/bookshelf/books/',
+    path: '/bookshelf/books/',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedBookshelfAuthorsIndexRoute =
   AuthedBookshelfAuthorsIndexRouteImport.update({
     id: '/bookshelf/authors/',
@@ -302,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
   '/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
+  '/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesByTo {
@@ -344,6 +352,7 @@ export interface FileRoutesByTo {
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
   '/bookshelf/authors': typeof AuthedBookshelfAuthorsIndexRoute
+  '/bookshelf/books': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesById {
@@ -388,6 +397,7 @@ export interface FileRoutesById {
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
   '/_authed/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
+  '/_authed/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRouteTypes {
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
     | '/bookshelf/authors/'
+    | '/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
     | '/bookshelf/authors'
+    | '/bookshelf/books'
     | '/api/v1/indexer'
   id:
     | '__root__'
@@ -517,6 +529,7 @@ export interface FileRouteTypes {
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
     | '/_authed/bookshelf/authors/'
+    | '/_authed/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesById: FileRoutesById
 }
@@ -767,6 +780,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1IndexerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/bookshelf/books/': {
+      id: '/_authed/bookshelf/books/'
+      path: '/bookshelf/books'
+      fullPath: '/bookshelf/books/'
+      preLoaderRoute: typeof AuthedBookshelfBooksIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/bookshelf/authors/': {
       id: '/_authed/bookshelf/authors/'
       path: '/bookshelf/authors'
@@ -857,6 +877,7 @@ interface AuthedRouteChildren {
   AuthedBookshelfBooksBookIdRoute: typeof AuthedBookshelfBooksBookIdRoute
   AuthedTvSeriesShowIdRoute: typeof AuthedTvSeriesShowIdRoute
   AuthedBookshelfAuthorsIndexRoute: typeof AuthedBookshelfAuthorsIndexRoute
+  AuthedBookshelfBooksIndexRoute: typeof AuthedBookshelfBooksIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -890,6 +911,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedBookshelfBooksBookIdRoute: AuthedBookshelfBooksBookIdRoute,
   AuthedTvSeriesShowIdRoute: AuthedTvSeriesShowIdRoute,
   AuthedBookshelfAuthorsIndexRoute: AuthedBookshelfAuthorsIndexRoute,
+  AuthedBookshelfBooksIndexRoute: AuthedBookshelfBooksIndexRoute,
 }
 
 const AuthedRouteWithChildren =

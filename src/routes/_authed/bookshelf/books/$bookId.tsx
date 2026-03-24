@@ -130,11 +130,11 @@ function BookDetailPage(): JSX.Element {
     <div className="space-y-6">
       {/* Back button */}
       <Link
-        to="/bookshelf/authors"
+        to="/bookshelf/books"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Authors
+        Back to Books
       </Link>
 
       {/* Page header */}
@@ -149,7 +149,7 @@ function BookDetailPage(): JSX.Element {
                 itemTitle={book.title}
                 fileCount={book.fileCount}
                 size="lg"
-                onDeleted={() => navigate({ to: "/bookshelf/authors" })}
+                onDeleted={() => navigate({ to: "/bookshelf/books" })}
                 onReassignFiles={() => setReassignOpen(true)}
               />
             );
