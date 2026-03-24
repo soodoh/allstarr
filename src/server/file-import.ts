@@ -28,11 +28,6 @@ const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
 
 type MediaType = "ebook" | "audio";
 
-function getMediaType(filePath: string): MediaType {
-  const ext = path.extname(filePath).toLowerCase();
-  return AUDIO_EXTENSIONS.has(ext) ? "audio" : "ebook";
-}
-
 function applyNamingTemplate(
   template: string,
   vars: Record<string, string>,

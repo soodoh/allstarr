@@ -51,7 +51,7 @@ type ProfileValues = {
   items: number[][];
   upgradeAllowed: boolean;
   categories: number[];
-  contentType: string;
+  contentType: "ebook" | "movie" | "tv" | "audiobook";
   language: string;
   minCustomFormatScore: number;
   upgradeUntilCustomFormatScore: number;
@@ -190,7 +190,11 @@ function ProfilesPage() {
                     items: editingProfile.items,
                     upgradeAllowed: editingProfile.upgradeAllowed,
                     categories: editingProfile.categories,
-                    contentType: editingProfile.contentType,
+                    contentType: editingProfile.contentType as
+                      | "ebook"
+                      | "movie"
+                      | "tv"
+                      | "audiobook",
                     language: editingProfile.language,
                     minCustomFormatScore: editingProfile.minCustomFormatScore,
                     upgradeUntilCustomFormatScore:

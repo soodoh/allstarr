@@ -49,7 +49,7 @@ type DownloadProfileFormProps = {
     items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
-    contentType: string;
+    contentType: "ebook" | "movie" | "tv" | "audiobook";
     language: string;
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
@@ -68,7 +68,7 @@ type DownloadProfileFormProps = {
     items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
-    contentType: string;
+    contentType: "ebook" | "movie" | "tv" | "audiobook";
     language: string;
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
@@ -82,7 +82,7 @@ type DownloadProfileFormProps = {
       items: number[][];
       upgradeAllowed: boolean;
       categories: number[];
-      contentType: string;
+      contentType: "ebook" | "movie" | "tv" | "audiobook";
       language: string;
       minCustomFormatScore: number;
       upgradeUntilCustomFormatScore: number;

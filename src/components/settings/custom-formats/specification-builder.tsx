@@ -21,10 +21,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "src/components/ui/tooltip";
+import type { cfSpecificationTypes } from "src/lib/validators";
 
 export type Spec = {
   name: string;
-  type: string;
+  type: (typeof cfSpecificationTypes)[number];
   value?: string;
   min?: number;
   max?: number;
@@ -210,7 +211,7 @@ function SpecRow({
     onChange(index, { ...spec, [field]: value });
   };
 
-  const handleTypeChange = (newType: string) => {
+  const handleTypeChange = (newType: Spec["type"]) => {
     // Reset value fields when type changes
     const newInputType = getInputType(newType);
     const updated: Spec = {
