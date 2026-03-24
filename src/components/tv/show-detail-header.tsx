@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -18,12 +18,17 @@ import {
   DialogTitle,
 } from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
+import ActionButtonGroup from "src/components/shared/action-button-group";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import ShowPoster from "src/components/tv/show-poster";
-import { useUpdateShow, useDeleteShow } from "src/hooks/mutations/shows";
+import {
+  useUpdateShow,
+  useDeleteShow,
+  useRefreshShowMetadata,
+} from "src/hooks/mutations/shows";
 import {
   useBulkMonitorEpisodeProfile,
   useBulkUnmonitorEpisodeProfile,
@@ -91,6 +96,7 @@ export default function ShowDetailHeader({
   const router = useRouter();
   const updateShow = useUpdateShow();
   const deleteShow = useDeleteShow();
+  const refreshMetadata = useRefreshShowMetadata();
   const bulkMonitor = useBulkMonitorEpisodeProfile();
   const bulkUnmonitor = useBulkUnmonitorEpisodeProfile();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -123,6 +129,12 @@ export default function ShowDetailHeader({
         },
       },
     );
+  };
+
+  const handleRefreshMetadata = () => {
+    refreshMetadata.mutate(show.id, {
+      onSuccess: () => router.invalidate(),
+    });
   };
 
   const tmdbUrl = `https://www.themoviedb.org/tv/${show.tmdbId}`;
@@ -209,33 +221,17 @@ export default function ShowDetailHeader({
           <ArrowLeft className="h-4 w-4" />
           Back to TV Shows
         </Link>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={tmdbUrl} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4 mr-1" />
-              TMDB
-            </a>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedProfileIds(show.downloadProfileIds);
-              setEditProfilesOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
-        </div>
+        <ActionButtonGroup
+          onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={refreshMetadata.isPending}
+          onEdit={() => {
+            setSelectedProfileIds(show.downloadProfileIds);
+            setEditProfilesOpen(true);
+          }}
+          onDelete={() => setDeleteOpen(true)}
+          externalUrl={tmdbUrl}
+          externalLabel="Open in TMDB"
+        />
       </div>
 
       {/* Page header */}
