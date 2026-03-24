@@ -36,7 +36,6 @@ function scoreBadgeClass(score: number): string {
 type PresetSelectorProps = {
   profileId: number;
   contentType: string;
-  mediaType: string;
   onApplied?: (result: {
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
@@ -46,7 +45,6 @@ type PresetSelectorProps = {
 export default function PresetSelector({
   profileId,
   contentType,
-  mediaType,
   onApplied,
 }: PresetSelectorProps): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -55,8 +53,8 @@ export default function PresetSelector({
   const queryClient = useQueryClient();
 
   const { data: presets, isLoading } = useQuery({
-    queryKey: ["presets", contentType, mediaType],
-    queryFn: () => getPresetsFn({ data: { contentType, mediaType } }),
+    queryKey: ["presets", contentType],
+    queryFn: () => getPresetsFn({ data: { contentType } }),
     enabled: open,
   });
 

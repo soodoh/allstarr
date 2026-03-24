@@ -115,11 +115,11 @@ function resolveRootFolder(downloadProfileId: number | null): string | null {
 function resolveProfileType(downloadProfileId: number | null): MediaType {
   if (downloadProfileId) {
     const profile = db
-      .select({ mediaType: downloadProfiles.mediaType })
+      .select({ contentType: downloadProfiles.contentType })
       .from(downloadProfiles)
       .where(eq(downloadProfiles.id, downloadProfileId))
       .get();
-    if (profile?.mediaType === "audio") {
+    if (profile?.contentType === "audiobook") {
       return "audio";
     }
   }

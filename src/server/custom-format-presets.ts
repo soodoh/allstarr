@@ -16,7 +16,7 @@ export type { PresetCF } from "src/lib/custom-format-preset-data";
 // ---------------------------------------------------------------------------
 
 export const getPresetsFn = createServerFn({ method: "GET" })
-  .inputValidator((d: { contentType?: string; mediaType?: string }) => d)
+  .inputValidator((d: { contentType?: string }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
     let filtered = PRESETS;
@@ -24,16 +24,12 @@ export const getPresetsFn = createServerFn({ method: "GET" })
     if (data.contentType) {
       filtered = filtered.filter((p) => p.contentType === data.contentType);
     }
-    if (data.mediaType) {
-      filtered = filtered.filter((p) => p.mediaType === data.mediaType);
-    }
 
     return filtered.map((p) => ({
       name: p.name,
       description: p.description,
       category: p.category,
       contentType: p.contentType,
-      mediaType: p.mediaType,
       cfCount: p.customFormats.length,
       scores: p.scores,
       minCustomFormatScore: p.minCustomFormatScore,
