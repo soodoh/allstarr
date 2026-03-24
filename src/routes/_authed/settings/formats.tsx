@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsMapQuery, downloadFormatsListQuery } from "src/lib/queries";
 import { updateSettingFn } from "src/server/settings";
@@ -110,22 +110,25 @@ function DefaultsSection({
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
       <h4 className="text-sm font-medium">Size Calculation Defaults</h4>
       <p className="text-xs text-muted-foreground mb-3">{description}</p>
-      <div className="space-y-2">
+      <div
+        className="grid items-center gap-x-3 gap-y-2"
+        style={{ gridTemplateColumns: "auto 5rem auto" }}
+      >
         {configs.map((ct) => {
           const cfg = DEFAULTS_CONFIG[ct];
           const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
           return (
-            <div key={ct} className="flex items-center gap-2">
+            <Fragment key={ct}>
               <Label
                 htmlFor={`default-${ct}`}
-                className="text-sm text-muted-foreground whitespace-nowrap"
+                className="text-sm text-muted-foreground whitespace-nowrap text-right"
               >
                 {cfg.label}
               </Label>
               <Input
                 id={`default-${ct}`}
                 type="number"
-                className="w-20 h-8"
+                className="h-8"
                 defaultValue={currentValue}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
@@ -135,7 +138,7 @@ function DefaultsSection({
                 }}
               />
               <span className="text-xs text-muted-foreground">{cfg.unit}</span>
-            </div>
+            </Fragment>
           );
         })}
       </div>
