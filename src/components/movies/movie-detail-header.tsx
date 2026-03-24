@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import PageHeader from "src/components/shared/page-header";
+import ActionButtonGroup from "src/components/shared/action-button-group";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
@@ -23,7 +24,11 @@ import {
 } from "src/components/ui/dialog";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import MoviePoster from "src/components/movies/movie-poster";
-import { useUpdateMovie, useDeleteMovie } from "src/hooks/mutations/movies";
+import {
+  useUpdateMovie,
+  useDeleteMovie,
+  useRefreshMovieMetadata,
+} from "src/hooks/mutations/movies";
 
 type MovieDetail = {
   id: number;
@@ -111,6 +116,7 @@ export default function MovieDetailHeader({
   const router = useRouter();
   const updateMovie = useUpdateMovie();
   const deleteMovie = useDeleteMovie();
+  const refreshMetadata = useRefreshMovieMetadata();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editProfilesOpen, setEditProfilesOpen] = useState(false);
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
@@ -184,6 +190,12 @@ export default function MovieDetailHeader({
     );
   };
 
+  const handleRefreshMetadata = () => {
+    refreshMetadata.mutate(movie.id, {
+      onSuccess: () => router.invalidate(),
+    });
+  };
+
   const tmdbUrl = `https://www.themoviedb.org/movie/${movie.tmdbId}`;
   const imdbUrl = movie.imdbId
     ? `https://www.imdb.com/title/${movie.imdbId}`
@@ -212,33 +224,17 @@ export default function MovieDetailHeader({
           <ArrowLeft className="h-4 w-4" />
           Back to Movies
         </Link>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={tmdbUrl} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4 mr-1" />
-              TMDB
-            </a>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedProfileIds(movie.downloadProfileIds);
-              setEditProfilesOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
-        </div>
+        <ActionButtonGroup
+          onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={refreshMetadata.isPending}
+          onEdit={() => {
+            setSelectedProfileIds(movie.downloadProfileIds);
+            setEditProfilesOpen(true);
+          }}
+          onDelete={() => setDeleteOpen(true)}
+          externalUrl={tmdbUrl}
+          externalLabel="Open in TMDB"
+        />
       </div>
 
       {/* Page header */}
