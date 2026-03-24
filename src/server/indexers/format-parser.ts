@@ -18,7 +18,7 @@ type CachedDef = {
 let cachedDefs: CachedDef[] | null = null;
 let sizeLimitsCache: Map<
   number,
-  { minSize: number; maxSize: number; type: string }
+  { minSize: number; maxSize: number; noMaxLimit: number; type: string }
 > | null = null;
 // eslint-disable-next-line prefer-const
 let cachedDefaults: {
@@ -65,7 +65,8 @@ export function getDefSizeLimits(
     for (const r of rows) {
       sizeLimitsCache.set(r.id, {
         minSize: r.minSize ?? 0,
-        maxSize: r.maxSize ?? 0,
+        maxSize: r.noMaxLimit ? 0 : (r.maxSize ?? 0),
+        noMaxLimit: r.noMaxLimit ?? 0,
         type: r.type,
       });
     }

@@ -43,8 +43,10 @@ type FormatValues = {
   weight: number;
   color: string;
   minSize: number;
-  maxSize: number | null;
-  preferredSize: number | null;
+  maxSize: number;
+  preferredSize: number;
+  noMaxLimit: number;
+  noPreferredLimit: number;
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
@@ -276,8 +278,10 @@ function FormatsPage() {
                     weight: editingDef.weight,
                     color: editingDef.color ?? "gray",
                     minSize: editingDef.minSize ?? 0,
-                    maxSize: editingDef.maxSize ?? null,
-                    preferredSize: editingDef.preferredSize ?? null,
+                    maxSize: editingDef.maxSize ?? 0,
+                    preferredSize: editingDef.preferredSize ?? 0,
+                    noMaxLimit: editingDef.noMaxLimit ?? 0,
+                    noPreferredLimit: editingDef.noPreferredLimit ?? 0,
                     type: editingDef.type as "ebook" | "audio" | "video",
                     source: editingDef.source ?? null,
                     resolution: editingDef.resolution ?? 0,

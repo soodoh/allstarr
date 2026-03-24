@@ -131,11 +131,13 @@ export const createDownloadFormatSchema = z.object({
   weight: z.number().default(1),
   color: z.string().default("gray"),
   minSize: z.number().default(0),
-  maxSize: z.number().nullable().default(null),
-  preferredSize: z.number().nullable().default(null),
+  maxSize: z.number().default(0),
+  preferredSize: z.number().default(0),
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
+  noMaxLimit: z.number().default(0),
+  noPreferredLimit: z.number().default(0),
 });
 
 export const updateDownloadFormatSchema = z.object({
@@ -144,11 +146,13 @@ export const updateDownloadFormatSchema = z.object({
   weight: z.number(),
   color: z.string().default("gray"),
   minSize: z.number().default(0),
-  maxSize: z.number().nullable().default(null),
-  preferredSize: z.number().nullable().default(null),
+  maxSize: z.number().default(0),
+  preferredSize: z.number().default(0),
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
+  noMaxLimit: z.number().default(0),
+  noPreferredLimit: z.number().default(0),
 });
 
 export const browseDirectorySchema = z.object({

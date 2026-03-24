@@ -25,8 +25,11 @@ export default function Slider({
   value,
   min = 0,
   max = 100,
+  disabledThumbs,
   ...props
-}: ComponentProps<typeof SliderPrimitive.Root>): React.JSX.Element {
+}: ComponentProps<typeof SliderPrimitive.Root> & {
+  disabledThumbs?: Set<number>;
+}): React.JSX.Element {
   const _values = useMemo(
     () => resolveValues(value, defaultValue, min, max),
     [value, defaultValue, min, max],
@@ -58,13 +61,21 @@ export default function Slider({
           )}
         />
       </SliderPrimitive.Track>
-      {Array.from({ length: _values.length }, (_, index) => (
-        <SliderPrimitive.Thumb
-          data-slot="slider-thumb"
-          key={index}
-          className="border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
-        />
-      ))}
+      {Array.from({ length: _values.length }, (_, index) => {
+        const isDisabled = disabledThumbs?.has(index) ?? false;
+        return (
+          <SliderPrimitive.Thumb
+            data-slot="slider-thumb"
+            key={index}
+            className={cn(
+              "border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
+              isDisabled && "pointer-events-none opacity-30 cursor-default",
+            )}
+            aria-disabled={isDisabled || undefined}
+            tabIndex={isDisabled ? -1 : undefined}
+          />
+        );
+      })}
     </SliderPrimitive.Root>
   );
 }

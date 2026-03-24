@@ -212,7 +212,9 @@ CREATE TABLE `download_formats` (
 	`color` text DEFAULT 'gray' NOT NULL,
 	`type` text DEFAULT 'ebook' NOT NULL,
 	`source` text,
-	`resolution` integer DEFAULT 0 NOT NULL
+	`resolution` integer DEFAULT 0 NOT NULL,
+	`no_max_limit` integer DEFAULT 0 NOT NULL,
+	`no_preferred_limit` integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `episodes` (
@@ -514,42 +516,42 @@ CREATE UNIQUE INDEX `profile_custom_format_idx` ON `profile_custom_formats` (`pr
 -- ============================================================
 
 -- Download Formats: Ebook
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type) VALUES
-  ('Unknown Text', 1, NULL, NULL, NULL, 'gray',   'ebook'),
-  ('PDF',          2, 0,    50,   5,    'yellow', 'ebook'),
-  ('MOBI',         3, 0,    15,   2,    'amber',  'ebook'),
-  ('EPUB',         4, 0,    15,   1.5,  'green',  'ebook'),
-  ('AZW3',         5, 0,    15,   2,    'blue',   'ebook');--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Text', 1, 0,    100,  100,  'gray',   'ebook', 1, 1),
+  ('PDF',          2, 0,    50,   5,    'yellow', 'ebook', 0, 0),
+  ('MOBI',         3, 0,    15,   2,    'amber',  'ebook', 0, 0),
+  ('EPUB',         4, 0,    15,   1.5,  'green',  'ebook', 0, 0),
+  ('AZW3',         5, 0,    15,   2,    'blue',   'ebook', 0, 0);--> statement-breakpoint
 
 -- Download Formats: Audio
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type) VALUES
-  ('Unknown Audio', 1, NULL, NULL, NULL, 'gray',   'audio'),
-  ('MP3',           6, 0,    350,  195,  'orange', 'audio'),
-  ('M4B',           7, 0,    350,  195,  'cyan',   'audio'),
-  ('FLAC',          8, 0,    NULL, 895,  'purple', 'audio');--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Audio', 1, 0,    1500, 1500, 'gray',   'audio', 1, 1),
+  ('MP3',           6, 0,    350,  195,  'orange', 'audio', 0, 0),
+  ('M4B',           7, 0,    350,  195,  'cyan',   'audio', 0, 0),
+  ('FLAC',          8, 0,    1500, 895,  'purple', 'audio', 1, 0);--> statement-breakpoint
 
 -- Download Formats: Video
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, source, resolution) VALUES
-  ('Unknown Video',  0,  NULL, NULL, NULL, 'gray',   'video', 'Unknown',    0),
-  ('SDTV',           1,  5,    NULL, NULL, 'gray',   'video', 'Television', 480),
-  ('WEBRip-480p',    2,  5,    NULL, NULL, 'gray',   'video', 'WebRip',     480),
-  ('WEBDL-480p',     3,  5,    NULL, NULL, 'gray',   'video', 'Web',        480),
-  ('DVD',            4,  5,    NULL, NULL, 'yellow', 'video', 'DVD',        480),
-  ('Bluray-480p',    5,  5,    NULL, NULL, 'gray',   'video', 'Bluray',     480),
-  ('HDTV-720p',      10, 10,   NULL, NULL, 'green',  'video', 'Television', 720),
-  ('WEBRip-720p',    11, 10,   NULL, NULL, 'green',  'video', 'WebRip',     720),
-  ('WEBDL-720p',     12, 10,   NULL, NULL, 'green',  'video', 'Web',        720),
-  ('Bluray-720p',    13, 17.1, NULL, NULL, 'green',  'video', 'Bluray',     720),
-  ('HDTV-1080p',     20, 15,   NULL, NULL, 'green',  'video', 'Television', 1080),
-  ('WEBRip-1080p',   21, 15,   NULL, NULL, 'green',  'video', 'WebRip',     1080),
-  ('WEBDL-1080p',    22, 15,   NULL, NULL, 'green',  'video', 'Web',        1080),
-  ('Bluray-1080p',   23, 50.4, NULL, NULL, 'blue',   'video', 'Bluray',     1080),
-  ('Remux-1080p',    24, 69.1, NULL, NULL, 'cyan',   'video', 'BlurayRaw',  1080),
-  ('HDTV-2160p',     30, 25,   NULL, NULL, 'purple', 'video', 'Television', 2160),
-  ('WEBRip-2160p',   31, 25,   NULL, NULL, 'purple', 'video', 'WebRip',     2160),
-  ('WEBDL-2160p',    32, 25,   NULL, NULL, 'purple', 'video', 'Web',        2160),
-  ('Bluray-2160p',   33, 94.6, NULL, NULL, 'purple', 'video', 'Bluray',     2160),
-  ('Remux-2160p',    34, 187.4,NULL, NULL, 'purple', 'video', 'BlurayRaw',  2160);--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, source, resolution, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Video',  0,  0,     2000, 2000, 'gray',   'video', 'Unknown',    0,    1, 1),
+  ('SDTV',           1,  5,     2000, 2000, 'gray',   'video', 'Television', 480,  1, 1),
+  ('WEBRip-480p',    2,  5,     2000, 2000, 'gray',   'video', 'WebRip',     480,  1, 1),
+  ('WEBDL-480p',     3,  5,     2000, 2000, 'gray',   'video', 'Web',        480,  1, 1),
+  ('DVD',            4,  5,     2000, 2000, 'yellow', 'video', 'DVD',        480,  1, 1),
+  ('Bluray-480p',    5,  5,     2000, 2000, 'gray',   'video', 'Bluray',     480,  1, 1),
+  ('HDTV-720p',      10, 10,    2000, 2000, 'green',  'video', 'Television', 720,  1, 1),
+  ('WEBRip-720p',    11, 10,    2000, 2000, 'green',  'video', 'WebRip',     720,  1, 1),
+  ('WEBDL-720p',     12, 10,    2000, 2000, 'green',  'video', 'Web',        720,  1, 1),
+  ('Bluray-720p',    13, 17.1,  2000, 2000, 'green',  'video', 'Bluray',     720,  1, 1),
+  ('HDTV-1080p',     20, 15,    2000, 2000, 'green',  'video', 'Television', 1080, 1, 1),
+  ('WEBRip-1080p',   21, 15,    2000, 2000, 'green',  'video', 'WebRip',     1080, 1, 1),
+  ('WEBDL-1080p',    22, 15,    2000, 2000, 'green',  'video', 'Web',        1080, 1, 1),
+  ('Bluray-1080p',   23, 50.4,  2000, 2000, 'blue',   'video', 'Bluray',     1080, 1, 1),
+  ('Remux-1080p',    24, 69.1,  2000, 2000, 'cyan',   'video', 'BlurayRaw',  1080, 1, 1),
+  ('HDTV-2160p',     30, 25,    2000, 2000, 'purple', 'video', 'Television', 2160, 1, 1),
+  ('WEBRip-2160p',   31, 25,    2000, 2000, 'purple', 'video', 'WebRip',     2160, 1, 1),
+  ('WEBDL-2160p',    32, 25,    2000, 2000, 'purple', 'video', 'Web',        2160, 1, 1),
+  ('Bluray-2160p',   33, 94.6,  2000, 2000, 'purple', 'video', 'Bluray',     2160, 1, 1),
+  ('Remux-2160p',    34, 187.4, 2000, 2000, 'purple', 'video', 'BlurayRaw',  2160, 1, 1);--> statement-breakpoint
 
 -- Download Profiles: Book
 INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
