@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
+import Checkbox from "src/components/ui/checkbox";
 
 type Show = {
   id: number;
@@ -35,6 +36,10 @@ type Show = {
 
 type ShowTableProps = {
   shows: Show[];
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
+  onToggleAll?: () => void;
 };
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
@@ -52,7 +57,13 @@ type SortableKey =
   | "episodes"
   | "status";
 
-export default function ShowTable({ shows }: ShowTableProps): JSX.Element {
+export default function ShowTable({
+  shows,
+  selectable,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
+}: ShowTableProps): JSX.Element {
   const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortableKey | undefined>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -115,9 +126,16 @@ export default function ShowTable({ shows }: ShowTableProps): JSX.Element {
     );
   };
 
+  const allSelected =
+    selectable &&
+    selectedIds &&
+    shows.length > 0 &&
+    selectedIds.size === shows.length;
+
   return (
     <Table>
       <colgroup>
+        {selectable && <col className="w-10" />}
         <col className="w-14" />
         <col />
         <col className="w-20" />
@@ -129,6 +147,14 @@ export default function ShowTable({ shows }: ShowTableProps): JSX.Element {
       </colgroup>
       <TableHeader>
         <TableRow>
+          {selectable && (
+            <TableHead>
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={() => onToggleAll?.()}
+              />
+            </TableHead>
+          )}
           <TableHead />
           {(
             [
@@ -158,17 +184,31 @@ export default function ShowTable({ shows }: ShowTableProps): JSX.Element {
             className: "bg-zinc-600",
             label: show.status,
           };
+          const isSelected = selectable && selectedIds?.has(show.id);
           return (
             <TableRow
               key={show.id}
               className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() =>
-                navigate({
-                  to: "/tv/series/$showId",
-                  params: { showId: String(show.id) },
-                })
-              }
+              onClick={() => {
+                if (selectable && onToggleSelect) {
+                  onToggleSelect(show.id);
+                } else {
+                  navigate({
+                    to: "/tv/series/$showId",
+                    params: { showId: String(show.id) },
+                  });
+                }
+              }}
             >
+              {selectable && (
+                <TableCell>
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect?.(show.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 {show.posterUrl ? (
                   <img

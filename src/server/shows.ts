@@ -396,7 +396,7 @@ export const updateShowFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, ...updates } = data;
+    const { id, downloadProfileId, ...updates } = data;
 
     const show = db.select().from(shows).where(eq(shows.id, id)).get();
 
@@ -408,6 +408,16 @@ export const updateShowFn = createServerFn({ method: "POST" })
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(shows.id, id))
       .run();
+
+    // Update download profile junction if provided
+    if (downloadProfileId !== undefined) {
+      db.delete(showDownloadProfiles)
+        .where(eq(showDownloadProfiles.showId, id))
+        .run();
+      db.insert(showDownloadProfiles)
+        .values({ showId: id, downloadProfileId })
+        .run();
+    }
 
     return db.select().from(shows).where(eq(shows.id, id)).get()!;
   });
