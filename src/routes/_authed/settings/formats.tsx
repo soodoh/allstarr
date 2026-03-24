@@ -4,6 +4,7 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsMapQuery, downloadFormatsListQuery } from "src/lib/queries";
 import { updateSettingFn } from "src/server/settings";
 import { queryKeys } from "src/lib/query-keys";
+import { Search } from "lucide-react";
 import { Input } from "src/components/ui/input";
 import { Label } from "src/components/ui/label";
 import { Button } from "src/components/ui/button";
@@ -100,16 +101,16 @@ function DefaultsSection({
       ? (Object.keys(DEFAULTS_CONFIG) as Array<keyof typeof DEFAULTS_CONFIG>)
       : [contentType];
 
+  const description =
+    contentType === "all"
+      ? "These values are used when the corresponding runtime, duration, or page count is unavailable."
+      : DEFAULTS_CONFIG[contentType].hint;
+
   return (
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
-      <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
-      <div
-        className={
-          contentType === "all"
-            ? "grid grid-cols-2 lg:grid-cols-4 gap-3"
-            : "space-y-1"
-        }
-      >
+      <h4 className="text-sm font-medium">Size Calculation Defaults</h4>
+      <p className="text-xs text-muted-foreground mb-3">{description}</p>
+      <div className="space-y-2">
         {configs.map((ct) => {
           const cfg = DEFAULTS_CONFIG[ct];
           const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
@@ -138,11 +139,6 @@ function DefaultsSection({
           );
         })}
       </div>
-      {contentType !== "all" && (
-        <p className="text-xs text-muted-foreground mt-1">
-          {DEFAULTS_CONFIG[contentType].hint}
-        </p>
-      )}
     </div>
   );
 }
@@ -165,17 +161,23 @@ function FormatsPage() {
   const deleteDefinition = useDeleteDownloadFormat();
 
   const [activeTab, setActiveTab] = useState<TabValue>("all");
+  const [search, setSearch] = useState("");
   const [defDialogOpen, setDefDialogOpen] = useState(false);
   const [editingDef, setEditingDef] = useState<
     (typeof definitions)[number] | undefined
   >(undefined);
 
   const filteredFormats = useMemo(() => {
-    if (activeTab === "all") {
-      return definitions;
+    let result = definitions;
+    if (activeTab !== "all") {
+      result = result.filter((d) => d.contentTypes.includes(activeTab));
     }
-    return definitions.filter((d) => d.contentTypes.includes(activeTab));
-  }, [definitions, activeTab]);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((d) => d.title.toLowerCase().includes(q));
+    }
+    return result;
+  }, [definitions, activeTab, search]);
 
   const dialogContentTypes = useMemo(() => {
     if (editingDef) {
@@ -240,7 +242,18 @@ function FormatsPage() {
           <TabsTrigger value="ebook">Ebook</TabsTrigger>
           <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
         </TabsList>
-        <TabsContent value={activeTab}>
+
+        <div className="relative my-4">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search formats..."
+            className="pl-8"
+          />
+        </div>
+
+        <TabsContent value={activeTab} className="mt-0">
           <DefaultsSection
             key={activeTab}
             contentType={activeTab}

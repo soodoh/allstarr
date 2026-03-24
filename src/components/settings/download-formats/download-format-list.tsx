@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { JSX } from "react";
-import { Pencil, Search, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
-import Input from "src/components/ui/input";
 import {
   Table,
   TableBody,
@@ -253,19 +252,10 @@ export default function DownloadFormatList({
   onDelete,
 }: DownloadFormatListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<DownloadFormat | null>(null);
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!search) {
-      return definitions;
-    }
-    const q = search.toLowerCase();
-    return definitions.filter((d) => d.title.toLowerCase().includes(q));
-  }, [definitions, search]);
 
   const { paginatedData, sortColumn, sortDirection, handleSort } =
     useTableState({
-      data: filtered,
+      data: definitions,
       defaultPageSize: 10_000,
       comparators: COMPARATORS,
     });
@@ -280,16 +270,6 @@ export default function DownloadFormatList({
 
   return (
     <>
-      <div className="relative mb-4">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search formats..."
-          className="pl-8"
-        />
-      </div>
-
       <Table>
         <TableHeader>
           <TableRow>
@@ -373,12 +353,6 @@ export default function DownloadFormatList({
           ))}
         </TableBody>
       </Table>
-
-      {paginatedData.length === 0 && search && (
-        <div className="text-center py-8 text-muted-foreground">
-          No formats matching &ldquo;{search}&rdquo;.
-        </div>
-      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
