@@ -6,14 +6,19 @@ import {
   episodes,
   episodeFiles,
   showDownloadProfiles,
+  episodeDownloadProfiles,
   history,
 } from "src/db/schema";
-import { eq, sql, and, desc, max } from "drizzle-orm";
+import { eq, sql, and, desc, max, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   addShowSchema,
   updateShowSchema,
   deleteShowSchema,
+  monitorEpisodeProfileSchema,
+  unmonitorEpisodeProfileSchema,
+  bulkMonitorEpisodeProfileSchema,
+  bulkUnmonitorEpisodeProfileSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
 import { TMDB_IMAGE_BASE } from "./tmdb/types";
@@ -61,46 +66,77 @@ type MonitorOption =
   | "lastSeason"
   | "none";
 
-function applyMonitoringOption(showId: number, option: MonitorOption): void {
+function applyMonitoringOption(
+  showId: number,
+  option: MonitorOption,
+  downloadProfileIds: number[],
+): void {
+  if (downloadProfileIds.length === 0) {
+    return;
+  }
+
   const today = new Date().toISOString().split("T")[0];
+
+  // Get all episodes for the show
+  const allEpisodes = db
+    .select({
+      id: episodes.id,
+      seasonId: episodes.seasonId,
+      episodeNumber: episodes.episodeNumber,
+      airDate: episodes.airDate,
+      hasFile: episodes.hasFile,
+    })
+    .from(episodes)
+    .where(eq(episodes.showId, showId))
+    .all();
+
+  // Determine which episodes should be monitored based on option
+  let monitoredEpisodes: typeof allEpisodes;
 
   switch (option) {
     case "all": {
-      // All episodes default to monitored=true, nothing to do
+      monitoredEpisodes = allEpisodes;
       break;
     }
     case "future": {
-      db.update(episodes)
-        .set({ monitored: false })
-        .where(
-          and(
-            eq(episodes.showId, showId),
-            sql`(${episodes.airDate} IS NULL OR ${episodes.airDate} <= ${today})`,
-          ),
-        )
-        .run();
+      monitoredEpisodes = allEpisodes.filter(
+        (ep) =>
+          ep.airDate !== null && ep.airDate !== undefined && ep.airDate > today,
+      );
       break;
     }
     case "missing": {
-      db.update(episodes)
-        .set({ monitored: false })
-        .where(and(eq(episodes.showId, showId), eq(episodes.hasFile, true)))
-        .run();
+      monitoredEpisodes = allEpisodes.filter((ep) => !ep.hasFile);
       break;
     }
     case "existing": {
-      db.update(episodes)
-        .set({ monitored: false })
-        .where(and(eq(episodes.showId, showId), eq(episodes.hasFile, false)))
-        .run();
+      monitoredEpisodes = allEpisodes.filter((ep) => ep.hasFile);
       break;
     }
     case "pilot": {
-      applyPilotMonitoring(showId);
+      const pilotSeasonIds = db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(and(eq(seasons.showId, showId), eq(seasons.seasonNumber, 1)))
+        .all()
+        .map((s) => s.id);
+
+      const pilotSet = new Set(pilotSeasonIds);
+      monitoredEpisodes = allEpisodes.filter(
+        (ep) => pilotSet.has(ep.seasonId) && ep.episodeNumber === 1,
+      );
       break;
     }
     case "firstSeason": {
-      applySeasonMonitoring(showId, 1);
+      const firstSeasonIds = db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(and(eq(seasons.showId, showId), eq(seasons.seasonNumber, 1)))
+        .all()
+        .map((s) => s.id);
+
+      const firstSet = new Set(firstSeasonIds);
+      monitoredEpisodes = allEpisodes.filter((ep) => firstSet.has(ep.seasonId));
       break;
     }
     case "lastSeason": {
@@ -109,69 +145,39 @@ function applyMonitoringOption(showId: number, option: MonitorOption): void {
         .from(seasons)
         .where(eq(seasons.showId, showId))
         .get();
-      applySeasonMonitoring(showId, maxSeasonRow?.maxNum ?? 0);
+      const lastNum = maxSeasonRow?.maxNum ?? 0;
+
+      const lastSeasonIds = db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(
+          and(eq(seasons.showId, showId), eq(seasons.seasonNumber, lastNum)),
+        )
+        .all()
+        .map((s) => s.id);
+
+      const lastSet = new Set(lastSeasonIds);
+      monitoredEpisodes = allEpisodes.filter((ep) => lastSet.has(ep.seasonId));
       break;
     }
     case "none": {
-      db.update(episodes)
-        .set({ monitored: false })
-        .where(eq(episodes.showId, showId))
-        .run();
+      monitoredEpisodes = [];
       break;
     }
     default: {
-      // Exhaustive check — all monitor options handled above
+      monitoredEpisodes = [];
       break;
     }
   }
-}
 
-function applyPilotMonitoring(showId: number): void {
-  const pilotSeasonIds = db
-    .select({ id: seasons.id })
-    .from(seasons)
-    .where(and(eq(seasons.showId, showId), eq(seasons.seasonNumber, 1)))
-    .all()
-    .map((s) => s.id);
-
-  if (pilotSeasonIds.length > 0) {
-    db.update(episodes)
-      .set({ monitored: false })
-      .where(
-        and(
-          eq(episodes.showId, showId),
-          sql`NOT (${episodes.seasonId} IN (${sql.join(pilotSeasonIds.map((id) => sql`${id}`))}) AND ${episodes.episodeNumber} = 1)`,
-        ),
-      )
-      .run();
-  } else {
-    db.update(episodes)
-      .set({ monitored: false })
-      .where(eq(episodes.showId, showId))
-      .run();
-  }
-}
-
-function applySeasonMonitoring(showId: number, seasonNumber: number): void {
-  const seasonIds = db
-    .select({ id: seasons.id })
-    .from(seasons)
-    .where(
-      and(eq(seasons.showId, showId), eq(seasons.seasonNumber, seasonNumber)),
-    )
-    .all()
-    .map((s) => s.id);
-
-  if (seasonIds.length > 0) {
-    db.update(episodes)
-      .set({ monitored: false })
-      .where(
-        and(
-          eq(episodes.showId, showId),
-          sql`${episodes.seasonId} NOT IN (${sql.join(seasonIds.map((id) => sql`${id}`))})`,
-        ),
-      )
-      .run();
+  // Insert episodeDownloadProfiles rows for each monitored episode × each profile ID
+  for (const ep of monitoredEpisodes) {
+    for (const profileId of downloadProfileIds) {
+      db.insert(episodeDownloadProfiles)
+        .values({ episodeId: ep.id, downloadProfileId: profileId })
+        .onConflictDoNothing()
+        .run();
+    }
   }
 }
 
@@ -226,7 +232,6 @@ export const addShowFn = createServerFn({ method: "POST" })
         genres,
         posterUrl,
         fanartUrl,
-        monitored: true,
       })
       .returning()
       .get();
@@ -249,7 +254,6 @@ export const addShowFn = createServerFn({ method: "POST" })
         .values({
           showId: show.id,
           seasonNumber: seasonSummary.season_number,
-          monitored: true,
           overview: seasonSummary.overview || null,
           posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
         })
@@ -270,7 +274,6 @@ export const addShowFn = createServerFn({ method: "POST" })
               runtime: ep.runtime,
               tmdbId: ep.id,
               hasFile: false,
-              monitored: true,
             })),
           )
           .run();
@@ -278,7 +281,7 @@ export const addShowFn = createServerFn({ method: "POST" })
     }
 
     // Apply monitoring option
-    applyMonitoringOption(show.id, data.monitorOption);
+    applyMonitoringOption(show.id, data.monitorOption, data.downloadProfileIds);
 
     // Insert history event
     db.insert(history)
@@ -313,7 +316,6 @@ export const getShowsFn = createServerFn({ method: "GET" }).handler(
         tags: shows.tags,
         posterUrl: shows.posterUrl,
         fanartUrl: shows.fanartUrl,
-        monitored: shows.monitored,
         path: shows.path,
         createdAt: shows.createdAt,
         updatedAt: shows.updatedAt,
@@ -359,9 +361,38 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
       .orderBy(episodes.episodeNumber)
       .all();
 
+    // Get episode download profile IDs
+    const episodeIds = showEpisodes.map((ep) => ep.id);
+    const episodeProfileLinks =
+      episodeIds.length > 0
+        ? db
+            .select({
+              episodeId: episodeDownloadProfiles.episodeId,
+              downloadProfileId: episodeDownloadProfiles.downloadProfileId,
+            })
+            .from(episodeDownloadProfiles)
+            .where(inArray(episodeDownloadProfiles.episodeId, episodeIds))
+            .all()
+        : [];
+
+    // Group profile IDs by episode
+    const profilesByEpisode = new Map<number, number[]>();
+    for (const link of episodeProfileLinks) {
+      const arr = profilesByEpisode.get(link.episodeId) ?? [];
+      arr.push(link.downloadProfileId);
+      profilesByEpisode.set(link.episodeId, arr);
+    }
+
+    // Attach downloadProfileIds to each episode
+    const episodesWithProfiles = showEpisodes.map((ep) =>
+      Object.assign(ep, {
+        downloadProfileIds: profilesByEpisode.get(ep.id) ?? [],
+      }),
+    );
+
     // Group episodes by season
-    const episodesBySeasonId = new Map<number, typeof showEpisodes>();
-    for (const ep of showEpisodes) {
+    const episodesBySeasonId = new Map<number, typeof episodesWithProfiles>();
+    for (const ep of episodesWithProfiles) {
       const arr = episodesBySeasonId.get(ep.seasonId) ?? [];
       arr.push(ep);
       episodesBySeasonId.set(ep.seasonId, arr);
@@ -410,6 +441,47 @@ export const updateShowFn = createServerFn({ method: "POST" })
 
     // Update download profile junctions if provided
     if (downloadProfileIds !== undefined) {
+      // Find which profiles were previously assigned
+      const previousLinks = db
+        .select({
+          downloadProfileId: showDownloadProfiles.downloadProfileId,
+        })
+        .from(showDownloadProfiles)
+        .where(eq(showDownloadProfiles.showId, id))
+        .all();
+      const previousProfileIds = previousLinks.map((l) => l.downloadProfileId);
+
+      // Compute which profiles were removed
+      const newSet = new Set(downloadProfileIds);
+      const removedProfileIds = previousProfileIds.filter(
+        (pid) => !newSet.has(pid),
+      );
+
+      // Delete episode download profiles for removed profiles
+      if (removedProfileIds.length > 0) {
+        // Get all episode IDs for this show
+        const showEpisodeIds = db
+          .select({ id: episodes.id })
+          .from(episodes)
+          .where(eq(episodes.showId, id))
+          .all()
+          .map((e) => e.id);
+
+        if (showEpisodeIds.length > 0) {
+          for (const removedId of removedProfileIds) {
+            db.delete(episodeDownloadProfiles)
+              .where(
+                and(
+                  inArray(episodeDownloadProfiles.episodeId, showEpisodeIds),
+                  eq(episodeDownloadProfiles.downloadProfileId, removedId),
+                ),
+              )
+              .run();
+          }
+        }
+      }
+
+      // Replace show download profiles
       db.delete(showDownloadProfiles)
         .where(eq(showDownloadProfiles.showId, id))
         .run();
@@ -486,4 +558,77 @@ export const checkShowExistsFn = createServerFn({ method: "GET" })
       .where(eq(shows.tmdbId, data.tmdbId))
       .get();
     return show ?? null;
+  });
+
+export const monitorEpisodeProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => monitorEpisodeProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.insert(episodeDownloadProfiles)
+      .values({
+        episodeId: data.episodeId,
+        downloadProfileId: data.downloadProfileId,
+      })
+      .onConflictDoNothing()
+      .run();
+
+    return { success: true };
+  });
+
+export const unmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => unmonitorEpisodeProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.delete(episodeDownloadProfiles)
+      .where(
+        and(
+          eq(episodeDownloadProfiles.episodeId, data.episodeId),
+          eq(episodeDownloadProfiles.downloadProfileId, data.downloadProfileId),
+        ),
+      )
+      .run();
+
+    return { success: true };
+  });
+
+export const bulkMonitorEpisodeProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => bulkMonitorEpisodeProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    for (const episodeId of data.episodeIds) {
+      db.insert(episodeDownloadProfiles)
+        .values({
+          episodeId,
+          downloadProfileId: data.downloadProfileId,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+
+    return { success: true };
+  });
+
+export const bulkUnmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => bulkUnmonitorEpisodeProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    if (data.episodeIds.length > 0) {
+      db.delete(episodeDownloadProfiles)
+        .where(
+          and(
+            inArray(episodeDownloadProfiles.episodeId, data.episodeIds),
+            eq(
+              episodeDownloadProfiles.downloadProfileId,
+              data.downloadProfileId,
+            ),
+          ),
+        )
+        .run();
+    }
+
+    return { success: true };
   });
