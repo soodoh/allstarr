@@ -1,12 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
 import { db } from "src/db";
-import {
-  indexers,
-  syncedIndexers,
-  downloadClients,
-  settings,
-} from "src/db/schema";
+import { indexers, syncedIndexers, downloadClients } from "src/db/schema";
 import { getRootFolderPaths } from "src/server/disk-scan";
 import { requireAuth } from "./middleware";
 import * as fs from "node:fs";
@@ -101,14 +95,7 @@ function runHealthChecks(): HealthCheck[] {
   }
 
   // Check Hardcover token
-  const tokenSetting = db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, "hardcoverToken"))
-    .get();
-  const hasToken =
-    (tokenSetting && tokenSetting.value) || process.env.HARDCOVER_TOKEN;
-  if (!hasToken) {
+  if (!process.env.HARDCOVER_TOKEN) {
     checks.push({
       source: "HardcoverTokenCheck",
       type: "warning",

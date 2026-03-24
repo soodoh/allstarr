@@ -6,7 +6,7 @@ export { TMDB_IMAGE_BASE } from "./types";
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
 function getTmdbApiKey(): string {
-  return getMediaSetting<string>("metadata.tmdb.apiKey", "");
+  return process.env.TMDB_TOKEN ?? "";
 }
 
 // Rate limiter: max 40 requests per 10 seconds

@@ -5,7 +5,6 @@ import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
 import getProfileLanguages from "./profile-languages";
-import getMediaSetting from "./settings-reader";
 
 const HARDCOVER_GRAPHQL_URL =
   process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
@@ -921,10 +920,6 @@ type GraphQLAuthorDetailsResponse = {
 };
 
 function getHardcoverToken(): string {
-  const dbToken = getMediaSetting<string>("metadata.hardcover.apiKey", "");
-  if (dbToken) {
-    return dbToken;
-  }
   return process.env.HARDCOVER_TOKEN ?? "";
 }
 

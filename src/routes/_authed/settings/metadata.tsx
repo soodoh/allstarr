@@ -94,9 +94,6 @@ function MetadataSettingsPage() {
   const updateSettings = useUpdateSettings();
 
   // ── Hardcover tab state ────────────────────────────────────────────────────
-  const [hardcoverApiKey, setHardcoverApiKey] = useState(
-    (settingsMap["metadata.hardcover.apiKey"] as string | undefined) ?? "",
-  );
   const [skipMissingReleaseDate, setSkipMissingReleaseDate] = useState(
     profile.skipMissingReleaseDate,
   );
@@ -115,9 +112,6 @@ function MetadataSettingsPage() {
   );
 
   // ── TMDB tab state ─────────────────────────────────────────────────────────
-  const [tmdbApiKey, setTmdbApiKey] = useState(
-    (settingsMap["metadata.tmdb.apiKey"] as string | undefined) ?? "",
-  );
   const [tmdbLanguage, setTmdbLanguage] = useState(
     (settingsMap["metadata.tmdb.language"] as string | undefined) ?? "en",
   );
@@ -142,16 +136,11 @@ function MetadataSettingsPage() {
       return;
     }
     setProfileErrors({});
-    // Save API key first, then profile; both fire in sequence.
-    updateSettings.mutate(
-      [{ key: "metadata.hardcover.apiKey", value: hardcoverApiKey }],
-      { onSuccess: () => updateProfile.mutate(result.data) },
-    );
+    updateProfile.mutate(result.data);
   };
 
   const handleSaveTmdb = () => {
     updateSettings.mutate([
-      { key: "metadata.tmdb.apiKey", value: tmdbApiKey },
       { key: "metadata.tmdb.language", value: tmdbLanguage },
       {
         key: "metadata.tmdb.includeAdult",
@@ -164,7 +153,7 @@ function MetadataSettingsPage() {
     ]);
   };
 
-  const isHardcoverSaving = updateProfile.isPending || updateSettings.isPending;
+  const isHardcoverSaving = updateProfile.isPending;
   const isTmdbSaving = updateSettings.isPending;
 
   return (
@@ -183,32 +172,6 @@ function MetadataSettingsPage() {
 
           {/* ── Hardcover Tab ─────────────────────────────────────────────── */}
           <TabsContent value="hardcover" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>API Token</CardTitle>
-                <CardDescription>
-                  Override the Hardcover API token used for metadata lookups.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="hardcover-api-key">API Token</Label>
-                  <Input
-                    id="hardcover-api-key"
-                    type="password"
-                    placeholder="Enter Hardcover API token"
-                    value={hardcoverApiKey}
-                    onChange={(e) => setHardcoverApiKey(e.target.value)}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    If left empty, the{" "}
-                    <code className="text-xs font-mono">HARDCOVER_TOKEN</code>{" "}
-                    environment variable will be used.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Import Filters</CardTitle>
@@ -317,25 +280,6 @@ function MetadataSettingsPage() {
 
           {/* ── TMDB Tab ──────────────────────────────────────────────────── */}
           <TabsContent value="tmdb" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>API Key</CardTitle>
-                <CardDescription>
-                  Your TMDB API key for fetching movie and TV metadata.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Label htmlFor="tmdb-api-key">API Key</Label>
-                <Input
-                  id="tmdb-api-key"
-                  type="password"
-                  placeholder="Enter TMDB API key"
-                  value={tmdbApiKey}
-                  onChange={(e) => setTmdbApiKey(e.target.value)}
-                />
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Language & Region</CardTitle>
