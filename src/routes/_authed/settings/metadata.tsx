@@ -66,7 +66,7 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const REGION_OPTIONS = [
-  { value: "", label: "No filter" },
+  { value: "__none", label: "No filter" },
   { value: "US", label: "United States" },
   { value: "GB", label: "United Kingdom" },
   { value: "CA", label: "Canada" },
@@ -125,7 +125,7 @@ function MetadataSettingsPage() {
     (settingsMap["metadata.tmdb.includeAdult"] as boolean | undefined) ?? false,
   );
   const [tmdbRegion, setTmdbRegion] = useState(
-    (settingsMap["metadata.tmdb.region"] as string | undefined) ?? "",
+    (settingsMap["metadata.tmdb.region"] as string | undefined) || "__none",
   );
 
   // ── Save handlers ──────────────────────────────────────────────────────────
@@ -157,7 +157,10 @@ function MetadataSettingsPage() {
         key: "metadata.tmdb.includeAdult",
         value: String(tmdbIncludeAdult),
       },
-      { key: "metadata.tmdb.region", value: tmdbRegion },
+      {
+        key: "metadata.tmdb.region",
+        value: tmdbRegion === "__none" ? "" : tmdbRegion,
+      },
     ]);
   };
 
@@ -371,10 +374,7 @@ function MetadataSettingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {REGION_OPTIONS.map((opt) => (
-                        <SelectItem
-                          key={opt.value || "__none"}
-                          value={opt.value}
-                        >
+                        <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
                       ))}
