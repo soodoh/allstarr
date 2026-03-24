@@ -7,7 +7,7 @@ export const shows = sqliteTable(
     title: text("title").notNull(),
     sortTitle: text("sort_title").notNull(),
     overview: text("overview").notNull().default(""),
-    tmdbId: integer("tmdb_id").notNull().unique(),
+    tmdbId: integer("tmdb_id").notNull(),
     imdbId: text("imdb_id"),
     status: text("status").notNull().default("continuing"),
     seriesType: text("series_type").notNull().default("standard"),
