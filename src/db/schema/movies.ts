@@ -17,7 +17,6 @@ export const movies = sqliteTable(
     tags: text("tags", { mode: "json" }).$type<number[]>(),
     posterUrl: text("poster_url").notNull().default(""),
     fanartUrl: text("fanart_url").notNull().default(""),
-    monitored: integer("monitored", { mode: "boolean" }).default(true),
     minimumAvailability: text("minimum_availability")
       .notNull()
       .default("released"),
