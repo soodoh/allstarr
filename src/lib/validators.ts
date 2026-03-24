@@ -37,6 +37,103 @@ export const specificationSchema = z.object({
   required: z.boolean().default(true),
 });
 
+// Custom Formats
+export const customFormatContentTypes = [
+  "movie",
+  "tv",
+  "ebook",
+  "audiobook",
+] as const;
+
+export const customFormatCategories = [
+  "Audio Codec",
+  "Audio Channels",
+  "Video Codec",
+  "HDR",
+  "Resolution",
+  "Source",
+  "Quality Modifier",
+  "Streaming Service",
+  "Release Group",
+  "Edition",
+  "Release Type",
+  "Unwanted",
+  "Language",
+  "File Format",
+  "Audiobook Quality",
+  "Publisher",
+] as const;
+
+export const cfSpecificationTypes = [
+  // Universal
+  "releaseTitle",
+  "releaseGroup",
+  "size",
+  "indexerFlag",
+  "language",
+  // Video
+  "videoSource",
+  "resolution",
+  "qualityModifier",
+  "edition",
+  "videoCodec",
+  "audioCodec",
+  "audioChannels",
+  "hdrFormat",
+  "streamingService",
+  "releaseType",
+  "year",
+  // Book/Audiobook
+  "fileFormat",
+  "audioBitrate",
+  "narrator",
+  "publisher",
+  "audioDuration",
+] as const;
+
+export const cfSpecificationSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(cfSpecificationTypes),
+  value: z.string().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  negate: z.boolean().default(false),
+  required: z.boolean().default(true),
+});
+
+export const createCustomFormatSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  category: z.enum(customFormatCategories),
+  specifications: z.array(cfSpecificationSchema).default([]),
+  defaultScore: z.number().default(0),
+  contentTypes: z
+    .array(z.enum(customFormatContentTypes))
+    .min(1, "At least one content type required"),
+  includeInRenaming: z.boolean().default(false),
+  description: z.string().nullable().default(null),
+  enabled: z.boolean().default(true),
+});
+
+export const updateCustomFormatSchema = createCustomFormatSchema.extend({
+  id: z.number(),
+});
+
+export const profileCustomFormatScoreSchema = z.object({
+  profileId: z.number(),
+  customFormatId: z.number(),
+  score: z.number(),
+});
+
+export const bulkSetProfileCFScoresSchema = z.object({
+  profileId: z.number(),
+  scores: z.array(
+    z.object({
+      customFormatId: z.number(),
+      score: z.number(),
+    }),
+  ),
+});
+
 export const createDownloadFormatSchema = z.object({
   title: z.string().min(1),
   weight: z.number().default(1),
