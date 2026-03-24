@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { customFormats, profileCustomFormats } from "src/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createCustomFormatSchema,
@@ -227,19 +227,14 @@ export const addCategoryToProfileFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    // Get all enabled CFs in the given category
+    // Get all CFs in the given category
     const cfsInCategory = db
       .select({
         id: customFormats.id,
         defaultScore: customFormats.defaultScore,
       })
       .from(customFormats)
-      .where(
-        and(
-          eq(customFormats.category, data.category),
-          eq(customFormats.enabled, true),
-        ),
-      )
+      .where(eq(customFormats.category, data.category))
       .all();
 
     if (cfsInCategory.length === 0) {

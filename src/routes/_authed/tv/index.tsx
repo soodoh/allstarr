@@ -32,7 +32,7 @@ function ShowsPage() {
     enabled: massEditMode,
   });
   const tvProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "tv" && p.enabled),
+    () => allProfiles.filter((p) => p.contentType === "tv"),
     [allProfiles],
   );
 

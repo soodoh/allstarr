@@ -13,7 +13,6 @@ const downloadProfileBaseSchema = z.object({
   categories: z.array(z.number()).default([]),
   mediaType: z.enum(["ebook", "audio", "video"]),
   contentType: z.enum(["book", "tv", "movie"]),
-  enabled: z.boolean().default(true),
   language: z.string().min(2).max(3),
   minCustomFormatScore: z.number().default(0),
   upgradeUntilCustomFormatScore: z.number().default(0),
@@ -105,7 +104,6 @@ export const createCustomFormatSchema = z.object({
     .min(1, "At least one content type required"),
   includeInRenaming: z.boolean().default(false),
   description: z.string().nullable().default(null),
-  enabled: z.boolean().default(true),
 });
 
 export const updateCustomFormatSchema = createCustomFormatSchema.extend({
@@ -138,7 +136,6 @@ export const createDownloadFormatSchema = z.object({
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
-  enabled: z.boolean().default(true),
 });
 
 export const updateDownloadFormatSchema = z.object({
@@ -152,7 +149,6 @@ export const updateDownloadFormatSchema = z.object({
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
-  enabled: z.boolean().default(true),
 });
 
 export const browseDirectorySchema = z.object({

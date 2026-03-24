@@ -19,7 +19,6 @@ export const downloadProfiles = sqliteTable("download_profiles", {
     .default([]),
   mediaType: text("type").notNull().default("ebook"),
   contentType: text("content_type").notNull().default("book"),
-  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   language: text("language").notNull().default("en"),
   minCustomFormatScore: integer("min_custom_format_score").notNull().default(0),
   upgradeUntilCustomFormatScore: integer("upgrade_until_custom_format_score")

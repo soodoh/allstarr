@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { JSX } from "react";
 import { Copy, Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
-import Switch from "src/components/ui/switch";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   Table,
@@ -22,7 +21,6 @@ type CustomFormat = {
   category: string;
   defaultScore: number;
   contentTypes: string[];
-  enabled: boolean;
   origin: string | null;
   description: string | null;
 };
@@ -32,7 +30,6 @@ type CustomFormatListProps = {
   onEdit: (cf: CustomFormat) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
-  onToggleEnabled: (cf: CustomFormat, enabled: boolean) => void;
 };
 
 const CONTENT_TYPE_COLORS: Record<string, string> = {
@@ -82,7 +79,6 @@ export default function CustomFormatList({
   onEdit,
   onDuplicate,
   onDelete,
-  onToggleEnabled,
 }: CustomFormatListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<CustomFormat | null>(null);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -125,13 +121,12 @@ export default function CustomFormatList({
             <TableHead>Content Types</TableHead>
             <TableHead>Default Score</TableHead>
             <TableHead>Origin</TableHead>
-            <TableHead>Enabled</TableHead>
             <TableHead className="w-28">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredFormats.map((cf) => (
-            <TableRow key={cf.id} className={cf.enabled ? "" : "opacity-50"}>
+            <TableRow key={cf.id}>
               <TableCell className="font-medium">{cf.name}</TableCell>
               <TableCell>
                 <Badge variant="outline">{cf.category}</Badge>
@@ -151,12 +146,6 @@ export default function CustomFormatList({
               </TableCell>
               <TableCell className="tabular-nums">{cf.defaultScore}</TableCell>
               <TableCell>{originBadge(cf.origin)}</TableCell>
-              <TableCell>
-                <Switch
-                  checked={cf.enabled}
-                  onCheckedChange={(checked) => onToggleEnabled(cf, checked)}
-                />
-              </TableCell>
               <TableCell>
                 <div className="flex gap-1">
                   <Button

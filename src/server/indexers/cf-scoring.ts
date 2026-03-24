@@ -69,7 +69,6 @@ export function getProfileCFs(profileId: number): ProfileCF[] {
       name: customFormats.name,
       specifications: customFormats.specifications,
       contentTypes: customFormats.contentTypes,
-      enabled: customFormats.enabled,
     })
     .from(profileCustomFormats)
     .innerJoin(
@@ -79,15 +78,13 @@ export function getProfileCFs(profileId: number): ProfileCF[] {
     .where(eq(profileCustomFormats.profileId, profileId))
     .all();
 
-  const result: ProfileCF[] = rows
-    .filter((r) => r.enabled)
-    .map((r) => ({
-      cfId: r.cfId,
-      name: r.name,
-      score: r.score,
-      specs: r.specifications as CustomFormatSpecification[],
-      contentTypes: r.contentTypes as string[],
-    }));
+  const result: ProfileCF[] = rows.map((r) => ({
+    cfId: r.cfId,
+    name: r.name,
+    score: r.score,
+    specs: r.specifications as CustomFormatSpecification[],
+    contentTypes: r.contentTypes as string[],
+  }));
 
   profileCFCache.set(profileId, result);
   return result;

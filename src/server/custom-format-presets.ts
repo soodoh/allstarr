@@ -511,7 +511,6 @@ export const applyPresetFn = createServerFn({ method: "POST" })
             description: presetCF.description,
             origin: "builtin",
             userModified: false,
-            enabled: true,
           })
           .returning()
           .get();

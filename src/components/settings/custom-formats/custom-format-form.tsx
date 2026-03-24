@@ -11,6 +11,7 @@ import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
 import Checkbox from "src/components/ui/checkbox";
+
 import Textarea from "src/components/ui/textarea";
 import {
   Select,
@@ -39,7 +40,6 @@ type CustomFormatFormProps = {
     contentTypes: string[];
     includeInRenaming: boolean;
     description: string | null;
-    enabled: boolean;
   };
   onSubmit: (values: {
     name: string;
@@ -49,7 +49,6 @@ type CustomFormatFormProps = {
     contentTypes: Array<(typeof customFormatContentTypes)[number]>;
     includeInRenaming: boolean;
     description: string | null;
-    enabled: boolean;
   }) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -64,7 +63,6 @@ type Defaults = {
   contentTypes: string[];
   includeInRenaming: boolean;
   description: string;
-  enabled: boolean;
 };
 
 const FORM_DEFAULTS: Defaults = {
@@ -75,7 +73,6 @@ const FORM_DEFAULTS: Defaults = {
   contentTypes: ["ebook"],
   includeInRenaming: false,
   description: "",
-  enabled: true,
 };
 
 function getDefaults(
@@ -92,7 +89,6 @@ function getDefaults(
     contentTypes: initialValues.contentTypes,
     includeInRenaming: initialValues.includeInRenaming,
     description: initialValues.description ?? "",
-    enabled: initialValues.enabled,
   };
 }
 
@@ -118,7 +114,6 @@ export default function CustomFormatForm({
     defaults.includeInRenaming,
   );
   const [description, setDescription] = useState(defaults.description);
-  const [enabled, setEnabled] = useState(defaults.enabled);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleContentTypeToggle = (ct: string, checked: boolean) => {
@@ -139,7 +134,6 @@ export default function CustomFormatForm({
       contentTypes,
       includeInRenaming,
       description: description || null,
-      enabled,
     });
     if (!result.success) {
       setErrors(result.errors);
@@ -247,16 +241,6 @@ export default function CustomFormatForm({
           onCheckedChange={setIncludeInRenaming}
         />
         <Label htmlFor="cf-include-renaming">Include in Renaming</Label>
-      </div>
-
-      {/* Enabled */}
-      <div className="flex items-center gap-2">
-        <Switch
-          id="cf-enabled"
-          checked={enabled}
-          onCheckedChange={setEnabled}
-        />
-        <Label htmlFor="cf-enabled">Enabled</Label>
       </div>
 
       {/* Specifications */}

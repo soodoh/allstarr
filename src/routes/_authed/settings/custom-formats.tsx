@@ -91,27 +91,6 @@ function CustomFormatsPage() {
     setEditDialogOpen(true);
   };
 
-  const handleToggleEnabled = (
-    cf: (typeof customFormats)[number],
-    enabled: boolean,
-  ) => {
-    updateCustomFormat.mutate({
-      id: cf.id,
-      name: cf.name,
-      category: cf.category as Parameters<
-        typeof updateCustomFormat.mutate
-      >[0]["category"],
-      specifications: cf.specifications,
-      defaultScore: cf.defaultScore,
-      contentTypes: cf.contentTypes as Parameters<
-        typeof updateCustomFormat.mutate
-      >[0]["contentTypes"],
-      includeInRenaming: cf.includeInRenaming,
-      description: cf.description,
-      enabled,
-    });
-  };
-
   const handleCreate = (
     values: Parameters<typeof createCustomFormat.mutate>[0],
   ) => {
@@ -277,7 +256,6 @@ function CustomFormatsPage() {
           onEdit={handleEdit}
           onDuplicate={(id) => duplicateCustomFormat.mutate(id)}
           onDelete={(id) => deleteCustomFormat.mutate(id)}
-          onToggleEnabled={handleToggleEnabled}
         />
       </div>
 
@@ -307,7 +285,6 @@ function CustomFormatsPage() {
                       contentTypes: editingFormat.contentTypes,
                       includeInRenaming: editingFormat.includeInRenaming,
                       description: editingFormat.description,
-                      enabled: editingFormat.enabled,
                     }
                   : undefined
               }
