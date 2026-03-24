@@ -19,6 +19,8 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import TablePagination from "src/components/shared/table-pagination";
+import ContentTypeFilter from "src/components/activity/content-type-filter";
+import type { ContentType } from "src/components/activity/content-type-filter";
 import { historyListQuery } from "src/lib/queries";
 import type { HistoryItem, HistoryResult } from "src/lib/queries";
 import { formatBytes } from "src/lib/format";
@@ -66,7 +68,24 @@ const eventTypeVariants: Record<
   episodeFileDeleted: "destructive",
 };
 
+function matchesContentType(eventType: string, contentType: ContentType) {
+  if (contentType === "all") {
+    return true;
+  }
+  if (contentType === "books") {
+    return eventType.startsWith("author") || eventType.startsWith("book");
+  }
+  if (contentType === "tv") {
+    return eventType.startsWith("show") || eventType.startsWith("episode");
+  }
+  if (contentType === "movies") {
+    return eventType.startsWith("movie");
+  }
+  return true;
+}
+
 export default function HistoryTab(): JSX.Element {
+  const [contentType, setContentType] = useState<ContentType>("all");
   const [eventType, setEventType] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -80,6 +99,15 @@ export default function HistoryTab(): JSX.Element {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedData = queryResult.data as unknown as HistoryResult;
 
+  const filteredItems = typedData.items.filter((item) =>
+    matchesContentType(item.eventType, contentType),
+  );
+
+  const handleContentTypeChange = (value: ContentType) => {
+    setContentType(value);
+    setPage(1);
+  };
+
   const handleFilterChange = (value: string) => {
     setEventType(value);
     setPage(1);
@@ -92,7 +120,11 @@ export default function HistoryTab(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <ContentTypeFilter
+          value={contentType}
+          onChange={handleContentTypeChange}
+        />
         <Select value={eventType} onValueChange={handleFilterChange}>
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by type" />
@@ -126,7 +158,7 @@ export default function HistoryTab(): JSX.Element {
         </Select>
       </div>
 
-      {typedData.items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           No history events found.
         </div>
@@ -143,7 +175,7 @@ export default function HistoryTab(): JSX.Element {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {typedData.items.map((item) => (
+              {filteredItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-sm whitespace-nowrap">
                     {new Date(item.date).toLocaleString()}

@@ -27,6 +27,9 @@ export type QueueItem = DownloadItem & {
   bookId: number | null;
   bookTitle: string | null;
   authorName: string | null;
+  showId: number | null;
+  episodeId: number | null;
+  movieId: number | null;
   trackedState: string | null;
 };
 
@@ -48,6 +51,89 @@ function toConnectionConfig(client: DownloadClientRow): ConnectionConfig {
   };
 }
 
+type TrackedRow = typeof trackedDownloads.$inferSelect;
+
+function resolveTrackedMeta(tracked: TrackedRow | undefined): {
+  bookTitle: string | null;
+  authorName: string | null;
+} {
+  let bookTitle: string | null = null;
+  let authorName: string | null = null;
+
+  if (tracked?.bookId) {
+    const book = db
+      .select({ title: books.title })
+      .from(books)
+      .where(eq(books.id, tracked.bookId))
+      .get();
+    bookTitle = book?.title ?? null;
+  }
+  if (tracked?.authorId) {
+    const author = db
+      .select({ name: authors.name })
+      .from(authors)
+      .where(eq(authors.id, tracked.authorId))
+      .get();
+    authorName = author?.name ?? null;
+  }
+
+  return { bookTitle, authorName };
+}
+
+async function fetchClientItems(
+  client: DownloadClientRow,
+  items: QueueItem[],
+  warnings: string[],
+): Promise<void> {
+  try {
+    const provider = getProvider(client.implementation);
+    const config = toConnectionConfig(client);
+
+    const downloads = await provider.getDownloads(config);
+    for (const dl of downloads) {
+      const tracked = db
+        .select()
+        .from(trackedDownloads)
+        .where(
+          and(
+            eq(trackedDownloads.downloadClientId, client.id),
+            eq(trackedDownloads.downloadId, dl.id),
+          ),
+        )
+        .get();
+
+      const { bookTitle, authorName } = resolveTrackedMeta(tracked);
+
+      items.push(
+        Object.assign(dl as QueueItem, {
+          downloadClientId: client.id,
+          downloadClientName: client.name,
+          protocol: client.protocol,
+          progress:
+            dl.size > 0 ? Math.round((dl.downloaded / dl.size) * 100) : 0,
+          estimatedTimeLeft:
+            dl.downloadSpeed > 0
+              ? Math.round((dl.size - dl.downloaded) / dl.downloadSpeed)
+              : null,
+          bookId: tracked?.bookId ?? null,
+          bookTitle,
+          authorName,
+          showId: tracked?.showId ?? null,
+          episodeId: tracked?.episodeId ?? null,
+          movieId: tracked?.movieId ?? null,
+          trackedState: tracked?.state ?? null,
+        }),
+      );
+    }
+  } catch (error) {
+    warnings.push(
+      `Failed to connect to ${client.name}: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+    );
+  }
+}
+
 export async function fetchQueueItems(): Promise<{
   items: QueueItem[];
   warnings: string[];
@@ -66,71 +152,7 @@ export async function fetchQueueItems(): Promise<{
   const warnings: string[] = [];
 
   await Promise.allSettled(
-    enabledClients.map(async (client) => {
-      try {
-        const provider = getProvider(client.implementation);
-        const config = toConnectionConfig(client);
-
-        const downloads = await provider.getDownloads(config);
-        for (const dl of downloads) {
-          // Look up tracked download for book/author info
-          const tracked = db
-            .select()
-            .from(trackedDownloads)
-            .where(
-              and(
-                eq(trackedDownloads.downloadClientId, client.id),
-                eq(trackedDownloads.downloadId, dl.id),
-              ),
-            )
-            .get();
-
-          let bookTitle: string | null = null;
-          let authorName: string | null = null;
-
-          if (tracked?.bookId) {
-            const book = db
-              .select({ title: books.title })
-              .from(books)
-              .where(eq(books.id, tracked.bookId))
-              .get();
-            bookTitle = book?.title ?? null;
-          }
-          if (tracked?.authorId) {
-            const author = db
-              .select({ name: authors.name })
-              .from(authors)
-              .where(eq(authors.id, tracked.authorId))
-              .get();
-            authorName = author?.name ?? null;
-          }
-
-          items.push(
-            Object.assign(dl as QueueItem, {
-              downloadClientId: client.id,
-              downloadClientName: client.name,
-              protocol: client.protocol,
-              progress:
-                dl.size > 0 ? Math.round((dl.downloaded / dl.size) * 100) : 0,
-              estimatedTimeLeft:
-                dl.downloadSpeed > 0
-                  ? Math.round((dl.size - dl.downloaded) / dl.downloadSpeed)
-                  : null,
-              bookId: tracked?.bookId ?? null,
-              bookTitle,
-              authorName,
-              trackedState: tracked?.state ?? null,
-            }),
-          );
-        }
-      } catch (error) {
-        warnings.push(
-          `Failed to connect to ${client.name}: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-        );
-      }
-    }),
+    enabledClients.map((client) => fetchClientItems(client, items, warnings)),
   );
 
   return { items, warnings };

@@ -15,10 +15,7 @@ export const Route = createFileRoute("/_authed/activity/history")({
 function ActivityHistoryPage() {
   return (
     <div>
-      <PageHeader
-        title="History"
-        description="Activity log for your bookshelf"
-      />
+      <PageHeader title="History" description="Activity log for your library" />
       <Suspense fallback={<TableSkeleton />}>
         <HistoryTab />
       </Suspense>
