@@ -30,6 +30,7 @@ import {
   enrichRelease,
   matchAllFormats,
   getProfileWeight,
+  isFormatInProfile,
   getDefSizeLimits,
   getFormatType,
 } from "./indexers/format-parser";
@@ -51,7 +52,7 @@ import { fetchQueueItems } from "./queue";
 export type ProfileInfo = {
   id: number;
   name: string;
-  items: number[];
+  items: number[][];
   cutoff: number;
   upgradeAllowed: boolean;
   categories: number[];
@@ -98,15 +99,25 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
   }));
 }
 
-/** Derive a union of allowed definition IDs across all profiles */
-export function unionProfileItems(profiles: ProfileInfo[]): number[] | null {
-  const union = new Set<number>();
+/** Derive a union of allowed definition IDs across all profiles, preserving group structure */
+export function unionProfileItems(profiles: ProfileInfo[]): number[][] | null {
+  if (profiles.length === 0) {
+    return null;
+  }
+  const seen = new Set<number>();
+  const result: number[][] = [];
   for (const profile of profiles) {
-    for (const id of profile.items) {
-      union.add(id);
+    for (const group of profile.items) {
+      const newGroup = group.filter((id) => !seen.has(id));
+      if (newGroup.length > 0) {
+        result.push(newGroup);
+        for (const id of newGroup) {
+          seen.add(id);
+        }
+      }
     }
   }
-  return union.size > 0 ? [...union] : null;
+  return result.length > 0 ? result : null;
 }
 
 /** Derive search categories from download profiles as a union of each profile's stored categories */
@@ -273,7 +284,7 @@ export function computeReleaseMetrics(
   let allowedInAny = false;
 
   for (const profile of profiles) {
-    const allowed = profile.items.includes(release.quality.id);
+    const allowed = isFormatInProfile(release.quality.id, profile.items);
     if (allowed) {
       const score = getProfileWeight(release.quality.id, profile.items);
       formatScoreDetails.push({

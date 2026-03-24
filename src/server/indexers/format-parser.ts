@@ -323,13 +323,27 @@ export function enrichRelease(
 
 /**
  * Derive a format weight from a profile's ordered items array.
- * Items at the top of the list (lower index) are more preferred and get a
+ * Each inner array is a group of equivalent-quality formats.
+ * Formats in the same group get the same weight.
+ * Groups at the top of the list (lower index) are more preferred and get a
  * higher weight.  Returns 0 for formats not found in the profile.
  */
-export function getProfileWeight(qualityId: number, items: number[]): number {
-  const idx = items.indexOf(qualityId);
-  if (idx === -1) {
-    return 0;
+export function getProfileWeight(qualityId: number, items: number[][]): number {
+  for (let i = 0; i < items.length; i += 1) {
+    if (items[i].includes(qualityId)) {
+      return items.length - i; // First group = highest weight
+    }
   }
-  return items.length - idx;
+  return 0; // Not in profile
+}
+
+export function isFormatInProfile(
+  qualityId: number,
+  items: number[][],
+): boolean {
+  return items.some((group) => group.includes(qualityId));
+}
+
+export function flattenProfileItems(items: number[][]): number[] {
+  return items.flat();
 }
