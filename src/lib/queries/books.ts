@@ -2,7 +2,6 @@
 import { queryOptions, infiniteQueryOptions } from "@tanstack/react-query";
 import {
   getBooksFn,
-  getPaginatedBooksFn,
   getBookFn,
   getBookEditionsPaginatedFn,
   checkBooksExistFn,
@@ -13,30 +12,6 @@ export const booksListQuery = () =>
   queryOptions({
     queryKey: queryKeys.books.lists(),
     queryFn: () => getBooksFn(),
-  });
-
-export const booksInfiniteQuery = (
-  search = "",
-  monitored?: boolean,
-  sortKey?: string,
-  sortDir?: string,
-) =>
-  infiniteQueryOptions({
-    queryKey: queryKeys.books.infinite(search, monitored, sortKey, sortDir),
-    queryFn: ({ pageParam }) =>
-      getPaginatedBooksFn({
-        data: {
-          page: pageParam,
-          pageSize: 25,
-          search: search || undefined,
-          monitored,
-          sortKey,
-          sortDir,
-        },
-      }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
   });
 
 export const bookEditionsInfiniteQuery = (

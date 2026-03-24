@@ -55,7 +55,7 @@ function BookshelfPage() {
             <CardContent />
           </Card>
         </Link>
-        <Link to="/bookshelf/books">
+        <Link to="/bookshelf/authors">
           <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
             <CardHeader>
               <div className="flex items-center gap-3">

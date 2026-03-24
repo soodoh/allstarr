@@ -382,30 +382,6 @@ test.describe("Author and Book Import", () => {
     await expect(page.getByText("Test Browse Author")).toBeVisible();
   });
 
-  test("browse bookshelf books page", async ({ page, appUrl, db }) => {
-    const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
-      await import("../fixtures/seed-data");
-    const profile = seedDownloadProfile(db, {
-      name: "Books Browse Profile",
-      categories: [7020],
-    });
-    const author = seedAuthor(db, { name: "Books Page Author" });
-    const book = seedBook(db, author.id, { title: "Books Page Book" });
-    const edition = seedEdition(db, book.id, { title: "Books Page Edition" });
-
-    // Link edition to profile so it appears in the monitored books view
-    db.insert(schema.editionDownloadProfiles)
-      .values({ editionId: edition.id, downloadProfileId: profile.id })
-      .run();
-
-    await navigateTo(page, appUrl, "/bookshelf/books");
-
-    // Should see books/editions
-    await expect(page.getByText("Books Page Book").first()).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
   test("view book detail page", async ({ page, appUrl, db }) => {
     const { seedAuthor, seedBook, seedEdition } =
       await import("../fixtures/seed-data");
