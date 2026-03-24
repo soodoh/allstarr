@@ -1,7 +1,12 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { addShowFn, updateShowFn, deleteShowFn } from "src/server/shows";
+import {
+  addShowFn,
+  updateShowFn,
+  deleteShowFn,
+  refreshShowMetadataFn,
+} from "src/server/shows";
 import { queryKeys } from "src/lib/query-keys";
 import type {
   addShowSchema,
@@ -49,5 +54,17 @@ export function useDeleteShow() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete show"),
+  });
+}
+
+export function useRefreshShowMetadata() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (showId: number) => refreshShowMetadataFn({ data: { showId } }),
+    onSuccess: () => {
+      toast.success("Show metadata updated");
+      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
+    },
+    onError: () => toast.error("Failed to refresh show metadata"),
   });
 }
