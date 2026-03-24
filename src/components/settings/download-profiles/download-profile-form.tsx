@@ -33,6 +33,7 @@ import DirectoryBrowserDialog from "src/components/shared/directory-browser-dial
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 import LanguageSingleSelect from "src/components/shared/language-single-select";
 import TierGroupList from "src/components/settings/download-profiles/tier-group-list";
+import CFScoreSection from "src/components/settings/custom-formats/cf-score-section";
 import {
   countProfileFilesFn,
   moveProfileFilesFn,
@@ -52,6 +53,8 @@ type DownloadProfileFormProps = {
     contentType: string;
     enabled: boolean;
     language: string;
+    minCustomFormatScore: number;
+    upgradeUntilCustomFormatScore: number;
   };
   downloadFormats: Array<{ id: number; title: string; type: string }>;
   serverCwd: string;
@@ -67,7 +70,27 @@ type DownloadProfileFormProps = {
     contentType: string;
     enabled: boolean;
     language: string;
+    minCustomFormatScore: number;
+    upgradeUntilCustomFormatScore: number;
   }) => void;
+  onSubmitWithId?: (
+    values: {
+      name: string;
+      icon: string;
+      rootFolderPath: string;
+      cutoff: number;
+      items: number[][];
+      upgradeAllowed: boolean;
+      categories: number[];
+      mediaType: string;
+      contentType: string;
+      enabled: boolean;
+      language: string;
+      minCustomFormatScore: number;
+      upgradeUntilCustomFormatScore: number;
+    },
+    localCFScores: Array<{ customFormatId: number; score: number }>,
+  ) => void;
   onCancel: () => void;
   loading?: boolean;
   serverError?: string;
@@ -229,6 +252,8 @@ type ProfileDefaults = {
   contentType: string;
   enabled: boolean;
   language: string;
+  minCustomFormatScore: number;
+  upgradeUntilCustomFormatScore: number;
 };
 
 const PROFILE_DEFAULTS: ProfileDefaults = {
@@ -242,6 +267,8 @@ const PROFILE_DEFAULTS: ProfileDefaults = {
   contentType: "book",
   enabled: true,
   language: "en",
+  minCustomFormatScore: 0,
+  upgradeUntilCustomFormatScore: 0,
 };
 
 function getDefaults(
@@ -261,6 +288,8 @@ function getDefaults(
     contentType: initialValues.contentType,
     enabled: initialValues.enabled,
     language: initialValues.language,
+    minCustomFormatScore: initialValues.minCustomFormatScore,
+    upgradeUntilCustomFormatScore: initialValues.upgradeUntilCustomFormatScore,
   };
 }
 
@@ -564,6 +593,7 @@ export default function DownloadProfileForm({
   downloadFormats,
   serverCwd,
   onSubmit,
+  onSubmitWithId,
   onCancel,
   loading,
   serverError,
@@ -579,6 +609,14 @@ export default function DownloadProfileForm({
   const [contentType, setContentType] = useState(defaults.contentType);
   const [enabled, setEnabled] = useState(defaults.enabled);
   const [language, setLanguage] = useState(defaults.language);
+  const [minCustomFormatScore, setMinCustomFormatScore] = useState(
+    defaults.minCustomFormatScore,
+  );
+  const [upgradeUntilCustomFormatScore, setUpgradeUntilCustomFormatScore] =
+    useState(defaults.upgradeUntilCustomFormatScore);
+  const [localCFScores, setLocalCFScores] = useState<
+    Array<{ customFormatId: number; score: number }>
+  >([]);
 
   // Root folder move confirmation state
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
@@ -666,6 +704,8 @@ export default function DownloadProfileForm({
       contentType,
       enabled,
       language,
+      minCustomFormatScore,
+      upgradeUntilCustomFormatScore,
     });
     if (!result.success) {
       setErrors(result.errors);
@@ -690,7 +730,12 @@ export default function DownloadProfileForm({
       }
     }
 
-    onSubmit(result.data);
+    // For new profiles with local CF scores, use the two-step callback
+    if (!isEditing && onSubmitWithId && localCFScores.length > 0) {
+      onSubmitWithId(result.data, localCFScores);
+    } else {
+      onSubmit(result.data);
+    }
   };
 
   const handleMoveFiles = async () => {
@@ -802,6 +847,22 @@ export default function DownloadProfileForm({
           error={errors.items}
           onItemsChange={handleItemsChange}
           onRemoveFormat={handleRemoveFormat}
+        />
+
+        <CFScoreSection
+          profileId={initialValues?.id}
+          contentType={contentType}
+          mediaType={mediaType}
+          minCustomFormatScore={minCustomFormatScore}
+          upgradeUntilCustomFormatScore={upgradeUntilCustomFormatScore}
+          onMinScoreChange={setMinCustomFormatScore}
+          onUpgradeUntilScoreChange={setUpgradeUntilCustomFormatScore}
+          localScores={
+            initialValues?.id === undefined ? localCFScores : undefined
+          }
+          onLocalScoresChange={
+            initialValues?.id === undefined ? setLocalCFScores : undefined
+          }
         />
 
         <div className="flex items-center gap-2">
