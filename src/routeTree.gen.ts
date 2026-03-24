@@ -22,6 +22,7 @@ import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/i
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedTvCalendarRouteImport } from './routes/_authed/tv/calendar'
 import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
 import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
@@ -113,6 +114,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedTvCalendarRoute = AuthedTvCalendarRouteImport.update({
+  id: '/tv/calendar',
+  path: '/tv/calendar',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedTvAddRoute = AuthedTvAddRouteImport.update({
   id: '/tv/add',
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/tv/add': typeof AuthedTvAddRoute
+  '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity/': typeof AuthedActivityIndexRoute
   '/bookshelf/': typeof AuthedBookshelfIndexRoute
@@ -320,6 +327,7 @@ export interface FileRoutesByTo {
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
   '/tv/add': typeof AuthedTvAddRoute
+  '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity': typeof AuthedActivityIndexRoute
   '/bookshelf': typeof AuthedBookshelfIndexRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/_authed/system/tasks': typeof AuthedSystemTasksRoute
   '/_authed/tv/add': typeof AuthedTvAddRoute
+  '/_authed/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
@@ -406,6 +415,7 @@ export interface FileRouteTypes {
     | '/system/status'
     | '/system/tasks'
     | '/tv/add'
+    | '/tv/calendar'
     | '/api/auth/$'
     | '/activity/'
     | '/bookshelf/'
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/system/status'
     | '/system/tasks'
     | '/tv/add'
+    | '/tv/calendar'
     | '/api/auth/$'
     | '/activity'
     | '/bookshelf'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/_authed/system/status'
     | '/_authed/system/tasks'
     | '/_authed/tv/add'
+    | '/_authed/tv/calendar'
     | '/api/auth/$'
     | '/_authed/activity/'
     | '/_authed/bookshelf/'
@@ -614,6 +626,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/tv/calendar': {
+      id: '/_authed/tv/calendar'
+      path: '/tv/calendar'
+      fullPath: '/tv/calendar'
+      preLoaderRoute: typeof AuthedTvCalendarRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/tv/add': {
       id: '/_authed/tv/add'
@@ -826,6 +845,7 @@ interface AuthedRouteChildren {
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
   AuthedTvAddRoute: typeof AuthedTvAddRoute
+  AuthedTvCalendarRoute: typeof AuthedTvCalendarRoute
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
@@ -858,6 +878,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
   AuthedTvAddRoute: AuthedTvAddRoute,
+  AuthedTvCalendarRoute: AuthedTvCalendarRoute,
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
