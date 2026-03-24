@@ -14,19 +14,16 @@ import {
 import {
   ArrowLeft,
   ChevronRight,
-  ExternalLink,
   ImageIcon,
   Library,
   Loader2,
-  Pencil,
   Plus,
-  RefreshCw,
   Search,
   Star,
-  Trash2,
   X,
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
+import ActionButtonGroup from "src/components/shared/action-button-group";
 import Skeleton from "src/components/ui/skeleton";
 import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 import { Button } from "src/components/ui/button";
@@ -1364,51 +1361,25 @@ function AuthorDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/authors">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Authors
-          </Link>
-        </Button>
+      <div className="flex items-center justify-between">
+        <Link
+          to="/authors"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Authors
+        </Link>
+        <ActionButtonGroup
+          onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={refreshMetadata.isPending}
+          onEdit={() => setEditOpen(true)}
+          onDelete={() => setDeleteOpen(true)}
+          externalUrl={hardcoverUrl}
+          externalLabel="Open in Hardcover"
+        />
       </div>
 
-      <PageHeader
-        title={author.name}
-        description={lifespan || null}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRefreshMetadata}
-              disabled={refreshMetadata.isPending}
-            >
-              {refreshMetadata.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Update Metadata
-            </Button>
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-            {hardcoverUrl && (
-              <Button asChild variant="outline">
-                <a href={hardcoverUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Hardcover
-                </a>
-              </Button>
-            )}
-          </div>
-        }
-      />
+      <PageHeader title={author.name} description={lifespan || null} />
 
       <div className="space-y-6">
         <div className="flex flex-col gap-6 xl:flex-row">
