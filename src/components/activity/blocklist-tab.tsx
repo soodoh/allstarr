@@ -185,7 +185,7 @@ export default function BlocklistTab(): JSX.Element {
                 <TableCell>
                   {item.bookId ? (
                     <Link
-                      to="/bookshelf/books/$bookId"
+                      to="/books/$bookId"
                       params={{ bookId: String(item.bookId) }}
                       className="hover:underline"
                     >

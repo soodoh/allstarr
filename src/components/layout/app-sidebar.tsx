@@ -51,13 +51,13 @@ type NavGroup = {
 const navGroups: NavGroup[] = [
   {
     title: "Books",
-    to: "/bookshelf",
+    to: "/books",
     icon: LibraryIcon,
-    matchPrefixes: ["/bookshelf", "/books"],
+    matchPrefixes: ["/books", "/authors"],
     children: [
-      { title: "Add New", to: "/bookshelf/add", icon: Plus },
-      { title: "Authors", to: "/bookshelf/authors", icon: Users },
-      { title: "Books", to: "/bookshelf/books", icon: BookOpen },
+      { title: "Add New", to: "/books/add", icon: Plus },
+      { title: "Authors", to: "/authors", icon: Users },
+      { title: "Books", to: "/books", icon: BookOpen },
     ],
   },
   {
@@ -67,7 +67,7 @@ const navGroups: NavGroup[] = [
     matchPrefixes: ["/tv"],
     children: [
       { title: "Add New", to: "/tv/add", icon: Plus },
-      { title: "Series", to: "/tv/series", icon: Tv },
+      { title: "Series", to: "/tv", icon: Tv },
       { title: "Calendar", to: "/tv/calendar", icon: Calendar },
     ],
   },
@@ -135,7 +135,7 @@ export default function AppSidebar(): JSX.Element {
   return (
     <Sidebar>
       <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-4">
-        <Link to="/bookshelf" className="flex items-center gap-2">
+        <Link to="/books" className="flex items-center gap-2">
           <AllstarrIcon className="h-6 w-6" />
           <span className="text-lg font-bold">Allstarr</span>
         </Link>

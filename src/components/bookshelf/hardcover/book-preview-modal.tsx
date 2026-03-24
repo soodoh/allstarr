@@ -250,7 +250,7 @@ export default function BookPreviewModal({
                   onOpenChange(false);
                   if (localBook) {
                     navigate({
-                      to: "/bookshelf/books/$bookId",
+                      to: "/books/$bookId",
                       params: { bookId: String(localBook.id) },
                     });
                   }

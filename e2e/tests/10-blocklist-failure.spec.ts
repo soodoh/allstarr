@@ -617,7 +617,7 @@ test.describe("Blocklist and Failure Recovery", () => {
       indexer: "Failure Indexer",
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for releases to load

@@ -53,7 +53,7 @@ import MetadataWarning from "src/components/shared/metadata-warning";
 import ReassignFilesDialog from "src/components/bookshelf/books/reassign-files-dialog";
 import NotFound from "src/components/NotFound";
 
-export const Route = createFileRoute("/_authed/bookshelf/books/$bookId")({
+export const Route = createFileRoute("/_authed/books/$bookId")({
   loader: async ({ params, context }) => {
     const id = Number(params.bookId);
     if (!Number.isFinite(id) || id <= 0) {
@@ -130,7 +130,7 @@ function BookDetailPage(): JSX.Element {
     <div className="space-y-6">
       {/* Back button */}
       <Link
-        to="/bookshelf/books"
+        to="/books"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -149,7 +149,7 @@ function BookDetailPage(): JSX.Element {
                 itemTitle={book.title}
                 fileCount={book.fileCount}
                 size="lg"
-                onDeleted={() => navigate({ to: "/bookshelf/books" })}
+                onDeleted={() => navigate({ to: "/books" })}
                 onReassignFiles={() => setReassignOpen(true)}
               />
             );

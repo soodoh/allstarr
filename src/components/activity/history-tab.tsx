@@ -190,7 +190,7 @@ export default function HistoryTab(): JSX.Element {
                   <TableCell>
                     {item.authorId ? (
                       <Link
-                        to="/bookshelf/authors/$authorId"
+                        to="/authors/$authorId"
                         params={{ authorId: String(item.authorId) }}
                         className="hover:underline"
                       >
@@ -227,7 +227,7 @@ function renderMediaTitle(item: HistoryItem): JSX.Element {
   if (item.bookId) {
     return (
       <Link
-        to="/bookshelf/books/$bookId"
+        to="/books/$bookId"
         params={{ bookId: String(item.bookId) }}
         className="hover:underline"
       >
