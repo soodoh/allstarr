@@ -18,6 +18,7 @@ import {
   Video,
   Disc,
   ScrollText,
+  Hd,
 } from "lucide-react";
 
 /** DB value -> display label */
@@ -40,6 +41,7 @@ export const PROFILE_ICONS: Record<string, string> = {
   video: "Video",
   disc: "Disc",
   "scroll-text": "Scroll",
+  hd: "HD",
 };
 
 /** DB value -> lucide-react component */
@@ -62,6 +64,7 @@ export const PROFILE_ICON_MAP: Record<string, LucideIcon> = {
   video: Video,
   disc: Disc,
   "scroll-text": ScrollText,
+  hd: Hd,
 };
 
 /** Returns the Lucide component for a profile icon key, defaulting to BookOpen. */
