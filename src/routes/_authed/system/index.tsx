@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Activity, History, ListTodo } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,34 +7,11 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import PageHeader from "src/components/shared/page-header";
+import { systemNavItems } from "src/lib/nav-config";
 
 export const Route = createFileRoute("/_authed/system/")({
   component: SystemPage,
 });
-
-const systemItems = [
-  {
-    title: "Status",
-    to: "/system/status" as const,
-    icon: Activity,
-    description:
-      "Health checks, disk space, and system information at a glance.",
-  },
-  {
-    title: "Tasks",
-    to: "/system/tasks" as const,
-    icon: ListTodo,
-    description:
-      "Scheduled background tasks like metadata refresh, health checks, and backups.",
-  },
-  {
-    title: "Events",
-    to: "/system/events" as const,
-    icon: History,
-    description:
-      "View a log of all events — books added, updated, deleted, and more.",
-  },
-];
 
 function SystemPage() {
   return (
@@ -46,7 +22,7 @@ function SystemPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {systemItems.map((item) => (
+        {systemNavItems.map((item) => (
           <Link key={item.title} to={item.to}>
             <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
               <CardHeader>

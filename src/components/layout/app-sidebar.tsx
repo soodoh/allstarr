@@ -6,23 +6,18 @@ import { queueListQuery } from "src/lib/queries/queue";
 import {
   Users,
   Settings,
-  Sliders,
-  FileText,
-  FileType,
-  History,
   ShieldBan,
   Library as LibraryIcon,
   Plus,
   Download,
-  HardDrive,
-  Radar,
-  Monitor,
+  History,
   Activity,
-  ListTodo,
+  Monitor,
   Film,
   Tv,
   Calendar,
 } from "lucide-react";
+import { settingsNavItems, systemNavItems } from "src/lib/nav-config";
 import {
   Sidebar,
   SidebarContent,
@@ -41,6 +36,7 @@ type NavChild = {
   title: string;
   to: string;
   icon: ComponentType<{ className?: string }>;
+  description?: string;
 };
 
 type NavGroup = {
@@ -100,39 +96,14 @@ const navGroups: NavGroup[] = [
     to: "/settings",
     icon: Settings,
     matchPrefixes: ["/settings"],
-    children: [
-      { title: "General", to: "/settings/general", icon: Settings },
-      {
-        title: "Media Management",
-        to: "/settings/media-management",
-        icon: HardDrive,
-      },
-      { title: "Metadata", to: "/settings/metadata", icon: FileText },
-      { title: "Formats", to: "/settings/formats", icon: FileType },
-      { title: "Profiles", to: "/settings/profiles", icon: Sliders },
-      {
-        title: "Custom Formats",
-        to: "/settings/custom-formats",
-        icon: Sliders,
-      },
-      {
-        title: "Download Clients",
-        to: "/settings/download-clients",
-        icon: Download,
-      },
-      { title: "Indexers", to: "/settings/indexers", icon: Radar },
-    ],
+    children: settingsNavItems,
   },
   {
     title: "System",
     to: "/system",
     icon: Monitor,
     matchPrefixes: ["/system"],
-    children: [
-      { title: "Status", to: "/system/status", icon: Monitor },
-      { title: "Tasks", to: "/system/tasks", icon: ListTodo },
-      { title: "Events", to: "/system/events", icon: History },
-    ],
+    children: systemNavItems,
   },
 ];
 
