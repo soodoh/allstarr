@@ -8,6 +8,8 @@ import RemoveDownloadDialog from "src/components/activity/remove-download-dialog
 import QueueSummaryBar from "src/components/activity/queue-summary-bar";
 import QueueItemRow from "src/components/activity/queue-item-row";
 import QueueConnectionBanner from "src/components/activity/queue-connection-banner";
+import ContentTypeFilter from "src/components/activity/content-type-filter";
+import type { ContentType } from "src/components/activity/content-type-filter";
 import { queueListQuery } from "src/lib/queries";
 import { queryKeys } from "src/lib/query-keys";
 import {
@@ -20,6 +22,22 @@ import type { CanonicalStatus } from "src/server/download-clients/types";
 
 type StatusFilter = CanonicalStatus | "all";
 
+function matchesContentType(item: QueueItem, contentType: ContentType) {
+  if (contentType === "all") {
+    return true;
+  }
+  if (contentType === "books") {
+    return item.bookId !== null;
+  }
+  if (contentType === "tv") {
+    return item.showId !== null || item.episodeId !== null;
+  }
+  if (contentType === "movies") {
+    return item.movieId !== null;
+  }
+  return true;
+}
+
 export default function QueueTab({
   isConnected,
 }: {
@@ -31,10 +49,22 @@ export default function QueueTab({
     // Fallback polling when SSE is disconnected
     refetchInterval: isConnected ? false : 15_000,
   });
+  const [contentType, setContentType] = useState<ContentType>("all");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [removeItem, setRemoveItem] = useState<QueueItem | null>(null);
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const warnings = useMemo(() => data?.warnings ?? [], [data?.warnings]);
+  const contentTypeItems = useMemo(
+    () => items.filter((i) => matchesContentType(i, contentType)),
+    [items, contentType],
+  );
+  const filteredItems = useMemo(
+    () =>
+      filter === "all"
+        ? contentTypeItems
+        : contentTypeItems.filter((i) => i.status === filter),
+    [contentTypeItems, filter],
+  );
 
   if (isLoading) {
     return (
@@ -53,9 +83,6 @@ export default function QueueTab({
       />
     );
   }
-
-  const filteredItems =
-    filter === "all" ? items : items.filter((i) => i.status === filter);
 
   // Optimistic update helper
   function optimisticStatusUpdate(item: QueueItem, newStatus: CanonicalStatus) {
@@ -127,8 +154,11 @@ export default function QueueTab({
 
   return (
     <>
+      <div className="mb-4">
+        <ContentTypeFilter value={contentType} onChange={setContentType} />
+      </div>
       <QueueSummaryBar
-        items={items}
+        items={contentTypeItems}
         filter={filter}
         onFilterChange={setFilter}
         isConnected={isConnected}

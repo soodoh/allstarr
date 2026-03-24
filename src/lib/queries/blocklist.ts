@@ -13,6 +13,8 @@ export type BlocklistItem = {
   id: number;
   bookId: number | null;
   authorId: number | null;
+  showId: number | null;
+  movieId: number | null;
   sourceTitle: string;
   protocol: string | null;
   indexer: string | null;
@@ -21,6 +23,8 @@ export type BlocklistItem = {
   date: Date;
   authorName: string | null;
   bookTitle: string | null;
+  showTitle: string | null;
+  movieTitle: string | null;
 };
 
 export type BlocklistResult = {

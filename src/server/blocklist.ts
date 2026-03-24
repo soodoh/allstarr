@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
-import { blocklist, authors, books } from "src/db/schema";
+import { blocklist, authors, books, shows, movies } from "src/db/schema";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
@@ -22,6 +22,8 @@ export const getBlocklistFn = createServerFn({ method: "GET" })
         id: blocklist.id,
         bookId: blocklist.bookId,
         authorId: blocklist.authorId,
+        showId: blocklist.showId,
+        movieId: blocklist.movieId,
         sourceTitle: blocklist.sourceTitle,
         protocol: blocklist.protocol,
         indexer: blocklist.indexer,
@@ -30,10 +32,14 @@ export const getBlocklistFn = createServerFn({ method: "GET" })
         date: blocklist.date,
         authorName: authors.name,
         bookTitle: books.title,
+        showTitle: shows.title,
+        movieTitle: movies.title,
       })
       .from(blocklist)
       .leftJoin(authors, eq(blocklist.authorId, authors.id))
       .leftJoin(books, eq(blocklist.bookId, books.id))
+      .leftJoin(shows, eq(blocklist.showId, shows.id))
+      .leftJoin(movies, eq(blocklist.movieId, movies.id))
       .orderBy(desc(blocklist.date))
       .limit(limit)
       .offset(offset)
