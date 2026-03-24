@@ -502,7 +502,6 @@ export default function CFScoreSection({
           <PresetSelector
             profileId={profileId}
             contentType={contentType}
-            mediaType={mediaType}
             onApplied={({
               minCustomFormatScore: min,
               upgradeUntilCustomFormatScore: upgrade,

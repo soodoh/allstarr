@@ -113,7 +113,8 @@ export const countProfileFilesFn = createServerFn({ method: "GET" })
 
     let count = 0;
     switch (profile.contentType) {
-      case "book": {
+      case "ebook":
+      case "audiobook": {
         const result = db
           .select({ count: sql<number>`count(DISTINCT ${bookFiles.id})` })
           .from(bookFiles)
@@ -186,7 +187,8 @@ export const moveProfileFilesFn = createServerFn({ method: "POST" })
     const errors: string[] = [];
 
     switch (profile.contentType) {
-      case "book": {
+      case "ebook":
+      case "audiobook": {
         const files = db
           .select({ id: bookFiles.id, path: bookFiles.path })
           .from(bookFiles)
