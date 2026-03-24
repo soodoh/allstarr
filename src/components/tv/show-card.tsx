@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff } from "lucide-react";
 import type { JSX } from "react";
 import { Badge } from "src/components/ui/badge";
 import ShowPoster from "src/components/tv/show-poster";
@@ -11,7 +10,6 @@ type ShowCardProps = {
     year: number;
     posterUrl: string;
     status: string;
-    monitored: boolean;
     episodeCount: number;
     episodeFileCount: number;
   };
@@ -42,20 +40,6 @@ export default function ShowCard({ show }: ShowCardProps): JSX.Element {
             title={show.title}
             className="w-full transition-shadow group-hover:shadow-lg"
           />
-          <div className="absolute top-2 right-2 flex flex-col gap-1">
-            {show.monitored ? (
-              <span className="rounded-full bg-black/60 p-1" title="Monitored">
-                <Eye className="h-3.5 w-3.5 text-green-400" />
-              </span>
-            ) : (
-              <span
-                className="rounded-full bg-black/60 p-1"
-                title="Unmonitored"
-              >
-                <EyeOff className="h-3.5 w-3.5 text-zinc-400" />
-              </span>
-            )}
-          </div>
           <div className="absolute bottom-2 left-2">
             <Badge className="bg-black/70 text-white text-xs px-1.5 py-0.5">
               {show.episodeFileCount}/{show.episodeCount}

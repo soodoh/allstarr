@@ -26,7 +26,6 @@ export default function ShowBulkBar({
   onDone,
 }: ShowBulkBarProps): JSX.Element {
   const [profileId, setProfileId] = useState("");
-  const [monitored, setMonitored] = useState("");
   const [seriesType, setSeriesType] = useState("");
   const [applying, setApplying] = useState(false);
 
@@ -42,16 +41,9 @@ export default function ShowBulkBar({
     const promises = ids.map((id) => {
       const payload: {
         id: number;
-        monitored?: boolean;
         seriesType?: "standard" | "daily" | "anime";
         downloadProfileIds?: number[];
       } = { id };
-      if (monitored === "true") {
-        payload.monitored = true;
-      }
-      if (monitored === "false") {
-        payload.monitored = false;
-      }
       if (seriesType) {
         payload.seriesType = seriesType as "standard" | "daily" | "anime";
       }
@@ -89,16 +81,6 @@ export default function ShowBulkBar({
                 {p.name}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={monitored} onValueChange={setMonitored}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Monitored" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Monitored</SelectItem>
-            <SelectItem value="false">Unmonitored</SelectItem>
           </SelectContent>
         </Select>
 
