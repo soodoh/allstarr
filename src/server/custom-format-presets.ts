@@ -14,7 +14,7 @@ import type { CustomFormatSpecification } from "src/db/schema/custom-formats";
 // Preset types
 // ---------------------------------------------------------------------------
 
-type PresetCF = {
+export type PresetCF = {
   name: string;
   category: string;
   specifications: CustomFormatSpecification[];
@@ -39,7 +39,7 @@ type Preset = {
 // Preset definitions
 // ---------------------------------------------------------------------------
 
-const PRESETS: Preset[] = [
+export const PRESETS: Preset[] = [
   // ── HD Bluray + WEB (Movies) ───────────────────────────────────────────
   {
     name: "HD Bluray + WEB",
