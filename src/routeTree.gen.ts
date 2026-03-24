@@ -46,6 +46,7 @@ import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/st
 import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
 import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
 import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
+import { Route as AuthedTvSeriesShowIdRouteImport } from './routes/_authed/tv/series/$showId'
 import { Route as AuthedBookshelfBooksBookIdRouteImport } from './routes/_authed/bookshelf/books/$bookId'
 import { Route as AuthedBookshelfAuthorsAuthorIdRouteImport } from './routes/_authed/bookshelf/authors/$authorId'
 
@@ -237,6 +238,11 @@ const ApiV1IndexerIdRoute = ApiV1IndexerIdRouteImport.update({
   path: '/api/v1/indexer/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedTvSeriesShowIdRoute = AuthedTvSeriesShowIdRouteImport.update({
+  id: '/tv/series/$showId',
+  path: '/tv/series/$showId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedBookshelfBooksBookIdRoute =
   AuthedBookshelfBooksBookIdRouteImport.update({
     id: '/bookshelf/books/$bookId',
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/tv/': typeof AuthedTvIndexRoute
   '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
   '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
+  '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
@@ -322,6 +329,7 @@ export interface FileRoutesByTo {
   '/tv': typeof AuthedTvIndexRoute
   '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
   '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
+  '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
@@ -364,6 +372,7 @@ export interface FileRoutesById {
   '/_authed/tv/': typeof AuthedTvIndexRoute
   '/_authed/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
   '/_authed/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
+  '/_authed/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
@@ -406,6 +415,7 @@ export interface FileRouteTypes {
     | '/tv/'
     | '/bookshelf/authors/$authorId'
     | '/bookshelf/books/$bookId'
+    | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/tv'
     | '/bookshelf/authors/$authorId'
     | '/bookshelf/books/$bookId'
+    | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/_authed/tv/'
     | '/_authed/bookshelf/authors/$authorId'
     | '/_authed/bookshelf/books/$bookId'
+    | '/_authed/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
@@ -771,6 +783,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1IndexerIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/tv/series/$showId': {
+      id: '/_authed/tv/series/$showId'
+      path: '/tv/series/$showId'
+      fullPath: '/tv/series/$showId'
+      preLoaderRoute: typeof AuthedTvSeriesShowIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/bookshelf/books/$bookId': {
       id: '/_authed/bookshelf/books/$bookId'
       path: '/bookshelf/books/$bookId'
@@ -815,6 +834,7 @@ interface AuthedRouteChildren {
   AuthedTvIndexRoute: typeof AuthedTvIndexRoute
   AuthedBookshelfAuthorsAuthorIdRoute: typeof AuthedBookshelfAuthorsAuthorIdRoute
   AuthedBookshelfBooksBookIdRoute: typeof AuthedBookshelfBooksBookIdRoute
+  AuthedTvSeriesShowIdRoute: typeof AuthedTvSeriesShowIdRoute
   AuthedBookshelfAuthorsIndexRoute: typeof AuthedBookshelfAuthorsIndexRoute
   AuthedBookshelfBooksIndexRoute: typeof AuthedBookshelfBooksIndexRoute
 }
@@ -846,6 +866,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedTvIndexRoute: AuthedTvIndexRoute,
   AuthedBookshelfAuthorsAuthorIdRoute: AuthedBookshelfAuthorsAuthorIdRoute,
   AuthedBookshelfBooksBookIdRoute: AuthedBookshelfBooksBookIdRoute,
+  AuthedTvSeriesShowIdRoute: AuthedTvSeriesShowIdRoute,
   AuthedBookshelfAuthorsIndexRoute: AuthedBookshelfAuthorsIndexRoute,
   AuthedBookshelfBooksIndexRoute: AuthedBookshelfBooksIndexRoute,
 }
