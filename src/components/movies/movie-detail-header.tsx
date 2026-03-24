@@ -10,9 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "src/components/ui/card";
-import Switch from "src/components/ui/switch";
 import PageHeader from "src/components/shared/page-header";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
+import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,6 @@ type MovieDetail = {
   runtime: number;
   genres: string[] | null;
   posterUrl: string;
-  monitored: boolean | null;
   minimumAvailability: string;
   downloadProfileIds: number[];
 };
@@ -117,15 +117,20 @@ export default function MovieDetailHeader({
     movie.downloadProfileIds,
   );
 
+  const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
+    null,
+  );
+
   // Wrap in useMemo to satisfy linter
   const movieProfiles = useMemo(
     () => downloadProfiles.filter((p) => p.contentType === "movie"),
     [downloadProfiles],
   );
 
-  const profileNames = downloadProfiles
-    .filter((p) => movie.downloadProfileIds.includes(p.id))
-    .map((p) => p.name);
+  const activeMovieProfiles = useMemo(
+    () => movieProfiles.filter((p) => movie.downloadProfileIds.includes(p.id)),
+    [movieProfiles, movie.downloadProfileIds],
+  );
 
   const toggleProfile = (id: number) => {
     setSelectedProfileIds((prev) =>
@@ -145,17 +150,44 @@ export default function MovieDetailHeader({
     );
   };
 
+  const handleProfileToggle = (profileId: number) => {
+    if (movie.downloadProfileIds.includes(profileId)) {
+      setUnmonitorProfileId(profileId);
+    } else {
+      updateMovie.mutate(
+        {
+          id: movie.id,
+          downloadProfileIds: [...movie.downloadProfileIds, profileId],
+        },
+        { onSuccess: () => router.invalidate() },
+      );
+    }
+  };
+
+  const handleUnmonitorConfirm = (_deleteFiles: boolean) => {
+    if (unmonitorProfileId === null) {
+      return;
+    }
+    updateMovie.mutate(
+      {
+        id: movie.id,
+        downloadProfileIds: movie.downloadProfileIds.filter(
+          (id) => id !== unmonitorProfileId,
+        ),
+      },
+      {
+        onSuccess: () => {
+          setUnmonitorProfileId(null);
+          router.invalidate();
+        },
+      },
+    );
+  };
+
   const tmdbUrl = `https://www.themoviedb.org/movie/${movie.tmdbId}`;
   const imdbUrl = movie.imdbId
     ? `https://www.imdb.com/title/${movie.imdbId}`
     : null;
-
-  const handleMonitorToggle = (checked: boolean) => {
-    updateMovie.mutate(
-      { id: movie.id, monitored: checked },
-      { onSuccess: () => router.invalidate() },
-    );
-  };
 
   const handleDelete = () => {
     deleteMovie.mutate(
@@ -188,6 +220,17 @@ export default function MovieDetailHeader({
             </a>
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedProfileIds(movie.downloadProfileIds);
+              setEditProfilesOpen(true);
+            }}
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          <Button
             variant="destructive"
             size="sm"
             onClick={() => setDeleteOpen(true)}
@@ -199,14 +242,28 @@ export default function MovieDetailHeader({
       </div>
 
       {/* Page header */}
-      <PageHeader
-        title={movie.title}
-        description={
-          movie.year > 0
-            ? `${movie.year}${movie.studio ? ` - ${movie.studio}` : ""}`
-            : movie.studio || undefined
-        }
-      />
+      <div className="flex items-start gap-3">
+        {movie.downloadProfileIds.length > 0 && (
+          <ProfileToggleIcons
+            profiles={activeMovieProfiles}
+            activeProfileIds={movie.downloadProfileIds}
+            onToggle={handleProfileToggle}
+            isPending={updateMovie.isPending}
+            size="lg"
+            direction="vertical"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <PageHeader
+            title={movie.title}
+            description={
+              movie.year > 0
+                ? `${movie.year}${movie.studio ? ` - ${movie.studio}` : ""}`
+                : movie.studio || undefined
+            }
+          />
+        </div>
+      </div>
 
       {/* Three-column layout */}
       <div className="flex flex-col gap-6 xl:flex-row">
@@ -277,36 +334,6 @@ export default function MovieDetailHeader({
                   </dd>
                 </div>
               )}
-              <div className="flex justify-between gap-4 items-center">
-                <dt className="text-muted-foreground">Monitored</dt>
-                <dd>
-                  <Switch
-                    checked={movie.monitored ?? false}
-                    onCheckedChange={handleMonitorToggle}
-                    disabled={updateMovie.isPending}
-                  />
-                </dd>
-              </div>
-              {profileNames.length > 0 && (
-                <div className="flex justify-between gap-4 items-center">
-                  <dt className="text-muted-foreground">Download Profiles</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className="text-right">
-                      {profileNames.join(", ")}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setSelectedProfileIds(movie.downloadProfileIds);
-                        setEditProfilesOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  </dd>
-                </div>
-              )}
             </dl>
           </CardContent>
         </Card>
@@ -365,6 +392,23 @@ export default function MovieDetailHeader({
         onConfirm={handleDelete}
         loading={deleteMovie.isPending}
         variant="destructive"
+      />
+
+      <UnmonitorDialog
+        open={unmonitorProfileId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnmonitorProfileId(null);
+          }
+        }}
+        profileName={
+          movieProfiles.find((p) => p.id === unmonitorProfileId)?.name ?? ""
+        }
+        itemTitle={movie.title}
+        itemType="movie"
+        fileCount={0}
+        onConfirm={handleUnmonitorConfirm}
+        isPending={updateMovie.isPending}
       />
     </>
   );
