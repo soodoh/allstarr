@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { JSX } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Search, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
 import {
   Table,
   TableBody,
@@ -12,6 +13,8 @@ import {
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
 import Slider from "src/components/ui/slider";
+import SortableTableHead from "src/components/shared/sortable-table-head";
+import { useTableState } from "src/hooks/use-table-state";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import { useUpdateDownloadFormat } from "src/hooks/mutations";
 
@@ -141,7 +144,8 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
     [def, updateDef, maxRange, noLimitMax, noLimitPreferred],
   );
 
-  if (noLimitMax && noLimitPreferred && def.title.startsWith("Unknown")) {
+  // Only show "No limit" text when min is 0 AND max has no limit
+  if ((def.minSize ?? 0) === 0 && noLimitMax) {
     return <span className="text-sm text-muted-foreground">No limit</span>;
   }
 
@@ -226,12 +230,45 @@ function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
   );
 }
 
+/** Sort by max file size, treating no-limit as Infinity */
+function maxSizeForSort(def: DownloadFormat): number {
+  if (def.noMaxLimit) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return def.maxSize ?? 0;
+}
+
+const COMPARATORS: Partial<
+  Record<string, (a: DownloadFormat, b: DownloadFormat) => number>
+> = {
+  title: (a, b) => a.title.localeCompare(b.title),
+  contentType: (a, b) =>
+    (a.contentTypes[0] ?? "").localeCompare(b.contentTypes[0] ?? ""),
+  sizeLimit: (a, b) => maxSizeForSort(a) - maxSizeForSort(b),
+};
+
 export default function DownloadFormatList({
   definitions,
   onEdit,
   onDelete,
 }: DownloadFormatListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<DownloadFormat | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search) {
+      return definitions;
+    }
+    const q = search.toLowerCase();
+    return definitions.filter((d) => d.title.toLowerCase().includes(q));
+  }, [definitions, search]);
+
+  const { paginatedData, sortColumn, sortDirection, handleSort } =
+    useTableState({
+      data: filtered,
+      defaultPageSize: 10_000,
+      comparators: COMPARATORS,
+    });
 
   if (definitions.length === 0) {
     return (
@@ -243,17 +280,48 @@ export default function DownloadFormatList({
 
   return (
     <>
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search formats..."
+          className="pl-8"
+        />
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Content Type</TableHead>
-            <TableHead>Size Limit</TableHead>
+            <SortableTableHead
+              column="title"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Title
+            </SortableTableHead>
+            <SortableTableHead
+              column="contentType"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Content Type
+            </SortableTableHead>
+            <SortableTableHead
+              column="sizeLimit"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Size Limit
+            </SortableTableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {definitions.map((def) => (
+          {paginatedData.map((def) => (
             <TableRow key={def.id}>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -305,6 +373,12 @@ export default function DownloadFormatList({
           ))}
         </TableBody>
       </Table>
+
+      {paginatedData.length === 0 && search && (
+        <div className="text-center py-8 text-muted-foreground">
+          No formats matching &ldquo;{search}&rdquo;.
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}

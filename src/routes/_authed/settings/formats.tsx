@@ -91,38 +91,58 @@ function DefaultsSection({
   settingsMap,
   onUpdate,
 }: {
-  contentType: "ebook" | "audiobook" | "movie" | "tv";
+  contentType: "all" | "ebook" | "audiobook" | "movie" | "tv";
   settingsMap: Record<string, unknown>;
   onUpdate: (key: string, value: number) => void;
 }) {
-  const cfg = DEFAULTS_CONFIG[contentType];
-  const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
+  const configs =
+    contentType === "all"
+      ? (Object.keys(DEFAULTS_CONFIG) as Array<keyof typeof DEFAULTS_CONFIG>)
+      : [contentType];
 
   return (
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
       <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
-      <div className="flex items-center gap-3">
-        <Label
-          htmlFor={`default-${contentType}`}
-          className="text-sm text-muted-foreground"
-        >
-          {cfg.label}
-        </Label>
-        <Input
-          id={`default-${contentType}`}
-          type="number"
-          className="w-20 h-8"
-          defaultValue={currentValue}
-          onBlur={(e) => {
-            const val = Number(e.target.value);
-            if (val > 0 && val !== currentValue) {
-              onUpdate(cfg.key, val);
-            }
-          }}
-        />
-        <span className="text-xs text-muted-foreground">{cfg.unit}</span>
+      <div
+        className={
+          contentType === "all"
+            ? "grid grid-cols-2 lg:grid-cols-4 gap-3"
+            : "space-y-1"
+        }
+      >
+        {configs.map((ct) => {
+          const cfg = DEFAULTS_CONFIG[ct];
+          const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
+          return (
+            <div key={ct} className="flex items-center gap-2">
+              <Label
+                htmlFor={`default-${ct}`}
+                className="text-sm text-muted-foreground whitespace-nowrap"
+              >
+                {cfg.label}
+              </Label>
+              <Input
+                id={`default-${ct}`}
+                type="number"
+                className="w-20 h-8"
+                defaultValue={currentValue}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > 0 && val !== currentValue) {
+                    onUpdate(cfg.key, val);
+                  }
+                }}
+              />
+              <span className="text-xs text-muted-foreground">{cfg.unit}</span>
+            </div>
+          );
+        })}
       </div>
-      <p className="text-xs text-muted-foreground mt-1">{cfg.hint}</p>
+      {contentType !== "all" && (
+        <p className="text-xs text-muted-foreground mt-1">
+          {DEFAULTS_CONFIG[contentType].hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -221,14 +241,12 @@ function FormatsPage() {
           <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab}>
-          {activeTab !== "all" && (
-            <DefaultsSection
-              key={activeTab}
-              contentType={activeTab}
-              settingsMap={settingsMap}
-              onUpdate={handleUpdateSetting}
-            />
-          )}
+          <DefaultsSection
+            key={activeTab}
+            contentType={activeTab}
+            settingsMap={settingsMap}
+            onUpdate={handleUpdateSetting}
+          />
           <DownloadFormatList
             definitions={filteredFormats}
             onEdit={handleEditDef}
