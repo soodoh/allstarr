@@ -95,7 +95,6 @@ export const addMovieFn = createServerFn({ method: "POST" })
         genres,
         posterUrl,
         fanartUrl,
-        monitored: true,
         minimumAvailability: data.minimumAvailability,
       })
       .returning()
@@ -140,7 +139,6 @@ export const getMoviesFn = createServerFn({ method: "GET" }).handler(
         tags: movies.tags,
         posterUrl: movies.posterUrl,
         fanartUrl: movies.fanartUrl,
-        monitored: movies.monitored,
         minimumAvailability: movies.minimumAvailability,
         path: movies.path,
         createdAt: movies.createdAt,
