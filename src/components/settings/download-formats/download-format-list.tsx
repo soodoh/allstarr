@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { JSX } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
@@ -56,20 +56,31 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
   const unit = sliderUnit(def.type);
   const updateDef = useUpdateDownloadFormat();
 
-  const noLimitMax = !def.maxSize;
-  const noLimitPreferred = !def.preferredSize;
+  const noLimitMax = Boolean(def.noMaxLimit);
+  const noLimitPreferred = Boolean(def.noPreferredLimit);
+
+  const disabledThumbs = useMemo(() => {
+    const set = new Set<number>();
+    if (noLimitPreferred) {
+      set.add(1);
+    }
+    if (noLimitMax) {
+      set.add(2);
+    }
+    return set;
+  }, [noLimitPreferred, noLimitMax]);
 
   const [values, setValues] = useState<[number, number, number]>([
     def.minSize ?? 0,
-    noLimitPreferred ? maxRange : def.preferredSize!,
-    noLimitMax ? maxRange : def.maxSize!,
+    noLimitPreferred ? maxRange : (def.preferredSize ?? maxRange),
+    noLimitMax ? maxRange : (def.maxSize ?? maxRange),
   ]);
 
   useEffect(() => {
     setValues([
       def.minSize ?? 0,
-      noLimitPreferred ? maxRange : def.preferredSize!,
-      noLimitMax ? maxRange : def.maxSize!,
+      noLimitPreferred ? maxRange : (def.preferredSize ?? maxRange),
+      noLimitMax ? maxRange : (def.maxSize ?? maxRange),
     ]);
   }, [
     def.minSize,
@@ -80,9 +91,16 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
     noLimitMax,
   ]);
 
-  const handleChange = useCallback((newValues: number[]) => {
-    setValues(newValues as [number, number, number]);
-  }, []);
+  const handleChange = useCallback(
+    (newValues: number[]) => {
+      setValues([
+        newValues[0],
+        noLimitPreferred ? maxRange : newValues[1],
+        noLimitMax ? maxRange : newValues[2],
+      ] as [number, number, number]);
+    },
+    [noLimitPreferred, noLimitMax, maxRange],
+  );
 
   const handleCommit = useCallback(
     (newValues: number[]) => {
@@ -93,17 +111,21 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         weight: def.weight,
         color: def.color,
         minSize: min,
-        preferredSize: preferred >= maxRange ? 0 : preferred,
-        maxSize: max >= maxRange ? 0 : max,
+        preferredSize: noLimitPreferred
+          ? (def.preferredSize ?? maxRange)
+          : preferred,
+        maxSize: noLimitMax ? (def.maxSize ?? maxRange) : max,
         type: def.type as "ebook" | "audio" | "video",
         source: def.source ?? null,
         resolution: def.resolution ?? 0,
+        noMaxLimit: def.noMaxLimit ?? 0,
+        noPreferredLimit: def.noPreferredLimit ?? 0,
       });
     },
-    [def, updateDef, maxRange],
+    [def, updateDef, maxRange, noLimitMax, noLimitPreferred],
   );
 
-  if ((def.maxSize ?? 0) === 0 && def.title.startsWith("Unknown")) {
+  if (noLimitMax && noLimitPreferred && def.title.startsWith("Unknown")) {
     return <span className="text-sm text-muted-foreground">No limit</span>;
   }
 
@@ -121,9 +143,10 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
           onValueChange={handleChange}
           onValueCommit={handleCommit}
           className="flex-1"
+          disabledThumbs={disabledThumbs}
         />
         <span className="text-xs text-muted-foreground w-16 tabular-nums">
-          {values[2] >= maxRange ? "∞" : values[2]} {unit}
+          {noLimitMax ? "∞" : values[2]} {unit}
         </span>
       </div>
       <ExampleSizes def={def} />
@@ -160,6 +183,8 @@ function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
     return null;
   }
 
+  const noLimitMax = Boolean(def.noMaxLimit);
+  const noLimitPreferred = Boolean(def.noPreferredLimit);
   const samples = exampleSamples(def.type);
 
   return (
@@ -168,8 +193,8 @@ function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
         const eff = computeEffectiveSizes(
           def.type as "ebook" | "audio" | "video",
           def.minSize ?? 0,
-          def.maxSize ?? 0,
-          def.preferredSize ?? 0,
+          noLimitMax ? 0 : (def.maxSize ?? 0),
+          noLimitPreferred ? 0 : (def.preferredSize ?? 0),
           s.meta,
         );
         return (

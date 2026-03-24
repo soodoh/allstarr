@@ -19,8 +19,10 @@ type DownloadFormatFormValues = {
   weight: number;
   color: string;
   minSize: number;
-  maxSize: number | null;
-  preferredSize: number | null;
+  maxSize: number;
+  preferredSize: number;
+  noMaxLimit: number;
+  noPreferredLimit: number;
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
@@ -212,13 +214,13 @@ function useSizeFormFields(
     initialValues?.maxSize ?? defaultMaxSize(type),
   );
   const [maxNoLimit, setMaxNoLimit] = useState<boolean>(
-    initialValues?.maxSize === null,
+    Boolean(initialValues?.noMaxLimit),
   );
   const [preferredSize, setPreferredSize] = useState<number>(
     initialValues?.preferredSize ?? defaultMaxSize(type),
   );
   const [preferredNoLimit, setPreferredNoLimit] = useState<boolean>(
-    initialValues?.preferredSize === null,
+    Boolean(initialValues?.noPreferredLimit),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   return {
@@ -275,15 +277,15 @@ export default function DownloadFormatForm({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const effectiveMax = maxNoLimit ? null : maxSize;
-    const effectivePreferred = preferredNoLimit ? null : preferredSize;
     const payload: DownloadFormatFormValues = {
       title,
       weight,
       color,
       minSize,
-      maxSize: effectiveMax,
-      preferredSize: effectivePreferred,
+      maxSize,
+      preferredSize,
+      noMaxLimit: maxNoLimit ? 1 : 0,
+      noPreferredLimit: preferredNoLimit ? 1 : 0,
       type: resolvedType,
       source: source || null,
       resolution,

@@ -11,4 +11,6 @@ export const downloadFormats = sqliteTable("download_formats", {
   type: text("type").notNull().default("ebook"),
   source: text("source"),
   resolution: integer("resolution").notNull().default(0),
+  noMaxLimit: integer("no_max_limit").notNull().default(0),
+  noPreferredLimit: integer("no_preferred_limit").notNull().default(0),
 });
