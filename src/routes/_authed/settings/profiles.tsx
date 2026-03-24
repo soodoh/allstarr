@@ -15,24 +15,43 @@ import {
   downloadProfilesListQuery,
   downloadFormatsListQuery,
 } from "src/lib/queries";
+import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import { getServerCwdFn } from "src/server/filesystem";
 import {
   useCreateDownloadProfile,
   useUpdateDownloadProfile,
   useDeleteDownloadProfile,
 } from "src/hooks/mutations";
+import { useBulkSetProfileCFScores } from "src/hooks/mutations/custom-formats";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
   loader: async ({ context }) => {
     const results = await Promise.all([
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
       context.queryClient.ensureQueryData(downloadFormatsListQuery()),
+      context.queryClient.ensureQueryData(customFormatsListQuery()),
       getServerCwdFn(),
     ]);
-    return { serverCwd: results[2] };
+    return { serverCwd: results[3] };
   },
   component: ProfilesPage,
 });
+
+type ProfileValues = {
+  name: string;
+  icon: string;
+  rootFolderPath: string;
+  cutoff: number;
+  items: number[][];
+  upgradeAllowed: boolean;
+  categories: number[];
+  mediaType: string;
+  contentType: string;
+  enabled: boolean;
+  language: string;
+  minCustomFormatScore: number;
+  upgradeUntilCustomFormatScore: number;
+};
 
 function ProfilesPage() {
   const { serverCwd } = Route.useLoaderData();
@@ -42,6 +61,7 @@ function ProfilesPage() {
   const createProfile = useCreateDownloadProfile();
   const updateProfile = useUpdateDownloadProfile();
   const deleteProfile = useDeleteDownloadProfile();
+  const bulkSetCFScores = useBulkSetProfileCFScores();
 
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<
@@ -50,37 +70,32 @@ function ProfilesPage() {
 
   const profileLoading = createProfile.isPending || updateProfile.isPending;
 
-  const handleCreateProfile = (values: {
-    name: string;
-    icon: string;
-    rootFolderPath: string;
-    cutoff: number;
-    items: number[][];
-    upgradeAllowed: boolean;
-    categories: number[];
-    mediaType: string;
-    contentType: string;
-    enabled: boolean;
-    language: string;
-  }) => {
+  const handleCreateProfile = (values: ProfileValues) => {
     createProfile.mutate(values, {
       onSuccess: () => setProfileDialogOpen(false),
     });
   };
 
-  const handleUpdateProfile = (values: {
-    name: string;
-    icon: string;
-    rootFolderPath: string;
-    cutoff: number;
-    items: number[][];
-    upgradeAllowed: boolean;
-    categories: number[];
-    mediaType: string;
-    contentType: string;
-    enabled: boolean;
-    language: string;
-  }) => {
+  /** Two-step create: create profile, then bulk-insert CF scores */
+  const handleCreateProfileWithCFs = (
+    values: ProfileValues,
+    localCFScores: Array<{ customFormatId: number; score: number }>,
+  ) => {
+    createProfile.mutate(values, {
+      onSuccess: (newProfile) => {
+        if (localCFScores.length > 0) {
+          bulkSetCFScores.mutate(
+            { profileId: newProfile.id, scores: localCFScores },
+            { onSuccess: () => setProfileDialogOpen(false) },
+          );
+        } else {
+          setProfileDialogOpen(false);
+        }
+      },
+    });
+  };
+
+  const handleUpdateProfile = (values: ProfileValues) => {
     if (!editingProfile) {
       return;
     }
@@ -112,6 +127,8 @@ function ProfilesPage() {
       contentType: profile.contentType,
       enabled,
       language: profile.language,
+      minCustomFormatScore: profile.minCustomFormatScore,
+      upgradeUntilCustomFormatScore: profile.upgradeUntilCustomFormatScore,
     });
   };
 
@@ -174,6 +191,9 @@ function ProfilesPage() {
                     contentType: editingProfile.contentType,
                     enabled: editingProfile.enabled,
                     language: editingProfile.language,
+                    minCustomFormatScore: editingProfile.minCustomFormatScore,
+                    upgradeUntilCustomFormatScore:
+                      editingProfile.upgradeUntilCustomFormatScore,
                   }
                 : undefined
             }
@@ -181,6 +201,9 @@ function ProfilesPage() {
             serverCwd={serverCwd}
             onSubmit={
               editingProfile ? handleUpdateProfile : handleCreateProfile
+            }
+            onSubmitWithId={
+              editingProfile ? undefined : handleCreateProfileWithCFs
             }
             onCancel={() => setProfileDialogOpen(false)}
             loading={profileLoading}

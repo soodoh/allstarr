@@ -15,6 +15,8 @@ const downloadProfileBaseSchema = z.object({
   contentType: z.enum(["book", "tv", "movie"]),
   enabled: z.boolean().default(true),
   language: z.string().min(2).max(3),
+  minCustomFormatScore: z.number().default(0),
+  upgradeUntilCustomFormatScore: z.number().default(0),
 });
 
 export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
