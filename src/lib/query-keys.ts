@@ -39,12 +39,6 @@ export const queryKeys = {
   books: {
     all: ["books"] as const,
     lists: () => ["books", "list"] as const,
-    infinite: (
-      search: string,
-      monitored?: boolean,
-      sortKey?: string,
-      sortDir?: string,
-    ) => ["books", "infinite", search, monitored, sortKey, sortDir] as const,
     editionsInfinite: (bookId: number, sortKey?: string, sortDir?: string) =>
       ["books", "editionsInfinite", bookId, sortKey, sortDir] as const,
     detail: (id: number) => ["books", "detail", id] as const,
