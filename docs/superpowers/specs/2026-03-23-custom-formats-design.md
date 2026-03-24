@@ -96,7 +96,7 @@ Example: if `cutoff: 5` and format 5 is in group `[5, 6]`, then having either fo
 
 Unique constraint on `(profileId, customFormatId)`. Index on `customFormatId` for reverse lookups (find all profiles using a CF).
 
-A CF only affects a profile if a row exists in this table. New profiles start empty. Presets populate this table.
+A CF only affects a profile if a row exists in this table. New profiles start empty. Presets populate this table. The UI filters available CFs by content type when adding to a profile. At runtime, CFs assigned to a profile but with non-matching contentTypes are silently skipped during scoring (defense in depth — the UI prevents this, but the scoring engine should not assume clean data).
 
 ### Custom Format Categories
 
@@ -268,7 +268,7 @@ Custom formats and profile scoring configs can be exported as JSON:
     {
       "name": "TrueHD ATMOS",
       "category": "Audio Codec",
-      "contentTypes": ["movie", "tv", "ebook", "audiobook"],
+      "contentTypes": ["movie", "tv"],
       "defaultScore": 500,
       "specifications": [
         {
@@ -372,7 +372,7 @@ Not in initial scope, but worth noting: when viewing a book/movie/show detail pa
 
 1. Add `custom_formats` and `profile_custom_formats` tables
 2. Add `minCustomFormatScore` and `upgradeUntilCustomFormatScore` columns to `download_profiles` (default 0, backward compatible)
-3. Convert `download_profiles.items` from `number[]` to `number[][]` (each existing item becomes a single-element group: `[1, 2, 3]` becomes `[[1], [2], [3]]`)
+3. Convert `download_profiles.items` from `number[]` to `number[][]` (each existing item becomes a single-element group: `[1, 2, 3]` becomes `[[1], [2], [3]]`). All code accessing `profile.items` and `getProfileWeight()` must be updated to handle the nested array structure.
 4. Migrate existing `download_formats.specifications` data into new `custom_formats` entries where applicable. Existing specifications lack a `name` field -- auto-generate names from `type + value` (e.g., a releaseTitle spec with value `\b(ATMOS)\b` becomes "releaseTitle: ATMOS")
 5. Remove `specifications` column from `download_formats`
 
