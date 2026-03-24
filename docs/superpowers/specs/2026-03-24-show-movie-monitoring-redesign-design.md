@@ -223,7 +223,7 @@ This is called during `addShowFn` when a show is first added. The show's `downlo
 When a user removes ALL download profiles from a movie or show via the Edit dialog:
 
 - All `movieDownloadProfiles` / `showDownloadProfiles` rows are deleted (existing behavior)
-- For shows: all `episodeDownloadProfiles` rows are also deleted (cascade from show profile removal)
+- For shows: all `episodeDownloadProfiles` rows for the removed profiles are also deleted (handled in `updateShowFn` application code — no DB-level cascade exists between `showDownloadProfiles` and `episodeDownloadProfiles`)
 - No `ProfileToggleIcons` are rendered (nothing to show)
 - The entity is effectively unmonitored
 - To re-monitor, the user must use the Edit button to assign profiles again, at which point icons reappear
