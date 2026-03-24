@@ -44,7 +44,7 @@ export default function ShowBulkBar({
         id: number;
         monitored?: boolean;
         seriesType?: "standard" | "daily" | "anime";
-        downloadProfileId?: number;
+        downloadProfileIds?: number[];
       } = { id };
       if (monitored === "true") {
         payload.monitored = true;
@@ -56,7 +56,7 @@ export default function ShowBulkBar({
         payload.seriesType = seriesType as "standard" | "daily" | "anime";
       }
       if (profileId) {
-        payload.downloadProfileId = Number(profileId);
+        payload.downloadProfileIds = [Number(profileId)];
       }
       return updateShow.mutateAsync(payload);
     });
