@@ -12,6 +12,7 @@ import {
   addMovieSchema,
   updateMovieSchema,
   deleteMovieSchema,
+  refreshMovieSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
 import { TMDB_IMAGE_BASE } from "./tmdb/types";
@@ -273,4 +274,54 @@ export const checkMovieExistsFn = createServerFn({ method: "GET" })
       .where(eq(movies.tmdbId, data.tmdbId))
       .get();
     return movie !== undefined;
+  });
+
+export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => refreshMovieSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    const movie = db
+      .select({ id: movies.id, tmdbId: movies.tmdbId })
+      .from(movies)
+      .where(eq(movies.id, data.movieId))
+      .get();
+
+    if (!movie) {
+      throw new Error("Movie not found");
+    }
+
+    const raw = await tmdbFetch<TmdbMovieDetail>(`/movie/${movie.tmdbId}`);
+
+    const title = raw.title;
+    const sortTitle = generateSortTitle(title);
+    const status = mapMovieStatus(raw.status);
+    const studio = raw.production_companies[0]?.name ?? "";
+    const year = raw.release_date
+      ? Number.parseInt(raw.release_date.split("-")[0], 10)
+      : 0;
+    const runtime = raw.runtime ?? 0;
+    const genres = raw.genres.map((g) => g.name);
+    const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
+    const fanartUrl = transformImagePath(raw.backdrop_path, "original") ?? "";
+    const imdbId = raw.imdb_id ?? null;
+
+    db.update(movies)
+      .set({
+        title,
+        sortTitle,
+        overview: raw.overview,
+        imdbId,
+        status,
+        studio,
+        year,
+        runtime,
+        genres,
+        posterUrl,
+        fanartUrl,
+      })
+      .where(eq(movies.id, data.movieId))
+      .run();
+
+    return { success: true };
   });
