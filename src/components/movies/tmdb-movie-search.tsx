@@ -62,9 +62,7 @@ function MoviePreviewModal({
     enabled: open,
   });
 
-  const movieProfiles = allProfiles.filter(
-    (p) => p.contentType === "movie" && p.enabled,
-  );
+  const movieProfiles = allProfiles.filter((p) => p.contentType === "movie");
 
   const [downloadProfileId, setDownloadProfileId] = useState<string>("");
   const [minimumAvailability, setMinimumAvailability] =

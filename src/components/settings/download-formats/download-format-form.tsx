@@ -4,7 +4,6 @@ import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
-import Switch from "src/components/ui/switch";
 import validateForm from "src/lib/form-validation";
 import { createDownloadFormatSchema } from "src/lib/validators";
 import {
@@ -25,7 +24,6 @@ type DownloadFormatFormValues = {
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
-  enabled: boolean;
 };
 
 type DownloadFormatFormProps = {
@@ -190,9 +188,6 @@ function useBasicFormFields(
   const [resolution, setResolution] = useState<number>(
     initialValues?.resolution ?? 0,
   );
-  const [enabled, setEnabled] = useState<boolean>(
-    initialValues?.enabled ?? true,
-  );
   return {
     resolvedType,
     title,
@@ -205,8 +200,6 @@ function useBasicFormFields(
     setSource,
     resolution,
     setResolution,
-    enabled,
-    setEnabled,
   };
 }
 
@@ -263,8 +256,6 @@ export default function DownloadFormatForm({
     setSource,
     resolution,
     setResolution,
-    enabled,
-    setEnabled,
   } = useBasicFormFields(initialValues, type);
 
   const {
@@ -296,7 +287,6 @@ export default function DownloadFormatForm({
       type: resolvedType,
       source: source || null,
       resolution,
-      enabled,
     };
     const result = validateForm(createDownloadFormatSchema, payload);
     if (!result.success) {
@@ -405,17 +395,6 @@ export default function DownloadFormatForm({
           onResolutionChange={setResolution}
         />
       )}
-
-      <div className="flex items-center gap-2">
-        <Switch
-          id="format-enabled"
-          checked={enabled}
-          onCheckedChange={setEnabled}
-        />
-        <Label htmlFor="format-enabled" className="text-sm">
-          Enabled
-        </Label>
-      </div>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>

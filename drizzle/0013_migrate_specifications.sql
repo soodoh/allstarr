@@ -17,7 +17,7 @@
 --   contentTypes = mapped from type (ebook→["ebook"], audio→["audiobook"], video→["movie","tv"])
 --   origin       = NULL (user-created data, not builtin)
 
-INSERT INTO custom_formats (name, category, specifications, default_score, content_types, include_in_renaming, description, origin, user_modified, enabled)
+INSERT INTO custom_formats (name, category, specifications, default_score, content_types, include_in_renaming, description, origin, user_modified)
 SELECT
   df.title || ': Release Title Match' AS name,
   CASE df.type
@@ -51,8 +51,7 @@ SELECT
   0 AS include_in_renaming,
   'Auto-migrated from download format "' || df.title || '" specifications' AS description,
   NULL AS origin,
-  0 AS user_modified,
-  df.enabled AS enabled
+  0 AS user_modified
 FROM download_formats df
 WHERE df.specifications IS NOT NULL
   AND df.specifications != '[]'

@@ -32,7 +32,7 @@ function MoviesPage() {
     enabled: massEditMode,
   });
   const movieProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "movie" && p.enabled),
+    () => allProfiles.filter((p) => p.contentType === "movie"),
     [allProfiles],
   );
 

@@ -31,5 +31,4 @@ export const customFormats = sqliteTable("custom_formats", {
   userModified: integer("user_modified", { mode: "boolean" })
     .notNull()
     .default(false),
-  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
 });

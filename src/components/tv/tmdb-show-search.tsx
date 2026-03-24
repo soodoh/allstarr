@@ -81,9 +81,7 @@ function ShowPreviewModal({
     enabled: open,
   });
 
-  const tvProfiles = allProfiles.filter(
-    (p) => p.contentType === "tv" && p.enabled,
-  );
+  const tvProfiles = allProfiles.filter((p) => p.contentType === "tv");
 
   const [downloadProfileId, setDownloadProfileId] = useState<string>("");
   const [monitorOption, setMonitorOption] = useState<string>("all");

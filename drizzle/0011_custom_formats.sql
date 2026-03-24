@@ -17,8 +17,7 @@ CREATE TABLE `custom_formats` (
 	`include_in_renaming` integer NOT NULL DEFAULT 0,
 	`description` text,
 	`origin` text,
-	`user_modified` integer NOT NULL DEFAULT 0,
-	`enabled` integer NOT NULL DEFAULT 1
+	`user_modified` integer NOT NULL DEFAULT 0
 );
 --> statement-breakpoint
 

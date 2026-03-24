@@ -48,7 +48,6 @@ type FormatValues = {
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
-  enabled: boolean;
 };
 
 function DefaultsSection({
@@ -282,7 +281,6 @@ function FormatsPage() {
                     type: editingDef.type as "ebook" | "audio" | "video",
                     source: editingDef.source ?? null,
                     resolution: editingDef.resolution ?? 0,
-                    enabled: editingDef.enabled ?? true,
                   }
                 : undefined
             }

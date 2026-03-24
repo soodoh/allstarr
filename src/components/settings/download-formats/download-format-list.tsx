@@ -84,7 +84,6 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         type: def.type as "ebook" | "audio" | "video",
         source: def.source ?? null,
         resolution: def.resolution ?? 0,
-        enabled: def.enabled ?? true,
       });
     },
     [def, updateDef],
@@ -198,10 +197,7 @@ export default function DownloadFormatList({
         </TableHeader>
         <TableBody>
           {definitions.map((def) => (
-            <TableRow
-              key={def.id}
-              className={def.enabled ? undefined : "opacity-50"}
-            >
+            <TableRow key={def.id}>
               <TableCell>
                 <div className="flex items-center gap-2">
                   <Badge
@@ -212,11 +208,6 @@ export default function DownloadFormatList({
                   >
                     {def.title}
                   </Badge>
-                  {!def.enabled && (
-                    <span className="text-xs text-muted-foreground">
-                      Disabled
-                    </span>
-                  )}
                 </div>
               </TableCell>
               <TableCell>

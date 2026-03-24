@@ -47,7 +47,6 @@ type ProfileValues = {
   categories: number[];
   mediaType: string;
   contentType: string;
-  enabled: boolean;
   language: string;
   minCustomFormatScore: number;
   upgradeUntilCustomFormatScore: number;
@@ -110,28 +109,6 @@ function ProfilesPage() {
     );
   };
 
-  const handleToggleEnabled = (
-    profile: (typeof profiles)[number],
-    enabled: boolean,
-  ) => {
-    updateProfile.mutate({
-      id: profile.id,
-      name: profile.name,
-      icon: profile.icon,
-      rootFolderPath: profile.rootFolderPath,
-      cutoff: profile.cutoff,
-      items: profile.items,
-      upgradeAllowed: profile.upgradeAllowed,
-      categories: profile.categories,
-      mediaType: profile.mediaType,
-      contentType: profile.contentType,
-      enabled,
-      language: profile.language,
-      minCustomFormatScore: profile.minCustomFormatScore,
-      upgradeUntilCustomFormatScore: profile.upgradeUntilCustomFormatScore,
-    });
-  };
-
   const activeMutation = editingProfile ? updateProfile : createProfile;
 
   const handleEditProfile = (profile: (typeof profiles)[number]) => {
@@ -164,7 +141,6 @@ function ProfilesPage() {
             handleEditProfile(profiles.find((p) => p.id === profile.id)!)
           }
           onDelete={(id) => deleteProfile.mutate(id)}
-          onToggleEnabled={handleToggleEnabled}
         />
       </div>
 
@@ -189,7 +165,6 @@ function ProfilesPage() {
                     categories: editingProfile.categories,
                     mediaType: editingProfile.mediaType,
                     contentType: editingProfile.contentType,
-                    enabled: editingProfile.enabled,
                     language: editingProfile.language,
                     minCustomFormatScore: editingProfile.minCustomFormatScore,
                     upgradeUntilCustomFormatScore:

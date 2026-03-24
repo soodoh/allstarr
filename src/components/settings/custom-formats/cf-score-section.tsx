@@ -308,7 +308,6 @@ export default function CFScoreSection({
   const filteredCFs = useMemo(() => {
     return allCustomFormats.filter(
       (cf) =>
-        cf.enabled &&
         Array.isArray(cf.contentTypes) &&
         cf.contentTypes.includes(cfContentType),
     );

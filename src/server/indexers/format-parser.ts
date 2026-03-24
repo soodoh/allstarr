@@ -30,7 +30,6 @@ function getFormatDefs(): CachedDef[] {
   if (!cachedDefs) {
     const rows = db.select().from(downloadFormats).all();
     cachedDefs = rows
-      .filter((r) => r.enabled)
       .map((row) => ({
         id: row.id,
         name: row.title,

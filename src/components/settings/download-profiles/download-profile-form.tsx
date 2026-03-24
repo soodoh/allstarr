@@ -51,7 +51,6 @@ type DownloadProfileFormProps = {
     categories: number[];
     mediaType: string;
     contentType: string;
-    enabled: boolean;
     language: string;
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
@@ -68,7 +67,6 @@ type DownloadProfileFormProps = {
     categories: number[];
     mediaType: string;
     contentType: string;
-    enabled: boolean;
     language: string;
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
@@ -84,7 +82,6 @@ type DownloadProfileFormProps = {
       categories: number[];
       mediaType: string;
       contentType: string;
-      enabled: boolean;
       language: string;
       minCustomFormatScore: number;
       upgradeUntilCustomFormatScore: number;
@@ -250,7 +247,6 @@ type ProfileDefaults = {
   categories: number[];
   mediaType: string;
   contentType: string;
-  enabled: boolean;
   language: string;
   minCustomFormatScore: number;
   upgradeUntilCustomFormatScore: number;
@@ -265,7 +261,6 @@ const PROFILE_DEFAULTS: ProfileDefaults = {
   categories: [],
   mediaType: "ebook",
   contentType: "book",
-  enabled: true,
   language: "en",
   minCustomFormatScore: 0,
   upgradeUntilCustomFormatScore: 0,
@@ -286,7 +281,6 @@ function getDefaults(
     categories: initialValues.categories,
     mediaType: initialValues.mediaType,
     contentType: initialValues.contentType,
-    enabled: initialValues.enabled,
     language: initialValues.language,
     minCustomFormatScore: initialValues.minCustomFormatScore,
     upgradeUntilCustomFormatScore: initialValues.upgradeUntilCustomFormatScore,
@@ -607,7 +601,6 @@ export default function DownloadProfileForm({
   const [categories, setCategories] = useState<number[]>(defaults.categories);
   const [mediaType, setMediaType] = useState(defaults.mediaType);
   const [contentType, setContentType] = useState(defaults.contentType);
-  const [enabled, setEnabled] = useState(defaults.enabled);
   const [language, setLanguage] = useState(defaults.language);
   const [minCustomFormatScore, setMinCustomFormatScore] = useState(
     defaults.minCustomFormatScore,
@@ -702,7 +695,6 @@ export default function DownloadProfileForm({
       categories,
       mediaType,
       contentType,
-      enabled,
       language,
       minCustomFormatScore,
       upgradeUntilCustomFormatScore,
@@ -864,15 +856,6 @@ export default function DownloadProfileForm({
             initialValues?.id === undefined ? setLocalCFScores : undefined
           }
         />
-
-        <div className="flex items-center gap-2">
-          <Switch
-            id="profile-enabled"
-            checked={enabled}
-            onCheckedChange={setEnabled}
-          />
-          <Label htmlFor="profile-enabled">Enabled</Label>
-        </div>
 
         {serverError && !serverError.includes("Root folder") && (
           <p className="text-sm text-destructive">{serverError}</p>

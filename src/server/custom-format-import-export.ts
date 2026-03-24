@@ -113,7 +113,6 @@ export const importCustomFormatsFn = createServerFn({ method: "POST" })
                 description: cf.description,
                 origin: "imported",
                 userModified: false,
-                enabled: true,
               })
               .run();
             imported += 1;
@@ -136,7 +135,6 @@ export const importCustomFormatsFn = createServerFn({ method: "POST" })
             description: cf.description,
             origin: "imported",
             userModified: false,
-            enabled: true,
           })
           .run();
         imported += 1;
