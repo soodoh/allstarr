@@ -96,6 +96,16 @@ export const queryKeys = {
     lists: () => ["downloadFormats", "list"] as const,
   },
 
+  // ─── Custom Formats ───────────────────────────────────────────────────
+  customFormats: {
+    all: ["customFormats"] as const,
+    lists: () => [...queryKeys.customFormats.all, "list"] as const,
+    detail: (id: number) =>
+      [...queryKeys.customFormats.all, "detail", id] as const,
+    profileScores: (profileId: number) =>
+      [...queryKeys.customFormats.all, "profileScores", profileId] as const,
+  },
+
   // ─── Dashboard ──────────────────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,
