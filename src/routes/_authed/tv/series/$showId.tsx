@@ -49,6 +49,11 @@ function ShowDetailPage(): JSX.Element {
     return a.seasonNumber - b.seasonNumber;
   });
 
+  // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Pre-filtered once before map
+  const tvDownloadProfiles = downloadProfiles.filter(
+    (p) => p.contentType === "tv" && show.downloadProfileIds.includes(p.id),
+  );
+
   return (
     <div className="space-y-6">
       <ShowDetailHeader show={show} downloadProfiles={downloadProfiles} />
@@ -62,6 +67,7 @@ function ShowDetailPage(): JSX.Element {
                 key={season.id}
                 season={season}
                 seriesType={show.seriesType}
+                downloadProfiles={tvDownloadProfiles}
               />
             ))}
           </Accordion>
