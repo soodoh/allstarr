@@ -1,18 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 import { Button } from "src/components/ui/button";
-import Checkbox from "src/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
-import Label from "src/components/ui/label";
 import Skeleton from "src/components/ui/skeleton";
 import type {
   HardcoverAuthorDetail,
@@ -24,7 +22,7 @@ import {
   authorExistsQuery,
 } from "src/lib/queries";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
-import { getProfileIcon } from "src/lib/profile-icons";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 
 const DEFAULT_PARAMS = {
   page: 1,
@@ -43,12 +41,20 @@ type AddFormProps = {
 };
 
 function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
-  const { data: downloadProfiles = [] } = useQuery(downloadProfilesListQuery());
-
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
-    downloadProfiles.map((p) => p.id),
+  const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
+  const downloadProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "book"),
+    [allProfiles],
   );
+
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const importAuthor = useImportHardcoverAuthor();
+
+  useEffect(() => {
+    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
+    }
+  }, [downloadProfiles, downloadProfileIds.length]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -68,33 +74,11 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add to Bookshelf</p>
 
-      <div className="space-y-2">
-        <Label>Download Profiles</Label>
-        {downloadProfiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No download profiles available.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {downloadProfiles.map((p) => (
-              <label
-                key={p.id}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={downloadProfileIds.includes(p.id)}
-                  onCheckedChange={() => toggleProfile(p.id)}
-                />
-                {(() => {
-                  const Icon = getProfileIcon(p.icon);
-                  return <Icon className="h-4 w-4 text-muted-foreground" />;
-                })()}
-                <span className="text-sm">{p.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <ProfileCheckboxGroup
+        profiles={downloadProfiles}
+        selectedIds={downloadProfileIds}
+        onToggle={toggleProfile}
+      />
 
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>

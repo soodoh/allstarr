@@ -231,13 +231,12 @@ export const addShowFn = createServerFn({ method: "POST" })
       .returning()
       .get();
 
-    // Insert join table for download profile
-    db.insert(showDownloadProfiles)
-      .values({
-        showId: show.id,
-        downloadProfileId: data.downloadProfileId,
-      })
-      .run();
+    // Insert join table for download profiles
+    for (const profileId of data.downloadProfileIds) {
+      db.insert(showDownloadProfiles)
+        .values({ showId: show.id, downloadProfileId: profileId })
+        .run();
+    }
 
     // Fetch and insert seasons and episodes
     for (const seasonSummary of raw.seasons) {
@@ -396,7 +395,7 @@ export const updateShowFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, downloadProfileId, ...updates } = data;
+    const { id, downloadProfileIds, ...updates } = data;
 
     const show = db.select().from(shows).where(eq(shows.id, id)).get();
 
@@ -409,14 +408,16 @@ export const updateShowFn = createServerFn({ method: "POST" })
       .where(eq(shows.id, id))
       .run();
 
-    // Update download profile junction if provided
-    if (downloadProfileId !== undefined) {
+    // Update download profile junctions if provided
+    if (downloadProfileIds !== undefined) {
       db.delete(showDownloadProfiles)
         .where(eq(showDownloadProfiles.showId, id))
         .run();
-      db.insert(showDownloadProfiles)
-        .values({ showId: id, downloadProfileId })
-        .run();
+      for (const profileId of downloadProfileIds) {
+        db.insert(showDownloadProfiles)
+          .values({ showId: id, downloadProfileId: profileId })
+          .run();
+      }
     }
 
     return db.select().from(shows).where(eq(shows.id, id)).get()!;

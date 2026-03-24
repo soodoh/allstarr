@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -11,8 +11,16 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import Switch from "src/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "src/components/ui/dialog";
 import PageHeader from "src/components/shared/page-header";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ShowPoster from "src/components/tv/show-poster";
 import { useUpdateShow, useDeleteShow } from "src/hooks/mutations/shows";
 
@@ -41,6 +49,8 @@ type ShowDetail = {
 type DownloadProfile = {
   id: number;
   name: string;
+  icon: string;
+  contentType: string;
 };
 
 type ShowDetailHeaderProps = {
@@ -74,10 +84,37 @@ export default function ShowDetailHeader({
   const updateShow = useUpdateShow();
   const deleteShow = useDeleteShow();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editProfilesOpen, setEditProfilesOpen] = useState(false);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
+    show.downloadProfileIds,
+  );
 
   const profileNames = downloadProfiles
     .filter((p) => show.downloadProfileIds.includes(p.id))
     .map((p) => p.name);
+
+  const tvProfiles = useMemo(
+    () => downloadProfiles.filter((p) => p.contentType === "tv"),
+    [downloadProfiles],
+  );
+
+  const toggleProfile = (id: number) => {
+    setSelectedProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
+
+  const handleSaveProfiles = () => {
+    updateShow.mutate(
+      { id: show.id, downloadProfileIds: selectedProfileIds },
+      {
+        onSuccess: () => {
+          setEditProfilesOpen(false);
+          router.invalidate();
+        },
+      },
+    );
+  };
 
   const tmdbUrl = `https://www.themoviedb.org/tv/${show.tmdbId}`;
 
@@ -219,9 +256,23 @@ export default function ShowDetailHeader({
                 </dd>
               </div>
               {profileNames.length > 0 && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Download Profile</dt>
-                  <dd className="text-right">{profileNames.join(", ")}</dd>
+                <div className="flex justify-between gap-4 items-center">
+                  <dt className="text-muted-foreground">Download Profiles</dt>
+                  <dd className="flex items-center gap-2">
+                    <span className="text-right">
+                      {profileNames.join(", ")}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setSelectedProfileIds(show.downloadProfileIds);
+                        setEditProfilesOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </dd>
                 </div>
               )}
             </dl>
@@ -244,6 +295,34 @@ export default function ShowDetailHeader({
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit profiles dialog */}
+      <Dialog open={editProfilesOpen} onOpenChange={setEditProfilesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Download Profiles</DialogTitle>
+          </DialogHeader>
+          <ProfileCheckboxGroup
+            profiles={tvProfiles}
+            selectedIds={selectedProfileIds}
+            onToggle={toggleProfile}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditProfilesOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveProfiles}
+              disabled={updateShow.isPending}
+            >
+              {updateShow.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
