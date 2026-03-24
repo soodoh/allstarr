@@ -113,6 +113,11 @@ const navGroups: NavGroup[] = [
       { title: "Formats", to: "/settings/formats", icon: FileType },
       { title: "Profiles", to: "/settings/profiles", icon: Sliders },
       {
+        title: "Custom Formats",
+        to: "/settings/custom-formats",
+        icon: Sliders,
+      },
+      {
         title: "Download Clients",
         to: "/settings/download-clients",
         icon: Download,
