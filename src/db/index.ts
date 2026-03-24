@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
+import { seedBuiltinCustomFormats } from "./seed-custom-formats";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
 sqlite.run(`PRAGMA journal_mode = ${process.env.SQLITE_JOURNAL_MODE || "WAL"}`);
@@ -56,3 +57,6 @@ sqlite.run(`
 `);
 
 export const db = drizzle({ client: sqlite, schema });
+
+// Seed built-in custom formats if they don't exist yet
+seedBuiltinCustomFormats(db);
