@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3dc41f58-1f2e-4418-8628-2d2323780a5e",
+  "id": "0f383cd0-eec6-4989-8978-f9b981f2cef6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -1282,21 +1282,13 @@
           "autoincrement": false,
           "default": "'[]'"
         },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'ebook'"
-        },
         "content_type": {
           "name": "content_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'book'"
+          "default": "'ebook'"
         },
         "language": {
           "name": "language",
@@ -1384,13 +1376,13 @@
           "autoincrement": false,
           "default": "'gray'"
         },
-        "type": {
-          "name": "type",
+        "content_types": {
+          "name": "content_types",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'ebook'"
+          "default": "'[\"ebook\"]'"
         },
         "source": {
           "name": "source",
@@ -1401,6 +1393,22 @@
         },
         "resolution": {
           "name": "resolution",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "no_max_limit": {
+          "name": "no_max_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "no_preferred_limit": {
+          "name": "no_preferred_limit",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -1495,14 +1503,6 @@
           "notNull": false,
           "autoincrement": false,
           "default": false
-        },
-        "monitored": {
-          "name": "monitored",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         }
       },
       "indexes": {
@@ -1559,14 +1559,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "monitored": {
-          "name": "monitored",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         },
         "overview": {
           "name": "overview",
@@ -1720,14 +1712,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "monitored": {
-          "name": "monitored",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         },
         "path": {
           "name": "path",
@@ -1911,6 +1895,62 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "episode_download_profiles": {
+      "name": "episode_download_profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "download_profile_id": {
+          "name": "download_profile_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "episode_download_profiles_episode_id_download_profile_id_unique": {
+          "name": "episode_download_profiles_episode_id_download_profile_id_unique",
+          "columns": ["episode_id", "download_profile_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "episode_download_profiles_episode_id_episodes_id_fk": {
+          "name": "episode_download_profiles_episode_id_episodes_id_fk",
+          "tableFrom": "episode_download_profiles",
+          "tableTo": "episodes",
+          "columnsFrom": ["episode_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "episode_download_profiles_download_profile_id_download_profiles_id_fk": {
+          "name": "episode_download_profiles_download_profile_id_download_profiles_id_fk",
+          "tableFrom": "episode_download_profiles",
+          "tableTo": "download_profiles",
+          "columnsFrom": ["download_profile_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "movies": {
       "name": "movies",
       "columns": {
@@ -2018,14 +2058,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "monitored": {
-          "name": "monitored",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         },
         "minimum_availability": {
           "name": "minimum_availability",

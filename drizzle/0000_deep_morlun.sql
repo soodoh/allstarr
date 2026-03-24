@@ -195,8 +195,7 @@ CREATE TABLE `download_profiles` (
 	`upgrade_allowed` integer DEFAULT false NOT NULL,
 	`icon` text DEFAULT 'book-open' NOT NULL,
 	`categories` text DEFAULT '[]' NOT NULL,
-	`type` text DEFAULT 'ebook' NOT NULL,
-	`content_type` text DEFAULT 'book' NOT NULL,
+	`content_type` text DEFAULT 'ebook' NOT NULL,
 	`language` text DEFAULT 'en' NOT NULL,
 	`min_custom_format_score` integer DEFAULT 0 NOT NULL,
 	`upgrade_until_custom_format_score` integer DEFAULT 0 NOT NULL
@@ -210,7 +209,7 @@ CREATE TABLE `download_formats` (
 	`max_size` real,
 	`preferred_size` real,
 	`color` text DEFAULT 'gray' NOT NULL,
-	`type` text DEFAULT 'ebook' NOT NULL,
+	`content_types` text DEFAULT '["ebook"]' NOT NULL,
 	`source` text,
 	`resolution` integer DEFAULT 0 NOT NULL,
 	`no_max_limit` integer DEFAULT 0 NOT NULL,
@@ -229,7 +228,6 @@ CREATE TABLE `episodes` (
 	`runtime` integer,
 	`tmdb_id` integer NOT NULL,
 	`has_file` integer DEFAULT false,
-	`monitored` integer DEFAULT true,
 	FOREIGN KEY (`show_id`) REFERENCES `shows`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`season_id`) REFERENCES `seasons`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -239,7 +237,6 @@ CREATE TABLE `seasons` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`show_id` integer NOT NULL,
 	`season_number` integer NOT NULL,
-	`monitored` integer DEFAULT true,
 	`overview` text,
 	`poster_url` text,
 	FOREIGN KEY (`show_id`) REFERENCES `shows`(`id`) ON UPDATE no action ON DELETE cascade
@@ -262,7 +259,6 @@ CREATE TABLE `shows` (
 	`tags` text,
 	`poster_url` text DEFAULT '' NOT NULL,
 	`fanart_url` text DEFAULT '' NOT NULL,
-	`monitored` integer DEFAULT true,
 	`path` text DEFAULT '' NOT NULL,
 	`created_at` integer,
 	`updated_at` integer
@@ -292,6 +288,15 @@ CREATE TABLE `show_download_profiles` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `show_download_profiles_show_id_download_profile_id_unique` ON `show_download_profiles` (`show_id`,`download_profile_id`);--> statement-breakpoint
+CREATE TABLE `episode_download_profiles` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`episode_id` integer NOT NULL,
+	`download_profile_id` integer NOT NULL,
+	FOREIGN KEY (`episode_id`) REFERENCES `episodes`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`download_profile_id`) REFERENCES `download_profiles`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `episode_download_profiles_episode_id_download_profile_id_unique` ON `episode_download_profiles` (`episode_id`,`download_profile_id`);--> statement-breakpoint
 CREATE TABLE `movies` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`title` text NOT NULL,
@@ -307,7 +312,6 @@ CREATE TABLE `movies` (
 	`tags` text,
 	`poster_url` text DEFAULT '' NOT NULL,
 	`fanart_url` text DEFAULT '' NOT NULL,
-	`monitored` integer DEFAULT true,
 	`minimum_availability` text DEFAULT 'released' NOT NULL,
 	`path` text DEFAULT '' NOT NULL,
 	`created_at` integer,
@@ -516,96 +520,96 @@ CREATE UNIQUE INDEX `profile_custom_format_idx` ON `profile_custom_formats` (`pr
 -- ============================================================
 
 -- Download Formats: Ebook
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, no_max_limit, no_preferred_limit) VALUES
-  ('Unknown Text', 1, 0,    100,  100,  'gray',   'ebook', 1, 1),
-  ('PDF',          2, 0,    50,   5,    'yellow', 'ebook', 0, 0),
-  ('MOBI',         3, 0,    15,   2,    'amber',  'ebook', 0, 0),
-  ('EPUB',         4, 0,    15,   1.5,  'green',  'ebook', 0, 0),
-  ('AZW3',         5, 0,    15,   2,    'blue',   'ebook', 0, 0);--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, content_types, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Text', 1, 0,    100,  100,  'gray',   '["ebook"]', 1, 1),
+  ('PDF',          2, 0,    50,   5,    'yellow', '["ebook"]', 0, 0),
+  ('MOBI',         3, 0,    15,   2,    'amber',  '["ebook"]', 0, 0),
+  ('EPUB',         4, 0,    15,   1.5,  'green',  '["ebook"]', 0, 0),
+  ('AZW3',         5, 0,    15,   2,    'blue',   '["ebook"]', 0, 0);--> statement-breakpoint
 
 -- Download Formats: Audio
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, no_max_limit, no_preferred_limit) VALUES
-  ('Unknown Audio', 1, 0,    1500, 1500, 'gray',   'audio', 1, 1),
-  ('MP3',           6, 0,    350,  195,  'orange', 'audio', 0, 0),
-  ('M4B',           7, 0,    350,  195,  'cyan',   'audio', 0, 0),
-  ('FLAC',          8, 0,    1500, 895,  'purple', 'audio', 1, 0);--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, content_types, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Audio', 1, 0,    1500, 1500, 'gray',   '["audiobook"]', 1, 1),
+  ('MP3',           6, 0,    350,  195,  'orange', '["audiobook"]', 0, 0),
+  ('M4B',           7, 0,    350,  195,  'cyan',   '["audiobook"]', 0, 0),
+  ('FLAC',          8, 0,    1500, 895,  'purple', '["audiobook"]', 1, 0);--> statement-breakpoint
 
 -- Download Formats: Video
-INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, type, source, resolution, no_max_limit, no_preferred_limit) VALUES
-  ('Unknown Video',  0,  0,     2000, 2000, 'gray',   'video', 'Unknown',    0,    1, 1),
-  ('SDTV',           1,  5,     2000, 2000, 'gray',   'video', 'Television', 480,  1, 1),
-  ('WEBRip-480p',    2,  5,     2000, 2000, 'gray',   'video', 'WebRip',     480,  1, 1),
-  ('WEBDL-480p',     3,  5,     2000, 2000, 'gray',   'video', 'Web',        480,  1, 1),
-  ('DVD',            4,  5,     2000, 2000, 'yellow', 'video', 'DVD',        480,  1, 1),
-  ('Bluray-480p',    5,  5,     2000, 2000, 'gray',   'video', 'Bluray',     480,  1, 1),
-  ('HDTV-720p',      10, 10,    2000, 2000, 'green',  'video', 'Television', 720,  1, 1),
-  ('WEBRip-720p',    11, 10,    2000, 2000, 'green',  'video', 'WebRip',     720,  1, 1),
-  ('WEBDL-720p',     12, 10,    2000, 2000, 'green',  'video', 'Web',        720,  1, 1),
-  ('Bluray-720p',    13, 17.1,  2000, 2000, 'green',  'video', 'Bluray',     720,  1, 1),
-  ('HDTV-1080p',     20, 15,    2000, 2000, 'green',  'video', 'Television', 1080, 1, 1),
-  ('WEBRip-1080p',   21, 15,    2000, 2000, 'green',  'video', 'WebRip',     1080, 1, 1),
-  ('WEBDL-1080p',    22, 15,    2000, 2000, 'green',  'video', 'Web',        1080, 1, 1),
-  ('Bluray-1080p',   23, 50.4,  2000, 2000, 'blue',   'video', 'Bluray',     1080, 1, 1),
-  ('Remux-1080p',    24, 69.1,  2000, 2000, 'cyan',   'video', 'BlurayRaw',  1080, 1, 1),
-  ('HDTV-2160p',     30, 25,    2000, 2000, 'purple', 'video', 'Television', 2160, 1, 1),
-  ('WEBRip-2160p',   31, 25,    2000, 2000, 'purple', 'video', 'WebRip',     2160, 1, 1),
-  ('WEBDL-2160p',    32, 25,    2000, 2000, 'purple', 'video', 'Web',        2160, 1, 1),
-  ('Bluray-2160p',   33, 94.6,  2000, 2000, 'purple', 'video', 'Bluray',     2160, 1, 1),
-  ('Remux-2160p',    34, 187.4, 2000, 2000, 'purple', 'video', 'BlurayRaw',  2160, 1, 1);--> statement-breakpoint
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, content_types, source, resolution, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Video',  0,  0,     2000, 2000, 'gray',   '["movie","tv"]', 'Unknown',    0,    1, 1),
+  ('SDTV',           1,  5,     2000, 2000, 'gray',   '["movie","tv"]', 'Television', 480,  1, 1),
+  ('WEBRip-480p',    2,  5,     2000, 2000, 'gray',   '["movie","tv"]', 'WebRip',     480,  1, 1),
+  ('WEBDL-480p',     3,  5,     2000, 2000, 'gray',   '["movie","tv"]', 'Web',        480,  1, 1),
+  ('DVD',            4,  5,     2000, 2000, 'yellow', '["movie","tv"]', 'DVD',        480,  1, 1),
+  ('Bluray-480p',    5,  5,     2000, 2000, 'gray',   '["movie","tv"]', 'Bluray',     480,  1, 1),
+  ('HDTV-720p',      10, 10,    2000, 2000, 'green',  '["movie","tv"]', 'Television', 720,  1, 1),
+  ('WEBRip-720p',    11, 10,    2000, 2000, 'green',  '["movie","tv"]', 'WebRip',     720,  1, 1),
+  ('WEBDL-720p',     12, 10,    2000, 2000, 'green',  '["movie","tv"]', 'Web',        720,  1, 1),
+  ('Bluray-720p',    13, 17.1,  2000, 2000, 'green',  '["movie","tv"]', 'Bluray',     720,  1, 1),
+  ('HDTV-1080p',     20, 15,    2000, 2000, 'green',  '["movie","tv"]', 'Television', 1080, 1, 1),
+  ('WEBRip-1080p',   21, 15,    2000, 2000, 'green',  '["movie","tv"]', 'WebRip',     1080, 1, 1),
+  ('WEBDL-1080p',    22, 15,    2000, 2000, 'green',  '["movie","tv"]', 'Web',        1080, 1, 1),
+  ('Bluray-1080p',   23, 50.4,  2000, 2000, 'blue',   '["movie","tv"]', 'Bluray',     1080, 1, 1),
+  ('Remux-1080p',    24, 69.1,  2000, 2000, 'cyan',   '["movie","tv"]', 'BlurayRaw',  1080, 1, 1),
+  ('HDTV-2160p',     30, 25,    2000, 2000, 'purple', '["movie","tv"]', 'Television', 2160, 1, 1),
+  ('WEBRip-2160p',   31, 25,    2000, 2000, 'purple', '["movie","tv"]', 'WebRip',     2160, 1, 1),
+  ('WEBDL-2160p',    32, 25,    2000, 2000, 'purple', '["movie","tv"]', 'Web',        2160, 1, 1),
+  ('Bluray-2160p',   33, 94.6,  2000, 2000, 'purple', '["movie","tv"]', 'Bluray',     2160, 1, 1),
+  ('Remux-2160p',    34, 187.4, 2000, 2000, 'purple', '["movie","tv"]', 'BlurayRaw',  2160, 1, 1);--> statement-breakpoint
 
 -- Download Profiles: Book
-INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
-  ('Ebook',     './data/books',      0, '[[4],[5],[3],[2]]', 0, 'book-marked',  '[7020,8010]', 'ebook', 'book', 'en', 0, 2000),
-  ('Audiobook', './data/audiobooks', 0, '[[7],[8],[6]]',     0, 'audio-lines',  '[3030]',      'audio', 'book', 'en', 0, 1000);--> statement-breakpoint
+INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
+  ('Ebook',     './data/books',      0, '[[4],[5],[3],[2]]', 0, 'book-marked',  '[7020,8010]', 'ebook',     'en', 0, 2000),
+  ('Audiobook', './data/audiobooks', 0, '[[7],[8],[6]]',     0, 'audio-lines',  '[3030]',      'audiobook', 'en', 0, 1000);--> statement-breakpoint
 
 -- Download Profiles: Video (items populated via UPDATE below)
-INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
-  ('WEB-1080p',       './data/tv',     0, '[]', 1, 'tv',            '[5030,5040,5045]',      'video', 'tv',    'en', 0, 5000),
-  ('WEB-2160p',       './data/tv',     0, '[]', 1, 'hd',            '[5030,5040,5045]',      'video', 'tv',    'en', 0, 5000),
-  ('HD Bluray + WEB', './data/movies', 0, '[]', 1, 'film',          '[2030,2040,2045,2050]',  'video', 'movie', 'en', 0, 10000),
-  ('Remux + WEB 2160p','./data/movies',0, '[]', 1, 'hd',            '[2030,2040,2045,2050]',  'video', 'movie', 'en', 0, 10000);--> statement-breakpoint
+INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
+  ('WEB-1080p',        './data/tv',     0, '[]', 1, 'tv',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
+  ('WEB-2160p',        './data/tv',     0, '[]', 1, 'hd',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
+  ('HD Bluray + WEB',  './data/movies', 0, '[]', 1, 'film', '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000),
+  ('Remux + WEB 2160p','./data/movies', 0, '[]', 1, 'hd',   '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000);--> statement-breakpoint
 
 -- Video profile items (grouped format arrays)
 UPDATE download_profiles SET
-  cutoff = (SELECT id FROM download_formats WHERE title = 'WEBDL-1080p' AND type = 'video' LIMIT 1),
+  cutoff = (SELECT id FROM download_formats WHERE title = 'WEBDL-1080p' AND content_types LIKE '%"movie"%' LIMIT 1),
   items = json_array(
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-1080p' AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'HDTV-1080p'   AND type = 'video' LIMIT 1))
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-1080p' AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'HDTV-1080p'   AND content_types LIKE '%"movie"%' LIMIT 1))
   )
 WHERE name = 'WEB-1080p';--> statement-breakpoint
 
 UPDATE download_profiles SET
-  cutoff = (SELECT id FROM download_formats WHERE title = 'WEBDL-2160p' AND type = 'video' LIMIT 1),
+  cutoff = (SELECT id FROM download_formats WHERE title = 'WEBDL-2160p' AND content_types LIKE '%"movie"%' LIMIT 1),
   items = json_array(
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-2160p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-2160p' AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-2160p' AND type = 'video' LIMIT 1))
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-2160p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-2160p' AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-2160p' AND content_types LIKE '%"movie"%' LIMIT 1))
   )
 WHERE name = 'WEB-2160p';--> statement-breakpoint
 
 UPDATE download_profiles SET
-  cutoff = (SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND type = 'video' LIMIT 1),
+  cutoff = (SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND content_types LIKE '%"movie"%' LIMIT 1),
   items = json_array(
-    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-1080p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'   AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-1080p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-720p'   AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-720p'    AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-720p'   AND type = 'video' LIMIT 1))
+    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'   AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-720p'   AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-720p'    AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-720p'   AND content_types LIKE '%"movie"%' LIMIT 1))
   )
 WHERE name = 'HD Bluray + WEB';--> statement-breakpoint
 
 UPDATE download_profiles SET
-  cutoff = (SELECT id FROM download_formats WHERE title = 'Remux-2160p' AND type = 'video' LIMIT 1),
+  cutoff = (SELECT id FROM download_formats WHERE title = 'Remux-2160p' AND content_types LIKE '%"movie"%' LIMIT 1),
   items = json_array(
-    json_array((SELECT id FROM download_formats WHERE title = 'Remux-2160p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-2160p' AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-2160p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-2160p' AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'Remux-1080p'  AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND type = 'video' LIMIT 1)),
-    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND type = 'video' LIMIT 1))
+    json_array((SELECT id FROM download_formats WHERE title = 'Remux-2160p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-2160p' AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-2160p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-2160p' AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'Remux-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND content_types LIKE '%"movie"%' LIMIT 1)),
+    json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1))
   )
 WHERE name = 'Remux + WEB 2160p';--> statement-breakpoint
 
@@ -624,8 +628,10 @@ INSERT INTO scheduled_tasks (id, name, interval, enabled) VALUES
 INSERT INTO settings (key, value) VALUES
   ('general.logLevel',       '"info"'),
   ('metadata.hardcover.profile', '{"skipMissingReleaseDate":false,"skipMissingIsbnAsin":false,"skipCompilations":true,"minimumPopularity":10,"minimumPages":0}'),
-  ('format.defaultPageCount',    '300'),
-  ('format.defaultAudioDuration','600'),
+  ('format.ebook.defaultPageCount',      '300'),
+  ('format.audiobook.defaultDuration',   '600'),
+  ('format.movie.defaultRuntime',        '130'),
+  ('format.tv.defaultEpisodeRuntime',    '45'),
   ('metadata.tmdb.language',     '"en"'),
   ('metadata.tmdb.includeAdult', 'false'),
   ('metadata.tmdb.region',       '""'),
