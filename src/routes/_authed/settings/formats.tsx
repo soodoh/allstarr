@@ -110,10 +110,7 @@ function DefaultsSection({
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
       <h4 className="text-sm font-medium">Size Calculation Defaults</h4>
       <p className="text-xs text-muted-foreground mb-3">{description}</p>
-      <div
-        className="grid items-center gap-x-3 gap-y-2"
-        style={{ gridTemplateColumns: "max-content 5rem max-content" }}
-      >
+      <div className="grid grid-cols-[max-content_5rem_max-content] items-center gap-x-3 gap-y-2">
         {configs.map((ct) => {
           const cfg = DEFAULTS_CONFIG[ct];
           const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
