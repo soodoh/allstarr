@@ -564,10 +564,10 @@ INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_al
 
 -- Download Profiles: Video (items populated via UPDATE below)
 INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
-  ('WEB-1080p',        './data/tv',     0, '[]', 1, 'tv',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
-  ('WEB-2160p',        './data/tv',     0, '[]', 1, 'hd',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
-  ('HD Bluray + WEB',  './data/movies', 0, '[]', 1, 'film', '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000),
-  ('Remux + WEB 2160p','./data/movies', 0, '[]', 1, 'hd',   '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000);--> statement-breakpoint
+  ('1080p (TV)',        './data/tv_shows/1080p/', 0, '[]', 1, 'tv',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
+  ('4k (TV)',           './data/tv_shows/4k/',   0, '[]', 1, 'hd',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
+  ('720-1080p (Movie)', './data/movies/1080p/',  0, '[]', 1, 'clapperboard', '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000),
+  ('4k (Movie)',        './data/movies/4k/',     0, '[]', 1, 'hd',   '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000);--> statement-breakpoint
 
 -- Video profile items (grouped format arrays)
 UPDATE download_profiles SET
@@ -577,7 +577,7 @@ UPDATE download_profiles SET
     json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-1080p' AND content_types LIKE '%"movie"%' LIMIT 1)),
     json_array((SELECT id FROM download_formats WHERE title = 'HDTV-1080p'   AND content_types LIKE '%"movie"%' LIMIT 1))
   )
-WHERE name = 'WEB-1080p';--> statement-breakpoint
+WHERE name = '1080p (TV)';--> statement-breakpoint
 
 UPDATE download_profiles SET
   cutoff = (SELECT id FROM download_formats WHERE title = 'WEBDL-2160p' AND content_types LIKE '%"movie"%' LIMIT 1),
@@ -586,7 +586,7 @@ UPDATE download_profiles SET
     json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-2160p' AND content_types LIKE '%"movie"%' LIMIT 1)),
     json_array((SELECT id FROM download_formats WHERE title = 'Bluray-2160p' AND content_types LIKE '%"movie"%' LIMIT 1))
   )
-WHERE name = 'WEB-2160p';--> statement-breakpoint
+WHERE name = '4k (TV)';--> statement-breakpoint
 
 UPDATE download_profiles SET
   cutoff = (SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND content_types LIKE '%"movie"%' LIMIT 1),
@@ -598,7 +598,7 @@ UPDATE download_profiles SET
     json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-720p'    AND content_types LIKE '%"movie"%' LIMIT 1)),
     json_array((SELECT id FROM download_formats WHERE title = 'WEBRip-720p'   AND content_types LIKE '%"movie"%' LIMIT 1))
   )
-WHERE name = 'HD Bluray + WEB';--> statement-breakpoint
+WHERE name = '720-1080p (Movie)';--> statement-breakpoint
 
 UPDATE download_profiles SET
   cutoff = (SELECT id FROM download_formats WHERE title = 'Remux-2160p' AND content_types LIKE '%"movie"%' LIMIT 1),
@@ -611,7 +611,7 @@ UPDATE download_profiles SET
     json_array((SELECT id FROM download_formats WHERE title = 'Bluray-1080p' AND content_types LIKE '%"movie"%' LIMIT 1)),
     json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1))
   )
-WHERE name = 'Remux + WEB 2160p';--> statement-breakpoint
+WHERE name = '4k (Movie)';--> statement-breakpoint
 
 -- Scheduled Tasks
 INSERT INTO scheduled_tasks (id, name, interval, enabled) VALUES
