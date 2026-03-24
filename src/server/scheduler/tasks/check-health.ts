@@ -1,11 +1,5 @@
 import { db } from "src/db";
-import {
-  indexers,
-  syncedIndexers,
-  downloadClients,
-  settings,
-} from "src/db/schema";
-import { eq } from "drizzle-orm";
+import { indexers, syncedIndexers, downloadClients } from "src/db/schema";
 import * as fs from "node:fs";
 import { getRootFolderPaths } from "src/server/disk-scan";
 import { registerTask } from "../registry";
@@ -39,14 +33,7 @@ function runHealthChecks(): number {
     issues += 1;
   }
 
-  const tokenSetting = db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, "hardcoverToken"))
-    .get();
-  const hasToken =
-    (tokenSetting && tokenSetting.value) || process.env.HARDCOVER_TOKEN;
-  if (!hasToken) {
+  if (!process.env.HARDCOVER_TOKEN) {
     issues += 1;
   }
 
