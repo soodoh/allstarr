@@ -5,7 +5,11 @@ import Checkbox from "src/components/ui/checkbox";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import validateForm from "src/lib/form-validation";
-import { createDownloadFormatSchema } from "src/lib/validators";
+import {
+  createDownloadFormatSchema,
+  customFormatContentTypes,
+} from "src/lib/validators";
+import { sizeMode } from "src/lib/format-size-calc";
 import {
   Select,
   SelectContent,
@@ -13,6 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
+
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  movie: "Movie",
+  tv: "TV",
+  ebook: "Ebook",
+  audiobook: "Audiobook",
+};
 
 type DownloadFormatFormValues = {
   title: string;
@@ -23,14 +34,14 @@ type DownloadFormatFormValues = {
   preferredSize: number;
   noMaxLimit: number;
   noPreferredLimit: number;
-  type: "ebook" | "audio" | "video";
+  contentTypes: string[];
   source: string | null;
   resolution: number;
 };
 
 type DownloadFormatFormProps = {
   initialValues?: DownloadFormatFormValues;
-  type: "ebook" | "audio" | "video";
+  defaultContentTypes: string[];
   onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -77,11 +88,11 @@ const COLOR_CLASSES: Record<string, string> = {
   orange: "bg-orange-500",
 };
 
-function defaultMaxSize(t: "ebook" | "audio" | "video"): number {
-  if (t === "audio") {
+function defaultMaxSize(mode: "ebook" | "audio" | "video"): number {
+  if (mode === "audio") {
     return 350;
   }
-  if (t === "video") {
+  if (mode === "video") {
     return 1000;
   }
   return 100;
@@ -180,9 +191,11 @@ function VideoFields({
 
 function useBasicFormFields(
   initialValues: DownloadFormatFormValues | undefined,
-  type: "ebook" | "audio" | "video",
+  defaultContentTypes: string[],
 ) {
-  const resolvedType = initialValues?.type ?? type;
+  const [contentTypes, setContentTypes] = useState<string[]>(
+    initialValues?.contentTypes ?? defaultContentTypes,
+  );
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [weight, setWeight] = useState(initialValues?.weight ?? 1);
   const [color, setColor] = useState(initialValues?.color ?? "gray");
@@ -190,8 +203,18 @@ function useBasicFormFields(
   const [resolution, setResolution] = useState<number>(
     initialValues?.resolution ?? 0,
   );
+
+  const handleContentTypeToggle = (ct: string, checked: boolean) => {
+    if (checked) {
+      setContentTypes((prev) => [...prev, ct]);
+    } else {
+      setContentTypes((prev) => prev.filter((t) => t !== ct));
+    }
+  };
+
   return {
-    resolvedType,
+    contentTypes,
+    handleContentTypeToggle,
     title,
     setTitle,
     weight,
@@ -207,17 +230,18 @@ function useBasicFormFields(
 
 function useSizeFormFields(
   initialValues: DownloadFormatFormValues | undefined,
-  type: "ebook" | "audio" | "video",
+  defaultContentTypes: string[],
 ) {
+  const mode = sizeMode(initialValues?.contentTypes ?? defaultContentTypes);
   const [minSize, setMinSize] = useState(initialValues?.minSize ?? 0);
   const [maxSize, setMaxSize] = useState<number>(
-    initialValues?.maxSize ?? defaultMaxSize(type),
+    initialValues?.maxSize ?? defaultMaxSize(mode),
   );
   const [maxNoLimit, setMaxNoLimit] = useState<boolean>(
     Boolean(initialValues?.noMaxLimit),
   );
   const [preferredSize, setPreferredSize] = useState<number>(
-    initialValues?.preferredSize ?? defaultMaxSize(type),
+    initialValues?.preferredSize ?? defaultMaxSize(mode),
   );
   const [preferredNoLimit, setPreferredNoLimit] = useState<boolean>(
     Boolean(initialValues?.noPreferredLimit),
@@ -241,13 +265,14 @@ function useSizeFormFields(
 
 export default function DownloadFormatForm({
   initialValues,
-  type,
+  defaultContentTypes,
   onSubmit,
   onCancel,
   loading,
 }: DownloadFormatFormProps): JSX.Element {
   const {
-    resolvedType,
+    contentTypes,
+    handleContentTypeToggle,
     title,
     setTitle,
     weight,
@@ -258,7 +283,7 @@ export default function DownloadFormatForm({
     setSource,
     resolution,
     setResolution,
-  } = useBasicFormFields(initialValues, type);
+  } = useBasicFormFields(initialValues, defaultContentTypes);
 
   const {
     minSize,
@@ -273,7 +298,9 @@ export default function DownloadFormatForm({
     setPreferredNoLimit,
     errors,
     setErrors,
-  } = useSizeFormFields(initialValues, type);
+  } = useSizeFormFields(initialValues, defaultContentTypes);
+
+  const currentMode = sizeMode(contentTypes);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -286,7 +313,7 @@ export default function DownloadFormatForm({
       preferredSize,
       noMaxLimit: maxNoLimit ? 1 : 0,
       noPreferredLimit: preferredNoLimit ? 1 : 0,
-      type: resolvedType,
+      contentTypes,
       source: source || null,
       resolution,
     };
@@ -326,6 +353,30 @@ export default function DownloadFormatForm({
             onChange={(e) => setWeight(Number(e.target.value))}
           />
         </div>
+      </div>
+
+      {/* Content Types */}
+      <div className="space-y-2">
+        <Label>Content Types</Label>
+        <div className="flex flex-wrap gap-4">
+          {customFormatContentTypes.map((ct) => (
+            <div key={ct} className="flex items-center gap-2">
+              <Checkbox
+                id={`def-ct-${ct}`}
+                checked={contentTypes.includes(ct)}
+                onCheckedChange={(checked) =>
+                  handleContentTypeToggle(ct, checked === true)
+                }
+              />
+              <Label htmlFor={`def-ct-${ct}`} className="text-sm font-normal">
+                {CONTENT_TYPE_LABELS[ct] ?? ct}
+              </Label>
+            </div>
+          ))}
+        </div>
+        {errors.contentTypes && (
+          <p className="text-sm text-destructive">{errors.contentTypes}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -369,7 +420,7 @@ export default function DownloadFormatForm({
             onNoLimitChange={(checked) => {
               setPreferredNoLimit(checked);
               if (!checked) {
-                setPreferredSize(defaultMaxSize(resolvedType));
+                setPreferredSize(defaultMaxSize(currentMode));
               }
             }}
           />
@@ -382,14 +433,14 @@ export default function DownloadFormatForm({
             onNoLimitChange={(checked) => {
               setMaxNoLimit(checked);
               if (!checked) {
-                setMaxSize(defaultMaxSize(resolvedType));
+                setMaxSize(defaultMaxSize(currentMode));
               }
             }}
           />
         </div>
       </div>
 
-      {resolvedType === "video" && (
+      {currentMode === "video" && (
         <VideoFields
           source={source}
           resolution={resolution}

@@ -18,9 +18,24 @@ import { useUpdateDownloadFormat } from "src/hooks/mutations";
 import {
   computeEffectiveSizes,
   formatEffectiveSize,
+  sizeMode,
 } from "src/lib/format-size-calc";
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
 import type { downloadFormats } from "src/db/schema";
+
+const CONTENT_TYPE_BADGE_CLASSES: Record<string, string> = {
+  movie: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  tv: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  ebook: "bg-green-500/20 text-green-400 border-green-500/30",
+  audiobook: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+};
+
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  movie: "Movie",
+  tv: "TV",
+  ebook: "Ebook",
+  audiobook: "Audiobook",
+};
 
 type DownloadFormat = typeof downloadFormats.$inferSelect;
 
@@ -30,30 +45,31 @@ type DownloadFormatListProps = {
   onDelete: (id: number) => void;
 };
 
-function sliderMaxRange(type: string): number {
-  if (type === "audio") {
+function sliderMaxRange(mode: "ebook" | "audio" | "video"): number {
+  if (mode === "audio") {
     return 1500;
   }
-  if (type === "video") {
+  if (mode === "video") {
     return 2000;
   }
   return 100;
 }
 
-function sliderUnit(type: string): string {
-  if (type === "audio") {
+function sliderUnit(mode: "ebook" | "audio" | "video"): string {
+  if (mode === "audio") {
     return "kbps";
   }
-  if (type === "video") {
+  if (mode === "video") {
     return "MB/min";
   }
   return "MB/100pg";
 }
 
 function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
-  const maxRange = sliderMaxRange(def.type);
-  const step = def.type === "audio" || def.type === "video" ? 1 : 0.5;
-  const unit = sliderUnit(def.type);
+  const mode = sizeMode(def.contentTypes);
+  const maxRange = sliderMaxRange(mode);
+  const step = mode === "audio" || mode === "video" ? 1 : 0.5;
+  const unit = sliderUnit(mode);
   const updateDef = useUpdateDownloadFormat();
 
   const noLimitMax = Boolean(def.noMaxLimit);
@@ -115,7 +131,7 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
           ? (def.preferredSize ?? maxRange)
           : preferred,
         maxSize: noLimitMax ? (def.maxSize ?? maxRange) : max,
-        type: def.type as "ebook" | "audio" | "video",
+        contentTypes: def.contentTypes,
         source: def.source ?? null,
         resolution: def.resolution ?? 0,
         noMaxLimit: def.noMaxLimit ?? 0,
@@ -156,15 +172,15 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
 
 type SampleEntry = { label: string; meta: Record<string, number> };
 
-function exampleSamples(type: string): SampleEntry[] {
-  if (type === "audio") {
+function exampleSamples(mode: "ebook" | "audio" | "video"): SampleEntry[] {
+  if (mode === "audio") {
     return [
       { label: "5 hr", meta: { audioLength: 300 } },
       { label: "10 hr", meta: { audioLength: 600 } },
       { label: "20 hr", meta: { audioLength: 1200 } },
     ];
   }
-  if (type === "video") {
+  if (mode === "video") {
     return [
       { label: "1 hr", meta: { videoLength: 60 } },
       { label: "2 hr", meta: { videoLength: 120 } },
@@ -183,15 +199,16 @@ function ExampleSizes({ def }: { def: DownloadFormat }): JSX.Element | null {
     return null;
   }
 
+  const mode = sizeMode(def.contentTypes);
   const noLimitMax = Boolean(def.noMaxLimit);
   const noLimitPreferred = Boolean(def.noPreferredLimit);
-  const samples = exampleSamples(def.type);
+  const samples = exampleSamples(mode);
 
   return (
     <div className="mt-1.5 flex gap-4 text-xs text-muted-foreground">
       {samples.map((s) => {
         const eff = computeEffectiveSizes(
-          def.type as "ebook" | "audio" | "video",
+          mode,
           def.minSize ?? 0,
           noLimitMax ? 0 : (def.maxSize ?? 0),
           noLimitPreferred ? 0 : (def.preferredSize ?? 0),
@@ -230,6 +247,7 @@ export default function DownloadFormatList({
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
+            <TableHead>Content Type</TableHead>
             <TableHead>Size Limit</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
@@ -247,6 +265,19 @@ export default function DownloadFormatList({
                   >
                     {def.title}
                   </Badge>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  {def.contentTypes.map((ct) => (
+                    <Badge
+                      key={ct}
+                      variant="secondary"
+                      className={CONTENT_TYPE_BADGE_CLASSES[ct] ?? ""}
+                    >
+                      {CONTENT_TYPE_LABELS[ct] ?? ct}
+                    </Badge>
+                  ))}
                 </div>
               </TableCell>
               <TableCell>
