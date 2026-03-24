@@ -1,16 +1,15 @@
 import { db } from "src/db";
 import { downloadFormats, settings } from "src/db/schema";
 import type { IndexerRelease, ReleaseQuality } from "./types";
-import { computeEffectiveSizes } from "src/lib/format-size-calc";
+import { sizeMode, computeEffectiveSizes } from "src/lib/format-size-calc";
 import type { EditionMeta } from "src/lib/format-size-calc";
-import { eq } from "drizzle-orm";
 
 type CachedDef = {
   id: number;
   name: string;
   weight: number;
   color: string;
-  type: string;
+  contentTypes: string[];
   source: string | null;
   resolution: number;
 };
@@ -18,12 +17,19 @@ type CachedDef = {
 let cachedDefs: CachedDef[] | null = null;
 let sizeLimitsCache: Map<
   number,
-  { minSize: number; maxSize: number; noMaxLimit: number; type: string }
+  {
+    minSize: number;
+    maxSize: number;
+    noMaxLimit: number;
+    contentTypes: string[];
+  }
 > | null = null;
 // eslint-disable-next-line prefer-const
 let cachedDefaults: {
   defaultPageCount: number;
   defaultAudioDuration: number;
+  defaultMovieRuntime: number;
+  defaultTvEpisodeRuntime: number;
 } | null = null;
 
 function getFormatDefs(): CachedDef[] {
@@ -35,7 +41,7 @@ function getFormatDefs(): CachedDef[] {
         name: row.title,
         weight: row.weight,
         color: row.color,
-        type: row.type,
+        contentTypes: row.contentTypes as string[],
         source: row.source,
         resolution: row.resolution,
       }))
@@ -67,7 +73,7 @@ export function getDefSizeLimits(
         minSize: r.minSize ?? 0,
         maxSize: r.noMaxLimit ? 0 : (r.maxSize ?? 0),
         noMaxLimit: r.noMaxLimit ?? 0,
-        type: r.type,
+        contentTypes: r.contentTypes as string[],
       });
     }
   }
@@ -78,31 +84,25 @@ export function getDefSizeLimits(
 
   // Cache default dimension settings (read once, cleared on invalidate)
   if (!cachedDefaults) {
-    const defaultPageCountRow = db
-      .select()
-      .from(settings)
-      .where(eq(settings.key, "format.defaultPageCount"))
-      .get();
-    const defaultAudioDurationRow = db
-      .select()
-      .from(settings)
-      .where(eq(settings.key, "format.defaultAudioDuration"))
-      .get();
+    const rows = db.select().from(settings).all();
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const parse = (key: string, fallback: number) => {
+      const v = map.get(key);
+      return v ? Number(JSON.parse(String(v))) : fallback;
+    };
     cachedDefaults = {
-      defaultPageCount: defaultPageCountRow?.value
-        ? Number(JSON.parse(String(defaultPageCountRow.value)))
-        : 300,
-      defaultAudioDuration: defaultAudioDurationRow?.value
-        ? Number(JSON.parse(String(defaultAudioDurationRow.value)))
-        : 600,
+      defaultPageCount: parse("format.ebook.defaultPageCount", 300),
+      defaultAudioDuration: parse("format.audiobook.defaultDuration", 600),
+      defaultMovieRuntime: parse("format.movie.defaultRuntime", 130),
+      defaultTvEpisodeRuntime: parse("format.tv.defaultEpisodeRuntime", 45),
     };
   }
 
   const effective = computeEffectiveSizes(
-    cached.type as "ebook" | "audio",
+    sizeMode(cached.contentTypes),
     cached.minSize,
     cached.maxSize,
-    0, // preferredSize not needed for rejection logic
+    0,
     editionMeta,
     cachedDefaults,
   );
@@ -112,12 +112,13 @@ export function getDefSizeLimits(
 
 export type { EditionMeta } from "src/lib/format-size-calc";
 
-/** Get the format type for a quality ID (populates cache if needed) */
+/** Get the content types for a quality ID (populates cache if needed) */
 export function getFormatType(qualityId: number): string | null {
   if (!sizeLimitsCache) {
     getDefSizeLimits(qualityId);
   }
-  return sizeLimitsCache?.get(qualityId)?.type ?? null;
+  const ct = sizeLimitsCache?.get(qualityId)?.contentTypes;
+  return ct ? (ct[0] ?? null) : null;
 }
 
 /** Extract trailing release group from a title (e.g. "Book Title-GROUP" → "GROUP") */
@@ -140,7 +141,7 @@ type ReleaseInfo = {
 function matchDefAgainstRelease(def: CachedDef, release: ReleaseInfo): boolean {
   const titleLower = release.title.toLowerCase();
 
-  if (def.type === "video") {
+  if (def.contentTypes.includes("movie") || def.contentTypes.includes("tv")) {
     // Video: match by source + resolution identity
     if (def.source && def.resolution > 0) {
       const sourcePattern = getVideoSourcePattern(def.source);
