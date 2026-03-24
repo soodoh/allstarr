@@ -17,15 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ChevronDown,
-  ChevronUp,
-  Equal,
-  GripVertical,
-  Merge,
-  Split,
-  X,
-} from "lucide-react";
+import { Equal, GripVertical, Merge, Split, X } from "lucide-react";
 import { cn } from "src/lib/utils";
 import { Button } from "src/components/ui/button";
 import {
@@ -57,12 +49,9 @@ function SortableGroup({
   cutoff,
   upgradeAllowed,
   isFirst,
-  isLast,
   onRemoveFormat,
   onMergeUp,
   onSplitGroup,
-  onMoveGroupUp,
-  onMoveGroupDown,
 }: {
   id: string;
   groupIndex: number;
@@ -71,12 +60,9 @@ function SortableGroup({
   cutoff: number;
   upgradeAllowed: boolean;
   isFirst: boolean;
-  isLast: boolean;
   onRemoveFormat: (formatId: number) => void;
   onMergeUp: (groupIndex: number) => void;
   onSplitGroup: (groupIndex: number) => void;
-  onMoveGroupUp: (groupIndex: number) => void;
-  onMoveGroupDown: (groupIndex: number) => void;
 }): JSX.Element {
   const {
     attributes,
@@ -178,39 +164,6 @@ function SortableGroup({
       {/* Actions */}
       <div className="flex items-center gap-0.5 shrink-0">
         <TooltipProvider delayDuration={300}>
-          {/* Move up/down buttons */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                disabled={isFirst}
-                onClick={() => onMoveGroupUp(groupIndex)}
-              >
-                <ChevronUp className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Move up</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                disabled={isLast}
-                onClick={() => onMoveGroupDown(groupIndex)}
-              >
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Move down</TooltipContent>
-          </Tooltip>
-
           {/* Merge with group above */}
           {!isFirst && (
             <Tooltip>
@@ -327,20 +280,6 @@ export default function TierGroupList({
     onChange(newItems);
   };
 
-  const handleMoveGroupUp = (groupIndex: number) => {
-    if (groupIndex === 0) {
-      return;
-    }
-    onChange(arrayMove([...items], groupIndex, groupIndex - 1));
-  };
-
-  const handleMoveGroupDown = (groupIndex: number) => {
-    if (groupIndex >= items.length - 1) {
-      return;
-    }
-    onChange(arrayMove([...items], groupIndex, groupIndex + 1));
-  };
-
   if (items.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -370,12 +309,9 @@ export default function TierGroupList({
               cutoff={cutoff}
               upgradeAllowed={upgradeAllowed}
               isFirst={idx === 0}
-              isLast={idx === items.length - 1}
               onRemoveFormat={onRemoveFormat}
               onMergeUp={handleMergeUp}
               onSplitGroup={handleSplitGroup}
-              onMoveGroupUp={handleMoveGroupUp}
-              onMoveGroupDown={handleMoveGroupDown}
             />
           ))}
         </SortableContext>
