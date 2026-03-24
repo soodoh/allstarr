@@ -47,101 +47,93 @@ type FormatValues = {
   preferredSize: number;
   noMaxLimit: number;
   noPreferredLimit: number;
-  type: "ebook" | "audio" | "video";
+  contentTypes: string[];
   source: string | null;
   resolution: number;
 };
 
+const DEFAULTS_CONFIG: Record<
+  "ebook" | "audiobook" | "movie" | "tv",
+  { label: string; key: string; fallback: number; unit: string; hint: string }
+> = {
+  ebook: {
+    label: "Default Page Count",
+    key: "format.ebook.defaultPageCount",
+    fallback: 300,
+    unit: "pages",
+    hint: "Used when an edition\u2019s page count is unavailable",
+  },
+  audiobook: {
+    label: "Default Audio Duration",
+    key: "format.audiobook.defaultDuration",
+    fallback: 600,
+    unit: "minutes",
+    hint: "Used when an edition\u2019s audio duration is unavailable",
+  },
+  movie: {
+    label: "Default Runtime",
+    key: "format.movie.defaultRuntime",
+    fallback: 130,
+    unit: "minutes",
+    hint: "Used when a movie\u2019s runtime is unavailable",
+  },
+  tv: {
+    label: "Default Episode Runtime",
+    key: "format.tv.defaultEpisodeRuntime",
+    fallback: 45,
+    unit: "minutes",
+    hint: "Used when an episode\u2019s runtime is unavailable",
+  },
+};
+
 function DefaultsSection({
-  type,
-  defaultPageCount,
-  defaultAudioDuration,
+  contentType,
+  settingsMap,
   onUpdate,
 }: {
-  type: "ebook" | "audio";
-  defaultPageCount: number;
-  defaultAudioDuration: number;
+  contentType: "ebook" | "audiobook" | "movie" | "tv";
+  settingsMap: Record<string, unknown>;
   onUpdate: (key: string, value: number) => void;
 }) {
-  if (type === "ebook") {
-    return (
-      <div className="mb-4 rounded-lg border bg-muted/30 p-4">
-        <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
-        <div className="flex items-center gap-3">
-          <Label
-            htmlFor="defaultPageCount"
-            className="text-sm text-muted-foreground"
-          >
-            Default Page Count
-          </Label>
-          <Input
-            id="defaultPageCount"
-            type="number"
-            className="w-20 h-8"
-            defaultValue={defaultPageCount}
-            onBlur={(e) => {
-              const val = Number(e.target.value);
-              if (val > 0 && val !== defaultPageCount) {
-                onUpdate("format.defaultPageCount", val);
-              }
-            }}
-          />
-          <span className="text-xs text-muted-foreground">pages</span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Used when an edition&apos;s page count is unavailable
-        </p>
-      </div>
-    );
-  }
+  const cfg = DEFAULTS_CONFIG[contentType];
+  const currentValue = Number(settingsMap[cfg.key] ?? cfg.fallback);
 
-  // type === "audio"
-  const hours = Math.round((defaultAudioDuration / 60) * 10) / 10;
   return (
     <div className="mb-4 rounded-lg border bg-muted/30 p-4">
       <h4 className="text-sm font-medium mb-2">Size Calculation Defaults</h4>
       <div className="flex items-center gap-3">
         <Label
-          htmlFor="defaultAudioDuration"
+          htmlFor={`default-${contentType}`}
           className="text-sm text-muted-foreground"
         >
-          Default Audio Duration
+          {cfg.label}
         </Label>
         <Input
-          id="defaultAudioDuration"
+          id={`default-${contentType}`}
           type="number"
           className="w-20 h-8"
-          defaultValue={defaultAudioDuration}
+          defaultValue={currentValue}
           onBlur={(e) => {
             const val = Number(e.target.value);
-            if (val > 0 && val !== defaultAudioDuration) {
-              onUpdate("format.defaultAudioDuration", val);
+            if (val > 0 && val !== currentValue) {
+              onUpdate(cfg.key, val);
             }
           }}
         />
-        <span className="text-xs text-muted-foreground">
-          minutes ({hours} hours)
-        </span>
+        <span className="text-xs text-muted-foreground">{cfg.unit}</span>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">
-        Used when an edition&apos;s audio duration is unavailable
-      </p>
+      <p className="text-xs text-muted-foreground mt-1">{cfg.hint}</p>
     </div>
   );
 }
+
+type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook";
 
 function FormatsPage() {
   const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
 
   const { data: settingsMap } = useSuspenseQuery(settingsMapQuery());
   const queryClient = useQueryClient();
-
-  const defaultPageCount = Number(
-    settingsMap["format.defaultPageCount"] ?? 300,
-  );
-  const defaultAudioDuration = Number(
-    settingsMap["format.defaultAudioDuration"] ?? 600,
-  );
 
   const handleUpdateSetting = async (key: string, value: number) => {
     await updateSettingFn({ data: { key, value } });
@@ -152,26 +144,25 @@ function FormatsPage() {
   const updateDefinition = useUpdateDownloadFormat();
   const deleteDefinition = useDeleteDownloadFormat();
 
-  const [activeTab, setActiveTab] = useState<"ebook" | "audio" | "video">(
-    "ebook",
-  );
+  const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [defDialogOpen, setDefDialogOpen] = useState(false);
   const [editingDef, setEditingDef] = useState<
     (typeof definitions)[number] | undefined
   >(undefined);
 
-  const ebookFormats = useMemo(
-    () => definitions.filter((d) => d.type === "ebook"),
-    [definitions],
-  );
-  const audioFormats = useMemo(
-    () => definitions.filter((d) => d.type === "audio"),
-    [definitions],
-  );
-  const videoFormats = useMemo(
-    () => definitions.filter((d) => d.type === "video"),
-    [definitions],
-  );
+  const filteredFormats = useMemo(() => {
+    if (activeTab === "all") {
+      return definitions;
+    }
+    return definitions.filter((d) => d.contentTypes.includes(activeTab));
+  }, [definitions, activeTab]);
+
+  const dialogContentTypes = useMemo(() => {
+    if (editingDef) {
+      return editingDef.contentTypes;
+    }
+    return activeTab === "all" ? ["ebook"] : [activeTab];
+  }, [editingDef, activeTab]);
 
   const defLoading = createDefinition.isPending || updateDefinition.isPending;
 
@@ -220,42 +211,25 @@ function FormatsPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "ebook" | "audio" | "video")}
+        onValueChange={(v) => setActiveTab(v as TabValue)}
       >
         <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="movie">Movie</TabsTrigger>
+          <TabsTrigger value="tv">TV</TabsTrigger>
           <TabsTrigger value="ebook">Ebook</TabsTrigger>
-          <TabsTrigger value="audio">Audio</TabsTrigger>
-          <TabsTrigger value="video">Video</TabsTrigger>
+          <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
         </TabsList>
-        <TabsContent value="ebook">
-          <DefaultsSection
-            type="ebook"
-            defaultPageCount={defaultPageCount}
-            defaultAudioDuration={defaultAudioDuration}
-            onUpdate={handleUpdateSetting}
-          />
+        <TabsContent value={activeTab}>
+          {activeTab !== "all" && (
+            <DefaultsSection
+              contentType={activeTab}
+              settingsMap={settingsMap}
+              onUpdate={handleUpdateSetting}
+            />
+          )}
           <DownloadFormatList
-            definitions={ebookFormats}
-            onEdit={handleEditDef}
-            onDelete={(id) => deleteDefinition.mutate(id)}
-          />
-        </TabsContent>
-        <TabsContent value="audio">
-          <DefaultsSection
-            type="audio"
-            defaultPageCount={defaultPageCount}
-            defaultAudioDuration={defaultAudioDuration}
-            onUpdate={handleUpdateSetting}
-          />
-          <DownloadFormatList
-            definitions={audioFormats}
-            onEdit={handleEditDef}
-            onDelete={(id) => deleteDefinition.mutate(id)}
-          />
-        </TabsContent>
-        <TabsContent value="video">
-          <DownloadFormatList
-            definitions={videoFormats}
+            definitions={filteredFormats}
             onEdit={handleEditDef}
             onDelete={(id) => deleteDefinition.mutate(id)}
           />
@@ -270,7 +244,7 @@ function FormatsPage() {
             </DialogTitle>
           </DialogHeader>
           <DownloadFormatForm
-            type={activeTab}
+            defaultContentTypes={dialogContentTypes}
             initialValues={
               editingDef
                 ? {
@@ -282,7 +256,7 @@ function FormatsPage() {
                     preferredSize: editingDef.preferredSize ?? 0,
                     noMaxLimit: editingDef.noMaxLimit ?? 0,
                     noPreferredLimit: editingDef.noPreferredLimit ?? 0,
-                    type: editingDef.type as "ebook" | "audio" | "video",
+                    contentTypes: editingDef.contentTypes,
                     source: editingDef.source ?? null,
                     resolution: editingDef.resolution ?? 0,
                   }
