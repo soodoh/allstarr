@@ -8,7 +8,10 @@ export const downloadFormats = sqliteTable("download_formats", {
   maxSize: real("max_size"),
   preferredSize: real("preferred_size"),
   color: text("color").notNull().default("gray"),
-  type: text("type").notNull().default("ebook"),
+  contentTypes: text("content_types", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(["ebook"]),
   source: text("source"),
   resolution: integer("resolution").notNull().default(0),
   noMaxLimit: integer("no_max_limit").notNull().default(0),
