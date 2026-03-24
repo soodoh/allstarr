@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1774331917847,
-      "tag": "0000_concerned_fabian_cortez",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1774377080126,
-      "tag": "0001_nervous_black_panther",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1774380915323,
-      "tag": "0002_slim_black_knight",
+      "when": 1774387382823,
+      "tag": "0000_deep_morlun",
       "breakpoints": true
     }
   ]
