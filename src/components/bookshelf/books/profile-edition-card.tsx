@@ -26,7 +26,7 @@ type ProfileEditionCardProps = {
     id: number;
     name: string;
     icon: string;
-    mediaType: "ebook" | "audio";
+    contentType: "ebook" | "audiobook";
   };
   edition: EditionData | null;
   onChooseEdition: () => void;

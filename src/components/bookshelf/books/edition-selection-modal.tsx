@@ -24,7 +24,7 @@ type EditionSelectionModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bookId: number;
-  profile: { id: number; name: string; mediaType: "ebook" | "audio" };
+  profile: { id: number; name: string; contentType: "ebook" | "audiobook" };
   currentEditionId?: number;
   onConfirm: (editionId: number) => void;
   isPending: boolean;
@@ -91,7 +91,10 @@ export default function EditionSelectionModal({
   const rows: BookTableRow[] = useMemo(() => {
     const items = formatFilterOn
       ? allItems.filter((item) =>
-          matchesProfileFormat(item.format, profile.mediaType),
+          matchesProfileFormat(
+            item.format,
+            profile.contentType === "audiobook" ? "audio" : "ebook",
+          ),
         )
       : allItems;
 
@@ -121,7 +124,7 @@ export default function EditionSelectionModal({
       monitored: item.downloadProfileIds.length > 0,
       downloadProfileIds: item.downloadProfileIds,
     }));
-  }, [allItems, formatFilterOn, profile.mediaType]);
+  }, [allItems, formatFilterOn, profile.contentType]);
 
   // Infinite scroll observer
   const handleObserver = useCallback(

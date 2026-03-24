@@ -14,7 +14,7 @@ type DownloadProfile = {
   id: number;
   name: string;
   icon: string;
-  mediaType: string;
+  contentType: string;
   language: string;
 };
 
@@ -26,7 +26,7 @@ type ProfileType = {
   id: number;
   name: string;
   icon: string;
-  mediaType: "ebook" | "audio";
+  contentType: "ebook" | "audiobook";
 };
 
 export default function EditionsTab({
@@ -92,7 +92,7 @@ export default function EditionsTab({
                 id: profile.id,
                 name: profile.name,
                 icon: profile.icon,
-                mediaType: profile.mediaType as "ebook" | "audio",
+                contentType: profile.contentType as "ebook" | "audiobook",
               }}
               edition={edition}
               onChooseEdition={() =>
@@ -100,7 +100,7 @@ export default function EditionsTab({
                   id: profile.id,
                   name: profile.name,
                   icon: profile.icon,
-                  mediaType: profile.mediaType as "ebook" | "audio",
+                  contentType: profile.contentType as "ebook" | "audiobook",
                 })
               }
               onUnmonitor={() =>
@@ -108,7 +108,7 @@ export default function EditionsTab({
                   id: profile.id,
                   name: profile.name,
                   icon: profile.icon,
-                  mediaType: profile.mediaType as "ebook" | "audio",
+                  contentType: profile.contentType as "ebook" | "audiobook",
                 })
               }
             />

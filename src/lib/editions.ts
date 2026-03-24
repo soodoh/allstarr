@@ -77,14 +77,16 @@ function byPopularity(
  */
 export function pickBestEditionForProfile<T extends ProfilePickableEdition>(
   editions: T[],
-  profile: { language: string; mediaType: "ebook" | "audio" },
+  profile: { language: string; contentType: "ebook" | "audiobook" },
 ): T | undefined {
   if (editions.length === 0) {
     return undefined;
   }
 
+  const profileMediaType =
+    profile.contentType === "audiobook" ? "audio" : "ebook";
   const formatMatched = editions.filter((e) =>
-    matchesProfileFormat(e.format, profile.mediaType),
+    matchesProfileFormat(e.format, profileMediaType),
   );
 
   const pick = (candidates: T[]): T | undefined => {
