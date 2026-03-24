@@ -196,9 +196,44 @@ No longer return `monitored` boolean. The `downloadProfileIds` array already con
 5. Drop `movies.monitored` column
 6. Drop `seasons.monitored` column
 
-### Unmonitor Dialog Reuse
+### Unmonitor Dialog
 
-The existing `UnmonitorDialog` component from the books feature should be reused for episodes, seasons, and show-level unmonitoring. It already handles the confirmation + file deletion pattern.
+The existing `UnmonitorDialog` (`src/components/bookshelf/books/unmonitor-dialog.tsx`) is book-specific (props: `bookTitle`, `fileCount`, copy references "editions" and "this book"). Generalize it into a shared component that accepts:
+
+- `itemTitle: string` — the entity name (book title, episode title, season label, movie title)
+- `profileName: string` — the profile being unmonitored
+- `fileCount: number` — number of files that could be deleted
+- `itemType: "book" | "episode" | "season" | "show" | "movie"` — for contextual copy
+- `onConfirm: (deleteFiles: boolean) => void`
+
+The copy should adapt: "This will stop searching for {itemType} {itemTitle} for {profileName}" with the file deletion checkbox when `fileCount > 0`.
+
+### `applyMonitoringOption` — Update
+
+The existing `applyMonitoringOption` function in `src/server/shows.ts` sets `episodes.monitored` to true/false based on a preset option (all, future, missing, existing, pilot, firstSeason, lastSeason, none). Under the new model, this function must insert/delete rows in `episodeDownloadProfiles` instead of flipping a boolean:
+
+- Determine which episodes match the option (same logic as today)
+- For matched episodes, insert rows in `episodeDownloadProfiles` for each of the show's assigned download profiles
+- For non-matched episodes, ensure no rows exist in `episodeDownloadProfiles`
+
+This is called during `addShowFn` when a show is first added. The show's `downloadProfileIds` are known at that point since they're passed alongside the monitoring option.
+
+### Edge Case: All Profiles Removed via Edit Modal
+
+When a user removes ALL download profiles from a movie or show via the Edit dialog:
+
+- All `movieDownloadProfiles` / `showDownloadProfiles` rows are deleted (existing behavior)
+- For shows: all `episodeDownloadProfiles` rows are also deleted (cascade from show profile removal)
+- No `ProfileToggleIcons` are rendered (nothing to show)
+- The entity is effectively unmonitored
+- To re-monitor, the user must use the Edit button to assign profiles again, at which point icons reappear
+
+This matches the book/author pattern: if an author has no profiles, books show no toggle icons.
+
+## Out of Scope
+
+- **Show/movie list pages**: The `getShowsFn` and `getMoviesFn` list queries currently select `shows.monitored` / `movies.monitored`. After removing these columns, the list views will need updating too. This is a follow-up task, not part of this spec.
+- **Bulk bars**: The show and movie bulk action bars reference `monitored` toggles. These will need updating in a follow-up.
 
 ## Toggle Behavior Matrix
 
