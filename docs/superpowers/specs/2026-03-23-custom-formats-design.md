@@ -56,6 +56,12 @@ Change `items` from `number[]` to `number[][]`. Each inner array is a **group** 
 
 Formats within the same group are considered equal quality. Custom Format scores break ties within a group. Between groups, the ordering always wins regardless of CF score.
 
+#### Cutoff semantics with grouped items
+
+The existing `cutoff` field stores a format ID. With grouped items, **reaching any format within the same group as the cutoff format satisfies the cutoff**. This is consistent with the grouping concept: if formats are grouped as equivalent quality, reaching any of them means you've reached that quality level.
+
+Example: if `cutoff: 5` and format 5 is in group `[5, 6]`, then having either format 5 or format 6 satisfies the cutoff. The `getProfileWeight()` function must be updated to return group-level weights rather than individual format positions -- all formats in the same group return the same weight (the group's index in the outer array).
+
 #### New fields
 
 | Column                          | Type    | Default | Description                                    |
@@ -65,28 +71,30 @@ Formats within the same group are considered equal quality. Custom Format scores
 
 ### New: `custom_formats` table
 
-| Column              | Type           | Description                                                  |
-| ------------------- | -------------- | ------------------------------------------------------------ |
-| `id`                | integer PK     | Auto-increment                                               |
-| `name`              | text           | Display name (e.g., "TrueHD ATMOS", "LQ Groups")             |
-| `category`          | text           | Organizational category (see Category List below)            |
-| `specifications`    | JSON           | Array of matching conditions (see Specification Types)       |
-| `defaultScore`      | integer        | Out-of-the-box score for this CF                             |
-| `contentTypes`      | JSON           | Array of applicable content types: `["movie", "tv", "book"]` |
-| `includeInRenaming` | boolean        | Whether matched CF name appears in file renaming             |
-| `description`       | text, nullable | Plain-english explanation of what this CF does               |
-| `source`            | text, nullable | `"builtin"`, `"imported"`, or null for user-created          |
-| `enabled`           | boolean        | Whether this CF is active                                    |
+| Column              | Type           | Description                                                        |
+| ------------------- | -------------- | ------------------------------------------------------------------ |
+| `id`                | integer PK     | Auto-increment                                                     |
+| `name`              | text           | Display name (e.g., "TrueHD ATMOS", "LQ Groups")                   |
+| `category`          | text           | Organizational category (see Category List below)                  |
+| `specifications`    | JSON           | Array of matching conditions (see Specification Types)             |
+| `defaultScore`      | integer        | Out-of-the-box score for this CF                                   |
+| `contentTypes`      | JSON           | Array of applicable types: `["movie", "tv", "ebook", "audiobook"]` |
+| `includeInRenaming` | boolean        | Whether matched CF name appears in file renaming                   |
+| `description`       | text, nullable | Plain-english explanation of what this CF does                     |
+| `origin`            | text, nullable | `"builtin"`, `"imported"`, or null for user-created                |
+| `userModified`      | boolean        | `false` by default; set to `true` when user edits a builtin CF     |
+| `enabled`           | boolean        | Whether this CF is active                                          |
 
 ### New: `profile_custom_formats` join table
 
-| Column           | Type       | Description                       |
-| ---------------- | ---------- | --------------------------------- |
-| `profileId`      | integer FK | References `download_profiles.id` |
-| `customFormatId` | integer FK | References `custom_formats.id`    |
-| `score`          | integer    | Score for this CF in this profile |
+| Column           | Type       | Description                                                 |
+| ---------------- | ---------- | ----------------------------------------------------------- |
+| `id`             | integer PK | Auto-increment (matches project convention for join tables) |
+| `profileId`      | integer FK | References `download_profiles.id`, cascade delete           |
+| `customFormatId` | integer FK | References `custom_formats.id`, cascade delete              |
+| `score`          | integer    | Score for this CF in this profile                           |
 
-Unique constraint on `(profileId, customFormatId)`.
+Unique constraint on `(profileId, customFormatId)`. Index on `customFormatId` for reverse lookups (find all profiles using a CF).
 
 A CF only affects a profile if a row exists in this table. New profiles start empty. Presets populate this table.
 
@@ -94,24 +102,26 @@ A CF only affects a profile if a row exists in this table. New profiles start em
 
 Categories are fixed strings used for UI organization, not a separate table:
 
-| Category            | Content Types | Examples                                  |
-| ------------------- | ------------- | ----------------------------------------- |
-| `Audio Codec`       | movie, tv     | TrueHD ATMOS, DTS-X, DTS-HD MA, FLAC, AAC |
-| `Audio Channels`    | movie, tv     | 7.1 Surround, 5.1 Surround, 2.0 Stereo    |
-| `Video Codec`       | movie, tv     | x265/HEVC, x264, AV1                      |
-| `HDR`               | movie, tv     | Dolby Vision, HDR10+, HDR10, HLG          |
-| `Resolution`        | movie, tv     | 2160p, 1080p, 720p                        |
-| `Source`            | movie, tv     | Bluray, WEBDL, WEBRip, HDTV               |
-| `Quality Modifier`  | movie, tv     | Remux, BR-DISK, Screener                  |
-| `Streaming Service` | movie, tv     | AMZN, NF, ATVP, DSNP, HMAX                |
-| `Release Group`     | all           | Tiered release group reputation lists     |
-| `Edition`           | movie         | Extended, Director's Cut, IMAX, Criterion |
-| `Release Type`      | tv            | Season Pack, Multi-Episode                |
-| `Unwanted`          | all           | LQ Groups, BR-DISK, 3D, Upscaled          |
-| `Language`          | all           | Language preferences and penalties        |
-| `File Format`       | book          | EPUB preference, PDF penalty, etc.        |
-| `Audiobook Quality` | book          | Bitrate, narrator, duration criteria      |
-| `Publisher`         | book          | Publisher/imprint preferences             |
+The `contentTypes` field uses four values that collapse the existing `contentType` + `mediaType` two-axis model into a single list: `movie`, `tv`, `ebook`, `audiobook`. Mapping: movie = contentType:movie+mediaType:video, tv = contentType:tv+mediaType:video, ebook = contentType:book+mediaType:ebook, audiobook = contentType:book+mediaType:audio.
+
+| Category            | Content Types    | Examples                                  |
+| ------------------- | ---------------- | ----------------------------------------- |
+| `Audio Codec`       | movie, tv        | TrueHD ATMOS, DTS-X, DTS-HD MA, FLAC, AAC |
+| `Audio Channels`    | movie, tv        | 7.1 Surround, 5.1 Surround, 2.0 Stereo    |
+| `Video Codec`       | movie, tv        | x265/HEVC, x264, AV1                      |
+| `HDR`               | movie, tv        | Dolby Vision, HDR10+, HDR10, HLG          |
+| `Resolution`        | movie, tv        | 2160p, 1080p, 720p                        |
+| `Source`            | movie, tv        | Bluray, WEBDL, WEBRip, HDTV               |
+| `Quality Modifier`  | movie, tv        | Remux, BR-DISK, Screener                  |
+| `Streaming Service` | movie, tv        | AMZN, NF, ATVP, DSNP, HMAX                |
+| `Release Group`     | all              | Tiered release group reputation lists     |
+| `Edition`           | movie            | Extended, Director's Cut, IMAX, Criterion |
+| `Release Type`      | tv               | Season Pack, Multi-Episode                |
+| `Unwanted`          | all              | LQ Groups, BR-DISK, 3D, Upscaled          |
+| `Language`          | all              | Language preferences and penalties        |
+| `File Format`       | ebook            | EPUB preference, PDF penalty, etc.        |
+| `Audiobook Quality` | audiobook        | Bitrate, narrator, duration criteria      |
+| `Publisher`         | ebook, audiobook | Publisher/imprint preferences             |
 
 ## Specification Types
 
@@ -121,8 +131,8 @@ Each custom format contains a `specifications` array. Each specification:
 type Specification = {
   name: string; // Display name for this condition
   type: SpecificationType; // Condition type (see below)
-  value: string; // Primary value (regex, enum, etc.)
-  min?: number; // For range types
+  value?: string; // Primary value (regex, enum, etc.) -- omitted for range-only types
+  min?: number; // For range types (size, audioBitrate, audioDuration, year)
   max?: number; // For range types
   negate: boolean; // Invert the match
   required: boolean; // AND logic (true) vs OR logic (false)
@@ -152,18 +162,19 @@ Follows Sonarr/Radarr's AND/OR model:
 
 ### Video types (movies, TV, anime)
 
-| Type               | Matches Against             | Value Type   | Example                                       |
-| ------------------ | --------------------------- | ------------ | --------------------------------------------- |
-| `videoSource`      | Media source                | enum string  | `webdl`, `webrip`, `bluray`, `hdtv`           |
-| `resolution`       | Video resolution            | enum string  | `r2160p`, `r1080p`, `r720p`                   |
-| `qualityModifier`  | Quality modifier flags      | enum string  | `remux`, `brdisk`, `screener`                 |
-| `edition`          | Regex on edition info       | regex string | `\b(Extended\|Director)\b`                    |
-| `videoCodec`       | Regex on codec info         | regex string | `\b(x265\|HEVC)\b`                            |
-| `audioCodec`       | Regex on audio codec        | regex string | `\b(TrueHD\|DTS-HD)\b`                        |
-| `audioChannels`    | Channel layout              | enum string  | `7.1`, `5.1`, `2.0`                           |
-| `hdrFormat`        | HDR metadata format         | enum string  | `dolbyvision`, `hdr10plus`, `hdr10`, `hlg`    |
-| `streamingService` | Streaming platform          | enum string  | `amzn`, `nf`, `atvp`, `dsnp`                  |
-| `releaseType`      | Episode packaging (TV only) | enum string  | `singleEpisode`, `multiEpisode`, `seasonPack` |
+| Type               | Matches Against             | Value Type      | Example                                       |
+| ------------------ | --------------------------- | --------------- | --------------------------------------------- |
+| `videoSource`      | Media source                | enum string     | `webdl`, `webrip`, `bluray`, `hdtv`           |
+| `resolution`       | Video resolution            | enum string     | `r2160p`, `r1080p`, `r720p`                   |
+| `qualityModifier`  | Quality modifier flags      | enum string     | `remux`, `brdisk`, `screener`                 |
+| `edition`          | Regex on edition info       | regex string    | `\b(Extended\|Director)\b`                    |
+| `videoCodec`       | Regex on codec info         | regex string    | `\b(x265\|HEVC)\b`                            |
+| `audioCodec`       | Regex on audio codec        | regex string    | `\b(TrueHD\|DTS-HD)\b`                        |
+| `audioChannels`    | Channel layout              | enum string     | `7.1`, `5.1`, `2.0`                           |
+| `hdrFormat`        | HDR metadata format         | enum string     | `dolbyvision`, `hdr10plus`, `hdr10`, `hlg`    |
+| `streamingService` | Streaming platform          | enum string     | `amzn`, `nf`, `atvp`, `dsnp`                  |
+| `releaseType`      | Episode packaging (TV only) | enum string     | `singleEpisode`, `multiEpisode`, `seasonPack` |
+| `year`             | Release year                | min/max numbers | `{min: 2000, max: 2026}`                      |
 
 ### Book/Audiobook types
 
@@ -198,7 +209,7 @@ When a release is evaluated:
 
 ### Upgrade flow
 
-1. **Initial grab**: Release must meet minimum quality tier AND `minCustomFormatScore`. First qualifying release is grabbed.
+1. **Initial grab**: Release must meet minimum quality tier AND `minCustomFormatScore`. First qualifying release is grabbed. Note: if a profile has no CFs assigned, all releases score 0. Since `minCustomFormatScore` defaults to 0, this is safe. The UI should warn if a user sets `minCustomFormatScore > 0` with no CFs assigned.
 2. **Upgrade evaluation**: A new release replaces the current one if:
    - It's in a higher quality tier group, OR
    - It's in the same tier group with a higher CF score
@@ -229,7 +240,7 @@ A preset is a packaged bundle that populates a profile:
 - Suggested quality tier grouping and ordering
 - Suggested `minCustomFormatScore` and `upgradeUntilCustomFormatScore` values
 
-Presets ship with the app as seed data. CFs created by presets are tagged `source: "builtin"`. Presets can be updated with app releases (only updating CFs that haven't been user-modified).
+Presets ship with the app as seed data. CFs created by presets are tagged `origin: "builtin"`. Presets can be updated with app releases -- the `userModified` flag on `custom_formats` tracks whether a user has edited a builtin CF. App updates only overwrite CFs where `userModified` is false. Preset score assignments in `profile_custom_formats` are never auto-updated after initial application (users own their profile scores).
 
 #### Preset categories
 
@@ -257,7 +268,7 @@ Custom formats and profile scoring configs can be exported as JSON:
     {
       "name": "TrueHD ATMOS",
       "category": "Audio Codec",
-      "contentTypes": ["movie", "tv"],
+      "contentTypes": ["movie", "tv", "ebook", "audiobook"],
       "defaultScore": 500,
       "specifications": [
         {
@@ -290,7 +301,7 @@ Custom formats and profile scoring configs can be exported as JSON:
 
 - CFs matched by name. If a CF with the same name exists, user is prompted to: skip, overwrite, or import as copy
 - Profile scores are applied to the selected profile
-- TRaSH Guide JSON files can be imported directly: the system maps their specification structure to Allstarr's spec types. One-time import, not live sync.
+- TRaSH Guide JSON files can be imported directly: the system maps their specification structure to Allstarr's spec types (e.g., TRaSH `implementation` field maps to Allstarr `type`, TRaSH `fields.value` maps to Allstarr `value`). One-time import, not live sync. Detailed field mapping will be defined during implementation; unknown spec types are skipped with a warning shown to the user.
 
 ## UI Changes
 
@@ -302,9 +313,9 @@ Each CF shown as a card or row with:
 
 - Name
 - Category badge
-- Content type badges (book/tv/movie)
+- Content type badges (movie/tv/ebook/audiobook)
 - Default score
-- Source badge (builtin/imported/custom)
+- Origin badge (builtin/imported/custom)
 - Enabled toggle
 
 Actions: create new, edit, delete, duplicate, import, bulk export.
@@ -313,7 +324,7 @@ Actions: create new, edit, delete, duplicate, import, bulk export.
 
 - Name input
 - Category dropdown
-- Content types multi-select (book/tv/movie)
+- Content types multi-select (movie/tv/ebook/audiobook)
 - Default score input with scoring convention ranges shown as helper text
 - Description field
 - Include in renaming toggle
@@ -362,12 +373,12 @@ Not in initial scope, but worth noting: when viewing a book/movie/show detail pa
 1. Add `custom_formats` and `profile_custom_formats` tables
 2. Add `minCustomFormatScore` and `upgradeUntilCustomFormatScore` columns to `download_profiles` (default 0, backward compatible)
 3. Convert `download_profiles.items` from `number[]` to `number[][]` (each existing item becomes a single-element group: `[1, 2, 3]` becomes `[[1], [2], [3]]`)
-4. Migrate existing `download_formats.specifications` data into new `custom_formats` entries where applicable
+4. Migrate existing `download_formats.specifications` data into new `custom_formats` entries where applicable. Existing specifications lack a `name` field -- auto-generate names from `type + value` (e.g., a releaseTitle spec with value `\b(ATMOS)\b` becomes "releaseTitle: ATMOS")
 5. Remove `specifications` column from `download_formats`
 
 ### Seed data
 
-Seed built-in presets and their associated custom formats during migration. Tag all seeded CFs with `source: "builtin"`.
+Seed built-in presets and their associated custom formats during migration. Tag all seeded CFs with `origin: "builtin"` and `userModified: false`.
 
 ### Backward compatibility
 
