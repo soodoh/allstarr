@@ -30,7 +30,6 @@ import PresetSelector from "./preset-selector";
 type CFScoreSectionProps = {
   profileId?: number;
   contentType: string;
-  mediaType: string;
   minCustomFormatScore: number;
   upgradeUntilCustomFormatScore: number;
   onMinScoreChange: (score: number) => void;
@@ -48,23 +47,6 @@ type CFRow = {
   defaultScore: number;
   score: number;
 };
-
-/** Map profile contentType+mediaType to CF contentType */
-function getCFContentType(contentType: string, mediaType: string): string {
-  if (contentType === "movie") {
-    return "movie";
-  }
-  if (contentType === "tv") {
-    return "tv";
-  }
-  if (contentType === "book" && mediaType === "ebook") {
-    return "ebook";
-  }
-  if (contentType === "book" && mediaType === "audio") {
-    return "audiobook";
-  }
-  return "ebook";
-}
 
 function CFSearchDropdown({
   allCFs,
@@ -280,7 +262,6 @@ function CategoryDropdown({
 export default function CFScoreSection({
   profileId,
   contentType,
-  mediaType,
   minCustomFormatScore,
   upgradeUntilCustomFormatScore,
   onMinScoreChange,
@@ -288,8 +269,6 @@ export default function CFScoreSection({
   localScores,
   onLocalScoresChange,
 }: CFScoreSectionProps): JSX.Element {
-  const cfContentType = getCFContentType(contentType, mediaType);
-
   // Load all custom formats
   const { data: allCustomFormats } = useSuspenseQuery(customFormatsListQuery());
 
@@ -308,10 +287,9 @@ export default function CFScoreSection({
   const filteredCFs = useMemo(() => {
     return allCustomFormats.filter(
       (cf) =>
-        Array.isArray(cf.contentTypes) &&
-        cf.contentTypes.includes(cfContentType),
+        Array.isArray(cf.contentTypes) && cf.contentTypes.includes(contentType),
     );
-  }, [allCustomFormats, cfContentType]);
+  }, [allCustomFormats, contentType]);
 
   // Build rows from either server data (existing profile) or local state (new profile)
   const rows: CFRow[] = useMemo(() => {

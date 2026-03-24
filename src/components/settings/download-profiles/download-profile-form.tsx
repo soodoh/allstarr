@@ -49,13 +49,16 @@ type DownloadProfileFormProps = {
     items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
-    mediaType: string;
     contentType: string;
     language: string;
     minCustomFormatScore: number;
     upgradeUntilCustomFormatScore: number;
   };
-  downloadFormats: Array<{ id: number; title: string; type: string }>;
+  downloadFormats: Array<{
+    id: number;
+    title: string;
+    contentTypes: string[];
+  }>;
   serverCwd: string;
   onSubmit: (values: {
     name: string;
@@ -65,7 +68,6 @@ type DownloadProfileFormProps = {
     items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
-    mediaType: string;
     contentType: string;
     language: string;
     minCustomFormatScore: number;
@@ -80,7 +82,6 @@ type DownloadProfileFormProps = {
       items: number[][];
       upgradeAllowed: boolean;
       categories: number[];
-      mediaType: string;
       contentType: string;
       language: string;
       minCustomFormatScore: number;
@@ -98,7 +99,7 @@ function FormatSearchDropdown({
   selectedIds,
   onAdd,
 }: {
-  downloadFormats: Array<{ id: number; title: string; type: string }>;
+  downloadFormats: Array<{ id: number; title: string; contentTypes: string[] }>;
   selectedIds: number[];
   onAdd: (id: number) => void;
 }): JSX.Element {
@@ -245,7 +246,6 @@ type ProfileDefaults = {
   upgradeAllowed: boolean;
   cutoff: number;
   categories: number[];
-  mediaType: string;
   contentType: string;
   language: string;
   minCustomFormatScore: number;
@@ -259,8 +259,7 @@ const PROFILE_DEFAULTS: ProfileDefaults = {
   upgradeAllowed: false,
   cutoff: 0,
   categories: [],
-  mediaType: "ebook",
-  contentType: "book",
+  contentType: "ebook",
   language: "en",
   minCustomFormatScore: 0,
   upgradeUntilCustomFormatScore: 0,
@@ -279,7 +278,6 @@ function getDefaults(
     upgradeAllowed: initialValues.upgradeAllowed,
     cutoff: initialValues.cutoff,
     categories: initialValues.categories,
-    mediaType: initialValues.mediaType,
     contentType: initialValues.contentType,
     language: initialValues.language,
     minCustomFormatScore: initialValues.minCustomFormatScore,
@@ -315,7 +313,7 @@ function UpgradeSection({
   upgradeAllowed: boolean;
   cutoff: number;
   items: number[][];
-  downloadFormats: Array<{ id: number; title: string; type: string }>;
+  downloadFormats: Array<{ id: number; title: string; contentTypes: string[] }>;
   errors: Record<string, string>;
   onUpgradeChange: (v: boolean) => void;
   onCutoffChange: (v: string) => void;
@@ -376,7 +374,7 @@ function QualitiesSection({
   onItemsChange,
   onRemoveFormat,
 }: {
-  downloadFormats: Array<{ id: number; title: string; type: string }>;
+  downloadFormats: Array<{ id: number; title: string; contentTypes: string[] }>;
   items: number[][];
   cutoff: number;
   upgradeAllowed: boolean;
@@ -460,23 +458,17 @@ function IconSelect({
   );
 }
 
-function ContentMediaSection({
+function ContentTypeSection({
   contentType,
-  mediaType,
   language,
   onContentTypeChange,
-  onMediaTypeChange,
   onLanguageChange,
 }: {
   contentType: string;
-  mediaType: string;
   language: string;
   onContentTypeChange: (v: string) => void;
-  onMediaTypeChange: (v: string) => void;
   onLanguageChange: (v: string) => void;
 }): JSX.Element {
-  const isBookContent = contentType === "book";
-
   return (
     <>
       <div className="space-y-2">
@@ -486,39 +478,12 @@ function ContentMediaSection({
             <SelectValue placeholder="Select content type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="book">Book</SelectItem>
-            <SelectItem value="tv">TV</SelectItem>
+            <SelectItem value="ebook">Ebook</SelectItem>
+            <SelectItem value="audiobook">Audiobook</SelectItem>
             <SelectItem value="movie">Movie</SelectItem>
+            <SelectItem value="tv">TV</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="profile-media-type">Media Type</Label>
-        <Select
-          value={mediaType}
-          onValueChange={onMediaTypeChange}
-          disabled={!isBookContent}
-        >
-          <SelectTrigger id="profile-media-type" className="w-full">
-            <SelectValue placeholder="Select media type" />
-          </SelectTrigger>
-          <SelectContent>
-            {isBookContent ? (
-              <>
-                <SelectItem value="ebook">Ebook</SelectItem>
-                <SelectItem value="audio">Audio</SelectItem>
-              </>
-            ) : (
-              <SelectItem value="video">Video</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-        {!isBookContent && (
-          <p className="text-xs text-muted-foreground">
-            Media type is fixed to Video for TV and Movie content.
-          </p>
-        )}
       </div>
 
       <div className="space-y-2">
@@ -599,7 +564,6 @@ export default function DownloadProfileForm({
   const [upgradeAllowed, setUpgradeAllowed] = useState(defaults.upgradeAllowed);
   const [cutoff, setCutoff] = useState(defaults.cutoff);
   const [categories, setCategories] = useState<number[]>(defaults.categories);
-  const [mediaType, setMediaType] = useState(defaults.mediaType);
   const [contentType, setContentType] = useState(defaults.contentType);
   const [language, setLanguage] = useState(defaults.language);
   const [minCustomFormatScore, setMinCustomFormatScore] = useState(
@@ -620,8 +584,8 @@ export default function DownloadProfileForm({
   >(null);
 
   const filteredFormats = useMemo(
-    () => downloadFormats.filter((d) => d.type === mediaType),
-    [downloadFormats, mediaType],
+    () => downloadFormats.filter((d) => d.contentTypes.includes(contentType)),
+    [downloadFormats, contentType],
   );
 
   const [items, setItems] = useState<number[][]>(() =>
@@ -630,28 +594,10 @@ export default function DownloadProfileForm({
 
   const handleContentTypeChange = (newContentType: string) => {
     setContentType(newContentType);
-    let newMediaType: string;
-    if (newContentType === "tv" || newContentType === "movie") {
-      newMediaType = "video";
-    } else {
-      newMediaType = "ebook";
-    }
-    setMediaType(newMediaType);
     const validIds = new Set(
-      downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
-    );
-    setItems((prev) =>
-      prev
-        .map((group) => group.filter((id) => validIds.has(id)))
-        .filter((group) => group.length > 0),
-    );
-    setCutoff(0);
-  };
-
-  const handleMediaTypeChange = (newMediaType: string) => {
-    setMediaType(newMediaType);
-    const validIds = new Set(
-      downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
+      downloadFormats
+        .filter((d) => d.contentTypes.includes(newContentType))
+        .map((d) => d.id),
     );
     setItems((prev) =>
       prev
@@ -693,7 +639,6 @@ export default function DownloadProfileForm({
       items,
       upgradeAllowed,
       categories,
-      mediaType,
       contentType,
       language,
       minCustomFormatScore,
@@ -781,12 +726,10 @@ export default function DownloadProfileForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <ContentMediaSection
+        <ContentTypeSection
           contentType={contentType}
-          mediaType={mediaType}
           language={language}
           onContentTypeChange={handleContentTypeChange}
-          onMediaTypeChange={handleMediaTypeChange}
           onLanguageChange={setLanguage}
         />
 
@@ -844,7 +787,6 @@ export default function DownloadProfileForm({
         <CFScoreSection
           profileId={initialValues?.id}
           contentType={contentType}
-          mediaType={mediaType}
           minCustomFormatScore={minCustomFormatScore}
           upgradeUntilCustomFormatScore={upgradeUntilCustomFormatScore}
           onMinScoreChange={setMinCustomFormatScore}
