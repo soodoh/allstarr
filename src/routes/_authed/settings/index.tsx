@@ -1,15 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  Settings,
-  Sliders,
-  FileType,
-  Download,
-  HardDrive,
-  Radar,
-  FileText,
-  ListFilter,
-} from "lucide-react";
-import {
   Card,
   CardDescription,
   CardHeader,
@@ -17,65 +7,11 @@ import {
   CardContent,
 } from "src/components/ui/card";
 import PageHeader from "src/components/shared/page-header";
+import { settingsNavItems } from "src/lib/nav-config";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
 });
-
-const settingsItems = [
-  {
-    title: "General",
-    to: "/settings/general" as const,
-    icon: Settings,
-    description: "Configure log levels, API key, and global app behavior.",
-  },
-  {
-    title: "Media Management",
-    to: "/settings/media-management" as const,
-    icon: HardDrive,
-    description:
-      "Configure book naming, file import behavior, permissions, and recycling bin.",
-  },
-  {
-    title: "Metadata",
-    to: "/settings/metadata" as const,
-    icon: FileText,
-    description: "Configure language preferences and book import filters.",
-  },
-  {
-    title: "Formats",
-    to: "/settings/formats" as const,
-    icon: FileType,
-    description:
-      "Define format types like EPUB, MOBI, PDF and their matching rules.",
-  },
-  {
-    title: "Custom Formats",
-    to: "/settings/custom-formats" as const,
-    icon: ListFilter,
-    description: "Custom scoring rules for release quality and preferences.",
-  },
-  {
-    title: "Profiles",
-    to: "/settings/profiles" as const,
-    icon: Sliders,
-    description: "Configure format preferences and upgrade rules per author.",
-  },
-  {
-    title: "Download Clients",
-    to: "/settings/download-clients" as const,
-    icon: Download,
-    description:
-      "Connect download clients (e.g. qBittorrent, SABnzbd) used to grab books.",
-  },
-  {
-    title: "Indexers",
-    to: "/settings/indexers" as const,
-    icon: Radar,
-    description:
-      "Configure Usenet or torrent indexers used to search for book releases.",
-  },
-];
 
 function SettingsPage() {
   return (
@@ -86,7 +22,7 @@ function SettingsPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {settingsItems.map((item) => (
+        {settingsNavItems.map((item) => (
           <Link key={item.title} to={item.to}>
             <Card className="h-full transition-colors hover:border-primary hover:bg-accent/50 cursor-pointer">
               <CardHeader>
