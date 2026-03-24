@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import EmptyState from "src/components/shared/empty-state";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import { tmdbSearchMoviesQuery } from "src/lib/queries/tmdb";
 import { movieExistenceQuery } from "src/lib/queries/movies";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
@@ -62,31 +63,38 @@ function MoviePreviewModal({
     enabled: open,
   });
 
-  const movieProfiles = allProfiles.filter(
-    (p) => p.contentType === "movie" && p.enabled,
+  const movieProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "movie" && p.enabled),
+    [allProfiles],
   );
 
-  const [downloadProfileId, setDownloadProfileId] = useState<string>("");
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [minimumAvailability, setMinimumAvailability] =
     useState<string>("released");
 
-  // Auto-select first profile when profiles load
+  // Auto-select all profiles when profiles load
   useEffect(() => {
-    if (movieProfiles.length > 0 && !downloadProfileId) {
-      setDownloadProfileId(String(movieProfiles[0].id));
+    if (movieProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(movieProfiles.map((p) => p.id));
     }
-  }, [movieProfiles, downloadProfileId]);
+  }, [movieProfiles, downloadProfileIds.length]);
+
+  const toggleProfile = (id: number) => {
+    setDownloadProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
 
   const year = extractYear(movie.release_date);
 
   const handleAdd = () => {
-    if (!downloadProfileId) {
+    if (downloadProfileIds.length === 0) {
       return;
     }
     addMovie.mutate(
       {
         tmdbId: movie.id,
-        downloadProfileId: Number(downloadProfileId),
+        downloadProfileIds,
         minimumAvailability: minimumAvailability as
           | "announced"
           | "inCinemas"
@@ -167,31 +175,11 @@ function MoviePreviewModal({
           {/* Add form */}
           {!alreadyExists && (
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-              <div className="space-y-2">
-                <Label>Download Profile</Label>
-                {movieProfiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No movie download profiles available. Create one in
-                    Settings.
-                  </p>
-                ) : (
-                  <Select
-                    value={downloadProfileId}
-                    onValueChange={setDownloadProfileId}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {movieProfiles.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+              <ProfileCheckboxGroup
+                profiles={movieProfiles}
+                selectedIds={downloadProfileIds}
+                onToggle={toggleProfile}
+              />
 
               <div className="space-y-2">
                 <Label>Minimum Availability</Label>
@@ -214,7 +202,7 @@ function MoviePreviewModal({
                 className="w-full"
                 onClick={handleAdd}
                 disabled={
-                  !downloadProfileId ||
+                  downloadProfileIds.length === 0 ||
                   addMovie.isPending ||
                   movieProfiles.length === 0
                 }

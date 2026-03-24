@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import EmptyState from "src/components/shared/empty-state";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import { tmdbSearchShowsQuery } from "src/lib/queries/tmdb";
 import { showExistenceQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
@@ -81,31 +82,38 @@ function ShowPreviewModal({
     enabled: open,
   });
 
-  const tvProfiles = allProfiles.filter(
-    (p) => p.contentType === "tv" && p.enabled,
+  const tvProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "tv" && p.enabled),
+    [allProfiles],
   );
 
-  const [downloadProfileId, setDownloadProfileId] = useState<string>("");
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [monitorOption, setMonitorOption] = useState<string>("all");
   const [seriesType, setSeriesType] = useState<string>("standard");
 
-  // Auto-select first profile when profiles load
+  // Auto-select all profiles when profiles load
   useEffect(() => {
-    if (tvProfiles.length > 0 && !downloadProfileId) {
-      setDownloadProfileId(String(tvProfiles[0].id));
+    if (tvProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(tvProfiles.map((p) => p.id));
     }
-  }, [tvProfiles, downloadProfileId]);
+  }, [tvProfiles, downloadProfileIds.length]);
+
+  const toggleProfile = (id: number) => {
+    setDownloadProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
 
   const year = extractYear(show.first_air_date);
 
   const handleAdd = () => {
-    if (!downloadProfileId) {
+    if (downloadProfileIds.length === 0) {
       return;
     }
     addShow.mutate(
       {
         tmdbId: show.id,
-        downloadProfileId: Number(downloadProfileId),
+        downloadProfileIds,
         monitorOption: monitorOption as
           | "all"
           | "future"
@@ -196,30 +204,11 @@ function ShowPreviewModal({
           {/* Add form */}
           {!alreadyExists && (
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-              <div className="space-y-2">
-                <Label>Download Profile</Label>
-                {tvProfiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No TV download profiles available. Create one in Settings.
-                  </p>
-                ) : (
-                  <Select
-                    value={downloadProfileId}
-                    onValueChange={setDownloadProfileId}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tvProfiles.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+              <ProfileCheckboxGroup
+                profiles={tvProfiles}
+                selectedIds={downloadProfileIds}
+                onToggle={toggleProfile}
+              />
 
               <div className="space-y-2">
                 <Label>Monitoring</Label>
@@ -257,7 +246,7 @@ function ShowPreviewModal({
                 className="w-full"
                 onClick={handleAdd}
                 disabled={
-                  !downloadProfileId ||
+                  downloadProfileIds.length === 0 ||
                   addShow.isPending ||
                   tvProfiles.length === 0
                 }
