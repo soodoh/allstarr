@@ -56,15 +56,29 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
   const unit = sliderUnit(def.type);
   const updateDef = useUpdateDownloadFormat();
 
+  const noLimitMax = !def.maxSize;
+  const noLimitPreferred = !def.preferredSize;
+
   const [values, setValues] = useState<[number, number, number]>([
     def.minSize ?? 0,
-    def.preferredSize ?? 0,
-    def.maxSize ?? 0,
+    noLimitPreferred ? maxRange : def.preferredSize!,
+    noLimitMax ? maxRange : def.maxSize!,
   ]);
 
   useEffect(() => {
-    setValues([def.minSize ?? 0, def.preferredSize ?? 0, def.maxSize ?? 0]);
-  }, [def.minSize, def.preferredSize, def.maxSize]);
+    setValues([
+      def.minSize ?? 0,
+      noLimitPreferred ? maxRange : def.preferredSize!,
+      noLimitMax ? maxRange : def.maxSize!,
+    ]);
+  }, [
+    def.minSize,
+    def.preferredSize,
+    def.maxSize,
+    maxRange,
+    noLimitPreferred,
+    noLimitMax,
+  ]);
 
   const handleChange = useCallback((newValues: number[]) => {
     setValues(newValues as [number, number, number]);
@@ -79,14 +93,14 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
         weight: def.weight,
         color: def.color,
         minSize: min,
-        preferredSize: preferred,
-        maxSize: max,
+        preferredSize: preferred >= maxRange ? 0 : preferred,
+        maxSize: max >= maxRange ? 0 : max,
         type: def.type as "ebook" | "audio" | "video",
         source: def.source ?? null,
         resolution: def.resolution ?? 0,
       });
     },
-    [def, updateDef],
+    [def, updateDef, maxRange],
   );
 
   if ((def.maxSize ?? 0) === 0 && def.title.startsWith("Unknown")) {
@@ -109,7 +123,7 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
           className="flex-1"
         />
         <span className="text-xs text-muted-foreground w-16 tabular-nums">
-          {values[2]} {unit}
+          {values[2] >= maxRange ? "∞" : values[2]} {unit}
         </span>
       </div>
       <ExampleSizes def={def} />
