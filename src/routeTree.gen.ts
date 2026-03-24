@@ -22,6 +22,7 @@ import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/i
 import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
 import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/events'
@@ -111,6 +112,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedTvAddRoute = AuthedTvAddRouteImport.update({
+  id: '/tv/add',
+  path: '/tv/add',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSystemTasksRoute = AuthedSystemTasksRouteImport.update({
   id: '/system/tasks',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
+  '/tv/add': typeof AuthedTvAddRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity/': typeof AuthedActivityIndexRoute
   '/bookshelf/': typeof AuthedBookshelfIndexRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
+  '/tv/add': typeof AuthedTvAddRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity': typeof AuthedActivityIndexRoute
   '/bookshelf': typeof AuthedBookshelfIndexRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/_authed/system/events': typeof AuthedSystemEventsRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/_authed/system/tasks': typeof AuthedSystemTasksRoute
+  '/_authed/tv/add': typeof AuthedTvAddRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
@@ -387,6 +396,7 @@ export interface FileRouteTypes {
     | '/system/events'
     | '/system/status'
     | '/system/tasks'
+    | '/tv/add'
     | '/api/auth/$'
     | '/activity/'
     | '/bookshelf/'
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/system/events'
     | '/system/status'
     | '/system/tasks'
+    | '/tv/add'
     | '/api/auth/$'
     | '/activity'
     | '/bookshelf'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/_authed/system/events'
     | '/_authed/system/status'
     | '/_authed/system/tasks'
+    | '/_authed/tv/add'
     | '/api/auth/$'
     | '/_authed/activity/'
     | '/_authed/bookshelf/'
@@ -590,6 +602,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/tv/add': {
+      id: '/_authed/tv/add'
+      path: '/tv/add'
+      fullPath: '/tv/add'
+      preLoaderRoute: typeof AuthedTvAddRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/system/tasks': {
       id: '/_authed/system/tasks'
@@ -787,6 +806,7 @@ interface AuthedRouteChildren {
   AuthedSystemEventsRoute: typeof AuthedSystemEventsRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
+  AuthedTvAddRoute: typeof AuthedTvAddRoute
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
@@ -817,6 +837,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSystemEventsRoute: AuthedSystemEventsRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
+  AuthedTvAddRoute: AuthedTvAddRoute,
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
