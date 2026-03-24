@@ -145,7 +145,7 @@ function ProfilesPage() {
       </div>
 
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProfile ? "Edit Profile" : "Add Profile"}
