@@ -15,6 +15,13 @@
       "when": 1774377080126,
       "tag": "0001_nervous_black_panther",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774380915323,
+      "tag": "0002_slim_black_knight",
+      "breakpoints": true
     }
   ]
 }
