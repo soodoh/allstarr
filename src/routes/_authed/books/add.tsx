@@ -23,7 +23,7 @@ import type {
 } from "src/server/search";
 import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
-export const Route = createFileRoute("/_authed/bookshelf/add")({
+export const Route = createFileRoute("/_authed/books/add")({
   component: AddToBookshelfPage,
 });
 

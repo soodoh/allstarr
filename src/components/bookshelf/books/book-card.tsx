@@ -34,7 +34,7 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
       className="block cursor-pointer w-full text-left group"
       onClick={() =>
         navigate({
-          to: "/bookshelf/books/$bookId",
+          to: "/books/$bookId",
           params: { bookId: String(book.id) },
         })
       }

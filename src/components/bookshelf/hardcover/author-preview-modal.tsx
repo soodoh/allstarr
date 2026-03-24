@@ -243,7 +243,7 @@ export default function AuthorPreviewModal({
           <div className="flex items-center gap-2 pt-1">
             <Button variant="secondary" className="flex-1" asChild>
               <Link
-                to="/bookshelf/authors/$authorId"
+                to="/authors/$authorId"
                 params={{ authorId: String(existingAuthor?.id ?? "") }}
                 onClick={() => onOpenChange(false)}
               >

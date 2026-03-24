@@ -19,7 +19,7 @@ import {
 } from "src/hooks/mutations";
 import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 
-export const Route = createFileRoute("/_authed/bookshelf/books/")({
+export const Route = createFileRoute("/_authed/books/")({
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),

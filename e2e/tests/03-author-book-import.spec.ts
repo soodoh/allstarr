@@ -210,7 +210,7 @@ test.describe("Author and Book Import", () => {
   });
 
   test("search Hardcover for authors and books", async ({ page, appUrl }) => {
-    await navigateTo(page, appUrl, "/bookshelf/add");
+    await navigateTo(page, appUrl, "/books/add");
 
     // Type search query
     const searchInput = page.getByLabel("Search query");
@@ -229,7 +229,7 @@ test.describe("Author and Book Import", () => {
   });
 
   test("view author preview modal", async ({ page, appUrl }) => {
-    await navigateTo(page, appUrl, "/bookshelf/add");
+    await navigateTo(page, appUrl, "/books/add");
 
     const searchInput = page.getByLabel("Search query");
     await searchInput.fill("Brandon Sanderson");
@@ -257,7 +257,7 @@ test.describe("Author and Book Import", () => {
   });
 
   test("import author to bookshelf", async ({ page, appUrl }) => {
-    await navigateTo(page, appUrl, "/bookshelf/add");
+    await navigateTo(page, appUrl, "/books/add");
 
     const searchInput = page.getByLabel("Search query");
     await searchInput.fill("Brandon Sanderson");
@@ -292,7 +292,7 @@ test.describe("Author and Book Import", () => {
     await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 10_000 });
 
     // Navigate to bookshelf to verify author was added
-    await navigateTo(page, appUrl, "/bookshelf/authors");
+    await navigateTo(page, appUrl, "/authors");
     await expect(page.getByText("Brandon Sanderson")).toBeVisible({
       timeout: 10_000,
     });
@@ -304,7 +304,7 @@ test.describe("Author and Book Import", () => {
     db,
   }) => {
     // Import the author first
-    await navigateTo(page, appUrl, "/bookshelf/add");
+    await navigateTo(page, appUrl, "/books/add");
     const searchInput = page.getByLabel("Search query");
     await searchInput.fill("Brandon Sanderson");
     await page.getByRole("button", { name: /search/i }).click();
@@ -337,7 +337,7 @@ test.describe("Author and Book Import", () => {
   });
 
   test("import single book", async ({ page, appUrl }) => {
-    await navigateTo(page, appUrl, "/bookshelf/add");
+    await navigateTo(page, appUrl, "/books/add");
 
     // Switch to Books tab
     await page.getByRole("tab", { name: "Books" }).click();
@@ -369,7 +369,7 @@ test.describe("Author and Book Import", () => {
     const book = seedBook(db, author.id, { title: "Browse Book" });
     seedEdition(db, book.id);
 
-    await navigateTo(page, appUrl, "/bookshelf/authors");
+    await navigateTo(page, appUrl, "/authors");
 
     // Should see the author
     await expect(page.getByText("Test Browse Author")).toBeVisible({
@@ -398,7 +398,7 @@ test.describe("Author and Book Import", () => {
       .values({ editionId: edition.id, downloadProfileId: profile.id })
       .run();
 
-    await navigateTo(page, appUrl, "/bookshelf/books");
+    await navigateTo(page, appUrl, "/books");
 
     // Should see books/editions
     await expect(page.getByText("Books Page Book").first()).toBeVisible({
@@ -420,7 +420,7 @@ test.describe("Author and Book Import", () => {
       pageCount: 500,
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${book.id}`);
+    await navigateTo(page, appUrl, `/books/${book.id}`);
 
     // Should show the book title
     await expect(page.getByText("Detail Test Book")).toBeVisible({
@@ -446,7 +446,7 @@ test.describe("Author and Book Import", () => {
     const author = seedAuthor(db, { name: "Editable Author" });
     seedBook(db, author.id, { title: "Editable Book" });
 
-    await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
+    await navigateTo(page, appUrl, `/authors/${author.id}`);
 
     // Should see the author name
     await expect(page.getByText("Editable Author")).toBeVisible({
@@ -475,7 +475,7 @@ test.describe("Author and Book Import", () => {
     const { seedAuthor } = await import("../fixtures/seed-data");
     const author = seedAuthor(db, { name: "Profile Assignment Author" });
 
-    await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
+    await navigateTo(page, appUrl, `/authors/${author.id}`);
 
     await expect(page.getByText("Profile Assignment Author")).toBeVisible({
       timeout: 10_000,
@@ -527,7 +527,7 @@ test.describe("Author and Book Import", () => {
       })
       .run();
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${book.id}`);
+    await navigateTo(page, appUrl, `/books/${book.id}`);
 
     // Should see the book
     await expect(page.getByText("Edition Toggle Book")).toBeVisible({
@@ -548,7 +548,7 @@ test.describe("Author and Book Import", () => {
     const author = seedAuthor(db, { name: "Author To Delete" });
     seedBook(db, author.id, { title: "Book To Delete" });
 
-    await navigateTo(page, appUrl, `/bookshelf/authors/${author.id}`);
+    await navigateTo(page, appUrl, `/authors/${author.id}`);
 
     await expect(page.getByText("Author To Delete")).toBeVisible({
       timeout: 10_000,
@@ -563,7 +563,7 @@ test.describe("Author and Book Import", () => {
     await page.getByRole("button", { name: "Confirm" }).click();
 
     // Should redirect to authors list
-    await page.waitForURL(/\/bookshelf\/authors/, { timeout: 10_000 });
+    await page.waitForURL(/\/authors/, { timeout: 10_000 });
 
     // Author should no longer appear
     await expect(page.getByText("Author To Delete")).not.toBeVisible({

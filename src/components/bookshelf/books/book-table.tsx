@@ -141,7 +141,7 @@ export default function BookTable({
       renderLeadingCell={renderLeadingCell}
       onRowClick={(row) =>
         navigate({
-          to: "/bookshelf/books/$bookId",
+          to: "/books/$bookId",
           params: { bookId: String(row.bookId) },
         })
       }

@@ -146,7 +146,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: TORRENT_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
 
     // Click Search Releases tab
     await page.getByRole("tab", { name: "Search Releases" }).click();
@@ -175,7 +175,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: TORRENT_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for table to load
@@ -204,7 +204,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: [TORRENT_RELEASES[0]] }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for the release to appear
@@ -276,7 +276,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: USENET_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     await expect(
@@ -319,7 +319,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: TORRENT_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for results from both indexers
@@ -354,7 +354,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: TORRENT_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for results to load
@@ -397,7 +397,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: TORRENT_RELEASES }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     // Wait for results from both manual + synced indexers
@@ -438,7 +438,7 @@ test.describe("Search and Grab", () => {
       body: JSON.stringify({ releases: [TORRENT_RELEASES[0]] }),
     });
 
-    await navigateTo(page, appUrl, `/bookshelf/books/${bookId}`);
+    await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
 
     await expect(

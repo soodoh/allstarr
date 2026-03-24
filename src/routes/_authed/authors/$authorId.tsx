@@ -98,7 +98,7 @@ import type { MetadataProfile } from "src/server/metadata-profile";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export const Route = createFileRoute("/_authed/bookshelf/authors/$authorId")({
+export const Route = createFileRoute("/_authed/authors/$authorId")({
   loader: async ({ params, context }) => {
     const id = Number(params.authorId);
     if (!Number.isFinite(id) || id <= 0) {
@@ -473,7 +473,7 @@ function BooksTab({
           currentAuthorId={currentAuthorId}
           onRowClick={(row) =>
             navigate({
-              to: "/bookshelf/books/$bookId",
+              to: "/books/$bookId",
               params: { bookId: String(row.bookId) },
             })
           }
@@ -977,7 +977,7 @@ function SeriesTab({
                             className="cursor-pointer"
                             onClick={() =>
                               navigate({
-                                to: "/bookshelf/books/$bookId",
+                                to: "/books/$bookId",
                                 params: { bookId: String(book.id) },
                               })
                             }
@@ -1352,7 +1352,7 @@ function AuthorDetailPage() {
 
   const handleDelete = () => {
     deleteAuthor.mutate(author.id, {
-      onSuccess: () => navigate({ to: "/bookshelf/authors" }),
+      onSuccess: () => navigate({ to: "/authors" }),
     });
   };
 
@@ -1366,7 +1366,7 @@ function AuthorDetailPage() {
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/bookshelf/authors">
+          <Link to="/authors">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Authors
           </Link>

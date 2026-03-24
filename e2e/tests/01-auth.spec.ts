@@ -61,7 +61,7 @@ test.describe("Auth", () => {
   });
 
   test("unauthenticated redirect to login", async ({ page, appUrl }) => {
-    await page.goto(`${appUrl}/bookshelf`);
+    await page.goto(`${appUrl}/books`);
     await page.waitForLoadState("load");
     await expect(page).toHaveURL(/\/login/);
   });
@@ -80,7 +80,7 @@ test.describe("Auth", () => {
     await ensureAuthenticated(page, appUrl);
 
     await page.context().clearCookies();
-    await page.goto(`${appUrl}/bookshelf`);
+    await page.goto(`${appUrl}/books`);
     await page.waitForLoadState("load");
     await expect(page).toHaveURL(/\/login/);
   });

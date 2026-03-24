@@ -14,7 +14,7 @@ import {
 } from "src/components/shared/loading-skeleton";
 import { authorsInfiniteQuery } from "src/lib/queries";
 
-export const Route = createFileRoute("/_authed/bookshelf/authors/")({
+export const Route = createFileRoute("/_authed/authors/")({
   loader: ({ context }) =>
     context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
   component: AuthorsPage,

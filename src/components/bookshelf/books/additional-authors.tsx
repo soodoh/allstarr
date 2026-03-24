@@ -33,7 +33,7 @@ function AuthorEntry({
   if (entry.authorId && !isCurrent) {
     return (
       <Link
-        to="/bookshelf/authors/$authorId"
+        to="/authors/$authorId"
         params={{ authorId: String(entry.authorId) }}
         className="hover:underline"
         onClick={(e) => e.stopPropagation()}

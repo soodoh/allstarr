@@ -19,7 +19,8 @@ import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
-import { Route as AuthedBookshelfIndexRouteImport } from './routes/_authed/bookshelf/index'
+import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
+import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedTvCalendarRouteImport } from './routes/_authed/tv/calendar'
@@ -38,19 +39,17 @@ import { Route as AuthedSettingsCustomFormatsRouteImport } from './routes/_authe
 import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
 import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
-import { Route as AuthedBookshelfAddRouteImport } from './routes/_authed/bookshelf/add'
+import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
+import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
+import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
 import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
 import { Route as AuthedActivityBlocklistRouteImport } from './routes/_authed/activity/blocklist'
 import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
-import { Route as AuthedBookshelfBooksIndexRouteImport } from './routes/_authed/bookshelf/books/index'
-import { Route as AuthedBookshelfAuthorsIndexRouteImport } from './routes/_authed/bookshelf/authors/index'
 import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
 import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
 import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
 import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
 import { Route as AuthedTvSeriesShowIdRouteImport } from './routes/_authed/tv/series/$showId'
-import { Route as AuthedBookshelfBooksBookIdRouteImport } from './routes/_authed/bookshelf/books/$bookId'
-import { Route as AuthedBookshelfAuthorsAuthorIdRouteImport } from './routes/_authed/bookshelf/authors/$authorId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -101,9 +100,14 @@ const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
   path: '/movies/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBookshelfIndexRoute = AuthedBookshelfIndexRouteImport.update({
-  id: '/bookshelf/',
-  path: '/bookshelf/',
+const AuthedBooksIndexRoute = AuthedBooksIndexRouteImport.update({
+  id: '/books/',
+  path: '/books/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAuthorsIndexRoute = AuthedAuthorsIndexRouteImport.update({
+  id: '/authors/',
+  path: '/authors/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedActivityIndexRoute = AuthedActivityIndexRouteImport.update({
@@ -199,9 +203,19 @@ const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
   path: '/movies/$movieId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBookshelfAddRoute = AuthedBookshelfAddRouteImport.update({
-  id: '/bookshelf/add',
-  path: '/bookshelf/add',
+const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
+  id: '/books/add',
+  path: '/books/add',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedBooksBookIdRoute = AuthedBooksBookIdRouteImport.update({
+  id: '/books/$bookId',
+  path: '/books/$bookId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAuthorsAuthorIdRoute = AuthedAuthorsAuthorIdRouteImport.update({
+  id: '/authors/$authorId',
+  path: '/authors/$authorId',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedActivityHistoryRoute = AuthedActivityHistoryRouteImport.update({
@@ -219,18 +233,6 @@ const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
   path: '/api/v1/indexer/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedBookshelfBooksIndexRoute =
-  AuthedBookshelfBooksIndexRouteImport.update({
-    id: '/bookshelf/books/',
-    path: '/bookshelf/books/',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedBookshelfAuthorsIndexRoute =
-  AuthedBookshelfAuthorsIndexRouteImport.update({
-    id: '/bookshelf/authors/',
-    path: '/bookshelf/authors/',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const ApiV1SystemStatusRoute = ApiV1SystemStatusRouteImport.update({
   id: '/api/v1/system/status',
   path: '/api/v1/system/status',
@@ -256,18 +258,6 @@ const AuthedTvSeriesShowIdRoute = AuthedTvSeriesShowIdRouteImport.update({
   path: '/tv/series/$showId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBookshelfBooksBookIdRoute =
-  AuthedBookshelfBooksBookIdRouteImport.update({
-    id: '/bookshelf/books/$bookId',
-    path: '/bookshelf/books/$bookId',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedBookshelfAuthorsAuthorIdRoute =
-  AuthedBookshelfAuthorsAuthorIdRouteImport.update({
-    id: '/bookshelf/authors/$authorId',
-    path: '/bookshelf/authors/$authorId',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -277,7 +267,9 @@ export interface FileRoutesByFullPath {
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
-  '/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
+  '/books/$bookId': typeof AuthedBooksBookIdRoute
+  '/books/add': typeof AuthedBooksAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -296,20 +288,17 @@ export interface FileRoutesByFullPath {
   '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity/': typeof AuthedActivityIndexRoute
-  '/bookshelf/': typeof AuthedBookshelfIndexRoute
+  '/authors/': typeof AuthedAuthorsIndexRoute
+  '/books/': typeof AuthedBooksIndexRoute
   '/movies/': typeof AuthedMoviesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
   '/tv/': typeof AuthedTvIndexRoute
-  '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
-  '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
-  '/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesByTo {
@@ -320,7 +309,9 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
-  '/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
+  '/books/$bookId': typeof AuthedBooksBookIdRoute
+  '/books/add': typeof AuthedBooksAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -339,20 +330,17 @@ export interface FileRoutesByTo {
   '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/activity': typeof AuthedActivityIndexRoute
-  '/bookshelf': typeof AuthedBookshelfIndexRoute
+  '/authors': typeof AuthedAuthorsIndexRoute
+  '/books': typeof AuthedBooksIndexRoute
   '/movies': typeof AuthedMoviesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
   '/tv': typeof AuthedTvIndexRoute
-  '/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
-  '/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/bookshelf/authors': typeof AuthedBookshelfAuthorsIndexRoute
-  '/bookshelf/books': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRoutesById {
@@ -365,7 +353,9 @@ export interface FileRoutesById {
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/_authed/activity/history': typeof AuthedActivityHistoryRoute
-  '/_authed/bookshelf/add': typeof AuthedBookshelfAddRoute
+  '/_authed/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
+  '/_authed/books/$bookId': typeof AuthedBooksBookIdRoute
+  '/_authed/books/add': typeof AuthedBooksAddRoute
   '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
   '/_authed/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -384,20 +374,17 @@ export interface FileRoutesById {
   '/_authed/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/activity/': typeof AuthedActivityIndexRoute
-  '/_authed/bookshelf/': typeof AuthedBookshelfIndexRoute
+  '/_authed/authors/': typeof AuthedAuthorsIndexRoute
+  '/_authed/books/': typeof AuthedBooksIndexRoute
   '/_authed/movies/': typeof AuthedMoviesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
   '/_authed/tv/': typeof AuthedTvIndexRoute
-  '/_authed/bookshelf/authors/$authorId': typeof AuthedBookshelfAuthorsAuthorIdRoute
-  '/_authed/bookshelf/books/$bookId': typeof AuthedBookshelfBooksBookIdRoute
   '/_authed/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
   '/api/v1/indexer/test': typeof ApiV1IndexerTestRoute
   '/api/v1/system/status': typeof ApiV1SystemStatusRoute
-  '/_authed/bookshelf/authors/': typeof AuthedBookshelfAuthorsIndexRoute
-  '/_authed/bookshelf/books/': typeof AuthedBookshelfBooksIndexRoute
   '/api/v1/indexer/': typeof ApiV1IndexerIndexRoute
 }
 export interface FileRouteTypes {
@@ -410,7 +397,9 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/activity/blocklist'
     | '/activity/history'
-    | '/bookshelf/add'
+    | '/authors/$authorId'
+    | '/books/$bookId'
+    | '/books/add'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -429,20 +418,17 @@ export interface FileRouteTypes {
     | '/tv/calendar'
     | '/api/auth/$'
     | '/activity/'
-    | '/bookshelf/'
+    | '/authors/'
+    | '/books/'
     | '/movies/'
     | '/settings/'
     | '/system/'
     | '/tv/'
-    | '/bookshelf/authors/$authorId'
-    | '/bookshelf/books/$bookId'
     | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/bookshelf/authors/'
-    | '/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -453,7 +439,9 @@ export interface FileRouteTypes {
     | '/'
     | '/activity/blocklist'
     | '/activity/history'
-    | '/bookshelf/add'
+    | '/authors/$authorId'
+    | '/books/$bookId'
+    | '/books/add'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -472,20 +460,17 @@ export interface FileRouteTypes {
     | '/tv/calendar'
     | '/api/auth/$'
     | '/activity'
-    | '/bookshelf'
+    | '/authors'
+    | '/books'
     | '/movies'
     | '/settings'
     | '/system'
     | '/tv'
-    | '/bookshelf/authors/$authorId'
-    | '/bookshelf/books/$bookId'
     | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/bookshelf/authors'
-    | '/bookshelf/books'
     | '/api/v1/indexer'
   id:
     | '__root__'
@@ -497,7 +482,9 @@ export interface FileRouteTypes {
     | '/_authed/'
     | '/_authed/activity/blocklist'
     | '/_authed/activity/history'
-    | '/_authed/bookshelf/add'
+    | '/_authed/authors/$authorId'
+    | '/_authed/books/$bookId'
+    | '/_authed/books/add'
     | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
     | '/_authed/movies/calendar'
@@ -516,20 +503,17 @@ export interface FileRouteTypes {
     | '/_authed/tv/calendar'
     | '/api/auth/$'
     | '/_authed/activity/'
-    | '/_authed/bookshelf/'
+    | '/_authed/authors/'
+    | '/_authed/books/'
     | '/_authed/movies/'
     | '/_authed/settings/'
     | '/_authed/system/'
     | '/_authed/tv/'
-    | '/_authed/bookshelf/authors/$authorId'
-    | '/_authed/bookshelf/books/$bookId'
     | '/_authed/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
     | '/api/v1/indexer/test'
     | '/api/v1/system/status'
-    | '/_authed/bookshelf/authors/'
-    | '/_authed/bookshelf/books/'
     | '/api/v1/indexer/'
   fileRoutesById: FileRoutesById
 }
@@ -619,11 +603,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/bookshelf/': {
-      id: '/_authed/bookshelf/'
-      path: '/bookshelf'
-      fullPath: '/bookshelf/'
-      preLoaderRoute: typeof AuthedBookshelfIndexRouteImport
+    '/_authed/books/': {
+      id: '/_authed/books/'
+      path: '/books'
+      fullPath: '/books/'
+      preLoaderRoute: typeof AuthedBooksIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/authors/': {
+      id: '/_authed/authors/'
+      path: '/authors'
+      fullPath: '/authors/'
+      preLoaderRoute: typeof AuthedAuthorsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/activity/': {
@@ -752,11 +743,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/bookshelf/add': {
-      id: '/_authed/bookshelf/add'
-      path: '/bookshelf/add'
-      fullPath: '/bookshelf/add'
-      preLoaderRoute: typeof AuthedBookshelfAddRouteImport
+    '/_authed/books/add': {
+      id: '/_authed/books/add'
+      path: '/books/add'
+      fullPath: '/books/add'
+      preLoaderRoute: typeof AuthedBooksAddRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/books/$bookId': {
+      id: '/_authed/books/$bookId'
+      path: '/books/$bookId'
+      fullPath: '/books/$bookId'
+      preLoaderRoute: typeof AuthedBooksBookIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/authors/$authorId': {
+      id: '/_authed/authors/$authorId'
+      path: '/authors/$authorId'
+      fullPath: '/authors/$authorId'
+      preLoaderRoute: typeof AuthedAuthorsAuthorIdRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/activity/history': {
@@ -779,20 +784,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/v1/indexer/'
       preLoaderRoute: typeof ApiV1IndexerIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authed/bookshelf/books/': {
-      id: '/_authed/bookshelf/books/'
-      path: '/bookshelf/books'
-      fullPath: '/bookshelf/books/'
-      preLoaderRoute: typeof AuthedBookshelfBooksIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/bookshelf/authors/': {
-      id: '/_authed/bookshelf/authors/'
-      path: '/bookshelf/authors'
-      fullPath: '/bookshelf/authors/'
-      preLoaderRoute: typeof AuthedBookshelfAuthorsIndexRouteImport
-      parentRoute: typeof AuthedRoute
     }
     '/api/v1/system/status': {
       id: '/api/v1/system/status'
@@ -829,20 +820,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTvSeriesShowIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/bookshelf/books/$bookId': {
-      id: '/_authed/bookshelf/books/$bookId'
-      path: '/bookshelf/books/$bookId'
-      fullPath: '/bookshelf/books/$bookId'
-      preLoaderRoute: typeof AuthedBookshelfBooksBookIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/bookshelf/authors/$authorId': {
-      id: '/_authed/bookshelf/authors/$authorId'
-      path: '/bookshelf/authors/$authorId'
-      fullPath: '/bookshelf/authors/$authorId'
-      preLoaderRoute: typeof AuthedBookshelfAuthorsAuthorIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
   }
 }
 
@@ -850,7 +827,9 @@ interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedActivityBlocklistRoute: typeof AuthedActivityBlocklistRoute
   AuthedActivityHistoryRoute: typeof AuthedActivityHistoryRoute
-  AuthedBookshelfAddRoute: typeof AuthedBookshelfAddRoute
+  AuthedAuthorsAuthorIdRoute: typeof AuthedAuthorsAuthorIdRoute
+  AuthedBooksBookIdRoute: typeof AuthedBooksBookIdRoute
+  AuthedBooksAddRoute: typeof AuthedBooksAddRoute
   AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
   AuthedMoviesCalendarRoute: typeof AuthedMoviesCalendarRoute
@@ -868,23 +847,22 @@ interface AuthedRouteChildren {
   AuthedTvAddRoute: typeof AuthedTvAddRoute
   AuthedTvCalendarRoute: typeof AuthedTvCalendarRoute
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
-  AuthedBookshelfIndexRoute: typeof AuthedBookshelfIndexRoute
+  AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
+  AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
   AuthedTvIndexRoute: typeof AuthedTvIndexRoute
-  AuthedBookshelfAuthorsAuthorIdRoute: typeof AuthedBookshelfAuthorsAuthorIdRoute
-  AuthedBookshelfBooksBookIdRoute: typeof AuthedBookshelfBooksBookIdRoute
   AuthedTvSeriesShowIdRoute: typeof AuthedTvSeriesShowIdRoute
-  AuthedBookshelfAuthorsIndexRoute: typeof AuthedBookshelfAuthorsIndexRoute
-  AuthedBookshelfBooksIndexRoute: typeof AuthedBookshelfBooksIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedActivityBlocklistRoute: AuthedActivityBlocklistRoute,
   AuthedActivityHistoryRoute: AuthedActivityHistoryRoute,
-  AuthedBookshelfAddRoute: AuthedBookshelfAddRoute,
+  AuthedAuthorsAuthorIdRoute: AuthedAuthorsAuthorIdRoute,
+  AuthedBooksBookIdRoute: AuthedBooksBookIdRoute,
+  AuthedBooksAddRoute: AuthedBooksAddRoute,
   AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
   AuthedMoviesCalendarRoute: AuthedMoviesCalendarRoute,
@@ -902,16 +880,13 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedTvAddRoute: AuthedTvAddRoute,
   AuthedTvCalendarRoute: AuthedTvCalendarRoute,
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
-  AuthedBookshelfIndexRoute: AuthedBookshelfIndexRoute,
+  AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
+  AuthedBooksIndexRoute: AuthedBooksIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
   AuthedTvIndexRoute: AuthedTvIndexRoute,
-  AuthedBookshelfAuthorsAuthorIdRoute: AuthedBookshelfAuthorsAuthorIdRoute,
-  AuthedBookshelfBooksBookIdRoute: AuthedBookshelfBooksBookIdRoute,
   AuthedTvSeriesShowIdRoute: AuthedTvSeriesShowIdRoute,
-  AuthedBookshelfAuthorsIndexRoute: AuthedBookshelfAuthorsIndexRoute,
-  AuthedBookshelfBooksIndexRoute: AuthedBookshelfBooksIndexRoute,
 }
 
 const AuthedRouteWithChildren =
