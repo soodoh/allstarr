@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import AllstarrIcon from "src/components/icons/allstarr-icon";
 import { queueListQuery } from "src/lib/queries/queue";
 import {
+  BookOpen,
   Users,
   Settings,
   ShieldBan,
@@ -56,6 +57,7 @@ const navGroups: NavGroup[] = [
     children: [
       { title: "Add New", to: "/bookshelf/add", icon: Plus },
       { title: "Authors", to: "/bookshelf/authors", icon: Users },
+      { title: "Books", to: "/bookshelf/books", icon: BookOpen },
     ],
   },
   {
@@ -65,7 +67,7 @@ const navGroups: NavGroup[] = [
     matchPrefixes: ["/tv"],
     children: [
       { title: "Add New", to: "/tv/add", icon: Plus },
-      { title: "Series", to: "/tv", icon: Tv },
+      { title: "Series", to: "/tv/series", icon: Tv },
       { title: "Calendar", to: "/tv/calendar", icon: Calendar },
     ],
   },
