@@ -294,25 +294,6 @@ export function evaluateCF(
   return optionalPass;
 }
 
-// ─── Content type mapping ───────────────────────────────────────────────────
-
-/**
- * Map profile type axes to CF contentTypes vocabulary.
- * Profile has `contentType` (book, movie, show) and `mediaType` (ebook, audiobook).
- * CF contentTypes use: "ebook", "audiobook", "movie", "show", "any".
- */
-export function profileToCFContentType(
-  contentType: string,
-  mediaType: string,
-): string {
-  if (contentType === "book") {
-    // For books, use the mediaType to distinguish ebook vs audiobook
-    return mediaType === "audiobook" ? "audiobook" : "ebook";
-  }
-  // For movies and shows, the contentType maps directly
-  return contentType;
-}
-
 // ─── Main entry point ───────────────────────────────────────────────────────
 
 /**
