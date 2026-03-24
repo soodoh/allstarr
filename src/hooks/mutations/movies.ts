@@ -1,7 +1,12 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { addMovieFn, updateMovieFn, deleteMovieFn } from "src/server/movies";
+import {
+  addMovieFn,
+  updateMovieFn,
+  deleteMovieFn,
+  refreshMovieMetadataFn,
+} from "src/server/movies";
 import { queryKeys } from "src/lib/query-keys";
 import type {
   addMovieSchema,
@@ -49,5 +54,18 @@ export function useDeleteMovie() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete movie"),
+  });
+}
+
+export function useRefreshMovieMetadata() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (movieId: number) =>
+      refreshMovieMetadataFn({ data: { movieId } }),
+    onSuccess: () => {
+      toast.success("Movie metadata updated");
+      queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
+    },
+    onError: () => toast.error("Failed to refresh movie metadata"),
   });
 }
