@@ -45,14 +45,6 @@ type FormatValues = {
   minSize: number;
   maxSize: number | null;
   preferredSize: number | null;
-  specifications: Array<{
-    type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-    value: string;
-    min?: number;
-    max?: number;
-    negate: boolean;
-    required: boolean;
-  }>;
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
@@ -291,20 +283,6 @@ function FormatsPage() {
                     source: editingDef.source ?? null,
                     resolution: editingDef.resolution ?? 0,
                     enabled: editingDef.enabled ?? true,
-                    specifications: Array.isArray(editingDef.specifications)
-                      ? (editingDef.specifications as Array<{
-                          type:
-                            | "releaseTitle"
-                            | "releaseGroup"
-                            | "size"
-                            | "indexerFlag";
-                          value: string;
-                          min?: number;
-                          max?: number;
-                          negate: boolean;
-                          required: boolean;
-                        }>)
-                      : [],
                   }
                 : undefined
             }

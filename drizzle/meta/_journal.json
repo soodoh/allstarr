@@ -99,6 +99,13 @@
       "when": 1774742400000,
       "tag": "0013_migrate_specifications",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1774828800000,
+      "tag": "0014_drop_format_specifications",
+      "breakpoints": true
     }
   ]
 }

@@ -5,21 +5,14 @@ import { computeEffectiveSizes } from "src/lib/format-size-calc";
 import type { EditionMeta } from "src/lib/format-size-calc";
 import { eq } from "drizzle-orm";
 
-type Specification = {
-  type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-  value: string;
-  min?: number;
-  max?: number;
-  negate: boolean;
-  required: boolean;
-};
-
 type CachedDef = {
   id: number;
   name: string;
   weight: number;
   color: string;
-  specs: Specification[];
+  type: string;
+  source: string | null;
+  resolution: number;
 };
 
 let cachedDefs: CachedDef[] | null = null;
@@ -33,31 +26,19 @@ let cachedDefaults: {
   defaultAudioDuration: number;
 } | null = null;
 
-function parseSpecs(raw: unknown): Specification[] {
-  if (Array.isArray(raw)) {
-    return raw as Specification[];
-  }
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as Specification[];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
 function getFormatDefs(): CachedDef[] {
   if (!cachedDefs) {
     const rows = db.select().from(downloadFormats).all();
     cachedDefs = rows
-      .filter((r) => parseSpecs(r.specifications).length > 0)
+      .filter((r) => r.enabled)
       .map((row) => ({
         id: row.id,
         name: row.title,
         weight: row.weight,
         color: row.color,
-        specs: parseSpecs(row.specifications),
+        type: row.type,
+        source: row.source,
+        resolution: row.resolution,
       }))
       // Higher weight = checked first
       .toSorted((a, b) => b.weight - a.weight);
@@ -151,69 +132,75 @@ type ReleaseInfo = {
   indexerFlags: number | null;
 };
 
-function evaluateSpec(spec: Specification, release: ReleaseInfo): boolean {
-  let result = false;
+/**
+ * Match a format definition against a release using quality tier identity.
+ * - For ebook/audio: match format title as a word boundary regex in the release title
+ * - For video: match by source + resolution parsed from the release title
+ */
+function matchDefAgainstRelease(def: CachedDef, release: ReleaseInfo): boolean {
+  const titleLower = release.title.toLowerCase();
 
-  switch (spec.type) {
-    case "releaseTitle": {
-      if (!spec.value) {
-        break;
-      }
-      try {
-        const regex = new RegExp(spec.value, "i");
-        result = regex.test(release.title);
-      } catch {
-        // Invalid regex — treat as no match
-      }
-      break;
+  if (def.type === "video") {
+    // Video: match by source + resolution identity
+    if (def.source && def.resolution > 0) {
+      const sourcePattern = getVideoSourcePattern(def.source);
+      const resPattern = new RegExp(`\\b${def.resolution}p\\b`, "i");
+      return (
+        sourcePattern.test(release.title) && resPattern.test(release.title)
+      );
     }
-    case "releaseGroup": {
-      if (!spec.value) {
-        break;
-      }
-      const group = parseReleaseGroup(release.title);
-      if (!group) {
-        break;
-      }
-      try {
-        const regex = new RegExp(spec.value, "i");
-        result = regex.test(group);
-      } catch {
-        // Invalid regex
-      }
-      break;
+    if (def.source) {
+      return getVideoSourcePattern(def.source).test(release.title);
     }
-    case "size": {
-      const sizeMB = release.size / (1024 * 1024);
-      const min = spec.min ?? 0;
-      const max = spec.max ?? Number.POSITIVE_INFINITY;
-      result = sizeMB >= min && sizeMB <= max;
-      break;
+    if (def.resolution > 0) {
+      return new RegExp(`\\b${def.resolution}p\\b`, "i").test(release.title);
     }
-    case "indexerFlag": {
-      if (
-        release.indexerFlags === null ||
-        release.indexerFlags === undefined ||
-        !spec.value
-      ) {
-        break;
-      }
-      const flagBit = Number(spec.value);
-      if (!Number.isNaN(flagBit)) {
-        // eslint-disable-next-line no-bitwise -- intentional bitwise flag check
-        result = (release.indexerFlags & flagBit) !== 0;
-      }
-      break;
-    }
-    default: {
-      break;
-    }
+    return false;
   }
 
-  return spec.negate ? !result : result;
+  // Ebook/audio: match by format title as a word boundary in the release title
+  // Strip parenthetical suffixes like "(Conservative)" for matching
+  const baseName = def.name.replace(/\s*\(.*?\)\s*$/, "").trim();
+  if (!baseName || baseName.toLowerCase().startsWith("unknown")) {
+    return false;
+  }
+  try {
+    const escaped = baseName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    const regex = new RegExp(`\\b${escaped}\\b`, "i");
+    return regex.test(titleLower);
+  } catch {
+    return false;
+  }
 }
 
-/** Match a release against DB-defined format specs — returns first (highest-weight) match */
+/** Get a regex pattern for matching video source strings in release titles */
+function getVideoSourcePattern(source: string): RegExp {
+  switch (source) {
+    case "Television": {
+      return /\b(?:hdtv|pdtv|sdtv)\b/i;
+    }
+    case "Web": {
+      return /\bweb[-. ]?dl\b/i;
+    }
+    case "WebRip": {
+      return /\bwebrip\b/i;
+    }
+    case "Bluray": {
+      return /\bblu[-. ]?ray\b/i;
+    }
+    case "BlurayRaw": {
+      return /\b(?:remux|blu[-. ]?ray[-. ]?raw)\b/i;
+    }
+    case "DVD": {
+      return /\bdvd(?:rip)?\b/i;
+    }
+    default: {
+      return /(?!)/; // Never matches
+    }
+  }
+}
+
+/** Match a release against DB-defined format definitions — returns first (highest-weight) match */
 export function matchFormat(release: ReleaseInfo): ReleaseQuality {
   const matches = matchAllFormats(release);
   return matches[0] ?? { id: 0, name: "Unknown", weight: 0, color: "gray" };
@@ -227,15 +214,7 @@ export function matchAllFormats(release: ReleaseInfo): ReleaseQuality[] {
   const matches: ReleaseQuality[] = [];
 
   for (const def of defs) {
-    const requiredSpecs = def.specs.filter((s) => s.required);
-    const optionalSpecs = def.specs.filter((s) => !s.required);
-
-    const requiredPass = requiredSpecs.every((s) => evaluateSpec(s, release));
-    const optionalPass =
-      optionalSpecs.length === 0 ||
-      optionalSpecs.some((s) => evaluateSpec(s, release));
-
-    if (requiredPass && optionalPass) {
+    if (matchDefAgainstRelease(def, release)) {
       matches.push({
         id: def.id,
         name: def.name,

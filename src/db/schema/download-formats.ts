@@ -1,14 +1,4 @@
-import { sql } from "drizzle-orm";
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
-
-export type FormatSpecification = {
-  type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-  value: string;
-  min?: number;
-  max?: number;
-  negate: boolean;
-  required: boolean;
-};
 
 export const downloadFormats = sqliteTable("download_formats", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -18,10 +8,6 @@ export const downloadFormats = sqliteTable("download_formats", {
   maxSize: real("max_size"),
   preferredSize: real("preferred_size"),
   color: text("color").notNull().default("gray"),
-  specifications: text("specifications", { mode: "json" })
-    .$type<FormatSpecification[]>()
-    .notNull()
-    .default(sql`'[]'`),
   type: text("type").notNull().default("ebook"),
   source: text("source"),
   resolution: integer("resolution").notNull().default(0),
