@@ -1,8 +1,12 @@
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { customFormats } from "./schema";
+import {
+  customFormats,
+  downloadProfiles,
+  profileCustomFormats,
+} from "./schema";
 import { eq } from "drizzle-orm";
-import { PRESETS } from "src/server/custom-format-presets";
-import type { PresetCF } from "src/server/custom-format-presets";
+import { PRESETS } from "src/lib/custom-format-preset-data";
+import type { PresetCF } from "src/lib/custom-format-preset-data";
 
 export function seedBuiltinCustomFormats(db: BunSQLiteDatabase): void {
   // Deduplicate formats by name, merging contentTypes
@@ -45,5 +49,64 @@ export function seedBuiltinCustomFormats(db: BunSQLiteDatabase): void {
         })
         .run();
     }
+  }
+
+  // Seed profile-custom-format links using defaultScore
+  const profiles = db.select().from(downloadProfiles).all();
+
+  for (const profile of profiles) {
+    // Skip if profile already has CF links
+    const existingLinks = db
+      .select({ id: profileCustomFormats.id })
+      .from(profileCustomFormats)
+      .where(eq(profileCustomFormats.profileId, profile.id))
+      .all();
+    if (existingLinks.length > 0) {
+      continue;
+    }
+
+    // Find matching preset by mediaType + contentType
+    const preset = PRESETS.find(
+      (p) =>
+        p.mediaType === profile.mediaType &&
+        p.contentType === profile.contentType,
+    );
+    if (!preset) {
+      continue;
+    }
+
+    // Look up CF IDs and insert links with defaultScore
+    const values: Array<{
+      profileId: number;
+      customFormatId: number;
+      score: number;
+    }> = [];
+    for (const presetCF of preset.customFormats) {
+      const cf = db
+        .select({ id: customFormats.id })
+        .from(customFormats)
+        .where(eq(customFormats.name, presetCF.name))
+        .get();
+      if (cf) {
+        values.push({
+          profileId: profile.id,
+          customFormatId: cf.id,
+          score: presetCF.defaultScore,
+        });
+      }
+    }
+
+    if (values.length > 0) {
+      db.insert(profileCustomFormats).values(values).run();
+    }
+
+    // Update profile CF score thresholds
+    db.update(downloadProfiles)
+      .set({
+        minCustomFormatScore: preset.minCustomFormatScore,
+        upgradeUntilCustomFormatScore: preset.upgradeUntilCustomFormatScore,
+      })
+      .where(eq(downloadProfiles.id, profile.id))
+      .run();
   }
 }

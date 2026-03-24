@@ -552,16 +552,16 @@ INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size,
   ('Remux-2160p',    34, 187.4,NULL, NULL, 'purple', 'video', 'BlurayRaw',  2160);--> statement-breakpoint
 
 -- Download Profiles: Book
-INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language) VALUES
-  ('Ebook',     './data/books',      0, '[[4],[5],[3],[2]]', 0, 'book-marked',  '[7020,8010]', 'ebook', 'book', 'en'),
-  ('Audiobook', './data/audiobooks', 0, '[[7],[8],[6]]',     0, 'audio-lines',  '[3030]',      'audio', 'book', 'en');--> statement-breakpoint
+INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
+  ('Ebook',     './data/books',      0, '[[4],[5],[3],[2]]', 0, 'book-marked',  '[7020,8010]', 'ebook', 'book', 'en', 0, 2000),
+  ('Audiobook', './data/audiobooks', 0, '[[7],[8],[6]]',     0, 'audio-lines',  '[3030]',      'audio', 'book', 'en', 0, 1000);--> statement-breakpoint
 
 -- Download Profiles: Video (items populated via UPDATE below)
-INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language) VALUES
-  ('WEB-1080p',       './data/tv',     0, '[]', 1, 'tv',            '[5030,5040,5045]',      'video', 'tv',    'en'),
-  ('WEB-2160p',       './data/tv',     0, '[]', 1, 'hd',            '[5030,5040,5045]',      'video', 'tv',    'en'),
-  ('HD Bluray + WEB', './data/movies', 0, '[]', 1, 'film',          '[2030,2040,2045,2050]',  'video', 'movie', 'en'),
-  ('Remux + WEB 2160p','./data/movies',0, '[]', 1, 'hd',            '[2030,2040,2045,2050]',  'video', 'movie', 'en');--> statement-breakpoint
+INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, type, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
+  ('WEB-1080p',       './data/tv',     0, '[]', 1, 'tv',            '[5030,5040,5045]',      'video', 'tv',    'en', 0, 5000),
+  ('WEB-2160p',       './data/tv',     0, '[]', 1, 'hd',            '[5030,5040,5045]',      'video', 'tv',    'en', 0, 5000),
+  ('HD Bluray + WEB', './data/movies', 0, '[]', 1, 'film',          '[2030,2040,2045,2050]',  'video', 'movie', 'en', 0, 10000),
+  ('Remux + WEB 2160p','./data/movies',0, '[]', 1, 'hd',            '[2030,2040,2045,2050]',  'video', 'movie', 'en', 0, 10000);--> statement-breakpoint
 
 -- Video profile items (grouped format arrays)
 UPDATE download_profiles SET
