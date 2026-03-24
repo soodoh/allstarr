@@ -13,8 +13,10 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
 import SortableTableHead from "src/components/shared/sortable-table-head";
 import { useTableState } from "src/hooks/use-table-state";
+import { customFormatContentTypes } from "src/lib/validators";
 
 type CustomFormat = {
   id: number;
@@ -92,14 +94,21 @@ export default function CustomFormatList({
 }: CustomFormatListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<CustomFormat | null>(null);
   const [search, setSearch] = useState("");
+  const [activeContentType, setActiveContentType] = useState("all");
 
   const filtered = useMemo(() => {
-    if (!search) {
-      return customFormats;
+    let result = customFormats;
+    if (activeContentType !== "all") {
+      result = result.filter((cf) =>
+        cf.contentTypes.includes(activeContentType),
+      );
     }
-    const q = search.toLowerCase();
-    return customFormats.filter((cf) => cf.name.toLowerCase().includes(q));
-  }, [customFormats, search]);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((cf) => cf.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [customFormats, search, activeContentType]);
 
   const { paginatedData, sortColumn, sortDirection, handleSort } =
     useTableState({
@@ -118,6 +127,21 @@ export default function CustomFormatList({
 
   return (
     <>
+      <Tabs
+        value={activeContentType}
+        onValueChange={setActiveContentType}
+        className="w-full"
+      >
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          {customFormatContentTypes.map((ct) => (
+            <TabsTrigger key={ct} value={ct}>
+              {CONTENT_TYPE_LABELS[ct] ?? ct}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       <div className="relative">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
