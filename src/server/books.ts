@@ -1037,7 +1037,10 @@ export const monitorBookProfileFn = createServerFn({ method: "POST" })
       .where(eq(editions.bookId, bookId))
       .all();
 
-    const bestEdition = pickBestEditionForProfile(bookEditions, profile);
+    const bestEdition = pickBestEditionForProfile(bookEditions, {
+      ...profile,
+      contentType: profile.contentType as "ebook" | "audiobook",
+    });
     if (!bestEdition) {
       throw new Error("No suitable edition found");
     }

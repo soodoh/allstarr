@@ -145,7 +145,8 @@ export default function EditionsTab({
           open={Boolean(unmonitorProfile)}
           onOpenChange={(open) => !open && setUnmonitorProfile(null)}
           profileName={unmonitorProfile.name}
-          bookTitle={bookTitle}
+          itemTitle={bookTitle}
+          itemType="book"
           fileCount={fileCount}
           onConfirm={(deleteFiles) => {
             unmonitorBookProfile.mutate(

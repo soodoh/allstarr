@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { customFormats, profileCustomFormats } from "src/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   createCustomFormatSchema,

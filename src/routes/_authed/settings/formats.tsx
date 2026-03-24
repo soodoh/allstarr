@@ -48,7 +48,7 @@ type FormatValues = {
   preferredSize: number;
   noMaxLimit: number;
   noPreferredLimit: number;
-  contentTypes: string[];
+  contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
   source: string | null;
   resolution: number;
 };
@@ -179,11 +179,13 @@ function FormatsPage() {
     return result;
   }, [definitions, activeTab, search]);
 
-  const dialogContentTypes = useMemo(() => {
+  const dialogContentTypes = useMemo((): FormatValues["contentTypes"] => {
     if (editingDef) {
-      return editingDef.contentTypes;
+      return editingDef.contentTypes as FormatValues["contentTypes"];
     }
-    return activeTab === "all" ? ["ebook"] : [activeTab];
+    return activeTab === "all"
+      ? ["ebook"]
+      : [activeTab as FormatValues["contentTypes"][number]];
   }, [editingDef, activeTab]);
 
   const defLoading = createDefinition.isPending || updateDefinition.isPending;
@@ -288,7 +290,9 @@ function FormatsPage() {
                     preferredSize: editingDef.preferredSize ?? 0,
                     noMaxLimit: editingDef.noMaxLimit ?? 0,
                     noPreferredLimit: editingDef.noPreferredLimit ?? 0,
-                    contentTypes: editingDef.contentTypes,
+                    contentTypes: editingDef.contentTypes as Array<
+                      "ebook" | "movie" | "tv" | "audiobook"
+                    >,
                     source: editingDef.source ?? null,
                     resolution: editingDef.resolution ?? 0,
                   }

@@ -34,14 +34,14 @@ type DownloadFormatFormValues = {
   preferredSize: number;
   noMaxLimit: number;
   noPreferredLimit: number;
-  contentTypes: string[];
+  contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
   source: string | null;
   resolution: number;
 };
 
 type DownloadFormatFormProps = {
   initialValues?: DownloadFormatFormValues;
-  defaultContentTypes: string[];
+  defaultContentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
   onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
@@ -191,11 +191,11 @@ function VideoFields({
 
 function useBasicFormFields(
   initialValues: DownloadFormatFormValues | undefined,
-  defaultContentTypes: string[],
+  defaultContentTypes: DownloadFormatFormValues["contentTypes"],
 ) {
-  const [contentTypes, setContentTypes] = useState<string[]>(
-    initialValues?.contentTypes ?? defaultContentTypes,
-  );
+  const [contentTypes, setContentTypes] = useState<
+    DownloadFormatFormValues["contentTypes"]
+  >(initialValues?.contentTypes ?? defaultContentTypes);
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [weight, setWeight] = useState(initialValues?.weight ?? 1);
   const [color, setColor] = useState(initialValues?.color ?? "gray");
@@ -204,7 +204,10 @@ function useBasicFormFields(
     initialValues?.resolution ?? 0,
   );
 
-  const handleContentTypeToggle = (ct: string, checked: boolean) => {
+  const handleContentTypeToggle = (
+    ct: DownloadFormatFormValues["contentTypes"][number],
+    checked: boolean,
+  ) => {
     if (checked) {
       setContentTypes((prev) => [...prev, ct]);
     } else {

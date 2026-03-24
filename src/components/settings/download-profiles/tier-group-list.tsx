@@ -30,7 +30,7 @@ import {
 type TierGroupListProps = {
   items: number[][];
   onChange: (items: number[][]) => void;
-  downloadFormats: Array<{ id: number; title: string; type: string }>;
+  downloadFormats: Array<{ id: number; title: string; contentTypes: string[] }>;
   cutoff: number;
   upgradeAllowed: boolean;
   onRemoveFormat: (formatId: number) => void;

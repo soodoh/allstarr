@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { PRESETS } from "src/lib/custom-format-preset-data";
 import type { PresetCF } from "src/lib/custom-format-preset-data";
 
-export function seedBuiltinCustomFormats(db: BunSQLiteDatabase): void {
+export function seedBuiltinCustomFormats(db: BunSQLiteDatabase<any>): void {
   // Deduplicate formats by name, merging contentTypes
   const byName = new Map<string, PresetCF>();
   for (const preset of PRESETS) {

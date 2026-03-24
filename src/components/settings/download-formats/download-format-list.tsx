@@ -133,7 +133,9 @@ function SizeSlider({ def }: { def: DownloadFormat }): JSX.Element {
           ? (def.preferredSize ?? maxRange)
           : preferred,
         maxSize: noLimitMax ? (def.maxSize ?? maxRange) : max,
-        contentTypes: def.contentTypes,
+        contentTypes: def.contentTypes as Array<
+          "ebook" | "movie" | "tv" | "audiobook"
+        >,
         source: def.source ?? null,
         resolution: def.resolution ?? 0,
         noMaxLimit: def.noMaxLimit ?? 0,

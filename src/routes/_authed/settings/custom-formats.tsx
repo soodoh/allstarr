@@ -23,6 +23,7 @@ import Label from "src/components/ui/label";
 import PageHeader from "src/components/shared/page-header";
 import CustomFormatList from "src/components/settings/custom-formats/custom-format-list";
 import CustomFormatForm from "src/components/settings/custom-formats/custom-format-form";
+import type { Spec } from "src/components/settings/custom-formats/specification-builder";
 import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import { queryKeys } from "src/lib/query-keys";
 import {
@@ -86,9 +87,12 @@ function CustomFormatsPage() {
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleEdit = (cf: (typeof customFormats)[number]) => {
-    setEditingFormat(cf);
-    setEditDialogOpen(true);
+  const handleEdit = (cf: { id: number }) => {
+    const found = customFormats.find((c) => c.id === cf.id);
+    if (found) {
+      setEditingFormat(found);
+      setEditDialogOpen(true);
+    }
   };
 
   const handleCreate = (
@@ -280,7 +284,7 @@ function CustomFormatsPage() {
                       id: editingFormat.id,
                       name: editingFormat.name,
                       category: editingFormat.category,
-                      specifications: editingFormat.specifications,
+                      specifications: editingFormat.specifications as Spec[],
                       defaultScore: editingFormat.defaultScore,
                       contentTypes: editingFormat.contentTypes,
                       includeInRenaming: editingFormat.includeInRenaming,
