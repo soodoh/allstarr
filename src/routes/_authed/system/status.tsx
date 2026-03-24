@@ -5,6 +5,7 @@ import {
   AlertCircle,
   AlertTriangle,
   HardDrive,
+  ExternalLink,
 } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import { SystemStatusSkeleton } from "src/components/shared/loading-skeleton";
@@ -210,6 +211,39 @@ function SystemStatusPage() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Attribution</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-muted-foreground text-sm">
+            This product uses the TMDB API but is not endorsed or certified by
+            TMDB.{" "}
+            <a
+              href="https://www.themoviedb.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center gap-1"
+            >
+              themoviedb.org
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </p>
+          <p className="text-muted-foreground text-sm">
+            Book metadata provided by Hardcover.{" "}
+            <a
+              href="https://hardcover.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center gap-1"
+            >
+              hardcover.app
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>
