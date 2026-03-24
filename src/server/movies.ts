@@ -101,13 +101,12 @@ export const addMovieFn = createServerFn({ method: "POST" })
       .returning()
       .get();
 
-    // Insert join table for download profile
-    db.insert(movieDownloadProfiles)
-      .values({
-        movieId: movie.id,
-        downloadProfileId: data.downloadProfileId,
-      })
-      .run();
+    // Insert join table for download profiles
+    for (const profileId of data.downloadProfileIds) {
+      db.insert(movieDownloadProfiles)
+        .values({ movieId: movie.id, downloadProfileId: profileId })
+        .run();
+    }
 
     // Insert history event
     db.insert(history)
@@ -197,7 +196,7 @@ export const updateMovieFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, downloadProfileId, ...updates } = data;
+    const { id, downloadProfileIds, ...updates } = data;
 
     const movie = db.select().from(movies).where(eq(movies.id, id)).get();
 
@@ -210,14 +209,16 @@ export const updateMovieFn = createServerFn({ method: "POST" })
       .where(eq(movies.id, id))
       .run();
 
-    // Update download profile junction if provided
-    if (downloadProfileId !== undefined) {
+    // Update download profile junctions if provided
+    if (downloadProfileIds !== undefined) {
       db.delete(movieDownloadProfiles)
         .where(eq(movieDownloadProfiles.movieId, id))
         .run();
-      db.insert(movieDownloadProfiles)
-        .values({ movieId: id, downloadProfileId })
-        .run();
+      for (const profileId of downloadProfileIds) {
+        db.insert(movieDownloadProfiles)
+          .values({ movieId: id, downloadProfileId: profileId })
+          .run();
+      }
     }
 
     return db.select().from(movies).where(eq(movies.id, id)).get()!;

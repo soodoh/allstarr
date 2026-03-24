@@ -1,16 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
-import Checkbox from "src/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
-import Label from "src/components/ui/label";
 import type {
   BookLanguage,
   HardcoverBookDetail,
@@ -25,7 +23,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/bookshelf/books/book-detail-content";
 import { useImportHardcoverBook } from "src/hooks/mutations";
-import { getProfileIcon } from "src/lib/profile-icons";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 
 // ── Add-to-bookshelf inline form ──────────────────────────────────────────────
 
@@ -42,11 +40,19 @@ function AddBookForm({
   onSuccess,
   onCancel,
 }: AddBookFormProps) {
-  const { data: downloadProfiles = [] } = useQuery(downloadProfilesListQuery());
-
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
-    downloadProfiles.map((p) => p.id),
+  const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
+  const downloadProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "book"),
+    [allProfiles],
   );
+
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
+    }
+  }, [downloadProfiles, downloadProfileIds.length]);
 
   const importBook = useImportHardcoverBook();
 
@@ -72,33 +78,11 @@ function AddBookForm({
         book will be monitored.
       </p>
 
-      <div className="space-y-2">
-        <Label>Download Profiles</Label>
-        {downloadProfiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No download profiles available.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {downloadProfiles.map((p) => (
-              <label
-                key={p.id}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={downloadProfileIds.includes(p.id)}
-                  onCheckedChange={() => toggleProfile(p.id)}
-                />
-                {(() => {
-                  const Icon = getProfileIcon(p.icon);
-                  return <Icon className="h-4 w-4 text-muted-foreground" />;
-                })()}
-                <span className="text-sm">{p.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <ProfileCheckboxGroup
+        profiles={downloadProfiles}
+        selectedIds={downloadProfileIds}
+        onToggle={toggleProfile}
+      />
 
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>

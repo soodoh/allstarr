@@ -44,7 +44,7 @@ export default function MovieBulkBar({
         id: number;
         monitored?: boolean;
         minimumAvailability?: "announced" | "inCinemas" | "released";
-        downloadProfileId?: number;
+        downloadProfileIds?: number[];
       } = { id };
       if (monitored === "true") {
         payload.monitored = true;
@@ -59,7 +59,7 @@ export default function MovieBulkBar({
           | "released";
       }
       if (profileId) {
-        payload.downloadProfileId = Number(profileId);
+        payload.downloadProfileIds = [Number(profileId)];
       }
       return updateMovie.mutateAsync(payload);
     });
