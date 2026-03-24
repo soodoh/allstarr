@@ -55,7 +55,7 @@ function ProfilesPage() {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: number[];
+    items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
     mediaType: string;
@@ -73,7 +73,7 @@ function ProfilesPage() {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: number[];
+    items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
     mediaType: string;

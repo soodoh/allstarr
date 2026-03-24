@@ -414,13 +414,15 @@ export const deleteDownloadFormatFn = createServerFn({ method: "POST" })
   .inputValidator((d: { id: number }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
-    // Remove from all download profiles' items arrays
+    // Remove from all download profiles' items arrays (nested group structure)
     const profiles = db.select().from(downloadProfiles).all();
     for (const profile of profiles) {
-      const filtered = profile.items.filter((id) => id !== data.id);
-      if (filtered.length !== profile.items.length) {
+      const updatedItems = (profile.items as number[][])
+        .map((group: number[]) => group.filter((id) => id !== data.id))
+        .filter((group: number[]) => group.length > 0);
+      if (JSON.stringify(updatedItems) !== JSON.stringify(profile.items)) {
         db.update(downloadProfiles)
-          .set({ items: filtered })
+          .set({ items: updatedItems })
           .where(eq(downloadProfiles.id, profile.id))
           .run();
       }

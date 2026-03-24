@@ -67,7 +67,7 @@ type DownloadProfileFormProps = {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: number[];
+    items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
     mediaType: string;
@@ -82,7 +82,7 @@ type DownloadProfileFormProps = {
     icon: string;
     rootFolderPath: string;
     cutoff: number;
-    items: number[];
+    items: number[][];
     upgradeAllowed: boolean;
     categories: number[];
     mediaType: string;
@@ -349,10 +349,10 @@ function getDefaults(
 
 function buildInitialItems(
   downloadFormats: Array<{ id: number; title: string }>,
-  existingItems?: number[],
+  existingItems?: number[][],
 ): number[] {
   const defIds = new Set(downloadFormats.map((d) => d.id));
-  const existingIds = existingItems ?? [];
+  const existingIds = existingItems ? existingItems.flat() : [];
 
   if (existingIds.length === 0) {
     return downloadFormats.map((d) => d.id);
@@ -761,12 +761,14 @@ export default function DownloadProfileForm({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    // Wrap each flat item into its own group for the grouped items format
+    const groupedItems = items.map((id) => [id]);
     const result = validateForm(createDownloadProfileSchema, {
       name,
       icon,
       rootFolderPath,
       cutoff: upgradeAllowed ? cutoff : 0,
-      items,
+      items: groupedItems,
       upgradeAllowed,
       categories,
       mediaType,

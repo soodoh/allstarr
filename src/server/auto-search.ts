@@ -19,7 +19,11 @@ import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
 import type { ProfileInfo } from "./indexers";
 import { searchNewznab } from "./indexers/http";
-import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
+import {
+  enrichRelease,
+  getProfileWeight,
+  isFormatInProfile,
+} from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 import type { IndexerRelease } from "./indexers/types";
@@ -557,7 +561,7 @@ function findBestReleaseForProfile(
 
   for (const release of releases) {
     // Only consider formats allowed by this profile
-    if (!profile.items.includes(release.quality.id)) {
+    if (!isFormatInProfile(release.quality.id, profile.items)) {
       continue;
     }
 
