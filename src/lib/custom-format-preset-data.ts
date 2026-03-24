@@ -17,8 +17,7 @@ export type Preset = {
   name: string;
   description: string;
   category: string;
-  contentType: string;
-  mediaType: string;
+  contentType: string; // "movie" | "tv" | "ebook" | "audiobook"
   customFormats: PresetCF[];
   scores: Record<string, number>;
   minCustomFormatScore: number;
@@ -37,7 +36,6 @@ export const PRESETS: Preset[] = [
       "Prefer high-quality Bluray and WEB releases for movies. Penalizes low-quality groups, BR-DISKs, and x265 in HD.",
     category: "Video - Movies",
     contentType: "movie",
-    mediaType: "video",
     customFormats: [
       {
         name: "Bluray Tier 01",
@@ -176,7 +174,6 @@ export const PRESETS: Preset[] = [
       "Optimized for TV shows from streaming services. Prefers top WEB release groups and season packs.",
     category: "Video - TV",
     contentType: "tv",
-    mediaType: "video",
     customFormats: [
       {
         name: "WEB Tier 01",
@@ -280,8 +277,7 @@ export const PRESETS: Preset[] = [
     description:
       "Prefer retail ebook releases in EPUB format. Penalizes scene releases and PDFs.",
     category: "Books - Ebook",
-    contentType: "book",
-    mediaType: "ebook",
+    contentType: "ebook",
     customFormats: [
       {
         name: "Retail Release",
@@ -364,8 +360,7 @@ export const PRESETS: Preset[] = [
     description:
       "Prefer high-bitrate audiobooks in M4B format. Penalizes low-bitrate releases.",
     category: "Books - Audiobook",
-    contentType: "book",
-    mediaType: "audio",
+    contentType: "audiobook",
     customFormats: [
       {
         name: "High Bitrate",
