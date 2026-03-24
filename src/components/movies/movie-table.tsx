@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
+import Checkbox from "src/components/ui/checkbox";
 
 type Movie = {
   id: number;
@@ -33,6 +34,10 @@ type Movie = {
 
 type MovieTableProps = {
   movies: Movie[];
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
+  onToggleAll?: () => void;
 };
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
@@ -44,7 +49,13 @@ const STATUS_BADGE: Record<string, { className: string; label: string }> = {
 
 type SortableKey = "title" | "year" | "studio" | "status";
 
-export default function MovieTable({ movies }: MovieTableProps): JSX.Element {
+export default function MovieTable({
+  movies,
+  selectable,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
+}: MovieTableProps): JSX.Element {
   const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortableKey | undefined>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -99,9 +110,16 @@ export default function MovieTable({ movies }: MovieTableProps): JSX.Element {
     );
   };
 
+  const allSelected =
+    selectable &&
+    selectedIds &&
+    movies.length > 0 &&
+    selectedIds.size === movies.length;
+
   return (
     <Table>
       <colgroup>
+        {selectable && <col className="w-10" />}
         <col className="w-14" />
         <col />
         <col className="w-20" />
@@ -111,6 +129,14 @@ export default function MovieTable({ movies }: MovieTableProps): JSX.Element {
       </colgroup>
       <TableHeader>
         <TableRow>
+          {selectable && (
+            <TableHead>
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={() => onToggleAll?.()}
+              />
+            </TableHead>
+          )}
           <TableHead />
           {(
             [
@@ -135,17 +161,31 @@ export default function MovieTable({ movies }: MovieTableProps): JSX.Element {
       <TableBody>
         {sorted.map((movie) => {
           const badge = STATUS_BADGE[movie.status] ?? STATUS_BADGE.tba;
+          const isSelected = selectable && selectedIds?.has(movie.id);
           return (
             <TableRow
               key={movie.id}
               className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() =>
-                navigate({
-                  to: "/movies/$movieId",
-                  params: { movieId: String(movie.id) },
-                })
-              }
+              onClick={() => {
+                if (selectable && onToggleSelect) {
+                  onToggleSelect(movie.id);
+                } else {
+                  navigate({
+                    to: "/movies/$movieId",
+                    params: { movieId: String(movie.id) },
+                  });
+                }
+              }}
             >
+              {selectable && (
+                <TableCell>
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect?.(movie.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 {movie.posterUrl ? (
                   <img

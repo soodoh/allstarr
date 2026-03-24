@@ -197,7 +197,7 @@ export const updateMovieFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, ...updates } = data;
+    const { id, downloadProfileId, ...updates } = data;
 
     const movie = db.select().from(movies).where(eq(movies.id, id)).get();
 
@@ -209,6 +209,16 @@ export const updateMovieFn = createServerFn({ method: "POST" })
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(movies.id, id))
       .run();
+
+    // Update download profile junction if provided
+    if (downloadProfileId !== undefined) {
+      db.delete(movieDownloadProfiles)
+        .where(eq(movieDownloadProfiles.movieId, id))
+        .run();
+      db.insert(movieDownloadProfiles)
+        .values({ movieId: id, downloadProfileId })
+        .run();
+    }
 
     return db.select().from(movies).where(eq(movies.id, id)).get()!;
   });

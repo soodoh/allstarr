@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Tv, LayoutGrid, List, Plus, Search } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { Tv, LayoutGrid, List, Pencil, Plus, Search, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
 import ShowCard from "src/components/tv/show-card";
 import ShowTable from "src/components/tv/show-table";
+import ShowBulkBar from "src/components/tv/show-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { showsListQuery } from "src/lib/queries/shows";
+import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 
 export const Route = createFileRoute("/_authed/tv/")({
   loader: ({ context }) =>
@@ -21,8 +23,18 @@ export const Route = createFileRoute("/_authed/tv/")({
 function ShowsPage() {
   const [view, setView] = useState<"table" | "grid">("grid");
   const [search, setSearch] = useState("");
+  const [massEditMode, setMassEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: shows } = useSuspenseQuery(showsListQuery());
+  const { data: allProfiles = [] } = useQuery({
+    ...downloadProfilesListQuery(),
+    enabled: massEditMode,
+  });
+  const tvProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "tv" && p.enabled),
+    [allProfiles],
+  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -31,6 +43,40 @@ function ShowsPage() {
     const q = search.toLowerCase();
     return shows.filter((s) => s.title.toLowerCase().includes(q));
   }, [shows, search]);
+
+  const exitMassEdit = useCallback(() => {
+    setMassEditMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleMassEdit = useCallback(() => {
+    if (massEditMode) {
+      exitMassEdit();
+    } else {
+      setMassEditMode(true);
+    }
+  }, [massEditMode, exitMassEdit]);
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === filtered.length) {
+        return new Set();
+      }
+      return new Set(filtered.map((s) => s.id));
+    });
+  }, [filtered]);
 
   if (shows.length === 0 && !search) {
     return (
@@ -68,34 +114,54 @@ function ShowsPage() {
     : `${shows.length} series`;
 
   return (
-    <div>
+    <div className={massEditMode ? "pb-20" : ""}>
       <PageHeader
         title="TV Shows"
         description={description}
         actions={
           <div className="flex gap-2">
-            <div className="flex border border-border rounded-md">
-              <Button
-                variant={view === "table" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("table")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={view === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("grid")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            <Button asChild>
-              <Link to="/tv/add">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Show
-              </Link>
+            {!massEditMode && (
+              <div className="flex border border-border rounded-md">
+                <Button
+                  variant={view === "table" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setView("table")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={view === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setView("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            <Button
+              variant={massEditMode ? "destructive" : "outline"}
+              onClick={toggleMassEdit}
+            >
+              {massEditMode ? (
+                <>
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Mass Editor
+                </>
+              )}
             </Button>
+            {!massEditMode && (
+              <Button asChild>
+                <Link to="/tv/add">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Show
+                </Link>
+              </Button>
+            )}
           </div>
         }
       />
@@ -120,16 +186,30 @@ function ShowsPage() {
         />
       )}
 
-      {filtered.length > 0 && view === "table" && (
-        <ShowTable shows={filtered} />
+      {filtered.length > 0 && (massEditMode || view === "table") && (
+        <ShowTable
+          shows={filtered}
+          selectable={massEditMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleAll={toggleAll}
+        />
       )}
 
-      {filtered.length > 0 && view === "grid" && (
+      {filtered.length > 0 && !massEditMode && view === "grid" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {filtered.map((show) => (
             <ShowCard key={show.id} show={show} />
           ))}
         </div>
+      )}
+
+      {massEditMode && (
+        <ShowBulkBar
+          selectedIds={selectedIds}
+          profiles={tvProfiles}
+          onDone={exitMassEdit}
+        />
       )}
     </div>
   );

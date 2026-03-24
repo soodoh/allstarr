@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Film, LayoutGrid, List, Plus, Search } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { Film, LayoutGrid, List, Pencil, Plus, Search, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
 import MovieCard from "src/components/movies/movie-card";
 import MovieTable from "src/components/movies/movie-table";
+import MovieBulkBar from "src/components/movies/movie-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { moviesListQuery } from "src/lib/queries/movies";
+import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 
 export const Route = createFileRoute("/_authed/movies/")({
   loader: ({ context }) =>
@@ -21,8 +23,18 @@ export const Route = createFileRoute("/_authed/movies/")({
 function MoviesPage() {
   const [view, setView] = useState<"table" | "grid">("grid");
   const [search, setSearch] = useState("");
+  const [massEditMode, setMassEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: movies } = useSuspenseQuery(moviesListQuery());
+  const { data: allProfiles = [] } = useQuery({
+    ...downloadProfilesListQuery(),
+    enabled: massEditMode,
+  });
+  const movieProfiles = useMemo(
+    () => allProfiles.filter((p) => p.contentType === "movie" && p.enabled),
+    [allProfiles],
+  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -31,6 +43,40 @@ function MoviesPage() {
     const q = search.toLowerCase();
     return movies.filter((m) => m.title.toLowerCase().includes(q));
   }, [movies, search]);
+
+  const exitMassEdit = useCallback(() => {
+    setMassEditMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleMassEdit = useCallback(() => {
+    if (massEditMode) {
+      exitMassEdit();
+    } else {
+      setMassEditMode(true);
+    }
+  }, [massEditMode, exitMassEdit]);
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === filtered.length) {
+        return new Set();
+      }
+      return new Set(filtered.map((m) => m.id));
+    });
+  }, [filtered]);
 
   if (movies.length === 0 && !search) {
     return (
@@ -68,34 +114,54 @@ function MoviesPage() {
     : `${movies.length} movies`;
 
   return (
-    <div>
+    <div className={massEditMode ? "pb-20" : ""}>
       <PageHeader
         title="Movies"
         description={description}
         actions={
           <div className="flex gap-2">
-            <div className="flex border border-border rounded-md">
-              <Button
-                variant={view === "table" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("table")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={view === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("grid")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            <Button asChild>
-              <Link to="/movies/add">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Movie
-              </Link>
+            {!massEditMode && (
+              <div className="flex border border-border rounded-md">
+                <Button
+                  variant={view === "table" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setView("table")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={view === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setView("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            <Button
+              variant={massEditMode ? "destructive" : "outline"}
+              onClick={toggleMassEdit}
+            >
+              {massEditMode ? (
+                <>
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Mass Editor
+                </>
+              )}
             </Button>
+            {!massEditMode && (
+              <Button asChild>
+                <Link to="/movies/add">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Movie
+                </Link>
+              </Button>
+            )}
           </div>
         }
       />
@@ -120,16 +186,30 @@ function MoviesPage() {
         />
       )}
 
-      {filtered.length > 0 && view === "table" && (
-        <MovieTable movies={filtered} />
+      {filtered.length > 0 && (massEditMode || view === "table") && (
+        <MovieTable
+          movies={filtered}
+          selectable={massEditMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleAll={toggleAll}
+        />
       )}
 
-      {filtered.length > 0 && view === "grid" && (
+      {filtered.length > 0 && !massEditMode && view === "grid" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {filtered.map((movie) => (
             <MovieCard key={movie.id} movie={movie} />
           ))}
         </div>
+      )}
+
+      {massEditMode && (
+        <MovieBulkBar
+          selectedIds={selectedIds}
+          profiles={movieProfiles}
+          onDone={exitMassEdit}
+        />
       )}
     </div>
   );

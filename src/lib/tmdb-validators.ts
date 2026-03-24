@@ -19,6 +19,7 @@ export const updateShowSchema = z.object({
   id: z.number(),
   monitored: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
+  downloadProfileId: z.number().optional(),
 });
 
 export const deleteShowSchema = z.object({
@@ -40,6 +41,7 @@ export const updateMovieSchema = z.object({
   minimumAvailability: z
     .enum(["announced", "inCinemas", "released"])
     .optional(),
+  downloadProfileId: z.number().optional(),
 });
 
 export const deleteMovieSchema = z.object({
