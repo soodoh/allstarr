@@ -25,6 +25,7 @@ import {
 } from "src/hooks/mutations/custom-formats";
 import { customFormatCategories } from "src/lib/validators";
 import { cn } from "src/lib/utils";
+import PresetSelector from "./preset-selector";
 
 type CFScoreSectionProps = {
   profileId?: number;
@@ -498,6 +499,21 @@ export default function CFScoreSection({
           categories={customFormatCategories}
           onSelect={handleAddCategory}
         />
+        {profileId !== undefined && (
+          <PresetSelector
+            profileId={profileId}
+            contentType={contentType}
+            mediaType={mediaType}
+            onApplied={({
+              minCustomFormatScore: min,
+              upgradeUntilCustomFormatScore: upgrade,
+            }) => {
+              onMinScoreChange(min);
+              onUpgradeUntilScoreChange(upgrade);
+              refetchProfileCFs();
+            }}
+          />
+        )}
         {rows.length > 0 && (
           <Button
             type="button"
