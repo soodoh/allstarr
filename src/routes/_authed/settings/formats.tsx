@@ -223,6 +223,7 @@ function FormatsPage() {
         <TabsContent value={activeTab}>
           {activeTab !== "all" && (
             <DefaultsSection
+              key={activeTab}
               contentType={activeTab}
               settingsMap={settingsMap}
               onUpdate={handleUpdateSetting}
