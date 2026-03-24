@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
-import { Copy, Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Search, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
+import Input from "src/components/ui/input";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import {
   Table,
@@ -12,8 +13,8 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
-import { customFormatCategories } from "src/lib/validators";
+import SortableTableHead from "src/components/shared/sortable-table-head";
+import { useTableState } from "src/hooks/use-table-state";
 
 type CustomFormat = {
   id: number;
@@ -44,6 +45,15 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   tv: "TV",
   ebook: "Ebook",
   audiobook: "Audiobook",
+};
+
+const COMPARATORS: Partial<
+  Record<string, (a: CustomFormat, b: CustomFormat) => number>
+> = {
+  name: (a, b) => a.name.localeCompare(b.name),
+  category: (a, b) => a.category.localeCompare(b.category),
+  defaultScore: (a, b) => a.defaultScore - b.defaultScore,
+  origin: (a, b) => (a.origin ?? "").localeCompare(b.origin ?? ""),
 };
 
 function originBadge(origin: string | null): JSX.Element {
@@ -81,12 +91,22 @@ export default function CustomFormatList({
   onDelete,
 }: CustomFormatListProps): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<CustomFormat | null>(null);
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [search, setSearch] = useState("");
 
-  const filteredFormats =
-    activeCategory === "all"
-      ? customFormats
-      : customFormats.filter((cf) => cf.category === activeCategory);
+  const filtered = useMemo(() => {
+    if (!search) {
+      return customFormats;
+    }
+    const q = search.toLowerCase();
+    return customFormats.filter((cf) => cf.name.toLowerCase().includes(q));
+  }, [customFormats, search]);
+
+  const { paginatedData, sortColumn, sortDirection, handleSort } =
+    useTableState({
+      data: filtered,
+      defaultPageSize: 10_000,
+      comparators: COMPARATORS,
+    });
 
   if (customFormats.length === 0) {
     return (
@@ -98,34 +118,57 @@ export default function CustomFormatList({
 
   return (
     <>
-      <Tabs
-        value={activeCategory}
-        onValueChange={setActiveCategory}
-        className="w-full"
-      >
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="all">All</TabsTrigger>
-          {customFormatCategories.map((cat) => (
-            <TabsTrigger key={cat} value={cat}>
-              {cat}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search custom formats..."
+          className="pl-8"
+        />
+      </div>
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Category</TableHead>
+            <SortableTableHead
+              column="name"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Name
+            </SortableTableHead>
+            <SortableTableHead
+              column="category"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Category
+            </SortableTableHead>
             <TableHead>Content Types</TableHead>
-            <TableHead>Default Score</TableHead>
-            <TableHead>Origin</TableHead>
+            <SortableTableHead
+              column="defaultScore"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Default Score
+            </SortableTableHead>
+            <SortableTableHead
+              column="origin"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            >
+              Origin
+            </SortableTableHead>
             <TableHead className="w-28">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredFormats.map((cf) => (
+          {paginatedData.map((cf) => (
             <TableRow key={cf.id}>
               <TableCell className="font-medium">{cf.name}</TableCell>
               <TableCell>
@@ -176,9 +219,9 @@ export default function CustomFormatList({
         </TableBody>
       </Table>
 
-      {filteredFormats.length === 0 && (
+      {paginatedData.length === 0 && search && (
         <div className="text-center py-8 text-muted-foreground">
-          No custom formats in this category.
+          No custom formats matching &ldquo;{search}&rdquo;.
         </div>
       )}
 
