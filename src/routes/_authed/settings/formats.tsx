@@ -112,7 +112,7 @@ function DefaultsSection({
       <p className="text-xs text-muted-foreground mb-3">{description}</p>
       <div
         className="grid items-center gap-x-3 gap-y-2"
-        style={{ gridTemplateColumns: "auto 5rem auto" }}
+        style={{ gridTemplateColumns: "max-content 5rem max-content" }}
       >
         {configs.map((ct) => {
           const cfg = DEFAULTS_CONFIG[ct];
