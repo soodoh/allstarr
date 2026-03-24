@@ -11,8 +11,7 @@ const downloadProfileBaseSchema = z.object({
   upgradeAllowed: z.boolean().default(false),
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
-  mediaType: z.enum(["ebook", "audio", "video"]),
-  contentType: z.enum(["book", "tv", "movie"]),
+  contentType: z.enum(["movie", "tv", "ebook", "audiobook"]),
   language: z.string().min(2).max(3),
   minCustomFormatScore: z.number().default(0),
   upgradeUntilCustomFormatScore: z.number().default(0),
@@ -133,7 +132,9 @@ export const createDownloadFormatSchema = z.object({
   minSize: z.number().default(0),
   maxSize: z.number().default(0),
   preferredSize: z.number().default(0),
-  type: z.enum(["ebook", "audio", "video"]).default("ebook"),
+  contentTypes: z
+    .array(z.enum(["movie", "tv", "ebook", "audiobook"]))
+    .min(1, "At least one content type required"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
   noMaxLimit: z.number().default(0),
@@ -148,7 +149,9 @@ export const updateDownloadFormatSchema = z.object({
   minSize: z.number().default(0),
   maxSize: z.number().default(0),
   preferredSize: z.number().default(0),
-  type: z.enum(["ebook", "audio", "video"]).default("ebook"),
+  contentTypes: z
+    .array(z.enum(["movie", "tv", "ebook", "audiobook"]))
+    .min(1, "At least one content type required"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
   noMaxLimit: z.number().default(0),
