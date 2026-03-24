@@ -162,6 +162,7 @@ function ProfilesPage() {
             initialValues={
               editingProfile
                 ? {
+                    id: editingProfile.id,
                     name: editingProfile.name,
                     icon: editingProfile.icon,
                     rootFolderPath: editingProfile.rootFolderPath,
