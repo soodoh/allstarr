@@ -17,7 +17,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { FolderOpen, GripVertical, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  FolderOpen,
+  GripVertical,
+  Loader2,
+  X,
+} from "lucide-react";
 import {
   PROFILE_ICONS,
   PROFILE_ICON_MAP,
@@ -37,12 +44,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "src/components/ui/dialog";
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 import LanguageSingleSelect from "src/components/shared/language-single-select";
+import {
+  countProfileFilesFn,
+  moveProfileFilesFn,
+} from "src/server/download-profiles";
 
 type DownloadProfileFormProps = {
   initialValues?: {
+    id: number;
     name: string;
     icon: string;
     rootFolderPath: string;
@@ -681,6 +701,14 @@ export default function DownloadProfileForm({
   const [enabled, setEnabled] = useState(defaults.enabled);
   const [language, setLanguage] = useState(defaults.language);
 
+  // Root folder move confirmation state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveFileCount, setMoveFileCount] = useState(0);
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<
+    Parameters<typeof onSubmit>[0] | null
+  >(null);
+
   const filteredFormats = useMemo(
     () => downloadFormats.filter((d) => d.type === mediaType),
     [downloadFormats, mediaType],
@@ -727,7 +755,11 @@ export default function DownloadProfileForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e: FormEvent) => {
+  const isEditing = initialValues?.id !== undefined;
+  const rootFolderChanged =
+    isEditing && rootFolderPath !== initialValues.rootFolderPath;
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const result = validateForm(createDownloadProfileSchema, {
       name,
@@ -747,91 +779,228 @@ export default function DownloadProfileForm({
       return;
     }
     setErrors({});
+
+    // If root folder changed on an existing profile, check for files to move
+    if (rootFolderChanged && initialValues.rootFolderPath) {
+      try {
+        const { count } = await countProfileFilesFn({
+          data: { profileId: initialValues.id },
+        });
+        if (count > 0) {
+          setPendingFormData(result.data);
+          setMoveFileCount(count);
+          setMoveDialogOpen(true);
+          return;
+        }
+      } catch {
+        // If count fails, just save without moving
+      }
+    }
+
     onSubmit(result.data);
   };
 
+  const handleMoveFiles = async () => {
+    if (!pendingFormData || !initialValues?.id) {
+      return;
+    }
+    setMoveLoading(true);
+    try {
+      const result = await moveProfileFilesFn({
+        data: {
+          profileId: initialValues.id,
+          oldRootFolder: initialValues.rootFolderPath,
+          newRootFolder: rootFolderPath,
+        },
+      });
+      if (result.errors.length > 0) {
+        toast.success(
+          `Moved ${result.movedCount} file${result.movedCount === 1 ? "" : "s"} with ${result.errors.length} error${result.errors.length === 1 ? "" : "s"}`,
+        );
+      } else {
+        toast.success(
+          `Moved ${result.movedCount} file${result.movedCount === 1 ? "" : "s"}`,
+        );
+      }
+    } catch (error) {
+      toast.error(
+        `Failed to move files: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setMoveLoading(false);
+      setMoveDialogOpen(false);
+      onSubmit(pendingFormData);
+      setPendingFormData(null);
+    }
+  };
+
+  const handleSkipMove = () => {
+    if (!pendingFormData) {
+      return;
+    }
+    setMoveDialogOpen(false);
+    onSubmit(pendingFormData);
+    setPendingFormData(null);
+  };
+
+  const handleCancelMove = () => {
+    setMoveDialogOpen(false);
+    setPendingFormData(null);
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <ContentMediaSection
-        contentType={contentType}
-        mediaType={mediaType}
-        language={language}
-        onContentTypeChange={handleContentTypeChange}
-        onMediaTypeChange={handleMediaTypeChange}
-        onLanguageChange={setLanguage}
-      />
-
-      <div className="space-y-2">
-        <Label htmlFor="profile-name">Name</Label>
-        <Input
-          id="profile-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Profile name"
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ContentMediaSection
+          contentType={contentType}
+          mediaType={mediaType}
+          language={language}
+          onContentTypeChange={handleContentTypeChange}
+          onMediaTypeChange={handleMediaTypeChange}
+          onLanguageChange={setLanguage}
         />
-        {errors.name && (
-          <p className="text-sm text-destructive">{errors.name}</p>
+
+        <div className="space-y-2">
+          <Label htmlFor="profile-name">Name</Label>
+          <Input
+            id="profile-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Profile name"
+          />
+          {errors.name && (
+            <p className="text-sm text-destructive">{errors.name}</p>
+          )}
+        </div>
+
+        <IconSelect value={icon} onChange={setIcon} />
+
+        <RootFolderSection
+          rootFolderPath={rootFolderPath}
+          onPathChange={setRootFolderPath}
+          serverCwd={serverCwd}
+          error={errors.rootFolderPath}
+          serverError={serverError}
+        />
+
+        <div className="space-y-2">
+          <Label>Search Categories</Label>
+          <CategoryMultiSelect value={categories} onChange={setCategories} />
+          <p className="text-xs text-muted-foreground">
+            Newznab/Torznab categories to search when using this profile.
+          </p>
+        </div>
+
+        <UpgradeSection
+          upgradeAllowed={upgradeAllowed}
+          cutoff={cutoff}
+          items={items}
+          downloadFormats={filteredFormats}
+          errors={errors}
+          onUpgradeChange={setUpgradeAllowed}
+          onCutoffChange={(v) => setCutoff(Number(v))}
+        />
+
+        <QualitiesSection
+          downloadFormats={filteredFormats}
+          items={items}
+          cutoff={cutoff}
+          upgradeAllowed={upgradeAllowed}
+          error={errors.items}
+          onItemsChange={handleItemsChange}
+        />
+
+        <div className="flex items-center gap-2">
+          <Switch
+            id="profile-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
+          <Label htmlFor="profile-enabled">Enabled</Label>
+        </div>
+
+        {serverError && !serverError.includes("Root folder") && (
+          <p className="text-sm text-destructive">{serverError}</p>
         )}
-      </div>
 
-      <IconSelect value={icon} onChange={setIcon} />
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </form>
 
-      <RootFolderSection
-        rootFolderPath={rootFolderPath}
-        onPathChange={setRootFolderPath}
-        serverCwd={serverCwd}
-        error={errors.rootFolderPath}
-        serverError={serverError}
-      />
+      <Dialog open={moveDialogOpen} onOpenChange={handleCancelMove}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Files?</DialogTitle>
+            <DialogDescription>
+              The root folder path has changed. Would you like to move existing
+              files to the new location?
+            </DialogDescription>
+          </DialogHeader>
 
-      <div className="space-y-2">
-        <Label>Search Categories</Label>
-        <CategoryMultiSelect value={categories} onChange={setCategories} />
-        <p className="text-xs text-muted-foreground">
-          Newznab/Torznab categories to search when using this profile.
-        </p>
-      </div>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-md border border-border p-3 space-y-2">
+              <div>
+                <span className="text-muted-foreground">From: </span>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                  {initialValues?.rootFolderPath}
+                </code>
+              </div>
+              <div>
+                <span className="text-muted-foreground">To: </span>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                  {rootFolderPath}
+                </code>
+              </div>
+            </div>
 
-      <UpgradeSection
-        upgradeAllowed={upgradeAllowed}
-        cutoff={cutoff}
-        items={items}
-        downloadFormats={filteredFormats}
-        errors={errors}
-        onUpgradeChange={setUpgradeAllowed}
-        onCutoffChange={(v) => setCutoff(Number(v))}
-      />
+            <p>
+              <strong>{moveFileCount}</strong> file
+              {moveFileCount === 1 ? "" : "s"} will be moved.
+            </p>
 
-      <QualitiesSection
-        downloadFormats={filteredFormats}
-        items={items}
-        cutoff={cutoff}
-        upgradeAllowed={upgradeAllowed}
-        error={errors.items}
-        onItemsChange={handleItemsChange}
-      />
+            <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3">
+              <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                This operation may take a while for large libraries. Files will
+                be physically moved on disk.
+              </p>
+            </div>
+          </div>
 
-      <div className="flex items-center gap-2">
-        <Switch
-          id="profile-enabled"
-          checked={enabled}
-          onCheckedChange={setEnabled}
-        />
-        <Label htmlFor="profile-enabled">Enabled</Label>
-      </div>
-
-      {serverError && !serverError.includes("Root folder") && (
-        <p className="text-sm text-destructive">{serverError}</p>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Saving..." : "Save"}
-        </Button>
-      </div>
-    </form>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={handleCancelMove}
+              disabled={moveLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleSkipMove}
+              disabled={moveLoading}
+            >
+              Don&apos;t Move
+            </Button>
+            <Button onClick={handleMoveFiles} disabled={moveLoading}>
+              {moveLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Moving...
+                </>
+              ) : (
+                "Move Files"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
