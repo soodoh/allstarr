@@ -58,28 +58,28 @@ const DEFAULTS_CONFIG: Record<
   { label: string; key: string; fallback: number; unit: string; hint: string }
 > = {
   ebook: {
-    label: "Default Page Count",
+    label: "Default Ebook Page Count",
     key: "format.ebook.defaultPageCount",
     fallback: 300,
     unit: "pages",
     hint: "Used when an edition\u2019s page count is unavailable",
   },
   audiobook: {
-    label: "Default Audio Duration",
+    label: "Default Audiobook Duration",
     key: "format.audiobook.defaultDuration",
     fallback: 600,
     unit: "minutes",
     hint: "Used when an edition\u2019s audio duration is unavailable",
   },
   movie: {
-    label: "Default Runtime",
+    label: "Default Movie Runtime",
     key: "format.movie.defaultRuntime",
     fallback: 130,
     unit: "minutes",
     hint: "Used when a movie\u2019s runtime is unavailable",
   },
   tv: {
-    label: "Default Episode Runtime",
+    label: "Default TV Episode Runtime",
     key: "format.tv.defaultEpisodeRuntime",
     fallback: 45,
     unit: "minutes",
