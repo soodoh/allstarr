@@ -68,3 +68,11 @@ export const bulkUnmonitorEpisodeProfileSchema = z.object({
   downloadProfileId: z.number(),
   deleteFiles: z.boolean(),
 });
+
+export const refreshMovieSchema = z.object({
+  movieId: z.number(),
+});
+
+export const refreshShowSchema = z.object({
+  showId: z.number(),
+});
