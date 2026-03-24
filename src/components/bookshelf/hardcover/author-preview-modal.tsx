@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -47,10 +47,14 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     [allProfiles],
   );
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
-    downloadProfiles.map((p) => p.id),
-  );
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const importAuthor = useImportHardcoverAuthor();
+
+  useEffect(() => {
+    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
+    }
+  }, [downloadProfiles, downloadProfileIds.length]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
