@@ -69,15 +69,15 @@ async function globalSetup(): Promise<void> {
   templateDb.pragma("journal_mode = DELETE");
   templateDb.exec(
     [
-      "INSERT INTO download_formats (id, title, weight, color, specifications) VALUES",
-      "(1, 'Unknown', 1, 'gray', '[]'),",
-      `(2, 'PDF', 2, 'red', '[{"type":"releaseTitle","value":"\\\\bpdf\\\\b","negate":false,"required":true}]'),`,
-      `(3, 'MOBI', 3, 'orange', '[{"type":"releaseTitle","value":"\\\\bmobi\\\\b","negate":false,"required":true}]'),`,
-      `(4, 'EPUB', 4, 'green', '[{"type":"releaseTitle","value":"\\\\bepub\\\\b","negate":false,"required":true}]'),`,
-      `(5, 'AZW3', 5, 'blue', '[{"type":"releaseTitle","value":"\\\\bazw3\\\\b","negate":false,"required":true}]'),`,
-      `(6, 'MP3', 6, 'purple', '[{"type":"releaseTitle","value":"\\\\bmp3\\\\b","negate":false,"required":true}]'),`,
-      `(7, 'M4B', 7, 'pink', '[{"type":"releaseTitle","value":"\\\\bm4b\\\\b","negate":false,"required":true}]'),`,
-      `(8, 'FLAC', 8, 'indigo', '[{"type":"releaseTitle","value":"\\\\bflac\\\\b","negate":false,"required":true}]')`,
+      "INSERT INTO download_formats (id, title, weight, color) VALUES",
+      "(1, 'Unknown', 1, 'gray'),",
+      "(2, 'PDF', 2, 'red'),",
+      "(3, 'MOBI', 3, 'orange'),",
+      "(4, 'EPUB', 4, 'green'),",
+      "(5, 'AZW3', 5, 'blue'),",
+      "(6, 'MP3', 6, 'purple'),",
+      "(7, 'M4B', 7, 'pink'),",
+      "(8, 'FLAC', 8, 'indigo')",
     ].join("\n"),
   );
   templateDb.pragma("wal_checkpoint(TRUNCATE)");

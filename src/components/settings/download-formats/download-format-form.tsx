@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { FormEvent, JSX } from "react";
-import { Plus, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
 import Input from "src/components/ui/input";
@@ -16,17 +15,6 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 
-type Specification = {
-  type: "releaseTitle" | "releaseGroup" | "size" | "indexerFlag";
-  value: string;
-  min?: number;
-  max?: number;
-  negate: boolean;
-  required: boolean;
-};
-
-type SpecEntry = Specification & { _id: string };
-
 type DownloadFormatFormValues = {
   title: string;
   weight: number;
@@ -34,7 +22,6 @@ type DownloadFormatFormValues = {
   minSize: number;
   maxSize: number | null;
   preferredSize: number | null;
-  specifications: Specification[];
   type: "ebook" | "audio" | "video";
   source: string | null;
   resolution: number;
@@ -59,13 +46,6 @@ const COLORS = [
   { value: "cyan", label: "Cyan" },
   { value: "orange", label: "Orange" },
 ];
-
-const SPEC_TYPES = [
-  { value: "releaseTitle", label: "Release Title" },
-  { value: "releaseGroup", label: "Release Group" },
-  { value: "size", label: "Size" },
-  { value: "indexerFlag", label: "Indexer Flag" },
-] as const;
 
 const VIDEO_SOURCES = [
   { value: "Television", label: "Television" },
@@ -96,180 +76,6 @@ const COLOR_CLASSES: Record<string, string> = {
   cyan: "bg-cyan-500",
   orange: "bg-orange-500",
 };
-
-function toEntries(specs: Specification[]): SpecEntry[] {
-  const result: SpecEntry[] = [];
-  for (const s of specs) {
-    result.push({
-      type: s.type,
-      value: s.value,
-      min: s.min,
-      max: s.max,
-      negate: s.negate,
-      required: s.required,
-      _id: crypto.randomUUID(),
-    });
-  }
-  return result;
-}
-
-function SpecificationRow({
-  spec,
-  onChange,
-  onRemove,
-}: {
-  spec: Specification;
-  onChange: (spec: Specification) => void;
-  onRemove: () => void;
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-      <div className="flex items-center gap-2">
-        <Select
-          value={spec.type}
-          onValueChange={(v) =>
-            onChange({
-              ...spec,
-              type: v as Specification["type"],
-              value: "",
-              min: undefined,
-              max: undefined,
-            })
-          }
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SPEC_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {(spec.type === "releaseTitle" || spec.type === "releaseGroup") && (
-          <Input
-            value={spec.value}
-            onChange={(e) => onChange({ ...spec, value: e.target.value })}
-            placeholder="Regex pattern"
-            className="flex-1"
-          />
-        )}
-
-        {spec.type === "size" && (
-          <div className="flex items-center gap-2 flex-1">
-            <Input
-              type="number"
-              value={spec.min ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...spec,
-                  min: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-              placeholder="Min (MB)"
-              className="w-24"
-            />
-            <span className="text-muted-foreground text-sm">to</span>
-            <Input
-              type="number"
-              value={spec.max ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...spec,
-                  max: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-              placeholder="Max (MB)"
-              className="w-24"
-            />
-          </div>
-        )}
-
-        {spec.type === "indexerFlag" && (
-          <Input
-            value={spec.value}
-            onChange={(e) => onChange({ ...spec, value: e.target.value })}
-            placeholder="Flag bit value"
-            className="w-32"
-          />
-        )}
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onRemove}
-          className="shrink-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={spec.negate}
-            onCheckedChange={(v) => onChange({ ...spec, negate: v })}
-          />
-          <span className="text-sm text-muted-foreground">Negate</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={spec.required}
-            onCheckedChange={(v) => onChange({ ...spec, required: v })}
-          />
-          <span className="text-sm text-muted-foreground">Required</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SpecificationsEditor({
-  specifications,
-  onAdd,
-  onUpdate,
-  onRemove,
-}: {
-  specifications: SpecEntry[];
-  onAdd: () => void;
-  onUpdate: (id: string, spec: Specification) => void;
-  onRemove: (id: string) => void;
-}): JSX.Element {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label>Specifications</Label>
-        <Button type="button" variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="mr-1 h-3 w-3" />
-          Add Condition
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Required conditions must ALL match. Non-required conditions need at
-        least one match.
-      </p>
-      <div className="space-y-2">
-        {specifications.map((spec) => (
-          <SpecificationRow
-            key={spec._id}
-            spec={spec}
-            onChange={(s) => onUpdate(spec._id, s)}
-            onRemove={() => onRemove(spec._id)}
-          />
-        ))}
-        {specifications.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No conditions &mdash; this definition won&apos;t match any releases
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function defaultMaxSize(t: "ebook" | "audio" | "video"): number {
   if (t === "audio") {
@@ -372,14 +178,6 @@ function VideoFields({
   );
 }
 
-function updateSpecById(
-  prev: SpecEntry[],
-  id: string,
-  updated: Specification,
-): SpecEntry[] {
-  return prev.map((s) => (s._id === id ? { ...updated, _id: id } : s));
-}
-
 function useBasicFormFields(
   initialValues: DownloadFormatFormValues | undefined,
   type: "ebook" | "audio" | "video",
@@ -429,9 +227,6 @@ function useSizeFormFields(
   const [preferredNoLimit, setPreferredNoLimit] = useState<boolean>(
     initialValues?.preferredSize === null,
   );
-  const [specifications, setSpecifications] = useState<SpecEntry[]>(() =>
-    toEntries(initialValues?.specifications ?? []),
-  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   return {
     minSize,
@@ -444,8 +239,6 @@ function useSizeFormFields(
     setPreferredSize,
     preferredNoLimit,
     setPreferredNoLimit,
-    specifications,
-    setSpecifications,
     errors,
     setErrors,
   };
@@ -485,36 +278,12 @@ export default function DownloadFormatForm({
     setPreferredSize,
     preferredNoLimit,
     setPreferredNoLimit,
-    specifications,
-    setSpecifications,
     errors,
     setErrors,
   } = useSizeFormFields(initialValues, type);
 
-  const handleAddSpec = () => {
-    setSpecifications((prev) => [
-      ...prev,
-      {
-        type: "releaseTitle",
-        value: "",
-        negate: false,
-        required: true,
-        _id: crypto.randomUUID(),
-      },
-    ]);
-  };
-
-  const handleUpdateSpec = (id: string, updated: Specification) => {
-    setSpecifications((prev) => updateSpecById(prev, id, updated));
-  };
-
-  const handleRemoveSpec = (id: string) => {
-    setSpecifications((prev) => prev.filter((s) => s._id !== id));
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const strippedSpecs = specifications.map(({ _id, ...rest }) => rest);
     const effectiveMax = maxNoLimit ? null : maxSize;
     const effectivePreferred = preferredNoLimit ? null : preferredSize;
     const payload: DownloadFormatFormValues = {
@@ -524,7 +293,6 @@ export default function DownloadFormatForm({
       minSize,
       maxSize: effectiveMax,
       preferredSize: effectivePreferred,
-      specifications: strippedSpecs,
       type: resolvedType,
       source: source || null,
       resolution,
@@ -648,13 +416,6 @@ export default function DownloadFormatForm({
           Enabled
         </Label>
       </div>
-
-      <SpecificationsEditor
-        specifications={specifications}
-        onAdd={handleAddSpec}
-        onUpdate={handleUpdateSpec}
-        onRemove={handleRemoveSpec}
-      />
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>

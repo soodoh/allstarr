@@ -31,16 +31,6 @@ export const updateDownloadProfileSchema = downloadProfileBaseSchema
     path: ["cutoff"],
   });
 
-// Download Formats
-export const specificationSchema = z.object({
-  type: z.enum(["releaseTitle", "releaseGroup", "size", "indexerFlag"]),
-  value: z.string().default(""),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  negate: z.boolean().default(false),
-  required: z.boolean().default(true),
-});
-
 // Custom Formats
 export const customFormatContentTypes = [
   "movie",
@@ -145,7 +135,6 @@ export const createDownloadFormatSchema = z.object({
   minSize: z.number().default(0),
   maxSize: z.number().nullable().default(null),
   preferredSize: z.number().nullable().default(null),
-  specifications: z.array(specificationSchema).default([]),
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),
@@ -160,7 +149,6 @@ export const updateDownloadFormatSchema = z.object({
   minSize: z.number().default(0),
   maxSize: z.number().nullable().default(null),
   preferredSize: z.number().nullable().default(null),
-  specifications: z.array(specificationSchema).default([]),
   type: z.enum(["ebook", "audio", "video"]).default("ebook"),
   source: z.string().nullable().default(null),
   resolution: z.number().default(0),

@@ -375,14 +375,7 @@ export const getDownloadFormatsFn = createServerFn({
   method: "GET",
 }).handler(async () => {
   await requireAuth();
-  const rows = db.select().from(downloadFormats).all();
-  // Ensure specifications is always a parsed array
-  for (const row of rows) {
-    if (typeof row.specifications === "string") {
-      row.specifications = JSON.parse(row.specifications);
-    }
-  }
-  return rows;
+  return db.select().from(downloadFormats).all();
 });
 
 export const createDownloadFormatFn = createServerFn({ method: "POST" })
