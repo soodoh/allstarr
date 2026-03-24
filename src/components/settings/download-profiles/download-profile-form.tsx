@@ -1,30 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, JSX } from "react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import {
-  AlertTriangle,
-  FolderOpen,
-  GripVertical,
-  Loader2,
-  X,
-} from "lucide-react";
+import { AlertTriangle, FolderOpen, Loader2 } from "lucide-react";
 import {
   PROFILE_ICONS,
   PROFILE_ICON_MAP,
@@ -55,6 +32,7 @@ import {
 import DirectoryBrowserDialog from "src/components/shared/directory-browser-dialog";
 import CategoryMultiSelect from "src/components/shared/category-multi-select";
 import LanguageSingleSelect from "src/components/shared/language-single-select";
+import TierGroupList from "src/components/settings/download-profiles/tier-group-list";
 import {
   countProfileFilesFn,
   moveProfileFilesFn,
@@ -240,67 +218,6 @@ function FormatSearchDropdown({
   );
 }
 
-function SortableFormatItem({
-  id,
-  name,
-  isCutoff,
-  onRemove,
-}: {
-  id: number;
-  name: string;
-  isCutoff: boolean;
-  onRemove: () => void;
-}): JSX.Element {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "flex items-center gap-2 rounded-md border px-3 py-2",
-        isDragging && "opacity-50",
-        isCutoff ? "border-blue-500 bg-blue-500/10" : "border-border",
-      )}
-    >
-      <button
-        type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <span className="text-sm">{name}</span>
-      {isCutoff && (
-        <span className="ml-auto text-xs text-blue-400">Upgrade Until</span>
-      )}
-      <button
-        type="button"
-        className={cn(
-          "rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground",
-          !isCutoff && "ml-auto",
-        )}
-        onClick={onRemove}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 type ProfileDefaults = {
   name: string;
   icon: string;
@@ -350,15 +267,17 @@ function getDefaults(
 function buildInitialItems(
   downloadFormats: Array<{ id: number; title: string }>,
   existingItems?: number[][],
-): number[] {
+): number[][] {
   const defIds = new Set(downloadFormats.map((d) => d.id));
-  const existingIds = existingItems ? existingItems.flat() : [];
 
-  if (existingIds.length === 0) {
-    return downloadFormats.map((d) => d.id);
+  if (!existingItems || existingItems.flat().length === 0) {
+    return downloadFormats.map((d) => [d.id]);
   }
 
-  return existingIds.filter((id) => defIds.has(id));
+  // Filter out invalid format IDs and remove empty groups
+  return existingItems
+    .map((group) => group.filter((id) => defIds.has(id)))
+    .filter((group) => group.length > 0);
 }
 
 function UpgradeSection({
@@ -372,7 +291,7 @@ function UpgradeSection({
 }: {
   upgradeAllowed: boolean;
   cutoff: number;
-  items: number[];
+  items: number[][];
   downloadFormats: Array<{ id: number; title: string; type: string }>;
   errors: Record<string, string>;
   onUpgradeChange: (v: boolean) => void;
@@ -382,6 +301,7 @@ function UpgradeSection({
     () => new Map(downloadFormats.map((d) => [d.id, d.title])),
     [downloadFormats],
   );
+  const flatItems = useMemo(() => items.flat(), [items]);
   return (
     <>
       <div className="flex items-center gap-2">
@@ -404,7 +324,7 @@ function UpgradeSection({
               <SelectValue placeholder="Select cutoff quality" />
             </SelectTrigger>
             <SelectContent>
-              {items.map((id) => (
+              {flatItems.map((id) => (
                 <SelectItem key={id} value={String(id)}>
                   {defMap.get(id) ?? String(id)}
                 </SelectItem>
@@ -431,85 +351,44 @@ function QualitiesSection({
   upgradeAllowed,
   error,
   onItemsChange,
+  onRemoveFormat,
 }: {
   downloadFormats: Array<{ id: number; title: string; type: string }>;
-  items: number[];
+  items: number[][];
   cutoff: number;
   upgradeAllowed: boolean;
   error?: string;
-  onItemsChange: (
-    updater: (prev: number[]) => number[],
-    removedId?: number,
-  ) => void;
+  onItemsChange: (items: number[][]) => void;
+  onRemoveFormat: (formatId: number) => void;
 }): JSX.Element {
-  const defMap = useMemo(
-    () => new Map(downloadFormats.map((d) => [d.id, d.title])),
-    [downloadFormats],
-  );
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      onItemsChange((prev) => {
-        const oldIndex = prev.indexOf(active.id as number);
-        const newIndex = prev.indexOf(over.id as number);
-        return arrayMove(prev, oldIndex, newIndex);
-      });
-    }
-  };
+  const flatItems = useMemo(() => items.flat(), [items]);
 
   const addItem = (id: number) => {
-    onItemsChange((prev) => [...prev, id]);
-  };
-
-  const removeItem = (id: number) => {
-    onItemsChange((prev) => prev.filter((i) => i !== id), id);
+    onItemsChange([...items, [id]]);
   };
 
   return (
     <div className="space-y-2">
       <Label>File Formats</Label>
       <p className="text-xs text-muted-foreground">
-        File formats higher in the list are more preferred. Drag to reorder.
+        Formats higher in the list are more preferred. Drag to reorder. Use the
+        merge button to group equivalent formats into tiers.
       </p>
 
       <FormatSearchDropdown
         downloadFormats={downloadFormats}
-        selectedIds={items}
+        selectedIds={flatItems}
         onAdd={addItem}
       />
 
-      {items.length > 0 && (
-        <div className="space-y-1 rounded-md border border-border p-2">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={items}
-              strategy={verticalListSortingStrategy}
-            >
-              {items.map((id) => (
-                <SortableFormatItem
-                  key={id}
-                  id={id}
-                  name={defMap.get(id) ?? String(id)}
-                  isCutoff={upgradeAllowed && cutoff === id}
-                  onRemove={() => removeItem(id)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
-        </div>
-      )}
+      <TierGroupList
+        items={items}
+        onChange={onItemsChange}
+        downloadFormats={downloadFormats}
+        cutoff={cutoff}
+        upgradeAllowed={upgradeAllowed}
+        onRemoveFormat={onRemoveFormat}
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
@@ -714,7 +593,7 @@ export default function DownloadProfileForm({
     [downloadFormats, mediaType],
   );
 
-  const [items, setItems] = useState<number[]>(() =>
+  const [items, setItems] = useState<number[][]>(() =>
     buildInitialItems(downloadFormats, initialValues?.items),
   );
 
@@ -730,7 +609,11 @@ export default function DownloadProfileForm({
     const validIds = new Set(
       downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
     );
-    setItems((prev) => prev.filter((id) => validIds.has(id)));
+    setItems((prev) =>
+      prev
+        .map((group) => group.filter((id) => validIds.has(id)))
+        .filter((group) => group.length > 0),
+    );
     setCutoff(0);
   };
 
@@ -739,16 +622,26 @@ export default function DownloadProfileForm({
     const validIds = new Set(
       downloadFormats.filter((d) => d.type === newMediaType).map((d) => d.id),
     );
-    setItems((prev) => prev.filter((id) => validIds.has(id)));
+    setItems((prev) =>
+      prev
+        .map((group) => group.filter((id) => validIds.has(id)))
+        .filter((group) => group.length > 0),
+    );
     setCutoff(0);
   };
 
-  const handleItemsChange = (
-    updater: (prev: number[]) => number[],
-    removedId?: number,
-  ) => {
-    setItems(updater);
-    if (removedId !== undefined && cutoff === removedId) {
+  const handleItemsChange = (newItems: number[][]) => {
+    setItems(newItems);
+  };
+
+  const handleRemoveFormat = (formatId: number) => {
+    setItems((prev) => {
+      const updated = prev
+        .map((group) => group.filter((id) => id !== formatId))
+        .filter((group) => group.length > 0);
+      return updated;
+    });
+    if (cutoff === formatId) {
       setCutoff(0);
     }
   };
@@ -761,14 +654,12 @@ export default function DownloadProfileForm({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Wrap each flat item into its own group for the grouped items format
-    const groupedItems = items.map((id) => [id]);
     const result = validateForm(createDownloadProfileSchema, {
       name,
       icon,
       rootFolderPath,
       cutoff: upgradeAllowed ? cutoff : 0,
-      items: groupedItems,
+      items,
       upgradeAllowed,
       categories,
       mediaType,
@@ -910,6 +801,7 @@ export default function DownloadProfileForm({
           upgradeAllowed={upgradeAllowed}
           error={errors.items}
           onItemsChange={handleItemsChange}
+          onRemoveFormat={handleRemoveFormat}
         />
 
         <div className="flex items-center gap-2">

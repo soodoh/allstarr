@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { JSX } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, Equal, Pencil, Trash2 } from "lucide-react";
 import { getProfileIcon } from "src/lib/profile-icons";
 import { CATEGORY_MAP } from "src/lib/categories";
 import COLOR_BADGE_CLASSES from "src/lib/format-colors";
@@ -118,7 +118,6 @@ export default function DownloadProfileList({
         </TableHeader>
         <TableBody>
           {profiles.map((profile) => {
-            const itemIds = profile.items.flat();
             const cutoffDef = profile.cutoff
               ? defById.get(profile.cutoff)
               : null;
@@ -165,28 +164,70 @@ export default function DownloadProfileList({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {itemIds.map((id) => {
-                      const def = defById.get(id);
-                      if (!def) {
-                        return null;
-                      }
-                      const isCutoff = profile.cutoff === id;
-                      let badgeClass = "";
-                      if (isCutoff) {
-                        badgeClass =
-                          "border-blue-500 bg-blue-500/20 text-blue-400";
-                      } else if (def.color) {
-                        badgeClass = COLOR_BADGE_CLASSES[def.color] ?? "";
-                      }
+                  <div className="flex flex-wrap items-center gap-1">
+                    {profile.items.map((group, groupIdx) => {
+                      const isMulti = group.length > 1;
+                      const gKey = group.join("-");
                       return (
-                        <Badge
-                          key={id}
-                          variant="secondary"
-                          className={badgeClass}
-                        >
-                          {def.title}
-                        </Badge>
+                        <Fragment key={gKey}>
+                          {groupIdx > 0 && (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                          {isMulti ? (
+                            <div className="inline-flex items-center gap-0.5 rounded-md border border-dashed border-muted-foreground/30 px-1 py-0.5">
+                              <Equal className="h-3 w-3 text-muted-foreground shrink-0" />
+                              {group.map((id) => {
+                                const def = defById.get(id);
+                                if (!def) {
+                                  return null;
+                                }
+                                const isCutoff = profile.cutoff === id;
+                                let badgeClass = "";
+                                if (isCutoff) {
+                                  badgeClass =
+                                    "border-blue-500 bg-blue-500/20 text-blue-400";
+                                } else if (def.color) {
+                                  badgeClass =
+                                    COLOR_BADGE_CLASSES[def.color] ?? "";
+                                }
+                                return (
+                                  <Badge
+                                    key={id}
+                                    variant="secondary"
+                                    className={badgeClass}
+                                  >
+                                    {def.title}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            group.map((id) => {
+                              const def = defById.get(id);
+                              if (!def) {
+                                return null;
+                              }
+                              const isCutoff = profile.cutoff === id;
+                              let badgeClass = "";
+                              if (isCutoff) {
+                                badgeClass =
+                                  "border-blue-500 bg-blue-500/20 text-blue-400";
+                              } else if (def.color) {
+                                badgeClass =
+                                  COLOR_BADGE_CLASSES[def.color] ?? "";
+                              }
+                              return (
+                                <Badge
+                                  key={id}
+                                  variant="secondary"
+                                  className={badgeClass}
+                                >
+                                  {def.title}
+                                </Badge>
+                              );
+                            })
+                          )}
+                        </Fragment>
                       );
                     })}
                   </div>
