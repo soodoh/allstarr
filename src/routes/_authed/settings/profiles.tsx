@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
 import {
@@ -15,6 +15,12 @@ import {
   downloadProfilesListQuery,
   downloadFormatsListQuery,
 } from "src/lib/queries";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "src/components/ui/tabs";
 import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import { getServerCwdFn } from "src/server/filesystem";
 import {
@@ -45,12 +51,13 @@ type ProfileValues = {
   items: number[][];
   upgradeAllowed: boolean;
   categories: number[];
-  mediaType: string;
   contentType: string;
   language: string;
   minCustomFormatScore: number;
   upgradeUntilCustomFormatScore: number;
 };
+
+type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook";
 
 function ProfilesPage() {
   const { serverCwd } = Route.useLoaderData();
@@ -62,10 +69,18 @@ function ProfilesPage() {
   const deleteProfile = useDeleteDownloadProfile();
   const bulkSetCFScores = useBulkSetProfileCFScores();
 
+  const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<
     (typeof profiles)[number] | undefined
   >(undefined);
+
+  const filteredProfiles = useMemo(() => {
+    if (activeTab === "all") {
+      return profiles;
+    }
+    return profiles.filter((p) => p.contentType === activeTab);
+  }, [profiles, activeTab]);
 
   const profileLoading = createProfile.isPending || updateProfile.isPending;
 
@@ -133,16 +148,28 @@ function ProfilesPage() {
         }
       />
 
-      <div className="space-y-4">
-        <DownloadProfileList
-          profiles={profiles}
-          definitions={definitions}
-          onEdit={(profile) =>
-            handleEditProfile(profiles.find((p) => p.id === profile.id)!)
-          }
-          onDelete={(id) => deleteProfile.mutate(id)}
-        />
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as TabValue)}
+      >
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="movie">Movie</TabsTrigger>
+          <TabsTrigger value="tv">TV</TabsTrigger>
+          <TabsTrigger value="ebook">Ebook</TabsTrigger>
+          <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab}>
+          <DownloadProfileList
+            profiles={filteredProfiles}
+            definitions={definitions}
+            onEdit={(profile) =>
+              handleEditProfile(profiles.find((p) => p.id === profile.id)!)
+            }
+            onDelete={(id) => deleteProfile.mutate(id)}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl">
@@ -163,7 +190,6 @@ function ProfilesPage() {
                     items: editingProfile.items,
                     upgradeAllowed: editingProfile.upgradeAllowed,
                     categories: editingProfile.categories,
-                    mediaType: editingProfile.mediaType,
                     contentType: editingProfile.contentType,
                     language: editingProfile.language,
                     minCustomFormatScore: editingProfile.minCustomFormatScore,

@@ -31,7 +31,6 @@ type DownloadProfile = {
   items: number[][];
   upgradeAllowed: boolean;
   categories: number[];
-  mediaType: string;
   contentType: string;
 };
 
@@ -56,25 +55,24 @@ function contentTypeLabel(contentType: string): string {
     case "movie": {
       return "Movie";
     }
+    case "ebook": {
+      return "Ebook";
+    }
+    case "audiobook": {
+      return "Audiobook";
+    }
     default: {
-      return "Book";
+      return contentType;
     }
   }
 }
 
-function mediaTypeLabel(mediaType: string): string {
-  switch (mediaType) {
-    case "audio": {
-      return "Audio";
-    }
-    case "video": {
-      return "Video";
-    }
-    default: {
-      return "Ebook";
-    }
-  }
-}
+const CONTENT_TYPE_BADGE_CLASSES: Record<string, string> = {
+  movie: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  tv: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  ebook: "bg-green-500/20 text-green-400 border-green-500/30",
+  audiobook: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+};
 
 export default function DownloadProfileList({
   profiles,
@@ -104,7 +102,6 @@ export default function DownloadProfileList({
             <TableHead>Name</TableHead>
             <TableHead>Root Folder</TableHead>
             <TableHead>Content</TableHead>
-            <TableHead>Media</TableHead>
             <TableHead>Formats</TableHead>
             <TableHead>Categories</TableHead>
             <TableHead>Upgrades</TableHead>
@@ -146,13 +143,13 @@ export default function DownloadProfileList({
                   </TooltipProvider>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">
+                  <Badge
+                    variant="outline"
+                    className={
+                      CONTENT_TYPE_BADGE_CLASSES[profile.contentType] ?? ""
+                    }
+                  >
                     {contentTypeLabel(profile.contentType)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {mediaTypeLabel(profile.mediaType)}
                   </Badge>
                 </TableCell>
                 <TableCell>
