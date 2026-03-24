@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -13,6 +13,14 @@ import {
 import Switch from "src/components/ui/switch";
 import PageHeader from "src/components/shared/page-header";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "src/components/ui/dialog";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import MoviePoster from "src/components/movies/movie-poster";
 import { useUpdateMovie, useDeleteMovie } from "src/hooks/mutations/movies";
 
@@ -36,6 +44,9 @@ type MovieDetail = {
 type DownloadProfile = {
   id: number;
   name: string;
+  icon: string;
+  contentType: string;
+  enabled: boolean;
 };
 
 type MovieDetailHeaderProps = {
@@ -102,10 +113,39 @@ export default function MovieDetailHeader({
   const updateMovie = useUpdateMovie();
   const deleteMovie = useDeleteMovie();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editProfilesOpen, setEditProfilesOpen] = useState(false);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
+    movie.downloadProfileIds,
+  );
+
+  // Wrap in useMemo to satisfy linter
+  const movieProfiles = useMemo(
+    () =>
+      downloadProfiles.filter((p) => p.contentType === "movie" && p.enabled),
+    [downloadProfiles],
+  );
 
   const profileNames = downloadProfiles
     .filter((p) => movie.downloadProfileIds.includes(p.id))
     .map((p) => p.name);
+
+  const toggleProfile = (id: number) => {
+    setSelectedProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
+
+  const handleSaveProfiles = () => {
+    updateMovie.mutate(
+      { id: movie.id, downloadProfileIds: selectedProfileIds },
+      {
+        onSuccess: () => {
+          setEditProfilesOpen(false);
+          router.invalidate();
+        },
+      },
+    );
+  };
 
   const tmdbUrl = `https://www.themoviedb.org/movie/${movie.tmdbId}`;
   const imdbUrl = movie.imdbId
@@ -250,9 +290,23 @@ export default function MovieDetailHeader({
                 </dd>
               </div>
               {profileNames.length > 0 && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Download Profile</dt>
-                  <dd className="text-right">{profileNames.join(", ")}</dd>
+                <div className="flex justify-between gap-4 items-center">
+                  <dt className="text-muted-foreground">Download Profiles</dt>
+                  <dd className="flex items-center gap-2">
+                    <span className="text-right">
+                      {profileNames.join(", ")}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setSelectedProfileIds(movie.downloadProfileIds);
+                        setEditProfilesOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </dd>
                 </div>
               )}
             </dl>
@@ -275,6 +329,34 @@ export default function MovieDetailHeader({
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit profiles dialog */}
+      <Dialog open={editProfilesOpen} onOpenChange={setEditProfilesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Download Profiles</DialogTitle>
+          </DialogHeader>
+          <ProfileCheckboxGroup
+            profiles={movieProfiles}
+            selectedIds={selectedProfileIds}
+            onToggle={toggleProfile}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditProfilesOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveProfiles}
+              disabled={updateMovie.isPending}
+            >
+              {updateMovie.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
