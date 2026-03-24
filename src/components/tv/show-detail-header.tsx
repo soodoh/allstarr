@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "src/components/ui/card";
-import Switch from "src/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +20,14 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
+import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
+import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import ShowPoster from "src/components/tv/show-poster";
 import { useUpdateShow, useDeleteShow } from "src/hooks/mutations/shows";
+import {
+  useBulkMonitorEpisodeProfile,
+  useBulkUnmonitorEpisodeProfile,
+} from "src/hooks/mutations/episode-profiles";
 
 type ShowDetail = {
   id: number;
@@ -37,11 +42,14 @@ type ShowDetail = {
   runtime: number;
   genres: string[] | null;
   posterUrl: string;
-  monitored: boolean | null;
   downloadProfileIds: number[];
   seasons: Array<{
+    id: number;
+    seasonNumber: number;
     episodes: Array<{
+      id: number;
       hasFile: boolean | null;
+      downloadProfileIds: number[];
     }>;
   }>;
 };
@@ -83,15 +91,16 @@ export default function ShowDetailHeader({
   const router = useRouter();
   const updateShow = useUpdateShow();
   const deleteShow = useDeleteShow();
+  const bulkMonitor = useBulkMonitorEpisodeProfile();
+  const bulkUnmonitor = useBulkUnmonitorEpisodeProfile();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editProfilesOpen, setEditProfilesOpen] = useState(false);
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
     show.downloadProfileIds,
   );
-
-  const profileNames = downloadProfiles
-    .filter((p) => show.downloadProfileIds.includes(p.id))
-    .map((p) => p.name);
+  const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
+    null,
+  );
 
   const tvProfiles = useMemo(
     () => downloadProfiles.filter((p) => p.contentType === "tv"),
@@ -123,10 +132,57 @@ export default function ShowDetailHeader({
   const episodeCount = allEpisodes.length;
   const episodeFileCount = allEpisodes.filter((ep) => ep.hasFile).length;
 
-  const handleMonitorToggle = (checked: boolean) => {
-    updateShow.mutate(
-      { id: show.id, monitored: checked },
-      { onSuccess: () => router.invalidate() },
+  const showActiveProfileIds = useMemo(
+    () =>
+      show.downloadProfileIds.filter(
+        (pid) =>
+          allEpisodes.length > 0 &&
+          allEpisodes.every((ep) => ep.downloadProfileIds.includes(pid)),
+      ),
+    [show.downloadProfileIds, allEpisodes],
+  );
+
+  const showPartialProfileIds = useMemo(
+    () =>
+      show.downloadProfileIds.filter(
+        (pid) =>
+          !showActiveProfileIds.includes(pid) &&
+          allEpisodes.some((ep) => ep.downloadProfileIds.includes(pid)),
+      ),
+    [show.downloadProfileIds, showActiveProfileIds, allEpisodes],
+  );
+
+  const filteredProfiles = useMemo(
+    () => tvProfiles.filter((p) => show.downloadProfileIds.includes(p.id)),
+    [tvProfiles, show.downloadProfileIds],
+  );
+
+  const handleShowProfileToggle = (profileId: number) => {
+    const isActive = showActiveProfileIds.includes(profileId);
+    if (isActive) {
+      setUnmonitorProfileId(profileId);
+    } else {
+      const episodeIds = allEpisodes.map((ep) => ep.id);
+      bulkMonitor.mutate(
+        { episodeIds, downloadProfileId: profileId },
+        { onSuccess: () => router.invalidate() },
+      );
+    }
+  };
+
+  const handleShowUnmonitorConfirm = (deleteFiles: boolean) => {
+    if (unmonitorProfileId === null) {
+      return;
+    }
+    const episodeIds = allEpisodes.map((ep) => ep.id);
+    bulkUnmonitor.mutate(
+      { episodeIds, downloadProfileId: unmonitorProfileId, deleteFiles },
+      {
+        onSuccess: () => {
+          setUnmonitorProfileId(null);
+          router.invalidate();
+        },
+      },
     );
   };
 
@@ -161,6 +217,17 @@ export default function ShowDetailHeader({
             </a>
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedProfileIds(show.downloadProfileIds);
+              setEditProfilesOpen(true);
+            }}
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          <Button
             variant="destructive"
             size="sm"
             onClick={() => setDeleteOpen(true)}
@@ -172,14 +239,29 @@ export default function ShowDetailHeader({
       </div>
 
       {/* Page header */}
-      <PageHeader
-        title={show.title}
-        description={
-          show.year > 0
-            ? `${show.year}${show.network ? ` - ${show.network}` : ""}`
-            : show.network || undefined
-        }
-      />
+      <div className="flex items-start gap-3">
+        {show.downloadProfileIds.length > 0 && (
+          <ProfileToggleIcons
+            profiles={filteredProfiles}
+            activeProfileIds={showActiveProfileIds}
+            partialProfileIds={showPartialProfileIds}
+            onToggle={handleShowProfileToggle}
+            isPending={bulkMonitor.isPending || bulkUnmonitor.isPending}
+            size="lg"
+            direction="vertical"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <PageHeader
+            title={show.title}
+            description={
+              show.year > 0
+                ? `${show.year}${show.network ? ` - ${show.network}` : ""}`
+                : show.network || undefined
+            }
+          />
+        </div>
+      </div>
 
       {/* Three-column layout */}
       <div className="flex flex-col gap-6 xl:flex-row">
@@ -245,36 +327,6 @@ export default function ShowDetailHeader({
                   {episodeFileCount}/{episodeCount} episodes
                 </dd>
               </div>
-              <div className="flex justify-between gap-4 items-center">
-                <dt className="text-muted-foreground">Monitored</dt>
-                <dd>
-                  <Switch
-                    checked={show.monitored ?? false}
-                    onCheckedChange={handleMonitorToggle}
-                    disabled={updateShow.isPending}
-                  />
-                </dd>
-              </div>
-              {profileNames.length > 0 && (
-                <div className="flex justify-between gap-4 items-center">
-                  <dt className="text-muted-foreground">Download Profiles</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className="text-right">
-                      {profileNames.join(", ")}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setSelectedProfileIds(show.downloadProfileIds);
-                        setEditProfilesOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  </dd>
-                </div>
-              )}
             </dl>
           </CardContent>
         </Card>
@@ -333,6 +385,23 @@ export default function ShowDetailHeader({
         onConfirm={handleDelete}
         loading={deleteShow.isPending}
         variant="destructive"
+      />
+
+      <UnmonitorDialog
+        open={unmonitorProfileId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnmonitorProfileId(null);
+          }
+        }}
+        profileName={
+          tvProfiles.find((p) => p.id === unmonitorProfileId)?.name ?? ""
+        }
+        itemTitle={show.title}
+        itemType="show"
+        fileCount={0}
+        onConfirm={handleShowUnmonitorConfirm}
+        isPending={bulkUnmonitor.isPending}
       />
     </>
   );
