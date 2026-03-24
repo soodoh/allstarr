@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -46,9 +46,13 @@ function AddBookForm({
     [allProfiles],
   );
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
-    downloadProfiles.map((p) => p.id),
-  );
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
+      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
+    }
+  }, [downloadProfiles, downloadProfileIds.length]);
 
   const importBook = useImportHardcoverBook();
 
