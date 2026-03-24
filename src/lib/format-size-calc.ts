@@ -22,6 +22,20 @@ const DEFAULT_PAGE_COUNT = 300;
 const DEFAULT_AUDIO_DURATION = 600; // minutes
 const DEFAULT_VIDEO_DURATION = 120; // minutes
 
+/** Derive size calculation mode from content type(s) */
+export function sizeMode(
+  contentType: string | string[],
+): "ebook" | "audio" | "video" {
+  const ct = Array.isArray(contentType) ? contentType[0] : contentType;
+  if (ct === "audiobook") {
+    return "audio";
+  }
+  if (ct === "movie" || ct === "tv") {
+    return "video";
+  }
+  return "ebook";
+}
+
 /**
  * Compute effective MB size limits from rate values.
  *
