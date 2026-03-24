@@ -17,7 +17,6 @@ export const addShowSchema = z.object({
 
 export const updateShowSchema = z.object({
   id: z.number(),
-  monitored: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
   downloadProfileIds: z.array(z.number()).optional(),
 });
@@ -37,7 +36,6 @@ export const addMovieSchema = z.object({
 
 export const updateMovieSchema = z.object({
   id: z.number(),
-  monitored: z.boolean().optional(),
   minimumAvailability: z
     .enum(["announced", "inCinemas", "released"])
     .optional(),
@@ -47,4 +45,26 @@ export const updateMovieSchema = z.object({
 export const deleteMovieSchema = z.object({
   id: z.number(),
   deleteFiles: z.boolean().default(false),
+});
+
+export const monitorEpisodeProfileSchema = z.object({
+  episodeId: z.number(),
+  downloadProfileId: z.number(),
+});
+
+export const unmonitorEpisodeProfileSchema = z.object({
+  episodeId: z.number(),
+  downloadProfileId: z.number(),
+  deleteFiles: z.boolean(),
+});
+
+export const bulkMonitorEpisodeProfileSchema = z.object({
+  episodeIds: z.array(z.number()),
+  downloadProfileId: z.number(),
+});
+
+export const bulkUnmonitorEpisodeProfileSchema = z.object({
+  episodeIds: z.array(z.number()),
+  downloadProfileId: z.number(),
+  deleteFiles: z.boolean(),
 });
