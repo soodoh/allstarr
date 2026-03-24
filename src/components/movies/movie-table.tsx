@@ -1,14 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  Eye,
-  EyeOff,
-  Film,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Film } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,7 +20,6 @@ type Movie = {
   year: number;
   studio: string;
   status: string;
-  monitored: boolean;
   posterUrl: string;
   hasFile: boolean;
 };
@@ -125,7 +117,6 @@ export default function MovieTable({
         <col className="w-20" />
         <col />
         <col className="w-28" />
-        <col className="w-24" />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -155,7 +146,6 @@ export default function MovieTable({
               <SortIcon col={key} />
             </TableHead>
           ))}
-          <TableHead>Monitored</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -215,13 +205,6 @@ export default function MovieTable({
               </TableCell>
               <TableCell>
                 <Badge className={badge.className}>{badge.label}</Badge>
-              </TableCell>
-              <TableCell>
-                {movie.monitored ? (
-                  <Eye className="h-4 w-4 text-green-400" />
-                ) : (
-                  <EyeOff className="h-4 w-4 text-zinc-500" />
-                )}
               </TableCell>
             </TableRow>
           );

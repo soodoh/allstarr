@@ -1,14 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  Eye,
-  EyeOff,
-  Tv,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Tv } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,7 +20,6 @@ type Show = {
   year: number;
   network: string;
   status: string;
-  monitored: boolean;
   posterUrl: string;
   seasonCount: number;
   episodeCount: number;
@@ -143,7 +135,6 @@ export default function ShowTable({
         <col className="w-24" />
         <col className="w-28" />
         <col className="w-28" />
-        <col className="w-24" />
       </colgroup>
       <TableHeader>
         <TableRow>
@@ -175,7 +166,6 @@ export default function ShowTable({
               <SortIcon col={key} />
             </TableHead>
           ))}
-          <TableHead>Monitored</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -242,13 +232,6 @@ export default function ShowTable({
               </TableCell>
               <TableCell>
                 <Badge className={badge.className}>{badge.label}</Badge>
-              </TableCell>
-              <TableCell>
-                {show.monitored ? (
-                  <Eye className="h-4 w-4 text-green-400" />
-                ) : (
-                  <EyeOff className="h-4 w-4 text-zinc-500" />
-                )}
               </TableCell>
             </TableRow>
           );

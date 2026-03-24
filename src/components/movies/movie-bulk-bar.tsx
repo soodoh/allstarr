@@ -26,7 +26,6 @@ export default function MovieBulkBar({
   onDone,
 }: MovieBulkBarProps): JSX.Element {
   const [profileId, setProfileId] = useState("");
-  const [monitored, setMonitored] = useState("");
   const [minAvailability, setMinAvailability] = useState("");
   const [applying, setApplying] = useState(false);
 
@@ -42,16 +41,9 @@ export default function MovieBulkBar({
     const promises = ids.map((id) => {
       const payload: {
         id: number;
-        monitored?: boolean;
         minimumAvailability?: "announced" | "inCinemas" | "released";
         downloadProfileIds?: number[];
       } = { id };
-      if (monitored === "true") {
-        payload.monitored = true;
-      }
-      if (monitored === "false") {
-        payload.monitored = false;
-      }
       if (minAvailability) {
         payload.minimumAvailability = minAvailability as
           | "announced"
@@ -92,16 +84,6 @@ export default function MovieBulkBar({
                 {p.name}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={monitored} onValueChange={setMonitored}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Monitored" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Monitored</SelectItem>
-            <SelectItem value="false">Unmonitored</SelectItem>
           </SelectContent>
         </Select>
 

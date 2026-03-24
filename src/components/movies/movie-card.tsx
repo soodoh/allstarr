@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff, HardDrive } from "lucide-react";
+import { HardDrive } from "lucide-react";
 import type { JSX } from "react";
 import { Badge } from "src/components/ui/badge";
 import MoviePoster from "src/components/movies/movie-poster";
@@ -11,7 +11,6 @@ type MovieCardProps = {
     year: number;
     posterUrl: string;
     status: string;
-    monitored: boolean;
     hasFile: boolean;
   };
 };
@@ -52,18 +51,6 @@ export default function MovieCard({ movie }: MovieCardProps): JSX.Element {
             className="w-full transition-shadow group-hover:shadow-lg"
           />
           <div className="absolute top-2 right-2 flex flex-col gap-1">
-            {movie.monitored ? (
-              <span className="rounded-full bg-black/60 p-1" title="Monitored">
-                <Eye className="h-3.5 w-3.5 text-green-400" />
-              </span>
-            ) : (
-              <span
-                className="rounded-full bg-black/60 p-1"
-                title="Unmonitored"
-              >
-                <EyeOff className="h-3.5 w-3.5 text-zinc-400" />
-              </span>
-            )}
             {movie.hasFile && (
               <span className="rounded-full bg-black/60 p-1" title="On disk">
                 <HardDrive className="h-3.5 w-3.5 text-blue-400" />
