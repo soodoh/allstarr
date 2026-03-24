@@ -2,10 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "src/components/ui/sheet";
 import PageHeader from "src/components/shared/page-header";
 import CustomFormatList from "src/components/settings/custom-formats/custom-format-list";
+import CustomFormatForm from "src/components/settings/custom-formats/custom-format-form";
 import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import {
+  useCreateCustomFormat,
   useUpdateCustomFormat,
   useDeleteCustomFormat,
   useDuplicateCustomFormat,
@@ -21,13 +30,13 @@ export const Route = createFileRoute("/_authed/settings/custom-formats")({
 function CustomFormatsPage() {
   const { data: customFormats } = useSuspenseQuery(customFormatsListQuery());
 
+  const createCustomFormat = useCreateCustomFormat();
   const updateCustomFormat = useUpdateCustomFormat();
   const deleteCustomFormat = useDeleteCustomFormat();
   const duplicateCustomFormat = useDuplicateCustomFormat();
 
-  // State for edit dialog — will be wired in Task 10
-  const [_editDialogOpen, setEditDialogOpen] = useState(false);
-  const [_editingFormat, setEditingFormat] = useState<
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingFormat, setEditingFormat] = useState<
     (typeof customFormats)[number] | undefined
   >(undefined);
 
@@ -57,6 +66,37 @@ function CustomFormatsPage() {
     });
   };
 
+  const handleCreate = (
+    values: Parameters<typeof createCustomFormat.mutate>[0],
+  ) => {
+    createCustomFormat.mutate(values, {
+      onSuccess: () => setEditDialogOpen(false),
+    });
+  };
+
+  const handleUpdate = (
+    values: Parameters<typeof createCustomFormat.mutate>[0],
+  ) => {
+    if (!editingFormat) {
+      return;
+    }
+    updateCustomFormat.mutate(
+      { ...values, id: editingFormat.id },
+      {
+        onSuccess: () => {
+          setEditingFormat(undefined);
+          setEditDialogOpen(false);
+        },
+      },
+    );
+  };
+
+  const activeMutation = editingFormat
+    ? updateCustomFormat
+    : createCustomFormat;
+  const formLoading =
+    createCustomFormat.isPending || updateCustomFormat.isPending;
+
   return (
     <div>
       <PageHeader
@@ -83,6 +123,45 @@ function CustomFormatsPage() {
           onToggleEnabled={handleToggleEnabled}
         />
       </div>
+
+      <Sheet open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <SheetContent className="overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>
+              {editingFormat ? "Edit Custom Format" : "Add Custom Format"}
+            </SheetTitle>
+            <SheetDescription>
+              {editingFormat
+                ? "Modify the custom format matching rules and scoring."
+                : "Create a new custom format to score releases during download evaluation."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-4">
+            <CustomFormatForm
+              key={editingFormat?.id ?? "new"}
+              initialValues={
+                editingFormat
+                  ? {
+                      id: editingFormat.id,
+                      name: editingFormat.name,
+                      category: editingFormat.category,
+                      specifications: editingFormat.specifications,
+                      defaultScore: editingFormat.defaultScore,
+                      contentTypes: editingFormat.contentTypes,
+                      includeInRenaming: editingFormat.includeInRenaming,
+                      description: editingFormat.description,
+                      enabled: editingFormat.enabled,
+                    }
+                  : undefined
+              }
+              onSubmit={editingFormat ? handleUpdate : handleCreate}
+              onCancel={() => setEditDialogOpen(false)}
+              loading={formLoading}
+              serverError={activeMutation.error?.message}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
