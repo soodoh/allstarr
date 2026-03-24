@@ -618,7 +618,12 @@ function RootFoldersSection({
 }) {
   const rootFolderMap = new Map<string, string[]>();
   for (const profile of profiles) {
-    if (profile.rootFolderPath && profile.contentType === contentType) {
+    if (
+      profile.rootFolderPath &&
+      (contentType === "book"
+        ? profile.contentType === "ebook" || profile.contentType === "audiobook"
+        : profile.contentType === contentType)
+    ) {
       const existing = rootFolderMap.get(profile.rootFolderPath) ?? [];
       existing.push(profile.name);
       rootFolderMap.set(profile.rootFolderPath, existing);

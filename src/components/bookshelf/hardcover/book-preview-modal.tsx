@@ -42,7 +42,10 @@ function AddBookForm({
 }: AddBookFormProps) {
   const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
   const downloadProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "book"),
+    () =>
+      allProfiles.filter(
+        (p) => p.contentType === "ebook" || p.contentType === "audiobook",
+      ),
     [allProfiles],
   );
 

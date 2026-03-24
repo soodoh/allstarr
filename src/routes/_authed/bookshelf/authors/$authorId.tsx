@@ -1314,7 +1314,10 @@ function AuthorDetailPage() {
   }, [author, downloadProfiles]);
 
   const bookDownloadProfiles = useMemo(
-    () => downloadProfiles?.filter((p) => p.contentType === "book") ?? [],
+    () =>
+      downloadProfiles?.filter(
+        (p) => p.contentType === "ebook" || p.contentType === "audiobook",
+      ) ?? [],
     [downloadProfiles],
   );
 

@@ -43,7 +43,10 @@ type AddFormProps = {
 function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
   const downloadProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "book"),
+    () =>
+      allProfiles.filter(
+        (p) => p.contentType === "ebook" || p.contentType === "audiobook",
+      ),
     [allProfiles],
   );
 
