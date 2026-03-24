@@ -7,6 +7,7 @@ import {
   HardDrive,
   Radar,
   FileText,
+  ListFilter,
 } from "lucide-react";
 import {
   Card,
@@ -47,6 +48,12 @@ const settingsItems = [
     icon: FileType,
     description:
       "Define format types like EPUB, MOBI, PDF and their matching rules.",
+  },
+  {
+    title: "Custom Formats",
+    to: "/settings/custom-formats" as const,
+    icon: ListFilter,
+    description: "Custom scoring rules for release quality and preferences.",
   },
   {
     title: "Profiles",
