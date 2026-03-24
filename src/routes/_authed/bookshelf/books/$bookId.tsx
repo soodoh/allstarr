@@ -372,7 +372,8 @@ function BookDetailPage(): JSX.Element {
             authorDownloadProfiles.find((p) => p.id === unmonitorProfileId)
               ?.name ?? ""
           }
-          bookTitle={book.title}
+          itemTitle={book.title}
+          itemType="book"
           fileCount={book.fileCount}
           onConfirm={(deleteFiles) => {
             unmonitorBookProfile.mutate(

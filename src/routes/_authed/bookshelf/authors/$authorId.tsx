@@ -498,7 +498,8 @@ function BooksTab({
           }
         }}
         profileName={unmonitorTarget?.profileName ?? ""}
-        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemType="book"
         fileCount={unmonitorTarget?.fileCount ?? 0}
         onConfirm={(deleteFiles) => {
           if (unmonitorTarget) {
@@ -1237,7 +1238,8 @@ function SeriesTab({
           }
         }}
         profileName={unmonitorTarget?.profileName ?? ""}
-        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemType="book"
         fileCount={unmonitorTarget?.fileCount ?? 0}
         onConfirm={(deleteFiles) => {
           if (unmonitorTarget) {

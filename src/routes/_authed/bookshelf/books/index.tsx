@@ -198,7 +198,8 @@ function BooksPage() {
           }
         }}
         profileName={unmonitorTarget?.profileName ?? ""}
-        bookTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemTitle={unmonitorTarget?.bookTitle ?? ""}
+        itemType="book"
         fileCount={0}
         onConfirm={(deleteFiles) => {
           if (unmonitorTarget) {
