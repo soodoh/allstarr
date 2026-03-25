@@ -176,8 +176,16 @@ export const queryKeys = {
       ["hardcover", "bookLanguages", foreignBookId] as const,
     bookDetail: (foreignBookId: number) =>
       ["hardcover", "bookDetail", foreignBookId] as const,
-    seriesComplete: (foreignSeriesIds: number[]) =>
-      ["hardcover", "seriesComplete", ...foreignSeriesIds] as const,
+    seriesComplete: (
+      foreignSeriesIds: number[],
+      excludeForeignAuthorId?: number,
+    ) =>
+      [
+        "hardcover",
+        "seriesComplete",
+        excludeForeignAuthorId ?? 0,
+        ...foreignSeriesIds,
+      ] as const,
   },
 
   // ─── Queue ─────────────────────────────────────────────────────────────

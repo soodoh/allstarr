@@ -403,14 +403,21 @@ export async function fetchAuthorComplete(
 // ---------------------------------------------------------------------------
 
 const SERIES_COMPLETE_QUERY = `
-query SeriesComplete($seriesIds: [Int!]!) {
+query SeriesComplete($seriesIds: [Int!]!, $langCodes: [String!]!, $excludeAuthorId: Int!) {
   series(where: { id: { _in: $seriesIds } }) {
     id
     name
     slug
     is_completed
     book_series(
-      where: { compilation: { _neq: true } }
+      where: {
+        compilation: { _neq: true }
+        book: {
+          canonical_id: { _is_null: true }
+          editions: { language: { code2: { _in: $langCodes } } }
+          _not: { contributions: { author_id: { _eq: $excludeAuthorId } } }
+        }
+      }
       order_by: [{ position: asc_nulls_last }, { book: { users_count: desc } }]
     ) {
       position
@@ -464,6 +471,8 @@ query SeriesComplete($seriesIds: [Int!]!) {
 export async function fetchSeriesComplete(
   seriesIds: number[],
   authorization: string,
+  langCodes: string[],
+  excludeAuthorId: number,
 ): Promise<HardcoverRawSeries[]> {
   if (seriesIds.length === 0) {
     return [];
@@ -471,7 +480,7 @@ export async function fetchSeriesComplete(
 
   const data = await fetchGraphQL<{ series: unknown }>(
     SERIES_COMPLETE_QUERY,
-    { seriesIds },
+    { seriesIds, langCodes, excludeAuthorId },
     authorization,
   );
 

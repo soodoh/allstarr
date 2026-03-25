@@ -76,9 +76,18 @@ export const hardcoverSingleBookQuery = (foreignBookId: number) =>
     queryFn: () => getHardcoverBookDetailFn({ data: { foreignBookId } }),
   });
 
-export const hardcoverSeriesCompleteQuery = (foreignSeriesIds: number[]) =>
+export const hardcoverSeriesCompleteQuery = (
+  foreignSeriesIds: number[],
+  excludeForeignAuthorId?: number,
+) =>
   queryOptions({
-    queryKey: queryKeys.hardcover.seriesComplete(foreignSeriesIds),
-    queryFn: () => getSeriesFromHardcoverFn({ data: { foreignSeriesIds } }),
+    queryKey: queryKeys.hardcover.seriesComplete(
+      foreignSeriesIds,
+      excludeForeignAuthorId,
+    ),
+    queryFn: () =>
+      getSeriesFromHardcoverFn({
+        data: { foreignSeriesIds, excludeForeignAuthorId },
+      }),
     staleTime: 1000 * 60 * 30, // 30 minutes
   });

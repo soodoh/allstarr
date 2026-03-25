@@ -593,6 +593,7 @@ function SeriesTab({
   seriesList,
   books,
   currentAuthorId,
+  foreignAuthorId,
   availableLanguages,
   enabled,
   authorDownloadProfiles,
@@ -601,6 +602,7 @@ function SeriesTab({
   seriesList: AuthorSeries[];
   books: LocalBook[];
   currentAuthorId: number;
+  foreignAuthorId: string | null;
   availableLanguages: LanguageOption[];
   enabled: boolean;
   authorDownloadProfiles: DownloadProfileInfo[];
@@ -678,8 +680,12 @@ function SeriesTab({
     [seriesList],
   );
 
+  const excludeForeignAuthorId = foreignAuthorId
+    ? Number(foreignAuthorId)
+    : undefined;
+
   const { data: hardcoverSeries, isLoading: isLoadingSeries } = useQuery({
-    ...hardcoverSeriesCompleteQuery(foreignSeriesIds),
+    ...hardcoverSeriesCompleteQuery(foreignSeriesIds, excludeForeignAuthorId),
     enabled: enabled && foreignSeriesIds.length > 0,
   });
 
@@ -1476,6 +1482,7 @@ function AuthorDetailPage() {
                   seriesList={authorSeries}
                   books={books}
                   currentAuthorId={authorIdNum}
+                  foreignAuthorId={author.foreignAuthorId ?? null}
                   availableLanguages={availableLanguages}
                   enabled={activeTab === "series"}
                   authorDownloadProfiles={authorDownloadProfiles}
