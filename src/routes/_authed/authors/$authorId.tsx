@@ -1051,7 +1051,7 @@ function SeriesTab({
                             <TableCell className="text-muted-foreground text-xs">
                               {position ?? "—"}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="min-w-14 w-14">
                               {coverUrl ? (
                                 <img
                                   src={coverUrl}
@@ -1156,7 +1156,7 @@ function SeriesTab({
                           <TableCell className="text-muted-foreground text-xs">
                             {entry.position ?? "—"}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="min-w-14 w-14">
                             {coverUrl ? (
                               <img
                                 src={coverUrl}
