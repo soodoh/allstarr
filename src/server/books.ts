@@ -792,6 +792,7 @@ export const getBookFn = createServerFn({ method: "GET" })
         ratingsCount: books.ratingsCount,
         usersCount: books.usersCount,
         tags: books.tags,
+        autoSwitchEdition: books.autoSwitchEdition,
         metadataUpdatedAt: books.metadataUpdatedAt,
         metadataSourceMissingSince: books.metadataSourceMissingSince,
         createdAt: books.createdAt,
@@ -884,6 +885,13 @@ export const getBookFn = createServerFn({ method: "GET" })
       .where(eq(bookFiles.bookId, data.id))
       .get();
 
+    // Fetch all book files
+    const files = db
+      .select()
+      .from(bookFiles)
+      .where(eq(bookFiles.bookId, data.id))
+      .all();
+
     // Batch-fetch edition download profile links
     const editionIds = bookEditions.map((e) => e.id);
     const editionProfileLinks =
@@ -945,6 +953,7 @@ export const getBookFn = createServerFn({ method: "GET" })
       series: bookSeries,
       languages,
       fileCount: fileCountResult?.count ?? 0,
+      files,
       missingEditionsCount,
     };
   });

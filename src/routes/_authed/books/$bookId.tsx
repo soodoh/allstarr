@@ -8,22 +8,19 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ChevronDown,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
+import ActionButtonGroup from "src/components/shared/action-button-group";
 import { BookDetailSkeleton } from "src/components/shared/loading-skeleton";
 import BookCover from "src/components/bookshelf/books/book-cover";
 import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 
 import EditionsTab from "src/components/bookshelf/books/editions-tab";
+import BookFilesTab from "src/components/bookshelf/books/book-files-tab";
 import SearchReleasesTab from "src/components/bookshelf/books/search-releases-tab";
+import BookEditDialog from "src/components/bookshelf/books/book-edit-dialog";
+import BookDeleteDialog from "src/components/bookshelf/books/book-delete-dialog";
 
-import { Button } from "src/components/ui/button";
 import {
   Card,
   CardContent,
@@ -35,7 +32,12 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "src/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "src/components/ui/tabs";
 
 import {
   bookDetailQuery,
@@ -52,6 +54,7 @@ import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import ReassignFilesDialog from "src/components/bookshelf/books/reassign-files-dialog";
 import NotFound from "src/components/NotFound";
+import BookHistoryTab from "src/components/bookshelf/books/book-history-tab";
 
 export const Route = createFileRoute("/_authed/books/$bookId")({
   loader: async ({ params, context }) => {
@@ -82,6 +85,8 @@ function BookDetailPage(): JSX.Element {
 
   const [activeTab, setActiveTab] = useState("editions");
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
     null,
   );
@@ -120,6 +125,8 @@ function BookDetailPage(): JSX.Element {
     ? `https://hardcover.app/books/${book.slug}`
     : null;
 
+  const primaryAuthor = book.bookAuthors[0];
+
   const handleRefreshMetadata = () => {
     refreshMetadata.mutate(book.id, {
       onSuccess: () => router.invalidate(),
@@ -128,14 +135,29 @@ function BookDetailPage(): JSX.Element {
 
   return (
     <div className="space-y-6">
-      {/* Back button */}
-      <Link
-        to="/books"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Books
-      </Link>
+      {/* Back link + Action buttons */}
+      <div className="flex items-center justify-between">
+        <Link
+          to={primaryAuthor?.authorId ? "/authors/$authorId" : "/books"}
+          params={
+            primaryAuthor?.authorId
+              ? { authorId: String(primaryAuthor.authorId) }
+              : undefined
+          }
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {primaryAuthor?.authorName ?? "Back to Books"}
+        </Link>
+        <ActionButtonGroup
+          onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={refreshMetadata.isPending}
+          onEdit={() => setEditOpen(true)}
+          onDelete={() => setDeleteOpen(true)}
+          externalUrl={hardcoverUrl}
+          externalLabel="Open in Hardcover"
+        />
+      </div>
 
       {/* Page header */}
       <div className="flex items-start gap-3">
@@ -192,31 +214,6 @@ function BookDetailPage(): JSX.Element {
           <PageHeader
             title={book.title}
             description={<AdditionalAuthors bookAuthors={book.bookAuthors} />}
-            actions={
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefreshMetadata}
-                  disabled={refreshMetadata.isPending}
-                >
-                  {refreshMetadata.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
-                  Update Metadata
-                </Button>
-                {hardcoverUrl && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={hardcoverUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Hardcover
-                    </a>
-                  </Button>
-                )}
-              </div>
-            }
           />
         </div>
       </div>
@@ -342,6 +339,8 @@ function BookDetailPage(): JSX.Element {
           >
             <TabsList className="m-4 mb-0">
               <TabsTrigger value="editions">Editions</TabsTrigger>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="search">Search Releases</TabsTrigger>
             </TabsList>
 
@@ -353,6 +352,10 @@ function BookDetailPage(): JSX.Element {
                 authorDownloadProfiles={authorDownloadProfiles}
                 editions={book.editions}
               />
+              <BookFilesTab files={book.files} />
+              <TabsContent value="history" className="flex-1 min-h-0">
+                <BookHistoryTab bookId={book.id} />
+              </TabsContent>
               <SearchReleasesTab
                 book={book}
                 enabled={activeTab === "search"}
@@ -362,6 +365,36 @@ function BookDetailPage(): JSX.Element {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Edit dialog */}
+      <BookEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        bookId={book.id}
+        bookTitle={book.title}
+        autoSwitchEdition={book.autoSwitchEdition === 1}
+        onSuccess={() => router.invalidate()}
+      />
+
+      {/* Delete dialog */}
+      <BookDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        bookId={book.id}
+        bookTitle={book.title}
+        fileCount={book.fileCount}
+        foreignBookId={book.foreignBookId}
+        onSuccess={() => {
+          if (primaryAuthor?.authorId) {
+            navigate({
+              to: "/authors/$authorId",
+              params: { authorId: String(primaryAuthor.authorId) },
+            });
+          } else {
+            navigate({ to: "/books" });
+          }
+        }}
+      />
 
       {/* Unmonitor profile dialog (triggered from header toggle) */}
       {unmonitorProfileId !== null && (
