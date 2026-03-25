@@ -409,6 +409,7 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
     const profileLinks = db
       .select({
         downloadProfileId: showDownloadProfiles.downloadProfileId,
+        monitorNewSeasons: showDownloadProfiles.monitorNewSeasons,
       })
       .from(showDownloadProfiles)
       .where(eq(showDownloadProfiles.showId, data.id))
@@ -418,6 +419,7 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
     return {
       ...show,
       downloadProfileIds,
+      downloadProfiles: profileLinks,
       seasons: seasonsWithEpisodes,
     };
   });

@@ -17,6 +17,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import Switch from "src/components/ui/switch";
+import Label from "src/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
 import PageHeader from "src/components/shared/page-header";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
@@ -47,7 +56,12 @@ type ShowDetail = {
   runtime: number;
   genres: string[] | null;
   posterUrl: string;
+  useSeasonFolder: number | null;
   downloadProfileIds: number[];
+  downloadProfiles: Array<{
+    downloadProfileId: number;
+    monitorNewSeasons: string;
+  }>;
   seasons: Array<{
     id: number;
     seasonNumber: number;
@@ -88,22 +102,162 @@ function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+type EditShowDialogProps = {
+  show: ShowDetail;
+  tvProfiles: Array<{ id: number; name: string; icon: string }>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+function EditShowDialog({
+  show,
+  tvProfiles,
+  open,
+  onOpenChange,
+}: EditShowDialogProps): JSX.Element {
+  const router = useRouter();
+  const updateShow = useUpdateShow();
+  const [profiles, setProfiles] = useState<
+    Array<{
+      downloadProfileId: number;
+      monitorNewSeasons: "all" | "none" | "new";
+    }>
+  >(
+    (show.downloadProfiles ?? []).map((p) => ({
+      downloadProfileId: p.downloadProfileId,
+      monitorNewSeasons: p.monitorNewSeasons as "all" | "none" | "new",
+    })),
+  );
+  const [useSeasonFolder, setUseSeasonFolder] = useState(
+    Boolean(show.useSeasonFolder),
+  );
+
+  const selectedIds = useMemo(
+    () => profiles.map((p) => p.downloadProfileId),
+    [profiles],
+  );
+
+  // Reset state when dialog opens
+  const handleOpenChange = (value: boolean) => {
+    if (value) {
+      setProfiles(
+        (show.downloadProfiles ?? []).map((p) => ({
+          downloadProfileId: p.downloadProfileId,
+          monitorNewSeasons: p.monitorNewSeasons as "all" | "none" | "new",
+        })),
+      );
+      setUseSeasonFolder(Boolean(show.useSeasonFolder));
+    }
+    onOpenChange(value);
+  };
+
+  const toggleProfile = (id: number) => {
+    setProfiles((prev) =>
+      prev.some((p) => p.downloadProfileId === id)
+        ? prev.filter((p) => p.downloadProfileId !== id)
+        : [
+            ...prev,
+            { downloadProfileId: id, monitorNewSeasons: "all" as const },
+          ],
+    );
+  };
+
+  const handleMonitorChange = (id: number, value: "all" | "none" | "new") => {
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.downloadProfileId === id ? { ...p, monitorNewSeasons: value } : p,
+      ),
+    );
+  };
+
+  const handleSave = () => {
+    updateShow.mutate(
+      { id: show.id, downloadProfiles: profiles, useSeasonFolder },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          router.invalidate();
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Download Profiles</DialogTitle>
+        </DialogHeader>
+        <ProfileCheckboxGroup
+          profiles={tvProfiles}
+          selectedIds={selectedIds}
+          onToggle={toggleProfile}
+          renderExtra={(profileId) => (
+            <div className="ml-6 flex items-center gap-2">
+              <Label className="text-sm text-muted-foreground">
+                Monitor New Seasons
+              </Label>
+              <Select
+                value={
+                  profiles.find((p) => p.downloadProfileId === profileId)
+                    ?.monitorNewSeasons
+                }
+                onValueChange={(v) =>
+                  handleMonitorChange(profileId, v as "all" | "none" | "new")
+                }
+              >
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        />
+
+        {/* Use Season Folder toggle */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <div className="space-y-1">
+            <Label>Use Season Folder</Label>
+            <p className="text-sm text-muted-foreground">
+              Organize episodes into season-based folder structure.
+            </p>
+          </div>
+          <Switch
+            checked={useSeasonFolder}
+            onCheckedChange={setUseSeasonFolder}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={updateShow.isPending}>
+            {updateShow.isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ShowDetailHeader({
   show,
   downloadProfiles,
 }: ShowDetailHeaderProps): JSX.Element {
   const navigate = useNavigate();
   const router = useRouter();
-  const updateShow = useUpdateShow();
   const deleteShow = useDeleteShow();
   const refreshMetadata = useRefreshShowMetadata();
   const bulkMonitor = useBulkMonitorEpisodeProfile();
   const bulkUnmonitor = useBulkUnmonitorEpisodeProfile();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editProfilesOpen, setEditProfilesOpen] = useState(false);
-  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
-    show.downloadProfileIds,
-  );
   const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
     null,
   );
@@ -112,24 +266,6 @@ export default function ShowDetailHeader({
     () => downloadProfiles.filter((p) => p.contentType === "tv"),
     [downloadProfiles],
   );
-
-  const toggleProfile = (id: number) => {
-    setSelectedProfileIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    );
-  };
-
-  const handleSaveProfiles = () => {
-    updateShow.mutate(
-      { id: show.id, downloadProfileIds: selectedProfileIds },
-      {
-        onSuccess: () => {
-          setEditProfilesOpen(false);
-          router.invalidate();
-        },
-      },
-    );
-  };
 
   const handleRefreshMetadata = () => {
     refreshMetadata.mutate(show.id, {
@@ -227,10 +363,7 @@ export default function ShowDetailHeader({
         <ActionButtonGroup
           onRefreshMetadata={handleRefreshMetadata}
           isRefreshing={refreshMetadata.isPending}
-          onEdit={() => {
-            setSelectedProfileIds(show.downloadProfileIds);
-            setEditProfilesOpen(true);
-          }}
+          onEdit={() => setEditProfilesOpen(true)}
           onDelete={() => setDeleteOpen(true)}
           externalUrl={tmdbUrl}
           externalLabel="Open in TMDB"
@@ -363,32 +496,12 @@ export default function ShowDetailHeader({
       </div>
 
       {/* Edit profiles dialog */}
-      <Dialog open={editProfilesOpen} onOpenChange={setEditProfilesOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Download Profiles</DialogTitle>
-          </DialogHeader>
-          <ProfileCheckboxGroup
-            profiles={tvProfiles}
-            selectedIds={selectedProfileIds}
-            onToggle={toggleProfile}
-          />
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditProfilesOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveProfiles}
-              disabled={updateShow.isPending}
-            >
-              {updateShow.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditShowDialog
+        show={show}
+        tvProfiles={tvProfiles}
+        open={editProfilesOpen}
+        onOpenChange={setEditProfilesOpen}
+      />
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
