@@ -15,38 +15,13 @@ import {
   refreshMovieSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
-import { TMDB_IMAGE_BASE } from "./tmdb/types";
 import type { TmdbMovieDetail } from "./tmdb/types";
+import {
+  mapMovieStatus,
+  transformImagePath,
+  generateSortTitle,
+} from "./utils/movie-helpers";
 import * as fs from "node:fs";
-
-type MovieStatus = "tba" | "announced" | "inCinemas" | "released" | "deleted";
-
-function mapMovieStatus(tmdbStatus: string): MovieStatus {
-  switch (tmdbStatus) {
-    case "Rumored":
-    case "Planned": {
-      return "tba";
-    }
-    case "In Production":
-    case "Post Production": {
-      return "announced";
-    }
-    case "Released": {
-      return "released";
-    }
-    default: {
-      return "announced";
-    }
-  }
-}
-
-function transformImagePath(path: string | null, size: string): string | null {
-  return path === null ? null : `${TMDB_IMAGE_BASE}/${size}${path}`;
-}
-
-function generateSortTitle(title: string): string {
-  return title.replace(/^(The|A|An)\s+/i, "");
-}
 
 export const addMovieFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => addMovieSchema.parse(d))
