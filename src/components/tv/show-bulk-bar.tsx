@@ -42,13 +42,18 @@ export default function ShowBulkBar({
       const payload: {
         id: number;
         seriesType?: "standard" | "daily" | "anime";
-        downloadProfileIds?: number[];
+        downloadProfiles?: Array<{
+          downloadProfileId: number;
+          monitorNewSeasons: "all" | "none" | "new";
+        }>;
       } = { id };
       if (seriesType) {
         payload.seriesType = seriesType as "standard" | "daily" | "anime";
       }
       if (profileId) {
-        payload.downloadProfileIds = [Number(profileId)];
+        payload.downloadProfiles = [
+          { downloadProfileId: Number(profileId), monitorNewSeasons: "all" },
+        ];
       }
       return updateShow.mutateAsync(payload);
     });

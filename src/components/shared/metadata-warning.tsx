@@ -65,13 +65,16 @@ export default function MetadataWarning({
         },
       });
     } else {
-      deleteBook.mutate(itemId, {
-        onSuccess: () => {
-          setConfirmDelete(false);
-          setPopoverOpen(false);
-          onDeleted?.();
+      deleteBook.mutate(
+        { id: itemId, deleteFiles: false, addImportExclusion: false },
+        {
+          onSuccess: () => {
+            setConfirmDelete(false);
+            setPopoverOpen(false);
+            onDeleted?.();
+          },
         },
-      });
+      );
     }
   };
 
