@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useCallback } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { FolderOpen, RefreshCw, Search } from "lucide-react";
@@ -11,9 +11,11 @@ import { TooltipProvider } from "src/components/ui/tooltip";
 import { movieCollectionsListQuery } from "src/lib/queries/movie-collections";
 import CollectionCard from "src/components/movies/collection-card";
 import EditCollectionDialog from "src/components/movies/edit-collection-dialog";
+import { MoviePreviewModal } from "src/components/movies/tmdb-movie-search";
+import AddMissingMoviesDialog from "src/components/movies/add-missing-movies-dialog";
+import type { TmdbMovieResult } from "src/server/tmdb/types";
 import {
   useRefreshCollections,
-  useAddMissingCollectionMovies,
   useAddMovieImportExclusion,
   useUpdateMovieCollection,
 } from "src/hooks/mutations/movie-collections";
@@ -43,21 +45,41 @@ function CollectionsPage() {
   const [editCollection, setEditCollection] = useState<
     (typeof collections)[number] | null
   >(null);
+  const [previewMovie, setPreviewMovie] = useState<TmdbMovieResult | null>(
+    null,
+  );
+  const [addMissingCollection, setAddMissingCollection] = useState<
+    (typeof collections)[number] | null
+  >(null);
 
   const refreshCollections = useRefreshCollections();
-  const addMissing = useAddMissingCollectionMovies();
   const excludeMovie = useAddMovieImportExclusion();
   const updateCollection = useUpdateMovieCollection();
 
-  const router = useRouter();
   const handleAddMovie = useCallback(
-    (tmdbId: number) => {
-      router.navigate({
-        to: "/movies/add",
-        search: { tmdbId: String(tmdbId) },
+    (movie: {
+      tmdbId: number;
+      title: string;
+      posterUrl: string | null;
+      year: number | null;
+      overview: string;
+    }) => {
+      setPreviewMovie({
+        media_type: "movie",
+        id: movie.tmdbId,
+        title: movie.title,
+        original_title: movie.title,
+        overview: movie.overview,
+        poster_path: movie.posterUrl,
+        backdrop_path: null,
+        release_date: movie.year ? `${String(movie.year)}-01-01` : "",
+        genre_ids: [],
+        popularity: 0,
+        vote_average: 0,
+        adult: false,
       });
     },
-    [router],
+    [],
   );
 
   const filtered = useMemo(() => {
@@ -179,7 +201,7 @@ function CollectionsPage() {
                 key={collection.id}
                 collection={collection}
                 onEdit={setEditCollection}
-                onAddMissing={(id) => addMissing.mutate({ collectionId: id })}
+                onAddMissing={setAddMissingCollection}
                 onExcludeMovie={(movie) =>
                   excludeMovie.mutate({
                     tmdbId: movie.tmdbId,
@@ -200,6 +222,29 @@ function CollectionsPage() {
           onOpenChange={(open) => {
             if (!open) {
               setEditCollection(null);
+            }
+          }}
+        />
+
+        {previewMovie && (
+          <MoviePreviewModal
+            movie={previewMovie}
+            open={Boolean(previewMovie)}
+            onOpenChange={(open) => {
+              if (!open) {
+                setPreviewMovie(null);
+              }
+            }}
+            onAdded={() => setPreviewMovie(null)}
+          />
+        )}
+
+        <AddMissingMoviesDialog
+          collection={addMissingCollection}
+          open={addMissingCollection !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAddMissingCollection(null);
             }
           }}
         />
