@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "src/components/ui/dialog";
 import { Button } from "src/components/ui/button";
-import { Switch } from "src/components/ui/switch";
+import Switch from "src/components/ui/switch";
 import { Label } from "src/components/ui/label";
 import {
   Select,
@@ -20,7 +20,7 @@ import {
 } from "src/components/ui/select";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { useUpdateMovieCollection } from "src/hooks/mutations/movie-collections";
-import { Checkbox } from "src/components/ui/checkbox";
+import Checkbox from "src/components/ui/checkbox";
 
 type Collection = {
   id: number;
