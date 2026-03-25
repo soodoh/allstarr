@@ -1,12 +1,14 @@
-# Anime Custom Formats & Download Profile
+# Anime Custom Formats, Download Profile & Series Type Filtering
 
-Add all TRaSH Guides anime custom formats and an "Anime 1080p" TV download profile, matching Recyclarr's recommendations.
+Add TRaSH Guides anime custom formats, an "Anime 1080p" TV download profile, a `seriesTypes` field on download profiles for TV series type filtering, and a series type selector in the show edit dialog.
 
 ## Source of Truth
 
 TRaSH Guides Sonarr anime quality profile: the `[Anime] Remux-1080p` configuration. All custom format names, specifications, and scores come directly from TRaSH's JSON definitions at `https://github.com/TRaSH-Guides/Guides/tree/master/docs/json/sonarr/cf/`.
 
-## Custom Formats (39 total)
+---
+
+## 1. Custom Formats (39 total)
 
 All custom formats have `contentTypes: ["tv"]` and `origin: "builtin"`.
 
@@ -96,7 +98,9 @@ Each has a `releaseTitle` spec (required) for the service name + optional `video
 | Bilibili | 0     | `\b(Bili(bili)?)\b`                  |
 | HIDIVE   | 0     | `\b(HIDI(VE)?)\b`                    |
 
-## Download Profile: Anime 1080p
+---
+
+## 2. Download Profile: Anime 1080p
 
 | Setting                       | Value              |
 | ----------------------------- | ------------------ |
@@ -107,6 +111,7 @@ Each has a `releaseTitle` spec (required) for the service name + optional `video
 | icon                          | tv                 |
 | categories                    | [5070] (TV/Anime)  |
 | language                      | en                 |
+| seriesTypes                   | ["anime"]          |
 | minCustomFormatScore          | 0                  |
 | upgradeUntilCustomFormatScore | 10000              |
 
@@ -126,7 +131,81 @@ Based on TRaSH's `[Anime] Remux-1080p` guide:
 
 All 39 custom formats linked to this profile via `profileCustomFormats` join table, using the anime-specific scores listed above.
 
-## Specification Type Mapping
+---
+
+## 3. Series Types on Download Profiles
+
+### Schema Change
+
+Add `series_types` column to `download_profiles` table:
+
+- **Type:** JSON array of strings
+- **Default:** `["standard", "daily", "anime"]` (all three)
+- **Validation:** When `contentType === "tv"`, at least one series type must be selected
+
+### Migration Data
+
+| Profile         | seriesTypes                              |
+| --------------- | ---------------------------------------- |
+| 1080p (TV)      | ["standard", "daily"]                    |
+| 4k (TV)         | ["standard", "daily"]                    |
+| Anime 1080p     | ["anime"]                                |
+| Non-TV profiles | ["standard", "daily", "anime"] (default) |
+
+### Profile Filtering by Series Type
+
+When assigning download profiles to a show, filter by both content type AND series type. Three locations:
+
+1. `src/components/tv/tmdb-show-search.tsx:88` — show add flow
+2. `src/components/tv/show-detail-header.tsx:238` — show edit dialog
+3. `src/routes/_authed/tv/index.tsx:35` — TV index page
+
+Filter logic: `profile.contentType === "tv" && profile.seriesTypes.includes(show.seriesType)`
+
+---
+
+## 4. Series Type in Show Edit Dialog
+
+The edit dialog at `show-detail-header.tsx` already has `seriesType` state (line 126) and passes it to the update mutation (line 152), but the UI control is not rendered. Add a Series Type select dropdown matching the one in the add flow.
+
+### Conflict Resolution on Series Type Change
+
+When the user changes series type in the edit dialog, previously-assigned profiles may no longer be valid for the new series type. The dialog must detect and resolve conflicts before saving.
+
+**Flow:**
+
+1. User changes series type (e.g., "standard" -> "anime")
+2. Re-filter available profiles to match the new series type
+3. Detect conflicts — currently-assigned profiles not in the new filtered list
+4. For each conflicting profile, show an inline prompt:
+   - **Remove** — unassign the profile from this show (cascades to episode profiles). Files on disk are not deleted.
+   - **Migrate to [profile]** — reassign episodes/files from the conflicting profile to a user-selected valid profile. Only shown if valid profiles exist for the new series type.
+5. Save button disabled until all conflicts are resolved
+
+**Example:** User changes from "standard" to "anime":
+
+- "1080p (TV)" was assigned with monitored episodes
+- Dialog shows: "1080p (TV) is not available for Anime series"
+  - Option A: "Remove profile"
+  - Option B: "Migrate to Anime 1080p"
+- User resolves conflict -> save enabled
+
+---
+
+## 5. Preset Picker
+
+The `PRESETS` array supports multiple presets per content type. Each has `name` and `description`. When creating or managing download profiles, show presets grouped by content type with their description blurbs.
+
+For TV, users would see:
+
+- **HD WEB Streaming** — "Optimized for TV shows from streaming services..."
+- **Anime 1080p** — (anime-specific description)
+
+Presets are filtered by `contentType` only (not series type). Presets are templates for creating profiles. The `seriesTypes` field on the profile is set independently by the user.
+
+---
+
+## 6. Specification Type Mapping
 
 Sonarr specification types map to Allstarr types:
 
@@ -142,15 +221,23 @@ Sonarr specification types map to Allstarr types:
 | ReleaseGroupSpecification      | releaseGroup             | Regex on extracted group name   |
 | LanguageSpecification          | language                 | Language identifier string      |
 
-## Files Changed
+---
 
-| File                                   | Change                                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `src/lib/custom-format-preset-data.ts` | Add "Anime 1080p" preset with all 39 CFs, scores, and thresholds                                           |
-| `src/db/seed-custom-formats.ts`        | Fix profile-preset matching: match by preset name to profile name instead of `contentType` (see bug below) |
-| `drizzle/0005_*.sql`                   | Migration: insert CFs, download profile, profile-CF links, quality items                                   |
+## 7. Files Changed
 
-## Seeder Bug Fix
+| File                                       | Change                                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/custom-format-preset-data.ts`     | Add "Anime 1080p" preset with all 39 CFs, scores, and thresholds                                                                |
+| `src/db/schema/download-profiles.ts`       | Add `seriesTypes` column (JSON array, default all three)                                                                        |
+| `src/db/seed-custom-formats.ts`            | Fix preset-profile matching: by name instead of contentType                                                                     |
+| `src/lib/tmdb-validators.ts`               | Add seriesTypes validation to download profile schema                                                                           |
+| `src/lib/validators.ts`                    | Add seriesTypes to download profile validators with TV-specific >=1 validation                                                  |
+| `src/components/tv/tmdb-show-search.tsx`   | Filter profiles by series type in add flow                                                                                      |
+| `src/components/tv/show-detail-header.tsx` | Add Series Type dropdown + conflict resolution UI in edit dialog                                                                |
+| `src/routes/_authed/tv/index.tsx`          | Filter profiles by series type                                                                                                  |
+| `drizzle/0005_*.sql`                       | Migration: add seriesTypes column, insert CFs, insert Anime 1080p profile, update existing TV profiles, insert profile-CF links |
+
+## 8. Seeder Bug Fix
 
 `seed-custom-formats.ts` line 69 currently does:
 
@@ -158,18 +245,20 @@ Sonarr specification types map to Allstarr types:
 const preset = PRESETS.find((p) => p.contentType === profile.contentType);
 ```
 
-With two TV presets ("HD WEB Streaming" and "Anime 1080p"), this always returns the first match. The fix: match preset name to profile name instead. Each preset's `name` already corresponds to a download profile name, so change to:
+With multiple TV presets, this always returns the first match. Fix: match by name:
 
 ```ts
 const preset = PRESETS.find((p) => p.name === profile.name);
 ```
 
-## Migration Strategy
+## 9. Migration Strategy
 
 The migration must:
 
-1. Insert all 39 custom formats into `custom_formats` table
-2. Insert the "Anime 1080p" download profile with quality items referencing existing download_formats by title subquery
-3. Insert 39 rows into `profile_custom_formats` linking the profile to each CF with the correct score
+1. Add `series_types` column to `download_profiles` with default `'["standard","daily","anime"]'`
+2. Update existing TV profiles: set 1080p/4k to `'["standard","daily"]'`
+3. Insert all 39 anime custom formats into `custom_formats`
+4. Insert the "Anime 1080p" download profile with `seriesTypes: ["anime"]` and quality items via subqueries
+5. Insert 39 rows into `profile_custom_formats` linking the anime profile to each CF with correct scores
 
 This mirrors the pattern from `0000_deep_morlun.sql` where download profiles use subqueries to resolve download_format IDs.
