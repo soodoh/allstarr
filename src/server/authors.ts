@@ -573,7 +573,9 @@ export const checkAuthorExistsFn = createServerFn({ method: "GET" })
   });
 
 export const getSeriesFromHardcoverFn = createServerFn({ method: "GET" })
-  .inputValidator((d: { foreignSeriesIds: number[] }) => d)
+  .inputValidator(
+    (d: { foreignSeriesIds: number[]; excludeForeignAuthorId?: number }) => d,
+  )
   .handler(async ({ data }) => {
     await requireAuth();
     if (data.foreignSeriesIds.length === 0) {
@@ -581,10 +583,12 @@ export const getSeriesFromHardcoverFn = createServerFn({ method: "GET" })
     }
     const authorization = getAuthorizationHeader();
     const langCodes = getProfileLanguages();
+    const excludeAuthorId = data.excludeForeignAuthorId ?? 0;
     const rawSeries = await fetchSeriesComplete(
       data.foreignSeriesIds,
       authorization,
       langCodes,
+      excludeAuthorId,
     );
     return rawSeries.map((s) => ({
       foreignSeriesId: s.id,

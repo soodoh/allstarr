@@ -4,6 +4,7 @@ dist/
 data/
 .env
 .vinxi
+.tanstack
 
 # Claude/Serena
 .worktrees/
