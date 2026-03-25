@@ -110,7 +110,16 @@ export default function PresetSelector({
             <DialogTitle>Apply Custom Format Preset</DialogTitle>
             <DialogDescription>
               Choose a preset to apply pre-configured custom formats and scores
-              to this profile.
+              to this profile. Presets are based on{" "}
+              <a
+                href="https://trash-guides.info"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline hover:text-primary/80"
+              >
+                TRaSH Guides
+              </a>
+              .
             </DialogDescription>
           </DialogHeader>
 
