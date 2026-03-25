@@ -95,13 +95,19 @@ export default function EditCollectionDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="monitored">Monitored</Label>
-            <Switch
-              id="monitored"
-              checked={monitored}
-              onCheckedChange={setMonitored}
-            />
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="monitored">Monitored</Label>
+              <Switch
+                id="monitored"
+                checked={monitored}
+                onCheckedChange={setMonitored}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              When monitored, new movies added to this collection on TMDB will
+              be automatically added to your library.
+            </p>
           </div>
 
           <div className="space-y-2">
