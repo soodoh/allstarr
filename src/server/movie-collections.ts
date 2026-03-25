@@ -23,6 +23,7 @@ import {
   transformImagePath,
   generateSortTitle,
 } from "./utils/movie-helpers";
+import { searchForMovie } from "./auto-search";
 
 // ─── Get All Collections ─────────────────────────────────────────────────
 
@@ -156,6 +157,33 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
       throw new Error("Collection not found");
     }
 
+    // Update collection settings from user choices
+    const collectionUpdates: Record<string, unknown> = {
+      minimumAvailability: data.minimumAvailability,
+      updatedAt: new Date(),
+    };
+    if (data.monitorOption === "movieAndCollection") {
+      collectionUpdates.monitored = true;
+    }
+    db.update(movieCollections)
+      .set(collectionUpdates)
+      .where(eq(movieCollections.id, collection.id))
+      .run();
+
+    // Update collection download profiles
+    db.delete(movieCollectionDownloadProfiles)
+      .where(eq(movieCollectionDownloadProfiles.collectionId, collection.id))
+      .run();
+    for (const profileId of data.downloadProfileIds) {
+      db.insert(movieCollectionDownloadProfiles)
+        .values({
+          collectionId: collection.id,
+          downloadProfileId: profileId,
+        })
+        .run();
+    }
+
+    // Get missing movies
     const excludedTmdbIds = new Set(
       db
         .select({ tmdbId: movieImportListExclusions.tmdbId })
@@ -171,11 +199,87 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
         .map((r) => r.tmdbId),
     );
 
-    const added = await syncCollection(
-      collection,
-      excludedTmdbIds,
-      existingTmdbIds,
-    );
+    const collectionMoviesList = db
+      .select()
+      .from(movieCollectionMovies)
+      .where(eq(movieCollectionMovies.collectionId, collection.id))
+      .all();
+
+    let added = 0;
+    for (const cm of collectionMoviesList) {
+      if (existingTmdbIds.has(cm.tmdbId)) {
+        continue;
+      }
+      if (excludedTmdbIds.has(cm.tmdbId)) {
+        continue;
+      }
+
+      const detail = await tmdbFetch<TmdbMovieDetail>(`/movie/${cm.tmdbId}`);
+
+      const title = detail.title;
+      const sortTitle = generateSortTitle(title);
+      const status = mapMovieStatus(detail.status);
+      const studio = detail.production_companies[0]?.name ?? "";
+      const year = detail.release_date
+        ? Number.parseInt(detail.release_date.split("-")[0], 10)
+        : 0;
+      const runtime = detail.runtime ?? 0;
+      const genres = detail.genres.map((g) => g.name);
+      const posterUrl = transformImagePath(detail.poster_path, "w500") ?? "";
+      const fanartUrl =
+        transformImagePath(detail.backdrop_path, "original") ?? "";
+      const imdbId = detail.imdb_id ?? null;
+
+      const movie = db
+        .insert(movies)
+        .values({
+          title,
+          sortTitle,
+          overview: detail.overview,
+          tmdbId: cm.tmdbId,
+          imdbId,
+          status,
+          studio,
+          year,
+          runtime,
+          genres,
+          posterUrl,
+          fanartUrl,
+          minimumAvailability: data.minimumAvailability,
+          collectionId: collection.id,
+        })
+        .returning()
+        .get();
+
+      if (data.monitorOption !== "none") {
+        for (const profileId of data.downloadProfileIds) {
+          db.insert(movieDownloadProfiles)
+            .values({ movieId: movie.id, downloadProfileId: profileId })
+            .run();
+        }
+      }
+
+      db.insert(history)
+        .values({
+          eventType: "movieAdded",
+          movieId: movie.id,
+          data: { title },
+        })
+        .run();
+
+      if (data.searchOnAdd && data.monitorOption !== "none") {
+        void (async () => {
+          try {
+            await searchForMovie(movie.id);
+          } catch {
+            // Search failure is non-fatal
+          }
+        })();
+      }
+
+      existingTmdbIds.add(cm.tmdbId);
+      added += 1;
+    }
 
     return { added };
   });
