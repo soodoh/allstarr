@@ -7,6 +7,7 @@ import {
   HardDrive,
   History,
   ListFilter,
+  ListPlus,
   ListTodo,
   Radar,
   Settings,
@@ -72,6 +73,12 @@ export const settingsNavItems: NavItem[] = [
     icon: Radar,
     description:
       "Configure Usenet or torrent indexers used to search for book releases.",
+  },
+  {
+    title: "Import Lists",
+    to: "/settings/import-lists",
+    icon: ListPlus,
+    description: "Manage import lists and exclusions",
   },
 ];
 
