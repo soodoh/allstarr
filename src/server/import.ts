@@ -6,14 +6,16 @@ import {
   authorDownloadProfiles,
   books,
   bookFiles,
+  bookImportListExclusions,
   booksAuthors,
   editions,
   editionDownloadProfiles,
+  downloadProfiles,
   series,
   seriesBookLinks,
   history,
 } from "src/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   fetchAuthorComplete,
@@ -26,6 +28,7 @@ import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
 import getProfileLanguages from "./profile-languages";
+import { pickBestEditionForProfile } from "src/lib/editions";
 
 // ---------- Metadata profile filtering ----------
 
@@ -974,6 +977,15 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
       .where(eq(authors.id, authorId))
       .run();
 
+    // Load excluded book IDs to skip during import
+    const excludedBookIds = new Set(
+      tx
+        .select({ foreignBookId: bookImportListExclusions.foreignBookId })
+        .from(bookImportListExclusions)
+        .all()
+        .map((r) => r.foreignBookId),
+    );
+
     let booksUpdated = 0;
     let booksAdded = 0;
     let editionsUpdated = 0;
@@ -1222,6 +1234,11 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
           }
         }
       } else {
+        // Skip excluded books
+        if (excludedBookIds.has(foreignBookId)) {
+          continue;
+        }
+
         // Insert new book — apply metadata profile filtering
         const rawEditions = editionsMap.get(rawBook.id) ?? [];
         const filteredNewEditions = filterEditionsByProfile(
@@ -1428,6 +1445,81 @@ export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
     return refreshAuthorInternal(data.authorId);
   });
 
+// ---------- Auto-switch edition helper ----------
+
+/**
+ * Re-evaluate the best edition for each download profile monitoring
+ * a given book's editions. Only updates links when a better edition
+ * is found (avoids unnecessary writes).
+ */
+function autoSwitchEditionsForBook(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  bookId: number,
+): void {
+  const currentEditions = tx
+    .select()
+    .from(editions)
+    .where(eq(editions.bookId, bookId))
+    .all();
+  const editionIds = currentEditions.map((e) => e.id);
+  if (editionIds.length === 0) {
+    return;
+  }
+
+  // Find all profile links for this book's editions
+  const profileLinks = tx
+    .select({
+      id: editionDownloadProfiles.id,
+      editionId: editionDownloadProfiles.editionId,
+      downloadProfileId: editionDownloadProfiles.downloadProfileId,
+    })
+    .from(editionDownloadProfiles)
+    .where(inArray(editionDownloadProfiles.editionId, editionIds))
+    .all();
+
+  // Group by download profile to handle each once
+  const profileIdSet = new Set(profileLinks.map((l) => l.downloadProfileId));
+
+  for (const dpId of profileIdSet) {
+    const profile = tx
+      .select()
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, dpId))
+      .get();
+    if (!profile) {
+      continue;
+    }
+
+    const bestEdition = pickBestEditionForProfile(currentEditions, {
+      ...profile,
+      contentType: profile.contentType as "ebook" | "audiobook",
+    });
+    if (!bestEdition) {
+      continue;
+    }
+
+    // Check if the current link already points to the best edition
+    const currentLink = profileLinks.find((l) => l.downloadProfileId === dpId);
+    if (currentLink && currentLink.editionId === bestEdition.id) {
+      continue;
+    }
+
+    // Remove old links for this profile + book, then insert the new best
+    tx.delete(editionDownloadProfiles)
+      .where(
+        and(
+          inArray(editionDownloadProfiles.editionId, editionIds),
+          eq(editionDownloadProfiles.downloadProfileId, dpId),
+        ),
+      )
+      .run();
+
+    tx.insert(editionDownloadProfiles)
+      .values({ editionId: bestEdition.id, downloadProfileId: dpId })
+      .run();
+  }
+}
+
 // ---------- Refresh Book Metadata ----------
 
 export async function refreshBookInternal(bookId: number): Promise<{
@@ -1517,6 +1609,7 @@ export async function refreshBookInternal(bookId: number): Promise<{
     )
     .get();
 
+  // oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches for orphan handling
   return db.transaction((tx) => {
     // Update book
     tx.update(books)
@@ -1735,6 +1828,14 @@ export async function refreshBookInternal(bookId: number): Promise<{
           position: s.position,
         })
         .run();
+    }
+
+    // Auto-switch edition: re-evaluate best edition for each monitoring profile
+    if (
+      localBook.autoSwitchEdition === 1 &&
+      (editionsAdded > 0 || editionsUpdated > 0)
+    ) {
+      autoSwitchEditionsForBook(tx, bookId);
     }
 
     return {
