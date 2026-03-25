@@ -1,4 +1,11 @@
-import { sqliteTable, text, integer, unique } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  unique,
+  index,
+} from "drizzle-orm/sqlite-core";
+import { movieCollections } from "./movie-collections";
 
 export const movies = sqliteTable(
   "movies",
@@ -21,6 +28,10 @@ export const movies = sqliteTable(
       .notNull()
       .default("released"),
     path: text("path").notNull().default(""),
+    collectionId: integer("collection_id").references(
+      () => movieCollections.id,
+      { onDelete: "set null" },
+    ),
     createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
       () => new Date(),
     ),
@@ -28,5 +39,8 @@ export const movies = sqliteTable(
       () => new Date(),
     ),
   },
-  (t) => [unique("movies_tmdb_id_unique").on(t.tmdbId)],
+  (t) => [
+    unique("movies_tmdb_id_unique").on(t.tmdbId),
+    index("movies_collection_id_idx").on(t.collectionId),
+  ],
 );
