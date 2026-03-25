@@ -173,8 +173,8 @@ export const updateSettingSchema = z.object({
 
 // Metadata Profile
 export const metadataProfileSchema = z.object({
-  skipMissingReleaseDate: z.boolean().default(false),
-  skipMissingIsbnAsin: z.boolean().default(false),
+  skipMissingReleaseDate: z.boolean().default(true),
+  skipMissingIsbnAsin: z.boolean().default(true),
   skipCompilations: z.boolean().default(false),
   minimumPopularity: z.number().int().min(0).default(10),
   minimumPages: z.number().int().min(0).default(0),

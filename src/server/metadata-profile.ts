@@ -12,8 +12,8 @@ export type MetadataProfile = {
 };
 
 const DEFAULT_METADATA_PROFILE: MetadataProfile = {
-  skipMissingReleaseDate: false,
-  skipMissingIsbnAsin: false,
+  skipMissingReleaseDate: true,
+  skipMissingIsbnAsin: true,
   skipCompilations: false,
   minimumPopularity: 10,
   minimumPages: 0,
