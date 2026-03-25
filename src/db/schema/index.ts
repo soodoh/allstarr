@@ -17,6 +17,10 @@ export * from "./episode-download-profiles";
 export * from "./movies";
 export * from "./movie-files";
 export * from "./movie-download-profiles";
+export * from "./movie-collections";
+export * from "./movie-collection-download-profiles";
+export * from "./movie-collection-movies";
+export * from "./movie-import-list-exclusions";
 
 export * from "./tags";
 export * from "./history";
