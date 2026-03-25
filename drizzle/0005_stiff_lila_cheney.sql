@@ -1,0 +1,1 @@
+ALTER TABLE `download_profiles` ADD `series_types` text DEFAULT '["standard","daily","anime"]' NOT NULL;

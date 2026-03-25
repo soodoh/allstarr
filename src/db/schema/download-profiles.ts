@@ -19,6 +19,10 @@ export const downloadProfiles = sqliteTable("download_profiles", {
     .default([]),
   contentType: text("content_type").notNull().default("ebook"),
   language: text("language").notNull().default("en"),
+  seriesTypes: text("series_types", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(["standard", "daily", "anime"]),
   minCustomFormatScore: integer("min_custom_format_score").notNull().default(0),
   upgradeUntilCustomFormatScore: integer("upgrade_until_custom_format_score")
     .notNull()
