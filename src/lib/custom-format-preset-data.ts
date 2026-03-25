@@ -279,7 +279,7 @@ export const PRESETS: Preset[] = [
     name: "Anime 1080p",
     profileName: "Anime 1080p",
     description:
-      "TRaSH Guides anime profile. Prefers high-quality fansub groups for Bluray and WEB sources with dual audio detection.",
+      "Prefers high-quality fansub groups for Bluray and WEB sources with dual audio detection.",
     category: "Video - TV",
     contentType: "tv",
     customFormats: [
