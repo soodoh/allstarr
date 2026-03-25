@@ -439,67 +439,72 @@ export const updateShowFn = createServerFn({ method: "POST" })
 
     // Update show-level fields
     const showUpdates: Record<string, unknown> = {
-      useSeasonFolder: useSeasonFolder ? 1 : 0,
       updatedAt: new Date(),
     };
+    if (useSeasonFolder !== undefined) {
+      showUpdates.useSeasonFolder = useSeasonFolder ? 1 : 0;
+    }
     if (seriesType) {
       showUpdates.seriesType = seriesType;
     }
     db.update(shows).set(showUpdates).where(eq(shows.id, id)).run();
 
-    // Find which profiles were previously assigned
-    const previousLinks = db
-      .select({
-        downloadProfileId: showDownloadProfiles.downloadProfileId,
-      })
-      .from(showDownloadProfiles)
-      .where(eq(showDownloadProfiles.showId, id))
-      .all();
-    const previousProfileIds = previousLinks.map((l) => l.downloadProfileId);
+    // Update download profiles if provided
+    if (downloadProfiles !== undefined) {
+      // Find which profiles were previously assigned
+      const previousLinks = db
+        .select({
+          downloadProfileId: showDownloadProfiles.downloadProfileId,
+        })
+        .from(showDownloadProfiles)
+        .where(eq(showDownloadProfiles.showId, id))
+        .all();
+      const previousProfileIds = previousLinks.map((l) => l.downloadProfileId);
 
-    // Compute which profiles were removed
-    const newProfileIds = downloadProfiles.map((p) => p.downloadProfileId);
-    const newSet = new Set(newProfileIds);
-    const removedProfileIds = previousProfileIds.filter(
-      (pid) => !newSet.has(pid),
-    );
+      // Compute which profiles were removed
+      const newProfileIds = downloadProfiles.map((p) => p.downloadProfileId);
+      const newSet = new Set(newProfileIds);
+      const removedProfileIds = previousProfileIds.filter(
+        (pid) => !newSet.has(pid),
+      );
 
-    // Delete episode download profiles for removed profiles (PRESERVE THIS CASCADE LOGIC)
-    if (removedProfileIds.length > 0) {
-      const showEpisodeIds = db
-        .select({ id: episodes.id })
-        .from(episodes)
-        .where(eq(episodes.showId, id))
-        .all()
-        .map((e) => e.id);
+      // Delete episode download profiles for removed profiles (PRESERVE THIS CASCADE LOGIC)
+      if (removedProfileIds.length > 0) {
+        const showEpisodeIds = db
+          .select({ id: episodes.id })
+          .from(episodes)
+          .where(eq(episodes.showId, id))
+          .all()
+          .map((e) => e.id);
 
-      if (showEpisodeIds.length > 0) {
-        for (const removedId of removedProfileIds) {
-          db.delete(episodeDownloadProfiles)
-            .where(
-              and(
-                inArray(episodeDownloadProfiles.episodeId, showEpisodeIds),
-                eq(episodeDownloadProfiles.downloadProfileId, removedId),
-              ),
-            )
-            .run();
+        if (showEpisodeIds.length > 0) {
+          for (const removedId of removedProfileIds) {
+            db.delete(episodeDownloadProfiles)
+              .where(
+                and(
+                  inArray(episodeDownloadProfiles.episodeId, showEpisodeIds),
+                  eq(episodeDownloadProfiles.downloadProfileId, removedId),
+                ),
+              )
+              .run();
+          }
         }
       }
-    }
 
-    // Replace show download profiles with monitorNewSeasons
-    db.delete(showDownloadProfiles)
-      .where(eq(showDownloadProfiles.showId, id))
-      .run();
-    for (const profile of downloadProfiles) {
-      db.insert(showDownloadProfiles)
-        .values({
-          showId: id,
-          downloadProfileId: profile.downloadProfileId,
-          monitorNewSeasons: profile.monitorNewSeasons,
-        })
+      // Replace show download profiles with monitorNewSeasons
+      db.delete(showDownloadProfiles)
+        .where(eq(showDownloadProfiles.showId, id))
         .run();
-    }
+      for (const profile of downloadProfiles) {
+        db.insert(showDownloadProfiles)
+          .values({
+            showId: id,
+            downloadProfileId: profile.downloadProfileId,
+            monitorNewSeasons: profile.monitorNewSeasons,
+          })
+          .run();
+      }
+    } // end if (downloadProfiles !== undefined)
 
     return db.select().from(shows).where(eq(shows.id, id)).get()!;
   });

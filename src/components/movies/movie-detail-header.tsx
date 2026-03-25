@@ -130,8 +130,11 @@ export default function MovieDetailHeader({
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
     movie.downloadProfileIds,
   );
-  const [minimumAvailability, setMinimumAvailability] = useState<string>(
-    movie.minimumAvailability ?? "released",
+  const [minimumAvailability, setMinimumAvailability] = useState<
+    "announced" | "inCinemas" | "released"
+  >(
+    (movie.minimumAvailability as "announced" | "inCinemas" | "released") ??
+      "released",
   );
 
   const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
@@ -244,7 +247,12 @@ export default function MovieDetailHeader({
           isRefreshing={refreshMetadata.isPending}
           onEdit={() => {
             setSelectedProfileIds(movie.downloadProfileIds);
-            setMinimumAvailability(movie.minimumAvailability ?? "released");
+            setMinimumAvailability(
+              (movie.minimumAvailability as
+                | "announced"
+                | "inCinemas"
+                | "released") ?? "released",
+            );
             setEditProfilesOpen(true);
           }}
           onDelete={() => setDeleteOpen(true)}
@@ -387,7 +395,11 @@ export default function MovieDetailHeader({
             </div>
             <Select
               value={minimumAvailability}
-              onValueChange={setMinimumAvailability}
+              onValueChange={(v) =>
+                setMinimumAvailability(
+                  v as "announced" | "inCinemas" | "released",
+                )
+              }
             >
               <SelectTrigger className="w-36">
                 <SelectValue />

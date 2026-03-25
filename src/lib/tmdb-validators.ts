@@ -18,13 +18,15 @@ export const addShowSchema = z.object({
 
 export const updateShowSchema = z.object({
   id: z.number(),
-  downloadProfiles: z.array(
-    z.object({
-      downloadProfileId: z.number(),
-      monitorNewSeasons: monitorNewItemsEnum,
-    }),
-  ),
-  useSeasonFolder: z.boolean(),
+  downloadProfiles: z
+    .array(
+      z.object({
+        downloadProfileId: z.number(),
+        monitorNewSeasons: monitorNewItemsEnum,
+      }),
+    )
+    .optional(),
+  useSeasonFolder: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
 });
 
