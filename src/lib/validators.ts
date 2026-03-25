@@ -199,12 +199,8 @@ export const createAuthorSchema = z.object({
 
 export const updateAuthorSchema = z.object({
   id: z.number(),
-  downloadProfiles: z.array(
-    z.object({
-      downloadProfileId: z.number(),
-      monitorNewBooks: monitorNewItemsEnum,
-    }),
-  ),
+  downloadProfileIds: z.array(z.number()).optional(),
+  monitorNewBooks: monitorNewItemsEnum.optional(),
 });
 
 export const updateBookSchema = z.object({
