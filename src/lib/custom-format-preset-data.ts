@@ -15,6 +15,7 @@ export type PresetCF = {
 
 export type Preset = {
   name: string;
+  profileName: string; // Maps to download_profiles.name for seeder matching
   description: string;
   category: string;
   contentType: string; // "movie" | "tv" | "ebook" | "audiobook"
@@ -32,6 +33,7 @@ export const PRESETS: Preset[] = [
   // ── HD Bluray + WEB (Movies) ───────────────────────────────────────────
   {
     name: "HD Bluray + WEB",
+    profileName: "720-1080p (Movie)",
     description:
       "Prefer high-quality Bluray and WEB releases for movies. Penalizes low-quality groups, BR-DISKs, and x265 in HD.",
     category: "Video - Movies",
@@ -170,6 +172,7 @@ export const PRESETS: Preset[] = [
   // ── HD WEB Streaming (TV) ─────────────────────────────────────────────
   {
     name: "HD WEB Streaming",
+    profileName: "1080p (TV)",
     description:
       "Optimized for TV shows from streaming services. Prefers top WEB release groups and season packs.",
     category: "Video - TV",
@@ -274,6 +277,7 @@ export const PRESETS: Preset[] = [
   // ── Retail EPUB Preferred (Ebook) ─────────────────────────────────────
   {
     name: "Retail EPUB Preferred",
+    profileName: "Ebook",
     description:
       "Prefer retail ebook releases in EPUB format. Penalizes scene releases and PDFs.",
     category: "Books - Ebook",
@@ -357,6 +361,7 @@ export const PRESETS: Preset[] = [
   // ── High Bitrate M4B (Audiobook) ──────────────────────────────────────
   {
     name: "High Bitrate M4B",
+    profileName: "Audiobook",
     description:
       "Prefer high-bitrate audiobooks in M4B format. Penalizes low-bitrate releases.",
     category: "Books - Audiobook",

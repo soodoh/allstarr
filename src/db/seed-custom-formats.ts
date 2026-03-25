@@ -65,8 +65,8 @@ export function seedBuiltinCustomFormats(db: BunSQLiteDatabase<any>): void {
       continue;
     }
 
-    // Find matching preset by contentType
-    const preset = PRESETS.find((p) => p.contentType === profile.contentType);
+    // Find matching preset by profileName
+    const preset = PRESETS.find((p) => p.profileName === profile.name);
     if (!preset) {
       continue;
     }
