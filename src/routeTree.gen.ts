@@ -32,6 +32,7 @@ import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/set
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
+import { Route as AuthedSettingsImportListsRouteImport } from './routes/_authed/settings/import-lists'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
 import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
 import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
@@ -166,6 +167,12 @@ const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
   path: '/settings/indexers',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsImportListsRoute =
+  AuthedSettingsImportListsRouteImport.update({
+    id: '/settings/import-lists',
+    path: '/settings/import-lists',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
   id: '/settings/general',
   path: '/settings/general',
@@ -277,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
+  '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -319,6 +327,7 @@ export interface FileRoutesByTo {
   '/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/settings/formats': typeof AuthedSettingsFormatsRoute
   '/settings/general': typeof AuthedSettingsGeneralRoute
+  '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -363,6 +372,7 @@ export interface FileRoutesById {
   '/_authed/settings/download-clients': typeof AuthedSettingsDownloadClientsRoute
   '/_authed/settings/formats': typeof AuthedSettingsFormatsRoute
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
+  '/_authed/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
   '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/settings/download-clients'
     | '/settings/formats'
     | '/settings/general'
+    | '/settings/import-lists'
     | '/settings/indexers'
     | '/settings/media-management'
     | '/settings/metadata'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/settings/download-clients'
     | '/settings/formats'
     | '/settings/general'
+    | '/settings/import-lists'
     | '/settings/indexers'
     | '/settings/media-management'
     | '/settings/metadata'
@@ -492,6 +504,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/download-clients'
     | '/_authed/settings/formats'
     | '/_authed/settings/general'
+    | '/_authed/settings/import-lists'
     | '/_authed/settings/indexers'
     | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
@@ -694,6 +707,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsIndexersRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/import-lists': {
+      id: '/_authed/settings/import-lists'
+      path: '/settings/import-lists'
+      fullPath: '/settings/import-lists'
+      preLoaderRoute: typeof AuthedSettingsImportListsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/general': {
       id: '/_authed/settings/general'
       path: '/settings/general'
@@ -837,6 +857,7 @@ interface AuthedRouteChildren {
   AuthedSettingsDownloadClientsRoute: typeof AuthedSettingsDownloadClientsRoute
   AuthedSettingsFormatsRoute: typeof AuthedSettingsFormatsRoute
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
+  AuthedSettingsImportListsRoute: typeof AuthedSettingsImportListsRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
   AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
@@ -870,6 +891,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsDownloadClientsRoute: AuthedSettingsDownloadClientsRoute,
   AuthedSettingsFormatsRoute: AuthedSettingsFormatsRoute,
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
+  AuthedSettingsImportListsRoute: AuthedSettingsImportListsRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
   AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
