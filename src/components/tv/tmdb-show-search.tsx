@@ -6,6 +6,8 @@ import { Tv, Search, Star } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
+import Switch from "src/components/ui/switch";
+import Checkbox from "src/components/ui/checkbox";
 import { Badge } from "src/components/ui/badge";
 import { Card, CardContent } from "src/components/ui/card";
 import {
@@ -90,6 +92,9 @@ function ShowPreviewModal({
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [monitorOption, setMonitorOption] = useState<string>("all");
   const [seriesType, setSeriesType] = useState<string>("standard");
+  const [useSeasonFolder, setSeasonFolder] = useState(true);
+  const [searchOnAdd, setSearchOnAdd] = useState(false);
+  const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
 
   // Auto-select all profiles when profiles load
   useEffect(() => {
@@ -123,6 +128,10 @@ function ShowPreviewModal({
           | "firstSeason"
           | "lastSeason"
           | "none",
+        seriesType: seriesType as "standard" | "daily" | "anime",
+        useSeasonFolder,
+        searchOnAdd,
+        searchCutoffUnmet,
       },
       {
         onSuccess: (result) => {
@@ -240,6 +249,41 @@ function ShowPreviewModal({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="season-folder">Use Season Folder</Label>
+                <Switch
+                  id="season-folder"
+                  checked={useSeasonFolder}
+                  onCheckedChange={setSeasonFolder}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="search-on-add"
+                  checked={searchOnAdd}
+                  onCheckedChange={(checked) =>
+                    setSearchOnAdd(checked === true)
+                  }
+                />
+                <Label htmlFor="search-on-add">
+                  Start search for missing episodes
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="search-cutoff-unmet"
+                  checked={searchCutoffUnmet}
+                  onCheckedChange={(checked) =>
+                    setSearchCutoffUnmet(checked === true)
+                  }
+                />
+                <Label htmlFor="search-cutoff-unmet">
+                  Start search for cutoff unmet episodes
+                </Label>
               </div>
 
               <Button
