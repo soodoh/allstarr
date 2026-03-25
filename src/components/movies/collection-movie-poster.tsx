@@ -17,6 +17,7 @@ import {
 type CollectionMovie = {
   tmdbId: number;
   title: string;
+  overview: string;
   posterUrl: string | null;
   year: number | null;
   isExisting: boolean;
@@ -27,7 +28,7 @@ type CollectionMovie = {
 type Props = {
   movie: CollectionMovie;
   onExclude?: (movie: CollectionMovie) => void;
-  onAddMovie?: (tmdbId: number) => void;
+  onAddMovie?: (movie: CollectionMovie) => void;
 };
 
 export default function CollectionMoviePoster({
@@ -103,7 +104,7 @@ export default function CollectionMoviePoster({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={() => onAddMovie?.(movie.tmdbId)}
+                onClick={() => onAddMovie?.(movie)}
                 className="cursor-pointer"
               >
                 {poster}
