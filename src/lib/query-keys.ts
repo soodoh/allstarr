@@ -60,6 +60,12 @@ export const queryKeys = {
     existence: (tmdbId: number) => ["movies", "existence", tmdbId] as const,
   },
 
+  // ─── Movie Collections ────────────────────────────────────────────────
+  movieCollections: {
+    all: ["movieCollections"] as const,
+    list: () => ["movieCollections", "list"] as const,
+  },
+
   // ─── Shows ───────────────────────────────────────────────────────────────
   shows: {
     all: ["shows"] as const,
@@ -115,6 +121,13 @@ export const queryKeys = {
   settings: {
     all: ["settings"] as const,
     map: () => ["settings", "map"] as const,
+  },
+
+  // ─── Import Exclusions ────────────────────────────────────────────────
+  importExclusions: {
+    all: ["importExclusions"] as const,
+    books: () => ["importExclusions", "books"] as const,
+    movies: () => ["importExclusions", "movies"] as const,
   },
 
   // ─── Metadata Profile ──────────────────────────────────────────────────
