@@ -12,11 +12,31 @@ import { queryKeys } from "src/lib/query-keys";
 export type ImportAuthorData = {
   foreignAuthorId: number;
   downloadProfileIds: number[];
+  monitorOption?:
+    | "all"
+    | "future"
+    | "missing"
+    | "existing"
+    | "first"
+    | "latest"
+    | "none";
+  monitorNewBooks?: "all" | "none" | "new";
+  searchOnAdd?: boolean;
 };
 
 export type ImportBookData = {
   foreignBookId: number;
   downloadProfileIds: number[];
+  monitorOption?:
+    | "all"
+    | "future"
+    | "missing"
+    | "existing"
+    | "first"
+    | "latest"
+    | "none";
+  monitorNewBooks?: "all" | "none" | "new";
+  searchOnAdd?: boolean;
 };
 
 export function useImportHardcoverAuthor() {
