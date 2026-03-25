@@ -520,6 +520,49 @@ export const updateShowFn = createServerFn({ method: "POST" })
       }
     } // end if (downloadProfileIds !== undefined)
 
+    // Handle profile migrations (reassign episodes from one profile to another)
+    if (data.migrateProfiles && data.migrateProfiles.length > 0) {
+      const showEpisodeIds = db
+        .select({ id: episodes.id })
+        .from(episodes)
+        .where(eq(episodes.showId, id))
+        .all()
+        .map((e) => e.id);
+
+      if (showEpisodeIds.length > 0) {
+        for (const migration of data.migrateProfiles) {
+          db.update(episodeDownloadProfiles)
+            .set({ downloadProfileId: migration.toProfileId })
+            .where(
+              and(
+                inArray(episodeDownloadProfiles.episodeId, showEpisodeIds),
+                eq(
+                  episodeDownloadProfiles.downloadProfileId,
+                  migration.fromProfileId,
+                ),
+              ),
+            )
+            .run();
+        }
+      }
+
+      // Also update show download profiles
+      for (const migration of data.migrateProfiles) {
+        db.update(showDownloadProfiles)
+          .set({ downloadProfileId: migration.toProfileId })
+          .where(
+            and(
+              eq(showDownloadProfiles.showId, id),
+              eq(
+                showDownloadProfiles.downloadProfileId,
+                migration.fromProfileId,
+              ),
+            ),
+          )
+          .run();
+      }
+    }
+
     return db.select().from(shows).where(eq(shows.id, id)).get()!;
   });
 

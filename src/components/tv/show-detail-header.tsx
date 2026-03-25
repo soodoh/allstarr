@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
@@ -75,6 +75,7 @@ type DownloadProfile = {
   name: string;
   icon: string;
   contentType: string;
+  seriesTypes: string[] | unknown;
 };
 
 type ShowDetailHeaderProps = {
@@ -99,9 +100,21 @@ function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+type ProfileConflict = {
+  profileId: number;
+  profileName: string;
+  resolution: "remove" | "migrate" | null;
+  migrateToId?: number;
+};
+
 type EditShowDialogProps = {
   show: ShowDetail;
-  tvProfiles: Array<{ id: number; name: string; icon: string }>;
+  tvProfiles: Array<{
+    id: number;
+    name: string;
+    icon: string;
+    seriesTypes: string[];
+  }>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -124,6 +137,51 @@ function EditShowDialog({
     Boolean(show.useSeasonFolder),
   );
   const [seriesType, setSeriesType] = useState(show.seriesType ?? "standard");
+  const [conflicts, setConflicts] = useState<ProfileConflict[]>([]);
+
+  // Filter available profiles by current series type
+  const availableProfiles = useMemo(
+    () => tvProfiles.filter((p) => p.seriesTypes.includes(seriesType)),
+    [tvProfiles, seriesType],
+  );
+
+  // Filter selected profile IDs to only those available for current series type
+  const visibleSelectedIds = useMemo(
+    () =>
+      selectedProfileIds.filter((id) =>
+        availableProfiles.some((p) => p.id === id),
+      ),
+    [selectedProfileIds, availableProfiles],
+  );
+
+  // Detect conflicts when series type changes
+  useEffect(() => {
+    if (seriesType === (show.seriesType ?? "standard")) {
+      setConflicts([]);
+      return;
+    }
+    const availableIds = new Set(availableProfiles.map((p) => p.id));
+    const conflicting = selectedProfileIds
+      .filter((id) => !availableIds.has(id))
+      .map((id) => {
+        const profile = tvProfiles.find((p) => p.id === id);
+        return {
+          profileId: id,
+          profileName: profile?.name ?? `Profile ${id}`,
+          resolution: null as "remove" | "migrate" | null,
+        };
+      });
+    setConflicts(conflicting);
+  }, [
+    seriesType,
+    selectedProfileIds,
+    availableProfiles,
+    tvProfiles,
+    show.seriesType,
+  ]);
+
+  const allConflictsResolved = conflicts.every((c) => c.resolution !== null);
+  const hasConflicts = conflicts.length > 0;
 
   // Reset state when dialog opens
   const handleOpenChange = (value: boolean) => {
@@ -132,6 +190,7 @@ function EditShowDialog({
       setMonitorNewSeasons(show.monitorNewSeasons ?? "all");
       setUseSeasonFolder(Boolean(show.useSeasonFolder));
       setSeriesType(show.seriesType ?? "standard");
+      setConflicts([]);
     }
     onOpenChange(value);
   };
@@ -143,13 +202,37 @@ function EditShowDialog({
   };
 
   const handleSave = () => {
+    const removedIds = new Set(
+      conflicts
+        .filter((c) => c.resolution === "remove")
+        .map((c) => c.profileId),
+    );
+    const migrateProfiles = conflicts
+      .filter((c) => c.resolution === "migrate" && c.migrateToId)
+      .map((c) => ({
+        fromProfileId: c.profileId,
+        toProfileId: c.migrateToId!,
+      }));
+
+    const finalProfileIds = [
+      ...selectedProfileIds.filter(
+        (id) =>
+          !removedIds.has(id) &&
+          !migrateProfiles.some((m) => m.fromProfileId === id),
+      ),
+      ...migrateProfiles.map((m) => m.toProfileId),
+    ];
+    const uniqueProfileIds = [...new Set(finalProfileIds)];
+
     updateShow.mutate(
       {
         id: show.id,
-        downloadProfileIds: selectedProfileIds,
+        downloadProfileIds: uniqueProfileIds,
         monitorNewSeasons: monitorNewSeasons as "all" | "none" | "new",
         useSeasonFolder,
         seriesType: seriesType as "standard" | "daily" | "anime",
+        migrateProfiles:
+          migrateProfiles.length > 0 ? migrateProfiles : undefined,
       },
       {
         onSuccess: () => {
@@ -185,11 +268,98 @@ function EditShowDialog({
           </Select>
         </div>
 
+        {/* Series Type */}
+        <div className="space-y-2">
+          <Label>Series Type</Label>
+          <Select value={seriesType} onValueChange={setSeriesType}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standard">Standard</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="anime">Anime</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <ProfileCheckboxGroup
-          profiles={tvProfiles}
-          selectedIds={selectedProfileIds}
+          profiles={availableProfiles}
+          selectedIds={visibleSelectedIds}
           onToggle={toggleProfile}
         />
+
+        {conflicts.length > 0 && (
+          <div className="space-y-3 rounded-md border border-destructive/50 bg-destructive/5 p-3">
+            <p className="text-sm font-medium text-destructive">
+              Profile conflicts detected
+            </p>
+            {conflicts.map((conflict) => (
+              <div key={conflict.profileId} className="space-y-2">
+                <p className="text-sm">
+                  <span className="font-medium">{conflict.profileName}</span> is
+                  not available for {seriesType} series
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={
+                      conflict.resolution === "remove" ? "default" : "outline"
+                    }
+                    onClick={() =>
+                      setConflicts((prev) =>
+                        prev.map((c) =>
+                          c.profileId === conflict.profileId
+                            ? {
+                                ...c,
+                                resolution: "remove",
+                                migrateToId: undefined,
+                              }
+                            : c,
+                        ),
+                      )
+                    }
+                  >
+                    Remove
+                  </Button>
+                  {availableProfiles.length > 0 && (
+                    <Select
+                      value={
+                        conflict.resolution === "migrate"
+                          ? String(conflict.migrateToId)
+                          : ""
+                      }
+                      onValueChange={(val) =>
+                        setConflicts((prev) =>
+                          prev.map((c) =>
+                            c.profileId === conflict.profileId
+                              ? {
+                                  ...c,
+                                  resolution: "migrate",
+                                  migrateToId: Number(val),
+                                }
+                              : c,
+                          ),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Migrate to..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableProfiles.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Use Season Folder toggle */}
         <div className="flex items-center justify-between pt-4 border-t">
@@ -209,7 +379,12 @@ function EditShowDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={updateShow.isPending}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              updateShow.isPending || (hasConflicts && !allConflictsResolved)
+            }
+          >
             {updateShow.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
@@ -235,7 +410,18 @@ export default function ShowDetailHeader({
   );
 
   const tvProfiles = useMemo(
-    () => downloadProfiles.filter((p) => p.contentType === "tv"),
+    () =>
+      downloadProfiles
+        .filter((p) => p.contentType === "tv")
+        .map((p) =>
+          Object.assign(p, {
+            seriesTypes: (p.seriesTypes ?? [
+              "standard",
+              "daily",
+              "anime",
+            ]) as string[],
+          }),
+        ),
     [downloadProfiles],
   );
 
