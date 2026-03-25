@@ -1,3 +1,5 @@
+// oxlint-disable no-console -- Server-side fire-and-forget logging
+// oxlint-disable prefer-await-to-then -- Intentional fire-and-forget pattern
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
@@ -6,6 +8,7 @@ import {
   movieDownloadProfiles,
   movieCollections,
   movieCollectionMovies,
+  movieCollectionDownloadProfiles,
   movieImportListExclusions,
   history,
 } from "src/db/schema";
@@ -25,6 +28,7 @@ import {
   generateSortTitle,
 } from "./utils/movie-helpers";
 import * as fs from "node:fs";
+import { searchForMovie } from "./auto-search";
 
 async function populateCollectionCache(
   collectionDbId: number,
@@ -159,11 +163,42 @@ export const addMovieFn = createServerFn({ method: "POST" })
       .returning()
       .get();
 
-    // Insert join table for download profiles
-    for (const profileId of data.downloadProfileIds) {
-      db.insert(movieDownloadProfiles)
-        .values({ movieId: movie.id, downloadProfileId: profileId })
+    // Assign download profiles based on monitor option
+    if (data.monitorOption !== "none") {
+      for (const profileId of data.downloadProfileIds) {
+        db.insert(movieDownloadProfiles)
+          .values({ movieId: movie.id, downloadProfileId: profileId })
+          .run();
+      }
+    }
+
+    // Handle collection monitoring for "movieAndCollection"
+    if (data.monitorOption === "movieAndCollection" && collectionId) {
+      db.update(movieCollections)
+        .set({
+          monitored: true,
+          minimumAvailability: data.minimumAvailability,
+          updatedAt: new Date(),
+        })
+        .where(eq(movieCollections.id, collectionId))
         .run();
+
+      // Set collection download profiles
+      db.delete(movieCollectionDownloadProfiles)
+        .where(eq(movieCollectionDownloadProfiles.collectionId, collectionId))
+        .run();
+      for (const profileId of data.downloadProfileIds) {
+        db.insert(movieCollectionDownloadProfiles)
+          .values({ collectionId, downloadProfileId: profileId })
+          .run();
+      }
+    }
+
+    // Fire-and-forget search if requested
+    if (data.searchOnAdd && data.monitorOption !== "none") {
+      void searchForMovie(movie.id).catch((error) =>
+        console.error("Search after add failed:", error),
+      );
     }
 
     // Insert history event

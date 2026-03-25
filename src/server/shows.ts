@@ -1,3 +1,5 @@
+// oxlint-disable no-console -- Server-side fire-and-forget logging
+// oxlint-disable prefer-await-to-then -- Intentional fire-and-forget pattern
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
@@ -297,11 +299,9 @@ export const addShowFn = createServerFn({ method: "POST" })
 
     // Fire-and-forget search if requested
     if (data.searchOnAdd || data.searchCutoffUnmet) {
-      /* oxlint-disable no-console, prefer-await-to-then -- intentional fire-and-forget */
       void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
         console.error("Search after add failed:", error),
       );
-      /* oxlint-enable no-console, prefer-await-to-then */
     }
 
     return show;
