@@ -1,3 +1,5 @@
+// oxlint-disable no-console -- Server-side fire-and-forget logging
+// oxlint-disable prefer-await-to-then -- Intentional fire-and-forget pattern
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
@@ -268,13 +270,9 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
         .run();
 
       if (data.searchOnAdd && data.monitorOption !== "none") {
-        void (async () => {
-          try {
-            await searchForMovie(movie.id);
-          } catch {
-            // Search failure is non-fatal
-          }
-        })();
+        void searchForMovie(movie.id).catch((error) =>
+          console.error("Search after bulk add failed:", error),
+        );
       }
 
       existingTmdbIds.add(cm.tmdbId);
