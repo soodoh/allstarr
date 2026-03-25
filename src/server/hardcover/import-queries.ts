@@ -445,6 +445,7 @@ query SeriesComplete($seriesIds: [Int!]!, $langCodes: [String!]!, $excludeAuthor
           }
         }
         editions(
+          where: { language: { code2: { _in: $langCodes } } }
           order_by: [{ users_count: desc_nulls_last }]
           limit: 10
         ) {

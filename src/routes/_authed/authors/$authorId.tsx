@@ -725,8 +725,8 @@ function SeriesTab({
       }
       if (
         language !== "all" &&
-        book.languageCodes.length > 0 &&
-        !book.languageCodes.includes(language)
+        (book.languageCodes.length === 0 ||
+          !book.languageCodes.includes(language))
       ) {
         continue;
       }
