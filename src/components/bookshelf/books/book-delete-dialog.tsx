@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import { Loader2 } from "lucide-react";
 import {
@@ -36,6 +36,13 @@ export default function BookDeleteDialog({
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [addImportExclusion, setAddImportExclusion] = useState(true);
   const deleteBook = useDeleteBook();
+
+  useEffect(() => {
+    if (open) {
+      setDeleteFiles(false);
+      setAddImportExclusion(true);
+    }
+  }, [open]);
 
   const handleConfirm = () => {
     deleteBook.mutate(

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { JSX } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { TabsContent } from "src/components/ui/tabs";
 import { Badge } from "src/components/ui/badge";
 import {
   Table,
@@ -58,60 +59,66 @@ export default function BookHistoryTab({
 
   if (isLoading) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        Loading history...
-      </div>
+      <TabsContent value="history" className="flex-1 min-h-0">
+        <div className="text-center py-12 text-muted-foreground">
+          Loading history...
+        </div>
+      </TabsContent>
     );
   }
 
   if (!typedData || typedData.items.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        No history events found for this book.
-      </div>
+      <TabsContent value="history" className="flex-1 min-h-0">
+        <div className="text-center py-12 text-muted-foreground">
+          No history events found for this book.
+        </div>
+      </TabsContent>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Event</TableHead>
-            <TableHead>Details</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {typedData.items.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="text-sm whitespace-nowrap">
-                {new Date(item.date).toLocaleString()}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant={eventTypeVariants[item.eventType] || "secondary"}
-                >
-                  {eventTypeLabels[item.eventType] || item.eventType}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-                {renderDetails(item.eventType, item.data)}
-              </TableCell>
+    <TabsContent value="history" className="flex-1 min-h-0">
+      <div className="space-y-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Event</TableHead>
+              <TableHead>Details</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {typedData.items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="text-sm whitespace-nowrap">
+                  {new Date(item.date).toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={eventTypeVariants[item.eventType] || "secondary"}
+                  >
+                    {eventTypeLabels[item.eventType] || item.eventType}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
+                  {renderDetails(item.eventType, item.data)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
-      <TablePagination
-        page={page}
-        pageSize={pageSize}
-        totalItems={typedData.total}
-        totalPages={typedData.totalPages}
-        onPageChange={setPage}
-        onPageSizeChange={handlePageSizeChange}
-      />
-    </div>
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={typedData.total}
+          totalPages={typedData.totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      </div>
+    </TabsContent>
   );
 }
 
