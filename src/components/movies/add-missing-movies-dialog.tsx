@@ -59,12 +59,15 @@ export default function AddMissingMoviesDialog({
   >("movieAndCollection");
   const [searchOnAdd, setSearchOnAdd] = useState(false);
 
-  // Auto-select all profiles when profiles load
+  // Reset form state when dialog opens
   useEffect(() => {
-    if (movieProfiles.length > 0 && downloadProfileIds.length === 0) {
+    if (open) {
       setDownloadProfileIds(movieProfiles.map((p) => p.id));
+      setMinimumAvailability("released");
+      setMonitorOption("movieAndCollection");
+      setSearchOnAdd(false);
     }
-  }, [movieProfiles, downloadProfileIds.length]);
+  }, [open, movieProfiles]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
