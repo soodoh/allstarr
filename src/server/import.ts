@@ -61,7 +61,7 @@ export function filterEditionsByProfile(
   const allowedSet = hasLanguageFilter ? new Set(languages) : null;
 
   const filtered = editions.filter((ed) => {
-    if (allowedSet && ed.languageCode && !allowedSet.has(ed.languageCode)) {
+    if (allowedSet && (!ed.languageCode || !allowedSet.has(ed.languageCode))) {
       return false;
     }
     if (hasIsbnAsinFilter && !ed.isbn10 && !ed.isbn13 && !ed.asin) {
