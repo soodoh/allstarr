@@ -29,6 +29,7 @@ import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
 import getProfileLanguages from "./profile-languages";
 import { pickBestEditionForProfile } from "src/lib/editions";
+import { searchForAuthorBooks, searchForBook } from "./auto-search";
 
 // ---------- Metadata profile filtering ----------
 
@@ -350,16 +351,70 @@ function syncBookAuthors(
   }
 }
 
+/**
+ * Ensure edition-profile links exist for a book across the given download profiles.
+ * Picks the best edition per profile and inserts links if missing.
+ */
+function ensureEditionProfileLinks(
+  bookId: number,
+  downloadProfileIds: number[],
+): void {
+  if (downloadProfileIds.length === 0) {
+    return;
+  }
+
+  const bookEditions = db
+    .select()
+    .from(editions)
+    .where(eq(editions.bookId, bookId))
+    .all();
+  if (bookEditions.length === 0) {
+    return;
+  }
+
+  const profiles = db
+    .select()
+    .from(downloadProfiles)
+    .where(inArray(downloadProfiles.id, downloadProfileIds))
+    .all();
+
+  for (const profile of profiles) {
+    const bestEdition = pickBestEditionForProfile(bookEditions, {
+      ...profile,
+      contentType: profile.contentType as "ebook" | "audiobook",
+    });
+    if (bestEdition) {
+      db.insert(editionDownloadProfiles)
+        .values({
+          editionId: bestEdition.id,
+          downloadProfileId: profile.id,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+  }
+}
+
 // ---------- Zod schemas ----------
+
+const monitorOptionEnum = z
+  .enum(["all", "future", "missing", "existing", "first", "latest", "none"])
+  .default("all");
 
 const importAuthorSchema = z.object({
   foreignAuthorId: z.number().int().positive(),
   downloadProfileIds: z.array(z.number().int().positive()).default([]),
+  monitorOption: monitorOptionEnum,
+  monitorNewBooks: z.enum(["all", "none", "new"]).default("all"),
+  searchOnAdd: z.boolean().default(false),
 });
 
 const importBookSchema = z.object({
   foreignBookId: z.number().int().positive(),
   downloadProfileIds: z.array(z.number().int().positive()).default([]),
+  monitorOption: monitorOptionEnum,
+  monitorNewBooks: z.enum(["all", "none", "new"]).default("all"),
+  searchOnAdd: z.boolean().default(false),
 });
 
 const refreshAuthorSchema = z.object({
@@ -383,6 +438,15 @@ const monitorBookSchema = z.object({
 async function importAuthorInternal(data: {
   foreignAuthorId: number;
   downloadProfileIds: number[];
+  monitorOption?:
+    | "all"
+    | "future"
+    | "missing"
+    | "existing"
+    | "first"
+    | "latest"
+    | "none";
+  monitorNewBooks?: "all" | "none" | "new";
 }): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
   const authorization = getAuthorizationHeader();
 
@@ -407,6 +471,7 @@ async function importAuthorInternal(data: {
   const editionsMap = await fetchBatchedEditions(authorBookIds, authorization);
 
   // ── DB transaction ──
+  // oxlint-disable-next-line complexity -- Import transaction requires many conditional branches for author/book/edition handling
   return db.transaction((tx) => {
     const now = new Date();
 
@@ -540,7 +605,19 @@ async function importAuthorInternal(data: {
     const metadataProfile = getMetadataProfile();
     const profileLanguages = getProfileLanguages();
 
-    // Insert all author books (unmonitored)
+    // Set monitorNewBooks on the author
+    if (data.monitorNewBooks) {
+      tx.update(authors)
+        .set({ monitorNewBooks: data.monitorNewBooks })
+        .where(eq(authors.id, author.id))
+        .run();
+    }
+
+    // Track newly-added books for monitor option filtering
+    const newlyAddedBooks: Array<{ id: number; releaseDate: string | null }> =
+      [];
+
+    // Insert all author books
     let booksAdded = 0;
     let editionsAdded = 0;
     for (const rawBook of rawBooks) {
@@ -668,6 +745,91 @@ async function importAuthorInternal(data: {
           data: { title: rawBook.title, source: "hardcover" },
         })
         .run();
+
+      newlyAddedBooks.push({
+        id: book.id,
+        releaseDate: rawBook.releaseDate,
+      });
+    }
+
+    // ── Apply monitorOption: create edition-profile links for monitored books ──
+    const monitorOption = data.monitorOption ?? "all";
+    if (
+      monitorOption !== "none" &&
+      data.downloadProfileIds.length > 0 &&
+      newlyAddedBooks.length > 0
+    ) {
+      // Determine which books should be monitored
+      let monitoredBookIds: number[];
+      const today = new Date().toISOString().slice(0, 10);
+
+      switch (monitorOption) {
+        case "all":
+        case "missing": {
+          // All books (at import time all are missing)
+          monitoredBookIds = newlyAddedBooks.map((b) => b.id);
+          break;
+        }
+        case "future": {
+          monitoredBookIds = newlyAddedBooks
+            .filter((b) => b.releaseDate && b.releaseDate > today)
+            .map((b) => b.id);
+          break;
+        }
+        case "existing": {
+          // At import time none have files — same as "none"
+          monitoredBookIds = [];
+          break;
+        }
+        case "first": {
+          const sorted = [...newlyAddedBooks].toSorted((a, b) =>
+            (a.releaseDate ?? "9999") < (b.releaseDate ?? "9999") ? -1 : 1,
+          );
+          monitoredBookIds = sorted.length > 0 ? [sorted[0].id] : [];
+          break;
+        }
+        case "latest": {
+          const sorted = [...newlyAddedBooks].toSorted((a, b) =>
+            (a.releaseDate ?? "") > (b.releaseDate ?? "") ? -1 : 1,
+          );
+          monitoredBookIds = sorted.length > 0 ? [sorted[0].id] : [];
+          break;
+        }
+        default: {
+          monitoredBookIds = [];
+        }
+      }
+
+      // Load download profiles and create edition-profile links
+      const profiles = tx
+        .select()
+        .from(downloadProfiles)
+        .where(inArray(downloadProfiles.id, data.downloadProfileIds))
+        .all();
+
+      for (const bookId of monitoredBookIds) {
+        const bookEditions = tx
+          .select()
+          .from(editions)
+          .where(eq(editions.bookId, bookId))
+          .all();
+
+        for (const profile of profiles) {
+          const bestEdition = pickBestEditionForProfile(bookEditions, {
+            ...profile,
+            contentType: profile.contentType as "ebook" | "audiobook",
+          });
+          if (bestEdition) {
+            tx.insert(editionDownloadProfiles)
+              .values({
+                editionId: bestEdition.id,
+                downloadProfileId: profile.id,
+              })
+              .onConflictDoNothing()
+              .run();
+          }
+        }
+      }
     }
 
     return { authorId: author.id, booksAdded, editionsAdded };
@@ -680,7 +842,17 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => importAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    return importAuthorInternal(data);
+    const result = await importAuthorInternal(data);
+
+    if (data.searchOnAdd) {
+      // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
+      void searchForAuthorBooks(result.authorId).catch((error) =>
+        // oxlint-disable-next-line no-console
+        console.error("Search after import failed:", error),
+      );
+    }
+
+    return result;
   });
 
 // ---------- Import Single Book ----------
@@ -725,6 +897,8 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       await importAuthorInternal({
         foreignAuthorId: primaryContrib.authorId,
         downloadProfileIds: data.downloadProfileIds,
+        monitorOption: data.monitorOption,
+        monitorNewBooks: data.monitorNewBooks,
       });
       primaryAuthorImported = true;
     } catch {
@@ -756,6 +930,9 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         .where(eq(books.id, alreadyImported.id))
         .run();
 
+      // The selected book is always monitored — ensure edition-profile links
+      ensureEditionProfileLinks(alreadyImported.id, data.downloadProfileIds);
+
       // Still cascade-import co-authors
       const coAuthorContribs = deriveAuthorContributions(
         rawBook.contributions,
@@ -771,6 +948,14 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         } catch {
           // Best-effort
         }
+      }
+
+      if (data.searchOnAdd) {
+        // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
+        void searchForBook(alreadyImported.id).catch((error) =>
+          // oxlint-disable-next-line no-console
+          console.error("Search after import failed:", error),
+        );
       }
 
       return {
@@ -895,6 +1080,17 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       return { bookId: book.id };
     });
 
+    // The selected book is always monitored — ensure edition-profile links
+    ensureEditionProfileLinks(txResult.bookId, data.downloadProfileIds);
+
+    // Set monitorNewBooks on the primary author if it was newly created
+    if (primaryAuthorImported) {
+      db.update(authors)
+        .set({ monitorNewBooks: data.monitorNewBooks })
+        .where(eq(authors.id, primaryAuthorId))
+        .run();
+    }
+
     // Cascade import co-authors sequentially (best-effort)
     const coAuthorContribs = deriveAuthorContributions(
       rawBook.contributions,
@@ -910,6 +1106,14 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
       } catch {
         // Best-effort: book is already saved, author import failure is non-fatal
       }
+    }
+
+    if (data.searchOnAdd) {
+      // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
+      void searchForBook(txResult.bookId).catch((error) =>
+        // oxlint-disable-next-line no-console
+        console.error("Search after import failed:", error),
+      );
     }
 
     return {

@@ -474,6 +474,20 @@ export async function searchForMovie(
   return { searched: 0, grabbed: 0 };
 }
 
+// ─── Book/Author search stubs ────────────────────────────────────────────────
+
+export async function searchForAuthorBooks(
+  _authorId: number,
+): Promise<{ searched: number; grabbed: number }> {
+  return { searched: 0, grabbed: 0 };
+}
+
+export async function searchForBook(
+  _bookId: number,
+): Promise<{ searched: number; grabbed: number }> {
+  return { searched: 0, grabbed: 0 };
+}
+
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
 
 export async function runAutoSearch(
