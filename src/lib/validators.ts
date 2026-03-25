@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
+
 // Download Profiles
 const downloadProfileBaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -197,7 +199,33 @@ export const createAuthorSchema = z.object({
 
 export const updateAuthorSchema = z.object({
   id: z.number(),
-  downloadProfileIds: z.array(z.number()),
+  downloadProfiles: z.array(
+    z.object({
+      downloadProfileId: z.number(),
+      monitorNewBooks: monitorNewItemsEnum,
+    }),
+  ),
+});
+
+export const updateBookSchema = z.object({
+  id: z.number(),
+  autoSwitchEdition: z.boolean(),
+});
+
+export const deleteBookSchema = z.object({
+  id: z.number(),
+  deleteFiles: z.boolean().default(false),
+  addImportExclusion: z.boolean().default(false),
+});
+
+export const addImportListExclusionSchema = z.object({
+  foreignBookId: z.string(),
+  title: z.string(),
+  authorName: z.string(),
+});
+
+export const removeImportListExclusionSchema = z.object({
+  id: z.number(),
 });
 
 // Books
