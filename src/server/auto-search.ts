@@ -466,6 +466,14 @@ async function grabPerProfile(
   return grabbedTitles;
 }
 
+// ─── Movie search stub ──────────────────────────────────────────────────────
+
+export async function searchForMovie(
+  _movieId: number,
+): Promise<{ searched: number; grabbed: number }> {
+  return { searched: 0, grabbed: 0 };
+}
+
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
 
 export async function runAutoSearch(
@@ -778,4 +786,14 @@ async function grabRelease(
     .run();
 
   return true;
+}
+
+// ─── Show search (stub until auto-search is extended) ────────────────────────
+
+/** Temporary stub until auto-search is extended for shows (Task 9) */
+export async function searchForShow(
+  _showId: number,
+  _cutoffUnmet?: boolean,
+): Promise<{ searched: number; grabbed: number }> {
+  return { searched: 0, grabbed: 0 };
 }

@@ -24,6 +24,7 @@ import {
 import { tmdbFetch } from "./tmdb/client";
 import { TMDB_IMAGE_BASE } from "./tmdb/types";
 import type { TmdbShowDetail, TmdbSeasonDetail } from "./tmdb/types";
+import { searchForShow } from "./auto-search";
 import * as fs from "node:fs";
 
 type ShowStatus = "continuing" | "ended" | "canceled" | "upcoming";
@@ -226,7 +227,8 @@ export const addShowFn = createServerFn({ method: "POST" })
         tmdbId: data.tmdbId,
         imdbId,
         status,
-        seriesType: "standard",
+        seriesType: data.seriesType,
+        useSeasonFolder: data.useSeasonFolder ? 1 : 0,
         network,
         year,
         runtime,
@@ -292,6 +294,15 @@ export const addShowFn = createServerFn({ method: "POST" })
         data: { title },
       })
       .run();
+
+    // Fire-and-forget search if requested
+    if (data.searchOnAdd || data.searchCutoffUnmet) {
+      /* oxlint-disable no-console, prefer-await-to-then -- intentional fire-and-forget */
+      void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
+        console.error("Search after add failed:", error),
+      );
+      /* oxlint-enable no-console, prefer-await-to-then */
+    }
 
     return show;
   });
@@ -409,7 +420,6 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
     const profileLinks = db
       .select({
         downloadProfileId: showDownloadProfiles.downloadProfileId,
-        monitorNewSeasons: showDownloadProfiles.monitorNewSeasons,
       })
       .from(showDownloadProfiles)
       .where(eq(showDownloadProfiles.showId, data.id))
@@ -419,7 +429,6 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
     return {
       ...show,
       downloadProfileIds,
-      downloadProfiles: profileLinks,
       seasons: seasonsWithEpisodes,
     };
   });
@@ -429,7 +438,13 @@ export const updateShowFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, downloadProfiles, useSeasonFolder, seriesType } = data;
+    const {
+      id,
+      downloadProfileIds,
+      monitorNewSeasons,
+      useSeasonFolder,
+      seriesType,
+    } = data;
 
     const show = db.select().from(shows).where(eq(shows.id, id)).get();
 
@@ -444,13 +459,16 @@ export const updateShowFn = createServerFn({ method: "POST" })
     if (useSeasonFolder !== undefined) {
       showUpdates.useSeasonFolder = useSeasonFolder ? 1 : 0;
     }
+    if (monitorNewSeasons) {
+      showUpdates.monitorNewSeasons = monitorNewSeasons;
+    }
     if (seriesType) {
       showUpdates.seriesType = seriesType;
     }
     db.update(shows).set(showUpdates).where(eq(shows.id, id)).run();
 
     // Update download profiles if provided
-    if (downloadProfiles !== undefined) {
+    if (downloadProfileIds !== undefined) {
       // Find which profiles were previously assigned
       const previousLinks = db
         .select({
@@ -462,7 +480,7 @@ export const updateShowFn = createServerFn({ method: "POST" })
       const previousProfileIds = previousLinks.map((l) => l.downloadProfileId);
 
       // Compute which profiles were removed
-      const newProfileIds = downloadProfiles.map((p) => p.downloadProfileId);
+      const newProfileIds = downloadProfileIds;
       const newSet = new Set(newProfileIds);
       const removedProfileIds = previousProfileIds.filter(
         (pid) => !newSet.has(pid),
@@ -491,20 +509,16 @@ export const updateShowFn = createServerFn({ method: "POST" })
         }
       }
 
-      // Replace show download profiles with monitorNewSeasons
+      // Replace show download profiles
       db.delete(showDownloadProfiles)
         .where(eq(showDownloadProfiles.showId, id))
         .run();
-      for (const profile of downloadProfiles) {
+      for (const profileId of downloadProfileIds) {
         db.insert(showDownloadProfiles)
-          .values({
-            showId: id,
-            downloadProfileId: profile.downloadProfileId,
-            monitorNewSeasons: profile.monitorNewSeasons,
-          })
+          .values({ showId: id, downloadProfileId: profileId })
           .run();
       }
-    } // end if (downloadProfiles !== undefined)
+    } // end if (downloadProfileIds !== undefined)
 
     return db.select().from(shows).where(eq(shows.id, id)).get()!;
   });
