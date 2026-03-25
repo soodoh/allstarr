@@ -7,6 +7,7 @@ type HistoryParams = {
   page?: number;
   limit?: number;
   eventType?: string;
+  bookId?: number;
 };
 
 export type HistoryItem = {
@@ -34,6 +35,7 @@ export const historyListQuery = (params: HistoryParams = {}) =>
       "list",
       params.page ?? 1,
       params.eventType ?? "all",
+      params.bookId,
     ] as const,
     queryFn: () => getHistoryFn({ data: params }) as Promise<HistoryResult>,
   });

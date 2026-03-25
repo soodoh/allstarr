@@ -1,12 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { history, authors, books } from "src/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 
 export const getHistoryFn = createServerFn({ method: "GET" })
   .inputValidator(
-    (d: { page?: number; limit?: number; eventType?: string }) => d,
+    (d: {
+      page?: number;
+      limit?: number;
+      eventType?: string;
+      bookId?: number;
+    }) => d,
   )
   .handler(async ({ data }) => {
     await requireAuth();
@@ -31,22 +36,39 @@ export const getHistoryFn = createServerFn({ method: "GET" })
       .orderBy(desc(history.date))
       .$dynamic();
 
+    const conditions = [];
     if (data.eventType) {
-      query = query.where(eq(history.eventType, data.eventType));
+      conditions.push(eq(history.eventType, data.eventType));
+    }
+    if (data.bookId) {
+      conditions.push(eq(history.bookId, data.bookId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
     }
 
     const items = query.limit(limit).offset(offset).all();
 
-    const countQuery = data.eventType
-      ? db
-          .select({ count: sql<number>`count(*)` })
-          .from(history)
-          .where(eq(history.eventType, data.eventType))
-          .get()
-      : db
-          .select({ count: sql<number>`count(*)` })
-          .from(history)
-          .get();
+    const countConditions = [];
+    if (data.eventType) {
+      countConditions.push(eq(history.eventType, data.eventType));
+    }
+    if (data.bookId) {
+      countConditions.push(eq(history.bookId, data.bookId));
+    }
+
+    const countQuery =
+      countConditions.length > 0
+        ? db
+            .select({ count: sql<number>`count(*)` })
+            .from(history)
+            .where(and(...countConditions))
+            .get()
+        : db
+            .select({ count: sql<number>`count(*)` })
+            .from(history)
+            .get();
 
     const total = countQuery?.count || 0;
 
