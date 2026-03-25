@@ -40,16 +40,18 @@ function extractYear(releaseDate: string): string | null {
 
 // ── Preview Modal ──────────────────────────────────────────────────────────
 
-type MoviePreviewModalProps = {
+export type MoviePreviewModalProps = {
   movie: TmdbMovieResult;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdded?: () => void;
 };
 
-function MoviePreviewModal({
+export function MoviePreviewModal({
   movie,
   open,
   onOpenChange,
+  onAdded,
 }: MoviePreviewModalProps): JSX.Element {
   const navigate = useNavigate();
   const addMovie = useAddMovie();
@@ -110,10 +112,14 @@ function MoviePreviewModal({
       {
         onSuccess: (result) => {
           onOpenChange(false);
-          navigate({
-            to: "/movies/$movieId",
-            params: { movieId: String(result.id) },
-          });
+          if (onAdded) {
+            onAdded();
+          } else {
+            navigate({
+              to: "/movies/$movieId",
+              params: { movieId: String(result.id) },
+            });
+          }
         },
       },
     );
