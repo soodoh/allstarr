@@ -3,6 +3,7 @@ export * from "./auth";
 export * from "./authors";
 export * from "./author-download-profiles";
 export * from "./books";
+export * from "./book-import-list-exclusions";
 export * from "./edition-download-profiles";
 export * from "./series";
 export * from "./book-files";
