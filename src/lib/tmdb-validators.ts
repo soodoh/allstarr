@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { monitorNewItemsEnum } from "./validators";
 
 export const addShowSchema = z.object({
   tmdbId: z.number(),
@@ -17,8 +18,14 @@ export const addShowSchema = z.object({
 
 export const updateShowSchema = z.object({
   id: z.number(),
+  downloadProfiles: z.array(
+    z.object({
+      downloadProfileId: z.number(),
+      monitorNewSeasons: monitorNewItemsEnum,
+    }),
+  ),
+  useSeasonFolder: z.boolean(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
-  downloadProfileIds: z.array(z.number()).optional(),
 });
 
 export const deleteShowSchema = z.object({
