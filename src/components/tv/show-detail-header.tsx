@@ -56,12 +56,9 @@ type ShowDetail = {
   runtime: number;
   genres: string[] | null;
   posterUrl: string;
+  monitorNewSeasons: string;
   useSeasonFolder: number | null;
   downloadProfileIds: number[];
-  downloadProfiles: Array<{
-    downloadProfileId: number;
-    monitorNewSeasons: string;
-  }>;
   seasons: Array<{
     id: number;
     seasonNumber: number;
@@ -117,62 +114,43 @@ function EditShowDialog({
 }: EditShowDialogProps): JSX.Element {
   const router = useRouter();
   const updateShow = useUpdateShow();
-  const [profiles, setProfiles] = useState<
-    Array<{
-      downloadProfileId: number;
-      monitorNewSeasons: "all" | "none" | "new";
-    }>
-  >(
-    (show.downloadProfiles ?? []).map((p) => ({
-      downloadProfileId: p.downloadProfileId,
-      monitorNewSeasons: p.monitorNewSeasons as "all" | "none" | "new",
-    })),
+  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
+    show.downloadProfileIds,
+  );
+  const [monitorNewSeasons, setMonitorNewSeasons] = useState(
+    show.monitorNewSeasons ?? "all",
   );
   const [useSeasonFolder, setUseSeasonFolder] = useState(
     Boolean(show.useSeasonFolder),
   );
-
-  const selectedIds = useMemo(
-    () => profiles.map((p) => p.downloadProfileId),
-    [profiles],
-  );
+  const [seriesType, setSeriesType] = useState(show.seriesType ?? "standard");
 
   // Reset state when dialog opens
   const handleOpenChange = (value: boolean) => {
     if (value) {
-      setProfiles(
-        (show.downloadProfiles ?? []).map((p) => ({
-          downloadProfileId: p.downloadProfileId,
-          monitorNewSeasons: p.monitorNewSeasons as "all" | "none" | "new",
-        })),
-      );
+      setSelectedProfileIds(show.downloadProfileIds);
+      setMonitorNewSeasons(show.monitorNewSeasons ?? "all");
       setUseSeasonFolder(Boolean(show.useSeasonFolder));
+      setSeriesType(show.seriesType ?? "standard");
     }
     onOpenChange(value);
   };
 
   const toggleProfile = (id: number) => {
-    setProfiles((prev) =>
-      prev.some((p) => p.downloadProfileId === id)
-        ? prev.filter((p) => p.downloadProfileId !== id)
-        : [
-            ...prev,
-            { downloadProfileId: id, monitorNewSeasons: "all" as const },
-          ],
-    );
-  };
-
-  const handleMonitorChange = (id: number, value: "all" | "none" | "new") => {
-    setProfiles((prev) =>
-      prev.map((p) =>
-        p.downloadProfileId === id ? { ...p, monitorNewSeasons: value } : p,
-      ),
+    setSelectedProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id],
     );
   };
 
   const handleSave = () => {
     updateShow.mutate(
-      { id: show.id, downloadProfiles: profiles, useSeasonFolder },
+      {
+        id: show.id,
+        downloadProfileIds: selectedProfileIds,
+        monitorNewSeasons: monitorNewSeasons as "all" | "none" | "new",
+        useSeasonFolder,
+        seriesType: seriesType as "standard" | "daily" | "anime",
+      },
       {
         onSuccess: () => {
           onOpenChange(false);
@@ -188,35 +166,29 @@ function EditShowDialog({
         <DialogHeader>
           <DialogTitle>Edit Download Profiles</DialogTitle>
         </DialogHeader>
+
+        {/* Monitor New Seasons */}
+        <div className="space-y-2">
+          <Label>Monitor New Seasons</Label>
+          <Select
+            value={monitorNewSeasons}
+            onValueChange={setMonitorNewSeasons}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Seasons</SelectItem>
+              <SelectItem value="none">No New Seasons</SelectItem>
+              <SelectItem value="new">New Seasons Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <ProfileCheckboxGroup
           profiles={tvProfiles}
-          selectedIds={selectedIds}
+          selectedIds={selectedProfileIds}
           onToggle={toggleProfile}
-          renderExtra={(profileId) => (
-            <div className="ml-6 flex items-center gap-2">
-              <Label className="text-sm text-muted-foreground">
-                Monitor New Seasons
-              </Label>
-              <Select
-                value={
-                  profiles.find((p) => p.downloadProfileId === profileId)
-                    ?.monitorNewSeasons
-                }
-                onValueChange={(v) =>
-                  handleMonitorChange(profileId, v as "all" | "none" | "new")
-                }
-              >
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="new">New</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         />
 
         {/* Use Season Folder toggle */}
