@@ -6,6 +6,7 @@ import CollectionMoviePoster from "./collection-movie-poster";
 type CollectionMovie = {
   tmdbId: number;
   title: string;
+  overview: string;
   posterUrl: string | null;
   year: number | null;
   isExisting: boolean;
@@ -28,9 +29,9 @@ type Collection = {
 type Props = {
   collection: Collection;
   onEdit: (collection: Collection) => void;
-  onAddMissing: (collectionId: number) => void;
+  onAddMissing: (collection: Collection) => void;
   onExcludeMovie: (movie: CollectionMovie) => void;
-  onAddMovie: (tmdbId: number) => void;
+  onAddMovie: (movie: CollectionMovie) => void;
   onToggleMonitor: (collection: Collection) => void;
 };
 
@@ -95,7 +96,7 @@ export default function CollectionCard({
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => onAddMissing(collection.id)}
+                onClick={() => onAddMissing(collection)}
               >
                 <PlusCircle className="mr-1 h-3.5 w-3.5" />
                 Add Missing
