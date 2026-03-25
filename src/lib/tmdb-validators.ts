@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { monitorNewItemsEnum } from "./validators";
 
 export const addShowSchema = z.object({
   tmdbId: z.number(),
@@ -14,18 +13,16 @@ export const addShowSchema = z.object({
     "lastSeason",
     "none",
   ]),
+  seriesType: z.enum(["standard", "daily", "anime"]).default("standard"),
+  useSeasonFolder: z.boolean().default(true),
+  searchOnAdd: z.boolean().default(false),
+  searchCutoffUnmet: z.boolean().default(false),
 });
 
 export const updateShowSchema = z.object({
   id: z.number(),
-  downloadProfiles: z
-    .array(
-      z.object({
-        downloadProfileId: z.number(),
-        monitorNewSeasons: monitorNewItemsEnum,
-      }),
-    )
-    .optional(),
+  downloadProfileIds: z.array(z.number()).optional(),
+  monitorNewSeasons: z.enum(["all", "none", "new"]).optional(),
   useSeasonFolder: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
 });
@@ -41,6 +38,10 @@ export const addMovieSchema = z.object({
   minimumAvailability: z
     .enum(["announced", "inCinemas", "released"])
     .default("released"),
+  monitorOption: z
+    .enum(["movieOnly", "movieAndCollection", "none"])
+    .default("movieOnly"),
+  searchOnAdd: z.boolean().default(false),
 });
 
 export const updateMovieSchema = z.object({
