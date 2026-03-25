@@ -107,6 +107,14 @@ export const updateMovieCollectionSchema = z.object({
 
 export const addMissingCollectionMoviesSchema = z.object({
   collectionId: z.number(),
+  downloadProfileIds: z.array(z.number()),
+  minimumAvailability: z
+    .enum(["announced", "inCinemas", "released"])
+    .default("released"),
+  monitorOption: z
+    .enum(["movieOnly", "movieAndCollection", "none"])
+    .default("movieAndCollection"),
+  searchOnAdd: z.boolean().default(false),
 });
 
 export const addMovieImportExclusionSchema = z.object({
