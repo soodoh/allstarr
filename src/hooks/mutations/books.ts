@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   createBookFn,
   deleteBookFn,
+  updateBookFn,
   monitorBookProfileFn,
   unmonitorBookProfileFn,
   setEditionForProfileFn,
@@ -35,7 +36,11 @@ export function useCreateBook() {
 export function useDeleteBook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteBookFn({ data: { id } }),
+    mutationFn: (data: {
+      id: number;
+      deleteFiles: boolean;
+      addImportExclusion: boolean;
+    }) => deleteBookFn({ data }),
     onSuccess: () => {
       toast.success("Book deleted");
       queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
@@ -44,6 +49,21 @@ export function useDeleteBook() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete book"),
+  });
+}
+
+export function useUpdateBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { id: number; autoSwitchEdition: boolean }) =>
+      updateBookFn({ data }),
+    onSuccess: () => {
+      toast.success("Book updated");
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+    },
+    onError: () => {
+      toast.error("Failed to update book");
+    },
   });
 }
 

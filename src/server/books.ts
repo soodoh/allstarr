@@ -3,6 +3,7 @@ import { db } from "src/db";
 import {
   books,
   bookFiles,
+  bookImportListExclusions,
   booksAuthors,
   editions,
   editionDownloadProfiles,
@@ -15,12 +16,15 @@ import {
 } from "src/db/schema";
 import { eq, desc, inArray, like, or, and, exists, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import fs from "node:fs";
 import { requireAuth } from "./middleware";
 import { pickBestEdition, pickBestEditionForProfile } from "src/lib/editions";
 import {
   createBookSchema,
   createEditionSchema,
   updateEditionSchema,
+  updateBookSchema,
+  deleteBookSchema,
   monitorBookProfileSchema,
   unmonitorBookProfileSchema,
   setEditionForProfileSchema,
@@ -986,32 +990,82 @@ export const createBookFn = createServerFn({ method: "POST" })
     return book;
   });
 
-export const deleteBookFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { id: number }) => d)
+export const updateBookFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => updateBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const book = db.select().from(books).where(eq(books.id, data.id)).get();
+    const { id, ...updates } = data;
+    db.update(books)
+      .set({
+        autoSwitchEdition: updates.autoSwitchEdition ? 1 : 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(books.id, id))
+      .run();
+    return { success: true };
+  });
 
-    // Get primary author for history before deletion
+export const deleteBookFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => deleteBookSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    const book = db.select().from(books).where(eq(books.id, data.id)).get();
+    if (!book) {
+      throw new Error("Book not found");
+    }
+
+    // Get primary author for history
     const primaryEntry = db
-      .select({ authorId: booksAuthors.authorId })
+      .select({
+        authorId: booksAuthors.authorId,
+        authorName: booksAuthors.authorName,
+      })
       .from(booksAuthors)
       .where(
         and(eq(booksAuthors.bookId, data.id), eq(booksAuthors.isPrimary, true)),
       )
       .get();
 
-    db.delete(books).where(eq(books.id, data.id)).run();
+    // Delete files from disk if requested
+    if (data.deleteFiles) {
+      const files = db
+        .select({ path: bookFiles.path })
+        .from(bookFiles)
+        .where(eq(bookFiles.bookId, data.id))
+        .all();
+      for (const file of files) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch {
+          // File may already be missing
+        }
+      }
+    }
 
-    if (book) {
-      db.insert(history)
+    // Add to import exclusion list if requested
+    if (data.addImportExclusion && book.foreignBookId) {
+      db.insert(bookImportListExclusions)
         .values({
-          eventType: "bookDeleted",
-          authorId: primaryEntry?.authorId ?? undefined,
-          data: { title: book.title },
+          foreignBookId: book.foreignBookId,
+          title: book.title,
+          authorName: primaryEntry?.authorName ?? "Unknown",
         })
+        .onConflictDoNothing()
         .run();
     }
+
+    // Delete book (cascades to editions, files, etc.)
+    db.delete(books).where(eq(books.id, data.id)).run();
+
+    // Log history
+    db.insert(history)
+      .values({
+        eventType: "bookDeleted",
+        authorId: primaryEntry?.authorId ?? undefined,
+        data: { title: book.title },
+      })
+      .run();
 
     return { success: true };
   });
