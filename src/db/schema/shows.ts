@@ -25,6 +25,7 @@ export const shows = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
       () => new Date(),
     ),
+    useSeasonFolder: integer("use_season_folder").default(1).notNull(),
   },
   (t) => [unique("shows_tmdb_id_unique").on(t.tmdbId)],
 );

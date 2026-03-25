@@ -8,6 +8,13 @@
       "when": 1774387382823,
       "tag": "0000_deep_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1774404982389,
+      "tag": "0001_narrow_killraven",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ export const books = sqliteTable("books", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
+  autoSwitchEdition: integer("auto_switch_edition").default(1).notNull(),
 });
 
 export const booksAuthors = sqliteTable(
