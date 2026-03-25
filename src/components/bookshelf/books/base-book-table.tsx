@@ -305,7 +305,7 @@ export default function BaseBookTable({
                     {renderLeadingCell!(row)}
                   </TableCell>
                 )}
-                <TableCell>
+                <TableCell className="min-w-14 w-14">
                   {row.coverUrl ? (
                     <img
                       src={row.coverUrl}
