@@ -4,6 +4,8 @@ import {
   movies,
   movieFiles,
   movieDownloadProfiles,
+  movieCollections,
+  movieImportListExclusions,
   history,
 } from "src/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -42,6 +44,44 @@ export const addMovieFn = createServerFn({ method: "POST" })
     // Fetch movie detail from TMDB
     const raw = await tmdbFetch<TmdbMovieDetail>(`/movie/${data.tmdbId}`);
 
+    // Upsert collection if movie belongs to one
+    let collectionId: number | null = null;
+    if (raw.belongs_to_collection) {
+      const col = raw.belongs_to_collection;
+      const existing = db
+        .select({ id: movieCollections.id })
+        .from(movieCollections)
+        .where(eq(movieCollections.tmdbId, col.id))
+        .get();
+
+      if (existing) {
+        collectionId = existing.id;
+        db.update(movieCollections)
+          .set({
+            title: col.name,
+            sortTitle: generateSortTitle(col.name),
+            posterUrl: transformImagePath(col.poster_path, "w500"),
+            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            updatedAt: new Date(),
+          })
+          .where(eq(movieCollections.id, existing.id))
+          .run();
+      } else {
+        const inserted = db
+          .insert(movieCollections)
+          .values({
+            title: col.name,
+            sortTitle: generateSortTitle(col.name),
+            tmdbId: col.id,
+            posterUrl: transformImagePath(col.poster_path, "w500"),
+            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+          })
+          .returning()
+          .get();
+        collectionId = inserted.id;
+      }
+    }
+
     const title = raw.title;
     const sortTitle = generateSortTitle(title);
     const status = mapMovieStatus(raw.status);
@@ -72,6 +112,7 @@ export const addMovieFn = createServerFn({ method: "POST" })
         posterUrl,
         fanartUrl,
         minimumAvailability: data.minimumAvailability,
+        collectionId,
       })
       .returning()
       .get();
@@ -209,6 +250,18 @@ export const deleteMovieFn = createServerFn({ method: "POST" })
       throw new Error("Movie not found");
     }
 
+    // Add to import exclusion list if requested
+    if (data.addImportExclusion) {
+      db.insert(movieImportListExclusions)
+        .values({
+          tmdbId: movie.tmdbId,
+          title: movie.title,
+          year: movie.year || null,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+
     // If deleteFiles, find and delete all movie files from disk
     if (data.deleteFiles) {
       const files = db
@@ -268,6 +321,44 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
 
     const raw = await tmdbFetch<TmdbMovieDetail>(`/movie/${movie.tmdbId}`);
 
+    // Upsert collection if movie belongs to one
+    let collectionId: number | null = null;
+    if (raw.belongs_to_collection) {
+      const col = raw.belongs_to_collection;
+      const existing = db
+        .select({ id: movieCollections.id })
+        .from(movieCollections)
+        .where(eq(movieCollections.tmdbId, col.id))
+        .get();
+
+      if (existing) {
+        collectionId = existing.id;
+        db.update(movieCollections)
+          .set({
+            title: col.name,
+            sortTitle: generateSortTitle(col.name),
+            posterUrl: transformImagePath(col.poster_path, "w500"),
+            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            updatedAt: new Date(),
+          })
+          .where(eq(movieCollections.id, existing.id))
+          .run();
+      } else {
+        const inserted = db
+          .insert(movieCollections)
+          .values({
+            title: col.name,
+            sortTitle: generateSortTitle(col.name),
+            tmdbId: col.id,
+            posterUrl: transformImagePath(col.poster_path, "w500"),
+            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+          })
+          .returning()
+          .get();
+        collectionId = inserted.id;
+      }
+    }
+
     const title = raw.title;
     const sortTitle = generateSortTitle(title);
     const status = mapMovieStatus(raw.status);
@@ -294,6 +385,7 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
         genres,
         posterUrl,
         fanartUrl,
+        collectionId,
       })
       .where(eq(movies.id, data.movieId))
       .run();
