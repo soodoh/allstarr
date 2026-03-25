@@ -139,6 +139,17 @@ function EditShowDialog({
   const [seriesType, setSeriesType] = useState(show.seriesType ?? "standard");
   const [conflicts, setConflicts] = useState<ProfileConflict[]>([]);
 
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedProfileIds(show.downloadProfileIds);
+      setMonitorNewSeasons(show.monitorNewSeasons ?? "all");
+      setUseSeasonFolder(Boolean(show.useSeasonFolder));
+      setSeriesType(show.seriesType ?? "standard");
+      setConflicts([]);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filter available profiles by current series type
   const availableProfiles = useMemo(
     () => tvProfiles.filter((p) => p.seriesTypes.includes(seriesType)),
@@ -182,18 +193,6 @@ function EditShowDialog({
 
   const allConflictsResolved = conflicts.every((c) => c.resolution !== null);
   const hasConflicts = conflicts.length > 0;
-
-  // Reset state when dialog opens
-  const handleOpenChange = (value: boolean) => {
-    if (value) {
-      setSelectedProfileIds(show.downloadProfileIds);
-      setMonitorNewSeasons(show.monitorNewSeasons ?? "all");
-      setUseSeasonFolder(Boolean(show.useSeasonFolder));
-      setSeriesType(show.seriesType ?? "standard");
-      setConflicts([]);
-    }
-    onOpenChange(value);
-  };
 
   const toggleProfile = (id: number) => {
     setSelectedProfileIds((prev) =>
@@ -244,7 +243,7 @@ function EditShowDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Download Profiles</DialogTitle>

@@ -479,11 +479,15 @@ export const updateShowFn = createServerFn({ method: "POST" })
         .all();
       const previousProfileIds = previousLinks.map((l) => l.downloadProfileId);
 
-      // Compute which profiles were removed
+      // Compute which profiles were removed (exclude migrated-from profiles — those
+      // are handled by the migration step, not deletion)
       const newProfileIds = downloadProfileIds;
       const newSet = new Set(newProfileIds);
+      const migrateFromIds = new Set(
+        (data.migrateProfiles ?? []).map((m) => m.fromProfileId),
+      );
       const removedProfileIds = previousProfileIds.filter(
-        (pid) => !newSet.has(pid),
+        (pid) => !newSet.has(pid) && !migrateFromIds.has(pid),
       );
 
       // Delete episode download profiles for removed profiles (PRESERVE THIS CASCADE LOGIC)
@@ -544,22 +548,6 @@ export const updateShowFn = createServerFn({ method: "POST" })
             )
             .run();
         }
-      }
-
-      // Also update show download profiles
-      for (const migration of data.migrateProfiles) {
-        db.update(showDownloadProfiles)
-          .set({ downloadProfileId: migration.toProfileId })
-          .where(
-            and(
-              eq(showDownloadProfiles.showId, id),
-              eq(
-                showDownloadProfiles.downloadProfileId,
-                migration.fromProfileId,
-              ),
-            ),
-          )
-          .run();
       }
     }
 

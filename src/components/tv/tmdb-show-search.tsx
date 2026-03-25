@@ -84,6 +84,13 @@ function ShowPreviewModal({
     enabled: open,
   });
 
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
+  const [monitorOption, setMonitorOption] = useState<string>("all");
+  const [seriesType, setSeriesType] = useState<string>("standard");
+  const [useSeasonFolder, setSeasonFolder] = useState(true);
+  const [searchOnAdd, setSearchOnAdd] = useState(false);
+  const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
+
   const tvProfiles = useMemo(
     () =>
       allProfiles.filter(
@@ -93,13 +100,6 @@ function ShowPreviewModal({
       ),
     [allProfiles, seriesType],
   );
-
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
-  const [monitorOption, setMonitorOption] = useState<string>("all");
-  const [seriesType, setSeriesType] = useState<string>("standard");
-  const [useSeasonFolder, setSeasonFolder] = useState(true);
-  const [searchOnAdd, setSearchOnAdd] = useState(false);
-  const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
 
   // Auto-select all profiles when profiles load or series type changes
   useEffect(() => {
