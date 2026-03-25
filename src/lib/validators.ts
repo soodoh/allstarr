@@ -14,21 +14,33 @@ const downloadProfileBaseSchema = z.object({
   icon: z.string().min(1, "Icon is required"),
   categories: z.array(z.number()).default([]),
   contentType: z.enum(["movie", "tv", "ebook", "audiobook"]),
+  seriesTypes: z
+    .array(z.enum(["standard", "daily", "anime"]))
+    .default(["standard", "daily", "anime"]),
   language: z.string().min(2).max(3),
   minCustomFormatScore: z.number().default(0),
   upgradeUntilCustomFormatScore: z.number().default(0),
 });
 
-export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
-  (data) => !data.upgradeAllowed || data.cutoff > 0,
-  { message: "Upgrade cutoff quality is required", path: ["cutoff"] },
-);
+export const createDownloadProfileSchema = downloadProfileBaseSchema
+  .refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
+    message: "Upgrade cutoff quality is required",
+    path: ["cutoff"],
+  })
+  .refine((data) => data.contentType !== "tv" || data.seriesTypes.length > 0, {
+    message: "At least one series type is required for TV profiles",
+    path: ["seriesTypes"],
+  });
 
 export const updateDownloadProfileSchema = downloadProfileBaseSchema
   .extend({ id: z.number() })
   .refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
     message: "Upgrade cutoff quality is required",
     path: ["cutoff"],
+  })
+  .refine((data) => data.contentType !== "tv" || data.seriesTypes.length > 0, {
+    message: "At least one series type is required for TV profiles",
+    path: ["seriesTypes"],
   });
 
 // Custom Formats

@@ -25,6 +25,14 @@ export const updateShowSchema = z.object({
   monitorNewSeasons: z.enum(["all", "none", "new"]).optional(),
   useSeasonFolder: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
+  migrateProfiles: z
+    .array(
+      z.object({
+        fromProfileId: z.number(),
+        toProfileId: z.number(),
+      }),
+    )
+    .optional(),
 });
 
 export const deleteShowSchema = z.object({

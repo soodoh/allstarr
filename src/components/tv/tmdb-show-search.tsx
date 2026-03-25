@@ -85,8 +85,13 @@ function ShowPreviewModal({
   });
 
   const tvProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "tv"),
-    [allProfiles],
+    () =>
+      allProfiles.filter(
+        (p) =>
+          p.contentType === "tv" &&
+          (p.seriesTypes as string[]).includes(seriesType),
+      ),
+    [allProfiles, seriesType],
   );
 
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
@@ -96,12 +101,14 @@ function ShowPreviewModal({
   const [searchOnAdd, setSearchOnAdd] = useState(false);
   const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
 
-  // Auto-select all profiles when profiles load
+  // Auto-select all profiles when profiles load or series type changes
   useEffect(() => {
-    if (tvProfiles.length > 0 && downloadProfileIds.length === 0) {
+    if (tvProfiles.length > 0) {
       setDownloadProfileIds(tvProfiles.map((p) => p.id));
+    } else {
+      setDownloadProfileIds([]);
     }
-  }, [tvProfiles, downloadProfileIds.length]);
+  }, [seriesType, tvProfiles]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
