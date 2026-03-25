@@ -98,6 +98,30 @@ export type TmdbMovieDetail = {
   budget: number;
   revenue: number;
   vote_average: number;
+  belongs_to_collection: {
+    id: number;
+    name: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+  } | null;
+};
+
+// Collection detail
+export type TmdbCollectionDetail = {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  parts: Array<{
+    id: number;
+    title: string;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    release_date: string;
+    adult: boolean;
+  }>;
 };
 
 // Paginated response
