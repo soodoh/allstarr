@@ -17,6 +17,7 @@ import {
   Film,
   Tv,
   Calendar,
+  FolderOpen,
 } from "lucide-react";
 import { settingsNavItems, systemNavItems } from "src/lib/nav-config";
 import {
@@ -79,6 +80,7 @@ const navGroups: NavGroup[] = [
     children: [
       { title: "Add New", to: "/movies/add", icon: Plus },
       { title: "Movies", to: "/movies", icon: Film },
+      { title: "Collections", to: "/movies/collections", icon: FolderOpen },
       { title: "Calendar", to: "/movies/calendar", icon: Calendar },
     ],
   },
