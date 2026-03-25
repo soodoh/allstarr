@@ -19,6 +19,7 @@ import {
   fetchSeriesComplete,
   getAuthorizationHeader,
 } from "./hardcover/import-queries";
+import getProfileLanguages from "./profile-languages";
 
 export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -485,20 +486,24 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { id, downloadProfileIds } = data;
+    const { id, downloadProfiles } = data;
 
     const author = db.select().from(authors).where(eq(authors.id, id)).get();
     if (!author) {
       throw new Error("Author not found");
     }
 
-    // Update download profile assignments
+    // Delete all existing profile assignments and re-insert with monitorNewBooks
     db.delete(authorDownloadProfiles)
       .where(eq(authorDownloadProfiles.authorId, id))
       .run();
-    for (const profileId of downloadProfileIds) {
+    for (const profile of downloadProfiles) {
       db.insert(authorDownloadProfiles)
-        .values({ authorId: id, downloadProfileId: profileId })
+        .values({
+          authorId: id,
+          downloadProfileId: profile.downloadProfileId,
+          monitorNewBooks: profile.monitorNewBooks,
+        })
         .run();
     }
 
@@ -568,9 +573,11 @@ export const getSeriesFromHardcoverFn = createServerFn({ method: "GET" })
       return [];
     }
     const authorization = getAuthorizationHeader();
+    const langCodes = getProfileLanguages();
     const rawSeries = await fetchSeriesComplete(
       data.foreignSeriesIds,
       authorization,
+      langCodes,
     );
     return rawSeries.map((s) => ({
       foreignSeriesId: s.id,
