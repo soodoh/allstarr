@@ -227,7 +227,7 @@ Sonarr specification types map to Allstarr types:
 
 | File                                       | Change                                                                                                                          |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/custom-format-preset-data.ts`     | Add "Anime 1080p" preset with all 39 CFs, scores, and thresholds                                                                |
+| `src/lib/custom-format-preset-data.ts`     | Add `profileName` field to Preset type, add "Anime 1080p" preset with all 39 CFs, scores, and thresholds                        |
 | `src/db/schema/download-profiles.ts`       | Add `seriesTypes` column (JSON array, default all three)                                                                        |
 | `src/db/seed-custom-formats.ts`            | Fix preset-profile matching: by name instead of contentType                                                                     |
 | `src/lib/tmdb-validators.ts`               | Add seriesTypes validation to download profile schema                                                                           |
@@ -245,11 +245,31 @@ Sonarr specification types map to Allstarr types:
 const preset = PRESETS.find((p) => p.contentType === profile.contentType);
 ```
 
-With multiple TV presets, this always returns the first match. Fix: match by name:
+With multiple TV presets, this always returns the first match. Additionally, preset names don't match profile names:
+
+| Preset Name             | Profile Name        |
+| ----------------------- | ------------------- |
+| "HD WEB Streaming"      | "1080p (TV)"        |
+| "HD Bluray + WEB"       | "720-1080p (Movie)" |
+| "Retail EPUB Preferred" | "Ebook"             |
+| "High Bitrate M4B"      | "Audiobook"         |
+| "Anime 1080p"           | "Anime 1080p"       |
+
+**Fix:** Add a `profileName` field to the `Preset` type that maps each preset to its corresponding download profile name. Update the seeder to match by this field:
 
 ```ts
-const preset = PRESETS.find((p) => p.name === profile.name);
+// In custom-format-preset-data.ts
+export type Preset = {
+  name: string; // Display name for preset picker UI
+  profileName: string; // Maps to download_profiles.name
+  // ... existing fields
+};
+
+// In seed-custom-formats.ts
+const preset = PRESETS.find((p) => p.profileName === profile.name);
 ```
+
+Each existing preset gets its `profileName` set to the corresponding download profile name. The 4k profiles (4k TV, 4k Movie) have no matching preset — this is fine, they won't get auto-linked CFs (matching current behavior where only the first contentType match got linked).
 
 ## 9. Migration Strategy
 
