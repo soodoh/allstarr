@@ -1342,13 +1342,15 @@ function AuthorDetailPage() {
       : null;
 
   const handleUpdate = (values: {
-    downloadProfiles: Array<{
-      downloadProfileId: number;
-      monitorNewBooks: "all" | "none" | "new";
-    }>;
+    downloadProfileIds: number[];
+    monitorNewBooks: "all" | "none" | "new";
   }) => {
     updateAuthor.mutate(
-      { id: author.id, downloadProfiles: values.downloadProfiles },
+      {
+        id: author.id,
+        downloadProfileIds: values.downloadProfileIds,
+        monitorNewBooks: values.monitorNewBooks,
+      },
       {
         onSuccess: () => {
           setEditOpen(false);
@@ -1501,7 +1503,9 @@ function AuthorDetailPage() {
           </DialogHeader>
           <AuthorForm
             initialValues={{
-              downloadProfiles: author.downloadProfiles ?? [],
+              downloadProfileIds: author.downloadProfileIds ?? [],
+              monitorNewBooks:
+                (author.monitorNewBooks as "all" | "none" | "new") ?? "all",
             }}
             downloadProfiles={bookDownloadProfiles}
             onSubmit={handleUpdate}
