@@ -26,6 +26,7 @@ import {
   TabsTrigger,
 } from "src/components/ui/tabs";
 import PageHeader from "src/components/shared/page-header";
+import LanguageSingleSelect from "src/components/shared/language-single-select";
 import { metadataProfileQuery, settingsMapQuery } from "src/lib/queries";
 import {
   useUpdateMetadataProfile,
@@ -43,27 +44,6 @@ export const Route = createFileRoute("/_authed/settings/metadata")({
   },
   component: MetadataSettingsPage,
 });
-
-const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "it", label: "Italian" },
-  { value: "pt", label: "Portuguese" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-  { value: "zh", label: "Chinese" },
-  { value: "ru", label: "Russian" },
-  { value: "ar", label: "Arabic" },
-  { value: "hi", label: "Hindi" },
-  { value: "nl", label: "Dutch" },
-  { value: "sv", label: "Swedish" },
-  { value: "pl", label: "Polish" },
-  { value: "da", label: "Danish" },
-  { value: "no", label: "Norwegian" },
-  { value: "fi", label: "Finnish" },
-];
 
 const REGION_OPTIONS = [
   { value: "__none", label: "No filter" },
@@ -289,22 +269,16 @@ function MetadataSettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="tmdb-language">Language</Label>
+                  <Label>Language</Label>
                   <p className="text-sm text-muted-foreground">
                     Preferred language for TMDB metadata results.
                   </p>
-                  <Select value={tmdbLanguage} onValueChange={setTmdbLanguage}>
-                    <SelectTrigger id="tmdb-language" className="w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LANGUAGE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label} ({opt.value})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-56">
+                    <LanguageSingleSelect
+                      value={tmdbLanguage}
+                      onChange={setTmdbLanguage}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
