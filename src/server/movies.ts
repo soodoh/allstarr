@@ -359,6 +359,21 @@ export const deleteMovieFn = createServerFn({ method: "POST" })
     // Delete movie — cascades remove files and join table
     db.delete(movies).where(eq(movies.id, data.id)).run();
 
+    // Clean up orphaned collection
+    if (movie.collectionId) {
+      const remaining = db
+        .select({ count: sql<number>`count(*)` })
+        .from(movies)
+        .where(eq(movies.collectionId, movie.collectionId))
+        .get();
+
+      if (remaining && remaining.count === 0) {
+        db.delete(movieCollections)
+          .where(eq(movieCollections.id, movie.collectionId))
+          .run();
+      }
+    }
+
     db.insert(history)
       .values({
         eventType: "movieDeleted",
