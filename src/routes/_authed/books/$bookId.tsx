@@ -353,9 +353,7 @@ function BookDetailPage(): JSX.Element {
                 editions={book.editions}
               />
               <BookFilesTab files={book.files} />
-              <TabsContent value="history" className="flex-1 min-h-0">
-                <BookHistoryTab bookId={book.id} />
-              </TabsContent>
+              <BookHistoryTab bookId={book.id} />
               <SearchReleasesTab
                 book={book}
                 enabled={activeTab === "search"}
