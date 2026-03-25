@@ -52,6 +52,9 @@ export function useDeleteMovie() {
       queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.movieCollections.all,
+      });
     },
     onError: () => toast.error("Failed to delete movie"),
   });
