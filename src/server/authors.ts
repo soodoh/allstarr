@@ -440,11 +440,10 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       });
     });
 
-    // Get download profile links for this author (with monitorNewBooks)
+    // Get download profile IDs for this author
     const profileLinks = db
       .select({
         downloadProfileId: authorDownloadProfiles.downloadProfileId,
-        monitorNewBooks: authorDownloadProfiles.monitorNewBooks,
       })
       .from(authorDownloadProfiles)
       .where(eq(authorDownloadProfiles.authorId, data.id))
@@ -454,10 +453,6 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     return {
       ...author,
       downloadProfileIds,
-      downloadProfiles: profileLinks.map((l) => ({
-        downloadProfileId: l.downloadProfileId,
-        monitorNewBooks: l.monitorNewBooks as "all" | "none" | "new",
-      })),
       books: booksWithEditions,
       series: authorSeries,
       availableLanguages,
@@ -493,31 +488,34 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { id, downloadProfiles } = data;
+    const { id, downloadProfileIds, monitorNewBooks } = data;
 
     const author = db.select().from(authors).where(eq(authors.id, id)).get();
     if (!author) {
       throw new Error("Author not found");
     }
 
-    // Delete all existing profile assignments and re-insert with monitorNewBooks
-    db.delete(authorDownloadProfiles)
-      .where(eq(authorDownloadProfiles.authorId, id))
-      .run();
-    for (const profile of downloadProfiles) {
-      db.insert(authorDownloadProfiles)
-        .values({
-          authorId: id,
-          downloadProfileId: profile.downloadProfileId,
-          monitorNewBooks: profile.monitorNewBooks,
-        })
-        .run();
+    // Update monitorNewBooks on the author entity if provided
+    const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+    if (monitorNewBooks !== undefined) {
+      updateSet.monitorNewBooks = monitorNewBooks;
     }
+    db.update(authors).set(updateSet).where(eq(authors.id, id)).run();
 
-    db.update(authors)
-      .set({ updatedAt: new Date() })
-      .where(eq(authors.id, id))
-      .run();
+    // Replace download profile join rows if provided
+    if (downloadProfileIds !== undefined) {
+      db.delete(authorDownloadProfiles)
+        .where(eq(authorDownloadProfiles.authorId, id))
+        .run();
+      for (const profileId of downloadProfileIds) {
+        db.insert(authorDownloadProfiles)
+          .values({
+            authorId: id,
+            downloadProfileId: profileId,
+          })
+          .run();
+      }
+    }
 
     db.insert(history)
       .values({
