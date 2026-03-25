@@ -6,6 +6,7 @@ import { Film, Search, Star } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
+import Checkbox from "src/components/ui/checkbox";
 import { Badge } from "src/components/ui/badge";
 import { Card, CardContent } from "src/components/ui/card";
 import {
@@ -71,6 +72,10 @@ function MoviePreviewModal({
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [minimumAvailability, setMinimumAvailability] =
     useState<string>("released");
+  const [monitorOption, setMonitorOption] = useState<
+    "movieOnly" | "movieAndCollection" | "none"
+  >("movieOnly");
+  const [searchOnAdd, setSearchOnAdd] = useState(false);
 
   // Auto-select all profiles when profiles load
   useEffect(() => {
@@ -88,7 +93,7 @@ function MoviePreviewModal({
   const year = extractYear(movie.release_date);
 
   const handleAdd = () => {
-    if (downloadProfileIds.length === 0) {
+    if (monitorOption !== "none" && downloadProfileIds.length === 0) {
       return;
     }
     addMovie.mutate(
@@ -99,6 +104,8 @@ function MoviePreviewModal({
           | "announced"
           | "inCinemas"
           | "released",
+        monitorOption,
+        searchOnAdd,
       },
       {
         onSuccess: (result) => {
@@ -182,6 +189,29 @@ function MoviePreviewModal({
               />
 
               <div className="space-y-2">
+                <Label>Monitor</Label>
+                <Select
+                  value={monitorOption}
+                  onValueChange={(v) =>
+                    setMonitorOption(
+                      v as "movieOnly" | "movieAndCollection" | "none",
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="movieOnly">Movie Only</SelectItem>
+                    <SelectItem value="movieAndCollection">
+                      Movie &amp; Collection
+                    </SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Minimum Availability</Label>
                 <Select
                   value={minimumAvailability}
@@ -198,11 +228,25 @@ function MoviePreviewModal({
                 </Select>
               </div>
 
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="search-on-add"
+                  checked={searchOnAdd}
+                  onCheckedChange={(checked) =>
+                    setSearchOnAdd(checked === true)
+                  }
+                />
+                <Label htmlFor="search-on-add">
+                  Start search for missing movie
+                </Label>
+              </div>
+
               <Button
                 className="w-full"
                 onClick={handleAdd}
                 disabled={
-                  downloadProfileIds.length === 0 ||
+                  (monitorOption !== "none" &&
+                    downloadProfileIds.length === 0) ||
                   addMovie.isPending ||
                   movieProfiles.length === 0
                 }
