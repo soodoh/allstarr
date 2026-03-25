@@ -3,6 +3,15 @@ import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "src/components/ui/button";
+import Checkbox from "src/components/ui/checkbox";
+import Label from "src/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +24,7 @@ import type {
   HardcoverSearchItem,
 } from "src/server/search";
 import {
+  authorExistsQuery,
   booksExistQuery,
   hardcoverBookLanguagesQuery,
   hardcoverSingleBookQuery,
@@ -27,9 +37,21 @@ import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 
 // ── Add-to-bookshelf inline form ──────────────────────────────────────────────
 
+type MonitorOption =
+  | "all"
+  | "future"
+  | "missing"
+  | "existing"
+  | "first"
+  | "latest"
+  | "none";
+
+type MonitorNewBooks = "all" | "none" | "new";
+
 type AddBookFormProps = {
   book: HardcoverSearchItem;
   bookDetail: HardcoverBookDetail | undefined;
+  authorExists: boolean;
   onSuccess: () => void;
   onCancel: () => void;
 };
@@ -37,6 +59,7 @@ type AddBookFormProps = {
 function AddBookForm({
   book,
   bookDetail: _bookDetail,
+  authorExists,
   onSuccess,
   onCancel,
 }: AddBookFormProps) {
@@ -50,6 +73,10 @@ function AddBookForm({
   );
 
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
+  const [monitorOption, setMonitorOption] = useState<MonitorOption>("all");
+  const [monitorNewBooks, setMonitorNewBooks] =
+    useState<MonitorNewBooks>("all");
+  const [searchOnAdd, setSearchOnAdd] = useState(false);
 
   useEffect(() => {
     if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
@@ -69,23 +96,85 @@ function AddBookForm({
     importBook.mutate({
       foreignBookId: Number(book.id),
       downloadProfileIds,
+      monitorOption,
+      monitorNewBooks,
+      searchOnAdd,
     });
     onSuccess();
   };
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-      <p className="text-sm font-medium">Add Author & Monitor Book</p>
-      <p className="text-xs text-muted-foreground">
-        The author and all their books will be added to your bookshelf. This
-        book will be monitored.
+      <p className="text-sm font-medium">
+        {authorExists ? "Monitor Book" : "Add Author & Monitor Book"}
       </p>
+      {!authorExists && (
+        <p className="text-xs text-muted-foreground">
+          The author and all their books will be added to your bookshelf. This
+          book will be monitored.
+        </p>
+      )}
+
+      {!authorExists && (
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Monitor</Label>
+          <Select
+            value={monitorOption}
+            onValueChange={(v) => setMonitorOption(v as MonitorOption)}
+          >
+            <SelectTrigger className="h-8 w-48 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Books</SelectItem>
+              <SelectItem value="future">Future Books</SelectItem>
+              <SelectItem value="missing">Missing Books</SelectItem>
+              <SelectItem value="existing">Existing Books</SelectItem>
+              <SelectItem value="first">First Book</SelectItem>
+              <SelectItem value="latest">Latest Book</SelectItem>
+              <SelectItem value="none">None</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {!authorExists && (
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">
+            Monitor New Books
+          </Label>
+          <Select
+            value={monitorNewBooks}
+            onValueChange={(v) => setMonitorNewBooks(v as MonitorNewBooks)}
+          >
+            <SelectTrigger className="h-8 w-48 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Books</SelectItem>
+              <SelectItem value="new">New Books Only</SelectItem>
+              <SelectItem value="none">None</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <ProfileCheckboxGroup
         profiles={downloadProfiles}
         selectedIds={downloadProfileIds}
         onToggle={toggleProfile}
       />
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="search-on-add"
+          checked={searchOnAdd}
+          onCheckedChange={(checked) => setSearchOnAdd(Boolean(checked))}
+        />
+        <Label htmlFor="search-on-add" className="text-sm cursor-pointer">
+          Start search for new book
+        </Label>
+      </div>
 
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>
@@ -186,13 +275,15 @@ export default function BookPreviewModal({
   });
 
   // ── Build rich book detail from Hardcover data ──
-  const { primaryAuthor, bookAuthors } = useMemo(() => {
+  const { primaryAuthor, bookAuthors, primaryAuthorForeignId } = useMemo(() => {
     const contributors = hcBook?.contributors ?? [];
     return {
       primaryAuthor:
         contributors.length > 0
           ? contributors[0].name
           : (book.subtitle ?? null),
+      primaryAuthorForeignId:
+        contributors.length > 0 ? String(contributors[0].id) : null,
       bookAuthors: contributors.map((c, i) => ({
         authorId: null,
         foreignAuthorId: String(c.id),
@@ -201,6 +292,13 @@ export default function BookPreviewModal({
       })),
     };
   }, [hcBook?.contributors, book.subtitle]);
+
+  // ── Check if the book's primary author already exists in library ──
+  const { data: existingPrimaryAuthor } = useQuery({
+    ...authorExistsQuery(primaryAuthorForeignId ?? ""),
+    enabled: open && Boolean(primaryAuthorForeignId),
+  });
+  const authorExists = Boolean(existingPrimaryAuthor);
 
   const bookDetailData = useMemo(
     () =>
@@ -277,6 +375,7 @@ export default function BookPreviewModal({
             <AddBookForm
               book={book}
               bookDetail={hcBook}
+              authorExists={authorExists}
               onSuccess={() => onOpenChange(false)}
               onCancel={() => setAddOpen(false)}
             />
