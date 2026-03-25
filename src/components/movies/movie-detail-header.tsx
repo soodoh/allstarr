@@ -12,16 +12,18 @@ import {
 } from "src/components/ui/card";
 import PageHeader from "src/components/shared/page-header";
 import ActionButtonGroup from "src/components/shared/action-button-group";
-import ConfirmDialog from "src/components/shared/confirm-dialog";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import Checkbox from "src/components/ui/checkbox";
+import { Label } from "src/components/ui/label";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import MoviePoster from "src/components/movies/movie-poster";
 import {
@@ -31,7 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
-import Label from "src/components/ui/label";
 import {
   useUpdateMovie,
   useDeleteMovie,
@@ -52,6 +53,7 @@ type MovieDetail = {
   posterUrl: string;
   minimumAvailability: string;
   downloadProfileIds: number[];
+  collectionId: number | null;
 };
 
 type DownloadProfile = {
@@ -126,16 +128,14 @@ export default function MovieDetailHeader({
   const deleteMovie = useDeleteMovie();
   const refreshMetadata = useRefreshMovieMetadata();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [addExclusion, setAddExclusion] = useState(false);
   const [editProfilesOpen, setEditProfilesOpen] = useState(false);
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
     movie.downloadProfileIds,
   );
   const [minimumAvailability, setMinimumAvailability] = useState<
     "announced" | "inCinemas" | "released"
-  >(
-    (movie.minimumAvailability as "announced" | "inCinemas" | "released") ??
-      "released",
-  );
+  >(movie.minimumAvailability as "announced" | "inCinemas" | "released");
 
   const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
     null,
@@ -221,10 +221,15 @@ export default function MovieDetailHeader({
 
   const handleDelete = () => {
     deleteMovie.mutate(
-      { id: movie.id, deleteFiles: true },
+      {
+        id: movie.id,
+        deleteFiles: true,
+        addImportExclusion: addExclusion,
+      },
       {
         onSuccess: () => {
           setDeleteOpen(false);
+          setAddExclusion(false);
           navigate({ to: "/movies" });
         },
       },
@@ -248,10 +253,10 @@ export default function MovieDetailHeader({
           onEdit={() => {
             setSelectedProfileIds(movie.downloadProfileIds);
             setMinimumAvailability(
-              (movie.minimumAvailability as
+              movie.minimumAvailability as
                 | "announced"
                 | "inCinemas"
-                | "released") ?? "released",
+                | "released",
             );
             setEditProfilesOpen(true);
           }}
@@ -429,15 +434,46 @@ export default function MovieDetailHeader({
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Delete Movie"
-        description={`Are you sure you want to delete "${movie.title}"? This will also remove any downloaded files.`}
-        onConfirm={handleDelete}
-        loading={deleteMovie.isPending}
-        variant="destructive"
-      />
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Movie</DialogTitle>
+            <DialogDescription>
+              {`Are you sure you want to delete "${movie.title}"? This will also remove any downloaded files.`}
+            </DialogDescription>
+          </DialogHeader>
+          {movie.collectionId !== null && (
+            <div className="flex items-center gap-3 py-2">
+              <Checkbox
+                id="add-exclusion"
+                checked={addExclusion}
+                onCheckedChange={(checked) => setAddExclusion(checked === true)}
+              />
+              <Label htmlFor="add-exclusion" className="cursor-pointer">
+                Prevent this movie from being re-added by collections
+              </Label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteOpen(false);
+                setAddExclusion(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMovie.isPending}
+            >
+              {deleteMovie.isPending ? "Deleting..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <UnmonitorDialog
         open={unmonitorProfileId !== null}
