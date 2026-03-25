@@ -118,6 +118,7 @@ export const addMovieFn = createServerFn({ method: "POST" })
             tmdbId: col.id,
             posterUrl: transformImagePath(col.poster_path, "w500"),
             fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            minimumAvailability: data.minimumAvailability,
           })
           .returning()
           .get();
@@ -172,18 +173,21 @@ export const addMovieFn = createServerFn({ method: "POST" })
       }
     }
 
-    // Handle collection monitoring for "movieAndCollection"
-    if (data.monitorOption === "movieAndCollection" && collectionId) {
+    // Propagate settings to collection on every add
+    if (collectionId) {
+      const collectionUpdates: Record<string, unknown> = {
+        minimumAvailability: data.minimumAvailability,
+        updatedAt: new Date(),
+      };
+      if (data.monitorOption === "movieAndCollection") {
+        collectionUpdates.monitored = true;
+      }
       db.update(movieCollections)
-        .set({
-          monitored: true,
-          minimumAvailability: data.minimumAvailability,
-          updatedAt: new Date(),
-        })
+        .set(collectionUpdates)
         .where(eq(movieCollections.id, collectionId))
         .run();
 
-      // Set collection download profiles
+      // Always update collection download profiles to match
       db.delete(movieCollectionDownloadProfiles)
         .where(eq(movieCollectionDownloadProfiles.collectionId, collectionId))
         .run();
