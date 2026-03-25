@@ -5,6 +5,7 @@ import {
   movieFiles,
   movieDownloadProfiles,
   movieCollections,
+  movieCollectionMovies,
   movieImportListExclusions,
   history,
 } from "src/db/schema";
@@ -17,13 +18,51 @@ import {
   refreshMovieSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
-import type { TmdbMovieDetail } from "./tmdb/types";
+import type { TmdbMovieDetail, TmdbCollectionDetail } from "./tmdb/types";
 import {
   mapMovieStatus,
   transformImagePath,
   generateSortTitle,
 } from "./utils/movie-helpers";
 import * as fs from "node:fs";
+
+async function populateCollectionCache(
+  collectionDbId: number,
+  tmdbCollectionId: number,
+): Promise<void> {
+  const raw = await tmdbFetch<TmdbCollectionDetail>(
+    `/collection/${tmdbCollectionId}`,
+  );
+  for (const part of raw.parts) {
+    const year = part.release_date
+      ? Number.parseInt(part.release_date.split("-")[0], 10) || null
+      : null;
+    db.insert(movieCollectionMovies)
+      .values({
+        collectionId: collectionDbId,
+        tmdbId: part.id,
+        title: part.title,
+        overview: part.overview,
+        posterUrl: transformImagePath(part.poster_path, "w500"),
+        releaseDate: part.release_date ?? "",
+        year,
+      })
+      .onConflictDoUpdate({
+        target: [
+          movieCollectionMovies.collectionId,
+          movieCollectionMovies.tmdbId,
+        ],
+        set: {
+          title: part.title,
+          overview: part.overview,
+          posterUrl: transformImagePath(part.poster_path, "w500"),
+          releaseDate: part.release_date ?? "",
+          year,
+        },
+      })
+      .run();
+  }
+}
 
 export const addMovieFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => addMovieSchema.parse(d))
@@ -80,6 +119,9 @@ export const addMovieFn = createServerFn({ method: "POST" })
           .get();
         collectionId = inserted.id;
       }
+
+      // Populate the collection movies cache from TMDB
+      await populateCollectionCache(collectionId, col.id);
     }
 
     const title = raw.title;
@@ -357,6 +399,9 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
           .get();
         collectionId = inserted.id;
       }
+
+      // Populate the collection movies cache from TMDB
+      await populateCollectionCache(collectionId, col.id);
     }
 
     const title = raw.title;
