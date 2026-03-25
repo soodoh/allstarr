@@ -25,6 +25,14 @@ import {
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import MoviePoster from "src/components/movies/movie-poster";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
+import Label from "src/components/ui/label";
+import {
   useUpdateMovie,
   useDeleteMovie,
   useRefreshMovieMetadata,
@@ -122,6 +130,9 @@ export default function MovieDetailHeader({
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
     movie.downloadProfileIds,
   );
+  const [minimumAvailability, setMinimumAvailability] = useState<string>(
+    movie.minimumAvailability ?? "released",
+  );
 
   const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
     null,
@@ -146,7 +157,11 @@ export default function MovieDetailHeader({
 
   const handleSaveProfiles = () => {
     updateMovie.mutate(
-      { id: movie.id, downloadProfileIds: selectedProfileIds },
+      {
+        id: movie.id,
+        downloadProfileIds: selectedProfileIds,
+        minimumAvailability,
+      },
       {
         onSuccess: () => {
           setEditProfilesOpen(false);
@@ -229,6 +244,7 @@ export default function MovieDetailHeader({
           isRefreshing={refreshMetadata.isPending}
           onEdit={() => {
             setSelectedProfileIds(movie.downloadProfileIds);
+            setMinimumAvailability(movie.minimumAvailability ?? "released");
             setEditProfilesOpen(true);
           }}
           onDelete={() => setDeleteOpen(true)}
@@ -362,6 +378,27 @@ export default function MovieDetailHeader({
             selectedIds={selectedProfileIds}
             onToggle={toggleProfile}
           />
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="space-y-1">
+              <Label>Minimum Availability</Label>
+              <p className="text-sm text-muted-foreground">
+                When the movie is considered available for download.
+              </p>
+            </div>
+            <Select
+              value={minimumAvailability}
+              onValueChange={setMinimumAvailability}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="announced">Announced</SelectItem>
+                <SelectItem value="inCinemas">In Cinemas</SelectItem>
+                <SelectItem value="released">Released</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
