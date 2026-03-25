@@ -5,12 +5,21 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
 import { Button } from "src/components/ui/button";
+import Checkbox from "src/components/ui/checkbox";
+import Label from "src/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "src/components/ui/select";
 import Skeleton from "src/components/ui/skeleton";
 import type {
   HardcoverAuthorDetail,
@@ -51,6 +60,9 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   );
 
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
+  const [monitorOption, setMonitorOption] = useState("all");
+  const [monitorNewBooks, setMonitorNewBooks] = useState("all");
+  const [searchOnAdd, setSearchOnAdd] = useState(false);
   const importAuthor = useImportHardcoverAuthor();
 
   useEffect(() => {
@@ -69,6 +81,9 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     importAuthor.mutate({
       foreignAuthorId: Number(fullAuthor.id),
       downloadProfileIds,
+      monitorOption,
+      monitorNewBooks,
+      searchOnAdd,
     });
     onSuccess();
   };
@@ -77,11 +92,52 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">Add to Bookshelf</p>
 
+      <div className="space-y-2">
+        <Label>Monitor</Label>
+        <Select value={monitorOption} onValueChange={setMonitorOption}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Books</SelectItem>
+            <SelectItem value="future">Future Books</SelectItem>
+            <SelectItem value="missing">Missing Books</SelectItem>
+            <SelectItem value="existing">Existing Books</SelectItem>
+            <SelectItem value="first">First Book</SelectItem>
+            <SelectItem value="latest">Latest Book</SelectItem>
+            <SelectItem value="none">None</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Monitor New Books</Label>
+        <Select value={monitorNewBooks} onValueChange={setMonitorNewBooks}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Books</SelectItem>
+            <SelectItem value="new">New Books Only</SelectItem>
+            <SelectItem value="none">None</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <ProfileCheckboxGroup
         profiles={downloadProfiles}
         selectedIds={downloadProfileIds}
         onToggle={toggleProfile}
       />
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="search-on-add"
+          checked={searchOnAdd}
+          onCheckedChange={(checked) => setSearchOnAdd(Boolean(checked))}
+        />
+        <Label htmlFor="search-on-add">Start search for missing books</Label>
+      </div>
 
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>
