@@ -440,9 +440,12 @@ export const getAuthorFn = createServerFn({ method: "GET" })
       });
     });
 
-    // Get download profile IDs for this author
+    // Get download profile links for this author (with monitorNewBooks)
     const profileLinks = db
-      .select({ downloadProfileId: authorDownloadProfiles.downloadProfileId })
+      .select({
+        downloadProfileId: authorDownloadProfiles.downloadProfileId,
+        monitorNewBooks: authorDownloadProfiles.monitorNewBooks,
+      })
       .from(authorDownloadProfiles)
       .where(eq(authorDownloadProfiles.authorId, data.id))
       .all();
@@ -451,6 +454,10 @@ export const getAuthorFn = createServerFn({ method: "GET" })
     return {
       ...author,
       downloadProfileIds,
+      downloadProfiles: profileLinks.map((l) => ({
+        downloadProfileId: l.downloadProfileId,
+        monitorNewBooks: l.monitorNewBooks as "all" | "none" | "new",
+      })),
       books: booksWithEditions,
       series: authorSeries,
       availableLanguages,

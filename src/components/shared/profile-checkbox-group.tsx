@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import Checkbox from "src/components/ui/checkbox";
 import Label from "src/components/ui/label";
 import { getProfileIcon } from "src/lib/profile-icons";
@@ -8,6 +8,7 @@ type ProfileCheckboxGroupProps = {
   selectedIds: number[];
   onToggle: (id: number) => void;
   label?: string;
+  renderExtra?: (profileId: number) => ReactNode;
 };
 
 export default function ProfileCheckboxGroup({
@@ -15,6 +16,7 @@ export default function ProfileCheckboxGroup({
   selectedIds,
   onToggle,
   label = "Download Profiles",
+  renderExtra,
 }: ProfileCheckboxGroupProps): JSX.Element {
   return (
     <div className="space-y-2">
@@ -28,17 +30,17 @@ export default function ProfileCheckboxGroup({
           {profiles.map((p) => {
             const Icon = getProfileIcon(p.icon);
             return (
-              <label
-                key={p.id}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={selectedIds.includes(p.id)}
-                  onCheckedChange={() => onToggle(p.id)}
-                />
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{p.name}</span>
-              </label>
+              <div key={p.id} className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={selectedIds.includes(p.id)}
+                    onCheckedChange={() => onToggle(p.id)}
+                  />
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{p.name}</span>
+                </label>
+                {selectedIds.includes(p.id) && renderExtra?.(p.id)}
+              </div>
             );
           })}
         </div>

@@ -1335,9 +1335,14 @@ function AuthorDetailPage() {
       ? `${author.bornYear || "?"}-${author.deathYear || "Present"}`
       : null;
 
-  const handleUpdate = (values: { downloadProfileIds: number[] }) => {
+  const handleUpdate = (values: {
+    downloadProfiles: Array<{
+      downloadProfileId: number;
+      monitorNewBooks: "all" | "none" | "new";
+    }>;
+  }) => {
     updateAuthor.mutate(
-      { ...values, id: author.id },
+      { id: author.id, downloadProfiles: values.downloadProfiles },
       {
         onSuccess: () => {
           setEditOpen(false);
@@ -1489,7 +1494,7 @@ function AuthorDetailPage() {
           </DialogHeader>
           <AuthorForm
             initialValues={{
-              downloadProfileIds: author.downloadProfileIds ?? [],
+              downloadProfiles: author.downloadProfiles ?? [],
             }}
             downloadProfiles={bookDownloadProfiles}
             onSubmit={handleUpdate}
