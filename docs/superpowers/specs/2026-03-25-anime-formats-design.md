@@ -144,11 +144,25 @@ Sonarr specification types map to Allstarr types:
 
 ## Files Changed
 
-| File                                   | Change                                                                   |
-| -------------------------------------- | ------------------------------------------------------------------------ |
-| `src/lib/custom-format-preset-data.ts` | Add "Anime 1080p" preset with all 39 CFs, scores, and thresholds         |
-| `drizzle/0005_*.sql`                   | Migration: insert CFs, download profile, profile-CF links, quality items |
-| `src/db/seed-custom-formats.ts`        | No changes — already iterates PRESETS dynamically                        |
+| File                                   | Change                                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `src/lib/custom-format-preset-data.ts` | Add "Anime 1080p" preset with all 39 CFs, scores, and thresholds                                           |
+| `src/db/seed-custom-formats.ts`        | Fix profile-preset matching: match by preset name to profile name instead of `contentType` (see bug below) |
+| `drizzle/0005_*.sql`                   | Migration: insert CFs, download profile, profile-CF links, quality items                                   |
+
+## Seeder Bug Fix
+
+`seed-custom-formats.ts` line 69 currently does:
+
+```ts
+const preset = PRESETS.find((p) => p.contentType === profile.contentType);
+```
+
+With two TV presets ("HD WEB Streaming" and "Anime 1080p"), this always returns the first match. The fix: match preset name to profile name instead. Each preset's `name` already corresponds to a download profile name, so change to:
+
+```ts
+const preset = PRESETS.find((p) => p.name === profile.name);
+```
 
 ## Migration Strategy
 
