@@ -627,7 +627,7 @@ INSERT INTO scheduled_tasks (id, name, interval, enabled) VALUES
 -- Settings
 INSERT INTO settings (key, value) VALUES
   ('general.logLevel',       '"info"'),
-  ('metadata.hardcover.profile', '{"skipMissingReleaseDate":false,"skipMissingIsbnAsin":false,"skipCompilations":true,"minimumPopularity":10,"minimumPages":0}'),
+  ('metadata.hardcover.profile', '{"skipMissingReleaseDate":true,"skipMissingIsbnAsin":true,"skipCompilations":true,"minimumPopularity":10,"minimumPages":0}'),
   ('format.ebook.defaultPageCount',      '300'),
   ('format.audiobook.defaultDuration',   '600'),
   ('format.movie.defaultRuntime',        '130'),
