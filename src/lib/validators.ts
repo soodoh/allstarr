@@ -438,3 +438,7 @@ export const grabReleaseSchema = z.object({
   bookId: z.number().nullable(),
   downloadClientId: z.number().nullable(),
 });
+
+export const removeMovieImportExclusionSchema = z.object({
+  id: z.number(),
+});

@@ -54,6 +54,7 @@ export const updateMovieSchema = z.object({
 export const deleteMovieSchema = z.object({
   id: z.number(),
   deleteFiles: z.boolean().default(false),
+  addImportExclusion: z.boolean().default(false),
 });
 
 export const monitorEpisodeProfileSchema = z.object({
@@ -84,4 +85,23 @@ export const refreshMovieSchema = z.object({
 
 export const refreshShowSchema = z.object({
   showId: z.number(),
+});
+
+export const updateMovieCollectionSchema = z.object({
+  id: z.number(),
+  monitored: z.boolean().optional(),
+  downloadProfileIds: z.array(z.number()).optional(),
+  minimumAvailability: z
+    .enum(["announced", "inCinemas", "released"])
+    .optional(),
+});
+
+export const addMissingCollectionMoviesSchema = z.object({
+  collectionId: z.number(),
+});
+
+export const addMovieImportExclusionSchema = z.object({
+  tmdbId: z.number(),
+  title: z.string(),
+  year: z.number().optional(),
 });
