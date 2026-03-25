@@ -15,6 +15,13 @@
       "when": 1774404982389,
       "tag": "0001_narrow_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774416010939,
+      "tag": "0002_clever_shockwave",
+      "breakpoints": true
     }
   ]
 }
