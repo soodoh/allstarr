@@ -102,11 +102,21 @@ export const Route = createFileRoute("/_authed/authors/$authorId")({
       throw notFound();
     }
 
-    await Promise.all([
-      context.queryClient.ensureQueryData(authorDetailQuery(id)),
+    const [author] = await Promise.all([
+      context.queryClient
+        .ensureQueryData(authorDetailQuery(id))
+        .catch((error) => {
+          if (error instanceof Error && error.message.includes("not found")) {
+            throw notFound();
+          }
+          throw error;
+        }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
       context.queryClient.ensureQueryData(metadataProfileQuery()),
     ]);
+    if (!author) {
+      throw notFound();
+    }
   },
   component: AuthorPage,
   notFoundComponent: NotFound,

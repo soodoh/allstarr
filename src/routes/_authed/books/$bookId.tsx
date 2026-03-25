@@ -62,10 +62,20 @@ export const Route = createFileRoute("/_authed/books/$bookId")({
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    await Promise.all([
-      context.queryClient.ensureQueryData(bookDetailQuery(id)),
+    const [book] = await Promise.all([
+      context.queryClient
+        .ensureQueryData(bookDetailQuery(id))
+        .catch((error) => {
+          if (error instanceof Error && error.message.includes("not found")) {
+            throw notFound();
+          }
+          throw error;
+        }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
     ]);
+    if (!book) {
+      throw notFound();
+    }
   },
   component: BookDetailPage,
   notFoundComponent: NotFound,
