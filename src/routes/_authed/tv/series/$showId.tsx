@@ -16,10 +16,20 @@ export const Route = createFileRoute("/_authed/tv/series/$showId")({
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    await Promise.all([
-      context.queryClient.ensureQueryData(showDetailQuery(id)),
+    const [show] = await Promise.all([
+      context.queryClient
+        .ensureQueryData(showDetailQuery(id))
+        .catch((error) => {
+          if (error instanceof Error && error.message.includes("not found")) {
+            throw notFound();
+          }
+          throw error;
+        }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
     ]);
+    if (!show) {
+      throw notFound();
+    }
   },
   component: ShowDetailPage,
   notFoundComponent: NotFound,

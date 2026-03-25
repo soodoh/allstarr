@@ -22,10 +22,20 @@ export const Route = createFileRoute("/_authed/movies/$movieId")({
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    await Promise.all([
-      context.queryClient.ensureQueryData(movieDetailQuery(id)),
+    const [movie] = await Promise.all([
+      context.queryClient
+        .ensureQueryData(movieDetailQuery(id))
+        .catch((error) => {
+          if (error instanceof Error && error.message.includes("not found")) {
+            throw notFound();
+          }
+          throw error;
+        }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
     ]);
+    if (!movie) {
+      throw notFound();
+    }
   },
   component: MovieDetailPage,
   notFoundComponent: NotFound,
