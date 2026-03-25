@@ -138,6 +138,9 @@ export default function ShowDetailHeader({
   };
 
   const tmdbUrl = `https://www.themoviedb.org/tv/${show.tmdbId}`;
+  const imdbUrl = show.imdbId
+    ? `https://www.imdb.com/title/${show.imdbId}`
+    : null;
 
   // Compute episode counts across all seasons
   const allEpisodes = show.seasons.flatMap((s) => s.episodes);
@@ -323,6 +326,21 @@ export default function ShowDetailHeader({
                   {episodeFileCount}/{episodeCount} episodes
                 </dd>
               </div>
+              {imdbUrl && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">IMDB</dt>
+                  <dd>
+                    <a
+                      href={imdbUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      {show.imdbId}
+                    </a>
+                  </dd>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>
