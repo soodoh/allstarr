@@ -16,6 +16,7 @@ export const authors = sqliteTable("authors", {
     .notNull()
     .default([]),
   monitored: integer("monitored", { mode: "boolean" }).notNull().default(true),
+  monitorNewBooks: text("monitor_new_books").notNull().default("all"),
   tags: text("tags", { mode: "json" }).$type<number[]>().notNull().default([]),
   metadataUpdatedAt: integer("metadata_updated_at", { mode: "timestamp" }),
   metadataSourceMissingSince: integer("metadata_source_missing_since", {

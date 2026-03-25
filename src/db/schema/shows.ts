@@ -26,6 +26,7 @@ export const shows = sqliteTable(
       () => new Date(),
     ),
     useSeasonFolder: integer("use_season_folder").default(1).notNull(),
+    monitorNewSeasons: text("monitor_new_seasons").notNull().default("all"),
   },
   (t) => [unique("shows_tmdb_id_unique").on(t.tmdbId)],
 );
