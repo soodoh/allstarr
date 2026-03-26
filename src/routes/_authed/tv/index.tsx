@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Tv, LayoutGrid, List, Pencil, Plus, Search, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -12,13 +12,43 @@ import ShowBulkBar from "src/components/tv/show-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { showsListQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import {
+  useMonitorShowProfile,
+  useUnmonitorShowProfile,
+} from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/tv/")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(showsListQuery()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(showsListQuery()),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+    ]);
+  },
   component: ShowsPage,
   pendingComponent: ShowsPageSkeleton,
 });
+
+type ShowWithProfiles = { id: number; downloadProfileIds?: number[] };
+
+function useShowProfileToggle(shows: ShowWithProfiles[]) {
+  const monitorShowProfile = useMonitorShowProfile();
+  const unmonitorShowProfile = useUnmonitorShowProfile();
+
+  const handleToggle = useCallback(
+    (showId: number, profileId: number) => {
+      const show = shows.find((s) => s.id === showId);
+      const isActive = show?.downloadProfileIds?.includes(profileId);
+      const mutation = isActive ? unmonitorShowProfile : monitorShowProfile;
+      mutation.mutate({ showId, downloadProfileId: profileId });
+    },
+    [shows, monitorShowProfile, unmonitorShowProfile],
+  );
+
+  return {
+    handleToggle,
+    isPending: monitorShowProfile.isPending || unmonitorShowProfile.isPending,
+  };
+}
 
 function ShowsPage() {
   const [view, setView] = useState<"table" | "grid">("grid");
@@ -27,14 +57,16 @@ function ShowsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: shows } = useSuspenseQuery(showsListQuery());
-  const { data: allProfiles = [] } = useQuery({
-    ...downloadProfilesListQuery(),
-    enabled: massEditMode,
-  });
+  const { data: allProfiles = [] } = useSuspenseQuery(
+    downloadProfilesListQuery(),
+  );
   const tvProfiles = useMemo(
     () => allProfiles.filter((p) => p.contentType === "tv"),
     [allProfiles],
   );
+
+  const { handleToggle: handleToggleProfile, isPending: isTogglePending } =
+    useShowProfileToggle(shows);
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -193,6 +225,9 @@ function ShowsPage() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleAll={toggleAll}
+          downloadProfiles={tvProfiles}
+          onToggleProfile={handleToggleProfile}
+          isTogglePending={isTogglePending}
         />
       )}
 

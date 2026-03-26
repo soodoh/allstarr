@@ -6,6 +6,8 @@ import {
   updateShowFn,
   deleteShowFn,
   refreshShowMetadataFn,
+  monitorShowProfileFn,
+  unmonitorShowProfileFn,
 } from "src/server/shows";
 import { queryKeys } from "src/lib/query-keys";
 import type {
@@ -54,6 +56,30 @@ export function useDeleteShow() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete show"),
+  });
+}
+
+export function useMonitorShowProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { showId: number; downloadProfileId: number }) =>
+      monitorShowProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
+    },
+    onError: () => toast.error("Failed to monitor show profile"),
+  });
+}
+
+export function useUnmonitorShowProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { showId: number; downloadProfileId: number }) =>
+      unmonitorShowProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
+    },
+    onError: () => toast.error("Failed to unmonitor show profile"),
   });
 }
 
