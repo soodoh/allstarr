@@ -12,3 +12,4 @@ export * from "./blocklist";
 export * from "./queue";
 export * from "./movies";
 export * from "./shows";
+export * from "./user-table-settings";
