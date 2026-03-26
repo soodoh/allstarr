@@ -132,5 +132,66 @@ export type TmdbPaginatedResponse<T> = {
   total_results: number;
 };
 
+// Episode group types
+export const EPISODE_GROUP_TYPES = {
+  1: "Original Air Date",
+  2: "Absolute",
+  3: "DVD",
+  4: "Digital",
+  5: "Story Arc",
+  6: "Production",
+  7: "TV",
+} as const;
+
+export type EpisodeGroupType = keyof typeof EPISODE_GROUP_TYPES;
+
+export type TmdbEpisodeGroupSummary = {
+  id: string; // 24-char hex string
+  name: string;
+  description: string;
+  episode_count: number;
+  group_count: number;
+  type: EpisodeGroupType;
+  network: { id: number; name: string; origin_country: string } | null;
+};
+
+export type TmdbEpisodeGroupsResponse = {
+  results: TmdbEpisodeGroupSummary[];
+  id: number;
+};
+
+export type TmdbEpisodeGroupDetail = {
+  id: string;
+  name: string;
+  description: string;
+  episode_count: number;
+  group_count: number;
+  type: EpisodeGroupType;
+  network: { id: number; name: string; origin_country: string } | null;
+  groups: TmdbEpisodeGroup[];
+};
+
+export type TmdbEpisodeGroup = {
+  id: string;
+  name: string;
+  order: number;
+  locked: boolean;
+  episodes: TmdbEpisodeGroupEpisode[];
+};
+
+export type TmdbEpisodeGroupEpisode = {
+  id: number; // canonical TMDB episode ID
+  name: string;
+  overview: string;
+  air_date: string | null;
+  episode_number: number; // canonical episode number
+  season_number: number; // canonical season number
+  show_id: number;
+  still_path: string | null;
+  runtime: number | null;
+  vote_average: number;
+  order: number; // position within this group (0-indexed)
+};
+
 // Image base URL
 export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
