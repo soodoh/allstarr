@@ -204,15 +204,18 @@ export function AuthorCardsSkeleton({
 export function BookTableRowsSkeleton({
   rows = 5,
   columns = 6,
+  hasLeadingCell = false,
 }: {
   rows?: number;
   columns?: number;
+  hasLeadingCell?: boolean;
 }): JSX.Element {
   const widths = ["w-44", "w-32", "w-24", "w-28", "w-16", "w-20"];
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
         <tr key={i} className="border-b">
+          {hasLeadingCell && <td className="p-2" />}
           <td className="p-2">
             <Skeleton className="aspect-[2/3] w-full rounded-sm" />
           </td>

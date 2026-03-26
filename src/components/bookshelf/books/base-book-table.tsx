@@ -310,6 +310,7 @@ export default function BaseBookTable({
                     <img
                       src={row.coverUrl}
                       alt={row.title}
+                      loading="lazy"
                       className="aspect-[2/3] w-full rounded-sm object-cover"
                     />
                   ) : (
