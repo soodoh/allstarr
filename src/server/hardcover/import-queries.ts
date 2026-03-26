@@ -496,12 +496,12 @@ export async function fetchSeriesComplete(
       }
 
       const bookEntries = toRecordArray(s.book_series);
-      // Deduplicate by position
+
+      // --- Pass 1: Parse all entries and deduplicate by position ---
       const seen = new Set<number>();
-      const books: HardcoverRawSeriesBook[] = bookEntries
+      const allBooks: HardcoverRawSeriesBook[] = bookEntries
         .map((entry) => {
           const position = firstNumber(entry, [["position"]]);
-          // Skip null position entries
           if (position === undefined) {
             return undefined;
           }
@@ -592,6 +592,36 @@ export async function fetchSeriesComplete(
           };
         })
         .filter(Boolean) as HardcoverRawSeriesBook[];
+
+      // --- Pass 2: Filter partial editions ---
+      // Build a map of integer-position book titles for comparison.
+      const integerPositionTitles = new Map<number, string>();
+      for (const book of allBooks) {
+        const pos = Number(book.position);
+        if (Number.isInteger(pos)) {
+          integerPositionTitles.set(pos, book.bookTitle);
+        }
+      }
+
+      // Filter out books at fractional positions whose title starts with
+      // the title of the book at the corresponding integer position
+      // (e.g., "The Fires of Heaven, Part 2" at 5.2 starts with
+      // "The Fires of Heaven" at 5 → partial edition → exclude).
+      const books = allBooks.filter((book) => {
+        const pos = Number(book.position);
+        if (Number.isInteger(pos)) {
+          return true; // Keep all integer-position books
+        }
+        const intPos = Math.floor(pos);
+        const parentTitle = integerPositionTitles.get(intPos);
+        if (!parentTitle) {
+          return true; // No parent book at integer position → keep
+        }
+        // If this book's title starts with the parent's title, it's a partial
+        return !book.bookTitle
+          .toLowerCase()
+          .startsWith(parentTitle.toLowerCase());
+      });
 
       return {
         id,
