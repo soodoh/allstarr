@@ -546,9 +546,7 @@ export const deleteShowFn = createServerFn({ method: "POST" })
         const files = db
           .select({ path: episodeFiles.path })
           .from(episodeFiles)
-          .where(
-            sql`${episodeFiles.episodeId} IN (${sql.join(episodeIds.map((id) => sql`${id}`))})`,
-          )
+          .where(inArray(episodeFiles.episodeId, episodeIds))
           .all();
 
         for (const file of files) {
