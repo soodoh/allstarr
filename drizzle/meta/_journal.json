@@ -57,6 +57,13 @@
       "when": 1774502912714,
       "tag": "0007_fresh_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774565307064,
+      "tag": "0008_ancient_leper_queen",
+      "breakpoints": true
     }
   ]
 }
