@@ -3,6 +3,8 @@ import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import OptimizedImage from "src/components/shared/optimized-image";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
+import { useTableColumns } from "src/hooks/use-table-columns";
 import {
   Table,
   TableBody,
@@ -27,11 +29,37 @@ type AuthorTableProps = {
   children?: ReactNode;
 };
 
+type ColumnDef = {
+  label: string;
+  render: (author: Author) => ReactNode;
+  sortKey?: keyof Author;
+  cellClassName?: string;
+};
+
+const COLUMN_REGISTRY: Record<string, ColumnDef> = {
+  name: {
+    label: "Name",
+    sortKey: "name",
+    render: () => null, // Handled inline (Link component needs author context)
+  },
+  bookCount: {
+    label: "Books",
+    sortKey: "bookCount",
+    render: (author) => author.bookCount,
+  },
+  totalReaders: {
+    label: "Readers",
+    sortKey: "totalReaders",
+    render: (author) => author.totalReaders.toLocaleString(),
+  },
+};
+
 export default function AuthorTable({
   authors,
   children,
 }: AuthorTableProps): JSX.Element {
   const navigate = useNavigate();
+  const { visibleColumns } = useTableColumns("authors");
   const [sortKey, setSortKey] = useState<keyof Author | undefined>(
     "totalReaders",
   );
@@ -79,75 +107,101 @@ export default function AuthorTable({
   };
 
   return (
-    <Table>
-      <colgroup>
-        <col className="w-14" />
-        <col />
-        <col />
-        <col />
-      </colgroup>
-      <TableHeader>
-        <TableRow>
-          <TableHead />
-          {(
-            [
-              { key: "name", label: "Name" },
-              { key: "bookCount", label: "Books" },
-              { key: "totalReaders", label: "Readers" },
-            ] as Array<{ key: keyof Author; label: string }>
-          ).map(({ key, label }) => (
-            <TableHead
-              key={key}
-              className="cursor-pointer select-none hover:text-foreground"
-              onClick={() => handleSort(key)}
-            >
-              {label}
-              <SortIcon col={key} />
-            </TableHead>
+    <div>
+      <div className="flex justify-end pb-2">
+        <ColumnSettingsPopover tableId="authors" />
+      </div>
+      <Table>
+        <colgroup>
+          {visibleColumns.map((col) => (
+            <col
+              key={col.key}
+              className={col.key === "cover" ? "w-14" : undefined}
+            />
           ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sorted.map((author) => {
-          const authorImage = author.images?.[0]?.url;
-          return (
-            <TableRow
-              key={author.id}
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() =>
-                navigate({
-                  to: "/authors/$authorId",
-                  params: { authorId: String(author.id) },
-                })
+        </colgroup>
+        <TableHeader>
+          <TableRow>
+            {visibleColumns.map((col) => {
+              if (col.key === "cover") {
+                return <TableHead key={col.key} />;
               }
-            >
-              <TableCell>
-                <OptimizedImage
-                  src={authorImage}
-                  alt={author.name}
-                  type="author"
-                  width={56}
-                  height={56}
-                  className="aspect-square w-full rounded-full"
-                />
-              </TableCell>
-              <TableCell>
-                <Link
-                  to="/authors/$authorId"
-                  params={{ authorId: String(author.id) }}
-                  className="font-medium hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {author.name}
-                </Link>
-              </TableCell>
-              <TableCell>{author.bookCount}</TableCell>
-              <TableCell>{author.totalReaders.toLocaleString()}</TableCell>
-            </TableRow>
-          );
-        })}
-        {children}
-      </TableBody>
-    </Table>
+              const def = COLUMN_REGISTRY[col.key];
+              const colSortKey = def?.sortKey;
+              if (colSortKey) {
+                return (
+                  <TableHead
+                    key={col.key}
+                    className="cursor-pointer select-none hover:text-foreground"
+                    onClick={() => handleSort(colSortKey)}
+                  >
+                    {def.label}
+                    <SortIcon col={colSortKey} />
+                  </TableHead>
+                );
+              }
+              return (
+                <TableHead key={col.key}>{def?.label ?? col.label}</TableHead>
+              );
+            })}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sorted.map((author) => {
+            const authorImage = author.images?.[0]?.url;
+            return (
+              <TableRow
+                key={author.id}
+                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() =>
+                  navigate({
+                    to: "/authors/$authorId",
+                    params: { authorId: String(author.id) },
+                  })
+                }
+              >
+                {visibleColumns.map((col) => {
+                  if (col.key === "cover") {
+                    return (
+                      <TableCell key={col.key}>
+                        <OptimizedImage
+                          src={authorImage}
+                          alt={author.name}
+                          type="author"
+                          width={56}
+                          height={56}
+                          className="aspect-square w-full rounded-full"
+                        />
+                      </TableCell>
+                    );
+                  }
+                  if (col.key === "name") {
+                    return (
+                      <TableCell key={col.key}>
+                        <Link
+                          to="/authors/$authorId"
+                          params={{ authorId: String(author.id) }}
+                          className="font-medium hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {author.name}
+                        </Link>
+                      </TableCell>
+                    );
+                  }
+                  const def = COLUMN_REGISTRY[col.key];
+                  return (
+                    <TableCell key={col.key} className={def?.cellClassName}>
+                      {def?.render(author)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            );
+          })}
+          {children}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
