@@ -91,7 +91,7 @@ export default function InteractiveSearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Interactive Search — {book.title}</DialogTitle>
         </DialogHeader>
