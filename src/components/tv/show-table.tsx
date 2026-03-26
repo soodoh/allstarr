@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Tv } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import {
   Table,
   TableBody,
@@ -200,17 +202,14 @@ export default function ShowTable({
                 </TableCell>
               )}
               <TableCell>
-                {show.posterUrl ? (
-                  <img
-                    src={show.posterUrl}
-                    alt={show.title}
-                    className="aspect-[2/3] w-full rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                    <Tv className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
+                <OptimizedImage
+                  src={resizeTmdbUrl(show.posterUrl, "w185")}
+                  alt={show.title}
+                  type="show"
+                  width={56}
+                  height={84}
+                  className="aspect-[2/3] w-full rounded-sm"
+                />
               </TableCell>
               <TableCell>
                 <Link
