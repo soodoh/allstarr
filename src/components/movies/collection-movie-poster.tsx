@@ -1,7 +1,8 @@
 import type { JSX } from "react";
 import { Link } from "@tanstack/react-router";
-import { cn } from "src/lib/utils";
-import { Film, Ban } from "lucide-react";
+import { cn, resizeTmdbUrl } from "src/lib/utils";
+import { Ban } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
 import {
   Tooltip,
   TooltipContent,
@@ -45,20 +46,15 @@ export default function CollectionMoviePoster({
         movie.isExcluded && "border-muted opacity-40",
       )}
     >
-      {movie.posterUrl ? (
-        <img
-          src={movie.posterUrl}
-          alt={movie.title}
-          className={cn(
-            "w-full h-full object-cover",
-            movie.isExcluded && "grayscale",
-          )}
-        />
-      ) : (
-        <div className="w-full h-full bg-muted flex items-center justify-center">
-          <Film className="h-4 w-4 text-muted-foreground" />
-        </div>
-      )}
+      <OptimizedImage
+        src={resizeTmdbUrl(movie.posterUrl, "w154")}
+        alt={movie.title}
+        type="movie"
+        width={50}
+        height={75}
+        className="w-full h-full rounded-none border-0 shadow-none"
+        imageClassName={movie.isExcluded ? "grayscale" : undefined}
+      />
       {movie.isExcluded && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <Ban className="h-4 w-4 text-muted-foreground" />
