@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TABLE_IDS } from "src/lib/table-column-defaults";
 
 export const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
 
@@ -440,4 +441,17 @@ export const grabReleaseSchema = z.object({
 
 export const removeMovieImportExclusionSchema = z.object({
   id: z.number(),
+});
+
+// Table Column Settings
+export const tableIdSchema = z.enum(TABLE_IDS);
+
+export const upsertTableSettingsSchema = z.object({
+  tableId: tableIdSchema,
+  columnOrder: z.array(z.string()),
+  hiddenColumns: z.array(z.string()),
+});
+
+export const deleteTableSettingsSchema = z.object({
+  tableId: tableIdSchema,
 });
