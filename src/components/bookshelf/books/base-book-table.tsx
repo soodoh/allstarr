@@ -1,11 +1,6 @@
 import type { JSX, ReactNode } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ImageIcon,
-  Star,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Star } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
 import { cn } from "src/lib/utils";
 import {
   Table,
@@ -306,18 +301,14 @@ export default function BaseBookTable({
                   </TableCell>
                 )}
                 <TableCell className="min-w-14 w-14">
-                  {row.coverUrl ? (
-                    <img
-                      src={row.coverUrl}
-                      alt={row.title}
-                      loading="lazy"
-                      className="aspect-[2/3] w-full rounded-sm object-cover"
-                    />
-                  ) : (
-                    <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
+                  <OptimizedImage
+                    src={row.coverUrl ?? null}
+                    alt={row.title}
+                    type="book"
+                    width={56}
+                    height={84}
+                    className="aspect-[2/3] w-full rounded-sm"
+                  />
                 </TableCell>
                 {columns.map(({ key }) => {
                   const def = COLUMN_REGISTRY[key];

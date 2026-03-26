@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Film } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import {
   Table,
   TableBody,
@@ -177,17 +179,14 @@ export default function MovieTable({
                 </TableCell>
               )}
               <TableCell>
-                {movie.posterUrl ? (
-                  <img
-                    src={movie.posterUrl}
-                    alt={movie.title}
-                    className="aspect-[2/3] w-full rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                    <Film className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
+                <OptimizedImage
+                  src={resizeTmdbUrl(movie.posterUrl, "w185")}
+                  alt={movie.title}
+                  type="movie"
+                  width={56}
+                  height={84}
+                  className="aspect-[2/3] w-full rounded-sm"
+                />
               </TableCell>
               <TableCell>
                 <Link

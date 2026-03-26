@@ -1,12 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ImageIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
 import {
   Table,
   TableBody,
@@ -126,17 +122,14 @@ export default function AuthorTable({
               }
             >
               <TableCell>
-                {authorImage ? (
-                  <img
-                    src={authorImage}
-                    alt={author.name}
-                    className="aspect-square w-full rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="aspect-square w-full rounded-full bg-muted flex items-center justify-center">
-                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
+                <OptimizedImage
+                  src={authorImage}
+                  alt={author.name}
+                  type="author"
+                  width={56}
+                  height={56}
+                  className="aspect-square w-full rounded-full"
+                />
               </TableCell>
               <TableCell>
                 <Link
