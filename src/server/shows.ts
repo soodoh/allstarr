@@ -259,6 +259,146 @@ function computeAbsoluteNumbers(showId: number): void {
   }
 }
 
+async function importDefaultSeasons(
+  showId: number,
+  tmdbId: number,
+): Promise<void> {
+  const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${tmdbId}`, {
+    append_to_response: "external_ids",
+  });
+  for (const seasonSummary of raw.seasons) {
+    const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
+      `/tv/${tmdbId}/season/${seasonSummary.season_number}`,
+    );
+    const season = db
+      .insert(seasons)
+      .values({
+        showId,
+        seasonNumber: seasonSummary.season_number,
+        overview: seasonSummary.overview || null,
+        posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+      })
+      .returning()
+      .get();
+    if (seasonDetail.episodes.length > 0) {
+      db.insert(episodes)
+        .values(
+          seasonDetail.episodes.map((ep) => ({
+            showId,
+            seasonId: season.id,
+            episodeNumber: ep.episode_number,
+            title: ep.name,
+            overview: ep.overview || null,
+            airDate: ep.air_date,
+            runtime: ep.runtime,
+            tmdbId: ep.id,
+            hasFile: false,
+          })),
+        )
+        .run();
+    }
+  }
+}
+
+async function switchEpisodeGroup(
+  showId: number,
+  tmdbId: number,
+  newGroupId: string | null,
+): Promise<void> {
+  // 1. Snapshot existing file records and profile links by tmdbId
+  const existingEpisodes = db
+    .select({ id: episodes.id, tmdbId: episodes.tmdbId })
+    .from(episodes)
+    .where(eq(episodes.showId, showId))
+    .all();
+
+  const snapshot = new Map<
+    number,
+    {
+      files: Array<typeof episodeFiles.$inferSelect>;
+      profileIds: number[];
+    }
+  >();
+  for (const ep of existingEpisodes) {
+    const files = db
+      .select()
+      .from(episodeFiles)
+      .where(eq(episodeFiles.episodeId, ep.id))
+      .all();
+    const profiles = db
+      .select({
+        downloadProfileId: episodeDownloadProfiles.downloadProfileId,
+      })
+      .from(episodeDownloadProfiles)
+      .where(eq(episodeDownloadProfiles.episodeId, ep.id))
+      .all();
+    snapshot.set(ep.tmdbId, {
+      files,
+      profileIds: profiles.map((p) => p.downloadProfileId),
+    });
+  }
+
+  // 2. Delete existing seasons (cascades to episodes, files, profiles)
+  db.delete(seasons).where(eq(seasons.showId, showId)).run();
+
+  // 3. Re-import from new source
+  if (newGroupId) {
+    const groupDetail = await tmdbFetch<TmdbEpisodeGroupDetail>(
+      `/tv/episode_groups/${newGroupId}`,
+    );
+    await importFromEpisodeGroup(showId, groupDetail);
+  } else {
+    await importDefaultSeasons(showId, tmdbId);
+  }
+
+  // 4. Re-link files and profiles by tmdbId
+  const newEpisodes = db
+    .select({ id: episodes.id, tmdbId: episodes.tmdbId })
+    .from(episodes)
+    .where(eq(episodes.showId, showId))
+    .all();
+
+  for (const [epTmdbId, links] of snapshot) {
+    const newEp = newEpisodes.find((e) => e.tmdbId === epTmdbId);
+    if (newEp) {
+      for (const file of links.files) {
+        db.insert(episodeFiles)
+          .values({
+            episodeId: newEp.id,
+            path: file.path,
+            size: file.size,
+            quality: file.quality,
+            dateAdded: file.dateAdded,
+            sceneName: file.sceneName,
+            duration: file.duration,
+            codec: file.codec,
+            container: file.container,
+          })
+          .run();
+        db.update(episodes)
+          .set({ hasFile: true })
+          .where(eq(episodes.id, newEp.id))
+          .run();
+      }
+      for (const profileId of links.profileIds) {
+        db.insert(episodeDownloadProfiles)
+          .values({ episodeId: newEp.id, downloadProfileId: profileId })
+          .onConflictDoNothing()
+          .run();
+      }
+    }
+  }
+
+  // 5. Update episodeGroupId
+  db.update(shows)
+    .set({ episodeGroupId: newGroupId })
+    .where(eq(shows.id, showId))
+    .run();
+
+  // 6. Recompute absolute numbers
+  computeAbsoluteNumbers(showId);
+}
+
 async function importFromEpisodeGroup(
   showId: number,
   groupDetail: TmdbEpisodeGroupDetail,
@@ -571,6 +711,7 @@ export const updateShowFn = createServerFn({ method: "POST" })
       monitorNewSeasons,
       useSeasonFolder,
       seriesType,
+      episodeGroupId,
     } = data;
 
     const show = db.select().from(shows).where(eq(shows.id, id)).get();
@@ -593,6 +734,23 @@ export const updateShowFn = createServerFn({ method: "POST" })
       showUpdates.seriesType = seriesType;
     }
     db.update(shows).set(showUpdates).where(eq(shows.id, id)).run();
+
+    // Handle episode group change
+    if (episodeGroupId !== undefined) {
+      const currentGroupId = show.episodeGroupId ?? null;
+      if (currentGroupId !== episodeGroupId) {
+        await switchEpisodeGroup(id, show.tmdbId, episodeGroupId);
+      }
+    }
+
+    // Recompute absolute numbers if series type changed (and episode group didn't already recompute)
+    if (
+      seriesType &&
+      seriesType !== show.seriesType &&
+      episodeGroupId === undefined
+    ) {
+      computeAbsoluteNumbers(id);
+    }
 
     // Update download profiles if provided
     if (downloadProfileIds !== undefined) {
