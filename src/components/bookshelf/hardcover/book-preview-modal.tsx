@@ -14,6 +14,7 @@ import {
 } from "src/components/ui/select";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -308,79 +309,78 @@ export default function BookPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DialogContent className="max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="sr-only">{book.title}</DialogTitle>
         </DialogHeader>
 
-        <BookDetailContent book={bookDetailData}>
-          {/* ── Actions ── */}
-          {!inLibrary && !addOpen && (
-            <div className="flex items-center gap-2 pt-1">
-              <Button className="flex-1" onClick={() => setAddOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Author & Monitor Book
-              </Button>
-              {book.hardcoverUrl && (
-                <Button variant="outline" size="icon" asChild>
-                  <a
-                    href={book.hardcoverUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open on Hardcover"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
+        <DialogBody>
+          <BookDetailContent book={bookDetailData}>
+            {/* ── Actions ── */}
+            {!inLibrary && !addOpen && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button className="flex-1" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Author & Monitor Book
                 </Button>
-              )}
-            </div>
-          )}
+                {book.hardcoverUrl && (
+                  <Button variant="outline" size="icon" asChild>
+                    <a
+                      href={book.hardcoverUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Open on Hardcover"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
 
-          {inLibrary && (
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  onOpenChange(false);
-                  if (localBook) {
-                    navigate({
-                      to: "/books/$bookId",
-                      params: { bookId: String(localBook.id) },
-                    });
-                  }
-                }}
-              >
-                View on Bookshelf
-              </Button>
-              {book.hardcoverUrl && (
-                <Button variant="outline" size="icon" asChild>
-                  <a
-                    href={book.hardcoverUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open on Hardcover"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
+            {inLibrary && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    onOpenChange(false);
+                    if (localBook) {
+                      navigate({
+                        to: "/books/$bookId",
+                        params: { bookId: String(localBook.id) },
+                      });
+                    }
+                  }}
+                >
+                  View on Bookshelf
                 </Button>
-              )}
-            </div>
-          )}
+                {book.hardcoverUrl && (
+                  <Button variant="outline" size="icon" asChild>
+                    <a
+                      href={book.hardcoverUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Open on Hardcover"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
 
-          {addOpen && !inLibrary && (
-            <AddBookForm
-              book={book}
-              bookDetail={hcBook}
-              authorExists={authorExists}
-              onSuccess={() => onOpenChange(false)}
-              onCancel={() => setAddOpen(false)}
-            />
-          )}
-        </BookDetailContent>
+            {addOpen && !inLibrary && (
+              <AddBookForm
+                book={book}
+                bookDetail={hcBook}
+                authorExists={authorExists}
+                onSuccess={() => onOpenChange(false)}
+                onCancel={() => setAddOpen(false)}
+              />
+            )}
+          </BookDetailContent>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
