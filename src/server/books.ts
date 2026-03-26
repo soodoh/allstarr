@@ -144,25 +144,18 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     const sortDir = data.sortDir === "asc" ? "asc" : "desc";
     const orderFn = sortDir === "asc" ? sql`ASC` : sql`DESC`;
     const sortMapping: Record<string, SQL> = {
-      title: sql`${editions.title} ${orderFn}`,
+      title: sql`${books.title} ${orderFn}`,
       authorName: sql`${booksAuthors.authorName} ${orderFn}`,
       releaseDate: sql`${books.releaseDate} ${orderFn}`,
-      language: sql`${editions.language} ${orderFn}`,
       readers: sql`${books.usersCount} ${orderFn}`,
       rating: sql`${books.rating} ${orderFn}`,
     };
     const orderClause =
       sortMapping[data.sortKey ?? ""] ?? sql`${books.usersCount} DESC`;
 
-    // Query from editions joined to books — each row is a monitored edition
+    // Query from books — each row is a distinct book
     let query = db
       .select({
-        // Edition-level fields
-        editionId: editions.id,
-        editionTitle: editions.title,
-        editionImages: editions.images,
-        language: editions.language,
-        // Book-level fields
         id: books.id,
         title: books.title,
         slug: books.slug,
@@ -182,8 +175,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
         primaryAuthorId: booksAuthors.authorId,
         primaryForeignAuthorId: booksAuthors.foreignAuthorId,
       })
-      .from(editions)
-      .innerJoin(books, eq(editions.bookId, books.id))
+      .from(books)
       .leftJoin(
         booksAuthors,
         and(
@@ -196,8 +188,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     let countQuery = db
       .select({ count: sql<number>`count(*)` })
-      .from(editions)
-      .innerJoin(books, eq(editions.bookId, books.id))
+      .from(books)
       .leftJoin(
         booksAuthors,
         and(
@@ -209,13 +200,17 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 
     const conditions: SQL[] = [];
 
-    // Filter by edition monitored status (has any download profile links)
+    // Filter by book monitored status (any edition has a download profile link)
     if (data.monitored !== undefined) {
       const hasProfile = exists(
         db
           .select({ one: sql`1` })
           .from(editionDownloadProfiles)
-          .where(eq(editionDownloadProfiles.editionId, editions.id)),
+          .innerJoin(
+            editions,
+            eq(editions.id, editionDownloadProfiles.editionId),
+          )
+          .where(eq(editions.bookId, books.id)),
       );
       conditions.push(data.monitored ? hasProfile : sql`NOT ${hasProfile}`);
     }
@@ -249,10 +244,12 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       countQuery = countQuery.where(combined);
     }
 
-    const items = query.limit(pageSize).offset(offset).all();
+    const bookRows = query.limit(pageSize).offset(offset).all();
     const total = countQuery.get()?.count || 0;
 
-    const bookIds = items.map((b) => b.id);
+    const bookIds = bookRows.map((b) => b.id);
+
+    // Batch-fetch series
     const seriesLinks =
       bookIds.length > 0
         ? db
@@ -277,7 +274,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       seriesByBook.set(link.bookId, arr);
     }
 
-    // Get all booksAuthors entries for these books
+    // Batch-fetch all booksAuthors entries
     const allBookAuthorEntries =
       bookIds.length > 0
         ? db
@@ -293,7 +290,6 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
             .all()
         : [];
 
-    // Group booksAuthors by bookId
     const bookAuthorsMap = new Map<
       number,
       Array<{
@@ -314,8 +310,31 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
       bookAuthorsMap.set(entry.bookId, arr);
     }
 
+    // Batch-fetch editions for these books (for cover selection + profile links)
+    const allEditions =
+      bookIds.length > 0
+        ? db
+            .select({
+              id: editions.id,
+              bookId: editions.bookId,
+              images: editions.images,
+              isDefaultCover: editions.isDefaultCover,
+              languageCode: editions.languageCode,
+            })
+            .from(editions)
+            .where(inArray(editions.bookId, bookIds))
+            .all()
+        : [];
+
+    const editionsByBook = new Map<number, typeof allEditions>();
+    for (const e of allEditions) {
+      const arr = editionsByBook.get(e.bookId) ?? [];
+      arr.push(e);
+      editionsByBook.set(e.bookId, arr);
+    }
+
     // Batch-fetch edition download profile links
-    const editionIds = items.map((i) => i.editionId);
+    const editionIds = allEditions.map((e) => e.id);
     const editionProfileLinks =
       editionIds.length > 0
         ? db
@@ -338,7 +357,7 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     // Batch-fetch author download profile IDs
     const uniqueAuthorIds = [
       ...new Set(
-        items
+        bookRows
           .map((i) => i.primaryAuthorId)
           .filter((id): id is number => id !== null),
       ),
@@ -363,19 +382,38 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
     }
 
     return {
-      items: items.map((item) =>
-        Object.assign(item, {
+      items: bookRows.map((item) => {
+        const bookEditions = editionsByBook.get(item.id) ?? [];
+        const bestEdition = pickBestEdition(bookEditions, "all");
+        const coverUrl =
+          bestEdition?.images?.[0]?.url ?? item.images?.[0]?.url ?? null;
+
+        // Book-level downloadProfileIds = union of all edition profiles
+        const downloadProfileIds = [
+          ...new Set(
+            bookEditions.flatMap((e) => editionProfilesMap.get(e.id) ?? []),
+          ),
+        ];
+
+        return {
+          id: item.id,
+          title: item.title,
+          coverUrl,
           series: seriesByBook.get(item.id) ?? [],
           bookAuthors: bookAuthorsMap.get(item.id) ?? [],
           authorName: item.primaryAuthorName,
           authorForeignId: item.primaryForeignAuthorId,
-          downloadProfileIds: editionProfilesMap.get(item.editionId) ?? [],
+          releaseDate: item.releaseDate,
+          rating: item.rating,
+          ratingsCount: item.ratingsCount,
+          usersCount: item.usersCount,
+          downloadProfileIds,
           authorDownloadProfileIds:
             item.primaryAuthorId === null
               ? []
               : (authorProfilesMap.get(item.primaryAuthorId) ?? []),
-        }),
-      ),
+        };
+      }),
       total,
       page,
       totalPages: Math.ceil(total / pageSize),

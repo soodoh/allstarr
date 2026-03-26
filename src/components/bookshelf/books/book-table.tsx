@@ -12,10 +12,7 @@ import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 type Book = {
   id: number;
   title: string;
-  editionId: number;
-  editionTitle: string;
-  editionImages: Array<{ url: string; coverType: string }>;
-  language: string | null;
+  coverUrl: string | null;
   bookAuthors: BookAuthorEntry[];
   authorName: string | null;
   releaseDate: string | null;
@@ -23,7 +20,6 @@ type Book = {
   ratingsCount: number | null;
   usersCount: number | null;
   series: Array<{ title: string; position: string | null }>;
-  images: Array<{ url: string; coverType: string }>;
   downloadProfileIds?: number[];
   authorDownloadProfileIds?: number[];
 };
@@ -50,20 +46,16 @@ const COLUMNS: ColumnConfig[] = [
   { key: "author", sortable: true },
   { key: "releaseDate", sortable: true },
   { key: "series", sortable: true },
-  { key: "language", sortable: true },
   { key: "readers", sortable: true },
   { key: "rating", sortable: true },
 ];
 
 function mapBookToRow(book: Book): BookTableRow {
-  const images =
-    book.editionImages.length > 0 ? book.editionImages : book.images;
-  const coverUrl = images?.[0]?.url ?? null;
   return {
-    key: book.editionId,
+    key: book.id,
     bookId: book.id,
-    title: book.editionTitle,
-    coverUrl,
+    title: book.title,
+    coverUrl: book.coverUrl,
     bookAuthors: book.bookAuthors,
     authorName: book.authorName,
     releaseDate: book.releaseDate,
@@ -79,7 +71,7 @@ function mapBookToRow(book: Book): BookTableRow {
     score: null,
     publisher: null,
     editionInformation: null,
-    language: book.language,
+    language: null,
     country: null,
     series: book.series,
     monitored: (book.downloadProfileIds ?? []).length > 0,
