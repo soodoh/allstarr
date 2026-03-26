@@ -222,6 +222,7 @@ query AuthorComplete($authorId: Int!, $limit: Int!, $offset: Int!) {
     ratings_count
     users_count
     compilation
+    canonical_id
     default_cover_edition_id
     image { url }
     contributions(order_by: [{ id: asc }], limit: 50) {
@@ -323,6 +324,7 @@ function parseRawBook(
     usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
     coverUrl: getCoverUrl(bookRecord) ?? null,
     isCompilation: bookRecord.compilation === true,
+    canonicalId: firstNumber(bookRecord, [["canonical_id"]]) ?? null,
     defaultCoverEditionId:
       firstNumber(bookRecord, [["default_cover_edition_id"]]) ?? null,
     contributions,
