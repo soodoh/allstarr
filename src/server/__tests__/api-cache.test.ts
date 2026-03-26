@@ -84,14 +84,15 @@ describe("createApiFetcher — cache", () => {
   });
 
   it("promotes accessed entry in LRU order", async () => {
-    const fetcher = makeFetcher({ maxEntries: 2 });
+    const fetcher = makeFetcher({ maxEntries: 3 });
 
-    await fetcher.fetch("a", () => Promise.resolve("val-a"));
-    await fetcher.fetch("b", () => Promise.resolve("val-b"));
-    // Access "a" again to promote it
-    await fetcher.fetch("a", () => Promise.resolve("should-not-call"));
-    // Insert "c" — should evict "b" (least recent), not "a"
-    await fetcher.fetch("c", () => Promise.resolve("val-c"));
+    await fetcher.fetch("a", () => Promise.resolve("val-a")); // [a]
+    await fetcher.fetch("b", () => Promise.resolve("val-b")); // [a, b]
+    await fetcher.fetch("c", () => Promise.resolve("val-c")); // [a, b, c]
+    // Access "a" to promote it to most recent
+    await fetcher.fetch("a", () => Promise.resolve("ignored")); // [b, c, a]
+    // Insert "d" — should evict "b" (least recent), not "a" (promoted)
+    await fetcher.fetch("d", () => Promise.resolve("val-d")); // [c, a, d]
 
     const refetchB = vi.fn().mockResolvedValue("val-b-new");
     await fetcher.fetch("b", refetchB);
