@@ -56,7 +56,9 @@ const COLUMNS: ColumnConfig[] = [
 ];
 
 function mapBookToRow(book: Book): BookTableRow {
-  const coverUrl = (book.editionImages ?? book.images)?.[0]?.url ?? null;
+  const images =
+    book.editionImages.length > 0 ? book.editionImages : book.images;
+  const coverUrl = images?.[0]?.url ?? null;
   return {
     key: book.editionId,
     bookId: book.id,

@@ -24,6 +24,7 @@ type EditionSelectionModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bookId: number;
+  bookCoverUrl: string | null;
   profile: { id: number; name: string; contentType: "ebook" | "audiobook" };
   currentEditionId?: number;
   onConfirm: (editionId: number) => void;
@@ -50,6 +51,7 @@ export default function EditionSelectionModal({
   open,
   onOpenChange,
   bookId,
+  bookCoverUrl,
   profile,
   currentEditionId,
   onConfirm,
@@ -102,7 +104,7 @@ export default function EditionSelectionModal({
       key: item.id,
       bookId: item.bookId,
       title: item.title,
-      coverUrl: item.images?.[0]?.url ?? null,
+      coverUrl: item.images?.[0]?.url ?? bookCoverUrl,
       bookAuthors: [],
       authorName: null,
       releaseDate: item.releaseDate,
@@ -124,7 +126,7 @@ export default function EditionSelectionModal({
       monitored: item.downloadProfileIds.length > 0,
       downloadProfileIds: item.downloadProfileIds,
     }));
-  }, [allItems, formatFilterOn, profile.contentType]);
+  }, [allItems, formatFilterOn, profile.contentType, bookCoverUrl]);
 
   // Infinite scroll observer
   const handleObserver = useCallback(

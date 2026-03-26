@@ -33,12 +33,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "src/components/ui/popover";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "src/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
 
 import {
   bookDetailQuery,
@@ -363,6 +358,7 @@ function BookDetailPage(): JSX.Element {
               <EditionsTab
                 bookId={book.id}
                 bookTitle={book.title}
+                bookCoverUrl={getCoverUrl(coverImages)}
                 fileCount={book.fileCount}
                 authorDownloadProfiles={authorDownloadProfiles}
                 editions={book.editions}
