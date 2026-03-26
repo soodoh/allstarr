@@ -9,6 +9,28 @@ function getTmdbApiKey(): string {
   return process.env.TMDB_TOKEN ?? "";
 }
 
+// In-memory response cache (5-minute TTL)
+// Prevents duplicate TMDB API calls when previewing episode groups
+// and then importing the same show.
+const responseCache = new Map<string, { data: unknown; expires: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCached<T>(key: string): T | undefined {
+  const entry = responseCache.get(key);
+  if (!entry) {
+    return undefined;
+  }
+  if (Date.now() > entry.expires) {
+    responseCache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache(key: string, data: unknown): void {
+  responseCache.set(key, { data, expires: Date.now() + CACHE_TTL });
+}
+
 // Rate limiter: max 40 requests per 10 seconds
 let requestTimestamps: number[] = [];
 const RATE_LIMIT = 40;
@@ -36,8 +58,6 @@ export async function tmdbFetch<T>(
     throw new Error("TMDB API key not configured");
   }
 
-  await waitForRateLimit();
-
   const language = getMediaSetting<string>("metadata.tmdb.language", "en");
   const url = new URL(`${TMDB_API_BASE}${path}`);
   url.searchParams.set("api_key", apiKey);
@@ -48,11 +68,21 @@ export async function tmdbFetch<T>(
     }
   }
 
-  const response = await fetch(url.toString());
+  const cacheKey = url.toString();
+  const cached = getCached<T>(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  await waitForRateLimit();
+
+  const response = await fetch(cacheKey);
   if (!response.ok) {
     throw new Error(
       `TMDB API error: ${response.status} ${response.statusText}`,
     );
   }
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as T;
+  setCache(cacheKey, data);
+  return data;
 }
