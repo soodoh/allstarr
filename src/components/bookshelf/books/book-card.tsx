@@ -1,20 +1,15 @@
 import type { JSX } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import OptimizedImage from "src/components/shared/optimized-image";
-import { getCoverUrl } from "src/lib/utils";
 import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
 
 type BookCardProps = {
   book: {
     id: number;
     title: string;
-    editionId: number;
-    editionTitle: string;
-    editionImages: Array<{ url: string; coverType: string }>;
+    coverUrl: string | null;
     bookAuthors: BookAuthorEntry[];
     releaseDate: string | null;
-    description: string | null;
-    images: Array<{ url: string; coverType: string }>;
   };
 };
 
@@ -42,10 +37,8 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
     >
       <div className="flex flex-col gap-2">
         <OptimizedImage
-          src={getCoverUrl(
-            book.editionImages.length > 0 ? book.editionImages : book.images,
-          )}
-          alt={`${book.editionTitle} cover`}
+          src={book.coverUrl}
+          alt={`${book.title} cover`}
           type="book"
           width={224}
           height={336}
@@ -53,7 +46,7 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
         />
         <div className="min-w-0">
           <p className="text-sm font-medium leading-tight truncate">
-            {book.editionTitle}
+            {book.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {(() => {
