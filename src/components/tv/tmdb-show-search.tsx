@@ -32,7 +32,7 @@ import { tmdbSearchShowsQuery } from "src/lib/queries/tmdb";
 import { showExistenceQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { useAddShow } from "src/hooks/mutations/shows";
-import EpisodeGroupSelector from "src/components/tv/episode-group-selector";
+import EpisodeGroupAccordion from "src/components/tv/episode-group-accordion";
 import type { TmdbTvResult } from "src/server/tmdb/types";
 
 function extractYear(firstAirDate: string): string | null {
@@ -268,7 +268,7 @@ function ShowPreviewModal({
                 </Select>
               </div>
 
-              <EpisodeGroupSelector
+              <EpisodeGroupAccordion
                 tmdbId={show.id}
                 originCountry={show.origin_country}
                 genreIds={show.genre_ids}
