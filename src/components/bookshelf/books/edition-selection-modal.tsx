@@ -15,10 +15,12 @@ import Label from "src/components/ui/label";
 import BaseBookTable from "src/components/bookshelf/books/base-book-table";
 import type {
   BookTableRow,
-  ColumnConfig,
+  ColumnKey,
 } from "src/components/bookshelf/books/base-book-table";
 import { bookEditionsInfiniteQuery } from "src/lib/queries/books";
 import { matchesProfileFormat } from "src/lib/editions";
+import { useTableColumns } from "src/hooks/use-table-columns";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 
 type EditionSelectionModalProps = {
   open: boolean;
@@ -30,22 +32,6 @@ type EditionSelectionModalProps = {
   onConfirm: (editionId: number) => void;
   isPending: boolean;
 };
-
-const EDITION_COLUMNS: ColumnConfig[] = [
-  { key: "title", sortable: true },
-  { key: "publisher", sortable: true },
-  { key: "information", sortable: true },
-  { key: "format", sortable: true },
-  { key: "pages", sortable: true },
-  { key: "releaseDate", sortable: true },
-  { key: "isbn13", sortable: true },
-  { key: "isbn10", sortable: true },
-  { key: "asin", sortable: true },
-  { key: "language", sortable: true },
-  { key: "country", sortable: true },
-  { key: "readers", sortable: true },
-  { key: "score", sortable: true },
-];
 
 export default function EditionSelectionModal({
   open,
@@ -64,6 +50,16 @@ export default function EditionSelectionModal({
   const [sortKey, setSortKey] = useState<string>("readers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const { visibleColumns } = useTableColumns("book-editions");
+  const columns = useMemo(
+    () =>
+      visibleColumns.map((col) => ({
+        key: col.key as ColumnKey,
+        sortable: true,
+      })),
+    [visibleColumns],
+  );
 
   // Reset selectedEditionId when currentEditionId changes (modal opens with different profile)
   useEffect(() => {
@@ -157,16 +153,19 @@ export default function EditionSelectionModal({
           <DialogTitle>Select Edition for {profile.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-2">
-          <Switch
-            id="format-filter"
-            checked={formatFilterOn}
-            onCheckedChange={setFormatFilterOn}
-            size="sm"
-          />
-          <Label htmlFor="format-filter" className="text-sm cursor-pointer">
-            Show matching formats only
-          </Label>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="format-filter"
+              checked={formatFilterOn}
+              onCheckedChange={setFormatFilterOn}
+              size="sm"
+            />
+            <Label htmlFor="format-filter" className="text-sm cursor-pointer">
+              Show matching formats only
+            </Label>
+          </div>
+          <ColumnSettingsPopover tableId="book-editions" />
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto">
@@ -178,7 +177,7 @@ export default function EditionSelectionModal({
             <>
               <BaseBookTable
                 rows={rows}
-                columns={EDITION_COLUMNS}
+                columns={columns}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onSort={handleSort}
