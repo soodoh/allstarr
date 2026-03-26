@@ -1,0 +1,156 @@
+type CacheEntry = {
+  data: unknown;
+  expires: number;
+  accessOrder: number;
+};
+
+type ApiFetcherOptions = {
+  name: string;
+  cache: {
+    ttlMs: number;
+    maxEntries: number;
+  };
+  rateLimit: {
+    maxRequests: number;
+    windowMs: number;
+  };
+  retry: {
+    maxRetries: number;
+    baseDelayMs: number;
+  };
+};
+
+type ApiFetcher = {
+  fetch<T>(key: string, fetchFn: () => Promise<T>): Promise<T>;
+  clear(): void;
+  readonly size: number;
+};
+
+export class ApiRateLimitError extends Error {
+  readonly status = 429;
+  constructor(message = "Rate limit exceeded") {
+    super(message);
+    this.name = "ApiRateLimitError";
+  }
+}
+
+export function createApiFetcher(options: ApiFetcherOptions): ApiFetcher {
+  const cache = new Map<string, CacheEntry>();
+  const requestTimestamps: number[] = [];
+  let accessCounter = 0;
+
+  // Periodic sweep to free expired entries
+  const sweepInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of cache) {
+      if (now >= entry.expires) {
+        cache.delete(key);
+      }
+    }
+  }, options.cache.ttlMs);
+
+  // Don't keep the process alive just for the sweep
+  if (typeof sweepInterval === "object" && "unref" in sweepInterval) {
+    sweepInterval.unref();
+  }
+
+  function getCached<T>(key: string): T | undefined {
+    const entry = cache.get(key);
+    if (!entry) {
+      return undefined;
+    }
+    if (Date.now() >= entry.expires) {
+      cache.delete(key);
+      return undefined;
+    }
+    // LRU promotion: update access order
+    accessCounter += 1;
+    entry.accessOrder = accessCounter;
+    return entry.data as T;
+  }
+
+  function setCache(key: string, data: unknown): void {
+    if (cache.size >= options.cache.maxEntries) {
+      // Find the least recently used entry
+      let lruKey: string | undefined;
+      let lruOrder = Number.POSITIVE_INFINITY;
+      for (const [k, entry] of cache) {
+        if (entry.accessOrder < lruOrder) {
+          lruOrder = entry.accessOrder;
+          lruKey = k;
+        }
+      }
+      if (lruKey !== undefined) {
+        cache.delete(lruKey);
+      }
+    }
+    cache.set(key, {
+      data,
+      expires: Date.now() + options.cache.ttlMs,
+      accessOrder: 0, // New entries start unpromoted; getCached promotes on access
+    });
+  }
+
+  async function waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    while (
+      requestTimestamps.length > 0 &&
+      now - requestTimestamps[0] >= options.rateLimit.windowMs
+    ) {
+      requestTimestamps.shift();
+    }
+    if (requestTimestamps.length >= options.rateLimit.maxRequests) {
+      const oldest = requestTimestamps[0];
+      const waitTime = options.rateLimit.windowMs - (now - oldest) + 100;
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, waitTime);
+      });
+    }
+    requestTimestamps.push(Date.now());
+  }
+
+  async function fetchWithRetry<T>(fetchFn: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; attempt <= options.retry.maxRetries; attempt += 1) {
+      try {
+        return await fetchFn();
+      } catch (error: unknown) {
+        const isRateLimit =
+          error instanceof ApiRateLimitError ||
+          (error instanceof Error &&
+            "status" in error &&
+            (error as { status: number }).status === 429);
+        if (isRateLimit && attempt < options.retry.maxRetries) {
+          const delay = options.retry.baseDelayMs * 2 ** attempt;
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, delay);
+          });
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error(`${options.name}: retry limit exhausted`);
+  }
+
+  return {
+    async fetch<T>(key: string, fetchFn: () => Promise<T>): Promise<T> {
+      const cached = getCached<T>(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+      await waitForRateLimit();
+      const result = await fetchWithRetry(fetchFn);
+      setCache(key, result);
+      return result;
+    },
+
+    clear(): void {
+      cache.clear();
+      clearInterval(sweepInterval);
+    },
+
+    get size(): number {
+      return cache.size;
+    },
+  };
+}
