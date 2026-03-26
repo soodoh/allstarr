@@ -5,6 +5,7 @@ import { AlertCircle, ArrowUp, Folder, FolderDot, Loader2 } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -127,38 +128,40 @@ export default function DirectoryBrowserDialog({
           <DialogTitle>Browse for Folder</DialogTitle>
         </DialogHeader>
 
-        {/* Current path display */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 rounded-md bg-muted px-3 py-2">
-            <span className="font-mono text-sm break-all">{displayPath}</span>
+        <DialogBody>
+          {/* Current path display */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 rounded-md bg-muted px-3 py-2">
+              <span className="font-mono text-sm break-all">{displayPath}</span>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowHidden((v) => !v)}
+                  >
+                    <FolderDot
+                      className={`h-4 w-4 ${showHidden ? "" : "opacity-40"}`}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {showHidden
+                    ? "Hide hidden directories"
+                    : "Show hidden directories"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowHidden((v) => !v)}
-                >
-                  <FolderDot
-                    className={`h-4 w-4 ${showHidden ? "" : "opacity-40"}`}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {showHidden
-                  ? "Hide hidden directories"
-                  : "Show hidden directories"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
 
-        {/* Directory listing */}
-        <ScrollArea className="h-[300px] rounded-md border">
-          {renderContent()}
-        </ScrollArea>
+          {/* Directory listing */}
+          <ScrollArea className="h-[300px] rounded-md border">
+            {renderContent()}
+          </ScrollArea>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

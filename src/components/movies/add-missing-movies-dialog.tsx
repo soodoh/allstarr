@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -113,68 +114,70 @@ export default function AddMissingMoviesDialog({
           )}
         </DialogHeader>
 
-        <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-          <ProfileCheckboxGroup
-            profiles={movieProfiles}
-            selectedIds={downloadProfileIds}
-            onToggle={toggleProfile}
-          />
-
-          <div className="space-y-2">
-            <Label>Monitor</Label>
-            <Select
-              value={monitorOption}
-              onValueChange={(v) =>
-                setMonitorOption(
-                  v as "movieOnly" | "movieAndCollection" | "none",
-                )
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="movieOnly">Movie Only</SelectItem>
-                <SelectItem value="movieAndCollection">
-                  Movie &amp; Collection
-                </SelectItem>
-                <SelectItem value="none">None</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              &ldquo;Movie &amp; Collection&rdquo; will automatically add future
-              movies added to this collection on TMDB.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Minimum Availability</Label>
-            <Select
-              value={minimumAvailability}
-              onValueChange={setMinimumAvailability}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="announced">Announced</SelectItem>
-                <SelectItem value="inCinemas">In Cinemas</SelectItem>
-                <SelectItem value="released">Released</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="bulk-search-on-add"
-              checked={searchOnAdd}
-              onCheckedChange={(checked) => setSearchOnAdd(checked === true)}
+        <DialogBody>
+          <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+            <ProfileCheckboxGroup
+              profiles={movieProfiles}
+              selectedIds={downloadProfileIds}
+              onToggle={toggleProfile}
             />
-            <Label htmlFor="bulk-search-on-add">
-              Start search for missing movies
-            </Label>
+
+            <div className="space-y-2">
+              <Label>Monitor</Label>
+              <Select
+                value={monitorOption}
+                onValueChange={(v) =>
+                  setMonitorOption(
+                    v as "movieOnly" | "movieAndCollection" | "none",
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="movieOnly">Movie Only</SelectItem>
+                  <SelectItem value="movieAndCollection">
+                    Movie &amp; Collection
+                  </SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                &ldquo;Movie &amp; Collection&rdquo; will automatically add
+                future movies added to this collection on TMDB.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Minimum Availability</Label>
+              <Select
+                value={minimumAvailability}
+                onValueChange={setMinimumAvailability}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="announced">Announced</SelectItem>
+                  <SelectItem value="inCinemas">In Cinemas</SelectItem>
+                  <SelectItem value="released">Released</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="bulk-search-on-add"
+                checked={searchOnAdd}
+                onCheckedChange={(checked) => setSearchOnAdd(checked === true)}
+              />
+              <Label htmlFor="bulk-search-on-add">
+                Start search for missing movies
+              </Label>
+            </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

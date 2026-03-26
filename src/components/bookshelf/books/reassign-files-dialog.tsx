@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -92,52 +93,54 @@ export default function ReassignFilesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <Input
-            placeholder="Search books..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <DialogBody>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search books..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
 
-          <div className="max-h-60 overflow-y-auto rounded-md border">
-            {isLoading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            )}
-            {!isLoading && filteredBooks.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No books found.
+            <div className="max-h-60 overflow-y-auto rounded-md border">
+              {isLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {!isLoading && filteredBooks.length === 0 && (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No books found.
+                </p>
+              )}
+              {!isLoading &&
+                filteredBooks.map((book) => (
+                  <button
+                    key={book.id}
+                    type="button"
+                    onClick={() => setSelectedBookId(book.id)}
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                      selectedBookId === book.id && "bg-accent",
+                    )}
+                  >
+                    <span className="font-medium">{book.title}</span>
+                    {book.authorName && (
+                      <span className="ml-2 text-muted-foreground">
+                        by {book.authorName}
+                      </span>
+                    )}
+                  </button>
+                ))}
+            </div>
+
+            {selectedBook && (
+              <p className="text-sm text-muted-foreground">
+                Selected:{" "}
+                <span className="font-medium">{selectedBook.title}</span>
               </p>
             )}
-            {!isLoading &&
-              filteredBooks.map((book) => (
-                <button
-                  key={book.id}
-                  type="button"
-                  onClick={() => setSelectedBookId(book.id)}
-                  className={cn(
-                    "w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
-                    selectedBookId === book.id && "bg-accent",
-                  )}
-                >
-                  <span className="font-medium">{book.title}</span>
-                  {book.authorName && (
-                    <span className="ml-2 text-muted-foreground">
-                      by {book.authorName}
-                    </span>
-                  )}
-                </button>
-              ))}
           </div>
-
-          {selectedBook && (
-            <p className="text-sm text-muted-foreground">
-              Selected:{" "}
-              <span className="font-medium">{selectedBook.title}</span>
-            </p>
-          )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
