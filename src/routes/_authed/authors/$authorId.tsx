@@ -25,7 +25,7 @@ import {
 import PageHeader from "src/components/shared/page-header";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import Skeleton from "src/components/ui/skeleton";
-import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
+import OptimizedImage from "src/components/shared/optimized-image";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import Input from "src/components/ui/input";
@@ -1410,10 +1410,14 @@ function AuthorDetailPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-6 xl:flex-row">
           <div className="w-full xl:w-auto xl:shrink-0">
-            <AuthorPhoto
-              name={author.name}
-              imageUrl={author.images?.[0]?.url ?? null}
-              className="xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
+            <OptimizedImage
+              src={author.images?.[0]?.url ?? null}
+              alt={`${author.name} photo`}
+              type="author"
+              width={176}
+              height={234}
+              priority
+              className="aspect-[3/4] w-full max-w-56 xl:h-full xl:max-w-none xl:w-44 xl:aspect-auto"
             />
           </div>
 

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { JSX } from "react";
-import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
+import OptimizedImage from "src/components/shared/optimized-image";
 
 type AuthorCardProps = {
   author: {
@@ -24,10 +24,13 @@ export default function AuthorCard({ author }: AuthorCardProps): JSX.Element {
       className="block group"
     >
       <div className="flex flex-col items-center gap-2 text-center">
-        <AuthorPhoto
-          name={author.name}
-          imageUrl={imageUrl}
-          className="w-full transition-shadow group-hover:shadow-lg"
+        <OptimizedImage
+          src={imageUrl}
+          alt={`${author.name} photo`}
+          type="author"
+          width={224}
+          height={298}
+          className="aspect-[3/4] w-full max-w-56 transition-shadow group-hover:shadow-lg"
         />
         <p className="text-sm font-medium leading-tight truncate w-full">
           {author.name}

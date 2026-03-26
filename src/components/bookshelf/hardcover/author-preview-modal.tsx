@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import AuthorPhoto from "src/components/bookshelf/authors/author-photo";
+import OptimizedImage from "src/components/shared/optimized-image";
 import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
 import Label from "src/components/ui/label";
@@ -233,9 +233,12 @@ export default function AuthorPreviewModal({
             {authorLoading ? (
               <Skeleton className="h-20 w-20 rounded-full" />
             ) : (
-              <AuthorPhoto
-                name={displayName}
-                imageUrl={displayImage}
+              <OptimizedImage
+                src={displayImage}
+                alt={`${displayName} photo`}
+                type="author"
+                width={80}
+                height={80}
                 className="h-20 w-20 rounded-full"
               />
             )}
