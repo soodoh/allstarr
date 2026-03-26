@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createApiFetcher } from "../api-cache";
+import { createApiFetcher, ApiRateLimitError } from "../api-cache";
 
 function makeFetcher(overrides?: {
   ttlMs?: number;
@@ -128,5 +128,182 @@ describe("createApiFetcher — cache", () => {
     expect(fetcher.size).toBe(1);
     await fetcher.fetch("b", () => Promise.resolve(2));
     expect(fetcher.size).toBe(2);
+  });
+});
+
+describe("createApiFetcher — rate limiting", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("allows requests within the rate limit window", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 3, windowMs: 1000 },
+      retry: { maxRetries: 0, baseDelayMs: 100 },
+    });
+
+    let callCount = 0;
+    const fetchFn = () => {
+      callCount += 1;
+      return Promise.resolve(callCount);
+    };
+
+    await fetcher.fetch("a", fetchFn);
+    await fetcher.fetch("b", fetchFn);
+    await fetcher.fetch("c", fetchFn);
+
+    expect(callCount).toBe(3);
+  });
+
+  it("delays requests when rate limit window is full", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 2, windowMs: 1000 },
+      retry: { maxRetries: 0, baseDelayMs: 100 },
+    });
+
+    let callCount = 0;
+    const fetchFn = () => {
+      callCount += 1;
+      return Promise.resolve(callCount);
+    };
+
+    await fetcher.fetch("a", fetchFn);
+    await fetcher.fetch("b", fetchFn);
+
+    // Third request should be delayed
+    const thirdPromise = fetcher.fetch("c", fetchFn);
+    expect(callCount).toBe(2); // Not yet called
+
+    // Advance past the rate limit window
+    await vi.advanceTimersByTimeAsync(1100);
+    await thirdPromise;
+    expect(callCount).toBe(3);
+  });
+});
+
+describe("createApiFetcher — retry", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries on ApiRateLimitError", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 1000, windowMs: 1000 },
+      retry: { maxRetries: 2, baseDelayMs: 100 },
+    });
+
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiRateLimitError())
+      .mockResolvedValueOnce("success");
+
+    const resultPromise = fetcher.fetch("key", fetchFn);
+    await vi.advanceTimersByTimeAsync(150);
+    const result = await resultPromise;
+
+    expect(result).toBe("success");
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on error with status 429", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 1000, windowMs: 1000 },
+      retry: { maxRetries: 2, baseDelayMs: 100 },
+    });
+
+    const err429 = new Error("rate limited");
+    (err429 as any).status = 429;
+
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(err429)
+      .mockResolvedValueOnce("success");
+
+    const resultPromise = fetcher.fetch("key", fetchFn);
+    await vi.advanceTimersByTimeAsync(150);
+    const result = await resultPromise;
+
+    expect(result).toBe("success");
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws immediately on non-429 errors", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 1000, windowMs: 1000 },
+      retry: { maxRetries: 3, baseDelayMs: 100 },
+    });
+
+    const fetchFn = vi.fn().mockRejectedValue(new Error("network error"));
+
+    await expect(fetcher.fetch("key", fetchFn)).rejects.toThrow(
+      "network error",
+    );
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws after exhausting all retries", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 1000, windowMs: 1000 },
+      retry: { maxRetries: 2, baseDelayMs: 100 },
+    });
+
+    const fetchFn = vi.fn().mockRejectedValue(new ApiRateLimitError());
+
+    const resultPromise = fetcher.fetch("key", fetchFn).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(500);
+
+    const error = await resultPromise;
+    expect(error).toBeInstanceOf(ApiRateLimitError);
+    expect(fetchFn).toHaveBeenCalledTimes(3); // initial + 2 retries
+  });
+
+  it("uses exponential backoff", async () => {
+    const fetcher = createApiFetcher({
+      name: "test",
+      cache: { ttlMs: 60_000, maxEntries: 100 },
+      rateLimit: { maxRequests: 1000, windowMs: 1000 },
+      retry: { maxRetries: 3, baseDelayMs: 1000 },
+    });
+
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiRateLimitError()) // attempt 0
+      .mockRejectedValueOnce(new ApiRateLimitError()) // attempt 1
+      .mockResolvedValueOnce("success"); // attempt 2
+
+    const resultPromise = fetcher.fetch("key", fetchFn);
+
+    // After 999ms: only initial attempt should have been called
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+
+    // After 1000ms (base * 2^0): first retry fires
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    // After 2000ms more (base * 2^1): second retry fires
+    await vi.advanceTimersByTimeAsync(2000);
+    const result = await resultPromise;
+
+    expect(result).toBe("success");
+    expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 });
