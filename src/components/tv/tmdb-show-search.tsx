@@ -13,6 +13,7 @@ import { Card, CardContent } from "src/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "src/components/ui/dialog";
@@ -84,21 +85,23 @@ function ShowPreviewModal({
     enabled: open && show.id > 0,
   });
 
-  const { data: allProfiles = [] } = useQuery({
+  const { data: allProfiles } = useQuery({
     ...downloadProfilesListQuery(),
     enabled: open,
   });
 
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [monitorOption, setMonitorOption] = useState<string>("all");
-  const [seriesType, setSeriesType] = useState<string>("standard");
+  const [seriesType, setSeriesType] = useState<string>(() =>
+    isAnime(show.origin_country, show.genre_ids) ? "anime" : "standard",
+  );
   const [useSeasonFolder, setSeasonFolder] = useState(true);
   const [searchOnAdd, setSearchOnAdd] = useState(false);
   const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
   const [episodeGroupId, setEpisodeGroupId] = useState<string | null>(null);
 
   const tvProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "tv"),
+    () => (allProfiles ?? []).filter((p) => p.contentType === "tv"),
     [allProfiles],
   );
 
@@ -106,16 +109,8 @@ function ShowPreviewModal({
   useEffect(() => {
     if (tvProfiles.length > 0) {
       setDownloadProfileIds(tvProfiles.map((p) => p.id));
-    } else {
-      setDownloadProfileIds([]);
     }
   }, [tvProfiles]);
-
-  useEffect(() => {
-    if (isAnime(show.origin_country, show.genre_ids)) {
-      setSeriesType("anime");
-    }
-  }, [show.origin_country, show.genre_ids]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -168,6 +163,9 @@ function ShowPreviewModal({
       >
         <DialogHeader>
           <DialogTitle className="sr-only">{show.name}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Add {show.name} to your library
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
