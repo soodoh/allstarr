@@ -4,10 +4,11 @@ import { useNavigate } from "@tanstack/react-router";
 import BaseBookTable from "src/components/bookshelf/books/base-book-table";
 import type {
   BookTableRow,
-  ColumnConfig,
+  ColumnKey,
 } from "src/components/bookshelf/books/base-book-table";
 import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
+import { useTableColumns } from "src/hooks/use-table-columns";
 
 type Book = {
   id: number;
@@ -40,15 +41,6 @@ type BookTableProps = {
   isTogglePending?: boolean;
   children?: ReactNode;
 };
-
-const COLUMNS: ColumnConfig[] = [
-  { key: "title", sortable: true },
-  { key: "author", sortable: true },
-  { key: "releaseDate", sortable: true },
-  { key: "series", sortable: true },
-  { key: "readers", sortable: true },
-  { key: "rating", sortable: true },
-];
 
 function mapBookToRow(book: Book): BookTableRow {
   return {
@@ -90,6 +82,22 @@ export default function BookTable({
   children,
 }: BookTableProps): JSX.Element {
   const navigate = useNavigate();
+  const { visibleColumns } = useTableColumns("books");
+
+  const columns = useMemo(
+    () =>
+      visibleColumns.map((col) => ({
+        key: col.key as ColumnKey,
+        sortable:
+          col.key === "title" ||
+          col.key === "author" ||
+          col.key === "releaseDate" ||
+          col.key === "series" ||
+          col.key === "readers" ||
+          col.key === "rating",
+      })),
+    [visibleColumns],
+  );
 
   const rows = useMemo(() => books.map(mapBookToRow), [books]);
 
@@ -128,7 +136,7 @@ export default function BookTable({
   return (
     <BaseBookTable
       rows={rows}
-      columns={COLUMNS}
+      columns={columns}
       sortKey={sortKey}
       sortDir={sortDir}
       onSort={onSort}
