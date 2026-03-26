@@ -1,8 +1,3 @@
-ALTER TABLE `download_profiles` ADD `series_types` text DEFAULT '["standard","daily","anime"]' NOT NULL;--> statement-breakpoint
-UPDATE download_profiles SET series_types = '["standard","daily"]'
-  WHERE content_type = 'tv';--> statement-breakpoint
-INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, series_types, min_custom_format_score, upgrade_until_custom_format_score)
-VALUES ('Anime 1080p', './data/anime/1080p', 0, '[]', 1, 'tv', '[5070]', 'tv', 'en', '["anime"]', 0, 10000);--> statement-breakpoint
 UPDATE download_profiles SET
   cutoff = (SELECT id FROM download_formats WHERE title = 'Remux-1080p' AND content_types LIKE '%"movie"%' LIMIT 1),
   items = json_array(
