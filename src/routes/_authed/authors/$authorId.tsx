@@ -204,6 +204,7 @@ type DownloadProfileInfo = { id: number; name: string; icon: string };
 const BOOKS_TAB_COLUMNS = [
   { key: "title" as const, sortable: true },
   { key: "releaseDate" as const, sortable: true },
+  { key: "series" as const, sortable: true },
   { key: "readers" as const, sortable: true },
   { key: "rating" as const, sortable: true },
   { key: "format" as const },
