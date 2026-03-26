@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -60,23 +61,25 @@ export default function BookEditDialog({
           <DialogDescription>Configure book-level settings.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between gap-4 py-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="auto-switch-edition">
-              Automatically switch edition
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              When enabled, the monitored edition will automatically switch to a
-              better match when new editions are discovered during metadata
-              refreshes.
-            </p>
+        <DialogBody>
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-switch-edition">
+                Automatically switch edition
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                When enabled, the monitored edition will automatically switch to
+                a better match when new editions are discovered during metadata
+                refreshes.
+              </p>
+            </div>
+            <Switch
+              id="auto-switch-edition"
+              checked={autoSwitch}
+              onCheckedChange={setAutoSwitch}
+            />
           </div>
-          <Switch
-            id="auto-switch-edition"
-            checked={autoSwitch}
-            onCheckedChange={setAutoSwitch}
-          />
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
