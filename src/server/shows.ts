@@ -11,7 +11,7 @@ import {
   episodeDownloadProfiles,
   history,
 } from "src/db/schema";
-import { eq, sql, and, desc, max, inArray } from "drizzle-orm";
+import { eq, sql, and, desc, asc, max, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   addShowSchema,
@@ -25,7 +25,11 @@ import {
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
 import { TMDB_IMAGE_BASE } from "./tmdb/types";
-import type { TmdbShowDetail, TmdbSeasonDetail } from "./tmdb/types";
+import type {
+  TmdbShowDetail,
+  TmdbSeasonDetail,
+  TmdbEpisodeGroupDetail,
+} from "./tmdb/types";
 import { searchForShow } from "./auto-search";
 import * as fs from "node:fs";
 
@@ -185,6 +189,116 @@ function applyMonitoringOption(
   }
 }
 
+function computeAbsoluteNumbers(showId: number): void {
+  // Only compute for anime shows
+  const show = db
+    .select({ seriesType: shows.seriesType })
+    .from(shows)
+    .where(eq(shows.id, showId))
+    .get();
+
+  if (!show || show.seriesType !== "anime") {
+    return;
+  }
+
+  // Get non-specials seasons ordered by season number
+  const nonSpecialSeasons = db
+    .select({ id: seasons.id, seasonNumber: seasons.seasonNumber })
+    .from(seasons)
+    .where(and(eq(seasons.showId, showId), sql`${seasons.seasonNumber} > 0`))
+    .orderBy(asc(seasons.seasonNumber))
+    .all();
+
+  if (nonSpecialSeasons.length === 0) {
+    return;
+  }
+
+  // Get episodes for each season, ordered by episode number
+  const seasonEpisodes = nonSpecialSeasons.map((season) => ({
+    season,
+    episodes: db
+      .select({ id: episodes.id, episodeNumber: episodes.episodeNumber })
+      .from(episodes)
+      .where(eq(episodes.seasonId, season.id))
+      .orderBy(asc(episodes.episodeNumber))
+      .all(),
+  }));
+
+  // Determine numbering type
+  const isSingleSeason = nonSpecialSeasons.length === 1;
+  const secondSeasonEpisodes = seasonEpisodes[1]?.episodes;
+  const isContinuous =
+    !isSingleSeason &&
+    secondSeasonEpisodes !== null &&
+    secondSeasonEpisodes !== undefined &&
+    secondSeasonEpisodes.length > 0 &&
+    secondSeasonEpisodes[0].episodeNumber > 1;
+
+  if (isSingleSeason || isContinuous) {
+    // Episode number IS the absolute number
+    for (const { episodes: eps } of seasonEpisodes) {
+      for (const ep of eps) {
+        db.update(episodes)
+          .set({ absoluteNumber: ep.episodeNumber })
+          .where(eq(episodes.id, ep.id))
+          .run();
+      }
+    }
+  } else {
+    // Multi-season with reset numbering — compute cumulative
+    let cumulative = 0;
+    for (const { episodes: eps } of seasonEpisodes) {
+      for (const ep of eps) {
+        cumulative += 1;
+        db.update(episodes)
+          .set({ absoluteNumber: cumulative })
+          .where(eq(episodes.id, ep.id))
+          .run();
+      }
+    }
+  }
+}
+
+async function importFromEpisodeGroup(
+  showId: number,
+  groupDetail: TmdbEpisodeGroupDetail,
+): Promise<void> {
+  const sortedGroups = groupDetail.groups.toSorted((a, b) => a.order - b.order);
+
+  for (const group of sortedGroups) {
+    const season = db
+      .insert(seasons)
+      .values({
+        showId,
+        seasonNumber: group.order,
+        overview: null,
+        posterUrl: null,
+      })
+      .returning()
+      .get();
+
+    if (group.episodes.length > 0) {
+      db.insert(episodes)
+        .values(
+          group.episodes
+            .toSorted((a, b) => a.order - b.order)
+            .map((ep) => ({
+              showId,
+              seasonId: season.id,
+              episodeNumber: ep.order + 1,
+              title: ep.name,
+              overview: ep.overview || null,
+              airDate: ep.air_date,
+              runtime: ep.runtime,
+              tmdbId: ep.id,
+              hasFile: false,
+            })),
+        )
+        .run();
+    }
+  }
+}
+
 export const addShowFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => addShowSchema.parse(d))
   .handler(async ({ data }) => {
@@ -237,6 +351,7 @@ export const addShowFn = createServerFn({ method: "POST" })
         genres,
         posterUrl,
         fanartUrl,
+        episodeGroupId: data.episodeGroupId,
       })
       .returning()
       .get();
@@ -249,44 +364,56 @@ export const addShowFn = createServerFn({ method: "POST" })
     }
 
     // Fetch and insert seasons and episodes
-    for (const seasonSummary of raw.seasons) {
-      const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
-        `/tv/${data.tmdbId}/season/${seasonSummary.season_number}`,
+    if (data.episodeGroupId) {
+      // Import from episode group
+      const groupDetail = await tmdbFetch<TmdbEpisodeGroupDetail>(
+        `/tv/episode_groups/${data.episodeGroupId}`,
       );
+      await importFromEpisodeGroup(show.id, groupDetail);
+    } else {
+      // Default TMDB import
+      for (const seasonSummary of raw.seasons) {
+        const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
+          `/tv/${data.tmdbId}/season/${seasonSummary.season_number}`,
+        );
 
-      const season = db
-        .insert(seasons)
-        .values({
-          showId: show.id,
-          seasonNumber: seasonSummary.season_number,
-          overview: seasonSummary.overview || null,
-          posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
-        })
-        .returning()
-        .get();
+        const season = db
+          .insert(seasons)
+          .values({
+            showId: show.id,
+            seasonNumber: seasonSummary.season_number,
+            overview: seasonSummary.overview || null,
+            posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+          })
+          .returning()
+          .get();
 
-      // Insert episodes for this season
-      if (seasonDetail.episodes.length > 0) {
-        db.insert(episodes)
-          .values(
-            seasonDetail.episodes.map((ep) => ({
-              showId: show.id,
-              seasonId: season.id,
-              episodeNumber: ep.episode_number,
-              title: ep.name,
-              overview: ep.overview || null,
-              airDate: ep.air_date,
-              runtime: ep.runtime,
-              tmdbId: ep.id,
-              hasFile: false,
-            })),
-          )
-          .run();
+        // Insert episodes for this season
+        if (seasonDetail.episodes.length > 0) {
+          db.insert(episodes)
+            .values(
+              seasonDetail.episodes.map((ep) => ({
+                showId: show.id,
+                seasonId: season.id,
+                episodeNumber: ep.episode_number,
+                title: ep.name,
+                overview: ep.overview || null,
+                airDate: ep.air_date,
+                runtime: ep.runtime,
+                tmdbId: ep.id,
+                hasFile: false,
+              })),
+            )
+            .run();
+        }
       }
     }
 
     // Apply monitoring option
     applyMonitoringOption(show.id, data.monitorOption, data.downloadProfileIds);
+
+    // Compute absolute episode numbers for anime shows
+    computeAbsoluteNumbers(show.id);
 
     // Insert history event
     db.insert(history)
