@@ -228,8 +228,7 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
       const runtime = detail.runtime ?? 0;
       const genres = detail.genres.map((g) => g.name);
       const posterUrl = transformImagePath(detail.poster_path, "w500") ?? "";
-      const fanartUrl =
-        transformImagePath(detail.backdrop_path, "original") ?? "";
+      const fanartUrl = transformImagePath(detail.backdrop_path, "w1280") ?? "";
       const imdbId = detail.imdb_id ?? null;
 
       const movie = db
@@ -361,7 +360,7 @@ async function syncCollection(
       sortTitle: generateSortTitle(raw.name),
       overview: raw.overview,
       posterUrl: transformImagePath(raw.poster_path, "w500"),
-      fanartUrl: transformImagePath(raw.backdrop_path, "original"),
+      fanartUrl: transformImagePath(raw.backdrop_path, "w1280"),
       lastInfoSync: new Date(),
       updatedAt: new Date(),
     })
@@ -452,8 +451,7 @@ async function syncCollection(
     const runtime = detail.runtime ?? 0;
     const genres = detail.genres.map((g) => g.name);
     const posterUrl = transformImagePath(detail.poster_path, "w500") ?? "";
-    const fanartUrl =
-      transformImagePath(detail.backdrop_path, "original") ?? "";
+    const fanartUrl = transformImagePath(detail.backdrop_path, "w1280") ?? "";
     const imdbId = detail.imdb_id ?? null;
 
     const movie = db

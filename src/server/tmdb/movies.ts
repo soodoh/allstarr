@@ -16,6 +16,6 @@ export const getTmdbMovieDetailFn = createServerFn({ method: "GET" })
       status: mapMovieStatus(raw.status),
       studio,
       poster_path: transformImagePath(raw.poster_path, "w500"),
-      backdrop_path: transformImagePath(raw.backdrop_path, "original"),
+      backdrop_path: transformImagePath(raw.backdrop_path, "w1280"),
     };
   });

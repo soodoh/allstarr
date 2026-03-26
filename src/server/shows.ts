@@ -216,7 +216,7 @@ export const addShowFn = createServerFn({ method: "POST" })
     const runtime = raw.episode_run_time[0] ?? 0;
     const genres = raw.genres.map((g) => g.name);
     const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "original") ?? "";
+    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
     const imdbId = raw.external_ids?.imdb_id ?? null;
 
     // Insert show
@@ -686,7 +686,7 @@ export const refreshShowMetadataFn = createServerFn({ method: "POST" })
     const runtime = raw.episode_run_time[0] ?? 0;
     const genres = raw.genres.map((g) => g.name);
     const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "original") ?? "";
+    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
     const imdbId = raw.external_ids?.imdb_id ?? null;
 
     db.update(shows)

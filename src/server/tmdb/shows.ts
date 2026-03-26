@@ -42,7 +42,7 @@ export const getTmdbShowDetailFn = createServerFn({ method: "GET" })
       ...raw,
       status: mapShowStatus(raw.status),
       poster_path: transformImagePath(raw.poster_path, "w500"),
-      backdrop_path: transformImagePath(raw.backdrop_path, "original"),
+      backdrop_path: transformImagePath(raw.backdrop_path, "w1280"),
       seasons: raw.seasons.map((season) =>
         Object.assign(season, {
           poster_path: transformImagePath(season.poster_path, "w500"),
