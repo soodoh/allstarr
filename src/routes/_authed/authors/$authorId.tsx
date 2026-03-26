@@ -491,7 +491,10 @@ function BooksTab({
           }
         >
           {isFetchingNextPage && (
-            <BookTableRowsSkeleton columns={BOOKS_TAB_COLUMNS.length} />
+            <BookTableRowsSkeleton
+              columns={BOOKS_TAB_COLUMNS.length}
+              hasLeadingCell
+            />
           )}
         </BaseBookTable>
         <div ref={sentinelRef} className="h-1" />
