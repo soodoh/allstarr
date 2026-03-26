@@ -32,9 +32,7 @@ import { tmdbSearchShowsQuery } from "src/lib/queries/tmdb";
 import { showExistenceQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { useAddShow } from "src/hooks/mutations/shows";
-import EpisodeGroupSelector, {
-  isAnime,
-} from "src/components/tv/episode-group-selector";
+import EpisodeGroupSelector from "src/components/tv/episode-group-selector";
 import type { TmdbTvResult } from "src/server/tmdb/types";
 
 function extractYear(firstAirDate: string): string | null {
@@ -59,9 +57,17 @@ const MONITOR_OPTIONS = [
 ] as const;
 
 const SERIES_TYPES = [
-  { value: "standard", label: "Standard" },
-  { value: "daily", label: "Daily" },
-  { value: "anime", label: "Anime" },
+  {
+    value: "standard",
+    label: "Standard",
+    description: "Season and episode numbers (S01E05)",
+  },
+  { value: "daily", label: "Daily / Date", description: "Date (2020-05-25)" },
+  {
+    value: "anime",
+    label: "Anime / Absolute",
+    description: "Absolute episode number (005)",
+  },
 ] as const;
 
 // ── Preview Modal ─────────────────────────────────────────────────────────
@@ -92,9 +98,7 @@ function ShowPreviewModal({
 
   const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
   const [monitorOption, setMonitorOption] = useState<string>("all");
-  const [seriesType, setSeriesType] = useState<string>(() =>
-    isAnime(show.origin_country, show.genre_ids) ? "anime" : "standard",
-  );
+  const [seriesType, setSeriesType] = useState<string>("standard");
   const [useSeasonFolder, setSeasonFolder] = useState(true);
   const [searchOnAdd, setSearchOnAdd] = useState(false);
   const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
@@ -246,13 +250,18 @@ function ShowPreviewModal({
               <div className="space-y-2">
                 <Label>Series Type</Label>
                 <Select value={seriesType} onValueChange={setSeriesType}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full text-left">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {SERIES_TYPES.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                        <div>
+                          <div>{opt.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {opt.description}
+                          </div>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
