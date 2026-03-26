@@ -1,7 +1,6 @@
 type CacheEntry = {
   data: unknown;
   expires: number;
-  accessOrder: number;
 };
 
 type ApiFetcherOptions = {
@@ -37,7 +36,6 @@ export class ApiRateLimitError extends Error {
 export function createApiFetcher(options: ApiFetcherOptions): ApiFetcher {
   const cache = new Map<string, CacheEntry>();
   const requestTimestamps: number[] = [];
-  let accessCounter = 0;
 
   // Periodic sweep to free expired entries
   const sweepInterval = setInterval(() => {
@@ -63,32 +61,20 @@ export function createApiFetcher(options: ApiFetcherOptions): ApiFetcher {
       cache.delete(key);
       return undefined;
     }
-    // LRU promotion: update access order
-    accessCounter += 1;
-    entry.accessOrder = accessCounter;
+    // LRU promotion: move to end of Map iteration order
+    cache.delete(key);
+    cache.set(key, entry);
     return entry.data as T;
   }
 
   function setCache(key: string, data: unknown): void {
     if (cache.size >= options.cache.maxEntries) {
-      // Find the least recently used entry
-      let lruKey: string | undefined;
-      let lruOrder = Number.POSITIVE_INFINITY;
-      for (const [k, entry] of cache) {
-        if (entry.accessOrder < lruOrder) {
-          lruOrder = entry.accessOrder;
-          lruKey = k;
-        }
-      }
-      if (lruKey !== undefined) {
-        cache.delete(lruKey);
+      const firstKey = cache.keys().next().value;
+      if (firstKey !== undefined) {
+        cache.delete(firstKey);
       }
     }
-    cache.set(key, {
-      data,
-      expires: Date.now() + options.cache.ttlMs,
-      accessOrder: 0, // New entries start unpromoted; getCached promotes on access
-    });
+    cache.set(key, { data, expires: Date.now() + options.cache.ttlMs });
   }
 
   async function waitForRateLimit(): Promise<void> {
