@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "src/components/ui/button";
+import OptimizedImage from "src/components/shared/optimized-image";
 import { getProfileIcon } from "src/lib/profile-icons";
 import { cn } from "src/lib/utils";
 
@@ -47,7 +48,7 @@ function formatDuration(minutes: number): string {
 
 function EditionDetails({
   edition,
-  fallbackIcon: Icon,
+  fallbackIcon: _Icon,
 }: {
   edition: EditionData;
   fallbackIcon: LucideIcon;
@@ -56,17 +57,14 @@ function EditionDetails({
 
   return (
     <>
-      {coverUrl ? (
-        <img
-          src={coverUrl}
-          alt={edition.title}
-          className="h-[72px] w-[48px] rounded object-cover shrink-0"
-        />
-      ) : (
-        <div className="h-[72px] w-[48px] rounded bg-muted flex items-center justify-center shrink-0">
-          <Icon className="h-5 w-5 text-muted-foreground" />
-        </div>
-      )}
+      <OptimizedImage
+        src={coverUrl}
+        alt={edition.title}
+        type="book"
+        width={48}
+        height={72}
+        className="h-[72px] w-[48px] rounded shrink-0"
+      />
 
       <div className="flex flex-col gap-1 min-w-0">
         <p className="text-sm font-medium truncate">{edition.title}</p>

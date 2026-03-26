@@ -1,5 +1,7 @@
 import type { JSX } from "react";
-import { Film, Pencil, PlusCircle } from "lucide-react";
+import { Pencil, PlusCircle } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import { Button } from "src/components/ui/button";
 import CollectionMoviePoster from "./collection-movie-poster";
 
@@ -48,19 +50,14 @@ export default function CollectionCard({
   return (
     <div className="flex gap-4 rounded-lg border border-border bg-card p-4">
       {/* Poster */}
-      <div className="w-[80px] h-[120px] flex-shrink-0 rounded-md overflow-hidden bg-muted">
-        {collection.posterUrl ? (
-          <img
-            src={collection.posterUrl}
-            alt={collection.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Film className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
-      </div>
+      <OptimizedImage
+        src={resizeTmdbUrl(collection.posterUrl, "w185")}
+        alt={collection.title}
+        type="movie"
+        width={80}
+        height={120}
+        className="w-[80px] h-[120px] flex-shrink-0 rounded-md"
+      />
 
       {/* Content */}
       <div className="flex-1 min-w-0">

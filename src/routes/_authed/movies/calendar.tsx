@@ -1,7 +1,9 @@
 import type { JSX } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Calendar, Film } from "lucide-react";
+import { Calendar } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import { useMemo } from "react";
 import {
   Card,
@@ -117,17 +119,14 @@ function MovieCalendarPage(): JSX.Element {
                   >
                     {/* Small poster */}
                     <div className="w-12 shrink-0">
-                      {movie.posterUrl ? (
-                        <img
-                          src={movie.posterUrl}
-                          alt={movie.title}
-                          className="w-12 aspect-[2/3] rounded-sm object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 aspect-[2/3] rounded-sm bg-muted flex items-center justify-center">
-                          <Film className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
+                      <OptimizedImage
+                        src={resizeTmdbUrl(movie.posterUrl, "w154")}
+                        alt={movie.title}
+                        type="movie"
+                        width={48}
+                        height={72}
+                        className="w-12 aspect-[2/3] rounded-sm"
+                      />
                     </div>
 
                     {/* Title + year */}

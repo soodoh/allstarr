@@ -1,7 +1,9 @@
 import type { JSX } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Calendar, Tv } from "lucide-react";
+import { Calendar } from "lucide-react";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import { useMemo } from "react";
 import {
   Card,
@@ -92,17 +94,14 @@ function TvCalendarPage(): JSX.Element {
                   >
                     {/* Small poster */}
                     <div className="w-12 shrink-0">
-                      {show.posterUrl ? (
-                        <img
-                          src={show.posterUrl}
-                          alt={show.title}
-                          className="w-12 aspect-[2/3] rounded-sm object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 aspect-[2/3] rounded-sm bg-muted flex items-center justify-center">
-                          <Tv className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
+                      <OptimizedImage
+                        src={resizeTmdbUrl(show.posterUrl, "w154")}
+                        alt={show.title}
+                        type="show"
+                        width={48}
+                        height={72}
+                        className="w-12 aspect-[2/3] rounded-sm"
+                      />
                     </div>
 
                     {/* Title + year + network */}
