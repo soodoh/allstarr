@@ -2,7 +2,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "../middleware";
 import { tmdbFetch, TMDB_IMAGE_BASE } from "./client";
-import type { TmdbShowDetail, TmdbSeasonDetail } from "./types";
+import type {
+  TmdbShowDetail,
+  TmdbSeasonDetail,
+  TmdbEpisodeGroupsResponse,
+  TmdbEpisodeGroupDetail,
+} from "./types";
 
 type ShowStatus = "continuing" | "ended" | "canceled" | "upcoming";
 
@@ -66,5 +71,38 @@ export const getTmdbSeasonDetailFn = createServerFn({ method: "GET" })
           still_path: transformImagePath(episode.still_path, "w500"),
         }),
       ),
+    };
+  });
+
+export const getTmdbEpisodeGroupsFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { tmdbId: number }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const raw = await tmdbFetch<TmdbEpisodeGroupsResponse>(
+      `/tv/${data.tmdbId}/episode_groups`,
+    );
+    return raw.results;
+  });
+
+export const getTmdbEpisodeGroupDetailFn = createServerFn({ method: "GET" })
+  .inputValidator((d: { groupId: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const raw = await tmdbFetch<TmdbEpisodeGroupDetail>(
+      `/tv/episode_group/${data.groupId}`,
+    );
+    return {
+      ...raw,
+      groups: raw.groups
+        .toSorted((a, b) => a.order - b.order)
+        .map((group) => {
+          group.episodes = group.episodes
+            .toSorted((a, b) => a.order - b.order)
+            .map((ep) => {
+              ep.still_path = transformImagePath(ep.still_path, "w500");
+              return ep;
+            });
+          return group;
+        }),
     };
   });

@@ -27,6 +27,7 @@ export const shows = sqliteTable(
     ),
     useSeasonFolder: integer("use_season_folder").default(1).notNull(),
     monitorNewSeasons: text("monitor_new_seasons").notNull().default("all"),
+    episodeGroupId: text("episode_group_id"),
   },
   (t) => [unique("shows_tmdb_id_unique").on(t.tmdbId)],
 );

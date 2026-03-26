@@ -17,6 +17,7 @@ export const addShowSchema = z.object({
   useSeasonFolder: z.boolean().default(true),
   searchOnAdd: z.boolean().default(false),
   searchCutoffUnmet: z.boolean().default(false),
+  episodeGroupId: z.string().nullable().default(null),
 });
 
 export const updateShowSchema = z.object({
@@ -25,6 +26,7 @@ export const updateShowSchema = z.object({
   monitorNewSeasons: z.enum(["all", "none", "new"]).optional(),
   useSeasonFolder: z.boolean().optional(),
   seriesType: z.enum(["standard", "daily", "anime"]).optional(),
+  episodeGroupId: z.string().nullable().optional(),
 });
 
 export const deleteShowSchema = z.object({
