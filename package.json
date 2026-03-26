@@ -21,7 +21,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "oxlint --fix"
+      "oxlint --fix --config oxlint.config.ts"
     ],
     "*.{js,jsx,ts,tsx,css,html,json,md,mdx,yaml,yml}": "prettier --write"
   },
@@ -34,6 +34,7 @@
     "@tanstack/react-router": "^1.159.10",
     "@tanstack/react-router-ssr-query": "^1.162.8",
     "@tanstack/react-start": "^1.159.11",
+    "@unpic/react": "^1.0.2",
     "adm-zip": "^0.5.16",
     "better-auth": "^1.4.18",
     "class-variance-authority": "^0.7.1",
