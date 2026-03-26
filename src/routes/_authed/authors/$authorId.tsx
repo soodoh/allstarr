@@ -69,8 +69,13 @@ import ConfirmDialog from "src/components/shared/confirm-dialog";
 import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 import BaseBookTable from "src/components/bookshelf/books/base-book-table";
-import type { BookTableRow } from "src/components/bookshelf/books/base-book-table";
+import type {
+  BookTableRow,
+  ColumnKey,
+} from "src/components/bookshelf/books/base-book-table";
 import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
+import { useTableColumns } from "src/hooks/use-table-columns";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import type { HardcoverSearchItem } from "src/server/search";
 import {
   authorDetailQuery,
@@ -201,22 +206,6 @@ type AuthorSeries = {
 
 type DownloadProfileInfo = { id: number; name: string; icon: string };
 
-const BOOKS_TAB_COLUMNS = [
-  { key: "title" as const, sortable: true },
-  { key: "releaseDate" as const, sortable: true },
-  { key: "series" as const, sortable: true },
-  { key: "readers" as const, sortable: true },
-  { key: "rating" as const, sortable: true },
-  { key: "format" as const },
-  { key: "pages" as const },
-  { key: "isbn10" as const },
-  { key: "isbn13" as const },
-  { key: "asin" as const },
-  { key: "score" as const },
-  { key: "author" as const },
-  { key: "monitored" as const },
-];
-
 function BooksTab({
   currentAuthorId,
   availableLanguages,
@@ -230,6 +219,22 @@ function BooksTab({
   const monitorBookProfile = useMonitorBookProfile();
   const unmonitorBookProfile = useUnmonitorBookProfile();
   const navigate = useNavigate();
+  const { visibleColumns } = useTableColumns("author-books");
+
+  const columns = useMemo(
+    () =>
+      visibleColumns.map((col) => ({
+        key: col.key as ColumnKey,
+        sortable:
+          col.key === "title" ||
+          col.key === "releaseDate" ||
+          col.key === "series" ||
+          col.key === "readers" ||
+          col.key === "rating",
+      })),
+    [visibleColumns],
+  );
+
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [unmonitorTarget, setUnmonitorTarget] = useState<{
@@ -466,13 +471,14 @@ function BooksTab({
           <span className="text-sm text-muted-foreground whitespace-nowrap">
             {total} book{total === 1 ? "" : "s"}
           </span>
+          <ColumnSettingsPopover tableId="author-books" />
         </div>
       </div>
 
       <div className="overflow-x-auto">
         <BaseBookTable
           rows={rows}
-          columns={BOOKS_TAB_COLUMNS}
+          columns={columns}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
@@ -491,10 +497,7 @@ function BooksTab({
           }
         >
           {isFetchingNextPage && (
-            <BookTableRowsSkeleton
-              columns={BOOKS_TAB_COLUMNS.length}
-              hasLeadingCell
-            />
+            <BookTableRowsSkeleton columns={columns.length} hasLeadingCell />
           )}
         </BaseBookTable>
         <div ref={sentinelRef} className="h-1" />
