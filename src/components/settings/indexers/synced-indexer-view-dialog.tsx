@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -79,133 +80,138 @@ export default function SyncedIndexerEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {indexer && (
-          <div className="space-y-4">
-            {/* Name */}
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={indexer.name} disabled />
-            </div>
-
-            {/* RSS / Search toggles */}
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <div className="flex items-center gap-2">
-                <Switch checked={indexer.enableRss} disabled />
-                <Label className="opacity-50">RSS</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={indexer.enableAutomaticSearch} disabled />
-                <Label className="opacity-50">Automatic Search</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={indexer.enableInteractiveSearch} disabled />
-                <Label className="opacity-50">Interactive Search</Label>
-              </div>
-            </div>
-
-            {/* Base URL */}
-            <div className="space-y-2">
-              <Label>Base URL</Label>
-              <Input value={indexer.baseUrl} disabled />
-            </div>
-
-            {/* Implementation / Protocol */}
-            <div className="grid grid-cols-2 gap-3">
+        <DialogBody>
+          {indexer && (
+            <div className="space-y-4">
+              {/* Name */}
               <div className="space-y-2">
-                <Label>Implementation</Label>
-                <Input value={indexer.implementation} disabled />
+                <Label>Name</Label>
+                <Input value={indexer.name} disabled />
               </div>
-              <div className="space-y-2">
-                <Label>Protocol</Label>
-                <Input value={indexer.protocol} disabled />
+
+              {/* RSS / Search toggles */}
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch checked={indexer.enableRss} disabled />
+                  <Label className="opacity-50">RSS</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={indexer.enableAutomaticSearch} disabled />
+                  <Label className="opacity-50">Automatic Search</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={indexer.enableInteractiveSearch} disabled />
+                  <Label className="opacity-50">Interactive Search</Label>
+                </div>
               </div>
-            </div>
 
-            {/* Priority */}
-            <div className="space-y-2 w-24">
-              <Label>Priority</Label>
-              <Input value={indexer.priority} disabled />
-            </div>
-
-            {/* Categories */}
-            <div className="space-y-2">
-              <Label>Categories</Label>
-              <CategoryMultiSelect
-                value={parseCategories(indexer.categories)}
-                disabled
-              />
-            </div>
-
-            {/* Download Client — editable */}
-            {filteredClients.length > 0 && (
+              {/* Base URL */}
               <div className="space-y-2">
-                <Label htmlFor="synced-download-client">
-                  Download Client{" "}
+                <Label>Base URL</Label>
+                <Input value={indexer.baseUrl} disabled />
+              </div>
+
+              {/* Implementation / Protocol */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Implementation</Label>
+                  <Input value={indexer.implementation} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Protocol</Label>
+                  <Input value={indexer.protocol} disabled />
+                </div>
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-2 w-24">
+                <Label>Priority</Label>
+                <Input value={indexer.priority} disabled />
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-2">
+                <Label>Categories</Label>
+                <CategoryMultiSelect
+                  value={parseCategories(indexer.categories)}
+                  disabled
+                />
+              </div>
+
+              {/* Download Client — editable */}
+              {filteredClients.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="synced-download-client">
+                    Download Client{" "}
+                    <span className="text-muted-foreground text-xs">
+                      (override)
+                    </span>
+                  </Label>
+                  <Select
+                    value={downloadClientId?.toString() ?? "none"}
+                    onValueChange={(v) =>
+                      setDownloadClientId(v === "none" ? null : Number(v))
+                    }
+                  >
+                    <SelectTrigger
+                      id="synced-download-client"
+                      className="w-full"
+                    >
+                      <SelectValue>
+                        {filteredClients.find((c) => c.id === downloadClientId)
+                          ?.name ?? "(Any)"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">(Any)</SelectItem>
+                      {filteredClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Tag — editable */}
+              <div className="space-y-2">
+                <Label htmlFor="synced-tag">
+                  Tag{" "}
                   <span className="text-muted-foreground text-xs">
-                    (override)
+                    (optional)
                   </span>
                 </Label>
-                <Select
-                  value={downloadClientId?.toString() ?? "none"}
-                  onValueChange={(v) =>
-                    setDownloadClientId(v === "none" ? null : Number(v))
+                <Input
+                  id="synced-tag"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value)}
+                  placeholder=""
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={loading}
+                  onClick={() =>
+                    onSave(indexer.id, downloadClientId, tag || null)
                   }
                 >
-                  <SelectTrigger id="synced-download-client" className="w-full">
-                    <SelectValue>
-                      {filteredClients.find((c) => c.id === downloadClientId)
-                        ?.name ?? "(Any)"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">(Any)</SelectItem>
-                    {filteredClients.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {loading ? "Saving..." : "Save"}
+                </Button>
               </div>
-            )}
-
-            {/* Tag — editable */}
-            <div className="space-y-2">
-              <Label htmlFor="synced-tag">
-                Tag{" "}
-                <span className="text-muted-foreground text-xs">
-                  (optional)
-                </span>
-              </Label>
-              <Input
-                id="synced-tag"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                placeholder=""
-              />
             </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={loading}
-                onClick={() =>
-                  onSave(indexer.id, downloadClientId, tag || null)
-                }
-              >
-                {loading ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

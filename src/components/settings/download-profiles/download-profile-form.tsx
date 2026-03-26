@@ -23,6 +23,7 @@ import {
 } from "src/components/ui/select";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -823,35 +824,37 @@ export default function DownloadProfileForm({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-sm">
-            <div className="rounded-md border border-border p-3 space-y-2">
-              <div>
-                <span className="text-muted-foreground">From: </span>
-                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                  {initialValues?.rootFolderPath}
-                </code>
+          <DialogBody>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div>
+                  <span className="text-muted-foreground">From: </span>
+                  <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                    {initialValues?.rootFolderPath}
+                  </code>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">To: </span>
+                  <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                    {rootFolderPath}
+                  </code>
+                </div>
               </div>
-              <div>
-                <span className="text-muted-foreground">To: </span>
-                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                  {rootFolderPath}
-                </code>
-              </div>
-            </div>
 
-            <p>
-              <strong>{moveFileCount}</strong> file
-              {moveFileCount === 1 ? "" : "s"} will be moved.
-            </p>
-
-            <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3">
-              <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                This operation may take a while for large libraries. Files will
-                be physically moved on disk.
+              <p>
+                <strong>{moveFileCount}</strong> file
+                {moveFileCount === 1 ? "" : "s"} will be moved.
               </p>
+
+              <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  This operation may take a while for large libraries. Files
+                  will be physically moved on disk.
+                </p>
+              </div>
             </div>
-          </div>
+          </DialogBody>
 
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button

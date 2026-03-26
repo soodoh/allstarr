@@ -16,6 +16,7 @@ import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -390,36 +391,38 @@ export default function MovieDetailHeader({
           <DialogHeader>
             <DialogTitle>Edit Download Profiles</DialogTitle>
           </DialogHeader>
-          <ProfileCheckboxGroup
-            profiles={movieProfiles}
-            selectedIds={selectedProfileIds}
-            onToggle={toggleProfile}
-          />
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="space-y-1">
-              <Label>Minimum Availability</Label>
-              <p className="text-sm text-muted-foreground">
-                When the movie is considered available for download.
-              </p>
+          <DialogBody>
+            <ProfileCheckboxGroup
+              profiles={movieProfiles}
+              selectedIds={selectedProfileIds}
+              onToggle={toggleProfile}
+            />
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="space-y-1">
+                <Label>Minimum Availability</Label>
+                <p className="text-sm text-muted-foreground">
+                  When the movie is considered available for download.
+                </p>
+              </div>
+              <Select
+                value={minimumAvailability}
+                onValueChange={(v) =>
+                  setMinimumAvailability(
+                    v as "announced" | "inCinemas" | "released",
+                  )
+                }
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="announced">Announced</SelectItem>
+                  <SelectItem value="inCinemas">In Cinemas</SelectItem>
+                  <SelectItem value="released">Released</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select
-              value={minimumAvailability}
-              onValueChange={(v) =>
-                setMinimumAvailability(
-                  v as "announced" | "inCinemas" | "released",
-                )
-              }
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="announced">Announced</SelectItem>
-                <SelectItem value="inCinemas">In Cinemas</SelectItem>
-                <SelectItem value="released">Released</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -446,18 +449,22 @@ export default function MovieDetailHeader({
               {`Are you sure you want to delete "${movie.title}"? This will also remove any downloaded files.`}
             </DialogDescription>
           </DialogHeader>
-          {movie.collectionId !== null && (
-            <div className="flex items-center gap-3 py-2">
-              <Checkbox
-                id="add-exclusion"
-                checked={addExclusion}
-                onCheckedChange={(checked) => setAddExclusion(checked === true)}
-              />
-              <Label htmlFor="add-exclusion" className="cursor-pointer">
-                Prevent this movie from being re-added by collections
-              </Label>
-            </div>
-          )}
+          <DialogBody>
+            {movie.collectionId !== null && (
+              <div className="flex items-center gap-3 py-2">
+                <Checkbox
+                  id="add-exclusion"
+                  checked={addExclusion}
+                  onCheckedChange={(checked) =>
+                    setAddExclusion(checked === true)
+                  }
+                />
+                <Label htmlFor="add-exclusion" className="cursor-pointer">
+                  Prevent this movie from being re-added by collections
+                </Label>
+              </div>
+            )}
+          </DialogBody>
           <DialogFooter>
             <Button
               variant="outline"
