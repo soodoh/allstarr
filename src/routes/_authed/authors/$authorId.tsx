@@ -600,6 +600,40 @@ function dedupeByPosition(entries: MergedSeriesEntry[]): MergedSeriesEntry[] {
   return deduped;
 }
 
+/** Remove fractional-position entries whose title starts with the integer-position parent's title (partial editions). */
+function filterPartialEditions(
+  entries: MergedSeriesEntry[],
+): MergedSeriesEntry[] {
+  const integerPositionTitles = new Map<number, string>();
+  for (const entry of entries) {
+    if (!entry.position) {
+      continue;
+    }
+    const pos = Number.parseFloat(entry.position);
+    if (!Number.isFinite(pos) || !Number.isInteger(pos)) {
+      continue;
+    }
+    const title = entry.kind === "local" ? entry.book.title : entry.title;
+    integerPositionTitles.set(pos, title);
+  }
+  return entries.filter((entry) => {
+    if (!entry.position) {
+      return true;
+    }
+    const pos = Number.parseFloat(entry.position);
+    if (!Number.isFinite(pos) || Number.isInteger(pos)) {
+      return true;
+    }
+    const intPos = Math.floor(pos);
+    const parentTitle = integerPositionTitles.get(intPos);
+    if (!parentTitle) {
+      return true;
+    }
+    const title = entry.kind === "local" ? entry.book.title : entry.title;
+    return !title.toLowerCase().startsWith(parentTitle.toLowerCase());
+  });
+}
+
 // oxlint-disable-next-line complexity -- Series tab merges local/external data with expand/collapse UI
 function SeriesTab({
   seriesList,
@@ -785,7 +819,7 @@ function SeriesTab({
       }
     }
 
-    return dedupeByPosition(entries);
+    return filterPartialEditions(dedupeByPosition(entries));
   };
 
   // Precompute entry counts per series so we can filter out empty ones and show counts.
