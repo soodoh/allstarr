@@ -12,7 +12,7 @@ function transformPart(part: CollectionPart): CollectionPart {
     ? `${TMDB_IMAGE_BASE}/w500${part.poster_path}`
     : null;
   part.backdrop_path = part.backdrop_path
-    ? `${TMDB_IMAGE_BASE}/original${part.backdrop_path}`
+    ? `${TMDB_IMAGE_BASE}/w1280${part.backdrop_path}`
     : null;
   return part;
 }
@@ -30,7 +30,7 @@ export const getTmdbCollectionDetailFn = createServerFn({ method: "GET" })
         ? `${TMDB_IMAGE_BASE}/w500${raw.poster_path}`
         : null,
       backdrop_path: raw.backdrop_path
-        ? `${TMDB_IMAGE_BASE}/original${raw.backdrop_path}`
+        ? `${TMDB_IMAGE_BASE}/w1280${raw.backdrop_path}`
         : null,
       parts: raw.parts.map(transformPart),
     };
