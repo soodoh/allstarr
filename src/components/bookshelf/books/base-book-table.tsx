@@ -44,6 +44,8 @@ export type BookTableRow = {
 };
 
 export type ColumnKey =
+  | "monitored"
+  | "cover"
   | "title"
   | "author"
   | "releaseDate"
@@ -59,8 +61,7 @@ export type ColumnKey =
   | "information"
   | "language"
   | "country"
-  | "series"
-  | "monitored";
+  | "series";
 
 type ColumnDef = {
   label: string;
@@ -69,6 +70,10 @@ type ColumnDef = {
 };
 
 const COLUMN_REGISTRY: Record<ColumnKey, ColumnDef> = {
+  cover: {
+    label: "Cover",
+    render: () => null, // handled specially in the table body
+  },
   title: {
     label: "Title",
     render: (row) => <span className="font-medium">{row.title}</span>,
@@ -249,23 +254,30 @@ export default function BaseBookTable({
   children,
   className,
 }: BaseBookTableProps): JSX.Element {
-  const hasLeading = Boolean(renderLeadingCell);
-  const totalCols = columns.length + 1 + (hasLeading ? 1 : 0); // +1 for cover
+  const totalCols = columns.length;
 
   return (
     <Table className={className}>
       <colgroup>
-        {hasLeading && <col className="w-10" />}
-        <col className="w-14" />
         {columns.map((col) => (
-          <col key={col.key} />
+          <col
+            key={col.key}
+            className={cn(
+              col.key === "monitored" && "w-10",
+              col.key === "cover" && "w-14",
+            )}
+          />
         ))}
       </colgroup>
       <TableHeader>
         <TableRow>
-          {hasLeading && <TableHead />}
-          <TableHead />
           {columns.map(({ key, sortable }) => {
+            if (key === "monitored") {
+              return <TableHead key={key} className="w-10" />;
+            }
+            if (key === "cover") {
+              return <TableHead key={key} className="w-14" />;
+            }
             const def = COLUMN_REGISTRY[key];
             if (sortable && onSort) {
               return (
@@ -295,22 +307,28 @@ export default function BaseBookTable({
                 )}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
               >
-                {hasLeading && (
-                  <TableCell className="px-2">
-                    {renderLeadingCell!(row)}
-                  </TableCell>
-                )}
-                <TableCell className="min-w-14 w-14">
-                  <OptimizedImage
-                    src={row.coverUrl ?? null}
-                    alt={row.title}
-                    type="book"
-                    width={56}
-                    height={84}
-                    className="aspect-[2/3] w-full rounded-sm"
-                  />
-                </TableCell>
                 {columns.map(({ key }) => {
+                  if (key === "monitored") {
+                    return (
+                      <TableCell key={key} className="w-10 p-0">
+                        {renderLeadingCell?.(row)}
+                      </TableCell>
+                    );
+                  }
+                  if (key === "cover") {
+                    return (
+                      <TableCell key={key} className="min-w-14 w-14 p-2">
+                        <OptimizedImage
+                          src={row.coverUrl ?? null}
+                          alt={row.title}
+                          type="book"
+                          width={56}
+                          height={84}
+                          className="aspect-[2/3] w-full rounded-sm"
+                        />
+                      </TableCell>
+                    );
+                  }
                   const def = COLUMN_REGISTRY[key];
                   return (
                     <TableCell key={key} className={def.cellClassName}>
