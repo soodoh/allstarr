@@ -58,7 +58,7 @@ export default function SeasonAccordion({
   );
 
   const sortedEpisodes = [...season.episodes].toSorted(
-    (a, b) => a.episodeNumber - b.episodeNumber,
+    (a, b) => b.episodeNumber - a.episodeNumber,
   );
 
   const fileCount = sortedEpisodes.filter((ep) => ep.hasFile).length;
