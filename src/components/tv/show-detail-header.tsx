@@ -32,7 +32,7 @@ import ConfirmDialog from "src/components/shared/confirm-dialog";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
-import ShowPoster from "src/components/tv/show-poster";
+import OptimizedImage from "src/components/shared/optimized-image";
 import {
   useUpdateShow,
   useDeleteShow,
@@ -388,10 +388,14 @@ export default function ShowDetailHeader({
       {/* Three-column layout */}
       <div className="flex flex-col gap-6 xl:flex-row">
         {/* Left: Poster */}
-        <ShowPoster
-          posterUrl={show.posterUrl || null}
-          title={show.title}
-          className="w-full xl:w-44 shrink-0"
+        <OptimizedImage
+          src={show.posterUrl || null}
+          alt={`${show.title} poster`}
+          type="show"
+          width={224}
+          height={336}
+          priority
+          className="aspect-[2/3] w-full max-w-56 xl:w-44 shrink-0"
         />
 
         {/* Center: Details */}

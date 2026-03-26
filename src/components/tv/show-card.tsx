@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { JSX } from "react";
 import { Badge } from "src/components/ui/badge";
-import ShowPoster from "src/components/tv/show-poster";
+import OptimizedImage from "src/components/shared/optimized-image";
 
 type ShowCardProps = {
   show: {
@@ -35,10 +35,13 @@ export default function ShowCard({ show }: ShowCardProps): JSX.Element {
     >
       <div className="flex flex-col gap-2">
         <div className="relative">
-          <ShowPoster
-            posterUrl={show.posterUrl || null}
-            title={show.title}
-            className="w-full transition-shadow group-hover:shadow-lg"
+          <OptimizedImage
+            src={show.posterUrl || null}
+            alt={`${show.title} poster`}
+            type="show"
+            width={224}
+            height={336}
+            className="aspect-[2/3] w-full max-w-56 transition-shadow group-hover:shadow-lg"
           />
           <div className="absolute bottom-2 left-2">
             <Badge className="bg-black/70 text-white text-xs px-1.5 py-0.5">
