@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 
 import type {
-  GraphQLResponse,
   HardcoverRawAuthor,
   HardcoverRawBook,
   HardcoverRawContribution,
@@ -14,12 +13,9 @@ import type {
   HardcoverRawSeriesBookEdition,
 } from "./types";
 import { AUTHOR_ROLE_FILTER } from "./constants";
+import { hardcoverFetch } from "./client";
 
-const HARDCOVER_GRAPHQL_URL =
-  process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
-const REQUEST_TIMEOUT_MS = 30_000;
 const EDITIONS_BATCH_SIZE = 50;
-const MAX_RETRIES = 5;
 const BATCH_DELAY_MS = 500;
 const EDITIONS_CONCURRENCY = 3;
 
@@ -113,77 +109,6 @@ const FORMAT_DISPLAY_NAMES: Record<string, string> = {
 
 function mapEditionFormat(raw: string | null): string | null {
   return raw ? (FORMAT_DISPLAY_NAMES[raw] ?? raw) : null;
-}
-
-async function fetchGraphQL<T = Record<string, unknown>>(
-  query: string,
-  variables: Record<string, unknown>,
-  authorization: string,
-): Promise<T> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authorization,
-        },
-        body: JSON.stringify({ query, variables }),
-        signal: controller.signal,
-        cache: "no-store",
-      });
-
-      if (response.status === 429 && attempt < MAX_RETRIES) {
-        clearTimeout(timeoutId);
-        const delay = 2000 * 2 ** attempt; // 2s, 4s, 8s, 16s, 32s
-        await new Promise((resolve) => {
-          setTimeout(resolve, delay);
-        });
-        continue;
-      }
-
-      const rawText = await response.text();
-      let body: GraphQLResponse<T>;
-      try {
-        body = JSON.parse(rawText) as GraphQLResponse<T>;
-      } catch {
-        throw new Error(
-          `Hardcover API returned non-JSON (status ${response.status})`,
-        );
-      }
-      if (!response.ok) {
-        throw new Error(
-          `Hardcover API request failed (status ${response.status}).`,
-        );
-      }
-      if (body.errors && body.errors.length > 0) {
-        throw new Error(body.errors[0]?.message || "Hardcover API error.");
-      }
-      if (!body.data) {
-        throw new Error("No data in Hardcover API response.");
-      }
-      return body.data;
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new Error("Hardcover API request timed out.", { cause: error });
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-  throw new Error("Hardcover API rate limit exceeded after retries.");
-}
-
-export function getAuthorizationHeader(): string {
-  const rawToken = process.env.HARDCOVER_TOKEN?.trim();
-  if (!rawToken) {
-    throw new Error("HARDCOVER_TOKEN is not configured.");
-  }
-  return rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +259,6 @@ function parseRawBook(
 
 export async function fetchAuthorComplete(
   authorId: number,
-  authorization: string,
 ): Promise<{ author: HardcoverRawAuthor; books: HardcoverRawBook[] }> {
   const BATCH_SIZE = 500;
   let offset = 0;
@@ -344,15 +268,11 @@ export async function fetchAuthorComplete(
   let totalBooks = 0;
 
   // First page — also fetches author meta
-  const firstPage = await fetchGraphQL<{
+  const firstPage = await hardcoverFetch<{
     authors: unknown;
     books: unknown;
     books_aggregate: unknown;
-  }>(
-    AUTHOR_COMPLETE_QUERY,
-    { authorId, limit: BATCH_SIZE, offset: 0 },
-    authorization,
-  );
+  }>(AUTHOR_COMPLETE_QUERY, { authorId, limit: BATCH_SIZE, offset: 0 });
 
   const authors = toRecordArray(firstPage.authors);
   const authorRecord = authors[0];
@@ -382,10 +302,9 @@ export async function fetchAuthorComplete(
 
   // Paginate remaining books
   while (offset < totalBooks) {
-    const page = await fetchGraphQL<{ books: unknown }>(
+    const page = await hardcoverFetch<{ books: unknown }>(
       AUTHOR_COMPLETE_QUERY,
       { authorId, limit: BATCH_SIZE, offset },
-      authorization,
     );
     const pageBooks = toRecordArray(page.books)
       .map(parseRawBook)
@@ -473,7 +392,6 @@ query SeriesComplete($seriesIds: [Int!]!, $langCodes: [String!]!, $excludeAuthor
 
 export async function fetchSeriesComplete(
   seriesIds: number[],
-  authorization: string,
   langCodes: string[],
   excludeAuthorId: number,
 ): Promise<HardcoverRawSeries[]> {
@@ -481,10 +399,9 @@ export async function fetchSeriesComplete(
     return [];
   }
 
-  const data = await fetchGraphQL<{ series: unknown }>(
+  const data = await hardcoverFetch<{ series: unknown }>(
     SERIES_COMPLETE_QUERY,
     { seriesIds, langCodes, excludeAuthorId },
-    authorization,
   );
 
   return toRecordArray(data.series)
@@ -746,7 +663,6 @@ function parseEdition(
 
 export async function fetchBatchedEditions(
   bookIds: number[],
-  authorization: string,
 ): Promise<Map<number, HardcoverRawEdition[]>> {
   const result = new Map<number, HardcoverRawEdition[]>();
   if (bookIds.length === 0) {
@@ -771,11 +687,7 @@ export async function fetchBatchedEditions(
     const results = await Promise.all(
       group.map(async (batch) => {
         const query = buildBatchedEditionsQuery(batch);
-        const data = await fetchGraphQL<Record<string, unknown>>(
-          query,
-          {},
-          authorization,
-        );
+        const data = await hardcoverFetch<Record<string, unknown>>(query, {});
         return { batch, data };
       }),
     );
@@ -856,20 +768,16 @@ query BookComplete($bookId: Int!) {
 }
 `;
 
-export async function fetchBookComplete(
-  foreignBookId: number,
-  authorization: string,
-): Promise<
+export async function fetchBookComplete(foreignBookId: number): Promise<
   | {
       book: HardcoverRawBook;
       editions: HardcoverRawEdition[];
     }
   | undefined
 > {
-  const data = await fetchGraphQL<{ books: unknown; editions: unknown }>(
+  const data = await hardcoverFetch<{ books: unknown; editions: unknown }>(
     BOOK_COMPLETE_QUERY,
     { bookId: foreignBookId },
-    authorization,
   );
 
   const booksArray = toRecordArray(data.books);
