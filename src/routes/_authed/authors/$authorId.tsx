@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   createFileRoute,
   Link,
@@ -638,6 +639,142 @@ function filterPartialEditions(
   });
 }
 
+// ---------- Series column registry ----------
+
+type SeriesRowData = {
+  position: string | null;
+  coverUrl: string | null;
+  displayTitle: string;
+  displayDate: string;
+  usersCount: number | null;
+  rating: number | null;
+  ratingsCount: number | null;
+  format: string | null;
+  pageCount: number | null;
+  isbn10: string | null;
+  isbn13: string | null;
+  asin: string | null;
+  score: number | null;
+  /** For local books: bookAuthors array; for external: authorName string */
+  bookAuthors: BookAuthorEntry[];
+  authorName: string | null;
+};
+
+type SeriesColumnKey =
+  | "monitored"
+  | "cover"
+  | "position"
+  | "title"
+  | "releaseDate"
+  | "readers"
+  | "rating"
+  | "format"
+  | "pages"
+  | "isbn10"
+  | "isbn13"
+  | "asin"
+  | "score"
+  | "author";
+
+type SeriesColumnDef = {
+  label: string;
+  render: (row: SeriesRowData, currentAuthorId?: number) => ReactNode;
+  headerClassName?: string;
+  cellClassName?: string;
+};
+
+const SERIES_COLUMN_REGISTRY: Record<
+  Exclude<SeriesColumnKey, "monitored" | "cover">,
+  SeriesColumnDef
+> = {
+  position: {
+    label: "#",
+    render: (row) => (
+      <span className="text-muted-foreground text-xs">
+        {row.position ?? "—"}
+      </span>
+    ),
+    headerClassName: "w-12",
+  },
+  title: {
+    label: "Title",
+    render: (row) => <span className="font-medium">{row.displayTitle}</span>,
+  },
+  releaseDate: {
+    label: "Release Date",
+    render: (row) => row.displayDate,
+  },
+  readers: {
+    label: "Readers",
+    render: (row) =>
+      row.usersCount !== null && row.usersCount !== undefined
+        ? row.usersCount.toLocaleString()
+        : "—",
+  },
+  rating: {
+    label: "Rating",
+    render: (row) =>
+      row.rating === null ? (
+        "—"
+      ) : (
+        <span className="inline-flex items-center gap-1">
+          <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+          {row.rating.toFixed(1)}
+          {row.ratingsCount !== null &&
+            row.ratingsCount !== undefined &&
+            row.ratingsCount > 0 && (
+              <span className="text-muted-foreground">
+                ({row.ratingsCount.toLocaleString()})
+              </span>
+            )}
+        </span>
+      ),
+  },
+  format: {
+    label: "Type",
+    render: (row) => row.format ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  pages: {
+    label: "Pages",
+    render: (row) => row.pageCount ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  isbn10: {
+    label: "ISBN 10",
+    render: (row) => row.isbn10 ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  isbn13: {
+    label: "ISBN-13",
+    render: (row) => row.isbn13 ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  asin: {
+    label: "ASIN",
+    render: (row) => row.asin ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  score: {
+    label: "Data Score",
+    render: (row) => row.score ?? "—",
+    cellClassName: "text-muted-foreground",
+  },
+  author: {
+    label: "Author",
+    render: (row, currentAuthorId) =>
+      row.bookAuthors.length > 0 ? (
+        <AdditionalAuthors
+          bookAuthors={row.bookAuthors}
+          currentAuthorId={currentAuthorId}
+        />
+      ) : (
+        row.authorName
+      ),
+    cellClassName: "text-muted-foreground",
+  },
+};
+
 // oxlint-disable-next-line complexity -- Series tab merges local/external data with expand/collapse UI
 function SeriesTab({
   seriesList,
@@ -662,6 +799,8 @@ function SeriesTab({
   const monitorBookProfile = useMonitorBookProfile();
   const unmonitorBookProfile = useUnmonitorBookProfile();
   const navigate = useNavigate();
+  const { visibleColumns: seriesVisibleColumns } =
+    useTableColumns("author-series");
   const [expandedId, setExpandedId] = useState<number | undefined>(undefined);
   const [language, setLanguage] = useState(
     availableLanguages.length > 0 ? availableLanguages[0].languageCode : "all",
@@ -931,6 +1070,7 @@ function SeriesTab({
         <span className="text-sm text-muted-foreground">
           {seriesWithCounts.length} series
         </span>
+        <ColumnSettingsPopover tableId="author-series" />
       </div>
 
       {isLoadingSeries && (
@@ -989,24 +1129,30 @@ function SeriesTab({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10" />
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead className="w-14" />
-                      <TableHead>Title</TableHead>
-                      <TableHead>Release Date</TableHead>
-                      <TableHead>Readers</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Pages</TableHead>
-                      <TableHead>ISBN 10</TableHead>
-                      <TableHead>ISBN 13</TableHead>
-                      <TableHead>ASIN</TableHead>
-                      <TableHead>Data Score</TableHead>
-                      <TableHead>Author</TableHead>
+                      {seriesVisibleColumns.map((col) => {
+                        if (col.key === "monitored") {
+                          return <TableHead key={col.key} className="w-10" />;
+                        }
+                        if (col.key === "cover") {
+                          return <TableHead key={col.key} className="w-14" />;
+                        }
+                        const def =
+                          SERIES_COLUMN_REGISTRY[
+                            col.key as keyof typeof SERIES_COLUMN_REGISTRY
+                          ];
+                        return (
+                          <TableHead
+                            key={col.key}
+                            className={def?.headerClassName}
+                          >
+                            {def?.label ?? col.label}
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {/* oxlint-disable-next-line complexity -- Series table row render with local/external variants */}
+                    {/* oxlint-disable-next-line complexity -- Series table row render with local/external variants and column iteration */}
                     {entries.map((entry) => {
                       if (entry.kind === "local") {
                         const { book, position } = entry;
@@ -1024,6 +1170,25 @@ function SeriesTab({
                           edition?.releaseDate ??
                           book.releaseDate ??
                           (book.releaseYear ? String(book.releaseYear) : "—");
+
+                        const rowData: SeriesRowData = {
+                          position,
+                          coverUrl: coverUrl ?? null,
+                          displayTitle,
+                          displayDate,
+                          usersCount: book.usersCount,
+                          rating: book.rating,
+                          ratingsCount: book.ratingsCount,
+                          format: edition?.format ?? null,
+                          pageCount: edition?.pageCount ?? null,
+                          isbn10: edition?.isbn10 ?? null,
+                          isbn13: edition?.isbn13 ?? null,
+                          asin: edition?.asin ?? null,
+                          score: edition?.score ?? null,
+                          bookAuthors: book.bookAuthors,
+                          authorName: book.authorName,
+                        };
+
                         return (
                           <TableRow
                             key={`local-${book.id}`}
@@ -1035,135 +1200,113 @@ function SeriesTab({
                               })
                             }
                           >
-                            <TableCell>
-                              {(() => {
-                                if (book.metadataSourceMissingSince) {
-                                  return (
-                                    <MetadataWarning
-                                      type="book"
-                                      missingSince={
-                                        book.metadataSourceMissingSince
-                                      }
-                                      itemId={book.id}
-                                      itemTitle={book.title}
-                                      fileCount={book.fileCount}
-                                      onDeleted={() => router.invalidate()}
-                                    />
-                                  );
-                                }
-                                if (book.missingEditionsCount > 0) {
-                                  return (
-                                    <MetadataWarning
-                                      type="book-editions"
-                                      missingSince={new Date()}
-                                      missingEditionsCount={
-                                        book.missingEditionsCount
-                                      }
-                                      itemId={book.id}
-                                      itemTitle={book.title}
-                                    />
-                                  );
-                                }
+                            {seriesVisibleColumns.map((col) => {
+                              if (col.key === "monitored") {
                                 return (
-                                  <ProfileToggleIcons
-                                    profiles={authorDownloadProfiles}
-                                    activeProfileIds={book.downloadProfileIds}
-                                    onToggle={(profileId) => {
-                                      const isActive =
-                                        book.downloadProfileIds.includes(
-                                          profileId,
+                                  <TableCell key={col.key}>
+                                    {(() => {
+                                      if (book.metadataSourceMissingSince) {
+                                        return (
+                                          <MetadataWarning
+                                            type="book"
+                                            missingSince={
+                                              book.metadataSourceMissingSince
+                                            }
+                                            itemId={book.id}
+                                            itemTitle={book.title}
+                                            fileCount={book.fileCount}
+                                            onDeleted={() =>
+                                              router.invalidate()
+                                            }
+                                          />
                                         );
-                                      if (isActive) {
-                                        const profile =
-                                          authorDownloadProfiles.find(
-                                            (p) => p.id === profileId,
-                                          );
-                                        setUnmonitorTarget({
-                                          bookId: book.id,
-                                          downloadProfileId: profileId,
-                                          bookTitle: book.title,
-                                          profileName:
-                                            profile?.name ?? "Unknown",
-                                          fileCount: book.fileCount,
-                                        });
-                                      } else {
-                                        monitorBookProfile.mutate({
-                                          bookId: book.id,
-                                          downloadProfileId: profileId,
-                                        });
                                       }
-                                    }}
-                                    isPending={monitorBookProfile.isPending}
-                                  />
+                                      if (book.missingEditionsCount > 0) {
+                                        return (
+                                          <MetadataWarning
+                                            type="book-editions"
+                                            missingSince={new Date()}
+                                            missingEditionsCount={
+                                              book.missingEditionsCount
+                                            }
+                                            itemId={book.id}
+                                            itemTitle={book.title}
+                                          />
+                                        );
+                                      }
+                                      return (
+                                        <ProfileToggleIcons
+                                          profiles={authorDownloadProfiles}
+                                          activeProfileIds={
+                                            book.downloadProfileIds
+                                          }
+                                          onToggle={(profileId) => {
+                                            const isActive =
+                                              book.downloadProfileIds.includes(
+                                                profileId,
+                                              );
+                                            if (isActive) {
+                                              const profile =
+                                                authorDownloadProfiles.find(
+                                                  (p) => p.id === profileId,
+                                                );
+                                              setUnmonitorTarget({
+                                                bookId: book.id,
+                                                downloadProfileId: profileId,
+                                                bookTitle: book.title,
+                                                profileName:
+                                                  profile?.name ?? "Unknown",
+                                                fileCount: book.fileCount,
+                                              });
+                                            } else {
+                                              monitorBookProfile.mutate({
+                                                bookId: book.id,
+                                                downloadProfileId: profileId,
+                                              });
+                                            }
+                                          }}
+                                          isPending={
+                                            monitorBookProfile.isPending
+                                          }
+                                        />
+                                      );
+                                    })()}
+                                  </TableCell>
                                 );
-                              })()}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs">
-                              {position ?? "—"}
-                            </TableCell>
-                            <TableCell className="min-w-14 w-14">
-                              <OptimizedImage
-                                src={coverUrl ?? null}
-                                alt={displayTitle}
-                                type="book"
-                                width={56}
-                                height={84}
-                                className="aspect-[2/3] w-full rounded-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium">
-                                {displayTitle}
-                              </span>
-                            </TableCell>
-                            <TableCell>{displayDate}</TableCell>
-                            <TableCell>
-                              {book.usersCount !== null &&
-                              book.usersCount !== undefined
-                                ? book.usersCount.toLocaleString()
-                                : "—"}
-                            </TableCell>
-                            <TableCell>
-                              {book.rating === null ? (
-                                "—"
-                              ) : (
-                                <span className="inline-flex items-center gap-1">
-                                  <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                                  {book.rating.toFixed(1)}
-                                  {book.ratingsCount !== null &&
-                                    book.ratingsCount !== undefined &&
-                                    book.ratingsCount > 0 && (
-                                      <span className="text-muted-foreground">
-                                        ({book.ratingsCount.toLocaleString()})
-                                      </span>
-                                    )}
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.format ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.pageCount ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.isbn10 ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.isbn13 ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.asin ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {edition?.score ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              <AdditionalAuthors
-                                bookAuthors={book.bookAuthors}
-                                currentAuthorId={currentAuthorId}
-                              />
-                            </TableCell>
+                              }
+                              if (col.key === "cover") {
+                                return (
+                                  <TableCell
+                                    key={col.key}
+                                    className="min-w-14 w-14"
+                                  >
+                                    <OptimizedImage
+                                      src={rowData.coverUrl}
+                                      alt={rowData.displayTitle}
+                                      type="book"
+                                      width={56}
+                                      height={84}
+                                      className="aspect-[2/3] w-full rounded-sm"
+                                    />
+                                  </TableCell>
+                                );
+                              }
+                              const def =
+                                SERIES_COLUMN_REGISTRY[
+                                  col.key as keyof typeof SERIES_COLUMN_REGISTRY
+                                ];
+                              if (!def) {
+                                return <TableCell key={col.key} />;
+                              }
+                              return (
+                                <TableCell
+                                  key={col.key}
+                                  className={def.cellClassName}
+                                >
+                                  {def.render(rowData, currentAuthorId)}
+                                </TableCell>
+                              );
+                            })}
                           </TableRow>
                         );
                       }
@@ -1179,6 +1322,25 @@ function SeriesTab({
                         edition?.releaseDate ??
                         entry.releaseDate ??
                         (entry.releaseYear ? String(entry.releaseYear) : "—");
+
+                      const rowData: SeriesRowData = {
+                        position: entry.position,
+                        coverUrl: coverUrl ?? null,
+                        displayTitle,
+                        displayDate,
+                        usersCount: entry.usersCount,
+                        rating: entry.rating,
+                        ratingsCount: null,
+                        format: edition?.format ?? null,
+                        pageCount: edition?.pageCount ?? null,
+                        isbn10: edition?.isbn10 ?? null,
+                        isbn13: edition?.isbn13 ?? null,
+                        asin: edition?.asin ?? null,
+                        score: edition?.score ?? null,
+                        bookAuthors: [],
+                        authorName: entry.authorName,
+                      };
+
                       return (
                         <TableRow
                           key={`ext-${entry.foreignBookId}`}
@@ -1187,73 +1349,61 @@ function SeriesTab({
                             openPreview(entry, displayTitle, coverUrl)
                           }
                         >
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPreview(entry, displayTitle, coverUrl);
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">
-                            {entry.position ?? "—"}
-                          </TableCell>
-                          <TableCell className="min-w-14 w-14">
-                            <OptimizedImage
-                              src={coverUrl ?? null}
-                              alt={displayTitle}
-                              type="book"
-                              width={56}
-                              height={84}
-                              className="aspect-[2/3] w-full rounded-sm"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium">{displayTitle}</span>
-                          </TableCell>
-                          <TableCell>{displayDate}</TableCell>
-                          <TableCell>
-                            {entry.usersCount !== null &&
-                            entry.usersCount !== undefined
-                              ? entry.usersCount.toLocaleString()
-                              : "—"}
-                          </TableCell>
-                          <TableCell>
-                            {entry.rating === null ? (
-                              "—"
-                            ) : (
-                              <span className="inline-flex items-center gap-1">
-                                <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                                {entry.rating.toFixed(1)}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.format ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.pageCount ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.isbn10 ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.isbn13 ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.asin ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {edition?.score ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {entry.authorName}
-                          </TableCell>
+                          {seriesVisibleColumns.map((col) => {
+                            if (col.key === "monitored") {
+                              return (
+                                <TableCell key={col.key}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openPreview(
+                                        entry,
+                                        displayTitle,
+                                        coverUrl,
+                                      );
+                                    }}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              );
+                            }
+                            if (col.key === "cover") {
+                              return (
+                                <TableCell
+                                  key={col.key}
+                                  className="min-w-14 w-14"
+                                >
+                                  <OptimizedImage
+                                    src={rowData.coverUrl}
+                                    alt={rowData.displayTitle}
+                                    type="book"
+                                    width={56}
+                                    height={84}
+                                    className="aspect-[2/3] w-full rounded-sm"
+                                  />
+                                </TableCell>
+                              );
+                            }
+                            const def =
+                              SERIES_COLUMN_REGISTRY[
+                                col.key as keyof typeof SERIES_COLUMN_REGISTRY
+                              ];
+                            if (!def) {
+                              return <TableCell key={col.key} />;
+                            }
+                            return (
+                              <TableCell
+                                key={col.key}
+                                className={def.cellClassName}
+                              >
+                                {def.render(rowData, currentAuthorId)}
+                              </TableCell>
+                            );
+                          })}
                         </TableRow>
                       );
                     })}
