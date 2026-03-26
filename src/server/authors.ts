@@ -15,10 +15,7 @@ import {
 import { eq, sql, desc, like, inArray, and, isNotNull } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
-import {
-  fetchSeriesComplete,
-  getAuthorizationHeader,
-} from "./hardcover/import-queries";
+import { fetchSeriesComplete } from "./hardcover/import-queries";
 import getProfileLanguages from "./profile-languages";
 
 export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
@@ -579,12 +576,10 @@ export const getSeriesFromHardcoverFn = createServerFn({ method: "GET" })
     if (data.foreignSeriesIds.length === 0) {
       return [];
     }
-    const authorization = getAuthorizationHeader();
     const langCodes = getProfileLanguages();
     const excludeAuthorId = data.excludeForeignAuthorId ?? 0;
     const rawSeries = await fetchSeriesComplete(
       data.foreignSeriesIds,
-      authorization,
       langCodes,
       excludeAuthorId,
     );

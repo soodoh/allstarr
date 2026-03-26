@@ -21,7 +21,6 @@ import {
   fetchAuthorComplete,
   fetchBatchedEditions,
   fetchBookComplete,
-  getAuthorizationHeader,
 } from "./hardcover/import-queries";
 import { NON_AUTHOR_ROLES } from "./hardcover/constants";
 import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
@@ -448,8 +447,6 @@ async function importAuthorInternal(data: {
     | "none";
   monitorNewBooks?: "all" | "none" | "new";
 }): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
-  const authorization = getAuthorizationHeader();
-
   // Duplicate guard — allow upgrading stub authors
   const existing = db
     .select({ id: authors.id, isStub: authors.isStub })
@@ -463,12 +460,11 @@ async function importAuthorInternal(data: {
   // ── Server-side fetch ──
   const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
     data.foreignAuthorId,
-    authorization,
   );
 
   // Fetch editions only for author's own books
   const authorBookIds = rawBooks.map((b) => b.id);
-  const editionsMap = await fetchBatchedEditions(authorBookIds, authorization);
+  const editionsMap = await fetchBatchedEditions(authorBookIds);
 
   // ── DB transaction ──
   // oxlint-disable-next-line complexity -- Import transaction requires many conditional branches for author/book/edition handling
@@ -866,7 +862,6 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => importBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
 
     // Duplicate guard
     const existing = db
@@ -879,7 +874,7 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
     }
 
     // Fetch book complete (book + editions + contributions)
-    const result = await fetchBookComplete(data.foreignBookId, authorization);
+    const result = await fetchBookComplete(data.foreignBookId);
     if (!result) {
       throw new Error("Book not found on Hardcover.");
     }
@@ -1136,8 +1131,6 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
   editionsUpdated: number;
   editionsAdded: number;
 }> {
-  const authorization = getAuthorizationHeader();
-
   const localAuthor = db
     .select()
     .from(authors)
@@ -1153,14 +1146,12 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
   const foreignAuthorId = Number(localAuthor.foreignAuthorId);
 
   // Fetch fresh data from Hardcover
-  const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
-    foreignAuthorId,
-    authorization,
-  );
+  const { author: rawAuthor, books: rawBooks } =
+    await fetchAuthorComplete(foreignAuthorId);
 
   // Fetch editions only for author's own books
   const authorBookIds = rawBooks.map((b) => b.id);
-  const editionsMap = await fetchBatchedEditions(authorBookIds, authorization);
+  const editionsMap = await fetchBatchedEditions(authorBookIds);
 
   const now = new Date();
   const metadataProfile = getMetadataProfile();
@@ -1742,8 +1733,6 @@ export async function refreshBookInternal(bookId: number): Promise<{
   editionsUpdated: number;
   editionsAdded: number;
 }> {
-  const authorization = getAuthorizationHeader();
-
   const localBook = db.select().from(books).where(eq(books.id, bookId)).get();
   if (!localBook) {
     throw new Error("Book not found.");
@@ -1753,7 +1742,7 @@ export async function refreshBookInternal(bookId: number): Promise<{
   }
 
   const foreignBookId = Number(localBook.foreignBookId);
-  const result = await fetchBookComplete(foreignBookId, authorization);
+  const result = await fetchBookComplete(foreignBookId);
   if (!result) {
     // Book removed from Hardcover — auto-delete if safe, otherwise stamp
     const hasProfileLink = db
@@ -2092,11 +2081,7 @@ export const monitorBookFn = createServerFn({ method: "POST" })
       .get();
 
     if (localBook?.foreignBookId && !existingAuthors) {
-      const authorization = getAuthorizationHeader();
-      const result = await fetchBookComplete(
-        Number(localBook.foreignBookId),
-        authorization,
-      );
+      const result = await fetchBookComplete(Number(localBook.foreignBookId));
 
       if (result) {
         // Find the primary author entry from booksAuthors or use first contributor
