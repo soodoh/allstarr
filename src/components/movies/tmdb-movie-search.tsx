@@ -11,6 +11,7 @@ import { Badge } from "src/components/ui/badge";
 import { Card, CardContent } from "src/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -129,148 +130,147 @@ export function MoviePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DialogContent className="max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="sr-only">{movie.title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Poster + title row */}
-          <div className="flex gap-4">
-            <OptimizedImage
-              src={resizeTmdbUrl(movie.poster_path ?? null, "w342")}
-              alt={`${movie.title} poster`}
-              type="movie"
-              width={128}
-              height={192}
-              className="h-48 w-32 shrink-0 rounded"
-            />
-
-            <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-xl font-semibold leading-tight">
-                {movie.title}
-                {year && (
-                  <span className="ml-2 text-base font-normal text-muted-foreground">
-                    ({year})
-                  </span>
-                )}
-              </h2>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {movie.vote_average > 0 && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Star className="h-3 w-3" />
-                    {movie.vote_average.toFixed(1)}
-                  </Badge>
-                )}
-                {movie.popularity > 0 && (
-                  <Badge variant="outline">
-                    Popularity: {Math.round(movie.popularity)}
-                  </Badge>
-                )}
-                {alreadyExists && <Badge>Already in library</Badge>}
-              </div>
-
-              {movie.overview && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {movie.overview}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Add form */}
-          {!alreadyExists && (
-            <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-              <ProfileCheckboxGroup
-                profiles={movieProfiles}
-                selectedIds={downloadProfileIds}
-                onToggle={toggleProfile}
+        <DialogBody>
+          <div className="space-y-4">
+            {/* Poster + title row */}
+            <div className="flex gap-4">
+              <OptimizedImage
+                src={resizeTmdbUrl(movie.poster_path ?? null, "w342")}
+                alt={`${movie.title} poster`}
+                type="movie"
+                width={128}
+                height={192}
+                className="h-48 w-32 shrink-0 rounded"
               />
 
-              <div className="space-y-2">
-                <Label>Monitor</Label>
-                <Select
-                  value={monitorOption}
-                  onValueChange={(v) =>
-                    setMonitorOption(
-                      v as "movieOnly" | "movieAndCollection" | "none",
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="movieOnly">Movie Only</SelectItem>
-                    <SelectItem value="movieAndCollection">
-                      Movie &amp; Collection
-                    </SelectItem>
-                    <SelectItem value="none">None</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <h2 className="text-xl font-semibold leading-tight">
+                  {movie.title}
+                  {year && (
+                    <span className="ml-2 text-base font-normal text-muted-foreground">
+                      ({year})
+                    </span>
+                  )}
+                </h2>
 
-              <div className="space-y-2">
-                <Label>Minimum Availability</Label>
-                <Select
-                  value={minimumAvailability}
-                  onValueChange={setMinimumAvailability}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="announced">Announced</SelectItem>
-                    <SelectItem value="inCinemas">In Cinemas</SelectItem>
-                    <SelectItem value="released">Released</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {movie.vote_average > 0 && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Star className="h-3 w-3" />
+                      {movie.vote_average.toFixed(1)}
+                    </Badge>
+                  )}
+                  {movie.popularity > 0 && (
+                    <Badge variant="outline">
+                      Popularity: {Math.round(movie.popularity)}
+                    </Badge>
+                  )}
+                  {alreadyExists && <Badge>Already in library</Badge>}
+                </div>
 
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="search-on-add"
-                  checked={searchOnAdd}
-                  onCheckedChange={(checked) =>
-                    setSearchOnAdd(checked === true)
-                  }
-                />
-                <Label htmlFor="search-on-add">
-                  Start search for missing movie
-                </Label>
+                {movie.overview && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {movie.overview}
+                  </p>
+                )}
               </div>
-
-              <Button
-                className="w-full"
-                onClick={handleAdd}
-                disabled={
-                  (monitorOption !== "none" &&
-                    downloadProfileIds.length === 0) ||
-                  addMovie.isPending ||
-                  movieProfiles.length === 0
-                }
-              >
-                {addMovie.isPending ? "Adding..." : "Add Movie"}
-              </Button>
             </div>
-          )}
 
-          {alreadyExists && (
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                onOpenChange(false);
-              }}
-            >
-              Close
-            </Button>
-          )}
-        </div>
+            {/* Add form */}
+            {!alreadyExists && (
+              <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+                <ProfileCheckboxGroup
+                  profiles={movieProfiles}
+                  selectedIds={downloadProfileIds}
+                  onToggle={toggleProfile}
+                />
+
+                <div className="space-y-2">
+                  <Label>Monitor</Label>
+                  <Select
+                    value={monitorOption}
+                    onValueChange={(v) =>
+                      setMonitorOption(
+                        v as "movieOnly" | "movieAndCollection" | "none",
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="movieOnly">Movie Only</SelectItem>
+                      <SelectItem value="movieAndCollection">
+                        Movie &amp; Collection
+                      </SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Minimum Availability</Label>
+                  <Select
+                    value={minimumAvailability}
+                    onValueChange={setMinimumAvailability}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="announced">Announced</SelectItem>
+                      <SelectItem value="inCinemas">In Cinemas</SelectItem>
+                      <SelectItem value="released">Released</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="search-on-add"
+                    checked={searchOnAdd}
+                    onCheckedChange={(checked) =>
+                      setSearchOnAdd(checked === true)
+                    }
+                  />
+                  <Label htmlFor="search-on-add">
+                    Start search for missing movie
+                  </Label>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleAdd}
+                  disabled={
+                    (monitorOption !== "none" &&
+                      downloadProfileIds.length === 0) ||
+                    addMovie.isPending ||
+                    movieProfiles.length === 0
+                  }
+                >
+                  {addMovie.isPending ? "Adding..." : "Add Movie"}
+                </Button>
+              </div>
+            )}
+
+            {alreadyExists && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  onOpenChange(false);
+                }}
+              >
+                Close
+              </Button>
+            )}
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "src/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -105,7 +106,7 @@ export default function PresetSelector({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Apply Custom Format Preset</DialogTitle>
             <DialogDescription>
@@ -123,121 +124,123 @@ export default function PresetSelector({
             </DialogDescription>
           </DialogHeader>
 
-          {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          <DialogBody>
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
 
-          {presets && presets.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No presets available for this profile type.
-            </div>
-          )}
+            {presets && presets.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No presets available for this profile type.
+              </div>
+            )}
 
-          {presets && presets.length > 0 && (
-            <div className="grid gap-4">
-              {presets.map((preset) => (
-                <Card key={preset.name} className="py-4">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">
-                          {preset.name}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          {preset.description}
-                        </CardDescription>
+            {presets && presets.length > 0 && (
+              <div className="grid gap-4">
+                {presets.map((preset) => (
+                  <Card key={preset.name} className="py-4">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-base">
+                            {preset.name}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {preset.description}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline">{preset.category}</Badge>
                       </div>
-                      <Badge variant="outline">{preset.category}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-                      <span>
-                        <span className="font-medium text-foreground">
-                          {preset.cfCount}
-                        </span>{" "}
-                        custom format{preset.cfCount === 1 ? "" : "s"}
-                      </span>
-                      <span>
-                        Min score:{" "}
-                        <span className="font-medium text-foreground">
-                          {preset.minCustomFormatScore}
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                        <span>
+                          <span className="font-medium text-foreground">
+                            {preset.cfCount}
+                          </span>{" "}
+                          custom format{preset.cfCount === 1 ? "" : "s"}
                         </span>
-                      </span>
-                      <span>
-                        Upgrade until:{" "}
-                        <span className="font-medium text-foreground">
-                          {preset.upgradeUntilCustomFormatScore}
+                        <span>
+                          Min score:{" "}
+                          <span className="font-medium text-foreground">
+                            {preset.minCustomFormatScore}
+                          </span>
                         </span>
-                      </span>
-                    </div>
+                        <span>
+                          Upgrade until:{" "}
+                          <span className="font-medium text-foreground">
+                            {preset.upgradeUntilCustomFormatScore}
+                          </span>
+                        </span>
+                      </div>
 
-                    {/* Show score breakdown */}
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {Object.entries(preset.scores).map(([name, score]) => (
-                        <Badge
-                          key={name}
-                          variant="secondary"
-                          className={scoreBadgeClass(score)}
+                      {/* Show score breakdown */}
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {Object.entries(preset.scores).map(([name, score]) => (
+                          <Badge
+                            key={name}
+                            variant="secondary"
+                            className={scoreBadgeClass(score)}
+                          >
+                            {name}: {score > 0 ? "+" : ""}
+                            {score}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-2">
+                      {confirmPreset === preset.name ? (
+                        <div className="flex items-center gap-2 w-full">
+                          <div className="flex items-center gap-1.5 text-sm text-yellow-500">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            This will replace all current custom format scores
+                          </div>
+                          <div className="ml-auto flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setConfirmPreset(null)}
+                              disabled={applying !== null}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleApply(preset.name)}
+                              disabled={applying !== null}
+                            >
+                              {applying === preset.name ? (
+                                <>
+                                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                  Applying...
+                                </>
+                              ) : (
+                                "Confirm"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmPreset(preset.name)}
+                          disabled={applying !== null}
                         >
-                          {name}: {score > 0 ? "+" : ""}
-                          {score}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-2">
-                    {confirmPreset === preset.name ? (
-                      <div className="flex items-center gap-2 w-full">
-                        <div className="flex items-center gap-1.5 text-sm text-yellow-500">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          This will replace all current custom format scores
-                        </div>
-                        <div className="ml-auto flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setConfirmPreset(null)}
-                            disabled={applying !== null}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleApply(preset.name)}
-                            disabled={applying !== null}
-                          >
-                            {applying === preset.name ? (
-                              <>
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                Applying...
-                              </>
-                            ) : (
-                              "Confirm"
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setConfirmPreset(preset.name)}
-                        disabled={applying !== null}
-                      >
-                        Apply
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
+                          Apply
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </>
