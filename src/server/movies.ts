@@ -104,7 +104,7 @@ export const addMovieFn = createServerFn({ method: "POST" })
             title: col.name,
             sortTitle: generateSortTitle(col.name),
             posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
             updatedAt: new Date(),
           })
           .where(eq(movieCollections.id, existing.id))
@@ -117,7 +117,7 @@ export const addMovieFn = createServerFn({ method: "POST" })
             sortTitle: generateSortTitle(col.name),
             tmdbId: col.id,
             posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
             minimumAvailability: data.minimumAvailability,
           })
           .returning()
@@ -139,7 +139,7 @@ export const addMovieFn = createServerFn({ method: "POST" })
     const runtime = raw.runtime ?? 0;
     const genres = raw.genres.map((g) => g.name);
     const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "original") ?? "";
+    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
     const imdbId = raw.imdb_id ?? null;
 
     // Insert movie
@@ -434,7 +434,7 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
             title: col.name,
             sortTitle: generateSortTitle(col.name),
             posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
             updatedAt: new Date(),
           })
           .where(eq(movieCollections.id, existing.id))
@@ -447,7 +447,7 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
             sortTitle: generateSortTitle(col.name),
             tmdbId: col.id,
             posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "original"),
+            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
           })
           .returning()
           .get();
@@ -468,7 +468,7 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
     const runtime = raw.runtime ?? 0;
     const genres = raw.genres.map((g) => g.name);
     const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "original") ?? "";
+    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
     const imdbId = raw.imdb_id ?? null;
 
     db.update(movies)
