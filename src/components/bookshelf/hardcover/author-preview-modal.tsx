@@ -9,6 +9,7 @@ import Checkbox from "src/components/ui/checkbox";
 import Label from "src/components/ui/label";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -227,110 +228,112 @@ export default function AuthorPreviewModal({
           <DialogTitle className="sr-only">{displayName}</DialogTitle>
         </DialogHeader>
 
-        {/* ── Author identity ── */}
-        <div className="flex gap-4">
-          <div className="shrink-0">
-            {authorLoading ? (
-              <Skeleton className="h-20 w-20 rounded-full" />
-            ) : (
-              <OptimizedImage
-                src={displayImage}
-                alt={`${displayName} photo`}
-                type="author"
-                width={80}
-                height={80}
-                className="h-20 w-20 rounded-full"
-              />
-            )}
+        <DialogBody>
+          {/* ── Author identity ── */}
+          <div className="flex gap-4">
+            <div className="shrink-0">
+              {authorLoading ? (
+                <Skeleton className="h-20 w-20 rounded-full" />
+              ) : (
+                <OptimizedImage
+                  src={displayImage}
+                  alt={`${displayName} photo`}
+                  type="author"
+                  width={80}
+                  height={80}
+                  className="h-20 w-20 rounded-full"
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-1 pt-1">
+              {authorLoading ? (
+                <>
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-24" />
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold leading-tight">
+                    {displayName}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                    {lifespan && <span>{lifespan}</span>}
+                    {displayBooksCount !== null &&
+                      displayBooksCount !== undefined && (
+                        <span>
+                          {displayBooksCount}{" "}
+                          {displayBooksCount === 1 ? "book" : "books"}
+                        </span>
+                      )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-          <div className="min-w-0 flex-1 space-y-1 pt-1">
-            {authorLoading ? (
-              <>
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-semibold leading-tight">
-                  {displayName}
-                </h2>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
-                  {lifespan && <span>{lifespan}</span>}
-                  {displayBooksCount !== null &&
-                    displayBooksCount !== undefined && (
-                      <span>
-                        {displayBooksCount}{" "}
-                        {displayBooksCount === 1 ? "book" : "books"}
-                      </span>
-                    )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
 
-        {/* ── Bio ── */}
-        <BioSection loading={authorLoading} bio={displayBio} />
+          {/* ── Bio ── */}
+          <BioSection loading={authorLoading} bio={displayBio} />
 
-        {/* ── Actions ── */}
-        {!inLibrary && !addOpen && (
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              className="flex-1"
-              onClick={() => setAddOpen(true)}
-              disabled={authorLoading || !fullAuthor}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add to Bookshelf
-            </Button>
-            {hardcoverUrl && (
-              <Button variant="outline" size="icon" asChild>
-                <a
-                  href={hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open on Hardcover"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            )}
-          </div>
-        )}
-
-        {inLibrary && (
-          <div className="flex items-center gap-2 pt-1">
-            <Button variant="secondary" className="flex-1" asChild>
-              <Link
-                to="/authors/$authorId"
-                params={{ authorId: String(existingAuthor?.id ?? "") }}
-                onClick={() => onOpenChange(false)}
+          {/* ── Actions ── */}
+          {!inLibrary && !addOpen && (
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                className="flex-1"
+                onClick={() => setAddOpen(true)}
+                disabled={authorLoading || !fullAuthor}
               >
-                View on bookshelf
-              </Link>
-            </Button>
-            {hardcoverUrl && (
-              <Button variant="outline" size="icon" asChild>
-                <a
-                  href={hardcoverUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open on Hardcover"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+                <Plus className="mr-2 h-4 w-4" />
+                Add to Bookshelf
               </Button>
-            )}
-          </div>
-        )}
+              {hardcoverUrl && (
+                <Button variant="outline" size="icon" asChild>
+                  <a
+                    href={hardcoverUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open on Hardcover"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
 
-        {addOpen && !inLibrary && fullAuthor && (
-          <AddForm
-            fullAuthor={fullAuthor}
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => setAddOpen(false)}
-          />
-        )}
+          {inLibrary && (
+            <div className="flex items-center gap-2 pt-1">
+              <Button variant="secondary" className="flex-1" asChild>
+                <Link
+                  to="/authors/$authorId"
+                  params={{ authorId: String(existingAuthor?.id ?? "") }}
+                  onClick={() => onOpenChange(false)}
+                >
+                  View on bookshelf
+                </Link>
+              </Button>
+              {hardcoverUrl && (
+                <Button variant="outline" size="icon" asChild>
+                  <a
+                    href={hardcoverUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open on Hardcover"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+
+          {addOpen && !inLibrary && fullAuthor && (
+            <AddForm
+              fullAuthor={fullAuthor}
+              onSuccess={() => onOpenChange(false)}
+              onCancel={() => setAddOpen(false)}
+            />
+          )}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
