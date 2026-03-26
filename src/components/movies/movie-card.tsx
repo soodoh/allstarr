@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { HardDrive } from "lucide-react";
 import type { JSX } from "react";
 import { Badge } from "src/components/ui/badge";
-import MoviePoster from "src/components/movies/movie-poster";
+import OptimizedImage from "src/components/shared/optimized-image";
 
 type MovieCardProps = {
   movie: {
@@ -45,10 +45,13 @@ export default function MovieCard({ movie }: MovieCardProps): JSX.Element {
     >
       <div className="flex flex-col gap-2">
         <div className="relative">
-          <MoviePoster
-            posterUrl={movie.posterUrl || null}
-            title={movie.title}
-            className="w-full transition-shadow group-hover:shadow-lg"
+          <OptimizedImage
+            src={movie.posterUrl || null}
+            alt={`${movie.title} poster`}
+            type="movie"
+            width={224}
+            height={336}
+            className="aspect-[2/3] w-full max-w-56 transition-shadow group-hover:shadow-lg"
           />
           <div className="absolute top-2 right-2 flex flex-col gap-1">
             {movie.hasFile && (
