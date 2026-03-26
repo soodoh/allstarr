@@ -48,7 +48,7 @@ function ShowDetailPage(): JSX.Element {
     return <NotFound />;
   }
 
-  // Sort seasons: regular seasons ascending, specials (season 0) at the end
+  // Sort seasons: regular seasons descending, specials (season 0) at the end
   const sortedSeasons = [...show.seasons].toSorted((a, b) => {
     if (a.seasonNumber === 0) {
       return 1;
@@ -56,7 +56,7 @@ function ShowDetailPage(): JSX.Element {
     if (b.seasonNumber === 0) {
       return -1;
     }
-    return a.seasonNumber - b.seasonNumber;
+    return b.seasonNumber - a.seasonNumber;
   });
 
   // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Pre-filtered once before map
