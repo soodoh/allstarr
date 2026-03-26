@@ -45,21 +45,23 @@ The "TMDB Default" option is always the first item, representing the show's nati
 
 ### Episode Range Computation
 
-From the group detail API response, each `TmdbEpisodeGroup` (season) has an `episodes` array sorted by `order` (0-indexed position within the group).
+Episode ranges must use actual episode numbers from the API, not derived from counts — some shows use absolute numbering where seasons don't start at E01.
 
-For each season:
+**TMDB Default seasons:** Fetch each season's detail via `getTmdbSeasonDetailFn` to get actual `episode_number` values. The range is the first and last episode's `episode_number` within that season.
 
-- Start episode: first episode's `order + 1`
-- End episode: last episode's `order + 1`
-- Display format: `E{start}–E{end}` (zero-padded to 2 digits)
+**Episode groups:** From the group detail API, each `TmdbEpisodeGroup` has an `episodes` array. The range uses each episode's `order + 1` (their position within that group), since that's how they'll be numbered when imported with that grouping.
 
-This naturally reveals whether numbering is continuous across seasons (E01–E13, E14–E26) or resets per season (E01–E13, E01–E12).
+Display format: `E{start}–E{end}` (zero-padded to 2 digits). This naturally reveals whether numbering is continuous across seasons or resets.
 
 ### Data Fetching
 
 1. **Episode group summaries**: Fetched via `getTmdbEpisodeGroupsFn` on mount — provides headers for all accordion items
 2. **Episode group details**: Fetched lazily via `getTmdbEpisodeGroupDetailFn` when a group is expanded. The preselected group fetches immediately. Results cached by React Query.
-3. **TMDB Default season data**: Fetched via `getTmdbShowDetailFn` on mount — provides season info for the "TMDB Default" accordion item without needing a separate prop. Cached by React Query.
+3. **TMDB Default season data**: Show detail fetched via `getTmdbShowDetailFn` on mount for season summaries (headers). When expanded, each season's detail is lazily fetched via `getTmdbSeasonDetailFn` to get actual episode numbers for ranges.
+
+### TMDB Response Caching
+
+Both the accordion preview and the import (`addShowFn`) call `tmdbFetch` for the same endpoints. To avoid duplicate API calls, `tmdbFetch` is extended with a short-lived in-memory cache (5-minute TTL). When the user previews a group in the accordion and then clicks "Add Show", the import hits the cache instead of re-fetching from TMDB.
 
 ### Integration Points
 
@@ -98,6 +100,7 @@ Same interface as the existing `EpisodeGroupSelector` for drop-in replacement.
 
 | File                                            | Change                                                  |
 | ----------------------------------------------- | ------------------------------------------------------- |
+| `src/server/tmdb/client.ts`                     | Add in-memory response cache (5-min TTL) to `tmdbFetch` |
 | `src/components/tv/episode-group-accordion.tsx` | New component                                           |
 | `src/components/tv/tmdb-show-search.tsx`        | Swap `EpisodeGroupSelector` for `EpisodeGroupAccordion` |
 | `src/components/tv/show-detail-header.tsx`      | Swap selector, widen dialog to `max-w-lg`               |
