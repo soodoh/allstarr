@@ -31,6 +31,9 @@ import { tmdbSearchShowsQuery } from "src/lib/queries/tmdb";
 import { showExistenceQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { useAddShow } from "src/hooks/mutations/shows";
+import EpisodeGroupSelector, {
+  isAnime,
+} from "src/components/tv/episode-group-selector";
 import type { TmdbTvResult } from "src/server/tmdb/types";
 
 function extractYear(firstAirDate: string): string | null {
@@ -92,6 +95,7 @@ function ShowPreviewModal({
   const [useSeasonFolder, setSeasonFolder] = useState(true);
   const [searchOnAdd, setSearchOnAdd] = useState(false);
   const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
+  const [episodeGroupId, setEpisodeGroupId] = useState<string | null>(null);
 
   const tvProfiles = useMemo(
     () => allProfiles.filter((p) => p.contentType === "tv"),
@@ -106,6 +110,12 @@ function ShowPreviewModal({
       setDownloadProfileIds([]);
     }
   }, [tvProfiles]);
+
+  useEffect(() => {
+    if (isAnime(show.origin_country, show.genre_ids)) {
+      setSeriesType("anime");
+    }
+  }, [show.origin_country, show.genre_ids]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -136,6 +146,7 @@ function ShowPreviewModal({
         useSeasonFolder,
         searchOnAdd,
         searchCutoffUnmet,
+        episodeGroupId,
       },
       {
         onSuccess: (result) => {
@@ -249,6 +260,14 @@ function ShowPreviewModal({
                   </SelectContent>
                 </Select>
               </div>
+
+              <EpisodeGroupSelector
+                tmdbId={show.id}
+                originCountry={show.origin_country}
+                genreIds={show.genre_ids}
+                value={episodeGroupId}
+                onChange={setEpisodeGroupId}
+              />
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="season-folder">Use Season Folder</Label>
