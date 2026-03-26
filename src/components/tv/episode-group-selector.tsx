@@ -49,6 +49,8 @@ type EpisodeGroupSelectorProps = {
   genreIds: number[];
   value: string | null;
   onChange: (groupId: string | null) => void;
+  /** Override anime detection heuristic (e.g. when editing an existing show with known seriesType) */
+  isAnimeOverride?: boolean;
 };
 
 export default function EpisodeGroupSelector({
@@ -57,6 +59,7 @@ export default function EpisodeGroupSelector({
   genreIds,
   value,
   onChange,
+  isAnimeOverride,
 }: EpisodeGroupSelectorProps): JSX.Element | null {
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ["tmdb", "episode-groups", tmdbId],
@@ -65,8 +68,11 @@ export default function EpisodeGroupSelector({
   });
 
   const anime = useMemo(
-    () => isAnime(originCountry, genreIds),
-    [originCountry, genreIds],
+    () =>
+      isAnimeOverride === undefined
+        ? isAnime(originCountry, genreIds)
+        : isAnimeOverride,
+    [isAnimeOverride, originCountry, genreIds],
   );
 
   const recommendedId = useMemo(

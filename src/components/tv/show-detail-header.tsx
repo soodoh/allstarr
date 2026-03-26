@@ -33,6 +33,7 @@ import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import OptimizedImage from "src/components/shared/optimized-image";
+import EpisodeGroupSelector from "src/components/tv/episode-group-selector";
 import {
   useUpdateShow,
   useDeleteShow,
@@ -58,6 +59,7 @@ type ShowDetail = {
   posterUrl: string;
   monitorNewSeasons: string;
   useSeasonFolder: number | null;
+  episodeGroupId: string | null;
   downloadProfileIds: number[];
   seasons: Array<{
     id: number;
@@ -95,6 +97,10 @@ const SERIES_TYPE_LABELS: Record<string, string> = {
   anime: "Anime",
 };
 
+// Stable empty arrays to avoid creating new array instances on each render
+const EMPTY_STRING_ARRAY: string[] = [];
+const EMPTY_NUMBER_ARRAY: number[] = [];
+
 function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -128,6 +134,9 @@ function EditShowDialog({
     Boolean(show.useSeasonFolder),
   );
   const [seriesType, setSeriesType] = useState(show.seriesType ?? "standard");
+  const [episodeGroupId, setEpisodeGroupId] = useState<string | null>(
+    show.episodeGroupId,
+  );
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -136,6 +145,7 @@ function EditShowDialog({
       setMonitorNewSeasons(show.monitorNewSeasons ?? "all");
       setUseSeasonFolder(Boolean(show.useSeasonFolder));
       setSeriesType(show.seriesType ?? "standard");
+      setEpisodeGroupId(show.episodeGroupId);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -153,6 +163,7 @@ function EditShowDialog({
         monitorNewSeasons: monitorNewSeasons as "all" | "none" | "new",
         useSeasonFolder,
         seriesType: seriesType as "standard" | "daily" | "anime",
+        episodeGroupId,
       },
       {
         onSuccess: () => {
@@ -202,6 +213,16 @@ function EditShowDialog({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Episode Ordering */}
+        <EpisodeGroupSelector
+          tmdbId={show.tmdbId}
+          originCountry={EMPTY_STRING_ARRAY}
+          genreIds={EMPTY_NUMBER_ARRAY}
+          isAnimeOverride={seriesType === "anime"}
+          value={episodeGroupId}
+          onChange={setEpisodeGroupId}
+        />
 
         <ProfileCheckboxGroup
           profiles={tvProfiles}
