@@ -12,6 +12,7 @@ import {
 } from "src/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -181,89 +182,91 @@ function EditShowDialog({
           <DialogTitle>Edit Download Profiles</DialogTitle>
         </DialogHeader>
 
-        {/* Monitor New Seasons */}
-        <div className="space-y-2">
-          <Label>Monitor New Seasons</Label>
-          <Select
-            value={monitorNewSeasons}
-            onValueChange={setMonitorNewSeasons}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Seasons</SelectItem>
-              <SelectItem value="none">No New Seasons</SelectItem>
-              <SelectItem value="new">New Seasons Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Series Type */}
-        <div className="space-y-2">
-          <Label>Series Type</Label>
-          <Select value={seriesType} onValueChange={setSeriesType}>
-            <SelectTrigger className="w-full text-left">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="standard">
-                <div>
-                  <div>Standard</div>
-                  <div className="text-xs text-muted-foreground">
-                    Season and episode numbers (S01E05)
-                  </div>
-                </div>
-              </SelectItem>
-              <SelectItem value="daily">
-                <div>
-                  <div>Daily / Date</div>
-                  <div className="text-xs text-muted-foreground">
-                    Date (2020-05-25)
-                  </div>
-                </div>
-              </SelectItem>
-              <SelectItem value="anime">
-                <div>
-                  <div>Anime / Absolute</div>
-                  <div className="text-xs text-muted-foreground">
-                    Absolute episode number (005)
-                  </div>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Episode Ordering */}
-        <EpisodeGroupAccordion
-          tmdbId={show.tmdbId}
-          originCountry={EMPTY_STRING_ARRAY}
-          genreIds={EMPTY_NUMBER_ARRAY}
-          isAnimeOverride={seriesType === "anime"}
-          value={episodeGroupId}
-          onChange={setEpisodeGroupId}
-        />
-
-        <ProfileCheckboxGroup
-          profiles={tvProfiles}
-          selectedIds={selectedProfileIds}
-          onToggle={toggleProfile}
-        />
-
-        {/* Use Season Folder toggle */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="space-y-1">
-            <Label>Use Season Folder</Label>
-            <p className="text-sm text-muted-foreground">
-              Organize episodes into season-based folder structure.
-            </p>
+        <DialogBody>
+          {/* Monitor New Seasons */}
+          <div className="space-y-2">
+            <Label>Monitor New Seasons</Label>
+            <Select
+              value={monitorNewSeasons}
+              onValueChange={setMonitorNewSeasons}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Seasons</SelectItem>
+                <SelectItem value="none">No New Seasons</SelectItem>
+                <SelectItem value="new">New Seasons Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Switch
-            checked={useSeasonFolder}
-            onCheckedChange={setUseSeasonFolder}
+
+          {/* Series Type */}
+          <div className="space-y-2">
+            <Label>Series Type</Label>
+            <Select value={seriesType} onValueChange={setSeriesType}>
+              <SelectTrigger className="w-full text-left">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">
+                  <div>
+                    <div>Standard</div>
+                    <div className="text-xs text-muted-foreground">
+                      Season and episode numbers (S01E05)
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="daily">
+                  <div>
+                    <div>Daily / Date</div>
+                    <div className="text-xs text-muted-foreground">
+                      Date (2020-05-25)
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="anime">
+                  <div>
+                    <div>Anime / Absolute</div>
+                    <div className="text-xs text-muted-foreground">
+                      Absolute episode number (005)
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Episode Ordering */}
+          <EpisodeGroupAccordion
+            tmdbId={show.tmdbId}
+            originCountry={EMPTY_STRING_ARRAY}
+            genreIds={EMPTY_NUMBER_ARRAY}
+            isAnimeOverride={seriesType === "anime"}
+            value={episodeGroupId}
+            onChange={setEpisodeGroupId}
           />
-        </div>
+
+          <ProfileCheckboxGroup
+            profiles={tvProfiles}
+            selectedIds={selectedProfileIds}
+            onToggle={toggleProfile}
+          />
+
+          {/* Use Season Folder toggle */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="space-y-1">
+              <Label>Use Season Folder</Label>
+              <p className="text-sm text-muted-foreground">
+                Organize episodes into season-based folder structure.
+              </p>
+            </div>
+            <Switch
+              checked={useSeasonFolder}
+              onCheckedChange={setUseSeasonFolder}
+            />
+          </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -54,18 +55,20 @@ export default function UnmonitorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {fileCount > 0 && (
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="delete-files"
-              checked={deleteFiles}
-              onCheckedChange={(checked) => setDeleteFiles(checked === true)}
-            />
-            <Label htmlFor="delete-files" className="cursor-pointer">
-              Also delete {fileCount} file(s)
-            </Label>
-          </div>
-        )}
+        <DialogBody>
+          {fileCount > 0 && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="delete-files"
+                checked={deleteFiles}
+                onCheckedChange={(checked) => setDeleteFiles(checked === true)}
+              />
+              <Label htmlFor="delete-files" className="cursor-pointer">
+                Also delete {fileCount} file(s)
+              </Label>
+            </div>
+          )}
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
