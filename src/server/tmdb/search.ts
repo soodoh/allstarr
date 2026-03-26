@@ -21,7 +21,7 @@ function transformImagePaths<
         : null,
     backdrop_path:
       item.backdrop_path !== null && item.backdrop_path !== undefined
-        ? `${TMDB_IMAGE_BASE}/original${item.backdrop_path}`
+        ? `${TMDB_IMAGE_BASE}/w1280${item.backdrop_path}`
         : null,
   };
 }
