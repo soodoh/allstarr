@@ -24,6 +24,8 @@ import {
 } from "src/components/ui/select";
 import EmptyState from "src/components/shared/empty-state";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { resizeTmdbUrl } from "src/lib/utils";
 import { tmdbSearchMoviesQuery } from "src/lib/queries/tmdb";
 import { movieExistenceQuery } from "src/lib/queries/movies";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
@@ -138,19 +140,14 @@ export function MoviePreviewModal({
         <div className="space-y-4">
           {/* Poster + title row */}
           <div className="flex gap-4">
-            <div className="h-48 w-32 shrink-0 overflow-hidden rounded border border-border bg-muted">
-              {movie.poster_path ? (
-                <img
-                  src={movie.poster_path}
-                  alt={`${movie.title} poster`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <Film className="h-8 w-8" />
-                </div>
-              )}
-            </div>
+            <OptimizedImage
+              src={resizeTmdbUrl(movie.poster_path ?? null, "w342")}
+              alt={`${movie.title} poster`}
+              type="movie"
+              width={128}
+              height={192}
+              className="h-48 w-32 shrink-0 rounded"
+            />
 
             <div className="min-w-0 flex-1 space-y-2">
               <h2 className="text-xl font-semibold leading-tight">
@@ -299,20 +296,14 @@ function MovieResultCard({
       <Card className="py-0 overflow-hidden hover:bg-accent/50 transition-colors cursor-pointer">
         <CardContent className="p-4">
           <div className="flex gap-4">
-            <div className="h-24 w-16 shrink-0 overflow-hidden rounded border border-border bg-muted">
-              {movie.poster_path ? (
-                <img
-                  src={movie.poster_path}
-                  alt={`${movie.title} poster`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <Film className="h-5 w-5" />
-                </div>
-              )}
-            </div>
+            <OptimizedImage
+              src={resizeTmdbUrl(movie.poster_path ?? null, "w185")}
+              alt={`${movie.title} poster`}
+              type="movie"
+              width={64}
+              height={96}
+              className="h-24 w-16 shrink-0 rounded"
+            />
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">

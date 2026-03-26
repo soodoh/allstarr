@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Search, BookOpen, Users } from "lucide-react";
+import { Search } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
 import { Button } from "src/components/ui/button";
@@ -23,6 +23,7 @@ import type {
 } from "src/server/search";
 import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
+import OptimizedImage from "src/components/shared/optimized-image";
 export const Route = createFileRoute("/_authed/books/add")({
   component: AddToBookshelfPage,
 });
@@ -209,7 +210,6 @@ function ResultCard({
   onAuthorClick: (author: HardcoverSearchItem) => void;
   onBookClick: (book: HardcoverSearchItem) => void;
 }) {
-  const ItemIcon = result.type === "book" ? BookOpen : Users;
   const isAuthor = result.type === "author" && Boolean(result.slug);
   const isBook = result.type === "book";
   const isClickable = isAuthor || isBook;
@@ -235,20 +235,14 @@ function ResultCard({
     >
       <CardContent className="p-4">
         <div className="flex gap-4">
-          <div className="h-24 w-16 shrink-0 overflow-hidden rounded border border-border bg-muted">
-            {result.coverUrl ? (
-              <img
-                src={result.coverUrl}
-                alt={`${result.title} cover`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                <ItemIcon className="h-5 w-5" />
-              </div>
-            )}
-          </div>
+          <OptimizedImage
+            src={result.coverUrl ?? null}
+            alt={`${result.title} cover`}
+            type="book"
+            width={64}
+            height={96}
+            className="h-24 w-16 shrink-0 rounded"
+          />
 
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
