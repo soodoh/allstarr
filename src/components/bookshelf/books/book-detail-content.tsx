@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import BookCover from "src/components/bookshelf/books/book-cover";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { getCoverUrl } from "src/lib/utils";
 import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 import type { BookAuthorEntry } from "src/components/bookshelf/books/additional-authors";
 import {
@@ -62,7 +63,14 @@ export default function BookDetailContent({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-[auto_1fr] gap-6">
-        <BookCover title={book.title} images={coverImages} className="w-40" />
+        <OptimizedImage
+          src={getCoverUrl(coverImages)}
+          alt={`${book.title} cover`}
+          type="book"
+          width={160}
+          height={240}
+          className="aspect-[2/3] w-40"
+        />
         <div className="flex flex-col justify-end space-y-3 text-sm min-w-0">
           {(displayAuthor || book.bookAuthors.length > 0) && (
             <div className="flex items-center gap-2">
