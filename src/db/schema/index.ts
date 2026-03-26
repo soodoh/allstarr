@@ -33,3 +33,4 @@ export * from "./scheduled-tasks";
 export * from "./tracked-downloads";
 export * from "./custom-formats";
 export * from "./profile-custom-formats";
+export * from "./user-table-settings";
