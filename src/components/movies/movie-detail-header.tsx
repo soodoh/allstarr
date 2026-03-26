@@ -25,7 +25,7 @@ import {
 import Checkbox from "src/components/ui/checkbox";
 import { Label } from "src/components/ui/label";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
-import MoviePoster from "src/components/movies/movie-poster";
+import OptimizedImage from "src/components/shared/optimized-image";
 import {
   Select,
   SelectContent,
@@ -293,10 +293,14 @@ export default function MovieDetailHeader({
       {/* Three-column layout */}
       <div className="flex flex-col gap-6 xl:flex-row">
         {/* Left: Poster */}
-        <MoviePoster
-          posterUrl={movie.posterUrl || null}
-          title={movie.title}
-          className="w-full xl:w-44 shrink-0"
+        <OptimizedImage
+          src={movie.posterUrl || null}
+          alt={`${movie.title} poster`}
+          type="movie"
+          width={224}
+          height={336}
+          priority
+          className="aspect-[2/3] w-full max-w-56 xl:w-44 shrink-0"
         />
 
         {/* Center: Details */}
