@@ -93,8 +93,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const SERIES_TYPE_LABELS: Record<string, string> = {
   standard: "Standard",
-  daily: "Daily",
-  anime: "Anime",
+  daily: "Daily / Date",
+  anime: "Anime / Absolute",
 };
 
 // Stable empty arrays to avoid creating new array instances on each render
@@ -188,7 +188,7 @@ function EditShowDialog({
             value={monitorNewSeasons}
             onValueChange={setMonitorNewSeasons}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -203,13 +203,34 @@ function EditShowDialog({
         <div className="space-y-2">
           <Label>Series Type</Label>
           <Select value={seriesType} onValueChange={setSeriesType}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full text-left">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="standard">Standard</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="anime">Anime</SelectItem>
+              <SelectItem value="standard">
+                <div>
+                  <div>Standard</div>
+                  <div className="text-xs text-muted-foreground">
+                    Season and episode numbers (S01E05)
+                  </div>
+                </div>
+              </SelectItem>
+              <SelectItem value="daily">
+                <div>
+                  <div>Daily / Date</div>
+                  <div className="text-xs text-muted-foreground">
+                    Date (2020-05-25)
+                  </div>
+                </div>
+              </SelectItem>
+              <SelectItem value="anime">
+                <div>
+                  <div>Anime / Absolute</div>
+                  <div className="text-xs text-muted-foreground">
+                    Absolute episode number (005)
+                  </div>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
