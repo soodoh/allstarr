@@ -8,15 +8,27 @@ TMDB's default season/episode structure is frequently wrong for anime in two dis
 
 2. **Over-split seasons** — Long-running anime like Naruto Shippuden (20 arc-based seasons) and One Piece (22 arc-based seasons) are split by story arc on TMDB, but indexers exclusively use absolute episode numbering (episode 1 through 500+).
 
-Additionally, indexers list anime releases in mixed formats — some use absolute numbering (`[SubsPlease] Jujutsu Kaisen - 49`), others use seasonal (`Jujutsu Kaisen S03E01`). Searching only one format misses releases in the other.
+Additionally, indexers list anime releases in two distinct formats depending on the release group:
+
+- **Fansubs** (SubsPlease, Erai-raws, etc.) almost universally use **absolute numbering**: `[SubsPlease] Jujutsu Kaisen - 49`
+- **WEB-DL/scene groups** (VARYG, EMBER, etc.) almost universally use **seasonal format**: `Jujutsu Kaisen S03E01`
+
+This dual-format reality means searching only one format will always miss releases from the other ecosystem.
 
 ## Solution
 
-Two features that work together:
+Two independent features that address different aspects of the problem:
 
-1. **TMDB Episode Group Selection** — Let users pick an alternative episode ordering from TMDB's Episode Groups API. This fixes both lumped and over-split seasons by letting users choose the correct structure (e.g., "Seasons (Production)" for JJK, "Absolute" for One Piece).
+1. **TMDB Episode Group Selection** — Let users pick an alternative episode ordering from TMDB's Episode Groups API. This fixes the season/episode _structure_ in the database (e.g., "Seasons (Production)" splits JJK into proper S1/S2/S3; "Absolute" flattens One Piece into one list). Available for any show with episode groups, not just anime.
 
-2. **Dual-Format Anime Search** — When a show's series type is "anime", always search indexers with both absolute AND seasonal formats. Results are merged and deduplicated before scoring.
+2. **Dual-Format Anime Search** — When a show's series type is "anime", always search indexers with both absolute AND seasonal formats. This determines the _search behavior_, independent of which episode group is selected. Results are merged and deduplicated before scoring.
+
+These two features are **independent decisions**:
+
+- **Episode Group** = fixes season/episode structure in the DB
+- **Series Type** = determines search format (Standard = S##E## only, Anime = both absolute + S##E##)
+
+A show like Apothecary Diaries would use an episode group to fix lumped seasons AND series type "anime" for dual-format search. A show like My Hero Academia needs no episode group (TMDB default is correct) but still benefits from series type "anime" for dual search.
 
 ## Data Model Changes
 
@@ -62,9 +74,9 @@ When adding a show from TMDB search:
 1. Fetch episode groups alongside show detail via `/tv/{id}/episode_groups`.
 2. **If no groups exist** — import from TMDB default seasons. No episode group UI shown.
 3. **If groups exist** — show a selector in the add form:
-   - First option: "TMDB Default" with a "Recommended" badge for non-anime shows
+   - First option: "TMDB Default"
    - Groups listed below, organized by type label
-   - For anime shows, groups of type Absolute (2) or Production (6) get the "Recommended" badge instead
+   - One option receives a "Recommended" badge (see Smart Defaults below)
    - Each option displays: group name, type badge, episode count, group count
 4. **Preview** — selecting a group shows a collapsible season breakdown (season names + episode counts). Individual episodes are not shown here.
 5. **On confirm** — if a group is selected, fetch full group detail from `/tv/episode_group/{group_id}` and import from the group structure. Store `episodeGroupId` on the show row.
@@ -110,12 +122,31 @@ When changing the episode group on an already-imported show:
 
 Anime detection heuristic: `origin_country` includes `"JP"` AND `genres` includes Animation (ID 16).
 
-| Show Type | "Recommended" Badge On                        |
-| --------- | --------------------------------------------- |
-| Anime     | Groups of type Absolute (2) or Production (6) |
-| Non-anime | "TMDB Default" option                         |
+**Recommendation algorithm:**
 
-When adding an anime-detected show, also default the `seriesType` dropdown to `"anime"` instead of `"standard"` (user can override).
+1. **Non-anime shows**: "TMDB Default" gets the "Recommended" badge. Western shows are almost always correct out of the box.
+
+2. **Anime shows — detect if default structure is correct**: Check if TMDB default seasons have episodes that reset to E01 at each season boundary AND there are multiple seasons. If so, the default is likely correct (e.g., My Hero Academia, Demon Slayer). Recommend "TMDB Default".
+
+3. **Anime shows — lumped seasons detected**: If the default has a single non-specials season with many episodes (or episodes don't reset across few seasons), recommend the best season-splitting episode group. Prefer types in this order: Production (6) > Original Air Date (1) > TV (7). Among groups of the same preferred type, prefer the one with the most episodes (to include specials and avoid missing data).
+
+4. **Tiebreaker**: When multiple groups of equal type-priority exist, prefer the one with the highest episode count.
+
+**Worked examples:**
+
+| Show               | Default Structure           | Recommended                                    | Why                                                                                         |
+| ------------------ | --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| My Hero Academia   | 8 seasons, eps reset        | TMDB Default                                   | Default is correct                                                                          |
+| Demon Slayer       | 5 seasons, eps reset        | TMDB Default                                   | Default is correct                                                                          |
+| Jujutsu Kaisen     | 1 season, 59 eps            | Seasons (Production) — 4 groups, 64 eps        | Lumped; Production type preferred                                                           |
+| Apothecary Diaries | 1 season, 48 eps            | Seasons (Original Air Date) — 3 groups, 98 eps | Lumped; no Production group, Air Date next                                                  |
+| Dandadan           | 1 season, 24 eps            | Seasons (Production) — 2 groups, 24 eps        | Lumped; Production type preferred                                                           |
+| Bungo Stray Dogs   | 1 season, 60 eps            | Seasons (TV) — 5 groups, 61 eps                | Lumped; no Production/Air Date, TV next                                                     |
+| One Piece          | 22 seasons, eps don't reset | TMDB Default                                   | Continuous numbering but multi-season; default is usable (absolute derived from cumulative) |
+| Attack on Titan    | 4 seasons, eps reset        | TMDB Default                                   | Default is correct                                                                          |
+| The Office         | 9 seasons                   | TMDB Default                                   | Non-anime                                                                                   |
+
+**Series type auto-default**: When adding an anime-detected show, default the `seriesType` dropdown to `"anime"` instead of `"standard"` (user can override).
 
 ## Feature 2: Dual-Format Anime Search
 
@@ -152,21 +183,37 @@ When `seriesType` is `"anime"`, the search fires two requests per wanted episode
 
 ## Absolute Number Derivation
 
-For anime-type shows, `absoluteNumber` is computed at import time and stored on each episode row.
+For anime-type shows, `absoluteNumber` is computed at import time and stored on each episode row. The absolute number represents the canonical position of an episode in the full series run.
 
-### Case 1: Absolute episode group selected (type 2)
+### Case 1: Single season (lumped or naturally single)
 
-The group contains all episodes in a single virtual season. Each episode's `order + 1` is the absolute number.
+When all episodes are in one season (e.g., Black Clover: 170 eps in S1, or JJK on TMDB default: 59 eps in S1), the episode number IS the absolute number.
 
-### Case 2: Non-Absolute group or TMDB default with multiple seasons
+Example: S1E49 = absolute 49.
 
-Compute as cumulative count across seasons, ordered by season number. Season 0 (Specials) is excluded.
+### Case 2: Multiple seasons with continuous numbering (episodes don't reset)
+
+When seasons exist but episode numbers continue across boundaries (e.g., Naruto Shippuden default: S1=E1-E32, S2=E33-E53), the episode number itself is already the absolute number.
+
+Example: S2E33 = absolute 33. The season boundary is just organizational.
+
+### Case 3: Multiple seasons with reset numbering (episodes restart at E01)
+
+When episode numbers reset at each season (e.g., JJK with Production group: S1 has 24 eps, S2 has 23 eps), compute absolute as cumulative count. Season 0 (Specials) is excluded.
 
 Example: S1 has 24 episodes, S2 has 23 episodes. S2E01 = absolute 25, S2E23 = absolute 47.
 
-### Case 3: Single TMDB season (already lumped)
+### Case 4: Absolute episode group selected (type 2)
 
-Episode numbers already are absolute numbers. S1E150 = absolute 150.
+The group contains all episodes in a single virtual season. Each episode's `order + 1` is the absolute number. This is a special case of Case 1.
+
+### Detection logic
+
+To determine which case applies, check the first episode of each non-specials season:
+
+- If there's only 1 non-specials season -> Case 1
+- If season 2's first episode has `episodeNumber > 1` -> Case 2 (continuous)
+- If season 2's first episode has `episodeNumber == 1` -> Case 3 (reset, compute cumulative)
 
 ### Recomputation
 
@@ -183,49 +230,46 @@ Absolute numbers are recomputed whenever:
 - No changes to standard/daily series type behavior
 - No anime-specific indexer categories configuration (use existing indexer setup)
 
-## Research: Affected Shows
+## Research: Indexer Format by Show
 
-### Lumped Seasons (TMDB puts multiple seasons into one)
+Fansub groups (SubsPlease, Erai-raws) almost universally use absolute numbering for anime. WEB-DL/scene groups (VARYG, EMBER) almost universally use S##E## seasonal format. This dual reality is why dual-format search is needed.
 
-| Show                | TMDB Default       | Actual Seasons  | Episode Group Fix           |
-| ------------------- | ------------------ | --------------- | --------------------------- |
-| Jujutsu Kaisen      | 1 season, 59 eps   | 3 seasons       | Seasons (Production)        |
-| Apothecary Diaries  | 1 season, 48 eps   | 2 seasons       | Seasons (Original Air Date) |
-| Dandadan            | 1 season, 24 eps   | 2 seasons       | Seasons (Production)        |
-| Bungo Stray Dogs    | 1 season, 60 eps   | 5 seasons       | Available                   |
-| Kaiju No. 8         | 1 season, 23 eps   | 2 seasons       | Available                   |
-| Rent-a-Girlfriend   | 1 season, 50 eps   | 4 seasons       | Available                   |
-| My Dress-Up Darling | 1 season, 24 eps   | 2 seasons       | Unconfirmed                 |
-| Boruto              | 1 season, 293 eps  | Continuous      | Arc-based groups            |
-| Black Clover        | 1 season, 170 eps  | Continuous      | 4-season split in groups    |
-| Dragon Ball Super   | 1 season, 131 eps  | Continuous      | Story arc groups            |
-| Detective Conan     | 1 season, 1196 eps | Continuous      | Season split groups         |
-| Bleach (original)   | 1 season, 366 eps  | 16 TVDB seasons | Crunchyroll/TVDB splits     |
-| Gundam IBO          | 1 season, 50 eps   | 2 seasons       | Available                   |
+### Long-Running Shows (Absolute dominant)
 
-### Absolute Numbering (indexers use absolute, TMDB has multiple seasons)
+| Show             | TMDB Default                | Fansub Format   | WEB-DL Format              | Best Episode Group                |
+| ---------------- | --------------------------- | --------------- | -------------------------- | --------------------------------- |
+| One Piece        | 22 arc seasons, 1155 eps    | Absolute (1155) | S01E1155                   | Default or Absolute (No Specials) |
+| Naruto Shippuden | 20 arc seasons, 500 eps     | Absolute (500)  | Absolute                   | Correct Order (Air Date)          |
+| Fairy Tail       | 8 seasons, 328 eps          | Absolute (328)  | Absolute                   | Correct Order (Absolute)          |
+| Gintama          | 11 seasons, 367 eps         | Absolute (367)  | Absolute                   | Gintama (Absolute, 383 eps)       |
+| Bleach           | 1 season, 366 eps + TYBW S2 | Absolute (366)  | Absolute / S01E## for TYBW | TVDB Order (Air Date, 410 eps)    |
+| Black Clover     | 1 season, 170 eps           | Absolute (170)  | Absolute                   | Default works (already 1 season)  |
+| Boruto           | 1 season, 293 eps           | Absolute (293)  | Absolute                   | Default works (already 1 season)  |
+| Detective Conan  | 1 season, 1196 eps          | Absolute (1196) | S01E1196                   | Default works (already 1 season)  |
 
-| Show                 | TMDB Seasons   | Eps Reset?      | Absolute Group? | Heuristic Works? |
-| -------------------- | -------------- | --------------- | --------------- | ---------------- |
-| One Piece            | 22 arc seasons | No (continuous) | Yes             | Yes              |
-| Naruto               | 4 seasons      | No (continuous) | N/A             | Yes              |
-| Naruto Shippuden     | 20 seasons     | No (continuous) | N/A             | Yes              |
-| Hunter x Hunter 2011 | 3 seasons      | No (continuous) | Yes             | Yes              |
-| Fairy Tail           | 8 seasons      | Yes (resets)    | Yes             | No               |
-| Gintama              | 11 seasons     | Yes (resets)    | Yes             | No               |
-| Dragon Ball Z        | 9 seasons      | Yes (resets)    | No              | No               |
-| InuYasha             | 2 seasons      | Yes (resets)    | Yes             | No               |
-| Pokemon              | 25 seasons     | Yes (resets)    | Yes             | No               |
+### Lumped-Season Shows (Both formats on indexers)
+
+| Show                | TMDB Default            | Fansub Format               | WEB-DL Format | Best Episode Group                      |
+| ------------------- | ----------------------- | --------------------------- | ------------- | --------------------------------------- |
+| Jujutsu Kaisen      | 1 season, 59 eps        | Absolute (49)               | S03E01        | Seasons (Production) — 4 groups, 64 eps |
+| Apothecary Diaries  | 1 season, 48 eps        | Absolute (48)               | S02E01        | Seasons (Air Date) — 3 groups, 98 eps   |
+| Dandadan            | 1 season, 24 eps        | Absolute (24)               | S02E01        | Seasons (Production) — 2 groups, 24 eps |
+| Bungo Stray Dogs    | 1 season, 60 eps        | Absolute (61)               | S05E01        | Seasons (TV) — 5 groups, 61 eps         |
+| Kaiju No. 8         | 1 season, 23 eps        | Absolute (23)               | S02E01        | Seasons (Production) — 3 groups, 24 eps |
+| Rent-a-Girlfriend   | 1 season, 50 eps        | Absolute (48)               | S03E01        | Seasons (Production) — 4 groups, 48 eps |
+| Spy x Family        | 3 seasons (wrong split) | Absolute (50)               | S03E01        | Cours (Air Date) — 4 groups, 50 eps     |
+| Oshi no Ko          | 1 season, 35 eps        | Absolute (24) then reset S3 | S03E01        | Seasons (Production) — 4 groups, 37 eps |
+| My Dress-Up Darling | 1 season, 24 eps        | Absolute (24)               | S02E01        | Unconfirmed                             |
 
 ### Shows Correct Out of the Box
 
-| Show             | TMDB Seasons | Indexer Format     | Match?  |
-| ---------------- | ------------ | ------------------ | ------- |
-| My Hero Academia | 8 seasons    | S01-S08            | Yes     |
-| Demon Slayer     | 5 seasons    | S01-S05            | Mostly  |
-| Attack on Titan  | 4 seasons    | S01-S04 + absolute | Partial |
+| Show             | TMDB Default                 | Fansub Format  | WEB-DL Format | Episode Group Needed? |
+| ---------------- | ---------------------------- | -------------- | ------------- | --------------------- |
+| My Hero Academia | 8 seasons, eps reset         | Absolute (170) | S01-S08       | No, default correct   |
+| Demon Slayer     | 5 seasons, eps reset per arc | Reset per arc  | S01-S05       | No, default correct   |
+| Attack on Titan  | 4 seasons, eps reset         | Absolute (87)  | S01-S04       | No, default correct   |
 
-### Western Shows with Episode Groups (not affected by anime issues)
+### Western Shows with Episode Groups
 
 | Show              | Episode Groups | Types                                           |
 | ----------------- | -------------- | ----------------------------------------------- |
@@ -236,3 +280,15 @@ Absolute numbers are recomputed whenever:
 | Game of Thrones   | 1 group        | Original Air Date                               |
 | Stranger Things   | 1 group        | Original Air Date (volume splits)               |
 | Breaking Bad      | 0 groups       | N/A                                             |
+
+### Episode Group Details for Key Shows
+
+**One Piece** (16 groups): Seasons (Production) 24 groups/1194 eps, TVDB Order 23 groups/1192 eps, Absolute (No Specials) 1 group/1155 eps, Absolute (With Specials) 2 groups/1193 eps, Story Arc 54 groups/1194 eps, plus various Digital groups (Crunchyroll, Netflix, Hulu, etc.)
+
+**Naruto Shippuden** (11 groups): Correct Order 1 group/500 eps, Absolute Order 2 groups/503 eps, plus various Story Arc and TV groups
+
+**Fairy Tail** (8 groups): Correct Order (Absolute) 1 group/328 eps, Production 9 groups/328 eps, plus Crunchyroll, DVD, Arc groups
+
+**Bleach** (11 groups): TVDB Order 18 groups/410 eps, No Specials 2 groups/406 eps, Crunchyroll Season Split 16 groups/392 eps, plus various DVD/Digital/Arc groups
+
+**Attack on Titan** (11 groups): All Episodes (Absolute) 1 group/89 eps, All Episodes + OVAs (Absolute) 1 group/97 eps, Seasons + OVAs (Production) 5 groups/97 eps, Original Production + OVAs (Production) 8 groups/136 eps, plus DVD, Story Arc groups
