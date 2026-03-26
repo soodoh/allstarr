@@ -639,6 +639,11 @@ async function importAuthorInternal(data: {
         continue;
       }
 
+      // Skip partial editions (books that are splits of a canonical book)
+      if (rawBook.canonicalId !== null) {
+        continue;
+      }
+
       // Filter editions by metadata profile
       const rawEditions = editionsMap.get(rawBook.id) ?? [];
       const filteredEditions = filterEditionsByProfile(
@@ -1200,6 +1205,11 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
     for (const rawBook of rawBooks) {
       const foreignBookId = String(rawBook.id);
       seenForeignBookIds.add(foreignBookId);
+
+      // Skip partial editions (books that are splits of a canonical book)
+      if (rawBook.canonicalId !== null) {
+        continue;
+      }
 
       const existingBook = tx
         .select({ id: books.id })

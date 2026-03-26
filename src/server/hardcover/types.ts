@@ -26,6 +26,7 @@ export type HardcoverRawBook = {
   usersCount: number | null;
   coverUrl: string | null;
   isCompilation: boolean;
+  canonicalId: number | null;
   defaultCoverEditionId: number | null;
   contributions: HardcoverRawContribution[];
   series: HardcoverRawBookSeries[];
