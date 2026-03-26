@@ -6,6 +6,8 @@ import {
   updateMovieFn,
   deleteMovieFn,
   refreshMovieMetadataFn,
+  monitorMovieProfileFn,
+  unmonitorMovieProfileFn,
 } from "src/server/movies";
 import { queryKeys } from "src/lib/query-keys";
 import type {
@@ -70,5 +72,29 @@ export function useRefreshMovieMetadata() {
       queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
     },
     onError: () => toast.error("Failed to refresh movie metadata"),
+  });
+}
+
+export function useMonitorMovieProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { movieId: number; downloadProfileId: number }) =>
+      monitorMovieProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
+    },
+    onError: () => toast.error("Failed to monitor movie profile"),
+  });
+}
+
+export function useUnmonitorMovieProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { movieId: number; downloadProfileId: number }) =>
+      unmonitorMovieProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
+    },
+    onError: () => toast.error("Failed to unmonitor movie profile"),
   });
 }
