@@ -86,6 +86,16 @@ export const refreshMovieSchema = z.object({
   movieId: z.number(),
 });
 
+export const monitorShowProfileSchema = z.object({
+  showId: z.number(),
+  downloadProfileId: z.number(),
+});
+
+export const unmonitorShowProfileSchema = z.object({
+  showId: z.number(),
+  downloadProfileId: z.number(),
+});
+
 export const refreshShowSchema = z.object({
   showId: z.number(),
 });

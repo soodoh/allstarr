@@ -21,6 +21,8 @@ import {
   unmonitorEpisodeProfileSchema,
   bulkMonitorEpisodeProfileSchema,
   bulkUnmonitorEpisodeProfileSchema,
+  monitorShowProfileSchema,
+  unmonitorShowProfileSchema,
   refreshShowSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
@@ -661,7 +663,27 @@ export const getShowsFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(shows.createdAt))
       .all();
 
-    return rows;
+    // Fetch show-level download profile links
+    const showProfileLinks = db
+      .select({
+        showId: showDownloadProfiles.showId,
+        downloadProfileId: showDownloadProfiles.downloadProfileId,
+      })
+      .from(showDownloadProfiles)
+      .all();
+
+    const profilesByShow = new Map<number, number[]>();
+    for (const link of showProfileLinks) {
+      const arr = profilesByShow.get(link.showId) ?? [];
+      arr.push(link.downloadProfileId);
+      profilesByShow.set(link.showId, arr);
+    }
+
+    return rows.map((row) =>
+      Object.assign(row, {
+        downloadProfileIds: profilesByShow.get(row.id) ?? [],
+      }),
+    );
   },
 );
 
@@ -990,6 +1012,39 @@ export const bulkUnmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
         )
         .run();
     }
+
+    return { success: true };
+  });
+
+export const monitorShowProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => monitorShowProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.insert(showDownloadProfiles)
+      .values({
+        showId: data.showId,
+        downloadProfileId: data.downloadProfileId,
+      })
+      .onConflictDoNothing()
+      .run();
+
+    return { success: true };
+  });
+
+export const unmonitorShowProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => unmonitorShowProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.delete(showDownloadProfiles)
+      .where(
+        and(
+          eq(showDownloadProfiles.showId, data.showId),
+          eq(showDownloadProfiles.downloadProfileId, data.downloadProfileId),
+        ),
+      )
+      .run();
 
     return { success: true };
   });
