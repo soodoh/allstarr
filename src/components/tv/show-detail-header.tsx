@@ -33,7 +33,7 @@ import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import OptimizedImage from "src/components/shared/optimized-image";
-import EpisodeGroupSelector from "src/components/tv/episode-group-selector";
+import EpisodeGroupAccordion from "src/components/tv/episode-group-accordion";
 import {
   useUpdateShow,
   useDeleteShow,
@@ -176,7 +176,7 @@ function EditShowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Download Profiles</DialogTitle>
         </DialogHeader>
@@ -236,7 +236,7 @@ function EditShowDialog({
         </div>
 
         {/* Episode Ordering */}
-        <EpisodeGroupSelector
+        <EpisodeGroupAccordion
           tmdbId={show.tmdbId}
           originCountry={EMPTY_STRING_ARRAY}
           genreIds={EMPTY_NUMBER_ARRAY}
