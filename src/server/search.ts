@@ -2,12 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "./middleware";
 import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
+import { hardcoverFetch } from "./hardcover/client";
 import { getMetadataProfile } from "./metadata-profile";
 import type { MetadataProfile } from "./metadata-profile";
 import getProfileLanguages from "./profile-languages";
-
-const HARDCOVER_GRAPHQL_URL =
-  process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
 
 export type HardcoverSearchMode = "all" | "books" | "authors";
 type HardcoverQueryType = "Book" | "Author";
@@ -758,133 +756,94 @@ const seriesBooksInputSchema = z.object({
     .default("all"),
 });
 
-type GraphQLSeriesBooksResponse = {
-  data?: {
-    series_by_pk?: unknown;
-    book_series?: unknown;
-  };
-  errors?: Array<{ message?: string }>;
-};
-
 async function fetchSeriesBooks(
   seriesId: number,
   language: string,
-  authorization: string,
 ): Promise<HardcoverSeriesBooksResult> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const profile = getMetadataProfile();
   const langCodes = language === "all" ? getProfileLanguages() : [language];
 
-  try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: buildSeriesBooksQuery(
-          profile.skipMissingReleaseDate,
-          profile.skipMissingIsbnAsin,
-          profile.minimumPopularity,
-          profile.minimumPages,
-        ),
-        variables: {
-          seriesId,
-          langCodes,
-          ...(profile.minimumPopularity > 0
-            ? { minPopularity: profile.minimumPopularity }
-            : {}),
-          ...(profile.minimumPages > 0
-            ? { minPages: profile.minimumPages }
-            : {}),
-        },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+  const result = await hardcoverFetch<{
+    series_by_pk?: unknown;
+    book_series?: unknown;
+  }>(
+    buildSeriesBooksQuery(
+      profile.skipMissingReleaseDate,
+      profile.skipMissingIsbnAsin,
+      profile.minimumPopularity,
+      profile.minimumPages,
+    ),
+    {
+      seriesId,
+      langCodes,
+      ...(profile.minimumPopularity > 0
+        ? { minPopularity: profile.minimumPopularity }
+        : {}),
+      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+    },
+  );
 
-    const body = (await response.json()) as GraphQLSeriesBooksResponse;
-    if (!response.ok) {
-      throw new Error("Hardcover series request failed.");
-    }
-    if (body.errors && body.errors.length > 0) {
-      throw new Error(
-        body.errors[0]?.message || "Hardcover series request failed.",
-      );
-    }
-
-    const seriesRecord = toRecord(body.data?.series_by_pk);
-    if (!seriesRecord) {
-      throw new Error("Series not found on Hardcover.");
-    }
-
-    const seriesTitle =
-      firstString(seriesRecord, [["name"]]) ?? String(seriesId);
-
-    const books: HardcoverSeriesBook[] = toRecordArray(body.data?.book_series)
-      .map((entry) => {
-        const bookRecord = toRecord(entry.book);
-        if (!bookRecord) {
-          return undefined;
-        }
-        const title = firstString(bookRecord, [["title"]]);
-        if (!title) {
-          return undefined;
-        }
-        const slug = firstString(bookRecord, [["slug"]]);
-        const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
-        const position = firstNumber(entry, [["position"]]);
-        const isCompilation = entry.compilation === true;
-        const authorName =
-          toRecordArray(bookRecord.contributions)
-            .map((c) => {
-              const authorRecord = toRecord(c.author);
-              return authorRecord
-                ? firstString(authorRecord, [["name"]])
-                : undefined;
-            })
-            .filter((n): n is string => n !== undefined)
-            .join(", ") || null;
-        const editions = toRecordArray(bookRecord.editions);
-        const languageRecord =
-          editions.length > 0 ? toRecord(editions[0].language) : undefined;
-        const languageName = languageRecord
-          ? (firstString(languageRecord, [["language"]]) ?? null)
-          : null;
-        return {
-          id,
-          title,
-          slug: slug ?? null,
-          description: firstString(bookRecord, [["description"]]) ?? null,
-          releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
-          releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
-          rating: firstNumber(bookRecord, [["rating"]]) ?? null,
-          usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
-          coverUrl: getCoverUrl(bookRecord) ?? null,
-          position: position ?? null,
-          hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
-          isCompilation,
-          authorName,
-          languageName,
-        };
-      })
-      .filter(Boolean) as HardcoverSeriesBook[];
-
-    return {
-      seriesId: String(seriesId),
-      seriesTitle,
-      books: deduplicateSeriesBooks(books),
-    };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover series request timed out.", { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+  const seriesRecord = toRecord(result?.series_by_pk);
+  if (!seriesRecord) {
+    throw new Error("Series not found on Hardcover.");
   }
+
+  const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
+
+  const books: HardcoverSeriesBook[] = toRecordArray(result?.book_series)
+    .map((entry) => {
+      const bookRecord = toRecord(entry.book);
+      if (!bookRecord) {
+        return undefined;
+      }
+      const title = firstString(bookRecord, [["title"]]);
+      if (!title) {
+        return undefined;
+      }
+      const slug = firstString(bookRecord, [["slug"]]);
+      const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
+      const position = firstNumber(entry, [["position"]]);
+      const isCompilation = entry.compilation === true;
+      const authorName =
+        toRecordArray(bookRecord.contributions)
+          .map((c) => {
+            const authorRecord = toRecord(c.author);
+            return authorRecord
+              ? firstString(authorRecord, [["name"]])
+              : undefined;
+          })
+          .filter((n): n is string => n !== undefined)
+          .join(", ") || null;
+      const editions = toRecordArray(bookRecord.editions);
+      const languageRecord =
+        editions.length > 0 ? toRecord(editions[0].language) : undefined;
+      const languageName = languageRecord
+        ? (firstString(languageRecord, [["language"]]) ?? null)
+        : null;
+      return {
+        id,
+        title,
+        slug: slug ?? null,
+        description: firstString(bookRecord, [["description"]]) ?? null,
+        releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+        releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+        rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+        usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+        coverUrl: getCoverUrl(bookRecord) ?? null,
+        position: position ?? null,
+        hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+        isCompilation,
+        authorName,
+        languageName,
+      };
+    })
+    .filter(Boolean) as HardcoverSeriesBook[];
+
+  return {
+    seriesId: String(seriesId),
+    seriesTitle,
+    books: deduplicateSeriesBooks(books),
+  };
 }
 
 type SearchHit = {
@@ -894,42 +853,6 @@ type SearchHit = {
 type SearchPayload = {
   hits?: unknown;
 };
-
-type GraphQLSearchResponse = {
-  data?: {
-    search?: {
-      error?: string | undefined;
-      results?: unknown;
-    };
-  };
-  errors?: Array<{
-    message?: string;
-  }>;
-};
-
-type GraphQLAuthorDetailsResponse = {
-  data?: {
-    authors?: unknown;
-    editions?: unknown;
-    books?: unknown;
-    books_aggregate?: unknown;
-  };
-  errors?: Array<{
-    message?: string;
-  }>;
-};
-
-function getHardcoverToken(): string {
-  return process.env.HARDCOVER_TOKEN ?? "";
-}
-
-function getAuthorizationHeader() {
-  const rawToken = getHardcoverToken().trim();
-  if (!rawToken) {
-    throw new Error("HARDCOVER_TOKEN is not configured.");
-  }
-  return rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`;
-}
 
 function toRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
@@ -1325,7 +1248,6 @@ function sortByReaders(items: HardcoverSearchItem[]): HardcoverSearchItem[] {
 async function applyLanguageFilter(
   items: HardcoverSearchItem[],
   languages: string[],
-  authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const bookIds = items
     .map((item) => Number(item.id))
@@ -1335,33 +1257,13 @@ async function applyLanguageFilter(
   }
 
   try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: bookLanguageFilterQuery,
-        variables: { ids: bookIds, langCodes: languages },
-      }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return items;
-    }
-
-    const body = (await response.json()) as {
-      data?: { books?: unknown[] };
-      errors?: Array<{ message: string }>;
-    };
-    if (body.errors && body.errors.length > 0) {
-      return items;
-    }
+    const result = await hardcoverFetch<{ books?: unknown[] }>(
+      bookLanguageFilterQuery,
+      { ids: bookIds, langCodes: languages },
+    );
 
     const matchingIds = new Set<string>();
-    for (const book of toRecordArray(body.data?.books)) {
+    for (const book of toRecordArray(result?.books)) {
       const bookId = firstId(book, [["id"]]);
       if (bookId) {
         matchingIds.add(bookId);
@@ -1382,7 +1284,6 @@ async function applyLanguageFilter(
  */
 async function applyIsbnAsinFilter(
   items: HardcoverSearchItem[],
-  authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const bookIds = items
     .map((item) => Number(item.id))
@@ -1392,33 +1293,13 @@ async function applyIsbnAsinFilter(
   }
 
   try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: bookIsbnAsinFilterQuery,
-        variables: { ids: bookIds },
-      }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return items;
-    }
-
-    const body = (await response.json()) as {
-      data?: { books?: unknown[] };
-      errors?: Array<{ message: string }>;
-    };
-    if (body.errors && body.errors.length > 0) {
-      return items;
-    }
+    const result = await hardcoverFetch<{ books?: unknown[] }>(
+      bookIsbnAsinFilterQuery,
+      { ids: bookIds },
+    );
 
     const matchingIds = new Set<string>();
-    for (const book of toRecordArray(body.data?.books)) {
+    for (const book of toRecordArray(result?.books)) {
       const bookId = firstId(book, [["id"]]);
       if (bookId) {
         matchingIds.add(bookId);
@@ -1440,7 +1321,6 @@ async function applyIsbnAsinFilter(
 async function applyPagesFilter(
   items: HardcoverSearchItem[],
   minPages: number,
-  authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const bookIds = items
     .map((item) => Number(item.id))
@@ -1450,33 +1330,13 @@ async function applyPagesFilter(
   }
 
   try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: bookPagesFilterQuery,
-        variables: { ids: bookIds, minPages },
-      }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return items;
-    }
-
-    const body = (await response.json()) as {
-      data?: { books?: unknown[] };
-      errors?: Array<{ message: string }>;
-    };
-    if (body.errors && body.errors.length > 0) {
-      return items;
-    }
+    const result = await hardcoverFetch<{ books?: unknown[] }>(
+      bookPagesFilterQuery,
+      { ids: bookIds, minPages },
+    );
 
     const matchingIds = new Set<string>();
-    for (const book of toRecordArray(body.data?.books)) {
+    for (const book of toRecordArray(result?.books)) {
       const bookId = firstId(book, [["id"]]);
       if (bookId) {
         matchingIds.add(bookId);
@@ -1575,7 +1435,6 @@ function buildAuthorBookCountsQuery(
 async function applyAuthorBookCounts(
   items: HardcoverSearchItem[],
   languages: string[],
-  authorization: string,
   skipCompilations: boolean,
   skipMissingReleaseDate = false,
   skipMissingIsbnAsin = false,
@@ -1610,32 +1469,15 @@ async function applyAuthorBookCounts(
       variables.minPages = minimumPages;
     }
 
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({ query, variables }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return items;
-    }
-
-    const body = (await response.json()) as {
-      data?: Record<string, unknown>;
-      errors?: Array<{ message: string }>;
-    };
-    if (body.errors && body.errors.length > 0) {
-      return items;
-    }
+    const result = await hardcoverFetch<Record<string, unknown>>(
+      query,
+      variables,
+    );
 
     // Build a slug → count map from the aliased results
     const countBySlug = new Map<string, number>();
     for (let i = 0; i < authorSlugs.length; i += 1) {
-      const count = parseAggregateCount(body.data?.[`a${i}`]);
+      const count = parseAggregateCount(result?.[`a${i}`]);
       countBySlug.set(authorSlugs[i], count);
     }
 
@@ -1689,7 +1531,6 @@ function buildBookContributorsQuery(bookIds: number[]): string {
  */
 async function applyBookContributors(
   items: HardcoverSearchItem[],
-  authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const bookEntries = items
     .filter((item) => item.type === "book")
@@ -1701,30 +1542,10 @@ async function applyBookContributors(
 
   try {
     const query = buildBookContributorsQuery(bookEntries.map((e) => e.id));
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({ query }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return items;
-    }
-
-    const body = (await response.json()) as {
-      data?: Record<string, unknown>;
-      errors?: Array<{ message: string }>;
-    };
-    if (body.errors && body.errors.length > 0) {
-      return items;
-    }
+    const result = await hardcoverFetch<Record<string, unknown>>(query, {});
 
     for (let i = 0; i < bookEntries.length; i += 1) {
-      const booksArray = toRecordArray(body.data?.[`b${i}`]);
+      const booksArray = toRecordArray(result?.[`b${i}`]);
       if (booksArray.length === 0) {
         continue;
       }
@@ -1752,7 +1573,6 @@ async function fetchSearchResults(
   query: string,
   queryType: HardcoverQueryType,
   limit: number,
-  authorization: string,
 ): Promise<HardcoverSearchItem[]> {
   const profile = getMetadataProfile();
   const allowedLanguages = getProfileLanguages();
@@ -1761,113 +1581,73 @@ async function fetchSearchResults(
   // books that will be removed, so we can still fill up to `limit`.
   const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  const result = await hardcoverFetch<{
+    search?: { error?: string; results?: unknown };
+  }>(searchQuery, {
+    query,
+    queryType,
+    perPage: requestLimit,
+    page: 1,
+  });
 
-  try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: searchQuery,
-        variables: {
-          query,
-          queryType,
-          perPage: requestLimit,
-          page: 1,
-        },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    const body = (await response.json()) as GraphQLSearchResponse;
-    if (!response.ok) {
-      throw new Error("Hardcover search request failed.");
-    }
-
-    if (body.errors && body.errors.length > 0) {
-      throw new Error(body.errors[0]?.message || "Hardcover search failed.");
-    }
-
-    const apiError = body.data?.search?.error;
-    if (apiError) {
-      throw new Error(apiError);
-    }
-
-    const hits = parseSearchPayload(body.data?.search?.results);
-    const documents = hits
-      .map((hit) => toRecord(hit.document))
-      .filter(Boolean) as Array<Record<string, unknown>>;
-
-    let mapped = documents
-      .map((document) =>
-        queryType === "Book"
-          ? toBookResult(document, profile)
-          : toAuthorResult(document),
-      )
-      .filter(Boolean) as HardcoverSearchItem[];
-
-    // Filter out books without a release year when the profile says to
-    if (profile.skipMissingReleaseDate && queryType === "Book") {
-      mapped = mapped.filter((item) => item.releaseYear !== null);
-    }
-
-    if (profile.skipMissingIsbnAsin && queryType === "Book") {
-      mapped = await applyIsbnAsinFilter(mapped, authorization);
-    }
-
-    if (filterByLanguage && queryType === "Book") {
-      mapped = await applyLanguageFilter(
-        mapped,
-        allowedLanguages,
-        authorization,
-      );
-    }
-
-    if (profile.minimumPopularity > 0 && queryType === "Book") {
-      mapped = mapped.filter(
-        (item) => (item.readers ?? 0) >= profile.minimumPopularity,
-      );
-    }
-
-    if (profile.minimumPages > 0 && queryType === "Book") {
-      mapped = await applyPagesFilter(
-        mapped,
-        profile.minimumPages,
-        authorization,
-      );
-    }
-
-    if (queryType === "Book") {
-      mapped = await applyBookContributors(mapped, authorization);
-    }
-
-    if (queryType === "Author") {
-      mapped = await applyAuthorBookCounts(
-        mapped,
-        allowedLanguages,
-        authorization,
-        profile.skipCompilations,
-        profile.skipMissingReleaseDate,
-        profile.skipMissingIsbnAsin,
-        profile.minimumPopularity,
-        profile.minimumPages,
-      );
-    }
-
-    return mapped.slice(0, limit);
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover search timed out.", { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+  const apiError = result?.search?.error;
+  if (apiError) {
+    throw new Error(apiError);
   }
+
+  const hits = parseSearchPayload(result?.search?.results);
+  const documents = hits
+    .map((hit) => toRecord(hit.document))
+    .filter(Boolean) as Array<Record<string, unknown>>;
+
+  let mapped = documents
+    .map((document) =>
+      queryType === "Book"
+        ? toBookResult(document, profile)
+        : toAuthorResult(document),
+    )
+    .filter(Boolean) as HardcoverSearchItem[];
+
+  // Filter out books without a release year when the profile says to
+  if (profile.skipMissingReleaseDate && queryType === "Book") {
+    mapped = mapped.filter((item) => item.releaseYear !== null);
+  }
+
+  if (profile.skipMissingIsbnAsin && queryType === "Book") {
+    mapped = await applyIsbnAsinFilter(mapped);
+  }
+
+  if (filterByLanguage && queryType === "Book") {
+    mapped = await applyLanguageFilter(mapped, allowedLanguages);
+  }
+
+  if (profile.minimumPopularity > 0 && queryType === "Book") {
+    mapped = mapped.filter(
+      (item) => (item.readers ?? 0) >= profile.minimumPopularity,
+    );
+  }
+
+  if (profile.minimumPages > 0 && queryType === "Book") {
+    mapped = await applyPagesFilter(mapped, profile.minimumPages);
+  }
+
+  if (queryType === "Book") {
+    mapped = await applyBookContributors(mapped);
+  }
+
+  if (queryType === "Author") {
+    mapped = await applyAuthorBookCounts(
+      mapped,
+      allowedLanguages,
+      profile.skipCompilations,
+      profile.skipMissingReleaseDate,
+      profile.skipMissingIsbnAsin,
+      profile.minimumPopularity,
+      profile.minimumPages,
+    );
+  }
+
+  return mapped.slice(0, limit);
 }
 
 function buildOrderBy(
@@ -1896,71 +1676,41 @@ async function fetchAuthorBooksPage(
   selectedLanguage: string,
   sortBy: "title" | "year" | "rating" | "readers",
   sortDir: "asc" | "desc",
-  authorization: string,
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const offset = (page - 1) * pageSize;
   const profile = getMetadataProfile();
   const langCodes =
     selectedLanguage === "all" ? getProfileLanguages() : [selectedLanguage];
 
-  try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: buildAuthorBooksPageQuery(
-          profile.skipCompilations,
-          profile.skipMissingReleaseDate,
-          profile.skipMissingIsbnAsin,
-          profile.minimumPopularity,
-          profile.minimumPages,
-        ),
-        variables: {
-          slug,
-          limit: pageSize,
-          offset,
-          orderBy: buildOrderBy(sortBy, sortDir),
-          langCodes,
-          ...(profile.minimumPopularity > 0
-            ? { minPopularity: profile.minimumPopularity }
-            : {}),
-          ...(profile.minimumPages > 0
-            ? { minPages: profile.minimumPages }
-            : {}),
-        },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+  const result = await hardcoverFetch<{
+    books?: unknown;
+    books_aggregate?: unknown;
+  }>(
+    buildAuthorBooksPageQuery(
+      profile.skipCompilations,
+      profile.skipMissingReleaseDate,
+      profile.skipMissingIsbnAsin,
+      profile.minimumPopularity,
+      profile.minimumPages,
+    ),
+    {
+      slug,
+      limit: pageSize,
+      offset,
+      orderBy: buildOrderBy(sortBy, sortDir),
+      langCodes,
+      ...(profile.minimumPopularity > 0
+        ? { minPopularity: profile.minimumPopularity }
+        : {}),
+      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+    },
+  );
 
-    const body = (await response.json()) as GraphQLAuthorDetailsResponse;
-    if (!response.ok) {
-      throw new Error("Hardcover books request failed.");
-    }
-    if (body.errors && body.errors.length > 0) {
-      throw new Error(
-        body.errors[0]?.message || "Hardcover books request failed.",
-      );
-    }
-
-    const books = toRecordArray(body.data?.books)
-      .map((bookRecord) => toHardcoverAuthorBook(bookRecord))
-      .filter(Boolean) as HardcoverAuthorBook[];
-    const totalBooks = parseAggregateCount(body.data?.books_aggregate);
-    return { books, totalBooks };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover books request timed out.", { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const books = toRecordArray(result?.books)
+    .map((bookRecord) => toHardcoverAuthorBook(bookRecord))
+    .filter(Boolean) as HardcoverAuthorBook[];
+  const totalBooks = parseAggregateCount(result?.books_aggregate);
+  return { books, totalBooks };
 }
 
 // oxlint-disable-next-line complexity -- Complex data-fetching function with many validation steps
@@ -1971,168 +1721,132 @@ async function fetchAuthorDetails(
   language: string,
   sortBy: "title" | "year" | "rating" | "readers",
   sortDir: "asc" | "desc",
-  authorization: string,
 ): Promise<HardcoverAuthorDetail> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  const metaResult = await hardcoverFetch<{
+    authors?: unknown;
+    editions?: unknown;
+  }>(authorDetailsMetaQuery, { authorId });
 
-  try {
-    const metaResponse = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: authorDetailsMetaQuery,
-        variables: { authorId },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    const metaBody =
-      (await metaResponse.json()) as GraphQLAuthorDetailsResponse;
-    if (!metaResponse.ok) {
-      throw new Error("Hardcover author request failed.");
-    }
-    if (metaBody.errors && metaBody.errors.length > 0) {
-      throw new Error(
-        metaBody.errors[0]?.message || "Hardcover author request failed.",
-      );
-    }
-
-    const authors = toRecordArray(metaBody.data?.authors);
-    const author = authors.length > 0 ? authors[0] : undefined;
-    if (!author) {
-      throw new Error("Author not found on Hardcover.");
-    }
-
-    const languagesMap = new Map<string, string>();
-    for (const edition of toRecordArray(metaBody.data?.editions)) {
-      const languageRecord = toRecord(edition.language);
-      if (!languageRecord) {
-        continue;
-      }
-      const code = normalizeLanguageCode(
-        firstString(languageRecord, [["code2"], ["code3"]]),
-      );
-      const name = firstString(languageRecord, [["language"]]);
-      if (!code || !name) {
-        continue;
-      }
-      if (!languagesMap.has(code)) {
-        languagesMap.set(code, name);
-      }
-    }
-    if (!languagesMap.has("en")) {
-      languagesMap.set("en", "English");
-    }
-
-    const selectedLanguageRaw = normalizeLanguageCode(language) || "en";
-    const selectedLanguage =
-      selectedLanguageRaw === "all" || languagesMap.has(selectedLanguageRaw)
-        ? selectedLanguageRaw
-        : "en";
-
-    const authorSlug = firstString(author, [["slug"]]) || String(authorId);
-
-    const booksPage = await fetchAuthorBooksPage(
-      authorSlug,
-      page,
-      pageSize,
-      selectedLanguage,
-      sortBy,
-      sortDir,
-      authorization,
-    );
-    const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
-    const safePage = Math.min(page, totalPages);
-    let pagedBooks: HardcoverAuthorBook[];
-    if (safePage === page) {
-      pagedBooks = booksPage.books;
-    } else {
-      const safePageResult = await fetchAuthorBooksPage(
-        authorSlug,
-        safePage,
-        pageSize,
-        selectedLanguage,
-        sortBy,
-        sortDir,
-        authorization,
-      );
-      pagedBooks = safePageResult.books;
-    }
-    const authorName = firstString(author, [["name"], ["title"]]);
-    if (!authorName) {
-      throw new Error("Author name is missing in Hardcover response.");
-    }
-
-    const languageOptions: HardcoverLanguageOption[] = [
-      { code: "all", name: "All Languages" },
-      ...[...languagesMap.entries()]
-        .map(([code, name]) => ({ code, name }))
-        .toSorted((a, b) => a.name.localeCompare(b.name)),
-    ];
-
-    return {
-      id:
-        firstId(author, [["id"], ["author_id"], ["foreign_author_id"]]) ||
-        authorSlug,
-      slug: authorSlug,
-      name: authorName,
-      bio: firstString(author, [["bio"], ["overview"]]) ?? null,
-      booksCount: booksPage.totalBooks,
-      bornYear: firstNumber(author, [["born_year"]]) ?? null,
-      deathYear: firstNumber(author, [["death_year"]]) ?? null,
-      imageUrl: getCoverUrl(author) ?? null,
-      hardcoverUrl: authorSlug
-        ? `https://hardcover.app/authors/${authorSlug}`
-        : null,
-      selectedLanguage,
-      page: safePage,
-      pageSize,
-      totalBooks: booksPage.totalBooks,
-      totalPages,
-      languages: languageOptions,
-      books: pagedBooks,
-      sortBy,
-      sortDir,
-    };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover author request timed out.", { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+  const authors = toRecordArray(metaResult?.authors);
+  const author = authors.length > 0 ? authors[0] : undefined;
+  if (!author) {
+    throw new Error("Author not found on Hardcover.");
   }
+
+  const languagesMap = new Map<string, string>();
+  for (const edition of toRecordArray(metaResult?.editions)) {
+    const languageRecord = toRecord(edition.language);
+    if (!languageRecord) {
+      continue;
+    }
+    const code = normalizeLanguageCode(
+      firstString(languageRecord, [["code2"], ["code3"]]),
+    );
+    const name = firstString(languageRecord, [["language"]]);
+    if (!code || !name) {
+      continue;
+    }
+    if (!languagesMap.has(code)) {
+      languagesMap.set(code, name);
+    }
+  }
+  if (!languagesMap.has("en")) {
+    languagesMap.set("en", "English");
+  }
+
+  const selectedLanguageRaw = normalizeLanguageCode(language) || "en";
+  const selectedLanguage =
+    selectedLanguageRaw === "all" || languagesMap.has(selectedLanguageRaw)
+      ? selectedLanguageRaw
+      : "en";
+
+  const authorSlug = firstString(author, [["slug"]]) || String(authorId);
+
+  const booksPage = await fetchAuthorBooksPage(
+    authorSlug,
+    page,
+    pageSize,
+    selectedLanguage,
+    sortBy,
+    sortDir,
+  );
+  const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
+  const safePage = Math.min(page, totalPages);
+  let pagedBooks: HardcoverAuthorBook[];
+  if (safePage === page) {
+    pagedBooks = booksPage.books;
+  } else {
+    const safePageResult = await fetchAuthorBooksPage(
+      authorSlug,
+      safePage,
+      pageSize,
+      selectedLanguage,
+      sortBy,
+      sortDir,
+    );
+    pagedBooks = safePageResult.books;
+  }
+  const authorName = firstString(author, [["name"], ["title"]]);
+  if (!authorName) {
+    throw new Error("Author name is missing in Hardcover response.");
+  }
+
+  const languageOptions: HardcoverLanguageOption[] = [
+    { code: "all", name: "All Languages" },
+    ...[...languagesMap.entries()]
+      .map(([code, name]) => ({ code, name }))
+      .toSorted((a, b) => a.name.localeCompare(b.name)),
+  ];
+
+  return {
+    id:
+      firstId(author, [["id"], ["author_id"], ["foreign_author_id"]]) ||
+      authorSlug,
+    slug: authorSlug,
+    name: authorName,
+    bio: firstString(author, [["bio"], ["overview"]]) ?? null,
+    booksCount: booksPage.totalBooks,
+    bornYear: firstNumber(author, [["born_year"]]) ?? null,
+    deathYear: firstNumber(author, [["death_year"]]) ?? null,
+    imageUrl: getCoverUrl(author) ?? null,
+    hardcoverUrl: authorSlug
+      ? `https://hardcover.app/authors/${authorSlug}`
+      : null,
+    selectedLanguage,
+    page: safePage,
+    pageSize,
+    totalBooks: booksPage.totalBooks,
+    totalPages,
+    languages: languageOptions,
+    books: pagedBooks,
+    sortBy,
+    sortDir,
+  };
 }
 
 export const searchHardcoverFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => searchInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
     const { query, type, limit } = data;
 
     if (type === "books") {
       const results = sortByReaders(
-        await fetchSearchResults(query, "Book", limit, authorization),
+        await fetchSearchResults(query, "Book", limit),
       );
       return { query, type, results, total: results.length };
     }
 
     if (type === "authors") {
       const results = sortByReaders(
-        await fetchSearchResults(query, "Author", limit, authorization),
+        await fetchSearchResults(query, "Author", limit),
       );
       return { query, type, results, total: results.length };
     }
 
     const [bookResults, authorResults] = await Promise.all([
-      fetchSearchResults(query, "Book", limit, authorization),
-      fetchSearchResults(query, "Author", limit, authorization),
+      fetchSearchResults(query, "Book", limit),
+      fetchSearchResults(query, "Author", limit),
     ]);
     const results = interleave(
       sortByReaders(bookResults),
@@ -2147,7 +1861,6 @@ export const getHardcoverAuthorFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => authorDetailsInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
     return fetchAuthorDetails(
       data.foreignAuthorId,
       data.page,
@@ -2155,7 +1868,6 @@ export const getHardcoverAuthorFn = createServerFn({ method: "GET" })
       data.language,
       data.sortBy,
       data.sortDir,
-      authorization,
     );
   });
 
@@ -2163,8 +1875,7 @@ export const getHardcoverSeriesBooksFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => seriesBooksInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
-    return fetchSeriesBooks(data.seriesId, data.language, authorization);
+    return fetchSeriesBooks(data.seriesId, data.language);
   });
 
 const authorSeriesInputSchema = z.object({
@@ -2177,129 +1888,91 @@ const authorSeriesInputSchema = z.object({
     .default("all"),
 });
 
-type GraphQLAuthorSeriesResponse = {
-  data?: { series?: unknown };
-  errors?: Array<{ message?: string }>;
-};
-
 async function fetchAuthorSeries(
   slug: string,
   language: string,
-  authorization: string,
 ): Promise<HardcoverAuthorSeries[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const profile = getMetadataProfile();
   const hasLanguageFilter = language !== "all";
   const langCodes = hasLanguageFilter ? [language] : getProfileLanguages();
-  try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: buildAuthorSeriesQuery(
-          hasLanguageFilter,
-          profile.skipMissingReleaseDate,
-          profile.skipMissingIsbnAsin,
-          profile.minimumPopularity,
-          profile.minimumPages,
-        ),
-        variables: {
-          slug,
-          ...(hasLanguageFilter ? { langCodes } : {}),
-          ...(profile.minimumPopularity > 0
-            ? { minPopularity: profile.minimumPopularity }
-            : {}),
-          ...(profile.minimumPages > 0
-            ? { minPages: profile.minimumPages }
-            : {}),
-        },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    const body = (await response.json()) as GraphQLAuthorSeriesResponse;
-    if (!response.ok) {
-      throw new Error("Hardcover series request failed.");
-    }
-    if (body.errors && body.errors.length > 0) {
-      throw new Error(
-        body.errors[0]?.message || "Hardcover series request failed.",
-      );
-    }
-    return toRecordArray(body.data?.series)
-      .map((s) => {
-        // Count distinct non-null positions — mirrors the deduplicateSeriesBooks
-        // logic so this number matches exactly what the expanded view will show.
-        const positionRows = toRecordArray(s.positions);
-        const distinctPositions = new Set(
-          positionRows
-            .map((p) => firstNumber(p, [["position"]]))
-            .filter((p): p is number => p !== undefined),
-        );
-        const booksCount = distinctPositions.size;
 
-        // Check if the author's association is only through anthologies.
-        // If every book the author contributed to in this series has many
-        // primary authors (> 4), it's likely an anthology — not a real
-        // series association for this author.
-        const authorBookEntries = toRecordArray(s.author_books);
-        const hasNonAnthology = authorBookEntries.some((entry) => {
-          const bookRecord = toRecord(entry.book);
-          if (!bookRecord) {
-            return false;
-          }
-          const aggRecord = toRecord(bookRecord.primary_authors);
-          const aggregate = aggRecord
-            ? toRecord(aggRecord.aggregate)
-            : undefined;
-          const count = aggregate
-            ? firstNumber(aggregate, [["count"]])
-            : undefined;
-          return count !== undefined && count <= 4;
-        });
-        // If author_books is empty or all entries are anthologies, skip
-        if (authorBookEntries.length > 0 && !hasNonAnthology) {
-          return undefined;
+  const result = await hardcoverFetch<{ series?: unknown }>(
+    buildAuthorSeriesQuery(
+      hasLanguageFilter,
+      profile.skipMissingReleaseDate,
+      profile.skipMissingIsbnAsin,
+      profile.minimumPopularity,
+      profile.minimumPages,
+    ),
+    {
+      slug,
+      ...(hasLanguageFilter ? { langCodes } : {}),
+      ...(profile.minimumPopularity > 0
+        ? { minPopularity: profile.minimumPopularity }
+        : {}),
+      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+    },
+  );
+
+  return toRecordArray(result?.series)
+    .map((s) => {
+      // Count distinct non-null positions — mirrors the deduplicateSeriesBooks
+      // logic so this number matches exactly what the expanded view will show.
+      const positionRows = toRecordArray(s.positions);
+      const distinctPositions = new Set(
+        positionRows
+          .map((p) => firstNumber(p, [["position"]]))
+          .filter((p): p is number => p !== undefined),
+      );
+      const booksCount = distinctPositions.size;
+
+      // Check if the author's association is only through anthologies.
+      // If every book the author contributed to in this series has many
+      // primary authors (> 4), it's likely an anthology — not a real
+      // series association for this author.
+      const authorBookEntries = toRecordArray(s.author_books);
+      const hasNonAnthology = authorBookEntries.some((entry) => {
+        const bookRecord = toRecord(entry.book);
+        if (!bookRecord) {
+          return false;
         }
+        const aggRecord = toRecord(bookRecord.primary_authors);
+        const aggregate = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
+        const count = aggregate
+          ? firstNumber(aggregate, [["count"]])
+          : undefined;
+        return count !== undefined && count <= 4;
+      });
+      // If author_books is empty or all entries are anthologies, skip
+      if (authorBookEntries.length > 0 && !hasNonAnthology) {
+        return undefined;
+      }
 
-        return {
-          id: String(firstId(s, [["id"]]) ?? ""),
-          name: firstString(s, [["name"]]) ?? "",
-          slug: firstString(s, [["slug"]]) ?? "",
-          booksCount,
-          isCompleted:
-            typeof s.is_completed === "boolean" ? s.is_completed : null,
-          hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
-        };
-      })
-      .filter(
-        (s): s is NonNullable<typeof s> =>
-          s !== undefined &&
-          s !== null &&
-          s.id !== "" &&
-          s.name !== "" &&
-          s.booksCount > 0,
-      );
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover series request timed out.", { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+      return {
+        id: String(firstId(s, [["id"]]) ?? ""),
+        name: firstString(s, [["name"]]) ?? "",
+        slug: firstString(s, [["slug"]]) ?? "",
+        booksCount,
+        isCompleted:
+          typeof s.is_completed === "boolean" ? s.is_completed : null,
+        hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
+      };
+    })
+    .filter(
+      (s): s is NonNullable<typeof s> =>
+        s !== undefined &&
+        s !== null &&
+        s.id !== "" &&
+        s.name !== "" &&
+        s.booksCount > 0,
+    );
 }
 
 export const getHardcoverAuthorSeriesFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => authorSeriesInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
-    return fetchAuthorSeries(data.slug, data.language, authorization);
+    return fetchAuthorSeries(data.slug, data.language);
   });
 
 // ---------------------------------------------------------------------------
@@ -2359,141 +2032,100 @@ function buildEditionsOrderBy(
   return map[sortBy];
 }
 
-type GraphQLBookEditionsResponse = {
-  data?: {
-    books?: unknown;
-    editions?: unknown;
-  };
-  errors?: Array<{ message?: string }>;
-};
-
 async function fetchBookEditions(
   foreignBookId: number,
   page: number,
   pageSize: number,
   sortBy: EditionSortKey,
   sortDir: "asc" | "desc",
-  authorization: string,
 ): Promise<HardcoverBookEditionsResult> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   const offset = (page - 1) * pageSize;
 
-  try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: bookEditionsQuery,
-        variables: {
-          bookId: foreignBookId,
-          limit: pageSize,
-          offset,
-          orderBy: buildEditionsOrderBy(sortBy, sortDir),
-        },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+  const result = await hardcoverFetch<{
+    books?: unknown;
+    editions?: unknown;
+  }>(bookEditionsQuery, {
+    bookId: foreignBookId,
+    limit: pageSize,
+    offset,
+    orderBy: buildEditionsOrderBy(sortBy, sortDir),
+  });
 
-    const body = (await response.json()) as GraphQLBookEditionsResponse;
-    if (!response.ok) {
-      throw new Error("Hardcover editions request failed.");
-    }
-    if (body.errors && body.errors.length > 0) {
-      throw new Error(
-        body.errors[0]?.message || "Hardcover editions request failed.",
-      );
-    }
+  const booksArray = toRecordArray(result?.books);
+  const total =
+    booksArray.length > 0
+      ? (firstNumber(booksArray[0], [["editions_count"]]) ?? 0)
+      : 0;
+  const editions: HardcoverEdition[] = toRecordArray(result?.editions)
+    .map((record) => {
+      const id = firstId(record, [["id"]]);
+      if (!id) {
+        return undefined;
+      }
+      const title = firstString(record, [["title"]]) ?? "";
 
-    const booksArray = toRecordArray(body.data?.books);
-    const total =
-      booksArray.length > 0
-        ? (firstNumber(booksArray[0], [["editions_count"]]) ?? 0)
-        : 0;
-    const editions: HardcoverEdition[] = toRecordArray(body.data?.editions)
-      .map((record) => {
-        const id = firstId(record, [["id"]]);
-        if (!id) {
-          return undefined;
-        }
-        const title = firstString(record, [["title"]]) ?? "";
+      // Author from cached_contributors
+      const contributors = Array.isArray(record.cached_contributors)
+        ? record.cached_contributors
+        : [];
+      const authorNames = contributors
+        .map((c: unknown) => {
+          const contributorRecord = toRecord(c);
+          const authorRecord = contributorRecord
+            ? toRecord(contributorRecord.author)
+            : undefined;
+          return authorRecord
+            ? firstString(authorRecord, [["name"]])
+            : undefined;
+        })
+        .filter(
+          (n: unknown): n is string => typeof n === "string" && n.length > 0,
+        );
+      const author = authorNames.length > 0 ? authorNames.join(", ") : null;
 
-        // Author from cached_contributors
-        const contributors = Array.isArray(record.cached_contributors)
-          ? record.cached_contributors
-          : [];
-        const authorNames = contributors
-          .map((c: unknown) => {
-            const contributorRecord = toRecord(c);
-            const authorRecord = contributorRecord
-              ? toRecord(contributorRecord.author)
-              : undefined;
-            return authorRecord
-              ? firstString(authorRecord, [["name"]])
-              : undefined;
-          })
-          .filter(
-            (n: unknown): n is string => typeof n === "string" && n.length > 0,
-          );
-        const author = authorNames.length > 0 ? authorNames.join(", ") : null;
+      const publisherRecord = toRecord(record.publisher);
+      const publisher = publisherRecord
+        ? (firstString(publisherRecord, [["name"]]) ?? null)
+        : null;
 
-        const publisherRecord = toRecord(record.publisher);
-        const publisher = publisherRecord
-          ? (firstString(publisherRecord, [["name"]]) ?? null)
-          : null;
+      const readingFormatRecord = toRecord(record.reading_format);
+      const type = readingFormatRecord
+        ? (firstString(readingFormatRecord, [["format"]]) ?? null)
+        : null;
 
-        const readingFormatRecord = toRecord(record.reading_format);
-        const type = readingFormatRecord
-          ? (firstString(readingFormatRecord, [["format"]]) ?? null)
-          : null;
+      const languageRecord = toRecord(record.language);
+      const language = languageRecord
+        ? (firstString(languageRecord, [["language"]]) ?? null)
+        : null;
 
-        const languageRecord = toRecord(record.language);
-        const language = languageRecord
-          ? (firstString(languageRecord, [["language"]]) ?? null)
-          : null;
+      const countryRecord = toRecord(record.country);
+      const country = countryRecord
+        ? (firstString(countryRecord, [["name"]]) ?? null)
+        : null;
 
-        const countryRecord = toRecord(record.country);
-        const country = countryRecord
-          ? (firstString(countryRecord, [["name"]]) ?? null)
-          : null;
+      return {
+        id,
+        title,
+        author,
+        publisher,
+        type,
+        pages: firstNumber(record, [["pages"]]) ?? null,
+        releaseDate: firstString(record, [["release_date"]]) ?? null,
+        isbn10: firstString(record, [["isbn_10"]]) ?? null,
+        isbn13: firstString(record, [["isbn_13"]]) ?? null,
+        asin: firstString(record, [["asin"]]) ?? null,
+        language,
+        country,
+        readers: firstNumber(record, [["users_count"]]) ?? 0,
+        score: firstNumber(record, [["score"]]) ?? 0,
+        coverUrl: getCoverUrl(record) ?? null,
+      };
+    })
+    .filter(Boolean) as HardcoverEdition[];
 
-        return {
-          id,
-          title,
-          author,
-          publisher,
-          type,
-          pages: firstNumber(record, [["pages"]]) ?? null,
-          releaseDate: firstString(record, [["release_date"]]) ?? null,
-          isbn10: firstString(record, [["isbn_10"]]) ?? null,
-          isbn13: firstString(record, [["isbn_13"]]) ?? null,
-          asin: firstString(record, [["asin"]]) ?? null,
-          language,
-          country,
-          readers: firstNumber(record, [["users_count"]]) ?? 0,
-          score: firstNumber(record, [["score"]]) ?? 0,
-          coverUrl: getCoverUrl(record) ?? null,
-        };
-      })
-      .filter(Boolean) as HardcoverEdition[];
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-    return { editions, total, page, pageSize, totalPages };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Hardcover editions request timed out.", {
-        cause: error,
-      });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return { editions, total, page, pageSize, totalPages };
 }
 
 const bookEditionsInputSchema = z.object({
@@ -2523,14 +2155,12 @@ export const getHardcoverBookEditionsFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => bookEditionsInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
     return fetchBookEditions(
       data.foreignBookId,
       data.page,
       data.pageSize,
       data.sortBy,
       data.sortDir,
-      authorization,
     );
   });
 
@@ -2553,35 +2183,14 @@ query HardcoverBookEditionLanguages($bookId: Int!) {
 
 async function fetchBookEditionLanguages(
   foreignBookId: number,
-  authorization: string,
 ): Promise<BookLanguage[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
   try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: bookEditionLanguagesQuery,
-        variables: { bookId: foreignBookId },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+    const result = await hardcoverFetch<{ editions?: unknown }>(
+      bookEditionLanguagesQuery,
+      { bookId: foreignBookId },
+    );
 
-    const body = (await response.json()) as {
-      data?: { editions?: unknown };
-      errors?: Array<{ message?: string }>;
-    };
-    if (!response.ok || (body.errors && body.errors.length > 0)) {
-      return [];
-    }
-
-    const editions = toRecordArray(body.data?.editions);
+    const editions = toRecordArray(result?.editions);
     const langMap = new Map<
       string,
       { name: string; code: string; readers: number }
@@ -2610,8 +2219,6 @@ async function fetchBookEditionLanguages(
     return [...langMap.values()].toSorted((a, b) => b.readers - a.readers);
   } catch {
     return [];
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -2623,8 +2230,7 @@ export const getHardcoverBookLanguagesFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => bookLanguagesInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
-    return fetchBookEditionLanguages(data.foreignBookId, authorization);
+    return fetchBookEditionLanguages(data.foreignBookId);
   });
 
 // ── Single book detail from Hardcover ───────────────────────────────────────
@@ -2676,35 +2282,13 @@ query HardcoverSingleBook($bookId: Int!) {
 
 async function fetchSingleBook(
   bookId: number,
-  authorization: string,
 ): Promise<HardcoverBookDetail | undefined> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
   try {
-    const response = await fetch(HARDCOVER_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-      body: JSON.stringify({
-        query: singleBookQuery,
-        variables: { bookId },
-      }),
-      signal: controller.signal,
-      cache: "no-store",
+    const result = await hardcoverFetch<{ books?: unknown }>(singleBookQuery, {
+      bookId,
     });
 
-    const body = (await response.json()) as {
-      data?: { books?: unknown };
-      errors?: Array<{ message?: string }>;
-    };
-    if (!response.ok || (body.errors && body.errors.length > 0)) {
-      return undefined;
-    }
-
-    const booksArray = toRecordArray(body.data?.books);
+    const booksArray = toRecordArray(result?.books);
     if (booksArray.length === 0) {
       return undefined;
     }
@@ -2769,8 +2353,6 @@ async function fetchSingleBook(
     };
   } catch {
     return undefined;
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -2782,6 +2364,5 @@ export const getHardcoverBookDetailFn = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => singleBookInputSchema.parse(data))
   .handler(async ({ data }) => {
     await requireAuth();
-    const authorization = getAuthorizationHeader();
-    return fetchSingleBook(data.foreignBookId, authorization);
+    return fetchSingleBook(data.foreignBookId);
   });
