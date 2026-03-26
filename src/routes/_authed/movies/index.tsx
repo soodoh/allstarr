@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Film, LayoutGrid, List, Pencil, Plus, Search, X } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -12,13 +12,43 @@ import MovieBulkBar from "src/components/movies/movie-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { moviesListQuery } from "src/lib/queries/movies";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import {
+  useMonitorMovieProfile,
+  useUnmonitorMovieProfile,
+} from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/movies/")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(moviesListQuery()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(moviesListQuery()),
+      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+    ]);
+  },
   component: MoviesPage,
   pendingComponent: MoviesPageSkeleton,
 });
+
+type MovieWithProfiles = { id: number; downloadProfileIds?: number[] };
+
+function useMovieProfileToggle(movies: MovieWithProfiles[]) {
+  const monitorMovieProfile = useMonitorMovieProfile();
+  const unmonitorMovieProfile = useUnmonitorMovieProfile();
+
+  const handleToggle = useCallback(
+    (movieId: number, profileId: number) => {
+      const movie = movies.find((m) => m.id === movieId);
+      const isActive = movie?.downloadProfileIds?.includes(profileId);
+      const mutation = isActive ? unmonitorMovieProfile : monitorMovieProfile;
+      mutation.mutate({ movieId, downloadProfileId: profileId });
+    },
+    [movies, monitorMovieProfile, unmonitorMovieProfile],
+  );
+
+  return {
+    handleToggle,
+    isPending: monitorMovieProfile.isPending || unmonitorMovieProfile.isPending,
+  };
+}
 
 function MoviesPage() {
   const [view, setView] = useState<"table" | "grid">("grid");
@@ -27,14 +57,16 @@ function MoviesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: movies } = useSuspenseQuery(moviesListQuery());
-  const { data: allProfiles = [] } = useQuery({
-    ...downloadProfilesListQuery(),
-    enabled: massEditMode,
-  });
+  const { data: allProfiles = [] } = useSuspenseQuery(
+    downloadProfilesListQuery(),
+  );
   const movieProfiles = useMemo(
     () => allProfiles.filter((p) => p.contentType === "movie"),
     [allProfiles],
   );
+
+  const { handleToggle: handleToggleProfile, isPending: isTogglePending } =
+    useMovieProfileToggle(movies);
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -193,6 +225,9 @@ function MoviesPage() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleAll={toggleAll}
+          downloadProfiles={movieProfiles}
+          onToggleProfile={handleToggleProfile}
+          isTogglePending={isTogglePending}
         />
       )}
 

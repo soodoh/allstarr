@@ -12,13 +12,15 @@ import {
   movieImportListExclusions,
   history,
 } from "src/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import {
   addMovieSchema,
   updateMovieSchema,
   deleteMovieSchema,
   refreshMovieSchema,
+  monitorMovieProfileSchema,
+  unmonitorMovieProfileSchema,
 } from "src/lib/tmdb-validators";
 import { tmdbFetch } from "./tmdb/client";
 import type { TmdbMovieDetail, TmdbCollectionDetail } from "./tmdb/types";
@@ -248,7 +250,27 @@ export const getMoviesFn = createServerFn({ method: "GET" }).handler(
       .groupBy(movies.id)
       .all();
 
-    return rows;
+    // Fetch movie-level download profile links
+    const movieProfileLinks = db
+      .select({
+        movieId: movieDownloadProfiles.movieId,
+        downloadProfileId: movieDownloadProfiles.downloadProfileId,
+      })
+      .from(movieDownloadProfiles)
+      .all();
+
+    const profilesByMovie = new Map<number, number[]>();
+    for (const link of movieProfileLinks) {
+      const arr = profilesByMovie.get(link.movieId) ?? [];
+      arr.push(link.downloadProfileId);
+      profilesByMovie.set(link.movieId, arr);
+    }
+
+    return rows.map((row) =>
+      Object.assign(row, {
+        downloadProfileIds: profilesByMovie.get(row.id) ?? [],
+      }),
+    );
   },
 );
 
@@ -487,6 +509,39 @@ export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
         collectionId,
       })
       .where(eq(movies.id, data.movieId))
+      .run();
+
+    return { success: true };
+  });
+
+export const monitorMovieProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => monitorMovieProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.insert(movieDownloadProfiles)
+      .values({
+        movieId: data.movieId,
+        downloadProfileId: data.downloadProfileId,
+      })
+      .onConflictDoNothing()
+      .run();
+
+    return { success: true };
+  });
+
+export const unmonitorMovieProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => unmonitorMovieProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    db.delete(movieDownloadProfiles)
+      .where(
+        and(
+          eq(movieDownloadProfiles.movieId, data.movieId),
+          eq(movieDownloadProfiles.downloadProfileId, data.downloadProfileId),
+        ),
+      )
       .run();
 
     return { success: true };
