@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -94,54 +95,56 @@ export default function EditCollectionDialog({
           <DialogTitle>Edit {collection?.title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="monitored">Monitored</Label>
-              <Switch
-                id="monitored"
-                checked={monitored}
-                onCheckedChange={setMonitored}
-              />
+        <DialogBody>
+          <div className="space-y-4 py-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="monitored">Monitored</Label>
+                <Switch
+                  id="monitored"
+                  checked={monitored}
+                  onCheckedChange={setMonitored}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                When monitored, new movies added to this collection on TMDB will
+                be automatically added to your library.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              When monitored, new movies added to this collection on TMDB will
-              be automatically added to your library.
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Minimum Availability</Label>
-            <Select value={availability} onValueChange={setAvailability}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="announced">Announced</SelectItem>
-                <SelectItem value="inCinemas">In Cinemas</SelectItem>
-                <SelectItem value="released">Released</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Download Profiles</Label>
             <div className="space-y-2">
-              {movieProfiles.map((profile) => (
-                <div key={profile.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`profile-${String(profile.id)}`}
-                    checked={selectedProfileIds.includes(profile.id)}
-                    onCheckedChange={() => toggleProfile(profile.id)}
-                  />
-                  <Label htmlFor={`profile-${String(profile.id)}`}>
-                    {profile.name}
-                  </Label>
-                </div>
-              ))}
+              <Label>Minimum Availability</Label>
+              <Select value={availability} onValueChange={setAvailability}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="announced">Announced</SelectItem>
+                  <SelectItem value="inCinemas">In Cinemas</SelectItem>
+                  <SelectItem value="released">Released</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Download Profiles</Label>
+              <div className="space-y-2">
+                {movieProfiles.map((profile) => (
+                  <div key={profile.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`profile-${String(profile.id)}`}
+                      checked={selectedProfileIds.includes(profile.id)}
+                      onCheckedChange={() => toggleProfile(profile.id)}
+                    />
+                    <Label htmlFor={`profile-${String(profile.id)}`}>
+                      {profile.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
