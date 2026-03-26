@@ -14,7 +14,6 @@ import {
 import {
   ArrowLeft,
   ChevronRight,
-  ImageIcon,
   Library,
   Loader2,
   Plus,
@@ -1065,17 +1064,14 @@ function SeriesTab({
                               {position ?? "—"}
                             </TableCell>
                             <TableCell className="min-w-14 w-14">
-                              {coverUrl ? (
-                                <img
-                                  src={coverUrl}
-                                  alt={displayTitle}
-                                  className="aspect-[2/3] w-full rounded-sm object-cover"
-                                />
-                              ) : (
-                                <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
+                              <OptimizedImage
+                                src={coverUrl ?? null}
+                                alt={displayTitle}
+                                type="book"
+                                width={56}
+                                height={84}
+                                className="aspect-[2/3] w-full rounded-sm"
+                              />
                             </TableCell>
                             <TableCell>
                               <span className="font-medium">
@@ -1170,17 +1166,14 @@ function SeriesTab({
                             {entry.position ?? "—"}
                           </TableCell>
                           <TableCell className="min-w-14 w-14">
-                            {coverUrl ? (
-                              <img
-                                src={coverUrl}
-                                alt={displayTitle}
-                                className="aspect-[2/3] w-full rounded-sm object-cover"
-                              />
-                            ) : (
-                              <div className="aspect-[2/3] w-full rounded-sm bg-muted flex items-center justify-center">
-                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                            )}
+                            <OptimizedImage
+                              src={coverUrl ?? null}
+                              alt={displayTitle}
+                              type="book"
+                              width={56}
+                              height={84}
+                              className="aspect-[2/3] w-full rounded-sm"
+                            />
                           </TableCell>
                           <TableCell>
                             <span className="font-medium">{displayTitle}</span>
