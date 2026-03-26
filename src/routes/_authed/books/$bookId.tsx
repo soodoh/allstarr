@@ -12,7 +12,8 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import { BookDetailSkeleton } from "src/components/shared/loading-skeleton";
-import BookCover from "src/components/bookshelf/books/book-cover";
+import OptimizedImage from "src/components/shared/optimized-image";
+import { getCoverUrl } from "src/lib/utils";
 import AdditionalAuthors from "src/components/bookshelf/books/additional-authors";
 
 import EditionsTab from "src/components/bookshelf/books/editions-tab";
@@ -230,10 +231,14 @@ function BookDetailPage(): JSX.Element {
 
       {/* Cover + Details + Description */}
       <div className="flex flex-col gap-6 xl:flex-row">
-        <BookCover
-          title={book.title}
-          images={coverImages}
-          className="w-full xl:w-44 shrink-0"
+        <OptimizedImage
+          src={getCoverUrl(coverImages)}
+          alt={`${book.title} cover`}
+          type="book"
+          width={224}
+          height={336}
+          priority
+          className="aspect-[2/3] w-full max-w-56 xl:w-44 shrink-0"
         />
 
         <Card className="w-full xl:w-72 xl:shrink-0">
