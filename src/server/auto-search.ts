@@ -112,6 +112,7 @@ type WantedEpisode = {
   showTitle: string;
   seasonNumber: number;
   episodeNumber: number;
+  absoluteNumber: number | null;
   seriesType: string;
   airDate: string | null;
   profiles: ProfileInfo[];
@@ -520,6 +521,7 @@ export function getWantedEpisodes(
       showTitle: shows.title,
       seasonNumber: seasons.seasonNumber,
       episodeNumber: episodes.episodeNumber,
+      absoluteNumber: episodes.absoluteNumber,
       seriesType: shows.seriesType,
       airDate: episodes.airDate,
     })
@@ -633,6 +635,7 @@ export function getWantedEpisodes(
         showTitle: ep.showTitle,
         seasonNumber: ep.seasonNumber,
         episodeNumber: ep.episodeNumber,
+        absoluteNumber: ep.absoluteNumber,
         seriesType: ep.seriesType,
         airDate: ep.airDate,
         profiles,
@@ -669,6 +672,7 @@ export function getWantedEpisodes(
         showTitle: ep.showTitle,
         seasonNumber: ep.seasonNumber,
         episodeNumber: ep.episodeNumber,
+        absoluteNumber: ep.absoluteNumber,
         seriesType: ep.seriesType,
         airDate: ep.airDate,
         profiles,
@@ -706,18 +710,26 @@ function buildMovieSearchQuery(movie: WantedMovie): string {
   return `"${cleanTitle}" ${movie.year}`;
 }
 
-function buildEpisodeSearchQuery(episode: WantedEpisode): string {
+function buildEpisodeSearchQueries(episode: WantedEpisode): string[] {
   const showName = cleanSearchTerm(episode.showTitle);
   switch (episode.seriesType) {
     case "daily": {
-      return `"${showName}" ${episode.airDate ?? ""}`.trim();
+      return [`"${showName}" ${episode.airDate ?? ""}`.trim()];
     }
     case "anime": {
-      return `"${showName}" ${episode.episodeNumber}`;
+      // Always search seasonal format; additionally search absolute format if available
+      return [
+        `"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
+        ...(episode.absoluteNumber === null
+          ? []
+          : [`"${showName}" ${padNumber(episode.absoluteNumber)}`]),
+      ];
     }
     default: {
       // "standard"
-      return `"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`;
+      return [
+        `"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
+      ];
     }
   }
 }
@@ -1104,76 +1116,78 @@ async function searchAndGrabForEpisode(
     grabbed: false,
   };
 
-  const query = buildEpisodeSearchQuery(episode);
+  const queries = buildEpisodeSearchQueries(episode);
   const categories = getCategoriesForProfiles(episode.profiles);
 
   const DELAY_BETWEEN_INDEXERS = 1000;
   const allReleases: IndexerRelease[] = [];
 
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (let i = 0; i < syncedWithKey.length; i += 1) {
-    const synced = syncedWithKey[i];
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-            indexerSource: "synced" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Indexer "${synced.name}" failed for episode:`,
-        error instanceof Error ? error.message : error,
-      );
+  for (const query of queries) {
+    const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+    for (let i = 0; i < syncedWithKey.length; i += 1) {
+      const synced = syncedWithKey[i];
+      try {
+        const results = await searchNewznab(
+          {
+            baseUrl: synced.baseUrl,
+            apiPath: synced.apiPath ?? "/api",
+            apiKey: synced.apiKey!,
+          },
+          query,
+          categories,
+        );
+        allReleases.push(
+          ...results.map((r) =>
+            enrichRelease({
+              ...r,
+              indexer: r.indexer || synced.name,
+              allstarrIndexerId: synced.id,
+              indexerSource: "synced" as const,
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error(
+          `[auto-search] Indexer "${synced.name}" failed for episode:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+      if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
+        await sleep(DELAY_BETWEEN_INDEXERS);
+      }
     }
-    if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
-    }
-  }
 
-  for (let i = 0; i < ixs.manual.length; i += 1) {
-    const ix = ixs.manual[i];
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || ix.name,
-            allstarrIndexerId: ix.id,
-            indexerSource: "manual" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Manual indexer failed for episode:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-    if (i < ixs.manual.length - 1) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
+    for (let i = 0; i < ixs.manual.length; i += 1) {
+      const ix = ixs.manual[i];
+      try {
+        const results = await searchNewznab(
+          {
+            baseUrl: ix.baseUrl,
+            apiPath: ix.apiPath ?? "/api",
+            apiKey: ix.apiKey,
+          },
+          query,
+          categories,
+        );
+        allReleases.push(
+          ...results.map((r) =>
+            enrichRelease({
+              ...r,
+              indexer: r.indexer || ix.name,
+              allstarrIndexerId: ix.id,
+              indexerSource: "manual" as const,
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error(
+          `[auto-search] Manual indexer failed for episode:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+      if (i < ixs.manual.length - 1) {
+        await sleep(DELAY_BETWEEN_INDEXERS);
+      }
     }
   }
 
