@@ -32,12 +32,14 @@ type ProfileType = {
 export default function EditionsTab({
   bookId,
   bookTitle,
+  bookCoverUrl,
   fileCount,
   authorDownloadProfiles,
   editions,
 }: {
   bookId: number;
   bookTitle: string;
+  bookCoverUrl: string | null;
   fileCount: number;
   authorDownloadProfiles: DownloadProfile[];
   editions: Edition[];
@@ -95,6 +97,7 @@ export default function EditionsTab({
                 contentType: profile.contentType as "ebook" | "audiobook",
               }}
               edition={edition}
+              bookCoverUrl={bookCoverUrl}
               onChooseEdition={() =>
                 setSelectingProfile({
                   id: profile.id,
@@ -125,6 +128,7 @@ export default function EditionsTab({
           open={Boolean(selectingProfile)}
           onOpenChange={(open) => !open && setSelectingProfile(null)}
           bookId={bookId}
+          bookCoverUrl={bookCoverUrl}
           profile={selectingProfile}
           currentEditionId={
             editions.find((e) =>

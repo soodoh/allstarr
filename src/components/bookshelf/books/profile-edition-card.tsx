@@ -30,6 +30,7 @@ type ProfileEditionCardProps = {
     contentType: "ebook" | "audiobook";
   };
   edition: EditionData | null;
+  bookCoverUrl: string | null;
   onChooseEdition: () => void;
   onUnmonitor: () => void;
 };
@@ -48,12 +49,14 @@ function formatDuration(minutes: number): string {
 
 function EditionDetails({
   edition,
+  bookCoverUrl,
   fallbackIcon: _Icon,
 }: {
   edition: EditionData;
+  bookCoverUrl: string | null;
   fallbackIcon: LucideIcon;
 }): JSX.Element {
-  const coverUrl = edition.images?.[0]?.url ?? null;
+  const coverUrl = edition.images?.[0]?.url ?? bookCoverUrl;
 
   return (
     <>
@@ -96,6 +99,7 @@ function EditionDetails({
 export default function ProfileEditionCard({
   profile,
   edition,
+  bookCoverUrl,
   onChooseEdition,
   onUnmonitor,
 }: ProfileEditionCardProps): JSX.Element {
@@ -141,7 +145,11 @@ export default function ProfileEditionCard({
       {/* Middle: edition details or placeholder */}
       <div className="flex flex-1 items-center gap-4 min-w-0">
         {isMonitored ? (
-          <EditionDetails edition={edition} fallbackIcon={Icon} />
+          <EditionDetails
+            edition={edition}
+            bookCoverUrl={bookCoverUrl}
+            fallbackIcon={Icon}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">No edition selected</p>
         )}

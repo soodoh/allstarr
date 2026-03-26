@@ -42,7 +42,9 @@ export default function BookCard({ book }: BookCardProps): JSX.Element {
     >
       <div className="flex flex-col gap-2">
         <OptimizedImage
-          src={getCoverUrl(book.editionImages ?? book.images)}
+          src={getCoverUrl(
+            book.editionImages.length > 0 ? book.editionImages : book.images,
+          )}
           alt={`${book.editionTitle} cover`}
           type="book"
           width={224}
