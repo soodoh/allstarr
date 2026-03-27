@@ -8,6 +8,7 @@ import PageHeader from "src/components/shared/page-header";
 import AuthorTable from "src/components/bookshelf/authors/author-table";
 import AuthorCard from "src/components/bookshelf/authors/author-card";
 import EmptyState from "src/components/shared/empty-state";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import {
   AuthorTableRowsSkeleton,
   AuthorCardsSkeleton,
@@ -104,8 +105,8 @@ function AuthorsPage() {
         }
       />
 
-      <div className="mb-4">
-        <div className="relative max-w-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name..."
@@ -114,6 +115,7 @@ function AuthorsPage() {
             className="pl-9"
           />
         </div>
+        {view === "table" && <ColumnSettingsPopover tableId="authors" />}
       </div>
 
       {view === "table" ? (

@@ -52,6 +52,17 @@ export default defineConfig({
       },
     },
     {
+      // List pages with view toggling, mass edit, filtering, and search
+      // have inherently high cyclomatic complexity.
+      files: [
+        "src/routes/_authed/movies/index.tsx",
+        "src/routes/_authed/tv/index.tsx",
+      ],
+      rules: {
+        "eslint/complexity": ["error", { max: 25 }],
+      },
+    },
+    {
       // TanStack Router uses camelCase param names in filenames ($bookId, $authorId)
       // and some components use PascalCase (DefaultCatchBoundary, NotFound).
       files: [
