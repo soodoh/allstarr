@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Film, LayoutGrid, List, Pencil, Plus, Search, X } from "lucide-react";
+import useViewMode from "src/hooks/use-view-mode";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
@@ -52,7 +53,7 @@ function useMovieProfileToggle(movies: MovieWithProfiles[]) {
 }
 
 function MoviesPage() {
-  const [view, setView] = useState<"table" | "grid">("grid");
+  const [view, setView] = useViewMode("movies");
   const [search, setSearch] = useState("");
   const [massEditMode, setMassEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
