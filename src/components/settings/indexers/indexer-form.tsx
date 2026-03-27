@@ -32,6 +32,9 @@ export type IndexerFormValues = {
   priority: number;
   tag: string;
   downloadClientId: number | null;
+  requestInterval: number;
+  dailyQueryLimit: number;
+  dailyGrabLimit: number;
 };
 
 type TestResult = {
@@ -112,6 +115,15 @@ export default function IndexerForm({
   const [downloadClientId, setDownloadClientId] = useState<number | null>(
     initialValues?.downloadClientId ?? null,
   );
+  const [requestInterval, setRequestInterval] = useState(
+    initialValues?.requestInterval ?? 5,
+  );
+  const [dailyQueryLimit, setDailyQueryLimit] = useState(
+    initialValues?.dailyQueryLimit ?? 0,
+  );
+  const [dailyGrabLimit, setDailyGrabLimit] = useState(
+    initialValues?.dailyGrabLimit ?? 0,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const filteredClients = downloadClients.filter(
@@ -165,6 +177,9 @@ export default function IndexerForm({
       priority,
       tag,
       downloadClientId,
+      requestInterval: requestInterval * 1000,
+      dailyQueryLimit,
+      dailyGrabLimit,
     });
   };
 
@@ -324,6 +339,57 @@ export default function IndexerForm({
           </Select>
         </div>
       )}
+
+      {/* Rate Limiting */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-muted-foreground">
+          Rate Limiting
+        </h4>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="requestInterval">Request Interval (s)</Label>
+            <Input
+              id="requestInterval"
+              type="number"
+              min={1}
+              value={requestInterval}
+              onChange={(e) => setRequestInterval(Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Minimum delay between requests
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dailyQueryLimit">Daily Query Limit</Label>
+            <Input
+              id="dailyQueryLimit"
+              type="number"
+              min={0}
+              value={dailyQueryLimit}
+              onChange={(e) => setDailyQueryLimit(Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Max API hits per day (0 = unlimited)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dailyGrabLimit">Daily Grab Limit</Label>
+            <Input
+              id="dailyGrabLimit"
+              type="number"
+              min={0}
+              value={dailyGrabLimit}
+              onChange={(e) => setDailyGrabLimit(Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Max grabs per day (0 = unlimited)
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Check your indexer&apos;s account settings for your API limits.
+        </p>
+      </div>
 
       {/* Test connection */}
       <div className="space-y-2">

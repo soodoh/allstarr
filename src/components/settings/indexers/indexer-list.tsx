@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import { Badge } from "src/components/ui/badge";
+import type { IndexerStatus } from "src/server/indexer-rate-limiter";
 
 type Indexer = {
   id: number;
@@ -37,6 +38,7 @@ type UnifiedRow =
 type IndexerListProps = {
   indexers: Indexer[];
   syncedIndexers?: SyncedIndexer[];
+  statuses?: IndexerStatus[];
   onEdit: (indexer: Indexer) => void;
   onDelete: (id: number) => void;
   onViewSynced: (indexer: SyncedIndexer) => void;
@@ -50,9 +52,62 @@ function ProtocolBadge({ protocol }: { protocol: string }): JSX.Element {
   );
 }
 
+function formatDuration(ms: number): string {
+  const minutes = Math.ceil(ms / 60_000);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function IndexerStatusBadge({
+  status,
+}: {
+  status: IndexerStatus | undefined;
+}): JSX.Element | null {
+  if (!status) {
+    return null;
+  }
+  if (status.available) {
+    return <Badge className="bg-green-600 text-white">Available</Badge>;
+  }
+  switch (status.reason) {
+    case "backoff": {
+      return (
+        <Badge variant="destructive">
+          Rate limited
+          {status.waitMs ? ` — ${formatDuration(status.waitMs)}` : ""}
+        </Badge>
+      );
+    }
+    case "daily_query_limit": {
+      return (
+        <Badge variant="secondary">
+          Daily limit ({status.queriesUsed}/{status.dailyQueryLimit})
+        </Badge>
+      );
+    }
+    case "daily_grab_limit": {
+      return (
+        <Badge variant="secondary">
+          Grab limit ({status.grabsUsed}/{status.dailyGrabLimit})
+        </Badge>
+      );
+    }
+    case "pacing": {
+      return <Badge className="bg-yellow-600 text-white">Pacing</Badge>;
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
 export default function IndexerList({
   indexers,
   syncedIndexers = [],
+  statuses = [],
   onEdit,
   onDelete,
   onViewSynced,
@@ -63,6 +118,12 @@ export default function IndexerList({
     ...indexers.map((i) => ({ type: "manual" as const, data: i })),
     ...syncedIndexers.map((i) => ({ type: "synced" as const, data: i })),
   ].toSorted((a, b) => a.data.name.localeCompare(b.data.name));
+
+  const getStatus = (
+    type: "manual" | "synced",
+    id: number,
+  ): IndexerStatus | undefined =>
+    statuses.find((s) => s.indexerType === type && s.indexerId === id);
 
   const deleteName = deleteId
     ? indexers.find((i) => i.id === deleteId)?.name
@@ -88,6 +149,7 @@ export default function IndexerList({
             <TableHead className="w-16 text-center">RSS</TableHead>
             <TableHead className="w-28 text-center">Auto Search</TableHead>
             <TableHead className="w-28 text-center">Interactive</TableHead>
+            <TableHead className="w-32">Status</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -125,6 +187,11 @@ export default function IndexerList({
                   >
                     {row.data.enableInteractiveSearch ? "Yes" : "No"}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <IndexerStatusBadge
+                    status={getStatus("manual", row.data.id)}
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -184,6 +251,11 @@ export default function IndexerList({
                   >
                     {row.data.enableInteractiveSearch ? "Yes" : "No"}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <IndexerStatusBadge
+                    status={getStatus("synced", row.data.id)}
+                  />
                 </TableCell>
                 <TableCell>
                   <Button

@@ -19,6 +19,7 @@ import {
   indexersListQuery,
   syncedIndexersListQuery,
   downloadClientsListQuery,
+  indexerStatusesQuery,
 } from "src/lib/queries";
 import {
   useCreateIndexer,
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_authed/settings/indexers")({
       context.queryClient.ensureQueryData(indexersListQuery()),
       context.queryClient.ensureQueryData(syncedIndexersListQuery()),
       context.queryClient.ensureQueryData(downloadClientsListQuery()),
+      context.queryClient.ensureQueryData(indexerStatusesQuery()),
     ]);
   },
   component: IndexersPage,
@@ -60,6 +62,7 @@ function IndexersPage() {
   const { data: downloadClientsList } = useSuspenseQuery(
     downloadClientsListQuery(),
   );
+  const { data: indexerStatuses } = useSuspenseQuery(indexerStatusesQuery());
 
   const createIndexer = useCreateIndexer();
   const updateIndexer = useUpdateIndexer();
@@ -128,9 +131,19 @@ function IndexersPage() {
     id: number,
     downloadClientId: number | null,
     tag: string | null,
+    requestInterval: number,
+    dailyQueryLimit: number,
+    dailyGrabLimit: number,
   ) => {
     updateSyncedIndexer.mutate(
-      { id, downloadClientId, tag },
+      {
+        id,
+        downloadClientId,
+        tag,
+        requestInterval,
+        dailyQueryLimit,
+        dailyGrabLimit,
+      },
       { onSuccess: () => setViewingSynced(null) },
     );
   };
@@ -150,6 +163,9 @@ function IndexersPage() {
         priority: editing.priority,
         tag: editing.tag ?? "",
         downloadClientId: editing.downloadClientId ?? null,
+        requestInterval: (editing.requestInterval ?? 5000) / 1000,
+        dailyQueryLimit: editing.dailyQueryLimit ?? 0,
+        dailyGrabLimit: editing.dailyGrabLimit ?? 0,
       }
     : undefined;
 
@@ -172,6 +188,7 @@ function IndexersPage() {
         <IndexerList
           indexers={indexersList}
           syncedIndexers={syncedList}
+          statuses={indexerStatuses}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onViewSynced={setViewingSynced}

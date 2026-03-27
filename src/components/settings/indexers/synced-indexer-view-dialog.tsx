@@ -35,6 +35,9 @@ type SyncedIndexerEditDialogProps = {
     id: number,
     downloadClientId: number | null,
     tag: string | null,
+    requestInterval: number,
+    dailyQueryLimit: number,
+    dailyGrabLimit: number,
   ) => void;
   onOpenChange: (open: boolean) => void;
   loading?: boolean;
@@ -57,11 +60,17 @@ export default function SyncedIndexerEditDialog({
 }: SyncedIndexerEditDialogProps): JSX.Element {
   const [downloadClientId, setDownloadClientId] = useState<number | null>(null);
   const [tag, setTag] = useState("");
+  const [requestInterval, setRequestInterval] = useState(5);
+  const [dailyQueryLimit, setDailyQueryLimit] = useState(0);
+  const [dailyGrabLimit, setDailyGrabLimit] = useState(0);
 
   useEffect(() => {
     if (indexer) {
       setDownloadClientId(indexer.downloadClientId ?? null);
       setTag(indexer.tag ?? "");
+      setRequestInterval((indexer.requestInterval ?? 5000) / 1000);
+      setDailyQueryLimit(indexer.dailyQueryLimit ?? 0);
+      setDailyGrabLimit(indexer.dailyGrabLimit ?? 0);
     }
   }, [indexer]);
 
@@ -190,6 +199,70 @@ export default function SyncedIndexerEditDialog({
                 />
               </div>
 
+              {/* Rate Limiting */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">
+                  Rate Limiting
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="synced-requestInterval">
+                      Request Interval (s)
+                    </Label>
+                    <Input
+                      id="synced-requestInterval"
+                      type="number"
+                      min={1}
+                      value={requestInterval}
+                      onChange={(e) =>
+                        setRequestInterval(Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Minimum delay between requests
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="synced-dailyQueryLimit">
+                      Daily Query Limit
+                    </Label>
+                    <Input
+                      id="synced-dailyQueryLimit"
+                      type="number"
+                      min={0}
+                      value={dailyQueryLimit}
+                      onChange={(e) =>
+                        setDailyQueryLimit(Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max API hits per day (0 = unlimited)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="synced-dailyGrabLimit">
+                      Daily Grab Limit
+                    </Label>
+                    <Input
+                      id="synced-dailyGrabLimit"
+                      type="number"
+                      min={0}
+                      value={dailyGrabLimit}
+                      onChange={(e) =>
+                        setDailyGrabLimit(Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max grabs per day (0 = unlimited)
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Check your indexer&apos;s account settings for your API
+                  limits.
+                </p>
+              </div>
+
               {/* Actions */}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
@@ -203,7 +276,14 @@ export default function SyncedIndexerEditDialog({
                   type="button"
                   disabled={loading}
                   onClick={() =>
-                    onSave(indexer.id, downloadClientId, tag || null)
+                    onSave(
+                      indexer.id,
+                      downloadClientId,
+                      tag || null,
+                      requestInterval * 1000,
+                      dailyQueryLimit,
+                      dailyGrabLimit,
+                    )
                   }
                 >
                   {loading ? "Saving..." : "Save"}
