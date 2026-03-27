@@ -85,6 +85,7 @@ import {
   metadataProfileQuery,
   downloadProfilesListQuery,
 } from "src/lib/queries";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   useUpdateAuthor,
   useDeleteAuthor,
@@ -120,6 +121,8 @@ export const Route = createFileRoute("/_authed/authors/$authorId")({
         }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
       context.queryClient.ensureQueryData(metadataProfileQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("author-books")),
+      context.queryClient.ensureQueryData(userSettingsQuery("author-series")),
     ]);
     if (!author) {
       throw notFound();

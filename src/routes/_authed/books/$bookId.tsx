@@ -40,6 +40,7 @@ import {
   hasEnabledIndexersQuery,
   downloadProfilesListQuery,
 } from "src/lib/queries";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   useRefreshBookMetadata,
   useMonitorBookProfile,
@@ -68,6 +69,7 @@ export const Route = createFileRoute("/_authed/books/$bookId")({
           throw error;
         }),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("book-editions")),
     ]);
     if (!book) {
       throw notFound();
