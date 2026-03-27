@@ -15,10 +15,15 @@ import {
   AuthorCardsSkeleton,
 } from "src/components/shared/loading-skeleton";
 import { authorsInfiniteQuery } from "src/lib/queries";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 
 export const Route = createFileRoute("/_authed/authors/")({
-  loader: ({ context }) =>
-    context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("authors")),
+    ]);
+  },
   component: AuthorsPage,
 });
 
