@@ -27,6 +27,13 @@ export const indexers = sqliteTable("indexers", {
     () => downloadClients.id,
     { onDelete: "set null" },
   ),
+  // Rate limiting — configuration
+  requestInterval: integer("request_interval").notNull().default(5000),
+  dailyQueryLimit: integer("daily_query_limit").notNull().default(0),
+  dailyGrabLimit: integer("daily_grab_limit").notNull().default(0),
+  // Rate limiting — status (system-managed)
+  backoffUntil: integer("backoff_until").notNull().default(0),
+  escalationLevel: integer("escalation_level").notNull().default(0),
   createdAt: integer("created_at").$defaultFn(() => Date.now()),
   updatedAt: integer("updated_at").$defaultFn(() => Date.now()),
 });

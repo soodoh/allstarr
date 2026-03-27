@@ -64,6 +64,7 @@ export const episodes = sqliteTable(
     runtime: integer("runtime"),
     tmdbId: integer("tmdb_id").notNull(),
     hasFile: integer("has_file", { mode: "boolean" }).default(false),
+    lastSearchedAt: integer("last_searched_at"),
   },
   (t) => [unique("episodes_tmdb_id_unique").on(t.tmdbId)],
 );

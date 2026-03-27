@@ -32,6 +32,7 @@ export const movies = sqliteTable(
       () => movieCollections.id,
       { onDelete: "set null" },
     ),
+    lastSearchedAt: integer("last_searched_at"),
     createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
       () => new Date(),
     ),

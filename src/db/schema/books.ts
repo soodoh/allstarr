@@ -27,6 +27,7 @@ export const books = sqliteTable("books", {
   metadataSourceMissingSince: integer("metadata_source_missing_since", {
     mode: "timestamp",
   }),
+  lastSearchedAt: integer("last_searched_at"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
