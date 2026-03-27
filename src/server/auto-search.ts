@@ -26,6 +26,7 @@ import {
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
 import type { ProfileInfo } from "./indexers";
+import { canQueryIndexer } from "./indexer-rate-limiter";
 import { searchNewznab } from "./indexers/http";
 import {
   enrichRelease,
@@ -781,13 +782,24 @@ async function searchAndGrabForBook(
   // Derive categories from profiles
   const categories = getCategoriesForProfiles(book.profiles);
 
-  // Search indexers sequentially to avoid rate-limiting
-  const DELAY_BETWEEN_INDEXERS = 1000;
+  // Search indexers sequentially with rate limiter gating
   const allReleases: IndexerRelease[] = [];
 
   const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (let i = 0; i < syncedWithKey.length; i += 1) {
-    const synced = syncedWithKey[i];
+  for (const synced of syncedWithKey) {
+    // Rate limiter gate — automatic searches enforce daily caps
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[rss-sync] Indexer "${synced.name}" skipped: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
     try {
       const results = await searchNewznab(
         {
@@ -798,6 +810,7 @@ async function searchAndGrabForBook(
         query,
         categories,
         bookParams,
+        { indexerType: "synced", indexerId: synced.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -815,13 +828,20 @@ async function searchAndGrabForBook(
         error instanceof Error ? error.message : error,
       );
     }
-    if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
-    }
   }
 
-  for (let i = 0; i < ixs.manual.length; i += 1) {
-    const ix = ixs.manual[i];
+  for (const ix of ixs.manual) {
+    // Rate limiter gate — automatic searches enforce daily caps
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(`[rss-sync] Indexer "${ix.name}" skipped: ${gate.reason}`);
+        continue;
+      }
+    }
+
     try {
       const results = await searchNewznab(
         {
@@ -832,6 +852,7 @@ async function searchAndGrabForBook(
         query,
         categories,
         bookParams,
+        { indexerType: "manual", indexerId: ix.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -848,9 +869,6 @@ async function searchAndGrabForBook(
         `[rss-sync] Manual indexer failed:`,
         error instanceof Error ? error.message : error,
       );
-    }
-    if (i < ixs.manual.length - 1) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
     }
   }
 
@@ -950,12 +968,23 @@ async function searchAndGrabForMovie(
   const query = buildMovieSearchQuery(movie);
   const categories = getCategoriesForProfiles(movie.profiles);
 
-  const DELAY_BETWEEN_INDEXERS = 1000;
   const allReleases: IndexerRelease[] = [];
 
   const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (let i = 0; i < syncedWithKey.length; i += 1) {
-    const synced = syncedWithKey[i];
+  for (const synced of syncedWithKey) {
+    // Rate limiter gate — automatic searches enforce daily caps
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
     try {
       const results = await searchNewznab(
         {
@@ -965,6 +994,8 @@ async function searchAndGrabForMovie(
         },
         query,
         categories,
+        undefined,
+        { indexerType: "synced", indexerId: synced.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -982,13 +1013,22 @@ async function searchAndGrabForMovie(
         error instanceof Error ? error.message : error,
       );
     }
-    if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
-    }
   }
 
-  for (let i = 0; i < ixs.manual.length; i += 1) {
-    const ix = ixs.manual[i];
+  for (const ix of ixs.manual) {
+    // Rate limiter gate — automatic searches enforce daily caps
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
     try {
       const results = await searchNewznab(
         {
@@ -998,6 +1038,8 @@ async function searchAndGrabForMovie(
         },
         query,
         categories,
+        undefined,
+        { indexerType: "manual", indexerId: ix.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -1014,9 +1056,6 @@ async function searchAndGrabForMovie(
         `[auto-search] Manual indexer failed for movie:`,
         error instanceof Error ? error.message : error,
       );
-    }
-    if (i < ixs.manual.length - 1) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
     }
   }
 
@@ -1119,13 +1158,24 @@ async function searchAndGrabForEpisode(
   const queries = buildEpisodeSearchQueries(episode);
   const categories = getCategoriesForProfiles(episode.profiles);
 
-  const DELAY_BETWEEN_INDEXERS = 1000;
   const allReleases: IndexerRelease[] = [];
 
   for (const query of queries) {
     const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-    for (let i = 0; i < syncedWithKey.length; i += 1) {
-      const synced = syncedWithKey[i];
+    for (const synced of syncedWithKey) {
+      // Rate limiter gate — automatic searches enforce daily caps
+      const gate = canQueryIndexer("synced", synced.id);
+      if (!gate.allowed) {
+        if (gate.reason === "pacing" && gate.waitMs) {
+          await sleep(gate.waitMs);
+        } else {
+          console.log(
+            `[auto-search] Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
+          );
+          continue;
+        }
+      }
+
       try {
         const results = await searchNewznab(
           {
@@ -1135,6 +1185,8 @@ async function searchAndGrabForEpisode(
           },
           query,
           categories,
+          undefined,
+          { indexerType: "synced", indexerId: synced.id },
         );
         allReleases.push(
           ...results.map((r) =>
@@ -1152,13 +1204,22 @@ async function searchAndGrabForEpisode(
           error instanceof Error ? error.message : error,
         );
       }
-      if (i < syncedWithKey.length - 1 || ixs.manual.length > 0) {
-        await sleep(DELAY_BETWEEN_INDEXERS);
-      }
     }
 
-    for (let i = 0; i < ixs.manual.length; i += 1) {
-      const ix = ixs.manual[i];
+    for (const ix of ixs.manual) {
+      // Rate limiter gate — automatic searches enforce daily caps
+      const gate = canQueryIndexer("manual", ix.id);
+      if (!gate.allowed) {
+        if (gate.reason === "pacing" && gate.waitMs) {
+          await sleep(gate.waitMs);
+        } else {
+          console.log(
+            `[auto-search] Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
+          );
+          continue;
+        }
+      }
+
       try {
         const results = await searchNewznab(
           {
@@ -1168,6 +1229,8 @@ async function searchAndGrabForEpisode(
           },
           query,
           categories,
+          undefined,
+          { indexerType: "manual", indexerId: ix.id },
         );
         allReleases.push(
           ...results.map((r) =>
@@ -1184,9 +1247,6 @@ async function searchAndGrabForEpisode(
           `[auto-search] Manual indexer failed for episode:`,
           error instanceof Error ? error.message : error,
         );
-      }
-      if (i < ixs.manual.length - 1) {
-        await sleep(DELAY_BETWEEN_INDEXERS);
       }
     }
   }
