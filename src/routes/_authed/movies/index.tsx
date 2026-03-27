@@ -14,6 +14,7 @@ import MovieBulkBar from "src/components/movies/movie-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { moviesListQuery } from "src/lib/queries/movies";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   useMonitorMovieProfile,
   useUnmonitorMovieProfile,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authed/movies/")({
     await Promise.all([
       context.queryClient.ensureQueryData(moviesListQuery()),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("movies")),
     ]);
   },
   component: MoviesPage,

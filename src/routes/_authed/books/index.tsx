@@ -15,6 +15,7 @@ import {
   BookCardsSkeleton,
 } from "src/components/shared/loading-skeleton";
 import { booksInfiniteQuery, downloadProfilesListQuery } from "src/lib/queries";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   useMonitorBookProfile,
   useUnmonitorBookProfile,
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_authed/books/")({
     await Promise.all([
       context.queryClient.prefetchInfiniteQuery(booksInfiniteQuery("", true)),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("books")),
     ]);
   },
   component: BooksPage,

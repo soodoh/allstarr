@@ -14,6 +14,7 @@ import ShowBulkBar from "src/components/tv/show-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { showsListQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   useMonitorShowProfile,
   useUnmonitorShowProfile,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authed/tv/")({
     await Promise.all([
       context.queryClient.ensureQueryData(showsListQuery()),
       context.queryClient.ensureQueryData(downloadProfilesListQuery()),
+      context.queryClient.ensureQueryData(userSettingsQuery("tv")),
     ]);
   },
   component: ShowsPage,
