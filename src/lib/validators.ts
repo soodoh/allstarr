@@ -454,15 +454,16 @@ export const removeMovieImportExclusionSchema = z.object({
   id: z.number(),
 });
 
-// Table Column Settings
+// User Settings
 export const tableIdSchema = z.enum(TABLE_IDS);
 
-export const upsertTableSettingsSchema = z.object({
+export const upsertUserSettingsSchema = z.object({
   tableId: tableIdSchema,
-  columnOrder: z.array(z.string()),
-  hiddenColumns: z.array(z.string()),
+  columnOrder: z.array(z.string()).optional(),
+  hiddenColumns: z.array(z.string()).optional(),
+  viewMode: z.enum(["table", "grid"]).optional(),
 });
 
-export const deleteTableSettingsSchema = z.object({
+export const deleteUserSettingsSchema = z.object({
   tableId: tableIdSchema,
 });
