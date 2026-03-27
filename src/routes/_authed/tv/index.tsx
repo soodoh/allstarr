@@ -6,6 +6,7 @@ import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import ShowCard from "src/components/tv/show-card";
 import ShowTable from "src/components/tv/show-table";
 import ShowBulkBar from "src/components/tv/show-bulk-bar";
@@ -198,8 +199,8 @@ function ShowsPage() {
         }
       />
 
-      <div className="mb-4">
-        <div className="relative max-w-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by title..."
@@ -208,6 +209,7 @@ function ShowsPage() {
             className="pl-9"
           />
         </div>
+        {view === "table" && <ColumnSettingsPopover tableId="tv" />}
       </div>
 
       {filtered.length === 0 && (

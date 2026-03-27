@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import OptimizedImage from "src/components/shared/optimized-image";
-import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import {
   Table,
@@ -108,9 +107,6 @@ export default function AuthorTable({
 
   return (
     <div>
-      <div className="flex justify-end pb-2">
-        <ColumnSettingsPopover tableId="authors" />
-      </div>
       <Table>
         <colgroup>
           {visibleColumns.map((col) => (

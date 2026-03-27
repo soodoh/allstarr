@@ -4,7 +4,6 @@ import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import OptimizedImage from "src/components/shared/optimized-image";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
-import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import { resizeTmdbUrl } from "src/lib/utils";
 import {
@@ -199,9 +198,6 @@ export default function ShowTable({
 
   return (
     <div>
-      <div className="flex justify-end pb-2">
-        <ColumnSettingsPopover tableId="tv" />
-      </div>
       <Table>
         <colgroup>
           {selectable && <col className="w-10" />}
