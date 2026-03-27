@@ -14,7 +14,7 @@ import { requireAuth } from "./middleware";
 import { addMangaSchema, refreshMangaSchema } from "src/lib/validators";
 import {
   getMangaUpdatesSeriesDetail,
-  getMangaUpdatesReleases,
+  getAllMangaUpdatesReleases,
 } from "./manga-updates";
 import type { MangaUpdatesRelease } from "./manga-updates";
 
@@ -208,8 +208,10 @@ export const importMangaFn = createServerFn({ method: "POST" })
 
     // Fetch detail and releases from MangaUpdates
     const detail = await getMangaUpdatesSeriesDetail(data.mangaUpdatesId);
-    const releasesResult = await getMangaUpdatesReleases(data.title);
-    const releases = releasesResult.results;
+    const releases = await getAllMangaUpdatesReleases(
+      data.mangaUpdatesId,
+      data.title,
+    );
 
     // Deduplicate releases into unique chapters
     const chapters = deduplicateReleases(releases);
@@ -393,7 +395,10 @@ export const refreshMangaMetadataFn = createServerFn({ method: "POST" })
 
     // Fetch latest from MangaUpdates
     const detail = await getMangaUpdatesSeriesDetail(mangaRow.mangaUpdatesId);
-    const releasesResult = await getMangaUpdatesReleases(mangaRow.title);
+    const allReleases = await getAllMangaUpdatesReleases(
+      mangaRow.mangaUpdatesId,
+      mangaRow.title,
+    );
 
     // Update manga metadata
     const status = detail.completed ? "complete" : "ongoing";
@@ -429,7 +434,7 @@ export const refreshMangaMetadataFn = createServerFn({ method: "POST" })
       | "none";
     const newChaptersAdded = insertNewChapters(
       data.mangaId,
-      releasesResult.results,
+      allReleases,
       monitorOption,
     );
 

@@ -3,7 +3,7 @@ import { requireAuth } from "./middleware";
 import {
   searchMangaUpdatesSeries,
   getMangaUpdatesSeriesDetail,
-  getMangaUpdatesReleases,
+  getAllMangaUpdatesReleases,
   getMangaUpdatesSeriesGroups,
 } from "./manga-updates";
 import {
@@ -33,20 +33,11 @@ export const getMangaUpdatesReleasesFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requireAuth();
     const detail = await getMangaUpdatesSeriesDetail(data.seriesId);
-    // Fetch all releases, paginating if needed
-    const allReleases: Awaited<
-      ReturnType<typeof getMangaUpdatesReleases>
-    >["results"] = [];
-    let page = 1;
-    let totalHits = 0;
-    do {
-      const result = await getMangaUpdatesReleases(detail.title, 100, page);
-      totalHits = result.totalHits;
-      allReleases.push(...result.results);
-      page += 1;
-    } while (allReleases.length < totalHits && page <= 50);
-
-    return { releases: allReleases, totalHits };
+    const allReleases = await getAllMangaUpdatesReleases(
+      data.seriesId,
+      detail.title,
+    );
+    return { releases: allReleases, totalHits: allReleases.length };
   });
 
 export const getMangaUpdatesGroupsFn = createServerFn({ method: "GET" })

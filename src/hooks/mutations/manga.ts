@@ -21,13 +21,21 @@ export function useAddManga() {
   return useMutation({
     mutationFn: (data: z.infer<typeof addMangaSchema>) =>
       importMangaFn({ data }),
-    onSuccess: () => {
-      toast.success("Manga added");
+    onMutate: () => {
+      const toastId = toast.loading("Importing manga metadata…");
+      return { toastId };
+    },
+    onSuccess: (result, _vars, context) => {
+      toast.success(
+        `Manga added with ${result.chaptersAdded} chapters and ${result.volumesAdded} volumes.`,
+        { id: context?.toastId },
+      );
       queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
-    onError: () => toast.error("Failed to add manga"),
+    onError: (_error, _vars, context) =>
+      toast.error("Failed to add manga", { id: context?.toastId }),
   });
 }
 

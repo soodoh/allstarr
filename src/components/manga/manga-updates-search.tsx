@@ -83,7 +83,7 @@ function MangaPreviewModal({
   const addManga = useAddManga();
   const upsertSettings = useUpsertUserSettings();
 
-  const { data: alreadyExists = false } = useQuery({
+  const { data: existingManga = null } = useQuery({
     ...mangaExistenceQuery(series.series_id),
     enabled: open && series.series_id > 0,
   });
@@ -130,32 +130,23 @@ function MangaPreviewModal({
         searchOnAdd,
       },
     });
-    addManga.mutate(
-      {
-        mangaUpdatesId: series.series_id,
-        title: series.title,
-        sortTitle: generateSortTitle(series.title),
-        overview: descriptionPlain,
-        mangaUpdatesSlug: extractSlugFromUrl(series.url),
-        type: series.type?.toLowerCase() ?? "manga",
-        year: series.year || null,
-        status: "ongoing",
-        latestChapter: null,
-        posterUrl: series.image?.url?.original ?? "",
-        genres,
-        downloadProfileIds,
-        monitorOption: monitorOption as "all" | "future" | "missing" | "none",
-        searchOnAdd,
-      },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-          navigate({
-            to: "/manga",
-          });
-        },
-      },
-    );
+    addManga.mutate({
+      mangaUpdatesId: series.series_id,
+      title: series.title,
+      sortTitle: generateSortTitle(series.title),
+      overview: descriptionPlain,
+      mangaUpdatesSlug: extractSlugFromUrl(series.url),
+      type: series.type?.toLowerCase() ?? "manga",
+      year: series.year || null,
+      status: "ongoing",
+      latestChapter: null,
+      posterUrl: series.image?.url?.original ?? "",
+      genres,
+      downloadProfileIds,
+      monitorOption: monitorOption as "all" | "future" | "missing" | "none",
+      searchOnAdd,
+    });
+    onOpenChange(false);
   };
 
   return (
@@ -203,7 +194,7 @@ function MangaPreviewModal({
                     {series.bayesian_rating.toFixed(2)}
                   </Badge>
                 )}
-                {alreadyExists && <Badge>Already in library</Badge>}
+                {existingManga && <Badge>Already in library</Badge>}
               </div>
 
               {genres.length > 0 && (
@@ -225,7 +216,7 @@ function MangaPreviewModal({
           </div>
 
           {/* Add form */}
-          {!alreadyExists && (
+          {!existingManga && (
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
               <ProfileCheckboxGroup
                 profiles={mangaProfiles}
@@ -261,22 +252,25 @@ function MangaPreviewModal({
               <Button
                 className="w-full"
                 onClick={handleAdd}
-                disabled={downloadProfileIds.length === 0 || addManga.isPending}
+                disabled={downloadProfileIds.length === 0}
               >
-                {addManga.isPending ? "Adding..." : "Add Manga"}
+                Add Manga
               </Button>
             </div>
           )}
 
-          {alreadyExists && (
+          {existingManga && (
             <Button
-              variant="secondary"
               className="w-full"
               onClick={() => {
                 onOpenChange(false);
+                navigate({
+                  to: "/manga/series/$mangaId",
+                  params: { mangaId: String(existingManga.id) },
+                });
               }}
             >
-              Close
+              View Manga
             </Button>
           )}
         </div>
