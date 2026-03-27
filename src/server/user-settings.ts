@@ -33,6 +33,7 @@ export const getUserSettingsFn = createServerFn({ method: "GET" })
       columnOrder: row.columnOrder,
       hiddenColumns: row.hiddenColumns,
       viewMode: row.viewMode,
+      addDefaults: row.addDefaults,
     };
   });
 
@@ -50,6 +51,9 @@ export const upsertUserSettingsFn = createServerFn({ method: "POST" })
     if (data.viewMode !== undefined) {
       set.viewMode = data.viewMode;
     }
+    if (data.addDefaults !== undefined) {
+      set.addDefaults = data.addDefaults;
+    }
 
     db.insert(userSettings)
       .values({
@@ -58,6 +62,7 @@ export const upsertUserSettingsFn = createServerFn({ method: "POST" })
         columnOrder: data.columnOrder ?? [],
         hiddenColumns: data.hiddenColumns ?? [],
         viewMode: data.viewMode ?? null,
+        addDefaults: data.addDefaults ?? null,
       })
       .onConflictDoUpdate({
         target: [userSettings.userId, userSettings.tableId],

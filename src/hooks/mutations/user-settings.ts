@@ -14,6 +14,7 @@ export function useUpsertUserSettings() {
       columnOrder?: string[];
       hiddenColumns?: string[];
       viewMode?: "table" | "grid";
+      addDefaults?: Record<string, unknown>;
     }) => upsertUserSettingsFn({ data }),
     onMutate: async (variables) => {
       const queryKey = queryKeys.userSettings.byTable(variables.tableId);
