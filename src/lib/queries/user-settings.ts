@@ -2,11 +2,11 @@
 // oxlint-disable import/prefer-default-export -- consistent with other query files in this directory
 import { queryOptions } from "@tanstack/react-query";
 import { queryKeys } from "src/lib/query-keys";
-import { getUserTableSettingsFn } from "src/server/user-table-settings";
+import { getUserSettingsFn } from "src/server/user-settings";
 
-export const userTableSettingsQuery = (tableId: string) =>
+export const userSettingsQuery = (tableId: string) =>
   queryOptions({
-    queryKey: queryKeys.userTableSettings.byTable(tableId),
-    queryFn: () => getUserTableSettingsFn({ data: { tableId } }),
+    queryKey: queryKeys.userSettings.byTable(tableId),
+    queryFn: () => getUserSettingsFn({ data: { tableId } }),
     staleTime: Number.POSITIVE_INFINITY,
   });

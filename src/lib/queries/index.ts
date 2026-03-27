@@ -15,4 +15,4 @@ export * from "./blocklist";
 export * from "./tasks";
 export * from "./movies";
 export * from "./shows";
-export * from "./user-table-settings";
+export * from "./user-settings";
