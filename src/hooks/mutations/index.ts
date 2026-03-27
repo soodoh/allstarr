@@ -13,3 +13,5 @@ export * from "./queue";
 export * from "./movies";
 export * from "./shows";
 export * from "./user-settings";
+export * from "./manga";
+export * from "./manga-chapter-profiles";

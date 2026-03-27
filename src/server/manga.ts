@@ -15,6 +15,8 @@ import {
   deleteMangaSchema,
   monitorMangaProfileSchema,
   unmonitorMangaProfileSchema,
+  bulkMonitorMangaChapterProfileSchema,
+  bulkUnmonitorMangaChapterProfileSchema,
 } from "src/lib/validators";
 import * as fs from "node:fs";
 
@@ -296,6 +298,44 @@ export const unmonitorMangaProfileFn = createServerFn({ method: "POST" })
         ),
       )
       .run();
+
+    return { success: true };
+  });
+
+// ─── Bulk monitor/unmonitor chapters ──────────────────────────────────────
+
+export const bulkMonitorMangaChapterProfileFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator((d: unknown) => bulkMonitorMangaChapterProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    if (data.chapterIds.length > 0) {
+      db.update(mangaChapters)
+        .set({ monitored: true })
+        .where(inArray(mangaChapters.id, data.chapterIds))
+        .run();
+    }
+
+    return { success: true };
+  });
+
+export const bulkUnmonitorMangaChapterProfileFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator((d: unknown) =>
+    bulkUnmonitorMangaChapterProfileSchema.parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requireAuth();
+
+    if (data.chapterIds.length > 0) {
+      db.update(mangaChapters)
+        .set({ monitored: false })
+        .where(inArray(mangaChapters.id, data.chapterIds))
+        .run();
+    }
 
     return { success: true };
   });
