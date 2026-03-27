@@ -31,6 +31,7 @@ export default defineConfig({
         "src/db/**",
         "src/lib/auth.ts",
         "src/lib/utils.ts",
+        "src/lib/queries/**",
         "src/router.tsx",
         "src/server/dashboard.ts",
         "src/server/history.ts",
