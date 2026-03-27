@@ -4,25 +4,51 @@
  * No authentication required for read endpoints.
  */
 
+import { createApiFetcher, ApiRateLimitError } from "./api-cache";
+
 const BASE_URL = "https://api.mangaupdates.com/v1";
+const REQUEST_TIMEOUT_MS = 30_000;
 
-// Simple rate limiter: ~2 req/s
-let lastRequestTime = 0;
-const MIN_INTERVAL_MS = 500;
+const mangaUpdates = createApiFetcher({
+  name: "manga-updates",
+  cache: { ttlMs: 10 * 60 * 1000, maxEntries: 500 },
+  rateLimit: { maxRequests: 4, windowMs: 2000 },
+  retry: { maxRetries: 3, baseDelayMs: 2000 },
+});
 
-async function rateLimitedFetch(
+async function mangaUpdatesFetch<T>(
+  cacheKey: string,
   url: string,
   init?: RequestInit,
-): Promise<Response> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < MIN_INTERVAL_MS) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, MIN_INTERVAL_MS - elapsed);
-    });
-  }
-  lastRequestTime = Date.now();
-  return fetch(url, init);
+): Promise<T> {
+  return mangaUpdates.fetch<T>(cacheKey, async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+      if (response.status === 429) {
+        throw new ApiRateLimitError("MangaUpdates rate limit");
+      }
+      if (!response.ok) {
+        throw new Error(
+          `MangaUpdates API error: ${response.status} ${response.statusText}`,
+        );
+      }
+      return (await response.json()) as T;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("MangaUpdates API request timed out.", {
+          cause: error,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -106,31 +132,29 @@ export async function searchMangaUpdatesSeries(
   totalHits: number;
   results: MangaUpdatesSeriesResult[];
 }> {
-  const res = await rateLimitedFetch(`${BASE_URL}/series/search`, {
+  const cacheKey = `series-search:${query}:${perPage}`;
+  const data = await mangaUpdatesFetch<{
+    total_hits?: number;
+    results?: Array<{ record: MangaUpdatesSeriesResult }>;
+  }>(cacheKey, `${BASE_URL}/series/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ search: query, per_page: perPage }),
   });
-  if (!res.ok) {
-    throw new Error(`MangaUpdates search failed: ${res.status}`);
-  }
-  const data = await res.json();
   return {
     totalHits: data.total_hits ?? 0,
-    results: (data.results ?? []).map(
-      (r: { record: MangaUpdatesSeriesResult }) => r.record,
-    ),
+    results: (data.results ?? []).map((r) => r.record),
   };
 }
 
 export async function getMangaUpdatesSeriesDetail(
   seriesId: number,
 ): Promise<MangaUpdatesSeriesDetail> {
-  const res = await rateLimitedFetch(`${BASE_URL}/series/${seriesId}`);
-  if (!res.ok) {
-    throw new Error(`MangaUpdates series detail failed: ${res.status}`);
-  }
-  return res.json();
+  const cacheKey = `series-detail:${seriesId}`;
+  return mangaUpdatesFetch<MangaUpdatesSeriesDetail>(
+    cacheKey,
+    `${BASE_URL}/series/${seriesId}`,
+  );
 }
 
 export async function getMangaUpdatesReleases(
@@ -141,30 +165,28 @@ export async function getMangaUpdatesReleases(
   totalHits: number;
   results: MangaUpdatesRelease[];
 }> {
-  const res = await rateLimitedFetch(`${BASE_URL}/releases/search`, {
+  const cacheKey = `releases-search:${title}:${perPage}:${page}`;
+  const data = await mangaUpdatesFetch<{
+    total_hits?: number;
+    results?: Array<{ record: MangaUpdatesRelease }>;
+  }>(cacheKey, `${BASE_URL}/releases/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ search: title, per_page: perPage, page }),
   });
-  if (!res.ok) {
-    throw new Error(`MangaUpdates releases search failed: ${res.status}`);
-  }
-  const data = await res.json();
   return {
     totalHits: data.total_hits ?? 0,
-    results: (data.results ?? []).map(
-      (r: { record: MangaUpdatesRelease }) => r.record,
-    ),
+    results: (data.results ?? []).map((r) => r.record),
   };
 }
 
 export async function getMangaUpdatesSeriesGroups(
   seriesId: number,
 ): Promise<MangaUpdatesGroup[]> {
-  const res = await rateLimitedFetch(`${BASE_URL}/series/${seriesId}/groups`);
-  if (!res.ok) {
-    throw new Error(`MangaUpdates groups failed: ${res.status}`);
-  }
-  const data = await res.json();
+  const cacheKey = `series-groups:${seriesId}`;
+  const data = await mangaUpdatesFetch<{ group_list?: MangaUpdatesGroup[] }>(
+    cacheKey,
+    `${BASE_URL}/series/${seriesId}/groups`,
+  );
   return data.group_list ?? [];
 }
