@@ -220,10 +220,10 @@ export const queryKeys = {
     list: () => ["tasks", "list"] as const,
   },
 
-  // ─── User Table Settings ────────────────────────────────────────────────
-  userTableSettings: {
-    all: ["userTableSettings"] as const,
-    byTable: (tableId: string) => ["userTableSettings", tableId] as const,
+  // ─── User Settings ────────────────────────────────────────────────────
+  userSettings: {
+    all: ["userSettings"] as const,
+    byTable: (tableId: string) => ["userSettings", tableId] as const,
   },
 
   // ─── System Status ──────────────────────────────────────────────────────
