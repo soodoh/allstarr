@@ -23,6 +23,7 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   tv: "TV",
   ebook: "Ebook",
   audiobook: "Audiobook",
+  manga: "Manga",
 };
 
 type DownloadFormatFormValues = {
@@ -34,14 +35,14 @@ type DownloadFormatFormValues = {
   preferredSize: number;
   noMaxLimit: number;
   noPreferredLimit: number;
-  contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
+  contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook" | "manga">;
   source: string | null;
   resolution: number;
 };
 
 type DownloadFormatFormProps = {
   initialValues?: DownloadFormatFormValues;
-  defaultContentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
+  defaultContentTypes: Array<"ebook" | "movie" | "tv" | "audiobook" | "manga">;
   onSubmit: (values: DownloadFormatFormValues) => void;
   onCancel: () => void;
   loading?: boolean;
