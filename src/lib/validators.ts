@@ -289,6 +289,17 @@ export const unmonitorBookProfileSchema = z.object({
   deleteFiles: z.boolean(),
 });
 
+export const bulkMonitorBookProfileSchema = z.object({
+  bookIds: z.array(z.number()),
+  downloadProfileId: z.number(),
+});
+
+export const bulkUnmonitorBookProfileSchema = z.object({
+  bookIds: z.array(z.number()),
+  downloadProfileId: z.number(),
+  deleteFiles: z.boolean(),
+});
+
 export const setEditionForProfileSchema = z.object({
   editionId: z.number(),
   downloadProfileId: z.number(),

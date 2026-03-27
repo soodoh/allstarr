@@ -38,7 +38,6 @@ type BookTableProps = {
   onSort?: (key: string) => void;
   downloadProfiles?: DownloadProfile[];
   onToggleProfile?: (editionId: number, profileId: number) => void;
-  isTogglePending?: boolean;
   children?: ReactNode;
 };
 
@@ -78,7 +77,6 @@ export default function BookTable({
   onSort,
   downloadProfiles,
   onToggleProfile,
-  isTogglePending,
   children,
 }: BookTableProps): JSX.Element {
   const navigate = useNavigate();
@@ -127,7 +125,6 @@ export default function BookTable({
               profiles={visibleProfiles}
               activeProfileIds={row.downloadProfileIds}
               onToggle={(profileId) => onToggleProfile(row.bookId, profileId)}
-              isPending={isTogglePending}
             />
           );
         }

@@ -1,5 +1,4 @@
-import type { JSX, MouseEvent } from "react";
-import { Loader2 } from "lucide-react";
+import type { CSSProperties, JSX, MouseEvent } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -13,7 +12,6 @@ type ProfileToggleIconsProps = {
   activeProfileIds: number[];
   partialProfileIds?: number[];
   onToggle: (profileId: number) => void;
-  isPending?: boolean;
   size?: "sm" | "lg";
   direction?: "horizontal" | "vertical";
 };
@@ -23,7 +21,6 @@ export default function ProfileToggleIcons({
   activeProfileIds,
   partialProfileIds = [],
   onToggle,
-  isPending = false,
   size = "sm",
   direction = "horizontal",
 }: ProfileToggleIconsProps): JSX.Element {
@@ -51,15 +48,22 @@ export default function ProfileToggleIcons({
         }
 
         let stateClass: string;
+        let inlineStyle: CSSProperties | undefined;
         if (active) {
           stateClass =
             "bg-primary/15 text-primary cursor-pointer hover:bg-destructive/15 hover:text-destructive";
+          inlineStyle = undefined;
         } else if (partial) {
           stateClass =
-            "bg-primary/8 text-primary/45 cursor-pointer hover:bg-primary/15 hover:text-primary";
+            "text-primary cursor-pointer hover:bg-primary/15 hover:text-primary";
+          inlineStyle = {
+            background:
+              "linear-gradient(135deg, var(--color-muted) 50%, color-mix(in oklch, var(--color-primary) 15%, transparent) 50%)",
+          };
         } else {
           stateClass =
             "bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary cursor-pointer";
+          inlineStyle = undefined;
         }
 
         return (
@@ -69,28 +73,17 @@ export default function ProfileToggleIcons({
                 type="button"
                 onClick={(e: MouseEvent) => {
                   e.stopPropagation();
-                  if (!isPending) {
-                    onToggle(profile.id);
-                  }
+                  onToggle(profile.id);
                 }}
-                disabled={isPending}
                 aria-label={ariaLabel}
                 className={cn(
                   "flex shrink-0 items-center justify-center rounded transition-colors",
                   isLg ? "h-9 w-9" : "h-6 w-6",
                   stateClass,
                 )}
+                style={inlineStyle}
               >
-                {isPending ? (
-                  <Loader2
-                    className={cn(
-                      "animate-spin",
-                      isLg ? "h-5 w-5" : "h-3.5 w-3.5",
-                    )}
-                  />
-                ) : (
-                  <Icon className={cn(isLg ? "h-5 w-5" : "h-3.5 w-3.5")} />
-                )}
+                <Icon className={cn(isLg ? "h-5 w-5" : "h-3.5 w-3.5")} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">

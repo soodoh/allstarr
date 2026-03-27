@@ -7,6 +7,8 @@ import {
   updateBookFn,
   monitorBookProfileFn,
   unmonitorBookProfileFn,
+  bulkMonitorBookProfileFn,
+  bulkUnmonitorBookProfileFn,
   setEditionForProfileFn,
   updateEditionFn,
   deleteEditionFn,
@@ -146,6 +148,37 @@ export function useToggleBookMonitor() {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
     },
     onError: () => toast.error("Failed to update book monitoring"),
+  });
+}
+
+export function useBulkMonitorBookProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { bookIds: number[]; downloadProfileId: number }) =>
+      bulkMonitorBookProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    },
+    onError: () => toast.error("Failed to monitor books"),
+  });
+}
+
+export function useBulkUnmonitorBookProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      bookIds: number[];
+      downloadProfileId: number;
+      deleteFiles: boolean;
+    }) => bulkUnmonitorBookProfileFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    },
+    onError: () => toast.error("Failed to unmonitor books"),
   });
 }
 

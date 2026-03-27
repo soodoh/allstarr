@@ -135,7 +135,6 @@ export default function SeasonAccordion({
                 activeProfileIds={activeProfileIds}
                 partialProfileIds={partialProfileIds}
                 onToggle={handleSeasonProfileToggle}
-                isPending={bulkMonitor.isPending || bulkUnmonitor.isPending}
                 size="sm"
                 direction="horizontal"
               />

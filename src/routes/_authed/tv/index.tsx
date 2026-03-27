@@ -66,8 +66,7 @@ function ShowsPage() {
     [allProfiles],
   );
 
-  const { handleToggle: handleToggleProfile, isPending: isTogglePending } =
-    useShowProfileToggle(shows);
+  const { handleToggle: handleToggleProfile } = useShowProfileToggle(shows);
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -229,7 +228,6 @@ function ShowsPage() {
           onToggleAll={toggleAll}
           downloadProfiles={tvProfiles}
           onToggleProfile={handleToggleProfile}
-          isTogglePending={isTogglePending}
         />
       )}
 

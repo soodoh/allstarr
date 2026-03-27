@@ -118,7 +118,6 @@ export default function EpisodeRow({
               profiles={downloadProfiles}
               activeProfileIds={episode.downloadProfileIds}
               onToggle={handleProfileToggle}
-              isPending={monitorProfile.isPending || unmonitorProfile.isPending}
               size="sm"
               direction="horizontal"
             />

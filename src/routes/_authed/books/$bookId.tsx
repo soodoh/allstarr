@@ -208,9 +208,6 @@ function BookDetailPage(): JSX.Element {
                   );
                 }
               }}
-              isPending={
-                monitorBookProfile.isPending || unmonitorBookProfile.isPending
-              }
               size="lg"
               direction="vertical"
             />

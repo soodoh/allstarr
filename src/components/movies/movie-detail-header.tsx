@@ -38,6 +38,8 @@ import {
   useUpdateMovie,
   useDeleteMovie,
   useRefreshMovieMetadata,
+  useMonitorMovieProfile,
+  useUnmonitorMovieProfile,
 } from "src/hooks/mutations/movies";
 
 type MovieDetail = {
@@ -142,11 +144,20 @@ export default function MovieDetailHeader({
     null,
   );
 
-  // Wrap in useMemo to satisfy linter
+  const monitorProfile = useMonitorMovieProfile();
+  const unmonitorProfile = useUnmonitorMovieProfile();
+
+  // All movie-type profiles (for Edit dialog)
   const movieProfiles = useMemo(
     () => downloadProfiles.filter((p) => p.contentType === "movie"),
     [downloadProfiles],
   );
+
+  // Only profiles assigned to this movie (for header toggle icons)
+  const assignedProfiles = useMemo(() => {
+    const idSet = new Set(movie.downloadProfileIds);
+    return movieProfiles.filter((p) => idSet.has(p.id));
+  }, [movieProfiles, movie.downloadProfileIds]);
 
   const toggleProfile = (id: number) => {
     setSelectedProfileIds((prev) =>
@@ -174,11 +185,8 @@ export default function MovieDetailHeader({
     if (movie.downloadProfileIds.includes(profileId)) {
       setUnmonitorProfileId(profileId);
     } else {
-      updateMovie.mutate(
-        {
-          id: movie.id,
-          downloadProfileIds: [...movie.downloadProfileIds, profileId],
-        },
+      monitorProfile.mutate(
+        { movieId: movie.id, downloadProfileId: profileId },
         { onSuccess: () => router.invalidate() },
       );
     }
@@ -188,13 +196,8 @@ export default function MovieDetailHeader({
     if (unmonitorProfileId === null) {
       return;
     }
-    updateMovie.mutate(
-      {
-        id: movie.id,
-        downloadProfileIds: movie.downloadProfileIds.filter(
-          (id) => id !== unmonitorProfileId,
-        ),
-      },
+    unmonitorProfile.mutate(
+      { movieId: movie.id, downloadProfileId: unmonitorProfileId },
       {
         onSuccess: () => {
           setUnmonitorProfileId(null);
@@ -265,10 +268,9 @@ export default function MovieDetailHeader({
       {/* Page header */}
       <div className="flex items-start gap-3">
         <ProfileToggleIcons
-          profiles={movieProfiles}
+          profiles={assignedProfiles}
           activeProfileIds={movie.downloadProfileIds}
           onToggle={handleProfileToggle}
-          isPending={updateMovie.isPending}
           size="lg"
           direction="vertical"
         />
@@ -493,7 +495,7 @@ export default function MovieDetailHeader({
         itemType="movie"
         fileCount={0}
         onConfirm={handleUnmonitorConfirm}
-        isPending={updateMovie.isPending}
+        isPending={unmonitorProfile.isPending}
       />
     </>
   );

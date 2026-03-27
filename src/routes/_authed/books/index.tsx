@@ -177,7 +177,6 @@ function BooksPage() {
               });
             }
           }}
-          isTogglePending={monitorBookProfile.isPending}
         >
           {showLoading && <BookTableRowsSkeleton columns={6} />}
         </BookTable>
