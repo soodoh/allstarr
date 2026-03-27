@@ -370,6 +370,9 @@ export const createIndexerSchema = z.object({
   priority: z.number().int().min(1).default(25),
   tag: z.string().nullable().default(null),
   downloadClientId: z.number().nullable().default(null),
+  requestInterval: z.number().int().min(1000).default(5000),
+  dailyQueryLimit: z.number().int().min(0).default(0),
+  dailyGrabLimit: z.number().int().min(0).default(0),
 });
 
 export const updateIndexerSchema = createIndexerSchema.extend({
@@ -386,6 +389,9 @@ export const updateSyncedIndexerSchema = z.object({
   id: z.number(),
   tag: z.string().nullable().default(null),
   downloadClientId: z.number().nullable(),
+  requestInterval: z.number().int().min(1000).default(5000),
+  dailyQueryLimit: z.number().int().min(0).default(0),
+  dailyGrabLimit: z.number().int().min(0).default(0),
 });
 
 // Blocklist

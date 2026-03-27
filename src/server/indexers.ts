@@ -25,7 +25,11 @@ import {
   searchIndexersSchema,
   grabReleaseSchema,
 } from "src/lib/validators";
-import { canQueryIndexer, canGrabIndexer } from "./indexer-rate-limiter";
+import {
+  canQueryIndexer,
+  canGrabIndexer,
+  getAllIndexerStatuses,
+} from "./indexer-rate-limiter";
 import * as prowlarrHttp from "./indexers/http";
 import {
   enrichRelease,
@@ -484,6 +488,9 @@ export const updateSyncedIndexerFn = createServerFn({ method: "POST" })
       .set({
         tag: data.tag,
         downloadClientId: data.downloadClientId,
+        requestInterval: data.requestInterval,
+        dailyQueryLimit: data.dailyQueryLimit,
+        dailyGrabLimit: data.dailyGrabLimit,
         updatedAt: Date.now(),
       })
       .where(eq(syncedIndexers.id, data.id))
@@ -511,6 +518,27 @@ export const hasEnabledIndexersFn = createServerFn({ method: "GET" }).handler(
       .where(eq(syncedIndexers.enableSearch, true))
       .all().length;
     return syncedCount > 0;
+  },
+);
+
+// ─── Indexer rate limit statuses ─────────────────────────────────────────────
+
+export const getIndexerStatusesFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+
+    const manualIds = db
+      .select({ id: indexers.id })
+      .from(indexers)
+      .all()
+      .map((r) => r.id);
+    const syncedIds = db
+      .select({ id: syncedIndexers.id })
+      .from(syncedIndexers)
+      .all()
+      .map((r) => r.id);
+
+    return getAllIndexerStatuses(manualIds, syncedIds);
   },
 );
 
