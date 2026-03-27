@@ -31,6 +31,8 @@ import { tmdbSearchMoviesQuery } from "src/lib/queries/tmdb";
 import { movieExistenceQuery } from "src/lib/queries/movies";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { useAddMovie } from "src/hooks/mutations/movies";
+import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import type { TmdbMovieResult } from "src/server/tmdb/types";
 
 function extractYear(releaseDate: string): string | null {
@@ -48,6 +50,7 @@ export type MoviePreviewModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdded?: () => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
 export function MoviePreviewModal({
@@ -55,9 +58,11 @@ export function MoviePreviewModal({
   open,
   onOpenChange,
   onAdded,
+  addDefaults,
 }: MoviePreviewModalProps): JSX.Element {
   const navigate = useNavigate();
   const addMovie = useAddMovie();
+  const upsertSettings = useUpsertUserSettings();
 
   const { data: alreadyExists = false } = useQuery({
     ...movieExistenceQuery(movie.id),
@@ -74,20 +79,26 @@ export function MoviePreviewModal({
     [allProfiles],
   );
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
-  const [minimumAvailability, setMinimumAvailability] =
-    useState<string>("released");
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    () => (addDefaults?.downloadProfileIds as number[] | undefined) ?? [],
+  );
+  const [minimumAvailability, setMinimumAvailability] = useState<string>(
+    () =>
+      (addDefaults?.minimumAvailability as string | undefined) ?? "released",
+  );
   const [monitorOption, setMonitorOption] = useState<
     "movieOnly" | "movieAndCollection" | "none"
-  >("movieOnly");
-  const [searchOnAdd, setSearchOnAdd] = useState(false);
-
-  // Auto-select all profiles when profiles load
-  useEffect(() => {
-    if (movieProfiles.length > 0 && downloadProfileIds.length === 0) {
-      setDownloadProfileIds(movieProfiles.map((p) => p.id));
-    }
-  }, [movieProfiles, downloadProfileIds.length]);
+  >(
+    () =>
+      (addDefaults?.monitorOption as
+        | "movieOnly"
+        | "movieAndCollection"
+        | "none"
+        | undefined) ?? "movieOnly",
+  );
+  const [searchOnAdd, setSearchOnAdd] = useState(
+    () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
+  );
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -101,6 +112,15 @@ export function MoviePreviewModal({
     if (monitorOption !== "none" && downloadProfileIds.length === 0) {
       return;
     }
+    upsertSettings.mutate({
+      tableId: "movies",
+      addDefaults: {
+        downloadProfileIds,
+        minimumAvailability,
+        monitorOption,
+        searchOnAdd,
+      },
+    });
     addMovie.mutate(
       {
         tmdbId: movie.id,
@@ -348,6 +368,8 @@ export default function TmdbMovieSearch(): JSX.Element {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  const { data: settings } = useQuery(userSettingsQuery("movies"));
+
   const {
     data: searchData,
     isLoading,
@@ -433,6 +455,7 @@ export default function TmdbMovieSearch(): JSX.Element {
           autoComplete="off"
           aria-label="Search movies"
           className="pl-9"
+          autoFocus
         />
       </div>
 
@@ -447,6 +470,7 @@ export default function TmdbMovieSearch(): JSX.Element {
               setPreviewMovie(undefined);
             }
           }}
+          addDefaults={settings?.addDefaults}
         />
       )}
     </>

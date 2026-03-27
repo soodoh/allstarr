@@ -8,8 +8,12 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import TmdbMovieSearch from "src/components/movies/tmdb-movie-search";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 
 export const Route = createFileRoute("/_authed/movies/add")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(userSettingsQuery("movies"));
+  },
   component: AddMoviePage,
 });
 

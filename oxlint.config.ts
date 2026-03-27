@@ -6,6 +6,7 @@ export default defineConfig({
   rules: {
     "typescript/no-restricted-types": "off",
     "typescript-eslint/no-restricted-types": "off",
+    "jsx-a11y/no-autofocus": "off",
     "eslint/no-restricted-imports": [
       "error",
       {
