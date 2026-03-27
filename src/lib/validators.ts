@@ -462,6 +462,7 @@ export const upsertUserSettingsSchema = z.object({
   columnOrder: z.array(z.string()).optional(),
   hiddenColumns: z.array(z.string()).optional(),
   viewMode: z.enum(["table", "grid"]).optional(),
+  addDefaults: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const deleteUserSettingsSchema = z.object({
