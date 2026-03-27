@@ -85,6 +85,13 @@
       "when": 1774599684811,
       "tag": "0011_heavy_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1774604028449,
+      "tag": "0012_stiff_mother_askani",
+      "breakpoints": true
     }
   ]
 }
