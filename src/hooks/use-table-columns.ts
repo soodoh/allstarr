@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { userTableSettingsQuery } from "src/lib/queries/user-table-settings";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import {
   TABLE_DEFAULTS,
   getDefaultColumnOrder,
@@ -23,7 +23,7 @@ export type ResolvedColumns = {
 
 export function useTableColumns(tableId: TableId): ResolvedColumns {
   const defaults = TABLE_DEFAULTS[tableId];
-  const { data: userSettings } = useQuery(userTableSettingsQuery(tableId));
+  const { data: userSettings } = useQuery(userSettingsQuery(tableId));
 
   return useMemo(() => {
     const defaultsByKey = new Map(defaults.map((c) => [c.key, c]));

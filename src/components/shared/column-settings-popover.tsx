@@ -29,9 +29,9 @@ import { Button } from "src/components/ui/button";
 import Switch from "src/components/ui/switch";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import {
-  useUpsertTableSettings,
-  useResetTableSettings,
-} from "src/hooks/mutations/user-table-settings";
+  useUpsertUserSettings,
+  useResetUserSettings,
+} from "src/hooks/mutations/user-settings";
 import type { TableId, TableColumnDef } from "src/lib/table-column-defaults";
 
 function SortableColumnItem({
@@ -90,8 +90,8 @@ export default function ColumnSettingsPopover({
 }): JSX.Element {
   const { allColumns, hiddenKeys, columnOrder, hiddenColumnKeys } =
     useTableColumns(tableId);
-  const upsert = useUpsertTableSettings();
-  const reset = useResetTableSettings();
+  const upsert = useUpsertUserSettings();
+  const reset = useResetUserSettings();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
