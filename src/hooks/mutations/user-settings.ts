@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "src/lib/query-keys";
 import {
   upsertUserSettingsFn,
-  deleteUserSettingsFn,
+  resetColumnSettingsFn,
 } from "src/server/user-settings";
 
 export function useUpsertUserSettings() {
@@ -44,15 +44,22 @@ export function useUpsertUserSettings() {
   });
 }
 
-export function useResetUserSettings() {
+export function useResetColumnSettings() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { tableId: string }) => deleteUserSettingsFn({ data }),
+    mutationFn: (data: { tableId: string }) => resetColumnSettingsFn({ data }),
     onMutate: async (variables) => {
       const queryKey = queryKeys.userSettings.byTable(variables.tableId);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData(queryKey);
-      queryClient.setQueryData(queryKey, null);
+      queryClient.setQueryData(
+        queryKey,
+        (old: Record<string, unknown> | null) => ({
+          ...old,
+          columnOrder: [],
+          hiddenColumns: [],
+        }),
+      );
       return { previous };
     },
     onError: (_err, variables, context) => {

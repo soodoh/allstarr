@@ -30,7 +30,7 @@ import Switch from "src/components/ui/switch";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import {
   useUpsertUserSettings,
-  useResetUserSettings,
+  useResetColumnSettings,
 } from "src/hooks/mutations/user-settings";
 import type { TableId, TableColumnDef } from "src/lib/table-column-defaults";
 
@@ -91,7 +91,7 @@ export default function ColumnSettingsPopover({
   const { allColumns, hiddenKeys, columnOrder, hiddenColumnKeys } =
     useTableColumns(tableId);
   const upsert = useUpsertUserSettings();
-  const reset = useResetUserSettings();
+  const reset = useResetColumnSettings();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
