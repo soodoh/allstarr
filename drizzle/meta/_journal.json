@@ -64,6 +64,13 @@
       "when": 1774565307064,
       "tag": "0008_ancient_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1774586780024,
+      "tag": "0009_orange_betty_brant",
+      "breakpoints": true
     }
   ]
 }

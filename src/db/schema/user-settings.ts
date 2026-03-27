@@ -6,8 +6,8 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 
-export const userTableSettings = sqliteTable(
-  "user_table_settings",
+export const userSettings = sqliteTable(
+  "user_settings",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id")
@@ -20,11 +20,9 @@ export const userTableSettings = sqliteTable(
     hiddenColumns: text("hidden_columns", { mode: "json" })
       .$type<string[]>()
       .notNull(),
+    viewMode: text("view_mode").$type<"table" | "grid">(),
   },
   (table) => [
-    uniqueIndex("user_table_settings_user_table_idx").on(
-      table.userId,
-      table.tableId,
-    ),
+    uniqueIndex("user_settings_user_table_idx").on(table.userId, table.tableId),
   ],
 );
