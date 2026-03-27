@@ -8,8 +8,12 @@ import {
   CardTitle,
 } from "src/components/ui/card";
 import TmdbShowSearch from "src/components/tv/tmdb-show-search";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 
 export const Route = createFileRoute("/_authed/tv/add")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(userSettingsQuery("tv"));
+  },
   component: AddShowPage,
 });
 

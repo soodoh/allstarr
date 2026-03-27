@@ -31,7 +31,9 @@ import { resizeTmdbUrl } from "src/lib/utils";
 import { tmdbSearchShowsQuery } from "src/lib/queries/tmdb";
 import { showExistenceQuery } from "src/lib/queries/shows";
 import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import { useAddShow } from "src/hooks/mutations/shows";
+import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
 import EpisodeGroupAccordion from "src/components/tv/episode-group-accordion";
 import type { TmdbTvResult } from "src/server/tmdb/types";
 
@@ -76,15 +78,18 @@ type ShowPreviewModalProps = {
   show: TmdbTvResult;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
 function ShowPreviewModal({
   show,
   open,
   onOpenChange,
+  addDefaults,
 }: ShowPreviewModalProps): JSX.Element {
   const navigate = useNavigate();
   const addShow = useAddShow();
+  const upsertSettings = useUpsertUserSettings();
 
   const { data: alreadyExists = false } = useQuery({
     ...showExistenceQuery(show.id),
@@ -96,25 +101,28 @@ function ShowPreviewModal({
     enabled: open,
   });
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
-  const [monitorOption, setMonitorOption] = useState<string>("all");
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    () => (addDefaults?.downloadProfileIds as number[] | undefined) ?? [],
+  );
+  const [monitorOption, setMonitorOption] = useState<string>(
+    () => (addDefaults?.monitorOption as string | undefined) ?? "all",
+  );
   const [seriesType, setSeriesType] = useState<string>("standard");
-  const [useSeasonFolder, setSeasonFolder] = useState(true);
-  const [searchOnAdd, setSearchOnAdd] = useState(false);
-  const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(false);
+  const [useSeasonFolder, setSeasonFolder] = useState(
+    () => (addDefaults?.useSeasonFolder as boolean | undefined) ?? true,
+  );
+  const [searchOnAdd, setSearchOnAdd] = useState(
+    () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
+  );
+  const [searchCutoffUnmet, setSearchCutoffUnmet] = useState(
+    () => (addDefaults?.searchCutoffUnmet as boolean | undefined) ?? false,
+  );
   const [episodeGroupId, setEpisodeGroupId] = useState<string | null>(null);
 
   const tvProfiles = useMemo(
     () => (allProfiles ?? []).filter((p) => p.contentType === "tv"),
     [allProfiles],
   );
-
-  // Auto-select all profiles when profiles load
-  useEffect(() => {
-    if (tvProfiles.length > 0) {
-      setDownloadProfileIds(tvProfiles.map((p) => p.id));
-    }
-  }, [tvProfiles]);
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -128,6 +136,16 @@ function ShowPreviewModal({
     if (downloadProfileIds.length === 0) {
       return;
     }
+    upsertSettings.mutate({
+      tableId: "tv",
+      addDefaults: {
+        downloadProfileIds,
+        monitorOption,
+        useSeasonFolder,
+        searchOnAdd,
+        searchCutoffUnmet,
+      },
+    });
     addShow.mutate(
       {
         tmdbId: show.id,
@@ -411,6 +429,8 @@ export default function TmdbShowSearch(): JSX.Element {
     undefined,
   );
 
+  const { data: settings } = useQuery(userSettingsQuery("tv"));
+
   // Debounce the search query
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -504,6 +524,7 @@ export default function TmdbShowSearch(): JSX.Element {
           autoComplete="off"
           aria-label="Search TV shows"
           className="pl-9"
+          autoFocus
         />
       </div>
 
@@ -518,6 +539,7 @@ export default function TmdbShowSearch(): JSX.Element {
               setPreviewShow(undefined);
             }
           }}
+          addDefaults={settings?.addDefaults}
         />
       )}
     </>
