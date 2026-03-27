@@ -19,6 +19,7 @@ import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
+import { Route as AuthedMangaIndexRouteImport } from './routes/_authed/manga/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
@@ -100,6 +101,11 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
 const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
   id: '/movies/',
   path: '/movies/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedMangaIndexRoute = AuthedMangaIndexRouteImport.update({
+  id: '/manga/',
+  path: '/manga/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedBooksIndexRoute = AuthedBooksIndexRouteImport.update({
@@ -305,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/activity/': typeof AuthedActivityIndexRoute
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
+  '/manga/': typeof AuthedMangaIndexRoute
   '/movies/': typeof AuthedMoviesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
@@ -349,6 +356,7 @@ export interface FileRoutesByTo {
   '/activity': typeof AuthedActivityIndexRoute
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
+  '/manga': typeof AuthedMangaIndexRoute
   '/movies': typeof AuthedMoviesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
@@ -395,6 +403,7 @@ export interface FileRoutesById {
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
+  '/_authed/manga/': typeof AuthedMangaIndexRoute
   '/_authed/movies/': typeof AuthedMoviesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
@@ -441,6 +450,7 @@ export interface FileRouteTypes {
     | '/activity/'
     | '/authors/'
     | '/books/'
+    | '/manga/'
     | '/movies/'
     | '/settings/'
     | '/system/'
@@ -485,6 +495,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/authors'
     | '/books'
+    | '/manga'
     | '/movies'
     | '/settings'
     | '/system'
@@ -530,6 +541,7 @@ export interface FileRouteTypes {
     | '/_authed/activity/'
     | '/_authed/authors/'
     | '/_authed/books/'
+    | '/_authed/manga/'
     | '/_authed/movies/'
     | '/_authed/settings/'
     | '/_authed/system/'
@@ -626,6 +638,13 @@ declare module '@tanstack/react-router' {
       path: '/movies'
       fullPath: '/movies/'
       preLoaderRoute: typeof AuthedMoviesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/manga/': {
+      id: '/_authed/manga/'
+      path: '/manga'
+      fullPath: '/manga/'
+      preLoaderRoute: typeof AuthedMangaIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/books/': {
@@ -890,6 +909,7 @@ interface AuthedRouteChildren {
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
+  AuthedMangaIndexRoute: typeof AuthedMangaIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
@@ -925,6 +945,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
+  AuthedMangaIndexRoute: AuthedMangaIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
