@@ -25,6 +25,7 @@ import {
   searchIndexersSchema,
   grabReleaseSchema,
 } from "src/lib/validators";
+import { canQueryIndexer, canGrabIndexer } from "./indexer-rate-limiter";
 import * as prowlarrHttp from "./indexers/http";
 import {
   enrichRelease,
@@ -642,28 +643,42 @@ export function dedupeAndScoreReleases(
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-const DELAY_BETWEEN_INDEXERS = 1000;
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
-/** Search all indexers sequentially with a delay between each to avoid rate-limiting. */
+/** Search all indexers sequentially with rate limiter gating. */
 async function searchAllIndexers(
   enabledSynced: Array<typeof syncedIndexers.$inferSelect>,
   enabledManual: Array<typeof indexers.$inferSelect>,
   query: string,
   categories: number[],
   bookParams?: BookSearchParams,
+  interactive = false,
 ): Promise<{ releases: IndexerRelease[]; warnings: string[] }> {
   const allReleases: IndexerRelease[] = [];
   const warnings: string[] = [];
 
   const syncedWithKey = enabledSynced.filter((s) => s.apiKey);
-  for (let i = 0; i < syncedWithKey.length; i += 1) {
-    const synced = syncedWithKey[i];
+  for (const synced of syncedWithKey) {
+    // Rate limiter gate — interactive searches bypass daily caps
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else if (!interactive) {
+        warnings.push(`Indexer "${synced.name}" skipped: ${gate.reason}`);
+        continue;
+      }
+      // Interactive: skip only backoff, allow daily cap bypass
+      if (gate.reason === "backoff") {
+        warnings.push(`Indexer "${synced.name}" in backoff, skipping`);
+        continue;
+      }
+    }
+
     try {
       const results = await prowlarrHttp.searchNewznab(
         {
@@ -674,6 +689,7 @@ async function searchAllIndexers(
         query,
         categories,
         bookParams,
+        { indexerType: "synced", indexerId: synced.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -690,13 +706,25 @@ async function searchAllIndexers(
         error instanceof Error ? error.message : "Unknown indexer error",
       );
     }
-    if (i < syncedWithKey.length - 1 || enabledManual.length > 0) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
-    }
   }
 
-  for (let i = 0; i < enabledManual.length; i += 1) {
-    const ix = enabledManual[i];
+  for (const ix of enabledManual) {
+    // Rate limiter gate — interactive searches bypass daily caps
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else if (!interactive) {
+        warnings.push(`Indexer "${ix.name}" skipped: ${gate.reason}`);
+        continue;
+      }
+      // Interactive: skip only backoff, allow daily cap bypass
+      if (gate.reason === "backoff") {
+        warnings.push(`Indexer "${ix.name}" in backoff, skipping`);
+        continue;
+      }
+    }
+
     try {
       const results = await prowlarrHttp.searchNewznab(
         {
@@ -707,6 +735,7 @@ async function searchAllIndexers(
         query,
         categories,
         bookParams,
+        { indexerType: "manual", indexerId: ix.id },
       );
       allReleases.push(
         ...results.map((r) =>
@@ -722,9 +751,6 @@ async function searchAllIndexers(
       warnings.push(
         error instanceof Error ? error.message : "Unknown indexer error",
       );
-    }
-    if (i < enabledManual.length - 1) {
-      await sleep(DELAY_BETWEEN_INDEXERS);
     }
   }
 
@@ -803,13 +829,14 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       categories = [];
     }
 
-    // Search each indexer sequentially to avoid rate-limiting
+    // Search each indexer sequentially with rate limiter gating
     const { releases: allReleases, warnings } = await searchAllIndexers(
       enabledSynced,
       enabledManual,
       query,
       categories,
       bookParams,
+      true, // interactive — bypass daily caps for user-initiated searches
     );
 
     // If every indexer failed, throw so the client sees an error
@@ -878,70 +905,89 @@ export const getBookReleaseStatusFn = createServerFn({ method: "GET" })
 
 // ─── Grab ─────────────────────────────────────────────────────────────────────
 
+/** Resolve the download client to use for a grab, checking explicit, indexer-level, and protocol-based fallbacks. */
+function resolveGrabClient(data: {
+  downloadClientId?: number | null;
+  indexerSource: string;
+  indexerId: number;
+  protocol: string;
+}): {
+  client: typeof downloadClients.$inferSelect;
+  combinedTag: string | null;
+} {
+  let client;
+
+  if (data.downloadClientId) {
+    client = db
+      .select()
+      .from(downloadClients)
+      .where(eq(downloadClients.id, data.downloadClientId))
+      .get();
+    if (!client) {
+      throw new Error("Download client not found");
+    }
+  } else {
+    const indexerTable =
+      data.indexerSource === "synced" ? syncedIndexers : indexers;
+    const indexerRow = db
+      .select({ downloadClientId: indexerTable.downloadClientId })
+      .from(indexerTable)
+      .where(eq(indexerTable.id, data.indexerId))
+      .get();
+
+    if (indexerRow?.downloadClientId) {
+      client = db
+        .select()
+        .from(downloadClients)
+        .where(eq(downloadClients.id, indexerRow.downloadClientId))
+        .get();
+    }
+
+    if (!client) {
+      const matchingClients = db
+        .select()
+        .from(downloadClients)
+        .where(eq(downloadClients.enabled, true))
+        .orderBy(asc(downloadClients.priority))
+        .all()
+        .filter((c) => c.protocol === data.protocol);
+
+      if (matchingClients.length === 0) {
+        throw new Error(
+          `No enabled ${data.protocol} download clients configured. Please add one in Settings > Download Clients.`,
+        );
+      }
+      client = matchingClients[0];
+    }
+  }
+
+  const indexerTagTable =
+    data.indexerSource === "synced" ? syncedIndexers : indexers;
+  const indexerTagRow = db
+    .select({ tag: indexerTagTable.tag })
+    .from(indexerTagTable)
+    .where(eq(indexerTagTable.id, data.indexerId))
+    .get();
+  const combinedTag =
+    [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+
+  return { client, combinedTag };
+}
+
 export const grabReleaseFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => grabReleaseSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
 
-    let client;
-
-    if (data.downloadClientId) {
-      // Use explicitly specified download client
-      client = db
-        .select()
-        .from(downloadClients)
-        .where(eq(downloadClients.id, data.downloadClientId))
-        .get();
-      if (!client) {
-        throw new Error("Download client not found");
-      }
-    } else {
-      // Check indexer-level download client override
-      const indexerTable =
-        data.indexerSource === "synced" ? syncedIndexers : indexers;
-      const indexerRow = db
-        .select({ downloadClientId: indexerTable.downloadClientId })
-        .from(indexerTable)
-        .where(eq(indexerTable.id, data.indexerId))
-        .get();
-
-      if (indexerRow?.downloadClientId) {
-        client = db
-          .select()
-          .from(downloadClients)
-          .where(eq(downloadClients.id, indexerRow.downloadClientId))
-          .get();
-      }
-
-      if (!client) {
-        // Auto-select best enabled download client matching the release protocol
-        const matchingClients = db
-          .select()
-          .from(downloadClients)
-          .where(eq(downloadClients.enabled, true))
-          .orderBy(asc(downloadClients.priority))
-          .all()
-          .filter((c) => c.protocol === data.protocol);
-
-        if (matchingClients.length === 0) {
-          throw new Error(
-            `No enabled ${data.protocol} download clients configured. Please add one in Settings > Download Clients.`,
-          );
-        }
-        client = matchingClients[0];
-      }
+    const grabGate = canGrabIndexer(
+      data.indexerSource as "manual" | "synced",
+      data.indexerId,
+    );
+    if (!grabGate.allowed) {
+      throw new Error("Indexer daily grab limit reached");
     }
 
-    // Look up indexer tag
-    const indexerTagTable =
-      data.indexerSource === "synced" ? syncedIndexers : indexers;
-    const indexerTagRow = db
-      .select({ tag: indexerTagTable.tag })
-      .from(indexerTagTable)
-      .where(eq(indexerTagTable.id, data.indexerId))
-      .get();
-    const combinedTag =
-      [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+    const { client, combinedTag } = resolveGrabClient(data);
 
     const provider = getProvider(client.implementation);
     const config: ConnectionConfig = {

@@ -1,5 +1,10 @@
 import { XMLParser } from "fast-xml-parser";
 import { buildBaseUrl, fetchWithTimeout } from "../download-clients/http";
+import {
+  reportRateLimited,
+  reportSuccess,
+  recordQuery,
+} from "../indexer-rate-limiter";
 import type {
   IndexerConnectionConfig,
   TestResult,
@@ -303,13 +308,24 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
   timeoutMs: number,
+  indexerIdentity?: { indexerType: "manual" | "synced"; indexerId: number },
 ): Promise<Response> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     const res = await fetchWithTimeout(url, options, timeoutMs);
     if (res.status !== 429 || attempt === MAX_RETRIES) {
+      if (res.ok && indexerIdentity) {
+        reportSuccess(indexerIdentity.indexerType, indexerIdentity.indexerId);
+      }
       return res;
     }
     const retryAfter = parseRetryAfter(res);
+    if (indexerIdentity) {
+      reportRateLimited(
+        indexerIdentity.indexerType,
+        indexerIdentity.indexerId,
+        retryAfter || undefined,
+      );
+    }
     const backoff = retryAfter || BASE_BACKOFF_MS * 2 ** attempt;
     const capped = Math.min(backoff, 30_000);
     // oxlint-disable-next-line no-console -- Rate-limit logging is intentional server-side diagnostics
@@ -326,6 +342,7 @@ async function fetchWithRetry(
 async function fetchNewznabFeed(
   feed: NewznabFeedConfig,
   params: URLSearchParams,
+  indexerIdentity?: { indexerType: "manual" | "synced"; indexerId: number },
 ): Promise<CoalescedResult[]> {
   const base = feed.baseUrl.replace(/\/+$/, "");
   const apiPath = feed.apiPath.startsWith("/")
@@ -346,10 +363,17 @@ async function fetchNewznabFeed(
   }
 
   const url = `${base}${apiPath}?${params.toString()}`;
+
+  // Record each HTTP call against the daily counter (tiered search makes multiple calls)
+  if (indexerIdentity) {
+    recordQuery(indexerIdentity.indexerType, indexerIdentity.indexerId);
+  }
+
   const res = await fetchWithRetry(
     url,
     { headers: { Accept: "application/xml" } },
     60_000,
+    indexerIdentity,
   );
 
   if (!res.ok) {
@@ -431,6 +455,7 @@ export async function searchNewznab(
   query: string,
   categories: number[] = [],
   bookParams?: BookSearchParams,
+  indexerIdentity?: { indexerType: "manual" | "synced"; indexerId: number },
 ): Promise<CoalescedResult[]> {
   // Match Readarr: skip search entirely when no categories are configured
   if (categories.length === 0) {
@@ -443,7 +468,7 @@ export async function searchNewznab(
     new URLSearchParams({ t, q, cat, ...extra });
 
   if (!bookParams) {
-    return fetchNewznabFeed(feed, makeParams("search", query));
+    return fetchNewznabFeed(feed, makeParams("search", query), indexerIdentity);
   }
 
   const cleanAuthor = cleanQueryTitle(bookParams.author);
@@ -456,7 +481,9 @@ export async function searchNewznab(
     makeParams("search", cleanTitle),
   ];
 
-  return runTieredSearch(tiers, (params) => fetchNewznabFeed(feed, params));
+  return runTieredSearch(tiers, (params) =>
+    fetchNewznabFeed(feed, params, indexerIdentity),
+  );
 }
 
 // ─── Newznab capabilities test ────────────────────────────────────────────────
