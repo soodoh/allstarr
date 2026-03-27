@@ -534,6 +534,14 @@ INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size,
   ('M4B',           7, 0,    350,  195,  'cyan',   '["audiobook"]', 0, 0),
   ('FLAC',          8, 0,    1500, 895,  'purple', '["audiobook"]', 1, 0);--> statement-breakpoint
 
+-- Download Formats: Manga
+INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, content_types, no_max_limit, no_preferred_limit) VALUES
+  ('Unknown Manga', 1, 0,   500, 500, 'gray',   '["manga"]', 1, 1),
+  ('CBR',           2, 0,   200, 50,  'orange', '["manga"]', 0, 0),
+  ('CBZ',           3, 0,   200, 50,  'green',  '["manga"]', 0, 0),
+  ('PDF',           4, 0,   200, 50,  'yellow', '["manga"]', 0, 0),
+  ('EPUB',          5, 0,   200, 50,  'blue',   '["manga"]', 0, 0);--> statement-breakpoint
+
 -- Download Formats: Video
 INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size, color, content_types, source, resolution, no_max_limit, no_preferred_limit) VALUES
   ('Unknown Video',  0,  0,     2000, 2000, 'gray',   '["movie","tv"]', 'Unknown',    0,    1, 1),
@@ -561,6 +569,10 @@ INSERT INTO download_formats (title, weight, min_size, max_size, preferred_size,
 INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
   ('Ebook',     './data/books',      0, '[[4],[5],[3],[2]]', 0, 'book-marked',  '[7020,8010]', 'ebook',     'en', 0, 2000),
   ('Audiobook', './data/audiobooks', 0, '[[7],[8],[6]]',     0, 'audio-lines',  '[3030]',      'audiobook', 'en', 0, 1000);--> statement-breakpoint
+
+-- Download Profiles: Manga
+INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
+  ('Manga', './data/manga', 0, '[]', 0, 'book-open-text', '[]', 'manga', 'en', 0, 0);--> statement-breakpoint
 
 -- Download Profiles: Video (items populated via UPDATE below)
 INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
@@ -612,6 +624,18 @@ UPDATE download_profiles SET
     json_array((SELECT id FROM download_formats WHERE title = 'WEBDL-1080p'  AND content_types LIKE '%"movie"%' LIMIT 1))
   )
 WHERE name = '4k (Movie)';--> statement-breakpoint
+
+-- Manga profile items (grouped format arrays)
+UPDATE download_profiles SET
+  items = (
+    SELECT json_array(
+      json_array((SELECT id FROM download_formats WHERE title = 'CBZ'  AND content_types LIKE '%"manga"%' LIMIT 1)),
+      json_array((SELECT id FROM download_formats WHERE title = 'CBR'  AND content_types LIKE '%"manga"%' LIMIT 1)),
+      json_array((SELECT id FROM download_formats WHERE title = 'EPUB' AND content_types LIKE '%"manga"%' LIMIT 1)),
+      json_array((SELECT id FROM download_formats WHERE title = 'PDF'  AND content_types LIKE '%"manga"%' LIMIT 1))
+    )
+  )
+WHERE name = 'Manga' AND content_type = 'manga';--> statement-breakpoint
 
 -- Scheduled Tasks
 INSERT INTO scheduled_tasks (id, name, interval, enabled) VALUES

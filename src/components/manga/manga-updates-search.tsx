@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { BookOpenText, Search, Star } from "lucide-react";
+import Markdown from "react-markdown";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
@@ -51,11 +52,15 @@ function generateSortTitle(title: string): string {
 
 function extractSlugFromUrl(url: string): string | null {
   // MangaUpdates URLs look like: https://www.mangaupdates.com/series/xxxxx/title-slug
-  const parts = url.split("/");
-  return parts.length > 0 ? (parts.at(-1) ?? null) : null;
+  // We need both the short ID and the title slug
+  const match = url.match(/\/series\/(.+)/);
+  return match?.[1] ?? null;
 }
 
-function stripHtml(html: string): string {
+function stripHtml(html: string | undefined | null): string {
+  if (!html) {
+    return "";
+  }
   return html.replaceAll(/<[^>]*>/g, "");
 }
 
@@ -94,9 +99,6 @@ function MangaPreviewModal({
   const [monitorOption, setMonitorOption] = useState<string>(
     () => (addDefaults?.monitorOption as string | undefined) ?? "all",
   );
-  const [rootFolderPath, setRootFolderPath] = useState<string>(
-    () => (addDefaults?.rootFolderPath as string | undefined) ?? "",
-  );
   const [searchOnAdd, setSearchOnAdd] = useState(
     () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
   );
@@ -112,7 +114,8 @@ function MangaPreviewModal({
     );
   };
 
-  const description = stripHtml(series.description);
+  const description = series.description ?? "";
+  const descriptionPlain = stripHtml(description);
   const genres = series.genres?.map((g) => g.genre) ?? [];
 
   const handleAdd = () => {
@@ -124,7 +127,6 @@ function MangaPreviewModal({
       addDefaults: {
         downloadProfileIds,
         monitorOption,
-        rootFolderPath,
         searchOnAdd,
       },
     });
@@ -133,7 +135,7 @@ function MangaPreviewModal({
         mangaUpdatesId: series.series_id,
         title: series.title,
         sortTitle: generateSortTitle(series.title),
-        overview: description,
+        overview: descriptionPlain,
         mangaUpdatesSlug: extractSlugFromUrl(series.url),
         type: series.type?.toLowerCase() ?? "manga",
         year: series.year || null,
@@ -143,7 +145,6 @@ function MangaPreviewModal({
         genres,
         downloadProfileIds,
         monitorOption: monitorOption as "all" | "future" | "missing" | "none",
-        rootFolderPath,
         searchOnAdd,
       },
       {
@@ -216,9 +217,9 @@ function MangaPreviewModal({
               )}
 
               {description && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {description}
-                </p>
+                <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm prose-invert max-w-none">
+                  <Markdown>{description}</Markdown>
+                </div>
               )}
             </div>
           </div>
@@ -231,16 +232,6 @@ function MangaPreviewModal({
                 selectedIds={downloadProfileIds}
                 onToggle={toggleProfile}
               />
-
-              <div className="space-y-2">
-                <Label htmlFor="root-folder">Root Folder Path</Label>
-                <Input
-                  id="root-folder"
-                  value={rootFolderPath}
-                  onChange={(e) => setRootFolderPath(e.target.value)}
-                  placeholder="/path/to/manga"
-                />
-              </div>
 
               <div className="space-y-2">
                 <Label>Monitoring</Label>
@@ -270,11 +261,7 @@ function MangaPreviewModal({
               <Button
                 className="w-full"
                 onClick={handleAdd}
-                disabled={
-                  downloadProfileIds.length === 0 ||
-                  addManga.isPending ||
-                  mangaProfiles.length === 0
-                }
+                disabled={downloadProfileIds.length === 0 || addManga.isPending}
               >
                 {addManga.isPending ? "Adding..." : "Add Manga"}
               </Button>

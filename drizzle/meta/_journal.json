@@ -83,7 +83,7 @@
       "idx": 11,
       "version": "6",
       "when": 1774599684811,
-      "tag": "0011_heavy_iron_patriot",
+      "tag": "0011_kind_doctor_strange",
       "breakpoints": true
     },
     {
@@ -91,6 +91,20 @@
       "version": "6",
       "when": 1774604028449,
       "tag": "0012_stiff_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1774604100000,
+      "tag": "0013_manga_formats_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1774604200000,
+      "tag": "0014_manga_history_columns",
       "breakpoints": true
     }
   ]

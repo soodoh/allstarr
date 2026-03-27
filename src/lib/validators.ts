@@ -490,9 +490,8 @@ export const addMangaSchema = z.object({
   latestChapter: z.number().nullable().default(null),
   posterUrl: z.string().default(""),
   genres: z.array(z.string()).default([]),
-  downloadProfileIds: z.array(z.number()).default([]),
+  downloadProfileIds: z.array(z.number()).min(1),
   monitorOption: z.enum(["all", "future", "missing", "none"]).default("all"),
-  rootFolderPath: z.string().default(""),
   searchOnAdd: z.boolean().default(false),
 });
 
