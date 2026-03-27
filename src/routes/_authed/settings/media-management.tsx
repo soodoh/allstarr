@@ -53,7 +53,7 @@ function getSetting<T>(
 
 // --- Content type definitions ---
 
-type ContentType = "book" | "tv" | "movie";
+type ContentType = "book" | "tv" | "movie" | "manga";
 
 // Shared media management settings (same structure for all content types)
 type MediaManagementSettings = {
@@ -102,14 +102,23 @@ type MovieNamingSettings = {
   movieFolder: string;
 };
 
+// Manga naming
+type MangaNamingSettings = {
+  chapterFile: string;
+  volumeFolder: string;
+  mangaFolder: string;
+};
+
 type BookTabState = BookNamingSettings & MediaManagementSettings;
 type TvTabState = TvNamingSettings & MediaManagementSettings;
 type MovieTabState = MovieNamingSettings & MediaManagementSettings;
+type MangaTabState = MangaNamingSettings & MediaManagementSettings;
 
 type AllState = {
   book: BookTabState;
   tv: TvTabState;
   movie: MovieTabState;
+  manga: MangaTabState;
 };
 
 // --- Token strings ---
@@ -122,6 +131,8 @@ const TV_NAMING_TOKENS =
   "{Show Title}, {Season}, {Season:00}, {Episode}, {Episode:00}, {Episode Title}, {Absolute}, {Absolute:000}, {Air-Date}, {Year}, {Quality}, {Codec}, {Source}";
 const MOVIE_NAMING_TOKENS =
   "{Movie Title}, {Year}, {Quality}, {Codec}, {Source}, {Edition}";
+const MANGA_NAMING_TOKENS =
+  "{Manga Title}, {Volume}, {Volume:00}, {Chapter}, {Chapter:000}, {Chapter Title}, {Scanlation Group}, {Year}";
 
 // --- Build helpers ---
 
@@ -298,6 +309,27 @@ function buildMovieState(settings: Record<string, unknown>): MovieTabState {
   };
 }
 
+function buildMangaState(settings: Record<string, unknown>): MangaTabState {
+  return {
+    chapterFile: getSetting(
+      settings,
+      "naming.manga.chapterFile",
+      "{Manga Title} - Chapter {Chapter:000}",
+    ),
+    volumeFolder: getSetting(
+      settings,
+      "naming.manga.volumeFolder",
+      "Volume {Volume:00}",
+    ),
+    mangaFolder: getSetting(
+      settings,
+      "naming.manga.mangaFolder",
+      "{Manga Title} ({Year})",
+    ),
+    ...buildMediaManagementSettings(settings, "manga"),
+  };
+}
+
 // --- Validation ---
 
 function validateBookFile(
@@ -324,18 +356,21 @@ const CONTENT_TYPE_ITEM_LABELS: Record<ContentType, string> = {
   book: "books",
   tv: "episodes",
   movie: "movies",
+  manga: "chapters",
 };
 
 const CONTENT_TYPE_DELETED_LABELS: Record<ContentType, string> = {
   book: "Books",
   tv: "Episodes",
   movie: "Movies",
+  manga: "Chapters",
 };
 
 const CONTENT_TYPE_ROOT_FOLDER_LABELS: Record<ContentType, string> = {
   book: "book",
   tv: "TV show",
   movie: "movie",
+  manga: "manga",
 };
 
 const CONTENT_TYPE_FOLDER_LABELS: Record<
@@ -345,6 +380,7 @@ const CONTENT_TYPE_FOLDER_LABELS: Record<
   book: { parent: "author", child: "book" },
   tv: { parent: "show", child: "season" },
   movie: { parent: "movie", child: "movie" },
+  manga: { parent: "manga", child: "volume" },
 };
 
 // --- Shared media management UI component ---
@@ -748,6 +784,7 @@ function MediaManagementPage() {
     book: buildBookState(settings),
     tv: buildTvState(settings),
     movie: buildMovieState(settings),
+    manga: buildMangaState(settings),
   });
 
   // Generic field updater for any tab
@@ -778,6 +815,16 @@ function MediaManagementPage() {
     setState((prev) => ({
       ...prev,
       movie: { ...prev.movie, [key]: value },
+    }));
+  }
+
+  function updateMangaField<K extends keyof MangaTabState>(
+    key: K,
+    value: MangaTabState[K],
+  ) {
+    setState((prev) => ({
+      ...prev,
+      manga: { ...prev.manga, [key]: value },
     }));
   }
 
@@ -823,13 +870,26 @@ function MediaManagementPage() {
     updateSettings.mutate(entries);
   };
 
+  const handleSaveManga = () => {
+    const s = state.manga;
+    const entries = [
+      { key: "naming.manga.chapterFile", value: s.chapterFile },
+      { key: "naming.manga.volumeFolder", value: s.volumeFolder },
+      { key: "naming.manga.mangaFolder", value: s.mangaFolder },
+      ...buildMediaManagementSaveEntries("manga", s),
+    ];
+    updateSettings.mutate(entries);
+  };
+
   const handleSave = () => {
     if (activeTab === "book") {
       handleSaveBook();
     } else if (activeTab === "tv") {
       handleSaveTv();
-    } else {
+    } else if (activeTab === "movie") {
       handleSaveMovie();
+    } else {
+      handleSaveManga();
     }
   };
 
@@ -854,6 +914,7 @@ function MediaManagementPage() {
           <TabsTrigger value="book">Books</TabsTrigger>
           <TabsTrigger value="tv">TV Shows</TabsTrigger>
           <TabsTrigger value="movie">Movies</TabsTrigger>
+          <TabsTrigger value="manga">Manga</TabsTrigger>
         </TabsList>
 
         {/* ===== BOOKS TAB ===== */}
@@ -1262,6 +1323,118 @@ function MediaManagementPage() {
             />
 
             <RootFoldersSection contentType="movie" profiles={profiles} />
+
+            <Button onClick={handleSave} disabled={updateSettings.isPending}>
+              {updateSettings.isPending ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* ===== MANGA TAB ===== */}
+        <TabsContent value="manga">
+          <div className="space-y-6 max-w-2xl">
+            {/* Manga Naming */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Manga Naming</CardTitle>
+                <CardDescription>
+                  Configure how manga chapter files and folders are named.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Rename Chapters</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Rename imported chapter files using the configured format.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={state.manga.renameFiles}
+                    onCheckedChange={(v) => updateMangaField("renameFiles", v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Replace Illegal Characters</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Replace characters that are not allowed in file paths.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={state.manga.replaceIllegalCharacters}
+                    onCheckedChange={(v) =>
+                      updateMangaField("replaceIllegalCharacters", v)
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Chapter File Format</Label>
+                  <Input
+                    value={state.manga.chapterFile}
+                    onChange={(e) =>
+                      updateMangaField("chapterFile", e.target.value)
+                    }
+                    disabled={!state.manga.renameFiles}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {MANGA_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Volume Folder Format</Label>
+                  <Input
+                    value={state.manga.volumeFolder}
+                    onChange={(e) =>
+                      updateMangaField("volumeFolder", e.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {MANGA_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Manga Folder Format</Label>
+                  <Input
+                    value={state.manga.mangaFolder}
+                    onChange={(e) =>
+                      updateMangaField("mangaFolder", e.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Available tokens: {MANGA_NAMING_TOKENS}
+                  </p>
+                </div>
+
+                {state.manga.importExtraFiles && (
+                  <div className="space-y-2">
+                    <Label>Extra File Extensions</Label>
+                    <Input
+                      value={state.manga.extraExtensions}
+                      onChange={(e) =>
+                        updateMangaField("extraExtensions", e.target.value)
+                      }
+                      placeholder=".jpg,.png,.nfo"
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Manga media management */}
+            <MediaManagementSection
+              contentType="manga"
+              settings={state.manga}
+              onUpdate={(key, value) =>
+                updateMangaField(key as keyof MangaTabState, value as never)
+              }
+            />
+
+            <RootFoldersSection contentType="manga" profiles={profiles} />
 
             <Button onClick={handleSave} disabled={updateSettings.isPending}>
               {updateSettings.isPending ? "Saving..." : "Save Settings"}

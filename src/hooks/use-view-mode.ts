@@ -10,6 +10,7 @@ const PAGE_VIEW_DEFAULTS: Partial<Record<TableId, "table" | "grid">> = {
   books: "table",
   movies: "grid",
   tv: "grid",
+  manga: "grid",
 };
 
 function useViewMode(tableId: TableId) {

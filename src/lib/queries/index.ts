@@ -16,3 +16,4 @@ export * from "./tasks";
 export * from "./movies";
 export * from "./shows";
 export * from "./user-settings";
+export * from "./manga";
