@@ -21,6 +21,9 @@ export const userSettings = sqliteTable(
       .$type<string[]>()
       .notNull(),
     viewMode: text("view_mode").$type<"table" | "grid">(),
+    addDefaults: text("add_defaults", { mode: "json" }).$type<
+      Record<string, unknown>
+    >(),
   },
   (table) => [
     uniqueIndex("user_settings_user_table_idx").on(table.userId, table.tableId),
