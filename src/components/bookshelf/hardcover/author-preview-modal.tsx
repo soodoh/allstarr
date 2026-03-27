@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -33,6 +33,7 @@ import {
 } from "src/lib/queries";
 import { useImportHardcoverAuthor } from "src/hooks/mutations";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
+import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
 
 const DEFAULT_PARAMS = {
   page: 1,
@@ -48,9 +49,15 @@ type AddFormProps = {
   fullAuthor: HardcoverAuthorDetail;
   onSuccess: () => void;
   onCancel: () => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
-function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
+function AddForm({
+  fullAuthor,
+  onSuccess,
+  onCancel,
+  addDefaults,
+}: AddFormProps) {
   const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
   const downloadProfiles = useMemo(
     () =>
@@ -60,17 +67,20 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
     [allProfiles],
   );
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
-  const [monitorOption, setMonitorOption] = useState("all");
-  const [monitorNewBooks, setMonitorNewBooks] = useState("all");
-  const [searchOnAdd, setSearchOnAdd] = useState(false);
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    () => (addDefaults?.downloadProfileIds as number[] | undefined) ?? [],
+  );
+  const [monitorOption, setMonitorOption] = useState(
+    () => (addDefaults?.monitorOption as string | undefined) ?? "all",
+  );
+  const [monitorNewBooks, setMonitorNewBooks] = useState(
+    () => (addDefaults?.monitorNewBooks as string | undefined) ?? "all",
+  );
+  const [searchOnAdd, setSearchOnAdd] = useState(
+    () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
+  );
   const importAuthor = useImportHardcoverAuthor();
-
-  useEffect(() => {
-    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
-      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
-    }
-  }, [downloadProfiles, downloadProfileIds.length]);
+  const upsertSettings = useUpsertUserSettings();
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -79,6 +89,15 @@ function AddForm({ fullAuthor, onSuccess, onCancel }: AddFormProps) {
   };
 
   const handleSubmit = () => {
+    upsertSettings.mutate({
+      tableId: "books",
+      addDefaults: {
+        downloadProfileIds,
+        monitorOption,
+        monitorNewBooks,
+        searchOnAdd,
+      },
+    });
     importAuthor.mutate({
       foreignAuthorId: Number(fullAuthor.id),
       downloadProfileIds,
@@ -186,6 +205,7 @@ type AuthorPreviewModalProps = {
   author: HardcoverSearchItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
 // oxlint-disable-next-line complexity -- Modal manages loading, bookshelf-status, and add-form states together
@@ -193,6 +213,7 @@ export default function AuthorPreviewModal({
   author,
   open,
   onOpenChange,
+  addDefaults,
 }: AuthorPreviewModalProps): JSX.Element {
   const authorId = author.id ? Number(author.id) : 0;
 
@@ -331,6 +352,7 @@ export default function AuthorPreviewModal({
               fullAuthor={fullAuthor}
               onSuccess={() => onOpenChange(false)}
               onCancel={() => setAddOpen(false)}
+              addDefaults={addDefaults}
             />
           )}
         </DialogBody>

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
 import { Search } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import EmptyState from "src/components/shared/empty-state";
@@ -25,6 +26,9 @@ import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-previe
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 import OptimizedImage from "src/components/shared/optimized-image";
 export const Route = createFileRoute("/_authed/books/add")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(userSettingsQuery("books"));
+  },
   component: AddToBookshelfPage,
 });
 
@@ -37,6 +41,7 @@ const resultTypeConfig = {
 function AddToBookshelfPage() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
+  const { data: settings } = useQuery(userSettingsQuery("books"));
   const [error, setError] = useState<string | undefined>(undefined);
   const [previewAuthor, setPreviewAuthor] = useState<
     HardcoverSearchItem | undefined
@@ -161,6 +166,7 @@ function AddToBookshelfPage() {
               placeholder={`Search ${resultTypeConfig[searchType].description.toLowerCase()}`}
               autoComplete="off"
               aria-label="Search query"
+              autoFocus
             />
             <Button type="submit" disabled={searchMutation.isPending}>
               <Search className="h-4 w-4" />
@@ -183,6 +189,7 @@ function AddToBookshelfPage() {
               setPreviewAuthor(undefined);
             }
           }}
+          addDefaults={settings?.addDefaults}
         />
       )}
 
@@ -195,6 +202,7 @@ function AddToBookshelfPage() {
               setPreviewBook(undefined);
             }
           }}
+          addDefaults={settings?.addDefaults}
         />
       )}
     </div>

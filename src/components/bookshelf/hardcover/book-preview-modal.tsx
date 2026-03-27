@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +35,7 @@ import { useNavigate } from "@tanstack/react-router";
 import BookDetailContent from "src/components/bookshelf/books/book-detail-content";
 import { useImportHardcoverBook } from "src/hooks/mutations";
 import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
+import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
 
 // ── Add-to-bookshelf inline form ──────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ type AddBookFormProps = {
   authorExists: boolean;
   onSuccess: () => void;
   onCancel: () => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
 function AddBookForm({
@@ -63,6 +65,7 @@ function AddBookForm({
   authorExists,
   onSuccess,
   onCancel,
+  addDefaults,
 }: AddBookFormProps) {
   const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
   const downloadProfiles = useMemo(
@@ -73,19 +76,22 @@ function AddBookForm({
     [allProfiles],
   );
 
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>([]);
-  const [monitorOption, setMonitorOption] = useState<MonitorOption>("all");
-  const [monitorNewBooks, setMonitorNewBooks] =
-    useState<MonitorNewBooks>("all");
-  const [searchOnAdd, setSearchOnAdd] = useState(false);
-
-  useEffect(() => {
-    if (downloadProfiles.length > 0 && downloadProfileIds.length === 0) {
-      setDownloadProfileIds(downloadProfiles.map((p) => p.id));
-    }
-  }, [downloadProfiles, downloadProfileIds.length]);
+  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
+    () => (addDefaults?.downloadProfileIds as number[] | undefined) ?? [],
+  );
+  const [monitorOption, setMonitorOption] = useState<MonitorOption>(
+    () => (addDefaults?.monitorOption as MonitorOption | undefined) ?? "all",
+  );
+  const [monitorNewBooks, setMonitorNewBooks] = useState<MonitorNewBooks>(
+    () =>
+      (addDefaults?.monitorNewBooks as MonitorNewBooks | undefined) ?? "all",
+  );
+  const [searchOnAdd, setSearchOnAdd] = useState(
+    () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
+  );
 
   const importBook = useImportHardcoverBook();
+  const upsertSettings = useUpsertUserSettings();
 
   const toggleProfile = (id: number) => {
     setDownloadProfileIds((prev) =>
@@ -94,6 +100,15 @@ function AddBookForm({
   };
 
   const handleSubmit = () => {
+    upsertSettings.mutate({
+      tableId: "books",
+      addDefaults: {
+        downloadProfileIds,
+        monitorOption,
+        monitorNewBooks,
+        searchOnAdd,
+      },
+    });
     importBook.mutate({
       foreignBookId: Number(book.id),
       downloadProfileIds,
@@ -240,12 +255,14 @@ type BookPreviewModalProps = {
   book: HardcoverSearchItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  addDefaults?: Record<string, unknown> | null;
 };
 
 export default function BookPreviewModal({
   book,
   open,
   onOpenChange,
+  addDefaults,
 }: BookPreviewModalProps): JSX.Element {
   const foreignBookIds = book.id ? [book.id] : [];
 
@@ -377,6 +394,7 @@ export default function BookPreviewModal({
                 authorExists={authorExists}
                 onSuccess={() => onOpenChange(false)}
                 onCancel={() => setAddOpen(false)}
+                addDefaults={addDefaults}
               />
             )}
           </BookDetailContent>
