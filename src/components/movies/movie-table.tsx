@@ -250,11 +250,19 @@ export default function MovieTable({
                 )}
                 {visibleColumns.map((col) => {
                   if (col.key === "monitored") {
+                    // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Dynamic per-row filtering
+                    const assignedProfiles = downloadProfiles
+                      ? downloadProfiles.filter((p) =>
+                          (
+                            movie.downloadProfileIds ?? EMPTY_PROFILE_IDS
+                          ).includes(p.id),
+                        )
+                      : undefined;
                     return (
                       <TableCell key={col.key}>
-                        {downloadProfiles && onToggleProfile ? (
+                        {assignedProfiles && onToggleProfile ? (
                           <ProfileToggleIcons
-                            profiles={downloadProfiles}
+                            profiles={assignedProfiles}
                             activeProfileIds={
                               movie.downloadProfileIds ?? EMPTY_PROFILE_IDS
                             }
