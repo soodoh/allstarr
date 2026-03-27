@@ -148,11 +148,6 @@ export default function MovieDetailHeader({
     [downloadProfiles],
   );
 
-  const activeMovieProfiles = useMemo(
-    () => movieProfiles.filter((p) => movie.downloadProfileIds.includes(p.id)),
-    [movieProfiles, movie.downloadProfileIds],
-  );
-
   const toggleProfile = (id: number) => {
     setSelectedProfileIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -269,16 +264,14 @@ export default function MovieDetailHeader({
 
       {/* Page header */}
       <div className="flex items-start gap-3">
-        {movie.downloadProfileIds.length > 0 && (
-          <ProfileToggleIcons
-            profiles={activeMovieProfiles}
-            activeProfileIds={movie.downloadProfileIds}
-            onToggle={handleProfileToggle}
-            isPending={updateMovie.isPending}
-            size="lg"
-            direction="vertical"
-          />
-        )}
+        <ProfileToggleIcons
+          profiles={movieProfiles}
+          activeProfileIds={movie.downloadProfileIds}
+          onToggle={handleProfileToggle}
+          isPending={updateMovie.isPending}
+          size="lg"
+          direction="vertical"
+        />
         <div className="flex-1 min-w-0">
           <PageHeader
             title={movie.title}
