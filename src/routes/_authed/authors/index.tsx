@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Users, Search } from "lucide-react";
+import useViewMode from "src/hooks/use-view-mode";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/_authed/authors/")({
 });
 
 function AuthorsPage() {
-  const [view, setView] = useState<"table" | "grid">("table");
+  const [view, setView] = useViewMode("authors");
   const [search, setSearch] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
