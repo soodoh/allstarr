@@ -28,7 +28,7 @@ export function useTableColumns(tableId: TableId): ResolvedColumns {
   return useMemo(() => {
     const defaultsByKey = new Map(defaults.map((c) => [c.key, c]));
 
-    if (!userSettings) {
+    if (!userSettings || userSettings.columnOrder.length === 0) {
       const columnOrder = getDefaultColumnOrder(tableId);
       const hiddenColumnKeys = getDefaultHiddenColumns(tableId);
       const hiddenKeys = new Set(hiddenColumnKeys);

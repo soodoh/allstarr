@@ -21,10 +21,10 @@ export function useUpsertUserSettings() {
       const previous = queryClient.getQueryData(queryKey);
       queryClient.setQueryData(
         queryKey,
-        (old: Record<string, unknown> | null) => ({
-          ...old,
-          ...variables,
-        }),
+        (old: Record<string, unknown> | null) => {
+          const { tableId: _, ...rest } = variables;
+          return { ...old, ...rest };
+        },
       );
       return { previous };
     },
