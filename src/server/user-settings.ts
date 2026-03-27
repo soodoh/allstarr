@@ -67,11 +67,12 @@ export const upsertUserSettingsFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-export const deleteUserSettingsFn = createServerFn({ method: "POST" })
+export const resetColumnSettingsFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => deleteUserSettingsSchema.parse(d))
   .handler(async ({ data }) => {
     const session = await requireAuth();
-    db.delete(userSettings)
+    db.update(userSettings)
+      .set({ columnOrder: [], hiddenColumns: [] })
       .where(
         and(
           eq(userSettings.userId, session.user.id),
