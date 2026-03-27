@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import Markdown from "react-markdown";
 import { Button } from "src/components/ui/button";
 import { Badge } from "src/components/ui/badge";
 import {
@@ -463,7 +464,9 @@ export default function MangaDetailHeader({
           </CardHeader>
           <CardContent>
             {manga.overview ? (
-              <p className="text-sm leading-relaxed">{manga.overview}</p>
+              <div className="text-sm leading-relaxed prose prose-sm prose-invert max-w-none">
+                <Markdown>{manga.overview}</Markdown>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No description available.
