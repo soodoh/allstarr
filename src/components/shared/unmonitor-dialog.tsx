@@ -19,7 +19,7 @@ type UnmonitorDialogProps = {
   onOpenChange: (open: boolean) => void;
   profileName: string;
   itemTitle: string;
-  itemType: "book" | "episode" | "season" | "show" | "movie";
+  itemType: "book" | "episode" | "season" | "show" | "movie" | "author";
   fileCount: number;
   onConfirm: (deleteFiles: boolean) => void;
   isPending: boolean;

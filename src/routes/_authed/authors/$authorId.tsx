@@ -91,6 +91,8 @@ import {
   useRefreshAuthorMetadata,
   useMonitorBookProfile,
   useUnmonitorBookProfile,
+  useBulkMonitorBookProfile,
+  useBulkUnmonitorBookProfile,
 } from "src/hooks/mutations";
 import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 import NotFound from "src/components/NotFound";
@@ -426,7 +428,6 @@ function BooksTab({
             });
           }
         }}
-        isPending={monitorBookProfile.isPending}
       />
     );
   };
@@ -1265,9 +1266,6 @@ function SeriesTab({
                                               });
                                             }
                                           }}
-                                          isPending={
-                                            monitorBookProfile.isPending
-                                          }
                                         />
                                       );
                                     })()}
@@ -1475,10 +1473,15 @@ function AuthorDetailPage() {
   const [activeTab, setActiveTab] = useState<"books" | "series">("books");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [authorUnmonitorProfileId, setAuthorUnmonitorProfileId] = useState<
+    number | null
+  >(null);
 
   const updateAuthor = useUpdateAuthor();
   const deleteAuthor = useDeleteAuthor();
   const refreshMetadata = useRefreshAuthorMetadata();
+  const bulkMonitorBook = useBulkMonitorBookProfile();
+  const bulkUnmonitorBook = useBulkUnmonitorBookProfile();
 
   const books = useMemo(
     () => (author?.books ?? []) as LocalBook[],
@@ -1518,12 +1521,67 @@ function AuthorDetailPage() {
     [downloadProfiles],
   );
 
+  // Compute per-profile monitoring state across all books (like TV show header)
+  const authorActiveProfileIds = useMemo(
+    () =>
+      authorDownloadProfiles
+        .filter(
+          (p) =>
+            books.length > 0 &&
+            books.every((b) => b.downloadProfileIds.includes(p.id)),
+        )
+        .map((p) => p.id),
+    [authorDownloadProfiles, books],
+  );
+
+  const authorPartialProfileIds = useMemo(
+    () =>
+      authorDownloadProfiles
+        .filter(
+          (p) =>
+            !authorActiveProfileIds.includes(p.id) &&
+            books.some((b) => b.downloadProfileIds.includes(p.id)),
+        )
+        .map((p) => p.id),
+    [authorDownloadProfiles, authorActiveProfileIds, books],
+  );
+
   if (!author) {
     return <NotFound />;
   }
   const monitoredCount = books.filter(
     (b) => b.downloadProfileIds.length > 0,
   ).length;
+
+  const handleAuthorProfileToggle = (profileId: number) => {
+    const isActive = authorActiveProfileIds.includes(profileId);
+    if (isActive) {
+      setAuthorUnmonitorProfileId(profileId);
+    } else {
+      // Partial or inactive — monitor all books for this profile
+      const bookIds = books.map((b) => b.id);
+      bulkMonitorBook.mutate(
+        { bookIds, downloadProfileId: profileId },
+        { onSuccess: () => router.invalidate() },
+      );
+    }
+  };
+
+  const handleAuthorUnmonitorConfirm = (deleteFiles: boolean) => {
+    if (authorUnmonitorProfileId === null) {
+      return;
+    }
+    const bookIds = books.map((b) => b.id);
+    bulkUnmonitorBook.mutate(
+      { bookIds, downloadProfileId: authorUnmonitorProfileId, deleteFiles },
+      {
+        onSuccess: () => {
+          setAuthorUnmonitorProfileId(null);
+          router.invalidate();
+        },
+      },
+    );
+  };
 
   const hardcoverSlug = author.slug || author.foreignAuthorId;
   const hardcoverUrl = hardcoverSlug
@@ -1586,7 +1644,21 @@ function AuthorDetailPage() {
         />
       </div>
 
-      <PageHeader title={author.name} description={lifespan || null} />
+      <div className="flex items-start gap-3">
+        {authorDownloadProfiles.length > 0 && (
+          <ProfileToggleIcons
+            profiles={authorDownloadProfiles}
+            activeProfileIds={authorActiveProfileIds}
+            partialProfileIds={authorPartialProfileIds}
+            onToggle={handleAuthorProfileToggle}
+            size="lg"
+            direction="vertical"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <PageHeader title={author.name} description={lifespan || null} />
+        </div>
+      </div>
 
       <div className="space-y-6">
         <div className="flex flex-col gap-6 xl:flex-row">
@@ -1720,6 +1792,24 @@ function AuthorDetailPage() {
         description="Are you sure you want to delete this author? This will also delete all associated books and cannot be undone."
         onConfirm={handleDelete}
         loading={deleteAuthor.isPending}
+      />
+
+      <UnmonitorDialog
+        open={authorUnmonitorProfileId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAuthorUnmonitorProfileId(null);
+          }
+        }}
+        profileName={
+          authorDownloadProfiles.find((p) => p.id === authorUnmonitorProfileId)
+            ?.name ?? ""
+        }
+        itemTitle={author.name}
+        itemType="author"
+        fileCount={0}
+        onConfirm={handleAuthorUnmonitorConfirm}
+        isPending={bulkUnmonitorBook.isPending}
       />
     </div>
   );

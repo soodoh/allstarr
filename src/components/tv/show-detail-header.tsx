@@ -39,7 +39,6 @@ import {
   useUpdateShow,
   useDeleteShow,
   useRefreshShowMetadata,
-  useMonitorShowProfile,
   useUnmonitorShowProfile,
 } from "src/hooks/mutations/shows";
 import {
@@ -293,7 +292,6 @@ export default function ShowDetailHeader({
   const refreshMetadata = useRefreshShowMetadata();
   const bulkMonitor = useBulkMonitorEpisodeProfile();
   const bulkUnmonitor = useBulkUnmonitorEpisodeProfile();
-  const monitorShowProfile = useMonitorShowProfile();
   const unmonitorShowProfile = useUnmonitorShowProfile();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editProfilesOpen, setEditProfilesOpen] = useState(false);
@@ -305,6 +303,12 @@ export default function ShowDetailHeader({
     () => downloadProfiles.filter((p) => p.contentType === "tv"),
     [downloadProfiles],
   );
+
+  // Only profiles assigned to this show (for header toggle icons)
+  const assignedProfiles = useMemo(() => {
+    const idSet = new Set(show.downloadProfileIds);
+    return tvProfiles.filter((p) => idSet.has(p.id));
+  }, [tvProfiles, show.downloadProfileIds]);
 
   const handleRefreshMetadata = () => {
     refreshMetadata.mutate(show.id, {
@@ -344,28 +348,15 @@ export default function ShowDetailHeader({
 
   const handleShowProfileToggle = (profileId: number) => {
     const isActive = showActiveProfileIds.includes(profileId);
-    const isShowProfile = show.downloadProfileIds.includes(profileId);
 
     if (isActive) {
       setUnmonitorProfileId(profileId);
-    } else if (isShowProfile) {
+    } else {
+      // Partial or inactive — monitor all episodes for this profile
       const episodeIds = allEpisodes.map((ep) => ep.id);
       bulkMonitor.mutate(
         { episodeIds, downloadProfileId: profileId },
         { onSuccess: () => router.invalidate() },
-      );
-    } else {
-      const episodeIds = allEpisodes.map((ep) => ep.id);
-      monitorShowProfile.mutate(
-        { showId: show.id, downloadProfileId: profileId },
-        {
-          onSuccess: () => {
-            bulkMonitor.mutate(
-              { episodeIds, downloadProfileId: profileId },
-              { onSuccess: () => router.invalidate() },
-            );
-          },
-        },
       );
     }
   };
@@ -429,16 +420,10 @@ export default function ShowDetailHeader({
       {/* Page header */}
       <div className="flex items-start gap-3">
         <ProfileToggleIcons
-          profiles={tvProfiles}
+          profiles={assignedProfiles}
           activeProfileIds={showActiveProfileIds}
           partialProfileIds={showPartialProfileIds}
           onToggle={handleShowProfileToggle}
-          isPending={
-            bulkMonitor.isPending ||
-            bulkUnmonitor.isPending ||
-            monitorShowProfile.isPending ||
-            unmonitorShowProfile.isPending
-          }
           size="lg"
           direction="vertical"
         />

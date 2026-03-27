@@ -66,8 +66,7 @@ function MoviesPage() {
     [allProfiles],
   );
 
-  const { handleToggle: handleToggleProfile, isPending: isTogglePending } =
-    useMovieProfileToggle(movies);
+  const { handleToggle: handleToggleProfile } = useMovieProfileToggle(movies);
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -229,7 +228,6 @@ function MoviesPage() {
           onToggleAll={toggleAll}
           downloadProfiles={movieProfiles}
           onToggleProfile={handleToggleProfile}
-          isTogglePending={isTogglePending}
         />
       )}
 

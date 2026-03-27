@@ -27,6 +27,8 @@ import {
   deleteBookSchema,
   monitorBookProfileSchema,
   unmonitorBookProfileSchema,
+  bulkMonitorBookProfileSchema,
+  bulkUnmonitorBookProfileSchema,
   setEditionForProfileSchema,
 } from "src/lib/validators";
 
@@ -1249,6 +1251,105 @@ export const unmonitorBookProfileFn = createServerFn({ method: "POST" })
     }
 
     return { bookId };
+  });
+
+export const bulkMonitorBookProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => bulkMonitorBookProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const { bookIds, downloadProfileId } = data;
+
+    const profile = db
+      .select()
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, downloadProfileId))
+      .get();
+    if (!profile) {
+      throw new Error("Download profile not found");
+    }
+
+    for (const bookId of bookIds) {
+      const bookEditions = db
+        .select()
+        .from(editions)
+        .where(eq(editions.bookId, bookId))
+        .all();
+
+      const bestEdition = pickBestEditionForProfile(bookEditions, {
+        ...profile,
+        contentType: profile.contentType as "ebook" | "audiobook",
+      });
+      if (!bestEdition) {
+        continue;
+      }
+
+      const bookEditionIds = bookEditions.map((e) => e.id);
+      if (bookEditionIds.length > 0) {
+        db.delete(editionDownloadProfiles)
+          .where(
+            and(
+              inArray(editionDownloadProfiles.editionId, bookEditionIds),
+              eq(editionDownloadProfiles.downloadProfileId, downloadProfileId),
+            ),
+          )
+          .run();
+      }
+
+      db.insert(editionDownloadProfiles)
+        .values({ editionId: bestEdition.id, downloadProfileId })
+        .run();
+    }
+
+    return { success: true };
+  });
+
+export const bulkUnmonitorBookProfileFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => bulkUnmonitorBookProfileSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const { bookIds, downloadProfileId, deleteFiles } = data;
+
+    if (bookIds.length === 0) {
+      return { success: true };
+    }
+
+    const allEditions = db
+      .select({ id: editions.id, bookId: editions.bookId })
+      .from(editions)
+      .where(inArray(editions.bookId, bookIds))
+      .all();
+
+    const editionIds = allEditions.map((e) => e.id);
+    if (editionIds.length > 0) {
+      db.delete(editionDownloadProfiles)
+        .where(
+          and(
+            inArray(editionDownloadProfiles.editionId, editionIds),
+            eq(editionDownloadProfiles.downloadProfileId, downloadProfileId),
+          ),
+        )
+        .run();
+    }
+
+    if (deleteFiles) {
+      for (const bookId of bookIds) {
+        const files = db
+          .select()
+          .from(bookFiles)
+          .where(eq(bookFiles.bookId, bookId))
+          .all();
+        for (const file of files) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch {
+            /* file may not exist */
+          }
+        }
+        db.delete(bookFiles).where(eq(bookFiles.bookId, bookId)).run();
+      }
+    }
+
+    return { success: true };
   });
 
 export const setEditionForProfileFn = createServerFn({ method: "POST" })

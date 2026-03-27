@@ -45,7 +45,6 @@ type ShowTableProps = {
   onToggleAll?: () => void;
   downloadProfiles?: DownloadProfile[];
   onToggleProfile?: (showId: number, profileId: number) => void;
-  isTogglePending?: boolean;
 };
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
@@ -125,7 +124,6 @@ export default function ShowTable({
   onToggleAll,
   downloadProfiles,
   onToggleProfile,
-  isTogglePending,
 }: ShowTableProps): JSX.Element {
   const navigate = useNavigate();
   const { visibleColumns } = useTableColumns("tv");
@@ -296,7 +294,6 @@ export default function ShowTable({
                             onToggle={(profileId) =>
                               onToggleProfile(show.id, profileId)
                             }
-                            isPending={isTogglePending}
                           />
                         ) : null}
                       </TableCell>

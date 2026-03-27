@@ -43,7 +43,6 @@ type MovieTableProps = {
   onToggleAll?: () => void;
   downloadProfiles?: DownloadProfile[];
   onToggleProfile?: (movieId: number, profileId: number) => void;
-  isTogglePending?: boolean;
 };
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
@@ -102,7 +101,6 @@ export default function MovieTable({
   onToggleAll,
   downloadProfiles,
   onToggleProfile,
-  isTogglePending,
 }: MovieTableProps): JSX.Element {
   const navigate = useNavigate();
   const { visibleColumns } = useTableColumns("movies");
@@ -265,7 +263,6 @@ export default function MovieTable({
                             onToggle={(profileId) =>
                               onToggleProfile(movie.id, profileId)
                             }
-                            isPending={isTogglePending}
                           />
                         ) : null}
                       </TableCell>
