@@ -157,27 +157,64 @@ export async function getMangaUpdatesSeriesDetail(
   );
 }
 
-export async function getMangaUpdatesReleases(
+type ReleaseSearchResult = {
+  record: MangaUpdatesRelease;
+  metadata?: { series?: { series_id?: number } };
+};
+
+/**
+ * Single-page release search. Used internally by getAllMangaUpdatesReleases.
+ */
+async function fetchReleasesPage(
   title: string,
-  perPage = 100,
-  page = 1,
-): Promise<{
-  totalHits: number;
-  results: MangaUpdatesRelease[];
-}> {
-  const cacheKey = `releases-search:${title}:${perPage}:${page}`;
+  seriesId: number,
+  page: number,
+): Promise<{ totalHits: number; results: MangaUpdatesRelease[] }> {
+  const cacheKey = `releases:${seriesId}:${page}`;
   const data = await mangaUpdatesFetch<{
     total_hits?: number;
-    results?: Array<{ record: MangaUpdatesRelease }>;
+    results?: ReleaseSearchResult[];
   }>(cacheKey, `${BASE_URL}/releases/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ search: title, per_page: perPage, page }),
+    body: JSON.stringify({
+      search: title,
+      include_metadata: true,
+      per_page: 100,
+      page,
+    }),
   });
-  return {
-    totalHits: data.total_hits ?? 0,
-    results: (data.results ?? []).map((r) => r.record),
-  };
+
+  const matched = (data.results ?? [])
+    .filter((r) => r.metadata?.series?.series_id === seriesId)
+    .map((r) => r.record);
+
+  return { totalHits: data.total_hits ?? 0, results: matched };
+}
+
+/**
+ * Fetch ALL releases for a specific series, paginating through the
+ * MangaUpdates releases/search endpoint. Uses `include_metadata` to get the
+ * series_id on each result and filters to the exact series.
+ *
+ * Stops when all pages are exhausted or a safety cap of 250 pages is reached.
+ */
+export async function getAllMangaUpdatesReleases(
+  seriesId: number,
+  title: string,
+): Promise<MangaUpdatesRelease[]> {
+  const allReleases: MangaUpdatesRelease[] = [];
+  let page = 1;
+  let fetched = 0;
+  let totalHits = 0;
+  do {
+    const result = await fetchReleasesPage(title, seriesId, page);
+    totalHits = result.totalHits;
+    fetched += 40; // API returns max 40 per page regardless of per_page
+    allReleases.push(...result.results);
+    page += 1;
+  } while (fetched < totalHits && page <= 250);
+  return allReleases;
 }
 
 export async function getMangaUpdatesSeriesGroups(
