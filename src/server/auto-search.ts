@@ -26,7 +26,7 @@ import {
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
 import type { ProfileInfo } from "./indexers";
-import { canQueryIndexer } from "./indexer-rate-limiter";
+import { canQueryIndexer, anyIndexerAvailable } from "./indexer-rate-limiter";
 import { searchNewznab } from "./indexers/http";
 import {
   enrichRelease,
@@ -94,6 +94,7 @@ type WantedBook = {
   title: string;
   authorId: number | null;
   authorName: string | null;
+  lastSearchedAt: number | null;
   editionTargets: EditionProfileTarget[];
   profiles: ProfileInfo[];
   bestWeightByProfile: Map<number, number>;
@@ -103,6 +104,7 @@ type WantedMovie = {
   id: number;
   title: string;
   year: number;
+  lastSearchedAt: number | null;
   profiles: ProfileInfo[];
   bestWeightByProfile: Map<number, number>;
 };
@@ -116,6 +118,7 @@ type WantedEpisode = {
   absoluteNumber: number | null;
   seriesType: string;
   airDate: string | null;
+  lastSearchedAt: number | null;
   profiles: ProfileInfo[];
   bestWeightByProfile: Map<number, number>;
 };
@@ -125,6 +128,28 @@ type WantedEpisode = {
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
+  });
+}
+
+function sortBySearchPriority<T extends { id: number }>(
+  items: T[],
+  getLastSearched: (item: T) => number | null,
+): T[] {
+  return [...items].toSorted((a, b) => {
+    const aLast = getLastSearched(a);
+    const bLast = getLastSearched(b);
+    // Never searched first
+    if (aLast === null && bLast !== null) {
+      return -1;
+    }
+    if (aLast !== null && bLast === null) {
+      return 1;
+    }
+    if (aLast === null && bLast === null) {
+      return 0;
+    }
+    // Oldest search first
+    return aLast! - bLast!;
   });
 }
 
@@ -186,6 +211,7 @@ export function getWantedBooks(): WantedBook[] {
     .select({
       id: books.id,
       title: books.title,
+      lastSearchedAt: books.lastSearchedAt,
       authorId: booksAuthors.authorId,
       authorName: booksAuthors.authorName,
       authorMonitored: authors.monitored,
@@ -291,6 +317,7 @@ export function getWantedBooks(): WantedBook[] {
         title: book.title,
         authorId: book.authorId,
         authorName: book.authorName,
+        lastSearchedAt: book.lastSearchedAt,
         editionTargets,
         profiles,
         bestWeightByProfile,
@@ -325,6 +352,7 @@ export function getWantedBooks(): WantedBook[] {
         title: book.title,
         authorId: book.authorId,
         authorName: book.authorName,
+        lastSearchedAt: book.lastSearchedAt,
         editionTargets,
         profiles,
         bestWeightByProfile,
@@ -345,6 +373,7 @@ export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
       id: movies.id,
       title: movies.title,
       year: movies.year,
+      lastSearchedAt: movies.lastSearchedAt,
     })
     .from(movies)
     .where(
@@ -462,6 +491,7 @@ export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
         id: movie.id,
         title: movie.title,
         year: movie.year,
+        lastSearchedAt: movie.lastSearchedAt,
         profiles,
         bestWeightByProfile,
       });
@@ -489,6 +519,7 @@ export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
         id: movie.id,
         title: movie.title,
         year: movie.year,
+        lastSearchedAt: movie.lastSearchedAt,
         profiles,
         bestWeightByProfile,
       });
@@ -525,6 +556,7 @@ export function getWantedEpisodes(
       absoluteNumber: episodes.absoluteNumber,
       seriesType: shows.seriesType,
       airDate: episodes.airDate,
+      lastSearchedAt: episodes.lastSearchedAt,
     })
     .from(episodes)
     .innerJoin(shows, eq(shows.id, episodes.showId))
@@ -639,6 +671,7 @@ export function getWantedEpisodes(
         absoluteNumber: ep.absoluteNumber,
         seriesType: ep.seriesType,
         airDate: ep.airDate,
+        lastSearchedAt: ep.lastSearchedAt,
         profiles,
         bestWeightByProfile,
       });
@@ -676,6 +709,7 @@ export function getWantedEpisodes(
         absoluteNumber: ep.absoluteNumber,
         seriesType: ep.seriesType,
         airDate: ep.airDate,
+        lastSearchedAt: ep.lastSearchedAt,
         profiles,
         bestWeightByProfile,
       });
@@ -1449,6 +1483,16 @@ async function processWantedBooks(
   delay: number,
 ): Promise<void> {
   for (let i = 0; i < wantedBooks.length; i += 1) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+
     const book = wantedBooks[i];
 
     try {
@@ -1460,6 +1504,10 @@ async function processWantedBooks(
         result.grabbed += 1;
       }
       result.details.push(detail);
+      db.update(books)
+        .set({ lastSearchedAt: Date.now() })
+        .where(eq(books.id, book.id))
+        .run();
     } catch (error) {
       result.errors += 1;
       result.details.push({
@@ -1490,6 +1538,16 @@ async function processWantedMovies(
   delay: number,
 ): Promise<void> {
   for (let i = 0; i < wantedMovies.length; i += 1) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+
     const movie = wantedMovies[i];
 
     try {
@@ -1501,6 +1559,10 @@ async function processWantedMovies(
         result.grabbed += 1;
       }
       result.movieDetails!.push(detail);
+      db.update(movies)
+        .set({ lastSearchedAt: Date.now() })
+        .where(eq(movies.id, movie.id))
+        .run();
     } catch (error) {
       result.errors += 1;
       result.movieDetails!.push({
@@ -1530,6 +1592,16 @@ async function processWantedEpisodes(
   delay: number,
 ): Promise<void> {
   for (let i = 0; i < wantedEpisodes.length; i += 1) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+
     const episode = wantedEpisodes[i];
 
     try {
@@ -1541,6 +1613,10 @@ async function processWantedEpisodes(
         result.grabbed += 1;
       }
       result.episodeDetails!.push(detail);
+      db.update(episodes)
+        .set({ lastSearchedAt: Date.now() })
+        .where(eq(episodes.id, episode.id))
+        .run();
     } catch (error) {
       result.errors += 1;
       result.episodeDetails!.push({
@@ -1586,7 +1662,10 @@ export async function runAutoSearch(
   }
 
   // ── Books ──────────────────────────────────────────────────────────────
-  let wantedBooks = getWantedBooks();
+  let wantedBooks = sortBySearchPriority(
+    getWantedBooks(),
+    (b) => b.lastSearchedAt,
+  );
   if (bookIds) {
     const idSet = new Set(bookIds);
     wantedBooks = wantedBooks.filter((b) => idSet.has(b.id));
@@ -1603,10 +1682,16 @@ export async function runAutoSearch(
       await sleep(delayBetweenBooks);
     }
 
-    const wantedMovies = getWantedMovies();
+    const wantedMovies = sortBySearchPriority(
+      getWantedMovies(),
+      (m) => m.lastSearchedAt,
+    );
     await processWantedMovies(wantedMovies, ixs, result, delayBetweenBooks);
 
-    const wantedEpisodes = getWantedEpisodes();
+    const wantedEpisodes = sortBySearchPriority(
+      getWantedEpisodes(),
+      (e) => e.lastSearchedAt,
+    );
     if (wantedMovies.length > 0 && wantedEpisodes.length > 0) {
       await sleep(delayBetweenBooks);
     }
