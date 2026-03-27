@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2ca2a920-6bfe-4ec1-91ca-7d53b3fb2d1e",
+  "id": "d52bc51a-c38c-4190-be1e-86764ecbb977",
   "prevId": "cdd2579e-8f5a-4828-851f-22cccc9db382",
   "tables": {
     "account": {
@@ -611,13 +611,6 @@
         },
         "metadata_source_missing_since": {
           "name": "metadata_source_missing_since",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "last_searched_at": {
-          "name": "last_searched_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -1577,13 +1570,6 @@
           "notNull": false,
           "autoincrement": false,
           "default": false
-        },
-        "last_searched_at": {
-          "name": "last_searched_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -2186,13 +2172,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "last_searched_at": {
-          "name": "last_searched_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -2676,6 +2655,473 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "manga": {
+      "name": "manga",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_title": {
+          "name": "sort_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "overview": {
+          "name": "overview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "manga_updates_id": {
+          "name": "manga_updates_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manga_updates_slug": {
+          "name": "manga_updates_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'manga'"
+        },
+        "year": {
+          "name": "year",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'ongoing'"
+        },
+        "latest_chapter": {
+          "name": "latest_chapter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poster_url": {
+          "name": "poster_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "fanart_url": {
+          "name": "fanart_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "images": {
+          "name": "images",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "genres": {
+          "name": "genres",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "monitored": {
+          "name": "monitored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        },
+        "monitor_new_chapters": {
+          "name": "monitor_new_chapters",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'all'"
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metadata_updated_at": {
+          "name": "metadata_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "manga_manga_updates_id_unique": {
+          "name": "manga_manga_updates_id_unique",
+          "columns": ["manga_updates_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "manga_chapters": {
+      "name": "manga_chapters",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "manga_volume_id": {
+          "name": "manga_volume_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manga_id": {
+          "name": "manga_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_number": {
+          "name": "chapter_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_date": {
+          "name": "release_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scanlation_group": {
+          "name": "scanlation_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "has_file": {
+          "name": "has_file",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "monitored": {
+          "name": "monitored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "manga_chapters_manga_volume_id_manga_volumes_id_fk": {
+          "name": "manga_chapters_manga_volume_id_manga_volumes_id_fk",
+          "tableFrom": "manga_chapters",
+          "tableTo": "manga_volumes",
+          "columnsFrom": ["manga_volume_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "manga_chapters_manga_id_manga_id_fk": {
+          "name": "manga_chapters_manga_id_manga_id_fk",
+          "tableFrom": "manga_chapters",
+          "tableTo": "manga",
+          "columnsFrom": ["manga_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "manga_volumes": {
+      "name": "manga_volumes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "manga_id": {
+          "name": "manga_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "volume_number": {
+          "name": "volume_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "monitored": {
+          "name": "monitored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        }
+      },
+      "indexes": {
+        "manga_volumes_manga_volume_unique": {
+          "name": "manga_volumes_manga_volume_unique",
+          "columns": ["manga_id", "volume_number"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "manga_volumes_manga_id_manga_id_fk": {
+          "name": "manga_volumes_manga_id_manga_id_fk",
+          "tableFrom": "manga_volumes",
+          "tableTo": "manga",
+          "columnsFrom": ["manga_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "manga_files": {
+      "name": "manga_files",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "chapter_id": {
+          "name": "chapter_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size": {
+          "name": "size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "quality": {
+          "name": "quality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scanlation_group": {
+          "name": "scanlation_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "date_added": {
+          "name": "date_added",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "manga_files_chapter_id_manga_chapters_id_fk": {
+          "name": "manga_files_chapter_id_manga_chapters_id_fk",
+          "tableFrom": "manga_files",
+          "tableTo": "manga_chapters",
+          "columnsFrom": ["chapter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "manga_download_profiles": {
+      "name": "manga_download_profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "manga_id": {
+          "name": "manga_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "download_profile_id": {
+          "name": "download_profile_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "manga_download_profiles_manga_id_download_profile_id_unique": {
+          "name": "manga_download_profiles_manga_id_download_profile_id_unique",
+          "columns": ["manga_id", "download_profile_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "manga_download_profiles_manga_id_manga_id_fk": {
+          "name": "manga_download_profiles_manga_id_manga_id_fk",
+          "tableFrom": "manga_download_profiles",
+          "tableTo": "manga",
+          "columnsFrom": ["manga_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "manga_download_profiles_download_profile_id_download_profiles_id_fk": {
+          "name": "manga_download_profiles_download_profile_id_download_profiles_id_fk",
+          "tableFrom": "manga_download_profiles",
+          "tableTo": "download_profiles",
+          "columnsFrom": ["download_profile_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "tags": {
       "name": "tags",
       "columns": {
@@ -2758,6 +3204,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "manga_id": {
+          "name": "manga_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "manga_chapter_id": {
+          "name": "manga_chapter_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "data": {
           "name": "data",
           "type": "text",
@@ -2816,6 +3276,24 @@
           "tableFrom": "history",
           "tableTo": "movies",
           "columnsFrom": ["movie_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "history_manga_id_manga_id_fk": {
+          "name": "history_manga_id_manga_id_fk",
+          "tableFrom": "history",
+          "tableTo": "manga",
+          "columnsFrom": ["manga_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "history_manga_chapter_id_manga_chapters_id_fk": {
+          "name": "history_manga_chapter_id_manga_chapters_id_fk",
+          "tableFrom": "history",
+          "tableTo": "manga_chapters",
+          "columnsFrom": ["manga_chapter_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
@@ -3107,46 +3585,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "request_interval": {
-          "name": "request_interval",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 5000
-        },
-        "daily_query_limit": {
-          "name": "daily_query_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "daily_grab_limit": {
-          "name": "daily_grab_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "backoff_until": {
-          "name": "backoff_until",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "escalation_level": {
-          "name": "escalation_level",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -3299,46 +3737,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "request_interval": {
-          "name": "request_interval",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 5000
-        },
-        "daily_query_limit": {
-          "name": "daily_query_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "daily_grab_limit": {
-          "name": "daily_grab_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "backoff_until": {
-          "name": "backoff_until",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "escalation_level": {
-          "name": "escalation_level",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -3629,6 +4027,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "manga_id": {
+          "name": "manga_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "manga_chapter_id": {
+          "name": "manga_chapter_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "release_title": {
           "name": "release_title",
           "type": "text",
@@ -3755,6 +4167,24 @@
           "tableFrom": "tracked_downloads",
           "tableTo": "movies",
           "columnsFrom": ["movie_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "tracked_downloads_manga_id_manga_id_fk": {
+          "name": "tracked_downloads_manga_id_manga_id_fk",
+          "tableFrom": "tracked_downloads",
+          "tableTo": "manga",
+          "columnsFrom": ["manga_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "tracked_downloads_manga_chapter_id_manga_chapters_id_fk": {
+          "name": "tracked_downloads_manga_chapter_id_manga_chapters_id_fk",
+          "tableFrom": "tracked_downloads",
+          "tableTo": "manga_chapters",
+          "columnsFrom": ["manga_chapter_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
