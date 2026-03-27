@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d52bc51a-c38c-4190-be1e-86764ecbb977",
-  "prevId": "cdd2579e-8f5a-4828-851f-22cccc9db382",
+  "id": "b18cdcec-d5fa-40da-bdbd-b57451568abf",
+  "prevId": "d52bc51a-c38c-4190-be1e-86764ecbb977",
   "tables": {
     "account": {
       "name": "account",
@@ -611,6 +611,13 @@
         },
         "metadata_source_missing_since": {
           "name": "metadata_source_missing_since",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_searched_at": {
+          "name": "last_searched_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -1570,6 +1577,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": false
+        },
+        "last_searched_at": {
+          "name": "last_searched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -2167,6 +2181,13 @@
         },
         "collection_id": {
           "name": "collection_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_searched_at": {
+          "name": "last_searched_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -3585,6 +3606,46 @@
           "notNull": false,
           "autoincrement": false
         },
+        "request_interval": {
+          "name": "request_interval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 5000
+        },
+        "daily_query_limit": {
+          "name": "daily_query_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "daily_grab_limit": {
+          "name": "daily_grab_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "backoff_until": {
+          "name": "backoff_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "escalation_level": {
+          "name": "escalation_level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -3737,6 +3798,46 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "request_interval": {
+          "name": "request_interval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 5000
+        },
+        "daily_query_limit": {
+          "name": "daily_query_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "daily_grab_limit": {
+          "name": "daily_grab_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "backoff_until": {
+          "name": "backoff_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "escalation_level": {
+          "name": "escalation_level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "created_at": {
           "name": "created_at",

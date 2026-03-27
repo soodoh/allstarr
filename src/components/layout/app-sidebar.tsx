@@ -5,6 +5,7 @@ import AllstarrIcon from "src/components/icons/allstarr-icon";
 import { queueListQuery } from "src/lib/queries/queue";
 import {
   BookOpen,
+  BookOpenText,
   Users,
   Settings,
   ShieldBan,
@@ -82,6 +83,16 @@ const navGroups: NavGroup[] = [
       { title: "Movies", to: "/movies", icon: Film },
       { title: "Collections", to: "/movies/collections", icon: FolderOpen },
       { title: "Calendar", to: "/movies/calendar", icon: Calendar },
+    ],
+  },
+  {
+    title: "Manga",
+    to: "/manga",
+    icon: BookOpenText,
+    matchPrefixes: ["/manga"],
+    children: [
+      { title: "Add New", to: "/manga/add", icon: Plus },
+      { title: "Library", to: "/manga", icon: BookOpenText },
     ],
   },
   {
