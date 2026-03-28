@@ -4,10 +4,21 @@ import { Play, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
 import PageHeader from "src/components/shared/page-header";
 import { TableSkeleton } from "src/components/shared/loading-skeleton";
 import { scheduledTasksQuery } from "src/lib/queries";
-import { useRunTask } from "src/hooks/mutations/tasks";
-import { Card, CardContent } from "src/components/ui/card";
+import { useRunTask, useToggleTaskEnabled } from "src/hooks/mutations/tasks";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "src/components/ui/card";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
+import Switch from "src/components/ui/switch";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "src/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -17,6 +28,14 @@ import {
   TableRow,
 } from "src/components/ui/table";
 import type { ScheduledTask } from "src/server/tasks";
+
+const GROUP_ORDER = ["search", "metadata", "media", "maintenance"] as const;
+const GROUP_LABELS: Record<string, string> = {
+  search: "Search",
+  metadata: "Metadata",
+  media: "Media Management",
+  maintenance: "Maintenance",
+};
 
 export const Route = createFileRoute("/_authed/system/tasks")({
   loader: ({ context }) =>
@@ -116,19 +135,45 @@ function StatusBadge({ task }: { task: ScheduledTask }) {
   );
 }
 
+function TaskMessage({ task }: { task: ScheduledTask }) {
+  if (task.isRunning && task.progress) {
+    return (
+      <div className="text-xs text-muted-foreground mt-0.5">
+        {task.progress}
+      </div>
+    );
+  }
+
+  if (task.lastMessage) {
+    return (
+      <div className="text-xs text-muted-foreground mt-0.5">
+        {task.lastMessage}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function TaskRow({ task }: { task: ScheduledTask }) {
   const runTask = useRunTask();
+  const toggleEnabled = useToggleTaskEnabled();
 
   return (
-    <TableRow>
+    <TableRow className={task.enabled ? undefined : "opacity-50"}>
+      <TableCell>
+        <Switch
+          size="sm"
+          checked={task.enabled}
+          onCheckedChange={(enabled: boolean) =>
+            toggleEnabled.mutate({ taskId: task.id, enabled })
+          }
+        />
+      </TableCell>
       <TableCell>
         <div>
           <div className="font-medium">{task.name}</div>
-          {task.lastMessage && (
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {task.lastMessage}
-            </div>
-          )}
+          <TaskMessage task={task} />
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">
@@ -149,27 +194,78 @@ function TaskRow({ task }: { task: ScheduledTask }) {
         <StatusBadge task={task} />
       </TableCell>
       <TableCell>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          disabled={task.isRunning || runTask.isPending}
-          onClick={() => runTask.mutate(task.id)}
-        >
-          {task.isRunning || runTask.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 cursor-pointer"
+              disabled={task.isRunning || runTask.isPending}
+              onClick={() => runTask.mutate(task.id)}
+            >
+              {task.isRunning || runTask.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Run now</TooltipContent>
+        </Tooltip>
       </TableCell>
     </TableRow>
   );
 }
 
+function TaskGroup({
+  label,
+  tasks,
+}: {
+  label: string;
+  tasks: ScheduledTask[];
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-0">
+        <CardTitle className="text-base">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0 pt-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12" />
+              <TableHead>Name</TableHead>
+              <TableHead>Interval</TableHead>
+              <TableHead>Last Execution</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Next Execution</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-12" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tasks.map((task) => (
+              <TaskRow key={task.id} task={task} />
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TasksPage() {
   const { data: tasks } = useSuspenseQuery(scheduledTasksQuery());
+
+  const grouped = new Map<string, ScheduledTask[]>();
+  for (const task of tasks) {
+    const group = task.group;
+    if (!grouped.has(group)) {
+      grouped.set(group, []);
+    }
+    grouped.get(group)!.push(task);
+  }
 
   return (
     <div className="space-y-6">
@@ -178,28 +274,32 @@ function TasksPage() {
         description="Scheduled background tasks and their execution status."
       />
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Interval</TableHead>
-                <TableHead>Last Execution</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Next Execution</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.map((task) => (
-                <TaskRow key={task.id} task={task} />
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {GROUP_ORDER.map((groupKey) => {
+        const groupTasks = grouped.get(groupKey);
+        if (!groupTasks || groupTasks.length === 0) {
+          return null;
+        }
+        return (
+          <TaskGroup
+            key={groupKey}
+            label={GROUP_LABELS[groupKey] ?? groupKey}
+            tasks={groupTasks}
+          />
+        );
+      })}
+
+      {/* Render any tasks with unknown groups at the end */}
+      {[...grouped.entries()]
+        .filter(
+          ([key]) => !GROUP_ORDER.includes(key as (typeof GROUP_ORDER)[number]),
+        )
+        .map(([key, groupTasks]) => (
+          <TaskGroup
+            key={key}
+            label={GROUP_LABELS[key] ?? key}
+            tasks={groupTasks}
+          />
+        ))}
     </div>
   );
 }

@@ -1,8 +1,7 @@
 // oxlint-disable explicit-module-boundary-types -- useMutation return type is complex generic
-// oxlint-disable import/prefer-default-export -- named export matches other mutation hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { runScheduledTaskFn } from "src/server/tasks";
+import { runScheduledTaskFn, toggleTaskEnabledFn } from "src/server/tasks";
 import { queryKeys } from "src/lib/query-keys";
 
 export function useRunTask() {
@@ -16,6 +15,21 @@ export function useRunTask() {
     onError: (error) =>
       toast.error(
         error instanceof Error ? error.message : "Failed to run task",
+      ),
+  });
+}
+
+export function useToggleTaskEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (opts: { taskId: string; enabled: boolean }) =>
+      toggleTaskEnabledFn({ data: opts }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update task",
       ),
   });
 }
