@@ -58,19 +58,21 @@ export function splitUngroupedVolumes(
     (a, b) => b.volumeNumber! - a.volumeNumber!,
   );
 
-  // Compute the max chapter number for each known volume
-  const volumesWithMax = sortedKnown.map((vol) => {
-    const chapterNums = vol.chapters
-      .map((c) => parseChapterNumber(c.chapterNumber))
-      .filter((n): n is number => n !== null);
-    return {
-      volume: vol,
-      maxChapter:
-        chapterNums.length > 0
-          ? Math.max(...chapterNums)
-          : Number.NEGATIVE_INFINITY,
-    };
-  });
+  // Compute the max chapter number for each known volume (skip empty volumes)
+  const volumesWithMax = sortedKnown
+    .map((vol) => {
+      const chapterNums = vol.chapters
+        .map((c) => parseChapterNumber(c.chapterNumber))
+        .filter((n): n is number => n !== null);
+      return {
+        volume: vol,
+        maxChapter: chapterNums.length > 0 ? Math.max(...chapterNums) : null,
+      };
+    })
+    .filter(
+      (v): v is { volume: DisplayVolume; maxChapter: number } =>
+        v.maxChapter !== null,
+    );
 
   // Walk through volumes top-down, collecting ungrouped chapters in each gap
   const groups: DisplayGroup[] = [];
