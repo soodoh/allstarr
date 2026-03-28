@@ -233,6 +233,12 @@ export const queryKeys = {
       ["blocklist", "list", params] as const,
   },
 
+  // ─── Commands ──────────────────────────────────────────────────────────
+  commands: {
+    all: ["commands"] as const,
+    active: () => ["commands", "active"] as const,
+  },
+
   // ─── Tasks ─────────────────────────────────────────────────────────────
   tasks: {
     all: ["tasks"] as const,
