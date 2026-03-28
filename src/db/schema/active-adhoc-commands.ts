@@ -9,5 +9,7 @@ export const activeAdhocCommands = sqliteTable("active_adhoc_commands", {
     .notNull(),
   progress: text("progress"),
   startedAt: text("started_at").notNull(),
-  createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
 });

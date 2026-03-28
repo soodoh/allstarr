@@ -472,85 +472,19 @@ export async function refreshMangaInternal(
 }
 
 const refreshMangaHandler: CommandHandler = async (body, updateProgress) => {
-  const data = body as unknown as ReturnType<typeof refreshMangaSchema.parse>;
+  const data = body as { mangaId: number };
 
-  updateProgress("Fetching manga metadata...");
+  // Get manga title for progress message
   const mangaRow = db
-    .select()
+    .select({ title: manga.title })
     .from(manga)
     .where(eq(manga.id, data.mangaId))
     .get();
 
-  if (!mangaRow) {
-    throw new Error("Manga not found");
-  }
+  updateProgress(`Refreshing metadata for ${mangaRow?.title ?? "manga"}...`);
+  const result = await refreshMangaInternal(data.mangaId);
 
-  updateProgress("Refreshing from MangaUpdates...");
-  const detail = await getMangaUpdatesSeriesDetail(mangaRow.mangaUpdatesId);
-
-  updateProgress("Fetching chapter releases...");
-  const allReleases = await getAllMangaUpdatesReleases(
-    mangaRow.mangaUpdatesId,
-    mangaRow.title,
-  );
-
-  // Update manga metadata
-  updateProgress("Updating metadata...");
-  const status = detail.completed ? "complete" : "ongoing";
-  db.update(manga)
-    .set({
-      title: detail.title || mangaRow.title,
-      sortTitle: detail.title
-        ? generateSortTitle(detail.title)
-        : mangaRow.sortTitle,
-      overview: detail.description || mangaRow.overview,
-      mangaUpdatesSlug:
-        extractMangaUpdatesSlug(detail.url) ?? mangaRow.mangaUpdatesSlug,
-      type: detail.type?.toLowerCase() || mangaRow.type,
-      year: detail.year || mangaRow.year,
-      status,
-      latestChapter: detail.latest_chapter ?? mangaRow.latestChapter,
-      posterUrl: detail.image?.url?.original || mangaRow.posterUrl,
-      genres:
-        detail.genres?.map((g) => g.genre) ??
-        (mangaRow.genres as string[] | null) ??
-        [],
-      metadataUpdatedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(manga.id, data.mangaId))
-    .run();
-
-  // Insert any new chapters
-  updateProgress("Checking for new chapters...");
-  const monitorOption = mangaRow.monitorNewChapters as
-    | "all"
-    | "future"
-    | "missing"
-    | "none";
-  const newChaptersAdded = insertNewChapters(
-    data.mangaId,
-    allReleases,
-    monitorOption,
-  );
-
-  if (newChaptersAdded > 0) {
-    db.insert(history)
-      .values({
-        eventType: "mangaUpdated",
-        mangaId: data.mangaId,
-        data: {
-          title: mangaRow.title,
-          newChapters: newChaptersAdded,
-        },
-      })
-      .run();
-  }
-
-  return { success: true, newChaptersAdded } as unknown as Record<
-    string,
-    unknown
-  >;
+  return { success: true, newChaptersAdded: result.newChaptersAdded };
 };
 
 export const refreshMangaMetadataFn = createServerFn({ method: "POST" })
