@@ -1,6 +1,6 @@
 import { db } from "./index";
-import { mangaChapters, mangaFiles, manga } from "./schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { mangaChapters, mangaFiles, manga, mangaVolumes } from "./schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   normalizeChapterNumber,
   expandChapterRange,
@@ -176,6 +176,23 @@ function migrateMangaChapters(): void {
 
     process.stdout.write(
       `  Normalized: ${normalized}, Expanded: ${expanded}, Deleted: ${deleted}\n`,
+    );
+  }
+
+  // Phase 4: Delete empty volumes (volumes with no remaining chapters)
+  const emptyVolumes = db
+    .select({ id: mangaVolumes.id, volumeNumber: mangaVolumes.volumeNumber })
+    .from(mangaVolumes)
+    .leftJoin(mangaChapters, eq(mangaChapters.mangaVolumeId, mangaVolumes.id))
+    .groupBy(mangaVolumes.id)
+    .having(sql`COUNT(${mangaChapters.id}) = 0`)
+    .all();
+
+  if (emptyVolumes.length > 0) {
+    const emptyIds = emptyVolumes.map((v) => v.id);
+    db.delete(mangaVolumes).where(inArray(mangaVolumes.id, emptyIds)).run();
+    process.stdout.write(
+      `\nDeleted ${emptyVolumes.length} empty volumes: ${emptyVolumes.map((v) => v.volumeNumber ?? "ungrouped").join(", ")}\n`,
     );
   }
 

@@ -120,6 +120,22 @@ describe("splitUngroupedVolumes", () => {
     expect(result[0].displayTitle).toBe("Chapters 1-100");
   });
 
+  it("skips empty volumes from boundary computation", () => {
+    const volumes: DisplayVolume[] = [
+      vol(1, 68, [ch(1, "668"), ch(2, "669"), ch(3, "670")]),
+      vol(2, 72, []), // empty volume — should not define a boundary
+      vol(3, null, [ch(4, "671"), ch(5, "700"), ch(6, "1100")]),
+    ];
+
+    const result = splitUngroupedVolumes(volumes);
+
+    // Vol 72 is empty so it's excluded entirely. Ungrouped splits around vol 68 only.
+    expect(result).toHaveLength(2);
+    expect(result[0].displayTitle).toBe("Chapters 671-1100");
+    expect(result[0].chapters).toHaveLength(3);
+    expect(result[1].displayTitle).toBe("Volume 68");
+  });
+
   it("handles empty volumes array", () => {
     expect(splitUngroupedVolumes([])).toStrictEqual([]);
   });
