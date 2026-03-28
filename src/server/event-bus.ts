@@ -13,7 +13,20 @@ export type ServerEvent =
       title: string;
       message: string;
     }
-  | { type: "importCompleted"; bookId: number | null; bookTitle: string };
+  | { type: "importCompleted"; bookId: number | null; bookTitle: string }
+  | { type: "commandProgress"; commandId: number; progress: string }
+  | {
+      type: "commandCompleted";
+      commandId: number;
+      commandType: string;
+      result: Record<string, unknown>;
+    }
+  | {
+      type: "commandFailed";
+      commandId: number;
+      commandType: string;
+      error: string;
+    };
 
 class EventBus {
   private clients = new Set<ReadableStreamDefaultController>();
