@@ -456,6 +456,7 @@ export async function searchNewznab(
   categories: number[] = [],
   bookParams?: BookSearchParams,
   indexerIdentity?: { indexerType: "manual" | "synced"; indexerId: number },
+  _contentType: "tv" | "book" | "manga" = "book",
 ): Promise<CoalescedResult[]> {
   // Match Readarr: skip search entirely when no categories are configured
   if (categories.length === 0) {
