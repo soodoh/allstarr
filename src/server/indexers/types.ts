@@ -66,6 +66,32 @@ export type ReleaseRejection = {
   message: string;
 };
 
+export const ReleaseType = {
+  Unknown: 0,
+  // TV Shows
+  SingleEpisode: 1,
+  MultiEpisode: 2,
+  SeasonPack: 3,
+  MultiSeasonPack: 4,
+  // Books
+  SingleBook: 10,
+  AuthorPack: 11,
+  // Manga
+  SingleChapter: 20,
+  MultiChapter: 21,
+  SingleVolume: 22,
+  MultiVolume: 23,
+} as const;
+
+export type ReleaseType = (typeof ReleaseType)[keyof typeof ReleaseType];
+
+export type ParsedPackInfo = {
+  seasons?: number[];
+  episodes?: number[];
+  volumes?: number[];
+  chapters?: number[];
+};
+
 /** Per-profile format score breakdown */
 export type FormatScoreDetail = {
   profileName: string;
@@ -99,4 +125,6 @@ export type IndexerRelease = Omit<
   formatScoreDetails: FormatScoreDetail[];
   cfScore: number;
   cfDetails: Array<{ cfId: number; name: string; score: number }>;
+  releaseType: ReleaseType;
+  packInfo: ParsedPackInfo | null;
 };
