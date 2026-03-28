@@ -32,6 +32,7 @@ function seedTasksIfNeeded(): void {
           id: task.id,
           name: task.name,
           interval: task.defaultInterval,
+          group: task.group,
           enabled: true,
         })
         .run();
@@ -53,11 +54,20 @@ async function executeTask(taskId: string): Promise<void> {
   const start = Date.now();
 
   try {
-    const result = await task.handler();
+    const updateProgress = (message: string): void => {
+      db.update(scheduledTasks)
+        .set({ progress: message })
+        .where(eq(scheduledTasks.id, taskId))
+        .run();
+      eventBus.emit({ type: "taskUpdated", taskId });
+    };
+
+    const result = await task.handler(updateProgress);
     const duration = Date.now() - start;
 
     db.update(scheduledTasks)
       .set({
+        progress: null,
         lastExecution: new Date(),
         lastDuration: duration,
         lastResult: result.success ? "success" : "error",
@@ -74,6 +84,7 @@ async function executeTask(taskId: string): Promise<void> {
 
     db.update(scheduledTasks)
       .set({
+        progress: null,
         lastExecution: new Date(),
         lastDuration: duration,
         lastResult: "error",

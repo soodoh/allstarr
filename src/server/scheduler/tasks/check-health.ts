@@ -46,7 +46,8 @@ registerTask({
   description:
     "Verify system health including root folders, indexers, and download clients.",
   defaultInterval: 25 * 60, // 25 minutes
-  handler: async (): Promise<TaskResult> => {
+  group: "maintenance",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     const issues = runHealthChecks();
     return {
       success: true,

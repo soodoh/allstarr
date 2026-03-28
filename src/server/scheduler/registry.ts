@@ -8,7 +8,8 @@ export type TaskDefinition = {
   name: string;
   description: string;
   defaultInterval: number; // seconds
-  handler: () => Promise<TaskResult>;
+  group: "search" | "metadata" | "media" | "maintenance";
+  handler: (updateProgress: (message: string) => void) => Promise<TaskResult>;
 };
 
 const registry = new Map<string, TaskDefinition>();

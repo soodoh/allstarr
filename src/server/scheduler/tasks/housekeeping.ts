@@ -9,7 +9,8 @@ registerTask({
   name: "Housekeeping",
   description: "Clean up old history records and optimize the database.",
   defaultInterval: 24 * 60 * 60, // 24 hours
-  handler: async (): Promise<TaskResult> => {
+  group: "maintenance",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     // Delete history older than 90 days
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const deleted = db

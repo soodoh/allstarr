@@ -110,12 +110,13 @@ async function refreshStandaloneBooks(
 }
 
 registerTask({
-  id: "refresh-metadata",
-  name: "Refresh Metadata",
+  id: "refresh-hardcover-metadata",
+  name: "Refresh Hardcover Metadata",
   description:
     "Refresh metadata for all monitored authors and their books from Hardcover.",
   defaultInterval: 12 * 60 * 60, // 12 hours
-  handler: async (): Promise<TaskResult> => {
+  group: "metadata",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     const monitoredAuthors = db
       .select({ id: authors.id, name: authors.name })
       .from(authors)

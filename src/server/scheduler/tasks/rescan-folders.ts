@@ -13,7 +13,8 @@ registerTask({
   name: "Rescan Folders",
   description: "Scan root folders for new, changed, or removed book files.",
   defaultInterval: 6 * 60 * 60, // 6 hours
-  handler: async (): Promise<TaskResult> => {
+  group: "media",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     const folderPaths = getRootFolderPaths();
 
     if (folderPaths.length === 0) {
