@@ -1,4 +1,7 @@
 // oxlint-disable no-console -- Server-side fire-and-forget logging
+// oxlint-disable prefer-await-to-then -- Intentional fire-and-forget pattern
+// oxlint-disable catch-or-return -- Fire-and-forget image caching
+// oxlint-disable always-return -- Fire-and-forget .then() callbacks
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import {
@@ -19,6 +22,11 @@ import {
 import type { MangaUpdatesRelease } from "./manga-updates";
 import { submitCommand } from "./commands";
 import type { CommandHandler } from "./commands";
+import { cacheImage } from "./image-cache";
+import {
+  normalizeChapterNumber,
+  expandChapterRange,
+} from "./manga-chapter-utils";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -32,8 +40,9 @@ type DeduplicatedChapter = {
 /**
  * Deduplicate MangaUpdates releases by chapter number.
  * The same chapter can appear multiple times (once per scanlation group).
- * We group by chapter number, keep the earliest release date, and store
- * the first group name.
+ * We normalize chapter strings (strip version/quality suffixes),
+ * expand ranges into individual chapters, then deduplicate by chapter number,
+ * keeping the earliest release date and first group name.
  */
 function deduplicateReleases(
   releases: MangaUpdatesRelease[],
@@ -41,39 +50,69 @@ function deduplicateReleases(
   const byChapter = new Map<string, DeduplicatedChapter>();
 
   for (const release of releases) {
-    const chapterNum = release.chapter.trim();
-    if (!chapterNum) {
+    const rawChapter = release.chapter.trim();
+    if (!rawChapter) {
       continue;
     }
 
-    const existing = byChapter.get(chapterNum);
     const releaseDate = release.release_date || null;
     const groupName = release.groups[0]?.name ?? null;
     const volume = release.volume?.trim() || null;
 
-    if (existing) {
-      // Keep earliest release date
-      if (
-        releaseDate &&
-        (!existing.releaseDate || releaseDate < existing.releaseDate)
-      ) {
-        existing.releaseDate = releaseDate;
+    // Step 1: Normalize (strip version/quality suffixes)
+    const normalized = normalizeChapterNumber(rawChapter);
+    if (!normalized) {
+      continue;
+    }
+
+    // Step 2: Expand ranges into individual chapters
+    const expanded = expandChapterRange(normalized);
+
+    if (expanded) {
+      // Range: create an entry for each individual chapter
+      for (const num of expanded) {
+        const key = String(num);
+        mergeChapter(byChapter, key, volume, releaseDate, groupName);
       }
-      // Use volume if the existing entry doesn't have one
-      if (!existing.volume && volume) {
-        existing.volume = volume;
-      }
+    } else if (normalized.includes("+")) {
+      // Compound entry (e.g., "775v2 + 790-792") — skip entirely
+      continue;
     } else {
-      byChapter.set(chapterNum, {
-        chapterNumber: chapterNum,
-        volume,
-        releaseDate,
-        scanlationGroup: groupName,
-      });
+      // Single chapter (numeric or special like "Chopper Man")
+      mergeChapter(byChapter, normalized, volume, releaseDate, groupName);
     }
   }
 
   return [...byChapter.values()];
+}
+
+/** Merge a chapter into the dedup map, keeping earliest date and filling volume. */
+function mergeChapter(
+  byChapter: Map<string, DeduplicatedChapter>,
+  chapterNumber: string,
+  volume: string | null,
+  releaseDate: string | null,
+  scanlationGroup: string | null,
+): void {
+  const existing = byChapter.get(chapterNumber);
+  if (existing) {
+    if (
+      releaseDate &&
+      (!existing.releaseDate || releaseDate < existing.releaseDate)
+    ) {
+      existing.releaseDate = releaseDate;
+    }
+    if (!existing.volume && volume) {
+      existing.volume = volume;
+    }
+  } else {
+    byChapter.set(chapterNumber, {
+      chapterNumber,
+      volume,
+      releaseDate,
+      scanlationGroup,
+    });
+  }
 }
 
 /**
@@ -293,6 +332,19 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
     };
   });
 
+  // Fire-and-forget image caching (outside transaction)
+  const mangaPosterUrl = data.posterUrl || detail.image?.url?.original || "";
+  if (mangaPosterUrl) {
+    cacheImage(mangaPosterUrl, "manga", result.mangaId).then((cachedPath) => {
+      if (cachedPath) {
+        db.update(manga)
+          .set({ cachedPosterPath: cachedPath })
+          .where(eq(manga.id, result.mangaId))
+          .run();
+      }
+    });
+  }
+
   return result as unknown as Record<string, unknown>;
 };
 
@@ -333,7 +385,7 @@ function insertNewChapters(
       .from(mangaChapters)
       .where(eq(mangaChapters.mangaId, mangaId))
       .all()
-      .map((c) => c.chapterNumber),
+      .map((c) => normalizeChapterNumber(c.chapterNumber)),
   );
 
   const newChapters = chapters.filter(
@@ -401,6 +453,7 @@ function insertNewChapters(
  * Core refresh logic without progress callbacks.
  * Reusable by both the ad-hoc command handler and batch scheduled tasks.
  */
+// oxlint-disable-next-line complexity -- Refresh logic requires many conditional branches
 export async function refreshMangaInternal(
   mangaId: number,
 ): Promise<{ success: boolean; newChaptersAdded: number }> {
@@ -442,6 +495,19 @@ export async function refreshMangaInternal(
     })
     .where(eq(manga.id, mangaId))
     .run();
+
+  // Fire-and-forget image caching on refresh
+  const refreshPosterUrl = detail.image?.url?.original || mangaRow.posterUrl;
+  if (refreshPosterUrl) {
+    cacheImage(refreshPosterUrl, "manga", mangaId).then((cachedPath) => {
+      if (cachedPath) {
+        db.update(manga)
+          .set({ cachedPosterPath: cachedPath })
+          .where(eq(manga.id, mangaId))
+          .run();
+      }
+    });
+  }
 
   // Insert any new chapters
   const monitorOption = mangaRow.monitorNewChapters as
