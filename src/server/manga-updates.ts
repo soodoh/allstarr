@@ -180,7 +180,7 @@ async function fetchReleasesPage(
     body: JSON.stringify({
       search: title,
       include_metadata: true,
-      per_page: 100,
+      perpage: 100,
       page,
     }),
   });
@@ -207,13 +207,19 @@ export async function getAllMangaUpdatesReleases(
   let page = 1;
   let fetched = 0;
   let totalHits = 0;
+  let consecutiveEmpty = 0;
   do {
     const result = await fetchReleasesPage(title, seriesId, page);
     totalHits = result.totalHits;
-    fetched += 40; // API returns max 40 per page regardless of per_page
+    fetched += 100; // API returns up to 100 per page with perpage=100
+    if (result.results.length === 0) {
+      consecutiveEmpty += 1;
+    } else {
+      consecutiveEmpty = 0;
+    }
     allReleases.push(...result.results);
     page += 1;
-  } while (fetched < totalHits && page <= 250);
+  } while (fetched < totalHits && page <= 250 && consecutiveEmpty < 3);
   return allReleases;
 }
 
