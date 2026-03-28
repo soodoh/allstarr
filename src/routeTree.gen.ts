@@ -23,6 +23,7 @@ import { Route as AuthedMangaIndexRouteImport } from './routes/_authed/manga/ind
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
+import { Route as ApiImagesSplatRouteImport } from './routes/api/images/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedTvCalendarRouteImport } from './routes/_authed/tv/calendar'
 import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
@@ -124,6 +125,11 @@ const AuthedActivityIndexRoute = AuthedActivityIndexRouteImport.update({
   id: '/activity/',
   path: '/activity/',
   getParentRoute: () => AuthedRoute,
+} as any)
+const ApiImagesSplatRoute = ApiImagesSplatRouteImport.update({
+  id: '/api/images/$',
+  path: '/api/images/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -322,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/tv/add': typeof AuthedTvAddRoute
   '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/images/$': typeof ApiImagesSplatRoute
   '/activity/': typeof AuthedActivityIndexRoute
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
@@ -369,6 +376,7 @@ export interface FileRoutesByTo {
   '/tv/add': typeof AuthedTvAddRoute
   '/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/images/$': typeof ApiImagesSplatRoute
   '/activity': typeof AuthedActivityIndexRoute
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
@@ -418,6 +426,7 @@ export interface FileRoutesById {
   '/_authed/tv/add': typeof AuthedTvAddRoute
   '/_authed/tv/calendar': typeof AuthedTvCalendarRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/images/$': typeof ApiImagesSplatRoute
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
@@ -467,6 +476,7 @@ export interface FileRouteTypes {
     | '/tv/add'
     | '/tv/calendar'
     | '/api/auth/$'
+    | '/api/images/$'
     | '/activity/'
     | '/authors/'
     | '/books/'
@@ -514,6 +524,7 @@ export interface FileRouteTypes {
     | '/tv/add'
     | '/tv/calendar'
     | '/api/auth/$'
+    | '/api/images/$'
     | '/activity'
     | '/authors'
     | '/books'
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | '/_authed/tv/add'
     | '/_authed/tv/calendar'
     | '/api/auth/$'
+    | '/api/images/$'
     | '/_authed/activity/'
     | '/_authed/authors/'
     | '/_authed/books/'
@@ -586,6 +598,7 @@ export interface RootRouteChildren {
   Api_testResetRoute: typeof Api_testResetRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiImagesSplatRoute: typeof ApiImagesSplatRoute
   ApiV1IndexerIdRoute: typeof ApiV1IndexerIdRoute
   ApiV1IndexerSchemaRoute: typeof ApiV1IndexerSchemaRoute
   ApiV1IndexerTestRoute: typeof ApiV1IndexerTestRoute
@@ -692,6 +705,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/activity/'
       preLoaderRoute: typeof AuthedActivityIndexRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/api/images/$': {
+      id: '/api/images/$'
+      path: '/api/images/$'
+      fullPath: '/api/images/$'
+      preLoaderRoute: typeof ApiImagesSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -1006,6 +1026,7 @@ const rootRouteChildren: RootRouteChildren = {
   Api_testResetRoute: Api_testResetRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiImagesSplatRoute: ApiImagesSplatRoute,
   ApiV1IndexerIdRoute: ApiV1IndexerIdRoute,
   ApiV1IndexerSchemaRoute: ApiV1IndexerSchemaRoute,
   ApiV1IndexerTestRoute: ApiV1IndexerTestRoute,
