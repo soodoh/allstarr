@@ -16,6 +16,7 @@ import "./tasks/rescan-folders";
 import "./tasks/refresh-downloads";
 import "./tasks/refresh-tmdb-metadata";
 import "./tasks/refresh-mangaupdates-metadata";
+import "./tasks/search-missing";
 // oxlint-enable import/no-unassigned-import
 
 let started = false;
