@@ -29,8 +29,12 @@ import {
   mangaDownloadProfiles,
 } from "src/db/schema";
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
-import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
-import type { ProfileInfo } from "./indexers";
+import {
+  getCategoriesForProfiles,
+  dedupeAndScoreReleases,
+  isPackQualified,
+} from "./indexers";
+import type { ProfileInfo, PackContext } from "./indexers";
 import { canQueryIndexer, anyIndexerAvailable } from "./indexer-rate-limiter";
 import { searchNewznab } from "./indexers/http";
 import {
@@ -2361,13 +2365,14 @@ function isBetterCandidate(
   return releaseWeight === currentWeight && release.cfScore > current.cfScore;
 }
 
-function findBestReleaseForProfile(
+export function findBestReleaseForProfile(
   releases: IndexerRelease[],
   profile: ProfileInfo,
   bestExistingWeight: number,
   blocklistedTitles: Set<string>,
   grabbedGuids: Set<string>,
   bestExistingCFScore = 0,
+  packContext: PackContext | null = null,
 ): IndexerRelease | null {
   const existingCF = bestExistingCFScore;
 
@@ -2400,6 +2405,10 @@ function findBestReleaseForProfile(
       continue;
     }
     if (release.cfScore < profile.minCustomFormatScore) {
+      continue;
+    }
+    // Skip disqualified packs
+    if (!isPackQualified(release, packContext)) {
       continue;
     }
 
