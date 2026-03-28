@@ -677,6 +677,34 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+/**
+ * Check rate limiter gate for a single indexer.
+ * Returns "proceed" if the search should continue, "skip" if it should be skipped,
+ * or null if we should wait and then proceed.
+ */
+async function applyRateLimiterGate(
+  indexerType: "manual" | "synced",
+  indexerId: number,
+  indexerName: string,
+  interactive: boolean,
+  warnings: string[],
+): Promise<"proceed" | "skip"> {
+  const gate = canQueryIndexer(indexerType, indexerId);
+  if (!gate.allowed) {
+    if (gate.reason === "pacing" && gate.waitMs) {
+      await sleep(gate.waitMs);
+    } else if (!interactive) {
+      warnings.push(`Indexer "${indexerName}" skipped: ${gate.reason}`);
+      return "skip";
+    }
+    if (gate.reason === "backoff") {
+      warnings.push(`Indexer "${indexerName}" in backoff, skipping`);
+      return "skip";
+    }
+  }
+  return "proceed";
+}
+
 /** Search all indexers sequentially with rate limiter gating. */
 async function searchAllIndexers(
   enabledSynced: Array<typeof syncedIndexers.$inferSelect>,
@@ -685,6 +713,7 @@ async function searchAllIndexers(
   categories: number[],
   bookParams?: BookSearchParams,
   interactive = false,
+  contentType: "tv" | "book" | "manga" = "book",
 ): Promise<{ releases: IndexerRelease[]; warnings: string[] }> {
   const allReleases: IndexerRelease[] = [];
   const warnings: string[] = [];
@@ -692,19 +721,15 @@ async function searchAllIndexers(
   const syncedWithKey = enabledSynced.filter((s) => s.apiKey);
   for (const synced of syncedWithKey) {
     // Rate limiter gate — interactive searches bypass daily caps
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else if (!interactive) {
-        warnings.push(`Indexer "${synced.name}" skipped: ${gate.reason}`);
-        continue;
-      }
-      // Interactive: skip only backoff, allow daily cap bypass
-      if (gate.reason === "backoff") {
-        warnings.push(`Indexer "${synced.name}" in backoff, skipping`);
-        continue;
-      }
+    const gateResult = await applyRateLimiterGate(
+      "synced",
+      synced.id,
+      synced.name,
+      interactive,
+      warnings,
+    );
+    if (gateResult === "skip") {
+      continue;
     }
 
     try {
@@ -721,12 +746,15 @@ async function searchAllIndexers(
       );
       allReleases.push(
         ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-            indexerSource: "synced" as const,
-          }),
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || synced.name,
+              allstarrIndexerId: synced.id,
+              indexerSource: "synced" as const,
+            },
+            contentType,
+          ),
         ),
       );
     } catch (error) {
@@ -738,19 +766,15 @@ async function searchAllIndexers(
 
   for (const ix of enabledManual) {
     // Rate limiter gate — interactive searches bypass daily caps
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else if (!interactive) {
-        warnings.push(`Indexer "${ix.name}" skipped: ${gate.reason}`);
-        continue;
-      }
-      // Interactive: skip only backoff, allow daily cap bypass
-      if (gate.reason === "backoff") {
-        warnings.push(`Indexer "${ix.name}" in backoff, skipping`);
-        continue;
-      }
+    const gateResult = await applyRateLimiterGate(
+      "manual",
+      ix.id,
+      ix.name,
+      interactive,
+      warnings,
+    );
+    if (gateResult === "skip") {
+      continue;
     }
 
     try {
@@ -767,12 +791,15 @@ async function searchAllIndexers(
       );
       allReleases.push(
         ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || ix.name,
-            allstarrIndexerId: ix.id,
-            indexerSource: "manual" as const,
-          }),
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || ix.name,
+              allstarrIndexerId: ix.id,
+              indexerSource: "manual" as const,
+            },
+            contentType,
+          ),
         ),
       );
     } catch (error) {
@@ -865,6 +892,7 @@ export const searchIndexersFn = createServerFn({ method: "POST" })
       categories,
       bookParams,
       true, // interactive — bypass daily caps for user-initiated searches
+      "book", // default contentType for backward compatibility
     );
 
     // If every indexer failed, throw so the client sees an error

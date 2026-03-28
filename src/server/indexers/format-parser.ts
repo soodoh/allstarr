@@ -3,6 +3,7 @@ import { downloadFormats, settings } from "src/db/schema";
 import type { IndexerRelease, ReleaseQuality } from "./types";
 import { sizeMode, computeEffectiveSizes } from "src/lib/format-size-calc";
 import type { EditionMeta } from "src/lib/format-size-calc";
+import detectReleaseType from "./release-type-parser";
 
 type CachedDef = {
   id: number;
@@ -286,8 +287,15 @@ export function enrichRelease(
     | "formatScoreDetails"
     | "cfScore"
     | "cfDetails"
+    | "releaseType"
+    | "packInfo"
   >,
+  contentType: "tv" | "book" | "manga" = "book",
 ): IndexerRelease {
+  const { releaseType, packInfo } = detectReleaseType(
+    release.title,
+    contentType,
+  );
   return {
     ...release,
     quality: matchFormat({
@@ -302,6 +310,8 @@ export function enrichRelease(
     formatScoreDetails: [],
     cfScore: 0,
     cfDetails: [],
+    releaseType,
+    packInfo,
   };
 }
 
