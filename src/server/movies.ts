@@ -422,96 +422,101 @@ export const checkMovieExistsFn = createServerFn({ method: "GET" })
     return movie !== undefined;
   });
 
+export async function refreshMovieInternal(
+  movieId: number,
+): Promise<{ success: boolean }> {
+  const movie = db
+    .select({ id: movies.id, tmdbId: movies.tmdbId })
+    .from(movies)
+    .where(eq(movies.id, movieId))
+    .get();
+
+  if (!movie) {
+    throw new Error("Movie not found");
+  }
+
+  const raw = await tmdbFetch<TmdbMovieDetail>(`/movie/${movie.tmdbId}`);
+
+  // Upsert collection if movie belongs to one
+  let collectionId: number | null = null;
+  if (raw.belongs_to_collection) {
+    const col = raw.belongs_to_collection;
+    const existing = db
+      .select({ id: movieCollections.id })
+      .from(movieCollections)
+      .where(eq(movieCollections.tmdbId, col.id))
+      .get();
+
+    if (existing) {
+      collectionId = existing.id;
+      db.update(movieCollections)
+        .set({
+          title: col.name,
+          sortTitle: generateSortTitle(col.name),
+          posterUrl: transformImagePath(col.poster_path, "w500"),
+          fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
+          updatedAt: new Date(),
+        })
+        .where(eq(movieCollections.id, existing.id))
+        .run();
+    } else {
+      const inserted = db
+        .insert(movieCollections)
+        .values({
+          title: col.name,
+          sortTitle: generateSortTitle(col.name),
+          tmdbId: col.id,
+          posterUrl: transformImagePath(col.poster_path, "w500"),
+          fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
+        })
+        .returning()
+        .get();
+      collectionId = inserted.id;
+    }
+
+    // Populate the collection movies cache from TMDB
+    await populateCollectionCache(collectionId, col.id);
+  }
+
+  const title = raw.title;
+  const sortTitle = generateSortTitle(title);
+  const status = mapMovieStatus(raw.status);
+  const studio = raw.production_companies[0]?.name ?? "";
+  const year = raw.release_date
+    ? Number.parseInt(raw.release_date.split("-")[0], 10)
+    : 0;
+  const runtime = raw.runtime ?? 0;
+  const genres = raw.genres.map((g) => g.name);
+  const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
+  const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
+  const imdbId = raw.imdb_id ?? null;
+
+  db.update(movies)
+    .set({
+      title,
+      sortTitle,
+      overview: raw.overview,
+      imdbId,
+      status,
+      studio,
+      year,
+      runtime,
+      genres,
+      posterUrl,
+      fanartUrl,
+      collectionId,
+    })
+    .where(eq(movies.id, movieId))
+    .run();
+
+  return { success: true };
+}
+
 export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => refreshMovieSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-
-    const movie = db
-      .select({ id: movies.id, tmdbId: movies.tmdbId })
-      .from(movies)
-      .where(eq(movies.id, data.movieId))
-      .get();
-
-    if (!movie) {
-      throw new Error("Movie not found");
-    }
-
-    const raw = await tmdbFetch<TmdbMovieDetail>(`/movie/${movie.tmdbId}`);
-
-    // Upsert collection if movie belongs to one
-    let collectionId: number | null = null;
-    if (raw.belongs_to_collection) {
-      const col = raw.belongs_to_collection;
-      const existing = db
-        .select({ id: movieCollections.id })
-        .from(movieCollections)
-        .where(eq(movieCollections.tmdbId, col.id))
-        .get();
-
-      if (existing) {
-        collectionId = existing.id;
-        db.update(movieCollections)
-          .set({
-            title: col.name,
-            sortTitle: generateSortTitle(col.name),
-            posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
-            updatedAt: new Date(),
-          })
-          .where(eq(movieCollections.id, existing.id))
-          .run();
-      } else {
-        const inserted = db
-          .insert(movieCollections)
-          .values({
-            title: col.name,
-            sortTitle: generateSortTitle(col.name),
-            tmdbId: col.id,
-            posterUrl: transformImagePath(col.poster_path, "w500"),
-            fanartUrl: transformImagePath(col.backdrop_path, "w1280"),
-          })
-          .returning()
-          .get();
-        collectionId = inserted.id;
-      }
-
-      // Populate the collection movies cache from TMDB
-      await populateCollectionCache(collectionId, col.id);
-    }
-
-    const title = raw.title;
-    const sortTitle = generateSortTitle(title);
-    const status = mapMovieStatus(raw.status);
-    const studio = raw.production_companies[0]?.name ?? "";
-    const year = raw.release_date
-      ? Number.parseInt(raw.release_date.split("-")[0], 10)
-      : 0;
-    const runtime = raw.runtime ?? 0;
-    const genres = raw.genres.map((g) => g.name);
-    const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
-    const imdbId = raw.imdb_id ?? null;
-
-    db.update(movies)
-      .set({
-        title,
-        sortTitle,
-        overview: raw.overview,
-        imdbId,
-        status,
-        studio,
-        year,
-        runtime,
-        genres,
-        posterUrl,
-        fanartUrl,
-        collectionId,
-      })
-      .where(eq(movies.id, data.movieId))
-      .run();
-
-    return { success: true };
+    return refreshMovieInternal(data.movieId);
   });
 
 export const monitorMovieProfileFn = createServerFn({ method: "POST" })

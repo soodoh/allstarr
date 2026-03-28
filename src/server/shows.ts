@@ -1049,136 +1049,144 @@ export const unmonitorShowProfileFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-export const refreshShowMetadataFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => refreshShowSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
+export async function refreshShowInternal(
+  showId: number,
+): Promise<{ success: boolean; newEpisodes: number }> {
+  const show = db
+    .select({ id: shows.id, tmdbId: shows.tmdbId })
+    .from(shows)
+    .where(eq(shows.id, showId))
+    .get();
 
-    const show = db
-      .select({ id: shows.id, tmdbId: shows.tmdbId })
-      .from(shows)
-      .where(eq(shows.id, data.showId))
+  if (!show) {
+    throw new Error("Show not found");
+  }
+
+  const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${show.tmdbId}`, {
+    append_to_response: "external_ids",
+  });
+
+  const title = raw.name;
+  const sortTitle = generateSortTitle(title);
+  const status = mapShowStatus(raw.status);
+  const network = raw.networks[0]?.name ?? "";
+  const year = raw.first_air_date
+    ? Number.parseInt(raw.first_air_date.split("-")[0], 10)
+    : 0;
+  const runtime = raw.episode_run_time[0] ?? 0;
+  const genres = raw.genres.map((g) => g.name);
+  const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
+  const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
+  const imdbId = raw.external_ids?.imdb_id ?? null;
+
+  db.update(shows)
+    .set({
+      title,
+      sortTitle,
+      overview: raw.overview,
+      imdbId,
+      status,
+      network,
+      year,
+      runtime,
+      genres,
+      posterUrl,
+      fanartUrl,
+    })
+    .where(eq(shows.id, showId))
+    .run();
+
+  let newEpisodes = 0;
+
+  for (const seasonSummary of raw.seasons) {
+    const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
+      `/tv/${show.tmdbId}/season/${seasonSummary.season_number}`,
+    );
+
+    const existingSeason = db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .where(
+        and(
+          eq(seasons.showId, show.id),
+          eq(seasons.seasonNumber, seasonSummary.season_number),
+        ),
+      )
       .get();
 
-    if (!show) {
-      throw new Error("Show not found");
+    let seasonId: number;
+
+    if (existingSeason) {
+      db.update(seasons)
+        .set({
+          overview: seasonSummary.overview || null,
+          posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+        })
+        .where(eq(seasons.id, existingSeason.id))
+        .run();
+      seasonId = existingSeason.id;
+    } else {
+      const newSeason = db
+        .insert(seasons)
+        .values({
+          showId: show.id,
+          seasonNumber: seasonSummary.season_number,
+          overview: seasonSummary.overview || null,
+          posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+        })
+        .returning()
+        .get();
+      seasonId = newSeason.id;
     }
 
-    const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${show.tmdbId}`, {
-      append_to_response: "external_ids",
-    });
-
-    const title = raw.name;
-    const sortTitle = generateSortTitle(title);
-    const status = mapShowStatus(raw.status);
-    const network = raw.networks[0]?.name ?? "";
-    const year = raw.first_air_date
-      ? Number.parseInt(raw.first_air_date.split("-")[0], 10)
-      : 0;
-    const runtime = raw.episode_run_time[0] ?? 0;
-    const genres = raw.genres.map((g) => g.name);
-    const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
-    const imdbId = raw.external_ids?.imdb_id ?? null;
-
-    db.update(shows)
-      .set({
-        title,
-        sortTitle,
-        overview: raw.overview,
-        imdbId,
-        status,
-        network,
-        year,
-        runtime,
-        genres,
-        posterUrl,
-        fanartUrl,
-      })
-      .where(eq(shows.id, data.showId))
-      .run();
-
-    for (const seasonSummary of raw.seasons) {
-      const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
-        `/tv/${show.tmdbId}/season/${seasonSummary.season_number}`,
-      );
-
-      const existingSeason = db
-        .select({ id: seasons.id })
-        .from(seasons)
+    for (const ep of seasonDetail.episodes) {
+      const existingEpisode = db
+        .select({ id: episodes.id })
+        .from(episodes)
         .where(
           and(
-            eq(seasons.showId, show.id),
-            eq(seasons.seasonNumber, seasonSummary.season_number),
+            eq(episodes.seasonId, seasonId),
+            eq(episodes.episodeNumber, ep.episode_number),
           ),
         )
         .get();
 
-      let seasonId: number;
-
-      if (existingSeason) {
-        db.update(seasons)
+      if (existingEpisode) {
+        db.update(episodes)
           .set({
-            overview: seasonSummary.overview || null,
-            posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+            title: ep.name,
+            overview: ep.overview || null,
+            airDate: ep.air_date,
+            runtime: ep.runtime,
+            tmdbId: ep.id,
           })
-          .where(eq(seasons.id, existingSeason.id))
+          .where(eq(episodes.id, existingEpisode.id))
           .run();
-        seasonId = existingSeason.id;
       } else {
-        const newSeason = db
-          .insert(seasons)
+        db.insert(episodes)
           .values({
             showId: show.id,
-            seasonNumber: seasonSummary.season_number,
-            overview: seasonSummary.overview || null,
-            posterUrl: transformImagePath(seasonSummary.poster_path, "w500"),
+            seasonId,
+            episodeNumber: ep.episode_number,
+            title: ep.name,
+            overview: ep.overview || null,
+            airDate: ep.air_date,
+            runtime: ep.runtime,
+            tmdbId: ep.id,
+            hasFile: false,
           })
-          .returning()
-          .get();
-        seasonId = newSeason.id;
-      }
-
-      for (const ep of seasonDetail.episodes) {
-        const existingEpisode = db
-          .select({ id: episodes.id })
-          .from(episodes)
-          .where(
-            and(
-              eq(episodes.seasonId, seasonId),
-              eq(episodes.episodeNumber, ep.episode_number),
-            ),
-          )
-          .get();
-
-        if (existingEpisode) {
-          db.update(episodes)
-            .set({
-              title: ep.name,
-              overview: ep.overview || null,
-              airDate: ep.air_date,
-              runtime: ep.runtime,
-              tmdbId: ep.id,
-            })
-            .where(eq(episodes.id, existingEpisode.id))
-            .run();
-        } else {
-          db.insert(episodes)
-            .values({
-              showId: show.id,
-              seasonId,
-              episodeNumber: ep.episode_number,
-              title: ep.name,
-              overview: ep.overview || null,
-              airDate: ep.air_date,
-              runtime: ep.runtime,
-              tmdbId: ep.id,
-              hasFile: false,
-            })
-            .run();
-        }
+          .run();
+        newEpisodes += 1;
       }
     }
+  }
 
-    return { success: true };
+  return { success: true, newEpisodes };
+}
+
+export const refreshShowMetadataFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => refreshShowSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return refreshShowInternal(data.showId);
   });
