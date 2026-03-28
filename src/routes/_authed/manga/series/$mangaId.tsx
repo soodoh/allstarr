@@ -9,6 +9,8 @@ import MangaDetailHeader from "src/components/manga/manga-detail-header";
 import VolumeAccordion from "src/components/manga/volume-accordion";
 import NotFound from "src/components/NotFound";
 import { mangaDetailQuery, downloadProfilesListQuery } from "src/lib/queries";
+import { splitUngroupedVolumes } from "src/lib/manga-display-utils";
+import type { DisplayVolume } from "src/lib/manga-display-utils";
 
 export const Route = createFileRoute("/_authed/manga/series/$mangaId")({
   loader: async ({ params, context }) => {
@@ -50,16 +52,10 @@ function MangaDetailPage(): JSX.Element {
     return <NotFound />;
   }
 
-  // Sort volumes: ungrouped (volumeNumber === null) at end, otherwise descending
-  const sortedVolumes = [...mangaData.volumes].toSorted((a, b) => {
-    if (a.volumeNumber === null) {
-      return 1;
-    }
-    if (b.volumeNumber === null) {
-      return -1;
-    }
-    return b.volumeNumber - a.volumeNumber;
-  });
+  // Split ungrouped chapters into positional groups interleaved with known volumes
+  const displayGroups = splitUngroupedVolumes(
+    mangaData.volumes as DisplayVolume[],
+  );
 
   // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Pre-filtered once before map
   const mangaDownloadProfiles = downloadProfiles.filter(
@@ -78,11 +74,20 @@ function MangaDetailPage(): JSX.Element {
       <Card>
         <CardContent className="p-0">
           <Accordion type="multiple" className="w-full">
-            {sortedVolumes.map((volume) => (
+            {displayGroups.map((group) => (
               <VolumeAccordion
-                key={volume.id}
-                volume={volume}
+                key={group.key}
+                volume={
+                  group.volume ?? {
+                    id: -1,
+                    volumeNumber: null,
+                    title: null,
+                    chapters: group.chapters,
+                  }
+                }
                 downloadProfiles={mangaDownloadProfiles}
+                displayTitle={group.displayTitle}
+                accordionValue={group.key}
               />
             ))}
           </Accordion>
