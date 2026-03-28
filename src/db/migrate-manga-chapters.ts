@@ -14,6 +14,7 @@ type ChapterRow = typeof mangaChapters.$inferSelect;
  * - Expand chapter ranges into individual chapters
  * - Merge duplicates, preserving file associations
  */
+// oxlint-disable-next-line complexity -- Run-once migration script, complexity is acceptable
 function migrateMangaChapters(): void {
   const allManga = db
     .select({ id: manga.id, title: manga.title })

@@ -12,7 +12,7 @@ import {
   downloadProfiles,
   history,
 } from "src/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "./middleware";
 import { addMangaSchema, refreshMangaSchema } from "src/lib/validators";
 import {
@@ -35,6 +35,7 @@ type DeduplicatedChapter = {
   volume: string | null;
   releaseDate: string | null;
   scanlationGroup: string | null;
+  fromExpansion: boolean;
 };
 
 /**
@@ -72,46 +73,71 @@ function deduplicateReleases(
       // Range: create an entry for each individual chapter
       for (const num of expanded) {
         const key = String(num);
-        mergeChapter(byChapter, key, volume, releaseDate, groupName);
+        mergeChapter(byChapter, key, volume, releaseDate, groupName, true);
       }
     } else if (normalized.includes("+")) {
       // Compound entry (e.g., "775v2 + 790-792") — skip entirely
       continue;
     } else {
       // Single chapter (numeric or special like "Chopper Man")
-      mergeChapter(byChapter, normalized, volume, releaseDate, groupName);
+      mergeChapter(
+        byChapter,
+        normalized,
+        volume,
+        releaseDate,
+        groupName,
+        false,
+      );
     }
   }
 
   return [...byChapter.values()];
 }
 
-/** Merge a chapter into the dedup map, keeping earliest date and filling volume. */
+/**
+ * Merge a chapter into the dedup map.
+ * Prefers individual entries over range-expanded ones, inherits volume
+ * from expanded entries when the individual entry has no volume.
+ */
 function mergeChapter(
   byChapter: Map<string, DeduplicatedChapter>,
   chapterNumber: string,
   volume: string | null,
   releaseDate: string | null,
   scanlationGroup: string | null,
+  fromExpansion: boolean,
 ): void {
   const existing = byChapter.get(chapterNumber);
-  if (existing) {
-    if (
-      releaseDate &&
-      (!existing.releaseDate || releaseDate < existing.releaseDate)
-    ) {
-      existing.releaseDate = releaseDate;
-    }
-    if (!existing.volume && volume) {
-      existing.volume = volume;
-    }
-  } else {
+  if (!existing) {
     byChapter.set(chapterNumber, {
       chapterNumber,
       volume,
       releaseDate,
       scanlationGroup,
+      fromExpansion,
     });
+    return;
+  }
+
+  // Always inherit volume: if either side has it, keep it
+  const mergedVolume = existing.volume || volume;
+  const mergedDate =
+    releaseDate && (!existing.releaseDate || releaseDate < existing.releaseDate)
+      ? releaseDate
+      : existing.releaseDate;
+
+  // Prefer individual entries over range-expanded ones
+  if (existing.fromExpansion && !fromExpansion) {
+    byChapter.set(chapterNumber, {
+      chapterNumber,
+      volume: mergedVolume,
+      releaseDate: mergedDate,
+      scanlationGroup,
+      fromExpansion: false,
+    });
+  } else {
+    existing.releaseDate = mergedDate;
+    existing.volume = mergedVolume;
   }
 }
 
@@ -370,7 +396,9 @@ function extractMangaUpdatesSlug(url: string | undefined): string | null {
 
 /**
  * Find new chapters not already in the DB and insert them into
- * existing or new volumes. Returns the count of chapters added.
+ * existing or new volumes. Also updates volume assignments for
+ * existing ungrouped chapters when release data provides volume info.
+ * Returns the count of chapters added.
  */
 function insertNewChapters(
   mangaId: number,
@@ -379,15 +407,88 @@ function insertNewChapters(
 ): number {
   const chapters = deduplicateReleases(releases);
 
-  const existingChapterNumbers = new Set(
-    db
-      .select({ chapterNumber: mangaChapters.chapterNumber })
-      .from(mangaChapters)
-      .where(eq(mangaChapters.mangaId, mangaId))
-      .all()
-      .map((c) => normalizeChapterNumber(c.chapterNumber)),
-  );
+  // Build map of existing chapters for dedup and volume updates
+  const existingRows = db
+    .select({
+      id: mangaChapters.id,
+      chapterNumber: mangaChapters.chapterNumber,
+      mangaVolumeId: mangaChapters.mangaVolumeId,
+    })
+    .from(mangaChapters)
+    .where(eq(mangaChapters.mangaId, mangaId))
+    .all();
 
+  const existingByNumber = new Map<
+    string,
+    { id: number; mangaVolumeId: number }
+  >();
+  for (const row of existingRows) {
+    existingByNumber.set(normalizeChapterNumber(row.chapterNumber), {
+      id: row.id,
+      mangaVolumeId: row.mangaVolumeId,
+    });
+  }
+
+  // Find the ungrouped volume for this manga
+  const ungroupedVolume = db
+    .select({ id: mangaVolumes.id })
+    .from(mangaVolumes)
+    .where(
+      and(
+        eq(mangaVolumes.mangaId, mangaId),
+        sql`${mangaVolumes.volumeNumber} IS NULL`,
+      ),
+    )
+    .get();
+  const ungroupedVolumeId = ungroupedVolume?.id ?? -1;
+
+  // Update volume assignments for existing ungrouped chapters
+  for (const ch of chapters) {
+    if (!ch.volume) {
+      continue;
+    }
+    const existing = existingByNumber.get(ch.chapterNumber);
+    if (!existing || existing.mangaVolumeId !== ungroupedVolumeId) {
+      continue;
+    }
+
+    const volumeNum = Number.parseInt(ch.volume, 10);
+    if (Number.isNaN(volumeNum)) {
+      continue;
+    }
+
+    // Find or create the target volume
+    let targetVolume = db
+      .select({ id: mangaVolumes.id })
+      .from(mangaVolumes)
+      .where(
+        and(
+          eq(mangaVolumes.mangaId, mangaId),
+          eq(mangaVolumes.volumeNumber, volumeNum),
+        ),
+      )
+      .get();
+
+    if (!targetVolume) {
+      targetVolume = db
+        .insert(mangaVolumes)
+        .values({
+          mangaId,
+          volumeNumber: volumeNum,
+          title: volumeTitle(volumeNum),
+          monitored: true,
+        })
+        .returning({ id: mangaVolumes.id })
+        .get();
+    }
+
+    db.update(mangaChapters)
+      .set({ mangaVolumeId: targetVolume.id })
+      .where(eq(mangaChapters.id, existing.id))
+      .run();
+  }
+
+  const existingChapterNumbers = new Set(existingByNumber.keys());
   const newChapters = chapters.filter(
     (c) => !existingChapterNumbers.has(c.chapterNumber),
   );
