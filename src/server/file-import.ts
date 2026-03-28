@@ -11,6 +11,11 @@ import {
   bookFiles,
   downloadProfiles,
   history,
+  manga,
+  mangaChapters,
+  mangaVolumes,
+  mangaFiles,
+  mangaDownloadProfiles,
 } from "src/db/schema";
 import { eq, and } from "drizzle-orm";
 import { matchFormat } from "./indexers/format-parser";
@@ -25,6 +30,7 @@ type ImportResult = {
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
+const MANGA_EXTENSIONS = new Set([".cbz", ".cbr", ".pdf", ".epub"]);
 
 type MediaType = "ebook" | "audio";
 
@@ -444,6 +450,280 @@ function markFailed(id: number, message: string): void {
   console.warn(`[file-import] Failed: ${message}`);
 }
 
+function resolveMangaRootFolder(mangaId: number): string | null {
+  // Look up the first download profile linked to this manga
+  const link = db
+    .select({ downloadProfileId: mangaDownloadProfiles.downloadProfileId })
+    .from(mangaDownloadProfiles)
+    .where(eq(mangaDownloadProfiles.mangaId, mangaId))
+    .get();
+  if (link) {
+    const profile = db
+      .select()
+      .from(downloadProfiles)
+      .where(eq(downloadProfiles.id, link.downloadProfileId))
+      .get();
+    if (profile?.rootFolderPath) {
+      return profile.rootFolderPath;
+    }
+  }
+  // Fallback: any manga-type profile
+  const fallback = db
+    .select()
+    .from(downloadProfiles)
+    .where(eq(downloadProfiles.contentType, "manga"))
+    .get();
+  return fallback?.rootFolderPath ?? null;
+}
+
+// oxlint-disable-next-line complexity -- Manga import pipeline with validation, file tracking, and history
+async function importMangaDownload(
+  td: typeof trackedDownloads.$inferSelect,
+): Promise<void> {
+  if (!td.outputPath) {
+    markFailed(td.id, "Download output path not set");
+    return;
+  }
+
+  const sourceDir = resolveSourceDir(td.outputPath);
+  if (!sourceDir) {
+    markFailed(td.id, "Download output path not found");
+    return;
+  }
+
+  const mangaFiles_ = scanForBookFiles(sourceDir, MANGA_EXTENSIONS);
+  if (mangaFiles_.length === 0) {
+    markFailed(td.id, "No manga files found in download");
+    return;
+  }
+
+  if (!td.mangaId || !td.mangaChapterId) {
+    markFailed(td.id, "Missing manga or chapter ID on tracked download");
+    return;
+  }
+
+  const mangaRow = db
+    .select()
+    .from(manga)
+    .where(eq(manga.id, td.mangaId))
+    .get();
+  if (!mangaRow) {
+    markFailed(td.id, `Manga ${td.mangaId} not found`);
+    return;
+  }
+
+  const chapter = db
+    .select()
+    .from(mangaChapters)
+    .where(eq(mangaChapters.id, td.mangaChapterId))
+    .get();
+  if (!chapter) {
+    markFailed(td.id, `Chapter ${td.mangaChapterId} not found`);
+    return;
+  }
+
+  const volume = db
+    .select()
+    .from(mangaVolumes)
+    .where(eq(mangaVolumes.id, chapter.mangaVolumeId))
+    .get();
+
+  const rootFolderPath = resolveMangaRootFolder(td.mangaId);
+  if (!rootFolderPath) {
+    markFailed(td.id, "No root folder configured for manga download profiles");
+    return;
+  }
+
+  const cfg = readImportSettings("ebook"); // reuse book import settings
+
+  if (!cfg.skipFreeSpaceCheck) {
+    const spaceError = checkFreeSpace(rootFolderPath, cfg.minimumFreeSpace);
+    if (spaceError) {
+      markFailed(td.id, spaceError);
+      return;
+    }
+  }
+
+  // Record existing files for this chapter before import
+  const existingFiles = db
+    .select({ id: mangaFiles.id, path: mangaFiles.path })
+    .from(mangaFiles)
+    .where(eq(mangaFiles.chapterId, td.mangaChapterId))
+    .all();
+
+  // Build naming variables
+  const namingVars: Record<string, string> = {
+    "Manga Title": mangaRow.title,
+    Volume:
+      volume?.volumeNumber === null || volume?.volumeNumber === undefined
+        ? ""
+        : String(volume.volumeNumber),
+    Chapter: chapter.chapterNumber,
+    "Chapter Title": chapter.title ?? "",
+    "Scanlation Group": chapter.scanlationGroup ?? "",
+    Year: mangaRow.year ?? "",
+  };
+
+  // Build destination directory: root / mangaFolder / volumeFolder
+  const mangaFolderName = sanitizePath(
+    applyNamingTemplate(
+      getMediaSetting("naming.manga.mangaFolder", "{Manga Title} ({Year})"),
+      namingVars,
+    ),
+  );
+
+  const volumeFolderName =
+    volume?.volumeNumber === null || volume?.volumeNumber === undefined
+      ? ""
+      : sanitizePath(
+          applyNamingTemplate(
+            getMediaSetting("naming.manga.volumeFolder", "Volume {Volume:00}"),
+            namingVars,
+          ),
+        );
+
+  const destDir = volumeFolderName
+    ? path.join(rootFolderPath, mangaFolderName, volumeFolderName)
+    : path.join(rootFolderPath, mangaFolderName);
+
+  fs.mkdirSync(destDir, { recursive: true });
+  if (cfg.applyPermissions && cfg.folderChmod) {
+    fs.chmodSync(destDir, Number.parseInt(cfg.folderChmod, 8));
+  }
+
+  // Determine chapter file naming
+  const chapterTemplate = getMediaSetting(
+    "naming.manga.chapterFile",
+    "{Manga Title} - Chapter {Chapter:000}",
+  );
+
+  let importedCount = 0;
+  for (const filePath of mangaFiles_) {
+    const ext = path.extname(filePath).toLowerCase();
+    const format = ext.replace(".", ""); // cbz, cbr, pdf, epub
+    const fileSize = fs.statSync(filePath).size;
+
+    // Build destination filename
+    const newName =
+      sanitizePath(applyNamingTemplate(chapterTemplate, namingVars)) + ext;
+    const destPath = path.join(destDir, newName);
+
+    try {
+      if (cfg.useHardLinks) {
+        try {
+          fs.linkSync(filePath, destPath);
+        } catch {
+          fs.copyFileSync(filePath, destPath);
+        }
+      } else {
+        fs.copyFileSync(filePath, destPath);
+      }
+      if (cfg.applyPermissions && cfg.fileChmod) {
+        fs.chmodSync(destPath, Number.parseInt(cfg.fileChmod, 8));
+      }
+
+      const quality = matchFormat({
+        title: path.basename(filePath),
+        size: fileSize,
+        indexerFlags: 0,
+      });
+
+      db.insert(mangaFiles)
+        .values({
+          chapterId: td.mangaChapterId!,
+          path: destPath,
+          size: fs.statSync(destPath).size,
+          format,
+          quality: JSON.stringify({
+            quality: { id: quality.id, name: quality.name },
+            revision: { version: 1, real: 0 },
+          }),
+          dateAdded: new Date(),
+        })
+        .run();
+
+      importedCount += 1;
+      // Only import the first manga file per chapter
+      break;
+    } catch (error) {
+      console.error(
+        `[file-import] Failed to import manga file ${path.basename(filePath)}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  if (importedCount === 0) {
+    markFailed(td.id, "All manga file imports failed");
+    return;
+  }
+
+  // Mark chapter as having a file
+  db.update(mangaChapters)
+    .set({ hasFile: true })
+    .where(eq(mangaChapters.id, td.mangaChapterId))
+    .run();
+
+  // Clean up old files on upgrade
+  if (existingFiles.length > 0) {
+    for (const oldFile of existingFiles) {
+      const recyclingBin = getMediaSetting(
+        "mediaManagement.book.recyclingBin",
+        "",
+      );
+      try {
+        if (recyclingBin) {
+          fs.mkdirSync(recyclingBin, { recursive: true });
+          const recycleDest = path.join(
+            recyclingBin,
+            path.basename(oldFile.path),
+          );
+          fs.renameSync(oldFile.path, recycleDest);
+        } else {
+          fs.unlinkSync(oldFile.path);
+        }
+      } catch {
+        // File may already be gone
+      }
+      db.delete(mangaFiles).where(eq(mangaFiles.id, oldFile.id)).run();
+    }
+    console.log(
+      `[file-import] Cleaned up ${existingFiles.length} old manga file(s) for "${mangaRow.title}" ch.${chapter.chapterNumber}`,
+    );
+  }
+
+  db.insert(history)
+    .values({
+      eventType: "mangaChapterImported",
+      mangaId: td.mangaId,
+      mangaChapterId: td.mangaChapterId,
+      data: {
+        title: mangaRow.title,
+        chapter: chapter.chapterNumber,
+        releaseTitle: td.releaseTitle,
+        filesImported: importedCount,
+        destinationPath: destDir,
+      },
+    })
+    .run();
+
+  db.update(trackedDownloads)
+    .set({ state: "imported", updatedAt: new Date() })
+    .where(eq(trackedDownloads.id, td.id))
+    .run();
+
+  const chapterLabel = `Ch. ${chapter.chapterNumber}`;
+  eventBus.emit({
+    type: "mangaImportCompleted",
+    mangaId: td.mangaId,
+    mangaTitle: mangaRow.title,
+    chapter: chapterLabel,
+  });
+
+  console.log(
+    `[file-import] Imported manga "${mangaRow.title}" ${chapterLabel} to ${destDir}`,
+  );
+}
+
 // oxlint-disable-next-line complexity -- Import pipeline with many validation and cleanup steps
 export async function importCompletedDownload(
   trackedDownloadId: number,
@@ -462,6 +742,12 @@ export async function importCompletedDownload(
     .set({ state: "importPending", updatedAt: new Date() })
     .where(eq(trackedDownloads.id, td.id))
     .run();
+
+  // Route manga downloads to dedicated import handler
+  if (td.mangaId && td.mangaChapterId) {
+    await importMangaDownload(td);
+    return;
+  }
 
   if (!td.outputPath) {
     markFailed(td.id, "Download output path not set");

@@ -14,6 +14,12 @@ export type ServerEvent =
       message: string;
     }
   | { type: "importCompleted"; bookId: number | null; bookTitle: string }
+  | {
+      type: "mangaImportCompleted";
+      mangaId: number | null;
+      mangaTitle: string;
+      chapter: string;
+    }
   | { type: "commandProgress"; commandId: number; progress: string }
   | {
       type: "commandCompleted";
