@@ -22,7 +22,6 @@ import {
 import type { MangaUpdatesRelease } from "./manga-updates";
 import { submitCommand } from "./commands";
 import type { CommandHandler } from "./commands";
-import { cacheImage } from "./image-cache";
 import {
   normalizeChapterNumber,
   expandChapterRange,
@@ -361,14 +360,20 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
   // Fire-and-forget image caching (outside transaction)
   const mangaPosterUrl = data.posterUrl || detail.image?.url?.original || "";
   if (mangaPosterUrl) {
-    cacheImage(mangaPosterUrl, "manga", result.mangaId).then((cachedPath) => {
+    (async () => {
+      const { cacheImage } = await import("./image-cache");
+      const cachedPath = await cacheImage(
+        mangaPosterUrl,
+        "manga",
+        result.mangaId,
+      );
       if (cachedPath) {
         db.update(manga)
           .set({ cachedPosterPath: cachedPath })
           .where(eq(manga.id, result.mangaId))
           .run();
       }
-    });
+    })();
   }
 
   return result as unknown as Record<string, unknown>;
@@ -600,14 +605,16 @@ export async function refreshMangaInternal(
   // Fire-and-forget image caching on refresh
   const refreshPosterUrl = detail.image?.url?.original || mangaRow.posterUrl;
   if (refreshPosterUrl) {
-    cacheImage(refreshPosterUrl, "manga", mangaId).then((cachedPath) => {
+    (async () => {
+      const { cacheImage } = await import("./image-cache");
+      const cachedPath = await cacheImage(refreshPosterUrl, "manga", mangaId);
       if (cachedPath) {
         db.update(manga)
           .set({ cachedPosterPath: cachedPath })
           .where(eq(manga.id, mangaId))
           .run();
       }
-    });
+    })();
   }
 
   // Insert any new chapters
