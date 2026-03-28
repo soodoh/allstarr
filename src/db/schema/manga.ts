@@ -66,4 +66,5 @@ export const mangaChapters = sqliteTable("manga_chapters", {
   scanlationGroup: text("scanlation_group"),
   hasFile: integer("has_file", { mode: "boolean" }).default(false),
   monitored: integer("monitored", { mode: "boolean" }).default(true),
+  lastSearchedAt: integer("last_searched_at"),
 });
