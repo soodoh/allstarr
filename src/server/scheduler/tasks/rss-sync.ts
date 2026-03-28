@@ -14,7 +14,8 @@ function plural(count: number, singular: string): string {
 registerTask({
   id: "rss-sync",
   name: "RSS Sync",
-  description: "Sync RSS feeds from indexers and search for wanted books.",
+  description:
+    "Poll indexer RSS feeds for newly posted releases and grab matches for wanted items.",
   defaultInterval: 15 * 60, // 15 minutes
   group: "search",
   handler: async (_updateProgress): Promise<TaskResult> => {
@@ -43,21 +44,45 @@ registerTask({
     const result = await runAutoSearch({ delayBetweenBooks: 2000 });
 
     if (result.searched === 0) {
-      return { success: true, message: "No wanted books to search" };
+      return { success: true, message: "No wanted items to search" };
     }
 
-    const parts: string[] = [`${plural(result.searched, "book")} searched`];
+    // Build content-type-agnostic summary
+    const typeParts: string[] = [];
+    const bookCount = result.details.filter((d) => d.searched).length;
+    const movieCount = (result.movieDetails ?? []).filter(
+      (d) => d.searched,
+    ).length;
+    const episodeCount = (result.episodeDetails ?? []).filter(
+      (d) => d.searched,
+    ).length;
 
+    if (bookCount > 0) {
+      typeParts.push(plural(bookCount, "book"));
+    }
+    if (movieCount > 0) {
+      typeParts.push(plural(movieCount, "movie"));
+    }
+    if (episodeCount > 0) {
+      typeParts.push(plural(episodeCount, "episode"));
+    }
+
+    const searched =
+      typeParts.length > 0
+        ? `Searched ${typeParts.join(", ")}`
+        : `Searched ${result.searched} items`;
+
+    const extras: string[] = [];
     if (result.grabbed > 0) {
-      parts.push(`${plural(result.grabbed, "release")} grabbed`);
+      extras.push(`${plural(result.grabbed, "release")} grabbed`);
     }
     if (result.errors > 0) {
-      parts.push(`${plural(result.errors, "error")}`);
+      extras.push(plural(result.errors, "error"));
     }
 
-    return {
-      success: result.errors === 0,
-      message: parts.join(", "),
-    };
+    const message =
+      extras.length > 0 ? `${searched} — ${extras.join(", ")}` : searched;
+
+    return { success: result.errors === 0, message };
   },
 });
