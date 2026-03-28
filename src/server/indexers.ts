@@ -43,6 +43,7 @@ import {
 import type { EditionMeta } from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import * as fuzz from "fuzzball";
+import { ReleaseType } from "./indexers/types";
 import type {
   IndexerRelease,
   ReleaseRejection,
@@ -544,6 +545,32 @@ export const getIndexerStatusesFn = createServerFn({ method: "GET" }).handler(
 
 // ─── Post-processing ─────────────────────────────────────────────────────────
 
+export function getReleaseTypeRank(releaseType: ReleaseType): number {
+  switch (releaseType) {
+    case ReleaseType.MultiSeasonPack:
+    case ReleaseType.MultiVolume: {
+      return 4;
+    }
+    case ReleaseType.SeasonPack:
+    case ReleaseType.SingleVolume: {
+      return 3;
+    }
+    case ReleaseType.MultiEpisode:
+    case ReleaseType.MultiChapter:
+    case ReleaseType.AuthorPack: {
+      return 2;
+    }
+    case ReleaseType.SingleEpisode:
+    case ReleaseType.SingleChapter:
+    case ReleaseType.SingleBook: {
+      return 1;
+    }
+    default: {
+      return 0;
+    }
+  }
+}
+
 /** Deduplicate releases, apply profile scoring/rejections, and sort */
 export function dedupeAndScoreReleases(
   allReleases: IndexerRelease[],
@@ -653,7 +680,7 @@ export function dedupeAndScoreReleases(
     }
   }
 
-  // Sort by quality weight descending, then CF score descending, then by size descending
+  // Sort by quality weight descending, then CF score descending, then release type rank descending, then by size descending
   relevant.sort((a, b) => {
     const qualityDiff = b.quality.weight - a.quality.weight;
     if (qualityDiff !== 0) {
@@ -662,6 +689,11 @@ export function dedupeAndScoreReleases(
     const cfDiff = b.cfScore - a.cfScore;
     if (cfDiff !== 0) {
       return cfDiff;
+    }
+    const typeDiff =
+      getReleaseTypeRank(b.releaseType) - getReleaseTypeRank(a.releaseType);
+    if (typeDiff !== 0) {
+      return typeDiff;
     }
     return b.size - a.size;
   });
