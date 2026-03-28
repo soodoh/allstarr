@@ -571,6 +571,145 @@ export function getReleaseTypeRank(releaseType: ReleaseType): number {
   }
 }
 
+export type PackContext = {
+  /** Season number → set of wanted episode numbers in that season */
+  wantedEpisodesBySeason?: Map<number, Set<number>>;
+  /** Set of wanted book IDs */
+  wantedBookIds?: Set<number>;
+  /** Volume number → set of wanted chapter numbers in that volume */
+  wantedChaptersByVolume?: Map<number, Set<number>>;
+  /** Total number of wanted items (used for "Complete Series" packs with no specific seasons) */
+  totalWantedSeasons?: number;
+};
+
+function isMultiSeasonPackQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedEpisodesBySeason) {
+    return false;
+  }
+  if (!info.seasons || info.seasons.length === 0) {
+    return (ctx.totalWantedSeasons ?? 0) > 0;
+  }
+  return info.seasons.every(
+    (s) => (ctx.wantedEpisodesBySeason!.get(s)?.size ?? 0) > 0,
+  );
+}
+
+function isSeasonPackQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedEpisodesBySeason || !info.seasons?.[0]) {
+    return false;
+  }
+  const wanted = ctx.wantedEpisodesBySeason.get(info.seasons[0]);
+  return (wanted?.size ?? 0) >= 2;
+}
+
+function isMultiEpisodeQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedEpisodesBySeason || !info.episodes || !info.seasons?.[0]) {
+    return false;
+  }
+  const wanted = ctx.wantedEpisodesBySeason.get(info.seasons[0]);
+  if (!wanted) {
+    return false;
+  }
+  return info.episodes.every((ep) => wanted.has(ep));
+}
+
+function isMultiVolumeQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedChaptersByVolume || !info.volumes) {
+    return false;
+  }
+  return info.volumes.every(
+    (v) => (ctx.wantedChaptersByVolume!.get(v)?.size ?? 0) > 0,
+  );
+}
+
+function isSingleVolumeQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedChaptersByVolume || !info.volumes?.[0]) {
+    return false;
+  }
+  const wanted = ctx.wantedChaptersByVolume.get(info.volumes[0]);
+  return (wanted?.size ?? 0) >= 2;
+}
+
+function isMultiChapterQualified(
+  info: NonNullable<IndexerRelease["packInfo"]>,
+  ctx: PackContext,
+): boolean {
+  if (!ctx.wantedChaptersByVolume || !info.chapters) {
+    return false;
+  }
+  const allWanted = new Set<number>();
+  for (const chSet of ctx.wantedChaptersByVolume.values()) {
+    for (const ch of chSet) {
+      allWanted.add(ch);
+    }
+  }
+  return info.chapters.every((ch) => allWanted.has(ch));
+}
+
+export function isPackQualified(
+  release: IndexerRelease,
+  packContext: PackContext | null,
+): boolean {
+  // Non-pack releases are always qualified
+  if (getReleaseTypeRank(release.releaseType) <= 1) {
+    return true;
+  }
+
+  // No context — cannot disqualify packs without context
+  if (!packContext) {
+    return true;
+  }
+
+  const info = release.packInfo;
+  if (!info) {
+    return true;
+  }
+
+  switch (release.releaseType) {
+    case ReleaseType.MultiSeasonPack: {
+      return isMultiSeasonPackQualified(info, packContext);
+    }
+    case ReleaseType.SeasonPack: {
+      return isSeasonPackQualified(info, packContext);
+    }
+    case ReleaseType.MultiEpisode: {
+      return isMultiEpisodeQualified(info, packContext);
+    }
+    case ReleaseType.AuthorPack: {
+      return packContext.wantedBookIds
+        ? packContext.wantedBookIds.size > 0
+        : false;
+    }
+    case ReleaseType.MultiVolume: {
+      return isMultiVolumeQualified(info, packContext);
+    }
+    case ReleaseType.SingleVolume: {
+      return isSingleVolumeQualified(info, packContext);
+    }
+    case ReleaseType.MultiChapter: {
+      return isMultiChapterQualified(info, packContext);
+    }
+    default: {
+      return true;
+    }
+  }
+}
+
 /** Deduplicate releases, apply profile scoring/rejections, and sort */
 export function dedupeAndScoreReleases(
   allReleases: IndexerRelease[],
