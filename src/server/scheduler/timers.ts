@@ -28,3 +28,11 @@ export function rescheduleTask(taskId: string, intervalMs: number): void {
   const intervalId = setInterval(() => executor(taskId), intervalMs);
   timers.set(taskId, intervalId);
 }
+
+export function clearTaskTimer(taskId: string): void {
+  const existing = timers.get(taskId);
+  if (existing) {
+    clearInterval(existing);
+    timers.delete(taskId);
+  }
+}

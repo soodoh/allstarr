@@ -1,8 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { requireAuth } from "./middleware";
 import { runTaskNow, isTaskRunning } from "./scheduler";
+import { rescheduleTask, clearTaskTimer } from "./scheduler/timers";
+import { eventBus } from "./event-bus";
 
 export type ScheduledTask = {
   id: string;
@@ -15,6 +19,8 @@ export type ScheduledTask = {
   nextExecution: string | null;
   enabled: boolean;
   isRunning: boolean;
+  progress: string | null;
+  group: string;
 };
 
 export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
@@ -43,6 +49,8 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
         nextExecution: nextExec,
         enabled: task.enabled,
         isRunning: isTaskRunning(task.id),
+        progress: task.progress ?? null,
+        group: task.group,
       };
     });
   },
@@ -53,5 +61,33 @@ export const runScheduledTaskFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
     await runTaskNow(data.taskId);
+    return { success: true };
+  });
+
+export const toggleTaskEnabledFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ taskId: z.string(), enabled: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requireAuth();
+    db.update(scheduledTasks)
+      .set({ enabled: data.enabled })
+      .where(eq(scheduledTasks.id, data.taskId))
+      .run();
+
+    if (data.enabled) {
+      const task = db
+        .select()
+        .from(scheduledTasks)
+        .where(eq(scheduledTasks.id, data.taskId))
+        .get();
+      if (task) {
+        rescheduleTask(data.taskId, task.interval * 1000);
+      }
+    } else {
+      clearTaskTimer(data.taskId);
+    }
+
+    eventBus.emit({ type: "taskUpdated", taskId: data.taskId });
     return { success: true };
   });
