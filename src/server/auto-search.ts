@@ -2058,106 +2058,17 @@ async function searchAndGrabForSeason(
 ): Promise<PackSearchResult> {
   const showName = cleanSearchTerm(show.title);
   const query = `"${showName}" S${padNumber(seasonNumber)}`;
-
-  // Derive categories from all episode profiles
   const allProfiles = wantedEpisodes.flatMap((ep) => ep.profiles);
   const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases: IndexerRelease[] = [];
-
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${synced.name}" skipped for season search: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
-
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || synced.name,
-              allstarrIndexerId: synced.id,
-              indexerSource: "synced" as const,
-            },
-            "tv",
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Indexer "${synced.name}" failed for season search:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
-  for (const ix of ixs.manual) {
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${ix.name}" skipped for season search: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
-
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || ix.name,
-              allstarrIndexerId: ix.id,
-              indexerSource: "manual" as const,
-            },
-            "tv",
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Manual indexer failed for season search:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
+  const allReleases = await searchIndexers(
+    ixs,
+    query,
+    categories,
+    undefined,
+    "tv",
+    "[auto-search:season]",
+  );
   if (allReleases.length === 0) {
     return { searched: true, grabbed: false };
   }
@@ -2175,108 +2086,19 @@ async function searchAndGrabForShow(
 ): Promise<PackSearchResult> {
   const showName = cleanSearchTerm(show.title);
   const query = `"${showName}"`;
-
-  // Derive categories from all episode profiles across all seasons
   const allProfiles = [...seasonMap.values()]
     .flat()
     .flatMap((ep) => ep.profiles);
   const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases: IndexerRelease[] = [];
-
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${synced.name}" skipped for show search: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
-
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || synced.name,
-              allstarrIndexerId: synced.id,
-              indexerSource: "synced" as const,
-            },
-            "tv",
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Indexer "${synced.name}" failed for show search:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
-  for (const ix of ixs.manual) {
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${ix.name}" skipped for show search: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
-
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || ix.name,
-              allstarrIndexerId: ix.id,
-              indexerSource: "manual" as const,
-            },
-            "tv",
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Manual indexer failed for show search:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
+  const allReleases = await searchIndexers(
+    ixs,
+    query,
+    categories,
+    undefined,
+    "tv",
+    "[auto-search:show]",
+  );
   if (allReleases.length === 0) {
     return { searched: true, grabbed: false };
   }
