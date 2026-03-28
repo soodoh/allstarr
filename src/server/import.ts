@@ -29,6 +29,8 @@ import type { MetadataProfile } from "./metadata-profile";
 import getProfileLanguages from "./profile-languages";
 import { pickBestEditionForProfile } from "src/lib/editions";
 import { searchForAuthorBooks, searchForBook } from "./auto-search";
+import { submitCommand } from "./commands";
+import type { CommandHandler } from "./commands";
 
 // ---------- Metadata profile filtering ----------
 
@@ -839,259 +841,116 @@ async function importAuthorInternal(data: {
 
 // ---------- Import Author ----------
 
+const importAuthorHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as z.infer<typeof importAuthorSchema>;
+  updateProgress("Importing author from Hardcover...");
+  const result = await importAuthorInternal(data);
+
+  if (data.searchOnAdd) {
+    updateProgress("Searching for available releases...");
+    // oxlint-disable-next-line prefer-await-to-then
+    void searchForAuthorBooks(result.authorId).catch((error) =>
+      // oxlint-disable-next-line no-console
+      console.error("Search after import failed:", error),
+    );
+  }
+
+  return result;
+};
+
 export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => importAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const result = await importAuthorInternal(data);
-
-    if (data.searchOnAdd) {
-      // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
-      void searchForAuthorBooks(result.authorId).catch((error) =>
-        // oxlint-disable-next-line no-console
-        console.error("Search after import failed:", error),
-      );
-    }
-
-    return result;
+    return submitCommand({
+      commandType: "importAuthor",
+      name: `Import author: Hardcover #${data.foreignAuthorId}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "foreignAuthorId",
+      handler: importAuthorHandler,
+    });
   });
 
 // ---------- Import Single Book ----------
 
-export const importHardcoverBookFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => importBookSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
+// oxlint-disable-next-line complexity -- Book import handler requires many conditional branches
+const importBookHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as z.infer<typeof importBookSchema>;
 
-    // Duplicate guard
-    const existing = db
-      .select({ id: books.id })
-      .from(books)
-      .where(eq(books.foreignBookId, String(data.foreignBookId)))
-      .get();
-    if (existing) {
-      throw new Error("Book is already on your bookshelf.");
-    }
+  // Duplicate guard
+  const existing = db
+    .select({ id: books.id })
+    .from(books)
+    .where(eq(books.foreignBookId, String(data.foreignBookId)))
+    .get();
+  if (existing) {
+    throw new Error("Book is already on your bookshelf.");
+  }
 
-    // Fetch book complete (book + editions + contributions)
-    const result = await fetchBookComplete(data.foreignBookId);
-    if (!result) {
-      throw new Error("Book not found on Hardcover.");
-    }
+  // Fetch book complete (book + editions + contributions)
+  updateProgress("Fetching book metadata from Hardcover...");
+  const result = await fetchBookComplete(data.foreignBookId);
+  if (!result) {
+    throw new Error("Book not found on Hardcover.");
+  }
 
-    const { book: rawBook, editions: rawEditions } = result;
-    const now = new Date();
+  const { book: rawBook, editions: rawEditions } = result;
+  const now = new Date();
 
-    // Determine primary author from contributions
-    const primaryContrib = rawBook.contributions.find(
-      (c) => c.contribution === null,
-    );
-    if (!primaryContrib) {
-      throw new Error("Could not determine the author of this book.");
-    }
+  // Determine primary author from contributions
+  const primaryContrib = rawBook.contributions.find(
+    (c) => c.contribution === null,
+  );
+  if (!primaryContrib) {
+    throw new Error("Could not determine the author of this book.");
+  }
 
-    // Import the primary author (full import, not a stub) before the book transaction.
-    // importAuthorInternal handles dedup: skips if already fully imported, upgrades stubs.
-    let primaryAuthorImported = false;
-    try {
-      await importAuthorInternal({
-        foreignAuthorId: primaryContrib.authorId,
-        downloadProfileIds: data.downloadProfileIds,
-        monitorOption: data.monitorOption,
-        monitorNewBooks: data.monitorNewBooks,
-      });
-      primaryAuthorImported = true;
-    } catch {
-      // Author already exists as a full author — that's fine
-    }
-
-    // Look up the primary author's local ID (must exist now)
-    const primaryAuthor = db
-      .select({ id: authors.id })
-      .from(authors)
-      .where(eq(authors.foreignAuthorId, String(primaryContrib.authorId)))
-      .get();
-    if (!primaryAuthor) {
-      throw new Error("Failed to import the primary author.");
-    }
-    const primaryAuthorId = primaryAuthor.id;
-
-    // The book may have already been imported as part of the primary author's import.
-    // If so, just mark it as monitored.
-    const alreadyImported = db
-      .select({ id: books.id })
-      .from(books)
-      .where(eq(books.foreignBookId, String(data.foreignBookId)))
-      .get();
-
-    if (alreadyImported) {
-      db.update(books)
-        .set({ updatedAt: now })
-        .where(eq(books.id, alreadyImported.id))
-        .run();
-
-      // The selected book is always monitored — ensure edition-profile links
-      ensureEditionProfileLinks(alreadyImported.id, data.downloadProfileIds);
-
-      // Still cascade-import co-authors
-      const coAuthorContribs = deriveAuthorContributions(
-        rawBook.contributions,
-      ).filter((c) => c.foreignAuthorId !== String(primaryContrib.authorId));
-      let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
-      for (const coAuthor of coAuthorContribs) {
-        try {
-          await importAuthorInternal({
-            foreignAuthorId: Number(coAuthor.foreignAuthorId),
-            downloadProfileIds: data.downloadProfileIds,
-          });
-          additionalAuthorsImported += 1;
-        } catch {
-          // Best-effort
-        }
-      }
-
-      if (data.searchOnAdd) {
-        // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
-        void searchForBook(alreadyImported.id).catch((error) =>
-          // oxlint-disable-next-line no-console
-          console.error("Search after import failed:", error),
-        );
-      }
-
-      return {
-        bookId: alreadyImported.id,
-        authorId: primaryAuthorId,
-        additionalAuthorsImported,
-      };
-    }
-
-    // Filter editions by metadata profile (book was explicitly chosen, so we don't skip it)
-    const metadataProfile = getMetadataProfile();
-    const profileLanguages = getProfileLanguages();
-    const filteredEditions = filterEditionsByProfile(
-      rawEditions,
-      metadataProfile,
-      profileLanguages,
-      rawBook.defaultCoverEditionId,
-    );
-
-    const txResult = db.transaction((tx) => {
-      // Insert book (editions use schema default monitored=true for user-imported books)
-      const book = tx
-        .insert(books)
-        .values({
-          title: rawBook.title,
-          slug: rawBook.slug,
-          description: rawBook.description,
-          releaseDate: rawBook.releaseDate,
-          releaseYear: rawBook.releaseYear,
-          foreignBookId: String(rawBook.id),
-          images: toImageArray(rawBook.coverUrl),
-          rating: rawBook.rating,
-          ratingsCount: rawBook.ratingsCount,
-          usersCount: rawBook.usersCount,
-          metadataUpdatedAt: now,
-        })
-        .returning()
-        .get();
-
-      // Insert booksAuthors entries for all author-role contributors
-      insertBookAuthors(
-        tx,
-        book.id,
-        rawBook.contributions,
-        primaryContrib.authorId,
-        primaryAuthorId,
-      );
-
-      // Series links
-      for (const s of rawBook.series) {
-        const existingSeries = tx
-          .select({ id: series.id })
-          .from(series)
-          .where(eq(series.foreignSeriesId, String(s.seriesId)))
-          .get();
-
-        let localSeriesId: number;
-        if (existingSeries) {
-          localSeriesId = existingSeries.id;
-        } else {
-          const newSeries = tx
-            .insert(series)
-            .values({
-              title: s.seriesTitle,
-              slug: s.seriesSlug,
-              foreignSeriesId: String(s.seriesId),
-              isCompleted: s.isCompleted,
-              metadataUpdatedAt: now,
-            })
-            .returning()
-            .get();
-          localSeriesId = newSeries.id;
-        }
-
-        tx.insert(seriesBookLinks)
-          .values({
-            seriesId: localSeriesId,
-            bookId: book.id,
-            position: s.position,
-          })
-          .run();
-      }
-
-      // Editions (filtered by metadata profile)
-      for (const ed of filteredEditions) {
-        tx.insert(editions)
-          .values({
-            bookId: book.id,
-            title: ed.title,
-            isbn10: ed.isbn10,
-            isbn13: ed.isbn13,
-            asin: ed.asin,
-            format: ed.format,
-            pageCount: ed.pageCount,
-            audioLength: ed.audioLength,
-            publisher: ed.publisher,
-            editionInformation: ed.editionInformation,
-            releaseDate: ed.releaseDate,
-            language: ed.language,
-            languageCode: ed.languageCode,
-            country: ed.country,
-            usersCount: ed.usersCount,
-            score: ed.score,
-            foreignEditionId: String(ed.id),
-            images: toImageArray(ed.coverUrl),
-            contributors: ed.contributors,
-            isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
-            metadataUpdatedAt: now,
-          })
-          .run();
-      }
-
-      tx.insert(history)
-        .values({
-          eventType: "bookAdded",
-          bookId: book.id,
-          authorId: primaryAuthorId,
-          data: { title: book.title, source: "hardcover" },
-        })
-        .run();
-
-      return { bookId: book.id };
+  // Import the primary author (full import, not a stub) before the book transaction.
+  // importAuthorInternal handles dedup: skips if already fully imported, upgrades stubs.
+  updateProgress("Importing primary author...");
+  let primaryAuthorImported = false;
+  try {
+    await importAuthorInternal({
+      foreignAuthorId: primaryContrib.authorId,
+      downloadProfileIds: data.downloadProfileIds,
+      monitorOption: data.monitorOption,
+      monitorNewBooks: data.monitorNewBooks,
     });
+    primaryAuthorImported = true;
+  } catch {
+    // Author already exists as a full author — that's fine
+  }
+
+  // Look up the primary author's local ID (must exist now)
+  const primaryAuthor = db
+    .select({ id: authors.id })
+    .from(authors)
+    .where(eq(authors.foreignAuthorId, String(primaryContrib.authorId)))
+    .get();
+  if (!primaryAuthor) {
+    throw new Error("Failed to import the primary author.");
+  }
+  const primaryAuthorId = primaryAuthor.id;
+
+  // The book may have already been imported as part of the primary author's import.
+  // If so, just mark it as monitored.
+  const alreadyImported = db
+    .select({ id: books.id })
+    .from(books)
+    .where(eq(books.foreignBookId, String(data.foreignBookId)))
+    .get();
+
+  if (alreadyImported) {
+    db.update(books)
+      .set({ updatedAt: now })
+      .where(eq(books.id, alreadyImported.id))
+      .run();
 
     // The selected book is always monitored — ensure edition-profile links
-    ensureEditionProfileLinks(txResult.bookId, data.downloadProfileIds);
+    ensureEditionProfileLinks(alreadyImported.id, data.downloadProfileIds);
 
-    // Set monitorNewBooks on the primary author if it was newly created
-    if (primaryAuthorImported) {
-      db.update(authors)
-        .set({ monitorNewBooks: data.monitorNewBooks })
-        .where(eq(authors.id, primaryAuthorId))
-        .run();
-    }
-
-    // Cascade import co-authors sequentially (best-effort)
+    // Still cascade-import co-authors
+    updateProgress("Importing co-authors...");
     const coAuthorContribs = deriveAuthorContributions(
       rawBook.contributions,
     ).filter((c) => c.foreignAuthorId !== String(primaryContrib.authorId));
@@ -1104,23 +963,196 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
         });
         additionalAuthorsImported += 1;
       } catch {
-        // Best-effort: book is already saved, author import failure is non-fatal
+        // Best-effort
       }
     }
 
     if (data.searchOnAdd) {
-      // oxlint-disable-next-line prefer-await-to-then -- Fire-and-forget: intentionally not awaited
-      void searchForBook(txResult.bookId).catch((error) =>
+      // oxlint-disable-next-line prefer-await-to-then
+      void searchForBook(alreadyImported.id).catch((error) =>
         // oxlint-disable-next-line no-console
         console.error("Search after import failed:", error),
       );
     }
 
     return {
-      bookId: txResult.bookId,
+      bookId: alreadyImported.id,
       authorId: primaryAuthorId,
       additionalAuthorsImported,
     };
+  }
+
+  // Filter editions by metadata profile (book was explicitly chosen, so we don't skip it)
+  updateProgress("Creating book and editions...");
+  const metadataProfile = getMetadataProfile();
+  const profileLanguages = getProfileLanguages();
+  const filteredEditions = filterEditionsByProfile(
+    rawEditions,
+    metadataProfile,
+    profileLanguages,
+    rawBook.defaultCoverEditionId,
+  );
+
+  const txResult = db.transaction((tx) => {
+    // Insert book (editions use schema default monitored=true for user-imported books)
+    const book = tx
+      .insert(books)
+      .values({
+        title: rawBook.title,
+        slug: rawBook.slug,
+        description: rawBook.description,
+        releaseDate: rawBook.releaseDate,
+        releaseYear: rawBook.releaseYear,
+        foreignBookId: String(rawBook.id),
+        images: toImageArray(rawBook.coverUrl),
+        rating: rawBook.rating,
+        ratingsCount: rawBook.ratingsCount,
+        usersCount: rawBook.usersCount,
+        metadataUpdatedAt: now,
+      })
+      .returning()
+      .get();
+
+    // Insert booksAuthors entries for all author-role contributors
+    insertBookAuthors(
+      tx,
+      book.id,
+      rawBook.contributions,
+      primaryContrib.authorId,
+      primaryAuthorId,
+    );
+
+    // Series links
+    for (const s of rawBook.series) {
+      const existingSeries = tx
+        .select({ id: series.id })
+        .from(series)
+        .where(eq(series.foreignSeriesId, String(s.seriesId)))
+        .get();
+
+      let localSeriesId: number;
+      if (existingSeries) {
+        localSeriesId = existingSeries.id;
+      } else {
+        const newSeries = tx
+          .insert(series)
+          .values({
+            title: s.seriesTitle,
+            slug: s.seriesSlug,
+            foreignSeriesId: String(s.seriesId),
+            isCompleted: s.isCompleted,
+            metadataUpdatedAt: now,
+          })
+          .returning()
+          .get();
+        localSeriesId = newSeries.id;
+      }
+
+      tx.insert(seriesBookLinks)
+        .values({
+          seriesId: localSeriesId,
+          bookId: book.id,
+          position: s.position,
+        })
+        .run();
+    }
+
+    // Editions (filtered by metadata profile)
+    for (const ed of filteredEditions) {
+      tx.insert(editions)
+        .values({
+          bookId: book.id,
+          title: ed.title,
+          isbn10: ed.isbn10,
+          isbn13: ed.isbn13,
+          asin: ed.asin,
+          format: ed.format,
+          pageCount: ed.pageCount,
+          audioLength: ed.audioLength,
+          publisher: ed.publisher,
+          editionInformation: ed.editionInformation,
+          releaseDate: ed.releaseDate,
+          language: ed.language,
+          languageCode: ed.languageCode,
+          country: ed.country,
+          usersCount: ed.usersCount,
+          score: ed.score,
+          foreignEditionId: String(ed.id),
+          images: toImageArray(ed.coverUrl),
+          contributors: ed.contributors,
+          isDefaultCover: ed.id === rawBook.defaultCoverEditionId,
+          metadataUpdatedAt: now,
+        })
+        .run();
+    }
+
+    tx.insert(history)
+      .values({
+        eventType: "bookAdded",
+        bookId: book.id,
+        authorId: primaryAuthorId,
+        data: { title: book.title, source: "hardcover" },
+      })
+      .run();
+
+    return { bookId: book.id };
+  });
+
+  // The selected book is always monitored — ensure edition-profile links
+  ensureEditionProfileLinks(txResult.bookId, data.downloadProfileIds);
+
+  // Set monitorNewBooks on the primary author if it was newly created
+  if (primaryAuthorImported) {
+    db.update(authors)
+      .set({ monitorNewBooks: data.monitorNewBooks })
+      .where(eq(authors.id, primaryAuthorId))
+      .run();
+  }
+
+  // Cascade import co-authors sequentially (best-effort)
+  updateProgress("Importing co-authors...");
+  const coAuthorContribs = deriveAuthorContributions(
+    rawBook.contributions,
+  ).filter((c) => c.foreignAuthorId !== String(primaryContrib.authorId));
+  let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
+  for (const coAuthor of coAuthorContribs) {
+    try {
+      await importAuthorInternal({
+        foreignAuthorId: Number(coAuthor.foreignAuthorId),
+        downloadProfileIds: data.downloadProfileIds,
+      });
+      additionalAuthorsImported += 1;
+    } catch {
+      // Best-effort: book is already saved, author import failure is non-fatal
+    }
+  }
+
+  if (data.searchOnAdd) {
+    // oxlint-disable-next-line prefer-await-to-then
+    void searchForBook(txResult.bookId).catch((error) =>
+      // oxlint-disable-next-line no-console
+      console.error("Search after import failed:", error),
+    );
+  }
+
+  return {
+    bookId: txResult.bookId,
+    authorId: primaryAuthorId,
+    additionalAuthorsImported,
+  };
+};
+
+export const importHardcoverBookFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => importBookSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return submitCommand({
+      commandType: "importBook",
+      name: `Import book: Hardcover #${data.foreignBookId}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "foreignBookId",
+      handler: importBookHandler,
+    });
   });
 
 // ---------- Refresh Author Metadata ----------
@@ -1643,11 +1675,25 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
   });
 }
 
+const refreshAuthorHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as { authorId: number };
+  updateProgress("Refreshing author metadata...");
+  const result = await refreshAuthorInternal(data.authorId);
+  return result;
+};
+
 export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => refreshAuthorSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    return refreshAuthorInternal(data.authorId);
+    return submitCommand({
+      commandType: "refreshAuthor",
+      name: `Refresh author: #${data.authorId}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "authorId",
+      batchTaskId: "refresh-hardcover-metadata",
+      handler: refreshAuthorHandler,
+    });
   });
 
 // ---------- Auto-switch edition helper ----------
@@ -2050,11 +2096,25 @@ export async function refreshBookInternal(bookId: number): Promise<{
   });
 }
 
+const refreshBookHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as { bookId: number };
+  updateProgress("Refreshing book metadata...");
+  const result = await refreshBookInternal(data.bookId);
+  return result;
+};
+
 export const refreshBookMetadataFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => refreshBookSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    return refreshBookInternal(data.bookId);
+    return submitCommand({
+      commandType: "refreshBook",
+      name: `Refresh book: #${data.bookId}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "bookId",
+      batchTaskId: "refresh-hardcover-metadata",
+      handler: refreshBookHandler,
+    });
   });
 
 // ---------- Monitor Book ----------
