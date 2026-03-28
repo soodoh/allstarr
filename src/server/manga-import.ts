@@ -17,6 +17,8 @@ import {
   getAllMangaUpdatesReleases,
 } from "./manga-updates";
 import type { MangaUpdatesRelease } from "./manga-updates";
+import { submitCommand } from "./commands";
+import type { CommandHandler } from "./commands";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -190,104 +192,121 @@ function insertVolumesAndChapters(
 
 // ─── Import Manga ──────────────────────────────────────────────────────────
 
+const importMangaHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as unknown as ReturnType<typeof addMangaSchema.parse>;
+
+  // Check for duplicates
+  updateProgress("Checking for duplicates...");
+  const existing = db
+    .select({ id: manga.id })
+    .from(manga)
+    .where(eq(manga.mangaUpdatesId, data.mangaUpdatesId))
+    .get();
+
+  if (existing) {
+    throw new Error("Manga already exists in your library.");
+  }
+
+  // Fetch detail and releases from MangaUpdates
+  updateProgress("Fetching series detail from MangaUpdates...");
+  const detail = await getMangaUpdatesSeriesDetail(data.mangaUpdatesId);
+
+  updateProgress("Fetching chapter releases...");
+  const releases = await getAllMangaUpdatesReleases(
+    data.mangaUpdatesId,
+    data.title,
+  );
+
+  // Deduplicate releases into unique chapters
+  const chapters = deduplicateReleases(releases);
+  updateProgress(`Processing ${chapters.length} releases...`);
+
+  // Group into volumes
+  const volumeGroups = groupChaptersIntoVolumes(chapters);
+
+  // Determine status from detail
+  const status = detail.completed ? "complete" : "ongoing";
+
+  // Resolve root folder path from the first selected download profile
+  const profile = db
+    .select({ rootFolderPath: downloadProfiles.rootFolderPath })
+    .from(downloadProfiles)
+    .where(eq(downloadProfiles.id, data.downloadProfileIds[0]))
+    .get();
+  const rootFolder = profile?.rootFolderPath ?? "";
+  const sanitizedTitle = data.title.replaceAll("/", "-");
+
+  // DB transaction: insert manga -> volumes -> chapters -> profiles -> history
+  updateProgress("Saving to database...");
+  const result = db.transaction((tx) => {
+    const mangaRow = tx
+      .insert(manga)
+      .values({
+        title: data.title,
+        sortTitle: data.sortTitle || generateSortTitle(data.title),
+        overview: data.overview || detail.description || "",
+        mangaUpdatesId: data.mangaUpdatesId,
+        mangaUpdatesSlug: data.mangaUpdatesSlug,
+        type: data.type || detail.type?.toLowerCase() || "manga",
+        year: data.year || detail.year || null,
+        status,
+        latestChapter: data.latestChapter ?? detail.latest_chapter ?? null,
+        posterUrl: data.posterUrl || detail.image?.url?.original || "",
+        genres:
+          data.genres.length > 0
+            ? data.genres
+            : (detail.genres?.map((g) => g.genre) ?? []),
+        monitorNewChapters: data.monitorOption,
+        path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
+        metadataUpdatedAt: new Date(),
+      })
+      .returning()
+      .get();
+
+    // Insert download profile links
+    for (const profileId of data.downloadProfileIds) {
+      tx.insert(mangaDownloadProfiles)
+        .values({ mangaId: mangaRow.id, downloadProfileId: profileId })
+        .run();
+    }
+
+    const { volumesAdded, chaptersAdded } = insertVolumesAndChapters(
+      tx,
+      mangaRow.id,
+      volumeGroups,
+      data.monitorOption,
+    );
+
+    // Insert history event
+    tx.insert(history)
+      .values({
+        eventType: "mangaAdded",
+        mangaId: mangaRow.id,
+        data: { title: data.title, source: "mangaupdates" },
+      })
+      .run();
+
+    return {
+      mangaId: mangaRow.id,
+      chaptersAdded,
+      volumesAdded,
+    };
+  });
+
+  return result as unknown as Record<string, unknown>;
+};
+
 export const importMangaFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => addMangaSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-
-    // Check for duplicates
-    const existing = db
-      .select({ id: manga.id })
-      .from(manga)
-      .where(eq(manga.mangaUpdatesId, data.mangaUpdatesId))
-      .get();
-
-    if (existing) {
-      throw new Error("Manga already exists in your library.");
-    }
-
-    // Fetch detail and releases from MangaUpdates
-    const detail = await getMangaUpdatesSeriesDetail(data.mangaUpdatesId);
-    const releases = await getAllMangaUpdatesReleases(
-      data.mangaUpdatesId,
-      data.title,
-    );
-
-    // Deduplicate releases into unique chapters
-    const chapters = deduplicateReleases(releases);
-
-    // Group into volumes
-    const volumeGroups = groupChaptersIntoVolumes(chapters);
-
-    // Determine status from detail
-    const status = detail.completed ? "complete" : "ongoing";
-
-    // Resolve root folder path from the first selected download profile
-    const profile = db
-      .select({ rootFolderPath: downloadProfiles.rootFolderPath })
-      .from(downloadProfiles)
-      .where(eq(downloadProfiles.id, data.downloadProfileIds[0]))
-      .get();
-    const rootFolder = profile?.rootFolderPath ?? "";
-    const sanitizedTitle = data.title.replaceAll("/", "-");
-
-    // DB transaction: insert manga -> volumes -> chapters -> profiles -> history
-    const result = db.transaction((tx) => {
-      const mangaRow = tx
-        .insert(manga)
-        .values({
-          title: data.title,
-          sortTitle: data.sortTitle || generateSortTitle(data.title),
-          overview: data.overview || detail.description || "",
-          mangaUpdatesId: data.mangaUpdatesId,
-          mangaUpdatesSlug: data.mangaUpdatesSlug,
-          type: data.type || detail.type?.toLowerCase() || "manga",
-          year: data.year || detail.year || null,
-          status,
-          latestChapter: data.latestChapter ?? detail.latest_chapter ?? null,
-          posterUrl: data.posterUrl || detail.image?.url?.original || "",
-          genres:
-            data.genres.length > 0
-              ? data.genres
-              : (detail.genres?.map((g) => g.genre) ?? []),
-          monitorNewChapters: data.monitorOption,
-          path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
-          metadataUpdatedAt: new Date(),
-        })
-        .returning()
-        .get();
-
-      // Insert download profile links
-      for (const profileId of data.downloadProfileIds) {
-        tx.insert(mangaDownloadProfiles)
-          .values({ mangaId: mangaRow.id, downloadProfileId: profileId })
-          .run();
-      }
-
-      const { volumesAdded, chaptersAdded } = insertVolumesAndChapters(
-        tx,
-        mangaRow.id,
-        volumeGroups,
-        data.monitorOption,
-      );
-
-      // Insert history event
-      tx.insert(history)
-        .values({
-          eventType: "mangaAdded",
-          mangaId: mangaRow.id,
-          data: { title: data.title, source: "mangaupdates" },
-        })
-        .run();
-
-      return {
-        mangaId: mangaRow.id,
-        chaptersAdded,
-        volumesAdded,
-      };
+    return submitCommand({
+      commandType: "importManga",
+      name: `Import: ${data.title}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "mangaUpdatesId",
+      handler: importMangaHandler,
     });
-
-    return result;
   });
 
 // ─── Refresh Manga Metadata ───────────────────────────────────────────────
@@ -378,78 +397,179 @@ function insertNewChapters(
   return added;
 }
 
+/**
+ * Core refresh logic without progress callbacks.
+ * Reusable by both the ad-hoc command handler and batch scheduled tasks.
+ */
+export async function refreshMangaInternal(
+  mangaId: number,
+): Promise<{ success: boolean; newChaptersAdded: number }> {
+  const mangaRow = db.select().from(manga).where(eq(manga.id, mangaId)).get();
+
+  if (!mangaRow) {
+    throw new Error("Manga not found");
+  }
+
+  // Fetch latest from MangaUpdates
+  const detail = await getMangaUpdatesSeriesDetail(mangaRow.mangaUpdatesId);
+  const allReleases = await getAllMangaUpdatesReleases(
+    mangaRow.mangaUpdatesId,
+    mangaRow.title,
+  );
+
+  // Update manga metadata
+  const status = detail.completed ? "complete" : "ongoing";
+  db.update(manga)
+    .set({
+      title: detail.title || mangaRow.title,
+      sortTitle: detail.title
+        ? generateSortTitle(detail.title)
+        : mangaRow.sortTitle,
+      overview: detail.description || mangaRow.overview,
+      mangaUpdatesSlug:
+        extractMangaUpdatesSlug(detail.url) ?? mangaRow.mangaUpdatesSlug,
+      type: detail.type?.toLowerCase() || mangaRow.type,
+      year: detail.year || mangaRow.year,
+      status,
+      latestChapter: detail.latest_chapter ?? mangaRow.latestChapter,
+      posterUrl: detail.image?.url?.original || mangaRow.posterUrl,
+      genres:
+        detail.genres?.map((g) => g.genre) ??
+        (mangaRow.genres as string[] | null) ??
+        [],
+      metadataUpdatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(manga.id, mangaId))
+    .run();
+
+  // Insert any new chapters
+  const monitorOption = mangaRow.monitorNewChapters as
+    | "all"
+    | "future"
+    | "missing"
+    | "none";
+  const newChaptersAdded = insertNewChapters(
+    mangaId,
+    allReleases,
+    monitorOption,
+  );
+
+  if (newChaptersAdded > 0) {
+    db.insert(history)
+      .values({
+        eventType: "mangaUpdated",
+        mangaId,
+        data: {
+          title: mangaRow.title,
+          newChapters: newChaptersAdded,
+        },
+      })
+      .run();
+  }
+
+  return { success: true, newChaptersAdded };
+}
+
+const refreshMangaHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as unknown as ReturnType<typeof refreshMangaSchema.parse>;
+
+  updateProgress("Fetching manga metadata...");
+  const mangaRow = db
+    .select()
+    .from(manga)
+    .where(eq(manga.id, data.mangaId))
+    .get();
+
+  if (!mangaRow) {
+    throw new Error("Manga not found");
+  }
+
+  updateProgress("Refreshing from MangaUpdates...");
+  const detail = await getMangaUpdatesSeriesDetail(mangaRow.mangaUpdatesId);
+
+  updateProgress("Fetching chapter releases...");
+  const allReleases = await getAllMangaUpdatesReleases(
+    mangaRow.mangaUpdatesId,
+    mangaRow.title,
+  );
+
+  // Update manga metadata
+  updateProgress("Updating metadata...");
+  const status = detail.completed ? "complete" : "ongoing";
+  db.update(manga)
+    .set({
+      title: detail.title || mangaRow.title,
+      sortTitle: detail.title
+        ? generateSortTitle(detail.title)
+        : mangaRow.sortTitle,
+      overview: detail.description || mangaRow.overview,
+      mangaUpdatesSlug:
+        extractMangaUpdatesSlug(detail.url) ?? mangaRow.mangaUpdatesSlug,
+      type: detail.type?.toLowerCase() || mangaRow.type,
+      year: detail.year || mangaRow.year,
+      status,
+      latestChapter: detail.latest_chapter ?? mangaRow.latestChapter,
+      posterUrl: detail.image?.url?.original || mangaRow.posterUrl,
+      genres:
+        detail.genres?.map((g) => g.genre) ??
+        (mangaRow.genres as string[] | null) ??
+        [],
+      metadataUpdatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(manga.id, data.mangaId))
+    .run();
+
+  // Insert any new chapters
+  updateProgress("Checking for new chapters...");
+  const monitorOption = mangaRow.monitorNewChapters as
+    | "all"
+    | "future"
+    | "missing"
+    | "none";
+  const newChaptersAdded = insertNewChapters(
+    data.mangaId,
+    allReleases,
+    monitorOption,
+  );
+
+  if (newChaptersAdded > 0) {
+    db.insert(history)
+      .values({
+        eventType: "mangaUpdated",
+        mangaId: data.mangaId,
+        data: {
+          title: mangaRow.title,
+          newChapters: newChaptersAdded,
+        },
+      })
+      .run();
+  }
+
+  return { success: true, newChaptersAdded } as unknown as Record<
+    string,
+    unknown
+  >;
+};
+
 export const refreshMangaMetadataFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => refreshMangaSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
 
     const mangaRow = db
-      .select()
+      .select({ title: manga.title })
       .from(manga)
       .where(eq(manga.id, data.mangaId))
       .get();
 
-    if (!mangaRow) {
-      throw new Error("Manga not found");
-    }
-
-    // Fetch latest from MangaUpdates
-    const detail = await getMangaUpdatesSeriesDetail(mangaRow.mangaUpdatesId);
-    const allReleases = await getAllMangaUpdatesReleases(
-      mangaRow.mangaUpdatesId,
-      mangaRow.title,
-    );
-
-    // Update manga metadata
-    const status = detail.completed ? "complete" : "ongoing";
-    db.update(manga)
-      .set({
-        title: detail.title || mangaRow.title,
-        sortTitle: detail.title
-          ? generateSortTitle(detail.title)
-          : mangaRow.sortTitle,
-        overview: detail.description || mangaRow.overview,
-        mangaUpdatesSlug:
-          extractMangaUpdatesSlug(detail.url) ?? mangaRow.mangaUpdatesSlug,
-        type: detail.type?.toLowerCase() || mangaRow.type,
-        year: detail.year || mangaRow.year,
-        status,
-        latestChapter: detail.latest_chapter ?? mangaRow.latestChapter,
-        posterUrl: detail.image?.url?.original || mangaRow.posterUrl,
-        genres:
-          detail.genres?.map((g) => g.genre) ??
-          (mangaRow.genres as string[] | null) ??
-          [],
-        metadataUpdatedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(manga.id, data.mangaId))
-      .run();
-
-    // Insert any new chapters
-    const monitorOption = mangaRow.monitorNewChapters as
-      | "all"
-      | "future"
-      | "missing"
-      | "none";
-    const newChaptersAdded = insertNewChapters(
-      data.mangaId,
-      allReleases,
-      monitorOption,
-    );
-
-    if (newChaptersAdded > 0) {
-      db.insert(history)
-        .values({
-          eventType: "mangaUpdated",
-          mangaId: data.mangaId,
-          data: {
-            title: mangaRow.title,
-            newChapters: newChaptersAdded,
-          },
-        })
-        .run();
-    }
-
-    return { success: true, newChaptersAdded };
+    return submitCommand({
+      commandType: "refreshManga",
+      name: `Refresh: ${mangaRow?.title ?? `Manga #${data.mangaId}`}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "mangaId",
+      batchTaskId: "refresh-mangaupdates-metadata",
+      handler: refreshMangaHandler,
+    });
   });

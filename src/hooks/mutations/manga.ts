@@ -17,22 +17,17 @@ import type {
 import type { z } from "zod";
 
 export function useAddManga() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: z.infer<typeof addMangaSchema>) =>
       importMangaFn({ data }),
     onMutate: () => {
-      const toastId = toast.loading("Importing manga metadata…");
+      const toastId = toast.loading("Starting manga import...", {
+        id: "submit-manga",
+      });
       return { toastId };
     },
-    onSuccess: (result, _vars, context) => {
-      toast.success(
-        `Manga added with ${result.chaptersAdded} chapters and ${result.volumesAdded} volumes.`,
-        { id: context?.toastId },
-      );
-      queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    onSuccess: (_result, _vars, context) => {
+      toast.dismiss(context?.toastId);
     },
     onError: (_error, _vars, context) =>
       toast.error("Failed to add manga", { id: context?.toastId }),
@@ -95,14 +90,9 @@ export function useUnmonitorMangaProfile() {
 }
 
 export function useRefreshMangaMetadata() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (mangaId: number) =>
       refreshMangaMetadataFn({ data: { mangaId } }),
-    onSuccess: () => {
-      toast.success("Manga metadata updated");
-      queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
-    },
     onError: () => toast.error("Failed to refresh manga metadata"),
   });
 }
