@@ -40,11 +40,15 @@ type DownloadProfile = {
 type VolumeAccordionProps = {
   volume: Volume;
   downloadProfiles: DownloadProfile[];
+  displayTitle?: string;
+  accordionValue?: string;
 };
 
 export default function VolumeAccordion({
   volume,
   downloadProfiles,
+  displayTitle,
+  accordionValue,
 }: VolumeAccordionProps): JSX.Element {
   const router = useRouter();
   const bulkMonitor = useBulkMonitorMangaChapterProfile();
@@ -71,9 +75,10 @@ export default function VolumeAccordion({
   const fileCount = sortedChapters.filter((ch) => ch.hasFile).length;
   const totalCount = sortedChapters.length;
   const volumeLabel =
-    volume.volumeNumber === null
+    displayTitle ??
+    (volume.volumeNumber === null
       ? "Ungrouped"
-      : `Volume ${volume.volumeNumber}`;
+      : `Volume ${volume.volumeNumber}`);
 
   // Compute per-profile monitoring state for this volume
   // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Computed from chapter data, memoization not needed
@@ -133,7 +138,7 @@ export default function VolumeAccordion({
 
   return (
     <>
-      <AccordionItem value={`volume-${volume.id}`}>
+      <AccordionItem value={accordionValue ?? `volume-${volume.id}`}>
         <AccordionTrigger className="hover:no-underline px-3">
           <div className="flex flex-1 items-center gap-4">
             {downloadProfiles.length > 0 && (
