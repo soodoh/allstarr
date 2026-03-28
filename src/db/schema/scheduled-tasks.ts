@@ -9,4 +9,6 @@ export const scheduledTasks = sqliteTable("scheduled_tasks", {
   lastResult: text("last_result"), // "success" | "error"
   lastMessage: text("last_message"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  progress: text("progress"),
+  group: text("group").notNull().default("maintenance"),
 });
