@@ -56,6 +56,9 @@ registerTask({
     const episodeCount = (result.episodeDetails ?? []).filter(
       (d) => d.searched,
     ).length;
+    const mangaCount = (result.mangaDetails ?? []).filter(
+      (d) => d.searched,
+    ).length;
 
     if (bookCount > 0) {
       typeParts.push(plural(bookCount, "book"));
@@ -65,6 +68,9 @@ registerTask({
     }
     if (episodeCount > 0) {
       typeParts.push(plural(episodeCount, "episode"));
+    }
+    if (mangaCount > 0) {
+      typeParts.push(plural(mangaCount, "chapter"));
     }
 
     const searched =
