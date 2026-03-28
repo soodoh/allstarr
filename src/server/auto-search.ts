@@ -3129,7 +3129,277 @@ async function grabReleaseForManga(
   return true;
 }
 
+// ─── Pack-aware manga search helpers ────────────────────────────────────────
+
+/** Grab a release for a manga pack (volume/series level) or individual chapter */
+async function grabReleaseForMangaPack(
+  release: IndexerRelease,
+  mangaId: number,
+  chapterId: number | undefined,
+  profileId: number,
+): Promise<boolean> {
+  const resolved = resolveDownloadClient(release);
+  if (!resolved) {
+    console.warn(
+      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+    );
+    return false;
+  }
+
+  const { client, combinedTag } = resolved;
+
+  const provider = getProvider(client.implementation);
+  const config: ConnectionConfig = {
+    implementation: client.implementation as ConnectionConfig["implementation"],
+    host: client.host,
+    port: client.port,
+    useSsl: client.useSsl,
+    urlBase: client.urlBase,
+    username: client.username,
+    password: client.password,
+    apiKey: client.apiKey,
+    category: client.category,
+    tag: client.tag,
+    settings: client.settings as Record<string, unknown> | null,
+  };
+
+  const downloadId = await provider.addDownload(config, {
+    url: release.downloadUrl,
+    torrentData: null,
+    nzbData: null,
+    category: null,
+    tag: combinedTag,
+    savePath: null,
+  });
+
+  if (downloadId) {
+    db.insert(trackedDownloads)
+      .values({
+        downloadClientId: client.id,
+        downloadId,
+        mangaId,
+        mangaChapterId: chapterId ?? null,
+        downloadProfileId: profileId,
+        releaseTitle: release.title,
+        protocol: release.protocol,
+        indexerId: release.allstarrIndexerId,
+        guid: release.guid,
+        state: "queued",
+      })
+      .run();
+  }
+
+  db.insert(history)
+    .values({
+      eventType: "mangaChapterGrabbed",
+      mangaId,
+      mangaChapterId: chapterId ?? null,
+      data: {
+        title: release.title,
+        guid: release.guid,
+        indexerId: release.allstarrIndexerId,
+        downloadClientId: client.id,
+        downloadClientName: client.name,
+        protocol: release.protocol,
+        size: release.size,
+        quality: release.quality.name,
+        source: "autoSearch",
+      },
+    })
+    .run();
+
+  return true;
+}
+
+/** Build a PackContext from a volume map of wanted chapters */
+function buildPackContextFromVolumes(
+  volumeMap: Map<number, WantedMangaChapter[]>,
+): PackContext {
+  const wantedChaptersByVolume = new Map<number, Set<number>>();
+  for (const [volNum, chapters] of volumeMap) {
+    wantedChaptersByVolume.set(
+      volNum,
+      new Set(chapters.map((ch) => Number(ch.chapterNumber))),
+    );
+  }
+  return { wantedChaptersByVolume };
+}
+
+/** Try to grab the best release for each wanted chapter, with pack context */
+async function grabPerProfileForMangaChapters(
+  scored: IndexerRelease[],
+  wantedChapters: WantedMangaChapter[],
+  packContext: PackContext,
+): Promise<PackSearchResult> {
+  const grabbedGuids = new Set<string>();
+  let grabbed = false;
+
+  // Blocklist: no mangaId column in blocklist table, so use empty set
+  const blocklistedTitles = new Set<string>();
+
+  for (const ch of wantedChapters) {
+    for (const profile of ch.profiles) {
+      const bestExistingWeight = ch.bestWeightByProfile.get(profile.id) ?? 0;
+      const best = findBestReleaseForProfile(
+        scored,
+        profile,
+        bestExistingWeight,
+        blocklistedTitles,
+        grabbedGuids,
+        0,
+        packContext,
+      );
+      if (!best) {
+        continue;
+      }
+
+      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+      const result = await grabReleaseForMangaPack(
+        best,
+        ch.mangaId,
+        isPack ? undefined : ch.id,
+        profile.id,
+      );
+      if (result) {
+        grabbedGuids.add(best.guid);
+        grabbed = true;
+        console.log(
+          `[auto-search] Grabbed "${best.title}" for manga "${ch.mangaTitle}"${isPack ? " (pack)" : ` Ch ${ch.chapterNumber}`} (profile: ${profile.name})`,
+        );
+      }
+    }
+  }
+  return { searched: true, grabbed };
+}
+
+/** Search at the volume level ("title" Vol ##) and grab best pack releases */
+async function searchAndGrabForMangaVolume(
+  mangaTitle: string,
+  volumeNumber: number,
+  wantedChapters: WantedMangaChapter[],
+  allVolumeMap: Map<number, WantedMangaChapter[]>,
+  ixs: EnabledIndexers,
+): Promise<PackSearchResult> {
+  const cleanTitle = cleanSearchTerm(mangaTitle);
+  const query = `"${cleanTitle}" Vol ${volumeNumber}`;
+
+  const allProfiles = wantedChapters.flatMap((ch) => ch.profiles);
+  const categories = getCategoriesForProfiles(allProfiles);
+
+  const allReleases = await searchIndexers(
+    ixs,
+    query,
+    categories,
+    undefined,
+    "manga",
+    "[auto-search]",
+  );
+
+  if (allReleases.length === 0) {
+    return { searched: true, grabbed: false };
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const packContext = buildPackContextFromVolumes(allVolumeMap);
+  return grabPerProfileForMangaChapters(scored, wantedChapters, packContext);
+}
+
+/** Search at the series level (just manga title) for multi-volume packs */
+async function searchAndGrabForMangaSeries(
+  mangaTitle: string,
+  volumeMap: Map<number, WantedMangaChapter[]>,
+  ixs: EnabledIndexers,
+): Promise<PackSearchResult> {
+  const cleanTitle = cleanSearchTerm(mangaTitle);
+  const query = `"${cleanTitle}"`;
+
+  const allProfiles = [...volumeMap.values()]
+    .flat()
+    .flatMap((ch) => ch.profiles);
+  const categories = getCategoriesForProfiles(allProfiles);
+
+  const allReleases = await searchIndexers(
+    ixs,
+    query,
+    categories,
+    undefined,
+    "manga",
+    "[auto-search]",
+  );
+
+  if (allReleases.length === 0) {
+    return { searched: true, grabbed: false };
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const packContext = buildPackContextFromVolumes(volumeMap);
+  const allChapters = [...volumeMap.values()].flat();
+  return grabPerProfileForMangaChapters(scored, allChapters, packContext);
+}
+
 // ─── Manga search ───────────────────────────────────────────────────────────
+
+/** Search a single volume with fallback to individual chapters */
+async function searchVolumeWithFallback(
+  mangaTitle: string,
+  volumeNumber: number,
+  volumeChapters: WantedMangaChapter[],
+  volumeMap: Map<number, WantedMangaChapter[]>,
+  ixs: EnabledIndexers,
+  delay: number,
+): Promise<{ searched: number; grabbed: number }> {
+  let searched = 0;
+  let grabbed = 0;
+
+  if (volumeChapters.length >= 2) {
+    try {
+      const volResult = await searchAndGrabForMangaVolume(
+        mangaTitle,
+        volumeNumber,
+        volumeChapters,
+        volumeMap,
+        ixs,
+      );
+      if (volResult.searched) {
+        searched += volumeChapters.length;
+      }
+      if (volResult.grabbed) {
+        grabbed += 1;
+        return { searched, grabbed };
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
+        error,
+      );
+    }
+    await sleep(delay);
+  }
+
+  // Fallback to individual chapter search
+  for (let i = 0; i < volumeChapters.length; i += 1) {
+    const chapter = volumeChapters[i];
+    try {
+      const detail = await searchAndGrabForManga(chapter, ixs);
+      if (detail.searched) {
+        searched += 1;
+      }
+      if (detail.grabbed) {
+        grabbed += 1;
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+        error,
+      );
+    }
+    if (i < volumeChapters.length - 1) {
+      await sleep(delay);
+    }
+  }
+
+  return { searched, grabbed };
+}
 
 export async function searchForManga(
   mangaId: number,
@@ -3149,50 +3419,109 @@ export async function searchForManga(
   let searched = 0;
   let grabbed = 0;
 
-  for (let i = 0; i < wantedChapters.length; i += 1) {
-    const chapter = wantedChapters[i];
+  // Group by volume
+  const volumeMap = new Map<number, WantedMangaChapter[]>();
+  for (const ch of wantedChapters) {
+    const vol = ch.volumeNumber ?? 0;
+    if (!volumeMap.has(vol)) {
+      volumeMap.set(vol, []);
+    }
+    volumeMap.get(vol)!.push(ch);
+  }
+
+  const mangaTitle = wantedChapters[0].mangaTitle;
+
+  // Multiple volumes → series-level search first
+  if (volumeMap.size > 1) {
     try {
-      const detail = await searchAndGrabForManga(chapter, ixs);
-      if (detail.searched) {
-        searched += 1;
+      const packResult = await searchAndGrabForMangaSeries(
+        mangaTitle,
+        volumeMap,
+        ixs,
+      );
+      if (packResult.searched) {
+        searched += wantedChapters.length;
       }
-      if (detail.grabbed) {
+      if (packResult.grabbed) {
         grabbed += 1;
+        return { searched, grabbed };
       }
     } catch (error) {
       console.error(
-        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+        `[auto-search] Error in series-level search for "${mangaTitle}":`,
         error,
       );
     }
-    if (i < wantedChapters.length - 1) {
+    await sleep(DELAY_BETWEEN_ITEMS);
+  }
+
+  // Per-volume with fallback
+  let isFirstVolume = true;
+  for (const [volumeNumber, volumeChapters] of volumeMap) {
+    if (!isFirstVolume) {
       await sleep(DELAY_BETWEEN_ITEMS);
     }
+    isFirstVolume = false;
+    const vr = await searchVolumeWithFallback(
+      mangaTitle,
+      volumeNumber,
+      volumeChapters,
+      volumeMap,
+      ixs,
+      DELAY_BETWEEN_ITEMS,
+    );
+    searched += vr.searched;
+    grabbed += vr.grabbed;
   }
 
   return { searched, grabbed };
 }
 
-/** Process wanted manga chapters: search, score, and grab per profile */
-async function processWantedManga(
-  wantedChapters: WantedMangaChapter[],
+/** Record manga search details and update lastSearchedAt */
+function recordMangaDetails(
+  chapters: WantedMangaChapter[],
+  searchResult: PackSearchResult,
+  result: AutoSearchResult,
+): void {
+  for (const ch of chapters) {
+    result.mangaDetails!.push({
+      chapterId: ch.id,
+      mangaTitle: ch.mangaTitle,
+      chapterNumber: ch.chapterNumber,
+      searched: searchResult.searched,
+      grabbed: searchResult.grabbed,
+    });
+    if (searchResult.searched) {
+      result.searched += 1;
+    }
+    db.update(mangaChapters)
+      .set({ lastSearchedAt: Date.now() })
+      .where(eq(mangaChapters.id, ch.id))
+      .run();
+  }
+  if (searchResult.grabbed) {
+    result.grabbed += 1;
+  }
+}
+
+/** Process individual manga chapters and record results */
+async function processIndividualMangaChapters(
+  chaptersToSearch: WantedMangaChapter[],
   ixs: EnabledIndexers,
   result: AutoSearchResult,
   delay: number,
 ): Promise<void> {
-  for (let i = 0; i < wantedChapters.length; i += 1) {
+  for (let i = 0; i < chaptersToSearch.length; i += 1) {
     if (
       !anyIndexerAvailable(
         ixs.manual.map((m) => m.id),
         ixs.synced.map((s) => s.id),
       )
     ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
       break;
     }
 
-    const chapter = wantedChapters[i];
-
+    const chapter = chaptersToSearch[i];
     try {
       const detail = await searchAndGrabForManga(chapter, ixs);
       if (detail.searched) {
@@ -3222,8 +3551,132 @@ async function processWantedManga(
       );
     }
 
-    if (i < wantedChapters.length - 1) {
+    if (i < chaptersToSearch.length - 1) {
       await sleep(delay);
+    }
+  }
+}
+
+/** Process a single volume: try volume-level search, then fallback to individual chapters */
+async function processVolumeChapters(
+  mangaTitle: string,
+  volumeNumber: number,
+  volumeChapters: WantedMangaChapter[],
+  volumeMap: Map<number, WantedMangaChapter[]>,
+  ixs: EnabledIndexers,
+  result: AutoSearchResult,
+  delay: number,
+): Promise<void> {
+  if (volumeChapters.length >= 2) {
+    try {
+      const volResult = await searchAndGrabForMangaVolume(
+        mangaTitle,
+        volumeNumber,
+        volumeChapters,
+        volumeMap,
+        ixs,
+      );
+      recordMangaDetails(volumeChapters, volResult, result);
+      if (volResult.grabbed) {
+        return;
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
+        error,
+      );
+    }
+    await sleep(delay);
+  }
+
+  // Fallback to individual chapter search
+  await processIndividualMangaChapters(volumeChapters, ixs, result, delay);
+}
+
+/** Process wanted manga: group by series/volume, search at broadest applicable level */
+async function processWantedManga(
+  wantedChapters: WantedMangaChapter[],
+  ixs: EnabledIndexers,
+  result: AutoSearchResult,
+  delay: number,
+): Promise<void> {
+  // Group chapters by manga (series), then by volume
+  const chaptersByManga = new Map<number, Map<number, WantedMangaChapter[]>>();
+  for (const ch of wantedChapters) {
+    if (!chaptersByManga.has(ch.mangaId)) {
+      chaptersByManga.set(ch.mangaId, new Map());
+    }
+    const mangaMap = chaptersByManga.get(ch.mangaId)!;
+    const vol = ch.volumeNumber ?? 0;
+    if (!mangaMap.has(vol)) {
+      mangaMap.set(vol, []);
+    }
+    mangaMap.get(vol)!.push(ch);
+  }
+
+  let isFirstSeries = true;
+  for (const [, volumeMap] of chaptersByManga) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+    if (!isFirstSeries) {
+      await sleep(delay);
+    }
+    isFirstSeries = false;
+
+    const mangaTitle = volumeMap.values().next().value![0].mangaTitle;
+
+    // Multiple volumes → series-level search first
+    if (volumeMap.size > 1) {
+      try {
+        const packResult = await searchAndGrabForMangaSeries(
+          mangaTitle,
+          volumeMap,
+          ixs,
+        );
+        recordMangaDetails([...volumeMap.values()].flat(), packResult, result);
+        if (packResult.grabbed) {
+          continue;
+        }
+      } catch (error) {
+        console.error(
+          `[auto-search] Error in series-level search for "${mangaTitle}":`,
+          error,
+        );
+      }
+      await sleep(delay);
+    }
+
+    // Per-volume with fallback
+    let isFirstVolume = true;
+    for (const [volumeNumber, volumeChapters] of volumeMap) {
+      if (
+        !anyIndexerAvailable(
+          ixs.manual.map((m) => m.id),
+          ixs.synced.map((s) => s.id),
+        )
+      ) {
+        break;
+      }
+      if (!isFirstVolume) {
+        await sleep(delay);
+      }
+      isFirstVolume = false;
+      await processVolumeChapters(
+        mangaTitle,
+        volumeNumber,
+        volumeChapters,
+        volumeMap,
+        ixs,
+        result,
+        delay,
+      );
     }
   }
 }
