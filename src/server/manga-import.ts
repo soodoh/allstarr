@@ -223,19 +223,21 @@ function insertVolumesAndChapters(
       .get();
     volumesAdded += 1;
 
-    for (const chapter of volumeChapters) {
+    if (volumeChapters.length > 0) {
       tx.insert(mangaChapters)
-        .values({
-          mangaVolumeId: volumeRow.id,
-          mangaId,
-          chapterNumber: chapter.chapterNumber,
-          releaseDate: chapter.releaseDate,
-          scanlationGroup: chapter.scanlationGroup,
-          hasFile: false,
-          monitored: shouldMonitorChapter(monitorOption, chapter.releaseDate),
-        })
+        .values(
+          volumeChapters.map((chapter) => ({
+            mangaVolumeId: volumeRow.id,
+            mangaId,
+            chapterNumber: chapter.chapterNumber,
+            releaseDate: chapter.releaseDate,
+            scanlationGroup: chapter.scanlationGroup,
+            hasFile: false,
+            monitored: shouldMonitorChapter(monitorOption, chapter.releaseDate),
+          })),
+        )
         .run();
-      chaptersAdded += 1;
+      chaptersAdded += volumeChapters.length;
     }
   }
 
@@ -531,19 +533,21 @@ function insertNewChapters(
         .get();
     }
 
-    for (const chapter of volumeChapters) {
+    if (volumeChapters.length > 0) {
       db.insert(mangaChapters)
-        .values({
-          mangaVolumeId: volumeRow.id,
-          mangaId,
-          chapterNumber: chapter.chapterNumber,
-          releaseDate: chapter.releaseDate,
-          scanlationGroup: chapter.scanlationGroup,
-          hasFile: false,
-          monitored: shouldMonitorChapter(monitorOption, chapter.releaseDate),
-        })
+        .values(
+          volumeChapters.map((chapter) => ({
+            mangaVolumeId: volumeRow.id,
+            mangaId,
+            chapterNumber: chapter.chapterNumber,
+            releaseDate: chapter.releaseDate,
+            scanlationGroup: chapter.scanlationGroup,
+            hasFile: false,
+            monitored: shouldMonitorChapter(monitorOption, chapter.releaseDate),
+          })),
+        )
         .run();
-      added += 1;
+      added += volumeChapters.length;
     }
   }
 
