@@ -7,7 +7,8 @@ registerTask({
   name: "Refresh TMDB Metadata",
   description: "Refresh metadata for all monitored movies and shows from TMDB.",
   defaultInterval: 12 * 60 * 60, // 12 hours
-  handler: async (): Promise<TaskResult> => {
+  group: "metadata",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     console.log("TMDB metadata refresh: not yet implemented");
     return { success: true, message: "Not yet implemented" };
   },

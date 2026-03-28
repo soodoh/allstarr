@@ -16,7 +16,8 @@ registerTask({
   name: "RSS Sync",
   description: "Sync RSS feeds from indexers and search for wanted books.",
   defaultInterval: 15 * 60, // 15 minutes
-  handler: async (): Promise<TaskResult> => {
+  group: "search",
+  handler: async (_updateProgress): Promise<TaskResult> => {
     const enabledManual = db
       .select({ id: indexers.id })
       .from(indexers)

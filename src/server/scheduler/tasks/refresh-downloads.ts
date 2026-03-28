@@ -39,5 +39,6 @@ registerTask({
   description:
     "Check download clients for status changes and import completed downloads",
   defaultInterval: 60,
-  handler: adaptiveRefreshDownloads,
+  group: "media",
+  handler: (_updateProgress) => adaptiveRefreshDownloads(),
 });
