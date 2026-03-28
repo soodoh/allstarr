@@ -22,6 +22,11 @@ import {
   episodes,
   episodeFiles,
   episodeDownloadProfiles,
+  manga,
+  mangaChapters,
+  mangaVolumes,
+  mangaFiles,
+  mangaDownloadProfiles,
 } from "src/db/schema";
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { getCategoriesForProfiles, dedupeAndScoreReleases } from "./indexers";
@@ -82,6 +87,7 @@ export type AutoSearchResult = {
   details: SearchDetail[];
   movieDetails?: MovieSearchDetail[];
   episodeDetails?: EpisodeSearchDetail[];
+  mangaDetails?: MangaSearchDetail[];
 };
 
 type EditionProfileTarget = {
@@ -121,6 +127,27 @@ type WantedEpisode = {
   lastSearchedAt: number | null;
   profiles: ProfileInfo[];
   bestWeightByProfile: Map<number, number>;
+};
+
+type WantedMangaChapter = {
+  id: number;
+  mangaId: number;
+  mangaTitle: string;
+  chapterNumber: string;
+  volumeNumber: number | null;
+  lastSearchedAt: number | null;
+  profiles: ProfileInfo[];
+  bestWeightByProfile: Map<number, number>;
+};
+
+type MangaSearchDetail = {
+  chapterId: number;
+  mangaTitle: string;
+  chapterNumber: string;
+  searched: boolean;
+  grabbed: boolean;
+  releaseTitle?: string;
+  error?: string;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -719,6 +746,206 @@ export function getWantedEpisodes(
   return wanted;
 }
 
+// ─── Wanted manga chapters detection ────────────────────────────────────────
+
+/** Parse manga file quality (text column) and compute per-profile best weight */
+function computeBestWeightsForMangaFiles(
+  files: Array<{ quality: string | null }>,
+  profiles: ProfileInfo[],
+): Map<number, number> {
+  const bestWeightByProfile = new Map<number, number>();
+  for (const profile of profiles) {
+    let best = 0;
+    for (const file of files) {
+      if (file.quality) {
+        let qualityId = 0;
+        try {
+          const parsed =
+            typeof file.quality === "string"
+              ? JSON.parse(file.quality)
+              : file.quality;
+          if (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "quality" in parsed &&
+            parsed.quality
+          ) {
+            qualityId = parsed.quality.id ?? 0;
+          }
+        } catch {
+          // Not valid JSON — ignore
+        }
+        const weight = getProfileWeight(qualityId, profile.items);
+        if (weight > best) {
+          best = weight;
+        }
+      }
+    }
+    bestWeightByProfile.set(profile.id, best);
+  }
+  return bestWeightByProfile;
+}
+
+/** Find manga chapters that need searching: missing files or upgrade-eligible */
+export function getWantedManga(): WantedMangaChapter[] {
+  // Get all monitored chapters whose manga has at least one download profile assigned
+  const monitoredChapters = db
+    .select({
+      id: mangaChapters.id,
+      mangaId: mangaChapters.mangaId,
+      mangaTitle: manga.title,
+      chapterNumber: mangaChapters.chapterNumber,
+      volumeNumber: mangaVolumes.volumeNumber,
+      monitored: mangaChapters.monitored,
+      mangaMonitored: manga.monitored,
+      lastSearchedAt: mangaChapters.lastSearchedAt,
+    })
+    .from(mangaChapters)
+    .innerJoin(manga, eq(manga.id, mangaChapters.mangaId))
+    .innerJoin(mangaVolumes, eq(mangaVolumes.id, mangaChapters.mangaVolumeId))
+    .where(
+      sql`EXISTS (
+        SELECT 1 FROM ${mangaDownloadProfiles}
+        WHERE ${mangaDownloadProfiles.mangaId} = ${mangaChapters.mangaId}
+      )`,
+    )
+    .all();
+
+  const wanted: WantedMangaChapter[] = [];
+
+  for (const ch of monitoredChapters) {
+    // Skip unmonitored chapters or manga
+    if (!ch.monitored || !ch.mangaMonitored) {
+      continue;
+    }
+
+    // Get profiles for this manga
+    const profileRows = db
+      .select({
+        profileId: mangaDownloadProfiles.downloadProfileId,
+      })
+      .from(mangaDownloadProfiles)
+      .where(eq(mangaDownloadProfiles.mangaId, ch.mangaId))
+      .all();
+
+    if (profileRows.length === 0) {
+      continue;
+    }
+
+    const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
+    const profileList = db
+      .select()
+      .from(downloadProfiles)
+      .where(inArray(downloadProfiles.id, profileIds))
+      .all();
+
+    const profileMap = new Map<number, ProfileInfo>();
+    for (const p of profileList) {
+      profileMap.set(p.id, {
+        id: p.id,
+        name: p.name,
+        items: p.items,
+        cutoff: p.cutoff,
+        upgradeAllowed: p.upgradeAllowed,
+        categories: p.categories,
+        minCustomFormatScore: p.minCustomFormatScore,
+        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
+      });
+    }
+
+    // Exclude profiles that already have an active tracked download
+    const activeDownloads = db
+      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
+      .from(trackedDownloads)
+      .where(
+        and(
+          eq(trackedDownloads.mangaChapterId, ch.id),
+          inArray(trackedDownloads.state, [
+            "queued",
+            "downloading",
+            "completed",
+            "importPending",
+          ]),
+        ),
+      )
+      .all();
+
+    const activeProfileIds = new Set(
+      activeDownloads
+        .map((d) => d.downloadProfileId)
+        .filter((id): id is number => id !== null),
+    );
+
+    for (const id of activeProfileIds) {
+      profileMap.delete(id);
+    }
+
+    const profiles = [...profileMap.values()];
+    if (profiles.length === 0) {
+      continue;
+    }
+
+    // Check existing files for this chapter
+    const existingFiles = db
+      .select({ quality: mangaFiles.quality })
+      .from(mangaFiles)
+      .where(eq(mangaFiles.chapterId, ch.id))
+      .all();
+
+    // Compute per-profile best existing weight
+    const bestWeightByProfile = computeBestWeightsForMangaFiles(
+      existingFiles,
+      profiles,
+    );
+
+    if (existingFiles.length === 0) {
+      // No files at all — wanted
+      wanted.push({
+        id: ch.id,
+        mangaId: ch.mangaId,
+        mangaTitle: ch.mangaTitle,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: ch.volumeNumber,
+        lastSearchedAt: ch.lastSearchedAt,
+        profiles,
+        bestWeightByProfile,
+      });
+      continue;
+    }
+
+    // Check if any profile allows upgrades and the best file is below cutoff
+    const upgradeNeeded = profiles.some((profile) => {
+      if (!profile.upgradeAllowed) {
+        return false;
+      }
+      const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+      if (bestWeight < cutoffWeight) {
+        return true;
+      }
+      if (profile.upgradeUntilCustomFormatScore > 0) {
+        return true;
+      }
+      return false;
+    });
+
+    if (upgradeNeeded) {
+      wanted.push({
+        id: ch.id,
+        mangaId: ch.mangaId,
+        mangaTitle: ch.mangaTitle,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: ch.volumeNumber,
+        lastSearchedAt: ch.lastSearchedAt,
+        profiles,
+        bestWeightByProfile,
+      });
+    }
+  }
+
+  return wanted;
+}
+
 // ─── Search query builders ──────────────────────────────────────────────────
 
 function cleanSearchTerm(term: string): string {
@@ -767,6 +994,14 @@ function buildEpisodeSearchQueries(episode: WantedEpisode): string[] {
       ];
     }
   }
+}
+
+function buildMangaSearchQuery(chapter: WantedMangaChapter): string {
+  const title = cleanSearchTerm(chapter.mangaTitle);
+  if (chapter.volumeNumber !== null) {
+    return `"${title}" Vol ${chapter.volumeNumber} Ch ${chapter.chapterNumber}`;
+  }
+  return `"${title}" Chapter ${chapter.chapterNumber}`;
 }
 
 // ─── Per-book search + grab ─────────────────────────────────────────────────
@@ -1640,6 +1875,364 @@ async function processWantedEpisodes(
   }
 }
 
+// ─── Per-manga-chapter search + grab ────────────────────────────────────────
+
+async function searchAndGrabForManga(
+  chapter: WantedMangaChapter,
+  ixs: EnabledIndexers,
+): Promise<MangaSearchDetail> {
+  const detail: MangaSearchDetail = {
+    chapterId: chapter.id,
+    mangaTitle: chapter.mangaTitle,
+    chapterNumber: chapter.chapterNumber,
+    searched: false,
+    grabbed: false,
+  };
+
+  const query = buildMangaSearchQuery(chapter);
+  const categories = getCategoriesForProfiles(chapter.profiles);
+
+  const allReleases: IndexerRelease[] = [];
+
+  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+  for (const synced of syncedWithKey) {
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${synced.name}" skipped for manga: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: synced.baseUrl,
+          apiPath: synced.apiPath ?? "/api",
+          apiKey: synced.apiKey!,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "synced", indexerId: synced.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || synced.name,
+            allstarrIndexerId: synced.id,
+            indexerSource: "synced" as const,
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Indexer "${synced.name}" failed for manga:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  for (const ix of ixs.manual) {
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${ix.name}" skipped for manga: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "manual", indexerId: ix.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease({
+            ...r,
+            indexer: r.indexer || ix.name,
+            allstarrIndexerId: ix.id,
+            indexerSource: "manual" as const,
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Manual indexer failed for manga:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  detail.searched = true;
+
+  if (allReleases.length === 0) {
+    return detail;
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const grabbedTitles = await grabPerProfileForManga(scored, chapter);
+
+  if (grabbedTitles.length > 0) {
+    detail.grabbed = true;
+    detail.releaseTitle = grabbedTitles.join(", ");
+  }
+
+  return detail;
+}
+
+/** Try to grab the best release for each unique profile on the manga chapter */
+async function grabPerProfileForManga(
+  scored: IndexerRelease[],
+  chapter: WantedMangaChapter,
+): Promise<string[]> {
+  // Blocklist: no mangaId column in blocklist table, so use empty set
+  const blocklistedTitles = new Set<string>();
+
+  const grabbedGuids = new Set(
+    db
+      .select({ data: history.data })
+      .from(history)
+      .where(
+        and(
+          eq(history.eventType, "mangaChapterGrabbed"),
+          eq(history.mangaChapterId, chapter.id),
+        ),
+      )
+      .all()
+      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
+      .filter(Boolean),
+  );
+
+  const satisfiedProfiles = new Set<number>();
+  const grabbedTitles: string[] = [];
+
+  for (const profile of chapter.profiles) {
+    if (satisfiedProfiles.has(profile.id)) {
+      continue;
+    }
+
+    const bestExistingWeight = chapter.bestWeightByProfile.get(profile.id) ?? 0;
+    const bestRelease = findBestReleaseForProfile(
+      scored,
+      profile,
+      bestExistingWeight,
+      blocklistedTitles,
+      grabbedGuids,
+    );
+
+    if (!bestRelease) {
+      continue;
+    }
+
+    const grabbed = await grabReleaseForManga(bestRelease, chapter, profile.id);
+    if (grabbed) {
+      satisfiedProfiles.add(profile.id);
+      grabbedTitles.push(bestRelease.title);
+      grabbedGuids.add(bestRelease.guid);
+      console.log(
+        `[auto-search] Grabbed "${bestRelease.title}" for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber} (profile: ${profile.name})`,
+      );
+    }
+  }
+
+  return grabbedTitles;
+}
+
+async function grabReleaseForManga(
+  release: IndexerRelease,
+  chapter: WantedMangaChapter,
+  profileId: number,
+): Promise<boolean> {
+  const resolved = resolveDownloadClient(release);
+  if (!resolved) {
+    console.warn(
+      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+    );
+    return false;
+  }
+
+  const { client, combinedTag } = resolved;
+
+  const provider = getProvider(client.implementation);
+  const config: ConnectionConfig = {
+    implementation: client.implementation as ConnectionConfig["implementation"],
+    host: client.host,
+    port: client.port,
+    useSsl: client.useSsl,
+    urlBase: client.urlBase,
+    username: client.username,
+    password: client.password,
+    apiKey: client.apiKey,
+    category: client.category,
+    tag: client.tag,
+    settings: client.settings as Record<string, unknown> | null,
+  };
+
+  const downloadId = await provider.addDownload(config, {
+    url: release.downloadUrl,
+    torrentData: null,
+    nzbData: null,
+    category: null,
+    tag: combinedTag,
+    savePath: null,
+  });
+
+  if (downloadId) {
+    db.insert(trackedDownloads)
+      .values({
+        downloadClientId: client.id,
+        downloadId,
+        mangaId: chapter.mangaId,
+        mangaChapterId: chapter.id,
+        downloadProfileId: profileId,
+        releaseTitle: release.title,
+        protocol: release.protocol,
+        indexerId: release.allstarrIndexerId,
+        guid: release.guid,
+        state: "queued",
+      })
+      .run();
+  }
+
+  db.insert(history)
+    .values({
+      eventType: "mangaChapterGrabbed",
+      mangaId: chapter.mangaId,
+      mangaChapterId: chapter.id,
+      data: {
+        title: release.title,
+        guid: release.guid,
+        indexerId: release.allstarrIndexerId,
+        downloadClientId: client.id,
+        downloadClientName: client.name,
+        protocol: release.protocol,
+        size: release.size,
+        quality: release.quality.name,
+        source: "autoSearch",
+      },
+    })
+    .run();
+
+  return true;
+}
+
+// ─── Manga search ───────────────────────────────────────────────────────────
+
+export async function searchForManga(
+  mangaId: number,
+): Promise<{ searched: number; grabbed: number }> {
+  const allWanted = getWantedManga();
+  const wantedChapters = allWanted.filter((ch) => ch.mangaId === mangaId);
+  if (wantedChapters.length === 0) {
+    return { searched: 0, grabbed: 0 };
+  }
+
+  const ixs = getEnabledIndexers();
+  if (ixs.manual.length === 0 && ixs.synced.length === 0) {
+    return { searched: 0, grabbed: 0 };
+  }
+
+  const DELAY_BETWEEN_ITEMS = 2000;
+  let searched = 0;
+  let grabbed = 0;
+
+  for (let i = 0; i < wantedChapters.length; i += 1) {
+    const chapter = wantedChapters[i];
+    try {
+      const detail = await searchAndGrabForManga(chapter, ixs);
+      if (detail.searched) {
+        searched += 1;
+      }
+      if (detail.grabbed) {
+        grabbed += 1;
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+        error,
+      );
+    }
+    if (i < wantedChapters.length - 1) {
+      await sleep(DELAY_BETWEEN_ITEMS);
+    }
+  }
+
+  return { searched, grabbed };
+}
+
+/** Process wanted manga chapters: search, score, and grab per profile */
+async function processWantedManga(
+  wantedChapters: WantedMangaChapter[],
+  ixs: EnabledIndexers,
+  result: AutoSearchResult,
+  delay: number,
+): Promise<void> {
+  for (let i = 0; i < wantedChapters.length; i += 1) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+
+    const chapter = wantedChapters[i];
+
+    try {
+      const detail = await searchAndGrabForManga(chapter, ixs);
+      if (detail.searched) {
+        result.searched += 1;
+      }
+      if (detail.grabbed) {
+        result.grabbed += 1;
+      }
+      result.mangaDetails!.push(detail);
+      db.update(mangaChapters)
+        .set({ lastSearchedAt: Date.now() })
+        .where(eq(mangaChapters.id, chapter.id))
+        .run();
+    } catch (error) {
+      result.errors += 1;
+      result.mangaDetails!.push({
+        chapterId: chapter.id,
+        mangaTitle: chapter.mangaTitle,
+        chapterNumber: chapter.chapterNumber,
+        searched: false,
+        grabbed: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      console.error(
+        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+        error,
+      );
+    }
+
+    if (i < wantedChapters.length - 1) {
+      await sleep(delay);
+    }
+  }
+}
+
 export async function runAutoSearch(
   options: AutoSearchOptions = {},
 ): Promise<AutoSearchResult> {
@@ -1652,6 +2245,7 @@ export async function runAutoSearch(
     details: [],
     movieDetails: [],
     episodeDetails: [],
+    mangaDetails: [],
   };
 
   const ixs = getEnabledIndexers();
@@ -1697,6 +2291,20 @@ export async function runAutoSearch(
     }
 
     await processWantedEpisodes(wantedEpisodes, ixs, result, delayBetweenBooks);
+
+    // ── Manga Chapters ────────────────────────────────────────────────────
+    const wantedManga = sortBySearchPriority(
+      getWantedManga(),
+      (m) => m.lastSearchedAt,
+    );
+    if (
+      (wantedMovies.length > 0 || wantedEpisodes.length > 0) &&
+      wantedManga.length > 0
+    ) {
+      await sleep(delayBetweenBooks);
+    }
+
+    await processWantedManga(wantedManga, ixs, result, delayBetweenBooks);
   }
 
   return result;
