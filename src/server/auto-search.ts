@@ -33,6 +33,7 @@ import {
   getCategoriesForProfiles,
   dedupeAndScoreReleases,
   isPackQualified,
+  getReleaseTypeRank,
 } from "./indexers";
 import type { ProfileInfo, PackContext } from "./indexers";
 import { canQueryIndexer, anyIndexerAvailable } from "./indexer-rate-limiter";
@@ -1609,6 +1610,403 @@ async function grabPerProfileForEpisode(
   return grabbedTitles;
 }
 
+// ─── Pack-aware episode search helpers ─────────────────────────────────────
+
+type PackSearchResult = { searched: boolean; grabbed: boolean };
+
+/** Build a PackContext from a season map of wanted episodes */
+function buildPackContextFromSeasons(
+  seasonMap: Map<number, WantedEpisode[]>,
+): PackContext {
+  const wantedEpisodesBySeason = new Map<number, Set<number>>();
+  for (const [seasonNumber, eps] of seasonMap) {
+    wantedEpisodesBySeason.set(
+      seasonNumber,
+      new Set(eps.map((e) => e.episodeNumber)),
+    );
+  }
+  return {
+    wantedEpisodesBySeason,
+    totalWantedSeasons: seasonMap.size,
+  };
+}
+
+/** Grab a release for a show-level or season-level pack, or individual episode */
+async function grabReleaseForEpisodePack(
+  release: IndexerRelease,
+  showId: number,
+  episodeId: number | undefined,
+  profileId: number,
+): Promise<boolean> {
+  const resolved = resolveDownloadClient(release);
+  if (!resolved) {
+    console.warn(
+      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+    );
+    return false;
+  }
+
+  const { client, combinedTag } = resolved;
+
+  const provider = getProvider(client.implementation);
+  const config: ConnectionConfig = {
+    implementation: client.implementation as ConnectionConfig["implementation"],
+    host: client.host,
+    port: client.port,
+    useSsl: client.useSsl,
+    urlBase: client.urlBase,
+    username: client.username,
+    password: client.password,
+    apiKey: client.apiKey,
+    category: client.category,
+    tag: client.tag,
+    settings: client.settings as Record<string, unknown> | null,
+  };
+
+  const downloadId = await provider.addDownload(config, {
+    url: release.downloadUrl,
+    torrentData: null,
+    nzbData: null,
+    category: null,
+    tag: combinedTag,
+    savePath: null,
+  });
+
+  if (downloadId) {
+    db.insert(trackedDownloads)
+      .values({
+        downloadClientId: client.id,
+        downloadId,
+        showId,
+        episodeId: episodeId ?? null,
+        downloadProfileId: profileId,
+        releaseTitle: release.title,
+        protocol: release.protocol,
+        indexerId: release.allstarrIndexerId,
+        guid: release.guid,
+        state: "queued",
+      })
+      .run();
+  }
+
+  db.insert(history)
+    .values({
+      eventType: "episodeGrabbed",
+      showId,
+      episodeId: episodeId ?? null,
+      data: {
+        title: release.title,
+        guid: release.guid,
+        indexerId: release.allstarrIndexerId,
+        downloadClientId: client.id,
+        downloadClientName: client.name,
+        protocol: release.protocol,
+        size: release.size,
+        quality: release.quality.name,
+        source: "autoSearch",
+      },
+    })
+    .run();
+
+  return true;
+}
+
+/** Try to grab the best release for each wanted episode, with pack context */
+async function grabPerProfileForEpisodes(
+  scored: IndexerRelease[],
+  wantedEpisodes: WantedEpisode[],
+  packContext: PackContext,
+): Promise<PackSearchResult> {
+  const grabbedGuids = new Set<string>();
+  let grabbed = false;
+
+  // Collect blocklisted titles for the show (all episodes share the same show)
+  const showId = wantedEpisodes[0]?.showId;
+  const blocklistedTitles = showId
+    ? new Set(
+        db
+          .select({ sourceTitle: blocklist.sourceTitle })
+          .from(blocklist)
+          .where(eq(blocklist.showId, showId))
+          .all()
+          .map((b) => b.sourceTitle),
+      )
+    : new Set<string>();
+
+  for (const ep of wantedEpisodes) {
+    for (const profile of ep.profiles) {
+      const bestExistingWeight = ep.bestWeightByProfile.get(profile.id) ?? 0;
+      const best = findBestReleaseForProfile(
+        scored,
+        profile,
+        bestExistingWeight,
+        blocklistedTitles,
+        grabbedGuids,
+        0,
+        packContext,
+      );
+      if (!best) {
+        continue;
+      }
+
+      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+      const result = await grabReleaseForEpisodePack(
+        best,
+        ep.showId,
+        isPack ? undefined : ep.id,
+        profile.id,
+      );
+      if (result) {
+        grabbedGuids.add(best.guid);
+        grabbed = true;
+        console.log(
+          `[auto-search] Grabbed "${best.title}" for "${ep.showTitle}"${isPack ? " (pack)" : ` S${padNumber(ep.seasonNumber)}E${padNumber(ep.episodeNumber)}`} (profile: ${profile.name})`,
+        );
+      }
+    }
+  }
+  return { searched: true, grabbed };
+}
+
+/** Search at the season level ("show name" S##) and grab best pack releases */
+async function searchAndGrabForSeason(
+  show: { id: number; title: string },
+  seasonNumber: number,
+  wantedEpisodes: WantedEpisode[],
+  allSeasonMap: Map<number, WantedEpisode[]>,
+  ixs: EnabledIndexers,
+): Promise<PackSearchResult> {
+  const showName = cleanSearchTerm(show.title);
+  const query = `"${showName}" S${padNumber(seasonNumber)}`;
+
+  // Derive categories from all episode profiles
+  const allProfiles = wantedEpisodes.flatMap((ep) => ep.profiles);
+  const categories = getCategoriesForProfiles(allProfiles);
+
+  const allReleases: IndexerRelease[] = [];
+
+  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+  for (const synced of syncedWithKey) {
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${synced.name}" skipped for season search: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: synced.baseUrl,
+          apiPath: synced.apiPath ?? "/api",
+          apiKey: synced.apiKey!,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "synced", indexerId: synced.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || synced.name,
+              allstarrIndexerId: synced.id,
+              indexerSource: "synced" as const,
+            },
+            "tv",
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Indexer "${synced.name}" failed for season search:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  for (const ix of ixs.manual) {
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${ix.name}" skipped for season search: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "manual", indexerId: ix.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || ix.name,
+              allstarrIndexerId: ix.id,
+              indexerSource: "manual" as const,
+            },
+            "tv",
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Manual indexer failed for season search:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  if (allReleases.length === 0) {
+    return { searched: true, grabbed: false };
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const packContext = buildPackContextFromSeasons(allSeasonMap);
+  return grabPerProfileForEpisodes(scored, wantedEpisodes, packContext);
+}
+
+/** Search at the show level (just show name) for multi-season packs */
+async function searchAndGrabForShow(
+  show: { id: number; title: string },
+  seasonMap: Map<number, WantedEpisode[]>,
+  ixs: EnabledIndexers,
+): Promise<PackSearchResult> {
+  const showName = cleanSearchTerm(show.title);
+  const query = `"${showName}"`;
+
+  // Derive categories from all episode profiles across all seasons
+  const allProfiles = [...seasonMap.values()]
+    .flat()
+    .flatMap((ep) => ep.profiles);
+  const categories = getCategoriesForProfiles(allProfiles);
+
+  const allReleases: IndexerRelease[] = [];
+
+  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+  for (const synced of syncedWithKey) {
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${synced.name}" skipped for show search: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: synced.baseUrl,
+          apiPath: synced.apiPath ?? "/api",
+          apiKey: synced.apiKey!,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "synced", indexerId: synced.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || synced.name,
+              allstarrIndexerId: synced.id,
+              indexerSource: "synced" as const,
+            },
+            "tv",
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Indexer "${synced.name}" failed for show search:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  for (const ix of ixs.manual) {
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `[auto-search] Indexer "${ix.name}" skipped for show search: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        undefined,
+        { indexerType: "manual", indexerId: ix.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || ix.name,
+              allstarrIndexerId: ix.id,
+              indexerSource: "manual" as const,
+            },
+            "tv",
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `[auto-search] Manual indexer failed for show search:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  if (allReleases.length === 0) {
+    return { searched: true, grabbed: false };
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const packContext = buildPackContextFromSeasons(seasonMap);
+  const allEpisodes = [...seasonMap.values()].flat();
+  return grabPerProfileForEpisodes(scored, allEpisodes, packContext);
+}
+
 // ─── Movie search ───────────────────────────────────────────────────────────
 
 export async function searchForMovie(
@@ -1670,6 +2068,68 @@ export async function searchForBook(
 
 // ─── Show search ────────────────────────────────────────────────────────────
 
+/** Search a single season with fallback to individual episodes */
+async function searchSeasonWithFallback(
+  show: { id: number; title: string },
+  seasonNumber: number,
+  seasonEpisodes: WantedEpisode[],
+  seasonMap: Map<number, WantedEpisode[]>,
+  ixs: EnabledIndexers,
+  delay: number,
+): Promise<{ searched: number; grabbed: number }> {
+  let searched = 0;
+  let grabbed = 0;
+
+  if (seasonEpisodes.length >= 2) {
+    try {
+      const seasonResult = await searchAndGrabForSeason(
+        show,
+        seasonNumber,
+        seasonEpisodes,
+        seasonMap,
+        ixs,
+      );
+      if (seasonResult.searched) {
+        searched += seasonEpisodes.length;
+      }
+      if (seasonResult.grabbed) {
+        grabbed += 1;
+        return { searched, grabbed };
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+        error,
+      );
+    }
+    await sleep(delay);
+  }
+
+  // Fallback to individual episode search
+  for (let i = 0; i < seasonEpisodes.length; i += 1) {
+    const episode = seasonEpisodes[i];
+    try {
+      const detail = await searchAndGrabForEpisode(episode, ixs);
+      if (detail.searched) {
+        searched += 1;
+      }
+      if (detail.grabbed) {
+        grabbed += 1;
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+        error,
+      );
+    }
+    if (i < seasonEpisodes.length - 1) {
+      await sleep(delay);
+    }
+  }
+
+  return { searched, grabbed };
+}
+
 export async function searchForShow(
   showId: number,
   cutoffUnmet?: boolean,
@@ -1688,25 +2148,53 @@ export async function searchForShow(
   let searched = 0;
   let grabbed = 0;
 
-  for (let i = 0; i < wantedEpisodes.length; i += 1) {
-    const episode = wantedEpisodes[i];
+  const seasonMap = new Map<number, WantedEpisode[]>();
+  for (const ep of wantedEpisodes) {
+    if (!seasonMap.has(ep.seasonNumber)) {
+      seasonMap.set(ep.seasonNumber, []);
+    }
+    seasonMap.get(ep.seasonNumber)!.push(ep);
+  }
+
+  const show = { id: showId, title: wantedEpisodes[0].showTitle };
+
+  // Multiple seasons → show-level search first
+  if (seasonMap.size > 1) {
     try {
-      const detail = await searchAndGrabForEpisode(episode, ixs);
-      if (detail.searched) {
-        searched += 1;
+      const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
+      if (packResult.searched) {
+        searched += wantedEpisodes.length;
       }
-      if (detail.grabbed) {
+      if (packResult.grabbed) {
         grabbed += 1;
+        return { searched, grabbed };
       }
     } catch (error) {
       console.error(
-        `[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+        `[auto-search] Error in show-level search for "${show.title}":`,
         error,
       );
     }
-    if (i < wantedEpisodes.length - 1) {
+    await sleep(DELAY_BETWEEN_ITEMS);
+  }
+
+  // Per-season with fallback
+  let isFirstSeason = true;
+  for (const [seasonNumber, seasonEpisodes] of seasonMap) {
+    if (!isFirstSeason) {
       await sleep(DELAY_BETWEEN_ITEMS);
     }
+    isFirstSeason = false;
+    const sr = await searchSeasonWithFallback(
+      show,
+      seasonNumber,
+      seasonEpisodes,
+      seasonMap,
+      ixs,
+      DELAY_BETWEEN_ITEMS,
+    );
+    searched += sr.searched;
+    grabbed += sr.grabbed;
   }
 
   return { searched, grabbed };
@@ -1823,26 +2311,77 @@ async function processWantedMovies(
   }
 }
 
-/** Process wanted episodes: search, score, and grab per profile */
-async function processWantedEpisodes(
-  wantedEpisodes: WantedEpisode[],
+/** Record episode search details in auto-search result */
+function recordEpisodeDetails(
+  eps: WantedEpisode[],
+  searchResult: SearchDetail,
+  result: AutoSearchResult,
+): void {
+  for (const ep of eps) {
+    result.episodeDetails!.push({
+      episodeId: ep.id,
+      showTitle: ep.showTitle,
+      seasonNumber: ep.seasonNumber,
+      episodeNumber: ep.episodeNumber,
+      searched: searchResult.searched,
+      grabbed: searchResult.grabbed,
+    });
+    if (searchResult.searched) {
+      result.searched += 1;
+    }
+    db.update(episodes)
+      .set({ lastSearchedAt: Date.now() })
+      .where(eq(episodes.id, ep.id))
+      .run();
+  }
+  if (searchResult.grabbed) {
+    result.grabbed += 1;
+  }
+}
+
+/** Process a single season: try season-level search, then fallback to individual episodes */
+async function processSeasonEpisodes(
+  show: { id: number; title: string },
+  seasonNumber: number,
+  seasonEpisodes: WantedEpisode[],
+  seasonMap: Map<number, WantedEpisode[]>,
   ixs: EnabledIndexers,
   result: AutoSearchResult,
   delay: number,
 ): Promise<void> {
-  for (let i = 0; i < wantedEpisodes.length; i += 1) {
+  if (seasonEpisodes.length >= 2) {
+    try {
+      const seasonResult = await searchAndGrabForSeason(
+        show,
+        seasonNumber,
+        seasonEpisodes,
+        seasonMap,
+        ixs,
+      );
+      recordEpisodeDetails(seasonEpisodes, seasonResult, result);
+      if (seasonResult.grabbed) {
+        return;
+      }
+    } catch (error) {
+      console.error(
+        `[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+        error,
+      );
+    }
+    await sleep(delay);
+  }
+
+  // Fallback to individual episode search
+  for (let i = 0; i < seasonEpisodes.length; i += 1) {
     if (
       !anyIndexerAvailable(
         ixs.manual.map((m) => m.id),
         ixs.synced.map((s) => s.id),
       )
     ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
       break;
     }
-
-    const episode = wantedEpisodes[i];
-
+    const episode = seasonEpisodes[i];
     try {
       const detail = await searchAndGrabForEpisode(episode, ixs);
       if (detail.searched) {
@@ -1872,9 +2411,97 @@ async function processWantedEpisodes(
         error,
       );
     }
-
-    if (i < wantedEpisodes.length - 1) {
+    if (i < seasonEpisodes.length - 1) {
       await sleep(delay);
+    }
+  }
+}
+
+/** Process wanted episodes: group by show/season and search at broadest applicable level */
+async function processWantedEpisodes(
+  wantedEpisodes: WantedEpisode[],
+  ixs: EnabledIndexers,
+  result: AutoSearchResult,
+  delay: number,
+): Promise<void> {
+  const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
+  for (const ep of wantedEpisodes) {
+    if (!episodesByShow.has(ep.showId)) {
+      episodesByShow.set(ep.showId, new Map());
+    }
+    const showMap = episodesByShow.get(ep.showId)!;
+    if (!showMap.has(ep.seasonNumber)) {
+      showMap.set(ep.seasonNumber, []);
+    }
+    showMap.get(ep.seasonNumber)!.push(ep);
+  }
+
+  let isFirstShow = true;
+  for (const [showId, seasonMap] of episodesByShow) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+    if (!isFirstShow) {
+      await sleep(delay);
+    }
+    isFirstShow = false;
+
+    const show = {
+      id: showId,
+      title: seasonMap.values().next().value![0].showTitle,
+    };
+
+    // Multiple seasons → show-level search first
+    if (seasonMap.size > 1) {
+      try {
+        const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
+        recordEpisodeDetails(
+          [...seasonMap.values()].flat(),
+          packResult,
+          result,
+        );
+        if (packResult.grabbed) {
+          continue;
+        }
+      } catch (error) {
+        console.error(
+          `[auto-search] Error in show-level search for "${show.title}":`,
+          error,
+        );
+      }
+      await sleep(delay);
+    }
+
+    // Per-season with fallback
+    let isFirstSeason = true;
+    for (const [seasonNumber, seasonEpisodes] of seasonMap) {
+      if (
+        !anyIndexerAvailable(
+          ixs.manual.map((m) => m.id),
+          ixs.synced.map((s) => s.id),
+        )
+      ) {
+        break;
+      }
+      if (!isFirstSeason) {
+        await sleep(delay);
+      }
+      isFirstSeason = false;
+      await processSeasonEpisodes(
+        show,
+        seasonNumber,
+        seasonEpisodes,
+        seasonMap,
+        ixs,
+        result,
+        delay,
+      );
     }
   }
 }
