@@ -1016,6 +1016,113 @@ type EnabledIndexers = {
   synced: Array<typeof syncedIndexers.$inferSelect>;
 };
 
+/** Search all indexers for a given query (extracted to reduce duplication) */
+async function searchIndexers(
+  ixs: EnabledIndexers,
+  query: string,
+  categories: number[],
+  bookParams?: { author: string; title: string },
+  contentType?: "book" | "tv" | "manga",
+  logPrefix = "[auto-search]",
+): Promise<IndexerRelease[]> {
+  const allReleases: IndexerRelease[] = [];
+
+  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+  for (const synced of syncedWithKey) {
+    const gate = canQueryIndexer("synced", synced.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `${logPrefix} Indexer "${synced.name}" skipped: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: synced.baseUrl,
+          apiPath: synced.apiPath ?? "/api",
+          apiKey: synced.apiKey!,
+        },
+        query,
+        categories,
+        bookParams,
+        { indexerType: "synced", indexerId: synced.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || synced.name,
+              allstarrIndexerId: synced.id,
+              indexerSource: "synced" as const,
+            },
+            contentType,
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `${logPrefix} Indexer "${synced.name}" failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  for (const ix of ixs.manual) {
+    const gate = canQueryIndexer("manual", ix.id);
+    if (!gate.allowed) {
+      if (gate.reason === "pacing" && gate.waitMs) {
+        await sleep(gate.waitMs);
+      } else {
+        console.log(
+          `${logPrefix} Indexer "${ix.name}" skipped: ${gate.reason}`,
+        );
+        continue;
+      }
+    }
+
+    try {
+      const results = await searchNewznab(
+        {
+          baseUrl: ix.baseUrl,
+          apiPath: ix.apiPath ?? "/api",
+          apiKey: ix.apiKey,
+        },
+        query,
+        categories,
+        bookParams,
+        { indexerType: "manual", indexerId: ix.id },
+      );
+      allReleases.push(
+        ...results.map((r) =>
+          enrichRelease(
+            {
+              ...r,
+              indexer: r.indexer || ix.name,
+              allstarrIndexerId: ix.id,
+              indexerSource: "manual" as const,
+            },
+            contentType,
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `${logPrefix} Manual indexer failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  return allReleases;
+}
+
 function getEnabledIndexers(): EnabledIndexers {
   return {
     manual: db
@@ -1224,6 +1331,179 @@ async function grabPerProfile(
   }
 
   return grabbedTitles;
+}
+
+// ─── Pack-aware book search helpers ─────────────────────────────────────────
+
+/** Grab a release for an author-level pack or individual book */
+async function grabReleaseForBookPack(
+  release: IndexerRelease,
+  authorId: number | null,
+  bookId: number | undefined,
+  profileId: number,
+): Promise<boolean> {
+  const resolved = resolveDownloadClient(release);
+  if (!resolved) {
+    console.warn(
+      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+    );
+    return false;
+  }
+
+  const { client, combinedTag } = resolved;
+
+  const provider = getProvider(client.implementation);
+  const config: ConnectionConfig = {
+    implementation: client.implementation as ConnectionConfig["implementation"],
+    host: client.host,
+    port: client.port,
+    useSsl: client.useSsl,
+    urlBase: client.urlBase,
+    username: client.username,
+    password: client.password,
+    apiKey: client.apiKey,
+    category: client.category,
+    tag: client.tag,
+    settings: client.settings as Record<string, unknown> | null,
+  };
+
+  const downloadId = await provider.addDownload(config, {
+    url: release.downloadUrl,
+    torrentData: null,
+    nzbData: null,
+    category: null,
+    tag: combinedTag,
+    savePath: null,
+  });
+
+  if (downloadId) {
+    db.insert(trackedDownloads)
+      .values({
+        downloadClientId: client.id,
+        downloadId,
+        authorId: authorId ?? null,
+        bookId: bookId ?? null,
+        downloadProfileId: profileId,
+        releaseTitle: release.title,
+        protocol: release.protocol,
+        indexerId: release.allstarrIndexerId,
+        guid: release.guid,
+        state: "queued",
+      })
+      .run();
+  }
+
+  db.insert(history)
+    .values({
+      eventType: "bookGrabbed",
+      bookId: bookId ?? null,
+      authorId,
+      data: {
+        title: release.title,
+        guid: release.guid,
+        indexerId: release.allstarrIndexerId,
+        downloadClientId: client.id,
+        downloadClientName: client.name,
+        protocol: release.protocol,
+        size: release.size,
+        quality: release.quality.name,
+        source: "autoSearch",
+      },
+    })
+    .run();
+
+  return true;
+}
+
+/** Try to grab the best release for each wanted book, with pack context */
+async function grabPerProfileForBooks(
+  scored: IndexerRelease[],
+  wantedBooks: WantedBook[],
+  packContext: PackContext,
+): Promise<PackSearchResult> {
+  const grabbedGuids = new Set<string>();
+  let grabbed = false;
+
+  // Collect blocklisted titles for the author's books
+  const bookIds = wantedBooks.map((b) => b.id);
+  const blocklistedTitles =
+    bookIds.length > 0
+      ? new Set(
+          db
+            .select({ sourceTitle: blocklist.sourceTitle })
+            .from(blocklist)
+            .where(inArray(blocklist.bookId, bookIds))
+            .all()
+            .map((b) => b.sourceTitle),
+        )
+      : new Set<string>();
+
+  for (const book of wantedBooks) {
+    for (const profile of book.profiles) {
+      const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
+      const best = findBestReleaseForProfile(
+        scored,
+        profile,
+        bestExistingWeight,
+        blocklistedTitles,
+        grabbedGuids,
+        0,
+        packContext,
+      );
+      if (!best) {
+        continue;
+      }
+
+      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+      const result = await grabReleaseForBookPack(
+        best,
+        book.authorId,
+        isPack ? undefined : book.id,
+        profile.id,
+      );
+      if (result) {
+        grabbedGuids.add(best.guid);
+        grabbed = true;
+        console.log(
+          `[auto-search] Grabbed "${best.title}" for "${book.title}"${isPack ? " (author pack)" : ""} (profile: ${profile.name})`,
+        );
+      }
+    }
+  }
+  return { searched: true, grabbed };
+}
+
+/** Search at the author level (just author name) for author-collection packs */
+async function searchAndGrabForAuthor(
+  authorName: string,
+  wantedBooks: WantedBook[],
+  ixs: EnabledIndexers,
+): Promise<PackSearchResult> {
+  const cleanName = cleanSearchTerm(authorName);
+  const query = `"${cleanName}"`;
+
+  // Derive categories from all book profiles
+  const allProfiles = wantedBooks.flatMap((b) => b.profiles);
+  const categories = getCategoriesForProfiles(allProfiles);
+
+  const allReleases = await searchIndexers(
+    ixs,
+    query,
+    categories,
+    undefined,
+    "book",
+    "[auto-search]",
+  );
+
+  if (allReleases.length === 0) {
+    return { searched: true, grabbed: false };
+  }
+
+  const scored = dedupeAndScoreReleases(allReleases, null, null);
+  const packContext: PackContext = {
+    wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
+  };
+  return grabPerProfileForBooks(scored, wantedBooks, packContext);
 }
 
 // ─── Per-movie search + grab ────────────────────────────────────────────────
@@ -2202,26 +2482,51 @@ export async function searchForShow(
 
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
 
-/** Process wanted books: search, score, and grab per profile */
-async function processWantedBooks(
-  wantedBooks: WantedBook[],
+/** Record book search details and update lastSearchedAt */
+function recordBookDetails(
+  booksToRecord: WantedBook[],
+  searchResult: PackSearchResult,
+  result: AutoSearchResult,
+): void {
+  for (const book of booksToRecord) {
+    result.details.push({
+      bookId: book.id,
+      bookTitle: book.title,
+      authorName: book.authorName,
+      searched: searchResult.searched,
+      grabbed: searchResult.grabbed,
+    });
+    if (searchResult.searched) {
+      result.searched += 1;
+    }
+    db.update(books)
+      .set({ lastSearchedAt: Date.now() })
+      .where(eq(books.id, book.id))
+      .run();
+  }
+  if (searchResult.grabbed) {
+    result.grabbed += 1;
+  }
+}
+
+/** Search individual books and record results */
+async function processIndividualBooks(
+  booksToSearch: WantedBook[],
   ixs: EnabledIndexers,
   result: AutoSearchResult,
   delay: number,
 ): Promise<void> {
-  for (let i = 0; i < wantedBooks.length; i += 1) {
+  for (let i = 0; i < booksToSearch.length; i += 1) {
     if (
       !anyIndexerAvailable(
         ixs.manual.map((m) => m.id),
         ixs.synced.map((s) => s.id),
       )
     ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
       break;
     }
 
-    const book = wantedBooks[i];
-
+    const book = booksToSearch[i];
     try {
       const detail = await searchAndGrabForBook(book, ixs);
       if (detail.searched) {
@@ -2251,9 +2556,68 @@ async function processWantedBooks(
       );
     }
 
-    if (i < wantedBooks.length - 1) {
+    if (i < booksToSearch.length - 1) {
       await sleep(delay);
     }
+  }
+}
+
+/** Process wanted books: group by author, try author-level search, then fallback */
+async function processWantedBooks(
+  wantedBooks: WantedBook[],
+  ixs: EnabledIndexers,
+  result: AutoSearchResult,
+  delay: number,
+): Promise<void> {
+  // Group books by primary author
+  const booksByAuthor = new Map<string, WantedBook[]>();
+  for (const book of wantedBooks) {
+    const key = book.authorName ?? "__no_author__";
+    if (!booksByAuthor.has(key)) {
+      booksByAuthor.set(key, []);
+    }
+    booksByAuthor.get(key)!.push(book);
+  }
+
+  let isFirstGroup = true;
+  for (const [authorName, authorBooks] of booksByAuthor) {
+    if (
+      !anyIndexerAvailable(
+        ixs.manual.map((m) => m.id),
+        ixs.synced.map((s) => s.id),
+      )
+    ) {
+      console.log("[auto-search] All indexers exhausted, stopping cycle early");
+      break;
+    }
+    if (!isFirstGroup) {
+      await sleep(delay);
+    }
+    isFirstGroup = false;
+
+    // 2+ books by same author → author-level search first
+    if (authorBooks.length >= 2 && authorName !== "__no_author__") {
+      try {
+        const packResult = await searchAndGrabForAuthor(
+          authorName,
+          authorBooks,
+          ixs,
+        );
+        recordBookDetails(authorBooks, packResult, result);
+        if (packResult.grabbed) {
+          continue;
+        }
+      } catch (error) {
+        console.error(
+          `[auto-search] Error in author-level search for "${authorName}":`,
+          error,
+        );
+      }
+      await sleep(delay);
+    }
+
+    // Fallback to individual book search
+    await processIndividualBooks(authorBooks, ixs, result, delay);
   }
 }
 
