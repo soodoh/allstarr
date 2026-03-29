@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "eda0204e-73a8-48f4-af71-763bb187b07c",
-  "prevId": "5dc1ff2e-8bc0-45d4-8c96-92bfdc0f4812",
+  "id": "d0c322da-fbfb-475c-8bc0-ea1717b46de2",
+  "prevId": "f7bf22af-5bf4-48a6-88a8-f9ba0ebd8fee",
   "tables": {
     "account": {
       "name": "account",
@@ -2759,6 +2759,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
+        },
+        "cached_poster_path": {
+          "name": "cached_poster_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "fanart_url": {
           "name": "fanart_url",
