@@ -18,16 +18,22 @@ import type {
 import type { z } from "zod";
 
 export function useAddShow() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: z.infer<typeof addShowSchema>) => addShowFn({ data }),
-    onSuccess: () => {
-      toast.success("Show added");
-      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    onMutate: () => {
+      const toastId = toast.loading("Starting show import...", {
+        id: "submit-add-show",
+      });
+      return { toastId };
     },
-    onError: () => toast.error("Failed to add show"),
+    onSuccess: (_result, _vars, context) => {
+      toast.dismiss(context?.toastId);
+    },
+    onError: (error, _vars, context) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add show",
+        { id: context?.toastId },
+      ),
   });
 }
 

@@ -33,6 +33,8 @@ import type {
   TmdbEpisodeGroupDetail,
 } from "./tmdb/types";
 import { searchForShow } from "./auto-search";
+import { submitCommand } from "./commands";
+import type { CommandHandler } from "./commands";
 import * as fs from "node:fs";
 
 type ShowStatus = "continuing" | "ended" | "canceled" | "upcoming";
@@ -441,148 +443,122 @@ async function importFromEpisodeGroup(
   }
 }
 
-export const addShowFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => addShowSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
+export const addShowHandler: CommandHandler = async (body, updateProgress) => {
+  const data = body as ReturnType<typeof addShowSchema.parse>;
 
-    // Check if show already exists
-    const existing = db
-      .select({ id: shows.id })
-      .from(shows)
-      .where(eq(shows.tmdbId, data.tmdbId))
+  // Check if show already exists
+  const existing = db
+    .select({ id: shows.id })
+    .from(shows)
+    .where(eq(shows.tmdbId, data.tmdbId))
+    .get();
+
+  if (existing) {
+    throw new Error("Show already exists");
+  }
+
+  // Fetch show detail from TMDB
+  const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${data.tmdbId}`, {
+    append_to_response: "external_ids",
+  });
+
+  updateProgress("Fetching show details...");
+
+  const title = raw.name;
+  const sortTitle = generateSortTitle(title);
+  const status = mapShowStatus(raw.status);
+  const network = raw.networks[0]?.name ?? "";
+  const year = raw.first_air_date
+    ? Number.parseInt(raw.first_air_date.split("-")[0], 10)
+    : 0;
+  const runtime = raw.episode_run_time[0] ?? 0;
+  const genres = raw.genres.map((g) => g.name);
+  const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
+  const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
+  const imdbId = raw.external_ids?.imdb_id ?? null;
+
+  // Pre-fetch all TMDB data before the transaction
+  let groupDetail: TmdbEpisodeGroupDetail | null = null;
+  const seasonDetails: Array<{
+    summary: (typeof raw.seasons)[0];
+    detail: TmdbSeasonDetail;
+  }> = [];
+
+  if (data.episodeGroupId) {
+    updateProgress("Fetching episode group...");
+    groupDetail = await tmdbFetch<TmdbEpisodeGroupDetail>(
+      `/tv/episode_group/${data.episodeGroupId}`,
+    );
+  } else {
+    const totalSeasons = raw.seasons.length;
+    for (const [index, seasonSummary] of raw.seasons.entries()) {
+      updateProgress(`Fetching season ${index + 1} of ${totalSeasons}...`);
+      const detail = await tmdbFetch<TmdbSeasonDetail>(
+        `/tv/${data.tmdbId}/season/${seasonSummary.season_number}`,
+      );
+      seasonDetails.push({ summary: seasonSummary, detail });
+    }
+  }
+
+  updateProgress("Saving show and episodes...");
+
+  // All DB writes in a single transaction
+  const show = db.transaction((tx) => {
+    const showRow = tx
+      .insert(shows)
+      .values({
+        title,
+        sortTitle,
+        overview: raw.overview,
+        tmdbId: data.tmdbId,
+        imdbId,
+        status,
+        seriesType: data.seriesType,
+        useSeasonFolder: data.useSeasonFolder ? 1 : 0,
+        network,
+        year,
+        runtime,
+        genres,
+        posterUrl,
+        fanartUrl,
+        episodeGroupId: data.episodeGroupId,
+      })
+      .returning()
       .get();
 
-    if (existing) {
-      throw new Error("Show already exists");
+    // Insert join table for download profiles
+    for (const profileId of data.downloadProfileIds) {
+      tx.insert(showDownloadProfiles)
+        .values({ showId: showRow.id, downloadProfileId: profileId })
+        .run();
     }
 
-    // Fetch show detail from TMDB
-    const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${data.tmdbId}`, {
-      append_to_response: "external_ids",
-    });
-
-    const title = raw.name;
-    const sortTitle = generateSortTitle(title);
-    const status = mapShowStatus(raw.status);
-    const network = raw.networks[0]?.name ?? "";
-    const year = raw.first_air_date
-      ? Number.parseInt(raw.first_air_date.split("-")[0], 10)
-      : 0;
-    const runtime = raw.episode_run_time[0] ?? 0;
-    const genres = raw.genres.map((g) => g.name);
-    const posterUrl = transformImagePath(raw.poster_path, "w500") ?? "";
-    const fanartUrl = transformImagePath(raw.backdrop_path, "w1280") ?? "";
-    const imdbId = raw.external_ids?.imdb_id ?? null;
-
-    // Pre-fetch all TMDB data before the transaction
-    let groupDetail: TmdbEpisodeGroupDetail | null = null;
-    const seasonDetails: Array<{
-      summary: (typeof raw.seasons)[0];
-      detail: TmdbSeasonDetail;
-    }> = [];
-
-    if (data.episodeGroupId) {
-      groupDetail = await tmdbFetch<TmdbEpisodeGroupDetail>(
-        `/tv/episode_group/${data.episodeGroupId}`,
+    // Insert seasons and episodes
+    if (groupDetail) {
+      const sortedGroups = groupDetail.groups.toSorted(
+        (a, b) => a.order - b.order,
       );
-    } else {
-      for (const seasonSummary of raw.seasons) {
-        const detail = await tmdbFetch<TmdbSeasonDetail>(
-          `/tv/${data.tmdbId}/season/${seasonSummary.season_number}`,
-        );
-        seasonDetails.push({ summary: seasonSummary, detail });
-      }
-    }
+      for (const group of sortedGroups) {
+        const season = tx
+          .insert(seasons)
+          .values({
+            showId: showRow.id,
+            seasonNumber: group.order,
+            overview: null,
+            posterUrl: null,
+          })
+          .returning()
+          .get();
 
-    // All DB writes in a single transaction
-    const show = db.transaction((tx) => {
-      const showRow = tx
-        .insert(shows)
-        .values({
-          title,
-          sortTitle,
-          overview: raw.overview,
-          tmdbId: data.tmdbId,
-          imdbId,
-          status,
-          seriesType: data.seriesType,
-          useSeasonFolder: data.useSeasonFolder ? 1 : 0,
-          network,
-          year,
-          runtime,
-          genres,
-          posterUrl,
-          fanartUrl,
-          episodeGroupId: data.episodeGroupId,
-        })
-        .returning()
-        .get();
-
-      // Insert join table for download profiles
-      for (const profileId of data.downloadProfileIds) {
-        tx.insert(showDownloadProfiles)
-          .values({ showId: showRow.id, downloadProfileId: profileId })
-          .run();
-      }
-
-      // Insert seasons and episodes
-      if (groupDetail) {
-        const sortedGroups = groupDetail.groups.toSorted(
-          (a, b) => a.order - b.order,
-        );
-        for (const group of sortedGroups) {
-          const season = tx
-            .insert(seasons)
-            .values({
-              showId: showRow.id,
-              seasonNumber: group.order,
-              overview: null,
-              posterUrl: null,
-            })
-            .returning()
-            .get();
-
-          if (group.episodes.length > 0) {
-            tx.insert(episodes)
-              .values(
-                group.episodes
-                  .toSorted((a, b) => a.order - b.order)
-                  .map((ep) => ({
-                    showId: showRow.id,
-                    seasonId: season.id,
-                    episodeNumber: ep.order + 1,
-                    title: ep.name,
-                    overview: ep.overview || null,
-                    airDate: ep.air_date,
-                    runtime: ep.runtime,
-                    tmdbId: ep.id,
-                    hasFile: false,
-                  })),
-              )
-              .run();
-          }
-        }
-      } else {
-        for (const { summary, detail } of seasonDetails) {
-          const season = tx
-            .insert(seasons)
-            .values({
-              showId: showRow.id,
-              seasonNumber: summary.season_number,
-              overview: summary.overview || null,
-              posterUrl: transformImagePath(summary.poster_path, "w500"),
-            })
-            .returning()
-            .get();
-
-          if (detail.episodes.length > 0) {
-            tx.insert(episodes)
-              .values(
-                detail.episodes.map((ep) => ({
+        if (group.episodes.length > 0) {
+          tx.insert(episodes)
+            .values(
+              group.episodes
+                .toSorted((a, b) => a.order - b.order)
+                .map((ep) => ({
                   showId: showRow.id,
                   seasonId: season.id,
-                  episodeNumber: ep.episode_number,
+                  episodeNumber: ep.order + 1,
                   title: ep.name,
                   overview: ep.overview || null,
                   airDate: ep.air_date,
@@ -590,42 +566,95 @@ export const addShowFn = createServerFn({ method: "POST" })
                   tmdbId: ep.id,
                   hasFile: false,
                 })),
-              )
-              .run();
-          }
+            )
+            .run();
         }
       }
+    } else {
+      for (const { summary, detail } of seasonDetails) {
+        const season = tx
+          .insert(seasons)
+          .values({
+            showId: showRow.id,
+            seasonNumber: summary.season_number,
+            overview: summary.overview || null,
+            posterUrl: transformImagePath(summary.poster_path, "w500"),
+          })
+          .returning()
+          .get();
 
-      // Apply monitoring option
-      applyMonitoringOption(
-        showRow.id,
-        data.monitorOption,
-        data.downloadProfileIds,
-      );
-
-      // Compute absolute episode numbers for anime shows
-      computeAbsoluteNumbers(showRow.id);
-
-      // Insert history event
-      tx.insert(history)
-        .values({
-          eventType: "showAdded",
-          showId: showRow.id,
-          data: { title },
-        })
-        .run();
-
-      return showRow;
-    });
-
-    // Fire-and-forget search if requested (outside transaction)
-    if (data.searchOnAdd || data.searchCutoffUnmet) {
-      void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
-        console.error("Search after add failed:", error),
-      );
+        if (detail.episodes.length > 0) {
+          tx.insert(episodes)
+            .values(
+              detail.episodes.map((ep) => ({
+                showId: showRow.id,
+                seasonId: season.id,
+                episodeNumber: ep.episode_number,
+                title: ep.name,
+                overview: ep.overview || null,
+                airDate: ep.air_date,
+                runtime: ep.runtime,
+                tmdbId: ep.id,
+                hasFile: false,
+              })),
+            )
+            .run();
+        }
+      }
     }
 
-    return show;
+    // Apply monitoring option
+    applyMonitoringOption(
+      showRow.id,
+      data.monitorOption,
+      data.downloadProfileIds,
+    );
+
+    // Compute absolute episode numbers for anime shows
+    computeAbsoluteNumbers(showRow.id);
+
+    // Insert history event
+    tx.insert(history)
+      .values({
+        eventType: "showAdded",
+        showId: showRow.id,
+        data: { title },
+      })
+      .run();
+
+    return showRow;
+  });
+
+  updateProgress("Searching for available releases...");
+
+  // Fire-and-forget search if requested (outside transaction)
+  if (data.searchOnAdd || data.searchCutoffUnmet) {
+    void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
+      console.error("Search after add failed:", error),
+    );
+  }
+
+  return {
+    showId: show.id,
+    title: show.title,
+    seasonCount:
+      seasonDetails.length > 0
+        ? seasonDetails.length
+        : (groupDetail?.groups.length ?? 0),
+  } as Record<string, unknown>;
+};
+
+export const addShowFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => addShowSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    return submitCommand({
+      commandType: "addShow",
+      name: `Add show: ${data.tmdbId}`,
+      body: data as unknown as Record<string, unknown>,
+      dedupeKey: "tmdbId",
+      handler: addShowHandler,
+    });
   });
 
 export const getShowsFn = createServerFn({ method: "GET" }).handler(
