@@ -141,6 +141,13 @@
       "when": 1774817825761,
       "tag": "0019_smart_hammerhead",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1774821739972,
+      "tag": "0020_skinny_magma",
+      "breakpoints": true
     }
   ]
 }
