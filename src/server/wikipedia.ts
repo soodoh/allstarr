@@ -38,7 +38,7 @@ const wikipedia = createApiFetcher({
 });
 
 const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 async function wikipediaFetch<T>(cacheKey: string, url: string): Promise<T> {
   return wikipedia.fetch<T>(cacheKey, async () => {
@@ -351,31 +351,41 @@ export async function fetchPageWikitext(
 /**
  * Main entry point. Fetches and parses Wikipedia volume mappings for a manga.
  * Handles subpages by fetching additional pages and deduplicating volumes.
+ * Returns mappings and page title, or null if no page found or no volumes parsed.
  */
 export async function getWikipediaVolumeMappings(
   mangaTitle: string,
   latestChapter?: number,
-): Promise<WikipediaVolumeMapping[]> {
+): Promise<{ mappings: WikipediaVolumeMapping[]; pageTitle: string } | null> {
   const pageTitle = await searchChapterListPage(mangaTitle);
   if (!pageTitle) {
-    return [];
+    return null;
   }
 
   const wikitext = await fetchPageWikitext(pageTitle);
   if (!wikitext) {
-    return [];
+    return null;
+  }
+
+  // Validate that the page contains {{Graphic novel list}} templates
+  const hasTemplates = wikitext.toLowerCase().includes("{{graphic novel list");
+  const subpageLinks = extractSubpageLinks(wikitext);
+
+  if (!hasTemplates && subpageLinks.length === 0) {
+    return null;
   }
 
   // Collect volumes from the main page
-  const allVolumes = extractVolumesFromWikitext(wikitext);
+  const allVolumes: Array<{ volumeNumber: number; firstChapter: number }> = [];
+  if (hasTemplates) {
+    allVolumes.push(...extractVolumesFromWikitext(wikitext));
+  }
 
-  // Find subpage links and fetch each
-  const subpageLinks = extractSubpageLinks(wikitext);
+  // Follow subpages
   for (const link of subpageLinks) {
     const subWikitext = await fetchPageWikitext(link);
     if (subWikitext) {
-      const subVolumes = extractVolumesFromWikitext(subWikitext);
-      allVolumes.push(...subVolumes);
+      allVolumes.push(...extractVolumesFromWikitext(subWikitext));
     }
   }
 
@@ -392,5 +402,6 @@ export async function getWikipediaVolumeMappings(
   // Sort by volumeNumber ascending before deriving ranges
   deduplicated.sort((a, b) => a.volumeNumber - b.volumeNumber);
 
-  return deriveVolumeRanges(deduplicated, latestChapter);
+  const mappings = deriveVolumeRanges(deduplicated, latestChapter);
+  return mappings.length > 0 ? { mappings, pageTitle } : null;
 }
