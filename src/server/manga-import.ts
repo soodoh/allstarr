@@ -27,10 +27,7 @@ import {
   expandChapterRange,
   parseChapterNumber,
 } from "./manga-chapter-utils";
-import {
-  getWikipediaVolumeMappings,
-  applyWikipediaVolumeMappings,
-} from "./wikipedia";
+import { getWikipediaVolumeMappings, applyVolumeMappings } from "./wikipedia";
 import type { WikipediaVolumeMapping as VolumeMapping } from "./wikipedia";
 import { getMangaDexVolumeMappings } from "./mangadex";
 
@@ -430,7 +427,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
       mangaDexId = mdResult.mangaDexId;
       mangaDexMappings = mdResult.mappings;
       mangaDexChapterNumbers = mdResult.allChapterNumbers;
-      chapters = applyWikipediaVolumeMappings(chapters, mdResult.mappings);
+      chapters = applyVolumeMappings(chapters, mdResult.mappings);
     }
   } catch {
     // MangaDex fetch failed -- continue without
@@ -665,7 +662,7 @@ function insertNewChapters(
 
   // Apply MangaDex mappings (primary)
   let mappedChapters = mangaDexMappings
-    ? applyWikipediaVolumeMappings(chapters, mangaDexMappings)
+    ? applyVolumeMappings(chapters, mangaDexMappings)
     : [...chapters];
 
   // Apply Wikipedia mappings only to chapters still unmapped
