@@ -37,6 +37,10 @@ export const manga = sqliteTable(
     wikipediaFetchedAt: integer("wikipedia_fetched_at", {
       mode: "timestamp",
     }),
+    mangaDexId: text("manga_dex_id"),
+    mangaDexFetchedAt: integer("manga_dex_fetched_at", {
+      mode: "timestamp",
+    }),
   },
   (t) => [unique("manga_manga_updates_id_unique").on(t.mangaUpdatesId)],
 );

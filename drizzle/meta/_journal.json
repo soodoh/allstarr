@@ -148,6 +148,13 @@
       "when": 1774821739972,
       "tag": "0020_skinny_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1774825474669,
+      "tag": "0021_smart_whiplash",
+      "breakpoints": true
     }
   ]
 }
