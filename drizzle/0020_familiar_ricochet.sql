@@ -1,0 +1,1 @@
+ALTER TABLE `manga` ADD `wikipedia_fetched_at` integer;
