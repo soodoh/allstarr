@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1f3932ed-c905-4014-b4b3-af73f727e59a",
-  "prevId": "3a01891e-1b24-4f7c-86aa-6e376b3e3c45",
+  "id": "f7bf22af-5bf4-48a6-88a8-f9ba0ebd8fee",
+  "prevId": "1f3932ed-c905-4014-b4b3-af73f727e59a",
   "tables": {
     "account": {
       "name": "account",
@@ -398,13 +398,6 @@
           "autoincrement": false,
           "default": "'[]'"
         },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "monitored": {
           "name": "monitored",
           "type": "integer",
@@ -579,13 +572,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'[]'"
-        },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "rating": {
           "name": "rating",
@@ -895,13 +881,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'[]'"
-        },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "is_default_cover": {
           "name": "is_default_cover",
@@ -1675,13 +1654,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -1821,20 +1793,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "path": {
           "name": "path",
@@ -2204,20 +2162,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "minimum_availability": {
           "name": "minimum_availability",
@@ -2816,14 +2760,6 @@
           "autoincrement": false,
           "default": "''"
         },
-        "fanart_url": {
-          "name": "fanart_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
         "cached_poster_path": {
           "name": "cached_poster_path",
           "type": "text",
@@ -2831,12 +2767,13 @@
           "notNull": false,
           "autoincrement": false
         },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
+        "fanart_url": {
+          "name": "fanart_url",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         },
         "images": {
           "name": "images",
