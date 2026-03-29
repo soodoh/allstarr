@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { getAllTasks, getTask } from "./registry";
 import { eventBus } from "../event-bus";
 import { getTimers, setTaskExecutor } from "./timers";
-
+import { markTaskRunning, markTaskComplete, isTaskRunning } from "./state";
 // oxlint-disable import/no-unassigned-import -- Side-effect imports register tasks in the registry
 import "./tasks/check-health";
 import "./tasks/housekeeping";
@@ -19,9 +19,10 @@ import "./tasks/refresh-mangaupdates-metadata";
 import "./tasks/search-missing";
 // oxlint-enable import/no-unassigned-import
 
+export { isTaskRunning, clearRunningTasks } from "./state";
+
 let started = false;
 const timers = getTimers();
-const runningTasks = new Set<string>();
 
 function seedTasksIfNeeded(): void {
   const existing = db.select().from(scheduledTasks).all();
@@ -43,7 +44,7 @@ function seedTasksIfNeeded(): void {
 }
 
 async function executeTask(taskId: string): Promise<void> {
-  if (runningTasks.has(taskId)) {
+  if (isTaskRunning(taskId)) {
     return;
   }
 
@@ -52,7 +53,7 @@ async function executeTask(taskId: string): Promise<void> {
     return;
   }
 
-  runningTasks.add(taskId);
+  markTaskRunning(taskId);
   const start = Date.now();
 
   try {
@@ -98,7 +99,7 @@ async function executeTask(taskId: string): Promise<void> {
     console.error(`[scheduler] ${task.name} failed: ${message}`);
     eventBus.emit({ type: "taskUpdated", taskId });
   } finally {
-    runningTasks.delete(taskId);
+    markTaskComplete(taskId);
   }
 }
 
@@ -160,13 +161,4 @@ export async function runTaskNow(taskId: string): Promise<void> {
     throw new Error(`Unknown task: ${taskId}`);
   }
   await executeTask(taskId);
-}
-
-export function isTaskRunning(taskId: string): boolean {
-  return runningTasks.has(taskId);
-}
-
-/** Clear stale running-task state (for E2E test isolation). */
-export function clearRunningTasks(): void {
-  runningTasks.clear();
 }

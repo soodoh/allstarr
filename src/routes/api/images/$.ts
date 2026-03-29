@@ -1,9 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { existsSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { join, extname } from "node:path";
-import sharp from "sharp";
-import { resolveImagePath } from "src/server/image-cache";
 
 const MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -17,41 +12,37 @@ const MIME_TYPES: Record<string, string> = {
 
 const OUTPUT_FORMATS = new Set(["webp", "avif", "jpg", "jpeg", "png"]);
 
-/**
- * Finds the image file for a given path (without extension),
- * trying common image extensions.
- */
-function findImageFile(basePath: string): string | null {
-  // Try exact path first (if it has an extension)
-  if (existsSync(basePath)) {
+async function findImageFile(basePath: string): Promise<string | null> {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  if (fs.existsSync(basePath)) {
     return basePath;
   }
-  // Try common extensions
   for (const ext of [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]) {
     const candidate = basePath + ext;
-    if (existsSync(candidate)) {
+    if (fs.existsSync(candidate)) {
       return candidate;
     }
   }
-  // Try matching by filename prefix in the directory
-  const dir = join(basePath, "..");
+  const dir = path.join(basePath, "..");
   const base = basePath.split("/").pop()!;
-  if (existsSync(dir)) {
-    const files = readdirSync(dir);
+  if (fs.existsSync(dir)) {
+    const files = fs.readdirSync(dir);
     const match = files.find((f) => f.startsWith(`${base}.`));
     if (match) {
-      return join(dir, match);
+      return path.join(dir, match);
     }
   }
   return null;
 }
 
-/** Apply format-specific encoding to a sharp pipeline. */
+// oxlint-disable-next-line @typescript-eslint/no-explicit-any -- sharp types unavailable without static import
 function applyOutputFormat(
-  pipeline: sharp.Sharp,
+  pipeline: any,
   outputFormat: string,
   quality: number,
-): sharp.Sharp {
+): any {
   switch (outputFormat) {
     case "webp": {
       return pipeline.webp({ quality });
@@ -76,15 +67,20 @@ export const Route = createFileRoute("/api/images/$")({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
+        const fsp = await import("node:fs/promises");
+        const path = await import("node:path");
+        const sharpModule = await import("sharp");
+        const sharp = sharpModule.default;
+        const { resolveImagePath } = await import("src/server/image-cache");
+
         const url = new URL(request.url);
-        // Extract the path after /api/images/
         const imagePath = url.pathname.replace(/^\/api\/images\//, "");
         if (!imagePath) {
           return new Response("Not found", { status: 404 });
         }
 
-        const absolutePath = resolveImagePath(imagePath);
-        const filePath = findImageFile(absolutePath);
+        const absolutePath = await resolveImagePath(imagePath);
+        const filePath = await findImageFile(absolutePath);
         if (!filePath) {
           return new Response("Not found", { status: 404 });
         }
@@ -98,13 +94,12 @@ export const Route = createFileRoute("/api/images/$")({
         const height = h ? Number.parseInt(h, 10) : undefined;
         const quality = q ? Number.parseInt(q, 10) : 80;
 
-        const sourceExt = extname(filePath).toLowerCase();
+        const sourceExt = path.extname(filePath).toLowerCase();
         const needsTransform =
           width || height || (format && `.${format}` !== sourceExt);
 
         if (!needsTransform) {
-          // Serve the original file
-          const data = await readFile(filePath);
+          const data = await fsp.readFile(filePath);
           const mimeType = MIME_TYPES[sourceExt] || "application/octet-stream";
           return new Response(new Uint8Array(data), {
             headers: {
@@ -114,7 +109,6 @@ export const Route = createFileRoute("/api/images/$")({
           });
         }
 
-        // Transform with sharp
         let pipeline = sharp(filePath);
 
         if (width || height) {

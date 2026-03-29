@@ -1,7 +1,4 @@
 // oxlint-disable no-console -- Server-side logging for image cache failures
-import * as fs from "node:fs";
-import { writeFile } from "node:fs/promises";
-import * as path from "node:path";
 
 export type ImageEntityType =
   | "authors"
@@ -24,7 +21,8 @@ function getExtensionFromContentType(contentType: string): string {
   return map[contentType] || "jpg";
 }
 
-function getImagesDir(): string {
+async function getImagesDir(): Promise<string> {
+  const path = await import("node:path");
   return path.join(
     path.dirname(process.env.DATABASE_URL || "data/sqlite.db"),
     "images",
@@ -41,6 +39,10 @@ export async function cacheImage(
   id: number,
   suffix?: string,
 ): Promise<string | null> {
+  const fs = await import("node:fs");
+  const fsp = await import("node:fs/promises");
+  const path = await import("node:path");
+
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -54,7 +56,7 @@ export async function cacheImage(
     const ext = getExtensionFromContentType(contentType);
     const filename = suffix ? `${id}-${suffix}.${ext}` : `${id}.${ext}`;
     const relativePath = `${type}/${filename}`;
-    const imagesDir = getImagesDir();
+    const imagesDir = await getImagesDir();
     const absolutePath = path.join(imagesDir, relativePath);
 
     const dir = path.dirname(absolutePath);
@@ -63,7 +65,7 @@ export async function cacheImage(
     }
 
     const buffer = await response.arrayBuffer();
-    await writeFile(absolutePath, Buffer.from(buffer));
+    await fsp.writeFile(absolutePath, Buffer.from(buffer));
 
     return relativePath;
   } catch (error) {
@@ -75,16 +77,8 @@ export async function cacheImage(
 /**
  * Resolves a relative cached image path to an absolute filesystem path.
  */
-export function resolveImagePath(relativePath: string): string {
-  return path.join(getImagesDir(), relativePath);
-}
-
-/**
- * Ensures the images directory exists.
- */
-export function ensureImagesDir(): void {
-  const imagesDir = getImagesDir();
-  if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
-  }
+export async function resolveImagePath(relativePath: string): Promise<string> {
+  const path = await import("node:path");
+  const imagesDir = await getImagesDir();
+  return path.join(imagesDir, relativePath);
 }

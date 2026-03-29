@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { requireAuth } from "./middleware";
-import { runTaskNow, isTaskRunning } from "./scheduler";
+import { isTaskRunning } from "./scheduler/state";
 import { rescheduleTask, clearTaskTimer } from "./scheduler/timers";
 import { eventBus } from "./event-bus";
 
@@ -60,6 +60,7 @@ export const runScheduledTaskFn = createServerFn({ method: "POST" })
   .inputValidator((d: { taskId: string }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
+    const { runTaskNow } = await import("./scheduler");
     await runTaskNow(data.taskId);
     return { success: true };
   });
