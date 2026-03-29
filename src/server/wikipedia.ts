@@ -181,18 +181,33 @@ export function extractFirstChapterNumber(block: string): number | null {
 }
 
 /**
- * Extracts subpage links from `{{further|...}}` and `{{main|...}}` templates.
+ * Extracts subpage links from:
+ * 1. `{{further|...}}` and `{{main|...}}` templates
+ * 2. Plain wikilinks matching chapter list subpage patterns:
+ *    `[[List of X chapters (N–M)|...]]`
  */
 export function extractSubpageLinks(wikitext: string): string[] {
   const links: string[] = [];
-  const pattern = /\{\{(?:further|main)\s*\|([^}]+)\}\}/gi;
+
+  // Pattern 1: {{further|...}} and {{main|...}} templates
+  const templatePattern = /\{\{(?:further|main)\s*\|([^}]+)\}\}/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = pattern.exec(wikitext)) !== null) {
-    // The argument may contain multiple pipe-separated titles; take the first
+  while ((match = templatePattern.exec(wikitext)) !== null) {
     const args = match[1].split("|");
     const title = args[0].trim();
     if (title) {
+      links.push(title);
+    }
+  }
+
+  // Pattern 2: plain wikilinks to chapter list subpages
+  // Matches: [[List of X chapters (N–M)|display text]] or [[List of X chapters (N–M)]]
+  const wikilinkPattern =
+    /\[\[(List of [^[\]]+chapters\s*\([^)]+\))(?:\|[^\]]+)?\]\]/gi;
+  while ((match = wikilinkPattern.exec(wikitext)) !== null) {
+    const title = match[1].trim();
+    if (title && !links.includes(title)) {
       links.push(title);
     }
   }
@@ -291,6 +306,28 @@ export function applyWikipediaVolumeMappings<
 // ─── API Client Functions ─────────────────────────────────────────────────
 
 /**
+ * Picks the best search result for a chapter list page.
+ * Prefers pages with "chapters" in the title, deprioritizes "volumes".
+ * Returns null if no suitable page found.
+ */
+export function pickBestSearchResult(
+  hits: Array<{ title: string }>,
+): string | null {
+  const chapterPages: string[] = [];
+
+  for (const hit of hits) {
+    if (
+      /lists? of .* chapters/i.test(hit.title) &&
+      !/volumes/i.test(hit.title)
+    ) {
+      chapterPages.push(hit.title);
+    }
+  }
+
+  return chapterPages[0] ?? null;
+}
+
+/**
  * Searches Wikipedia for a chapter list page matching the manga title.
  * Returns the page title, or null if not found.
  */
@@ -313,13 +350,7 @@ export async function searchChapterListPage(
   );
 
   const hits = result.query?.search ?? [];
-  for (const hit of hits) {
-    if (/list of .* chapters/i.test(hit.title)) {
-      return hit.title;
-    }
-  }
-
-  return null;
+  return pickBestSearchResult(hits);
 }
 
 /**

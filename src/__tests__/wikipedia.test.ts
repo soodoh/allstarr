@@ -7,6 +7,7 @@ import {
   extractVolumesFromWikitext,
   deriveVolumeRanges,
   applyWikipediaVolumeMappings,
+  pickBestSearchResult,
 } from "src/server/wikipedia";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────
@@ -100,6 +101,17 @@ const SUBPAGE_WIKITEXT = `This article covers chapters 1 to 200.
 | VolumeNumber = 1
 | ChapterList = {{Numbered list|start=1|"Romance Dawn"}}
 }}`;
+
+const HUB_PAGE_WIKITEXT = `{{Short description|none}}
+Below is a list of chapters.
+
+==Lists of main series chapters==
+* [[List of One Piece chapters (1\u2013186)|Chapters 1 to 186]]
+* [[List of One Piece chapters (187\u2013388)|Chapters 187 to 388]]
+* [[List of One Piece chapters (389\u2013594)|Chapters 389 to 594]]
+
+==See also==
+Some other content.`;
 
 // ─── extractGraphicNovelListBlocks ────────────────────────────────────────
 
@@ -284,6 +296,26 @@ describe("extractSubpageLinks", () => {
 
   it("returns empty array for empty string", () => {
     const links = extractSubpageLinks("");
+    expect(links).toStrictEqual([]);
+  });
+
+  it("extracts plain wikilinks matching chapter list subpage pattern", () => {
+    const links = extractSubpageLinks(HUB_PAGE_WIKITEXT);
+    expect(links).toContain("List of One Piece chapters (1\u2013186)");
+    expect(links).toContain("List of One Piece chapters (187\u2013388)");
+    expect(links).toContain("List of One Piece chapters (389\u2013594)");
+  });
+
+  it("extracts both {{further}} templates and plain wikilinks", () => {
+    const combined = `${SUBPAGE_WIKITEXT}\n${HUB_PAGE_WIKITEXT}`;
+    const links = extractSubpageLinks(combined);
+    expect(links).toContain("List of One Piece chapters (187-396)");
+    expect(links).toContain("List of One Piece chapters (1\u2013186)");
+  });
+
+  it("does not extract non-chapter-list wikilinks", () => {
+    const wikitext = `See [[One Piece]] and [[List of One Piece characters]].`;
+    const links = extractSubpageLinks(wikitext);
     expect(links).toStrictEqual([]);
   });
 });
@@ -534,5 +566,31 @@ describe("applyWikipediaVolumeMappings", () => {
     ];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
     expect(result[0]).toMatchObject({ title: "First Chapter" });
+  });
+});
+
+// ─── pickBestSearchResult ────────────────────────────────────────────────
+
+describe("pickBestSearchResult", () => {
+  it("prefers 'chapters' page over 'volumes' page", () => {
+    const hits = [
+      { title: "List of One Piece manga volumes" },
+      { title: "Lists of One Piece chapters" },
+      { title: "List of One Piece chapters (1\u2013186)" },
+    ];
+    expect(pickBestSearchResult(hits)).toBe("Lists of One Piece chapters");
+  });
+
+  it("returns first matching chapter page when no volumes page", () => {
+    const hits = [
+      { title: "List of Berserk chapters" },
+      { title: "Berserk (manga)" },
+    ];
+    expect(pickBestSearchResult(hits)).toBe("List of Berserk chapters");
+  });
+
+  it("returns null when no chapter pages found", () => {
+    const hits = [{ title: "One Piece" }, { title: "One Piece (anime)" }];
+    expect(pickBestSearchResult(hits)).toBeNull();
   });
 });
