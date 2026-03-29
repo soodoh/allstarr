@@ -26,6 +26,11 @@ import {
   normalizeChapterNumber,
   expandChapterRange,
 } from "./manga-chapter-utils";
+import {
+  getWikipediaVolumeMappings,
+  applyWikipediaVolumeMappings,
+} from "./wikipedia";
+import type { WikipediaVolumeMapping } from "./wikipedia";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -196,6 +201,16 @@ function volumeTitle(volumeNumber: number | null): string | null {
   return volumeNumber === null ? null : `Volume ${volumeNumber}`;
 }
 
+function resolveMappingSource(
+  volumeNumber: number | null,
+  wikiMappings: WikipediaVolumeMapping[] | null,
+): "wikipedia" | "mangaupdates" | "none" {
+  if (volumeNumber === null) {
+    return "none";
+  }
+  return wikiMappings ? "wikipedia" : "mangaupdates";
+}
+
 /**
  * Insert volumes and their chapters into the DB within a transaction.
  * Returns the count of volumes and chapters added.
@@ -205,6 +220,7 @@ function insertVolumesAndChapters(
   mangaId: number,
   volumeGroups: Map<number | null, DeduplicatedChapter[]>,
   monitorOption: "all" | "future" | "missing" | "none",
+  mappingSource: "wikipedia" | "mangaupdates",
   // oxlint-disable-next-line no-empty-function -- intentional no-op default
   updateProgress: (message: string) => void = () => {},
 ): { volumesAdded: number; chaptersAdded: number } {
@@ -223,6 +239,7 @@ function insertVolumesAndChapters(
         volumeNumber,
         title: volumeTitle(volumeNumber),
         monitored: true,
+        mappingSource: volumeNumber === null ? "none" : mappingSource,
       })
       .returning()
       .get();
@@ -254,6 +271,7 @@ function insertVolumesAndChapters(
         volumeNumber: null,
         title: null,
         monitored: true,
+        mappingSource: "none",
       })
       .run();
     volumesAdded = 1;
@@ -290,8 +308,26 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
   );
 
   // Deduplicate releases into unique chapters
-  const chapters = deduplicateReleases(releases);
+  let chapters = deduplicateReleases(releases);
   updateProgress(`Processing ${chapters.length} releases...`);
+
+  // Fetch Wikipedia volume mappings
+  let wikipediaPageTitle: string | null = null;
+  let mappingSource: "wikipedia" | "mangaupdates" = "mangaupdates";
+  try {
+    updateProgress("Fetching volume mappings from Wikipedia...");
+    const wikiResult = await getWikipediaVolumeMappings(
+      data.title,
+      data.latestChapter ?? detail.latest_chapter ?? undefined,
+    );
+    if (wikiResult) {
+      chapters = applyWikipediaVolumeMappings(chapters, wikiResult.mappings);
+      wikipediaPageTitle = wikiResult.pageTitle;
+      mappingSource = "wikipedia";
+    }
+  } catch {
+    // Wikipedia fetch failed -- continue with MangaUpdates-only data
+  }
 
   // Group into volumes
   const volumeGroups = groupChaptersIntoVolumes(chapters);
@@ -331,6 +367,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
         monitorNewChapters: data.monitorOption,
         path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
         metadataUpdatedAt: new Date(),
+        wikipediaPageTitle,
       })
       .returning()
       .get();
@@ -347,6 +384,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
       mangaRow.id,
       volumeGroups,
       data.monitorOption,
+      mappingSource,
       updateProgress,
     );
 
@@ -418,8 +456,12 @@ function insertNewChapters(
   mangaId: number,
   releases: MangaUpdatesRelease[],
   monitorOption: "all" | "future" | "missing" | "none",
+  wikiMappings: WikipediaVolumeMapping[] | null = null,
 ): number {
   const chapters = deduplicateReleases(releases);
+  const mappedChapters = wikiMappings
+    ? applyWikipediaVolumeMappings(chapters, wikiMappings)
+    : chapters;
 
   // Build map of existing chapters for dedup and volume updates
   const existingRows = db
@@ -457,7 +499,7 @@ function insertNewChapters(
   const ungroupedVolumeId = ungroupedVolume?.id ?? -1;
 
   // Update volume assignments for existing ungrouped chapters
-  for (const ch of chapters) {
+  for (const ch of mappedChapters) {
     if (!ch.volume) {
       continue;
     }
@@ -491,6 +533,7 @@ function insertNewChapters(
           volumeNumber: volumeNum,
           title: volumeTitle(volumeNum),
           monitored: true,
+          mappingSource: wikiMappings ? "wikipedia" : "mangaupdates",
         })
         .returning({ id: mangaVolumes.id })
         .get();
@@ -503,7 +546,7 @@ function insertNewChapters(
   }
 
   const existingChapterNumbers = new Set(existingByNumber.keys());
-  const newChapters = chapters.filter(
+  const newChapters = mappedChapters.filter(
     (c) => !existingChapterNumbers.has(c.chapterNumber),
   );
 
@@ -540,6 +583,7 @@ function insertNewChapters(
           volumeNumber,
           title: volumeTitle(volumeNumber),
           monitored: true,
+          mappingSource: resolveMappingSource(volumeNumber, wikiMappings),
         })
         .returning()
         .get();
@@ -628,6 +672,33 @@ export async function refreshMangaInternal(
     })();
   }
 
+  // Fetch Wikipedia volume mappings if never fetched or stale (7+ days)
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const lastFetch = mangaRow.metadataUpdatedAt
+    ? new Date(mangaRow.metadataUpdatedAt).getTime()
+    : 0;
+  const wikipediaStale =
+    !mangaRow.wikipediaPageTitle || Date.now() - lastFetch > SEVEN_DAYS_MS;
+
+  let wikiMappings: WikipediaVolumeMapping[] | null = null;
+  if (wikipediaStale) {
+    try {
+      const wikiResult = await getWikipediaVolumeMappings(
+        mangaRow.title,
+        detail.latest_chapter ?? mangaRow.latestChapter ?? undefined,
+      );
+      if (wikiResult) {
+        wikiMappings = wikiResult.mappings;
+        db.update(manga)
+          .set({ wikipediaPageTitle: wikiResult.pageTitle })
+          .where(eq(manga.id, mangaId))
+          .run();
+      }
+    } catch {
+      // Wikipedia fetch failed -- continue without
+    }
+  }
+
   // Insert any new chapters
   const monitorOption = mangaRow.monitorNewChapters as
     | "all"
@@ -638,6 +709,7 @@ export async function refreshMangaInternal(
     mangaId,
     allReleases,
     monitorOption,
+    wikiMappings,
   );
 
   if (newChaptersAdded > 0) {
