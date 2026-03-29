@@ -18,16 +18,22 @@ import type {
 import type { z } from "zod";
 
 export function useAddMovie() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: z.infer<typeof addMovieSchema>) => addMovieFn({ data }),
-    onSuccess: () => {
-      toast.success("Movie added");
-      queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+    onMutate: () => {
+      const toastId = toast.loading("Starting movie import...", {
+        id: "submit-add-movie",
+      });
+      return { toastId };
     },
-    onError: () => toast.error("Failed to add movie"),
+    onSuccess: (_result, _vars, context) => {
+      toast.dismiss(context?.toastId);
+    },
+    onError: (error, _vars, context) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add movie",
+        { id: context?.toastId },
+      ),
   });
 }
 

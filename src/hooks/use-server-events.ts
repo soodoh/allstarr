@@ -30,6 +30,10 @@ function formatCommandResult(
       const r = result as { seasonCount?: number };
       return `Show added with ${r.seasonCount ?? 0} seasons`;
     }
+    case "addMovie": {
+      const r = result as { title?: string };
+      return `Movie added: ${r.title ?? ""}`;
+    }
     case "refreshAuthor":
     case "refreshBook":
     case "refreshManga": {
@@ -71,6 +75,15 @@ function invalidateForCommand(
       queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+      break;
+    }
+    case "addMovie": {
+      queryClient.invalidateQueries({ queryKey: queryKeys.movies.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.movieCollections.all,
+      });
       break;
     }
     default: {
