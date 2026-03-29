@@ -25,12 +25,14 @@ import type { CommandHandler } from "./commands";
 import {
   normalizeChapterNumber,
   expandChapterRange,
+  parseChapterNumber,
 } from "./manga-chapter-utils";
 import {
   getWikipediaVolumeMappings,
   applyWikipediaVolumeMappings,
 } from "./wikipedia";
-import type { WikipediaVolumeMapping } from "./wikipedia";
+import type { WikipediaVolumeMapping as VolumeMapping } from "./wikipedia";
+import { getMangaDexVolumeMappings } from "./mangadex";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -203,12 +205,19 @@ function volumeTitle(volumeNumber: number | null): string | null {
 
 function resolveMappingSource(
   volumeNumber: number | null,
-  wikiMappings: WikipediaVolumeMapping[] | null,
-): "wikipedia" | "mangaupdates" | "none" {
+  mangaDexMappings: VolumeMapping[] | null,
+  wikiMappings: VolumeMapping[] | null,
+): "mangadex" | "wikipedia" | "mangaupdates" | "none" {
   if (volumeNumber === null) {
     return "none";
   }
-  return wikiMappings ? "wikipedia" : "mangaupdates";
+  if (mangaDexMappings?.some((m) => m.volumeNumber === volumeNumber)) {
+    return "mangadex";
+  }
+  if (wikiMappings?.some((m) => m.volumeNumber === volumeNumber)) {
+    return "wikipedia";
+  }
+  return "mangaupdates";
 }
 
 /**
@@ -220,7 +229,8 @@ function insertVolumesAndChapters(
   mangaId: number,
   volumeGroups: Map<number | null, DeduplicatedChapter[]>,
   monitorOption: "all" | "future" | "missing" | "none",
-  mappingSource: "wikipedia" | "mangaupdates",
+  mangaDexMappings: VolumeMapping[] | null,
+  wikiMappings: VolumeMapping[] | null,
   // oxlint-disable-next-line no-empty-function -- intentional no-op default
   updateProgress: (message: string) => void = () => {},
 ): { volumesAdded: number; chaptersAdded: number } {
@@ -239,7 +249,11 @@ function insertVolumesAndChapters(
         volumeNumber,
         title: volumeTitle(volumeNumber),
         monitored: true,
-        mappingSource: volumeNumber === null ? "none" : mappingSource,
+        mappingSource: resolveMappingSource(
+          volumeNumber,
+          mangaDexMappings,
+          wikiMappings,
+        ),
       })
       .returning()
       .get();
@@ -280,8 +294,70 @@ function insertVolumesAndChapters(
   return { volumesAdded, chaptersAdded };
 }
 
+/**
+ * Apply volume mappings only to chapters that don't already have a volume assigned.
+ * Used as a fallback after a higher-priority source has already mapped some chapters.
+ */
+function applyFallbackMappings(
+  chapters: DeduplicatedChapter[],
+  mappings: VolumeMapping[],
+): DeduplicatedChapter[] {
+  return chapters.map((ch) => {
+    if (ch.volume !== null) {
+      return ch;
+    }
+    const num = parseChapterNumber(ch.chapterNumber);
+    if (num === null) {
+      return ch;
+    }
+    const mapping = mappings.find(
+      (m) => num >= m.firstChapter && num <= m.lastChapter,
+    );
+    return mapping ? { ...ch, volume: String(mapping.volumeNumber) } : ch;
+  });
+}
+
+/**
+ * Add chapters from MangaDex that are missing from the MangaUpdates release list.
+ * Each supplemented chapter gets its volume assignment from the MangaDex mappings.
+ */
+function supplementChaptersFromMangaDex(
+  chapters: DeduplicatedChapter[],
+  mangaDexChapterNumbers: string[],
+  mangaDexMappings: VolumeMapping[] | null,
+): DeduplicatedChapter[] {
+  if (mangaDexChapterNumbers.length === 0) {
+    return chapters;
+  }
+
+  const result = [...chapters];
+  const existingChapterNumbers = new Set(chapters.map((c) => c.chapterNumber));
+
+  for (const mdChapter of mangaDexChapterNumbers) {
+    if (existingChapterNumbers.has(mdChapter)) {
+      continue;
+    }
+    const parsed = Number.parseFloat(mdChapter);
+    const mapping = Number.isNaN(parsed)
+      ? undefined
+      : (mangaDexMappings ?? []).find(
+          (m) => parsed >= m.firstChapter && parsed <= m.lastChapter,
+        );
+    result.push({
+      chapterNumber: mdChapter,
+      volume: mapping ? String(mapping.volumeNumber) : null,
+      releaseDate: null,
+      scanlationGroup: null,
+      fromExpansion: false,
+    });
+  }
+
+  return result;
+}
+
 // ─── Import Manga ──────────────────────────────────────────────────────────
 
+// oxlint-disable-next-line complexity -- Import pipeline orchestrates multiple data sources
 const importMangaHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as unknown as ReturnType<typeof addMangaSchema.parse>;
 
@@ -311,9 +387,29 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
   let chapters = deduplicateReleases(releases);
   updateProgress(`Processing ${chapters.length} releases...`);
 
-  // Fetch Wikipedia volume mappings
+  // ── MangaDex volume mappings (primary) ──
+  let mangaDexId: string | null = null;
+  let mangaDexMappings: VolumeMapping[] | null = null;
+  let mangaDexChapterNumbers: string[] = [];
+  try {
+    updateProgress("Fetching volume mappings from MangaDex...");
+    const mdResult = await getMangaDexVolumeMappings(
+      data.title,
+      data.mangaUpdatesSlug ?? null,
+    );
+    if (mdResult) {
+      mangaDexId = mdResult.mangaDexId;
+      mangaDexMappings = mdResult.mappings;
+      mangaDexChapterNumbers = mdResult.allChapterNumbers;
+      chapters = applyWikipediaVolumeMappings(chapters, mdResult.mappings);
+    }
+  } catch {
+    // MangaDex fetch failed -- continue without
+  }
+
+  // ── Wikipedia volume mappings (fallback for unmapped chapters) ──
   let wikipediaPageTitle: string | null = null;
-  let mappingSource: "wikipedia" | "mangaupdates" = "mangaupdates";
+  let wikiMappings: VolumeMapping[] | null = null;
   try {
     updateProgress("Fetching volume mappings from Wikipedia...");
     const wikiResult = await getWikipediaVolumeMappings(
@@ -321,13 +417,21 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
       data.latestChapter ?? detail.latest_chapter ?? undefined,
     );
     if (wikiResult) {
-      chapters = applyWikipediaVolumeMappings(chapters, wikiResult.mappings);
       wikipediaPageTitle = wikiResult.pageTitle;
-      mappingSource = "wikipedia";
+      wikiMappings = wikiResult.mappings;
+      // Apply only to chapters not yet mapped by MangaDex
+      chapters = applyFallbackMappings(chapters, wikiResult.mappings);
     }
   } catch {
-    // Wikipedia fetch failed -- continue with MangaUpdates-only data
+    // Wikipedia fetch failed -- continue with whatever we have
   }
+
+  // ── Supplement chapters from MangaDex (fill MangaUpdates gaps) ──
+  chapters = supplementChaptersFromMangaDex(
+    chapters,
+    mangaDexChapterNumbers,
+    mangaDexMappings,
+  );
 
   // Group into volumes
   const volumeGroups = groupChaptersIntoVolumes(chapters);
@@ -344,35 +448,36 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
   const rootFolder = profile?.rootFolderPath ?? "";
   const sanitizedTitle = data.title.replaceAll("/", "-");
 
-  // DB transaction: insert manga -> volumes -> chapters -> profiles -> history
+  // Prepare manga insert values outside transaction to reduce branch complexity
   updateProgress("Saving to database...");
   const wikiTimestamp = wikipediaPageTitle ? new Date() : null;
+  const mangaValues = {
+    title: data.title,
+    sortTitle: data.sortTitle || generateSortTitle(data.title),
+    overview: data.overview || detail.description || "",
+    mangaUpdatesId: data.mangaUpdatesId,
+    mangaUpdatesSlug: data.mangaUpdatesSlug,
+    type: data.type || detail.type?.toLowerCase() || "manga",
+    year: data.year || detail.year || null,
+    status,
+    latestChapter: data.latestChapter ?? detail.latest_chapter ?? null,
+    posterUrl: data.posterUrl || detail.image?.url?.original || "",
+    genres:
+      data.genres.length > 0
+        ? data.genres
+        : (detail.genres?.map((g) => g.genre) ?? []),
+    monitorNewChapters: data.monitorOption,
+    path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
+    metadataUpdatedAt: new Date(),
+    wikipediaPageTitle,
+    wikipediaFetchedAt: wikiTimestamp,
+    mangaDexId,
+    mangaDexFetchedAt: mangaDexId ? new Date() : null,
+  };
+
+  // DB transaction: insert manga -> volumes -> chapters -> profiles -> history
   const result = db.transaction((tx) => {
-    const mangaRow = tx
-      .insert(manga)
-      .values({
-        title: data.title,
-        sortTitle: data.sortTitle || generateSortTitle(data.title),
-        overview: data.overview || detail.description || "",
-        mangaUpdatesId: data.mangaUpdatesId,
-        mangaUpdatesSlug: data.mangaUpdatesSlug,
-        type: data.type || detail.type?.toLowerCase() || "manga",
-        year: data.year || detail.year || null,
-        status,
-        latestChapter: data.latestChapter ?? detail.latest_chapter ?? null,
-        posterUrl: data.posterUrl || detail.image?.url?.original || "",
-        genres:
-          data.genres.length > 0
-            ? data.genres
-            : (detail.genres?.map((g) => g.genre) ?? []),
-        monitorNewChapters: data.monitorOption,
-        path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
-        metadataUpdatedAt: new Date(),
-        wikipediaPageTitle,
-        wikipediaFetchedAt: wikiTimestamp,
-      })
-      .returning()
-      .get();
+    const mangaRow = tx.insert(manga).values(mangaValues).returning().get();
 
     // Insert download profile links
     for (const profileId of data.downloadProfileIds) {
@@ -386,7 +491,8 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
       mangaRow.id,
       volumeGroups,
       data.monitorOption,
-      mappingSource,
+      mangaDexMappings,
+      wikiMappings,
       updateProgress,
     );
 
@@ -458,7 +564,7 @@ function insertNewChapters(
   mangaId: number,
   releases: MangaUpdatesRelease[],
   monitorOption: "all" | "future" | "missing" | "none",
-  wikiMappings: WikipediaVolumeMapping[] | null = null,
+  wikiMappings: VolumeMapping[] | null = null,
 ): number {
   const chapters = deduplicateReleases(releases);
   const mappedChapters = wikiMappings
@@ -681,7 +787,7 @@ export async function refreshMangaInternal(
     : 0;
   const wikipediaStale = Date.now() - lastWikiFetch > SEVEN_DAYS_MS;
 
-  let wikiMappings: WikipediaVolumeMapping[] | null = null;
+  let wikiMappings: VolumeMapping[] | null = null;
   if (wikipediaStale) {
     try {
       const wikiResult = await getWikipediaVolumeMappings(
