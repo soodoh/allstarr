@@ -205,11 +205,17 @@ function insertVolumesAndChapters(
   mangaId: number,
   volumeGroups: Map<number | null, DeduplicatedChapter[]>,
   monitorOption: "all" | "future" | "missing" | "none",
+  // oxlint-disable-next-line no-empty-function -- intentional no-op default
+  updateProgress: (message: string) => void = () => {},
 ): { volumesAdded: number; chaptersAdded: number } {
   let chaptersAdded = 0;
   let volumesAdded = 0;
 
+  const totalVolumes = volumeGroups.size;
+  let volumeIndex = 0;
   for (const [volumeNumber, volumeChapters] of volumeGroups) {
+    volumeIndex += 1;
+    updateProgress(`Creating volume ${volumeIndex} of ${totalVolumes}...`);
     const volumeRow = tx
       .insert(mangaVolumes)
       .values({
@@ -341,6 +347,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
       mangaRow.id,
       volumeGroups,
       data.monitorOption,
+      updateProgress,
     );
 
     // Insert history event
@@ -659,7 +666,7 @@ const refreshMangaHandler: CommandHandler = async (body, updateProgress) => {
     .where(eq(manga.id, data.mangaId))
     .get();
 
-  updateProgress(`Refreshing metadata for ${mangaRow?.title ?? "manga"}...`);
+  updateProgress(`Fetching latest data for ${mangaRow?.title ?? "manga"}...`);
   const result = await refreshMangaInternal(data.mangaId);
 
   return { success: true, newChaptersAdded: result.newChaptersAdded };
