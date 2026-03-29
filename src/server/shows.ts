@@ -443,7 +443,7 @@ async function importFromEpisodeGroup(
   }
 }
 
-export const addShowHandler: CommandHandler = async (body, updateProgress) => {
+const addShowHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as ReturnType<typeof addShowSchema.parse>;
 
   // Check if show already exists

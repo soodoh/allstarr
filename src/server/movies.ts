@@ -72,7 +72,7 @@ async function populateCollectionCache(
   }
 }
 
-export const addMovieHandler: CommandHandler = async (body, updateProgress) => {
+const addMovieHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as ReturnType<typeof addMovieSchema.parse>;
 
   // Check if movie already exists
