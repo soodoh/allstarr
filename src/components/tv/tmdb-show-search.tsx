@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { Tv, Search, Star } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -87,7 +86,6 @@ function ShowPreviewModal({
   onOpenChange,
   addDefaults,
 }: ShowPreviewModalProps): JSX.Element {
-  const navigate = useNavigate();
   const addShow = useAddShow();
   const upsertSettings = useUpsertUserSettings();
 
@@ -166,12 +164,8 @@ function ShowPreviewModal({
         episodeGroupId,
       },
       {
-        onSuccess: (result) => {
+        onSuccess: () => {
           onOpenChange(false);
-          navigate({
-            to: "/tv/series/$showId",
-            params: { showId: String(result.id) },
-          });
         },
       },
     );

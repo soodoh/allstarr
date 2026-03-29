@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { Film, Search, Star } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -60,7 +59,6 @@ export function MoviePreviewModal({
   onAdded,
   addDefaults,
 }: MoviePreviewModalProps): JSX.Element {
-  const navigate = useNavigate();
   const addMovie = useAddMovie();
   const upsertSettings = useUpsertUserSettings();
 
@@ -133,15 +131,10 @@ export function MoviePreviewModal({
         searchOnAdd,
       },
       {
-        onSuccess: (result) => {
+        onSuccess: () => {
           onOpenChange(false);
           if (onAdded) {
             onAdded();
-          } else {
-            navigate({
-              to: "/movies/$movieId",
-              params: { movieId: String(result.id) },
-            });
           }
         },
       },
