@@ -369,6 +369,7 @@ function supplementChaptersFromMangaDex(
       : (mangaDexMappings ?? []).find(
           (m) => parsed >= m.firstChapter && parsed <= m.lastChapter,
         );
+    existingChapterNumbers.add(mdChapter);
     result.push({
       chapterNumber: mdChapter,
       volume: mapping ? String(mapping.volumeNumber) : null,

@@ -104,13 +104,15 @@ export function parseMangaDexAggregate(
 ): MangaDexAggregateResult {
   const mappings: VolumeMapping[] = [];
   const ungroupedChapters: string[] = [];
-  const allChapterNumbers: string[] = [];
+  const allChapterSet = new Set<string>();
 
   for (const [volumeKey, volumeEntry] of Object.entries(aggregate.volumes)) {
     const chapterKeys = Object.keys(volumeEntry.chapters);
 
-    // Collect all chapter keys for allChapterNumbers
-    allChapterNumbers.push(...chapterKeys);
+    // Collect all unique chapter keys
+    for (const key of chapterKeys) {
+      allChapterSet.add(key);
+    }
 
     if (volumeKey === "none") {
       // Ungrouped chapters
@@ -145,7 +147,7 @@ export function parseMangaDexAggregate(
   // Sort by volumeNumber ascending
   mappings.sort((a, b) => a.volumeNumber - b.volumeNumber);
 
-  return { mappings, ungroupedChapters, allChapterNumbers };
+  return { mappings, ungroupedChapters, allChapterNumbers: [...allChapterSet] };
 }
 
 /**
