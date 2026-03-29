@@ -206,7 +206,9 @@ export const addMovieHandler: CommandHandler = async (body, updateProgress) => {
   // Search if requested
   if (data.searchOnAdd && data.monitorOption !== "none") {
     updateProgress("Searching for available releases...");
-    await searchForMovie(movie.id);
+    void searchForMovie(movie.id).catch((error) =>
+      console.error("Search after add failed:", error),
+    );
   }
 
   // Insert history event
