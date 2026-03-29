@@ -260,12 +260,12 @@ export function deriveVolumeRanges(
 
 /**
  * Applies volume mappings to a chapter list.
- * Assigns `volumeNumber` to any chapter whose numeric value falls within a mapping range.
+ * Assigns `volume` to any chapter whose numeric value falls within a mapping range.
  * Returns a new array; does not mutate the input.
- * Non-numeric chapters (or those outside all ranges) are left with their existing volumeNumber.
+ * Non-numeric chapters (or those outside all ranges) are left with their existing volume.
  */
 export function applyWikipediaVolumeMappings<
-  T extends { chapterNumber: string; volumeNumber: string | null | undefined },
+  T extends { chapterNumber: string; volume: string | null },
 >(chapters: T[], mappings: WikipediaVolumeMapping[]): T[] {
   if (mappings.length === 0) {
     return chapters.map((c) => ({ ...c }));
@@ -284,7 +284,7 @@ export function applyWikipediaVolumeMappings<
       return { ...chapter };
     }
 
-    return { ...chapter, volumeNumber: String(mapping.volumeNumber) };
+    return { ...chapter, volume: String(mapping.volumeNumber) };
   });
 }
 
@@ -297,16 +297,16 @@ export function applyWikipediaVolumeMappings<
 export async function searchChapterListPage(
   mangaTitle: string,
 ): Promise<string | null> {
-  const query = `List of ${mangaTitle} chapters`;
+  const srsearch = `intitle:"List of" intitle:"chapters" "${mangaTitle}"`;
   const url = new URL(WIKIPEDIA_API_URL);
   url.searchParams.set("action", "query");
   url.searchParams.set("list", "search");
-  url.searchParams.set("srsearch", query);
+  url.searchParams.set("srsearch", srsearch);
   url.searchParams.set("srlimit", "5");
   url.searchParams.set("format", "json");
   url.searchParams.set("origin", "*");
 
-  const cacheKey = `search:${query}`;
+  const cacheKey = `search:${mangaTitle}`;
   const result = await wikipediaFetch<WikiSearchResult>(
     cacheKey,
     url.toString(),
@@ -375,17 +375,31 @@ export async function getWikipediaVolumeMappings(
     return null;
   }
 
-  // Collect volumes from the main page
+  // Collect volumes from the main page, filtering out entries with null firstChapter
   const allVolumes: Array<{ volumeNumber: number; firstChapter: number }> = [];
   if (hasTemplates) {
-    allVolumes.push(...extractVolumesFromWikitext(wikitext));
+    for (const v of extractVolumesFromWikitext(wikitext)) {
+      if (v.firstChapter !== null) {
+        allVolumes.push({
+          volumeNumber: v.volumeNumber,
+          firstChapter: v.firstChapter,
+        });
+      }
+    }
   }
 
   // Follow subpages
   for (const link of subpageLinks) {
     const subWikitext = await fetchPageWikitext(link);
     if (subWikitext) {
-      allVolumes.push(...extractVolumesFromWikitext(subWikitext));
+      for (const v of extractVolumesFromWikitext(subWikitext)) {
+        if (v.firstChapter !== null) {
+          allVolumes.push({
+            volumeNumber: v.volumeNumber,
+            firstChapter: v.firstChapter,
+          });
+        }
+      }
     }
   }
 

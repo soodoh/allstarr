@@ -454,83 +454,83 @@ describe("applyWikipediaVolumeMappings", () => {
   ];
 
   it("assigns volume 1 to chapter 1", () => {
-    const chapters = [{ chapterNumber: "1", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "1", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("1");
+    expect(result[0].volume).toBe("1");
   });
 
   it("assigns volume 1 to chapter 7", () => {
-    const chapters = [{ chapterNumber: "7", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "7", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("1");
+    expect(result[0].volume).toBe("1");
   });
 
   it("assigns volume 2 to chapter 8", () => {
-    const chapters = [{ chapterNumber: "8", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "8", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("2");
+    expect(result[0].volume).toBe("2");
   });
 
   it("assigns volume 3 to chapter 17", () => {
-    const chapters = [{ chapterNumber: "17", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "17", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("3");
+    expect(result[0].volume).toBe("3");
   });
 
-  it("overrides an existing non-null volumeNumber", () => {
-    const chapters = [{ chapterNumber: "8", volumeNumber: "99" }];
+  it("overrides an existing non-null volume", () => {
+    const chapters = [{ chapterNumber: "8", volume: "99" }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("2");
+    expect(result[0].volume).toBe("2");
   });
 
   it("leaves non-numeric chapter numbers ungrouped", () => {
-    const chapters = [{ chapterNumber: "Bonus", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "Bonus", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBeNull();
+    expect(result[0].volume).toBeNull();
   });
 
   it("leaves chapters outside all ranges unchanged", () => {
-    const chapters = [{ chapterNumber: "200", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "200", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBeNull();
+    expect(result[0].volume).toBeNull();
   });
 
   it("handles decimal chapter numbers (e.g. 8.5 goes in vol 2)", () => {
-    const chapters = [{ chapterNumber: "8.5", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "8.5", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
-    expect(result[0].volumeNumber).toBe("2");
+    expect(result[0].volume).toBe("2");
   });
 
   it("does not mutate the input array", () => {
-    const chapters = [{ chapterNumber: "1", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "1", volume: null }];
     const original = { ...chapters[0] };
     applyWikipediaVolumeMappings(chapters, mappings);
     expect(chapters[0]).toStrictEqual(original);
   });
 
   it("does not mutate individual chapter objects", () => {
-    const chapter = { chapterNumber: "1", volumeNumber: null };
+    const chapter = { chapterNumber: "1", volume: null };
     const chapters = [chapter];
     applyWikipediaVolumeMappings(chapters, mappings);
-    expect(chapter.volumeNumber).toBeNull();
+    expect(chapter.volume).toBeNull();
   });
 
   it("returns a new array (not the same reference)", () => {
-    const chapters = [{ chapterNumber: "1", volumeNumber: null }];
+    const chapters = [{ chapterNumber: "1", volume: null }];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
     expect(result).not.toBe(chapters);
   });
 
   it("returns copies of chapters when mappings is empty", () => {
-    const chapters = [{ chapterNumber: "1", volumeNumber: "5" }];
+    const chapters = [{ chapterNumber: "1", volume: "5" }];
     const result = applyWikipediaVolumeMappings(chapters, []);
-    expect(result[0].volumeNumber).toBe("5");
+    expect(result[0].volume).toBe("5");
     expect(result).not.toBe(chapters);
   });
 
   it("preserves extra fields on chapter objects", () => {
     const chapters = [
-      { chapterNumber: "1", volumeNumber: null, title: "First Chapter" },
+      { chapterNumber: "1", volume: null, title: "First Chapter" },
     ];
     const result = applyWikipediaVolumeMappings(chapters, mappings);
     expect(result[0]).toMatchObject({ title: "First Chapter" });
