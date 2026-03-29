@@ -458,11 +458,10 @@ export const addShowHandler: CommandHandler = async (body, updateProgress) => {
   }
 
   // Fetch show detail from TMDB
+  updateProgress("Fetching show details...");
   const raw = await tmdbFetch<TmdbShowDetail>(`/tv/${data.tmdbId}`, {
     append_to_response: "external_ids",
   });
-
-  updateProgress("Fetching show details...");
 
   const title = raw.name;
   const sortTitle = generateSortTitle(title);
@@ -625,10 +624,9 @@ export const addShowHandler: CommandHandler = async (body, updateProgress) => {
     return showRow;
   });
 
-  updateProgress("Searching for available releases...");
-
   // Fire-and-forget search if requested (outside transaction)
   if (data.searchOnAdd || data.searchCutoffUnmet) {
+    updateProgress("Searching for available releases...");
     void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
       console.error("Search after add failed:", error),
     );
