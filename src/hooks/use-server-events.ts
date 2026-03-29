@@ -26,6 +26,10 @@ function formatCommandResult(
       const r = result as { chaptersAdded?: number; volumesAdded?: number };
       return `Manga added with ${r.chaptersAdded ?? 0} chapters and ${r.volumesAdded ?? 0} volumes`;
     }
+    case "addShow": {
+      const r = result as { seasonCount?: number };
+      return `Show added with ${r.seasonCount ?? 0} seasons`;
+    }
     case "refreshAuthor":
     case "refreshBook":
     case "refreshManga": {
@@ -59,6 +63,12 @@ function invalidateForCommand(
     case "importManga":
     case "refreshManga": {
       queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+      break;
+    }
+    case "addShow": {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
       break;
