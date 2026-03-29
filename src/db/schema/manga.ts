@@ -14,6 +14,7 @@ export const manga = sqliteTable(
     status: text("status").notNull().default("ongoing"), // ongoing | complete | hiatus | cancelled
     latestChapter: integer("latest_chapter"),
     posterUrl: text("poster_url").notNull().default(""),
+    cachedPosterPath: text("cached_poster_path"),
     fanartUrl: text("fanart_url").notNull().default(""),
     images: text("images", { mode: "json" }).$type<
       Array<{ url: string; coverType: string }>
