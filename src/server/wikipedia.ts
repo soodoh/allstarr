@@ -177,6 +177,12 @@ export function extractFirstChapterNumber(block: string): number | null {
     return Number(missionMatch[1]);
   }
 
+  // Strategy 6: * Chapters X-Y (Witch Hat Atelier style, en-dash or hyphen)
+  const chaptersRangeMatch = block.match(/Chapters?\s+(\d+)/i);
+  if (chaptersRangeMatch) {
+    return Number(chaptersRangeMatch[1]);
+  }
+
   return null;
 }
 
@@ -259,9 +265,7 @@ export function deriveVolumeRanges(
     const next = valid[i + 1];
 
     const lastChapter =
-      next === undefined
-        ? (latestChapter ?? vol.firstChapter)
-        : next.firstChapter - 1;
+      next === undefined ? vol.firstChapter : next.firstChapter - 1;
 
     result.push({
       volumeNumber: vol.volumeNumber,

@@ -102,6 +102,21 @@ const SUBPAGE_WIKITEXT = `This article covers chapters 1 to 200.
 | ChapterList = {{Numbered list|start=1|"Romance Dawn"}}
 }}`;
 
+const WITCH_HAT_BLOCK = `{{Graphic novel list
+| VolumeNumber = 1
+| OriginalRelDate = July 23, 2018
+| ChapterList =
+* Chapters 1\u20135
+}}`;
+
+const WITCH_HAT_BLOCK_V2 = `{{Graphic novel list
+| VolumeNumber = 2
+| OriginalRelDate = November 22, 2018
+| ChapterList =
+* Chapters 6\u201311
+* Bonus Chapter (1)
+}}`;
+
 const HUB_PAGE_WIKITEXT = `{{Short description|none}}
 Below is a list of chapters.
 
@@ -269,6 +284,14 @@ Chapter: 12 "Title"
 }}`;
     expect(extractFirstChapterNumber(block)).toBe(12);
   });
+
+  it("extracts from '* Chapters X\u2013Y' format (Witch Hat Atelier vol 1)", () => {
+    expect(extractFirstChapterNumber(WITCH_HAT_BLOCK)).toBe(1);
+  });
+
+  it("extracts from '* Chapters 6\u201311' (Witch Hat Atelier vol 2)", () => {
+    expect(extractFirstChapterNumber(WITCH_HAT_BLOCK_V2)).toBe(6);
+  });
 });
 
 // ─── extractSubpageLinks ──────────────────────────────────────────────────
@@ -414,7 +437,7 @@ describe("deriveVolumeRanges", () => {
     });
   });
 
-  it("uses latestChapter for the final volume's lastChapter", () => {
+  it("does NOT use latestChapter for the final volume", () => {
     const volumes = [
       { volumeNumber: 1, firstChapter: 1 },
       { volumeNumber: 2, firstChapter: 8 },
@@ -423,7 +446,7 @@ describe("deriveVolumeRanges", () => {
     expect(ranges[1]).toStrictEqual({
       volumeNumber: 2,
       firstChapter: 8,
-      lastChapter: 20,
+      lastChapter: 8,
     });
   });
 
@@ -437,13 +460,13 @@ describe("deriveVolumeRanges", () => {
     });
   });
 
-  it("uses latestChapter for single-volume list", () => {
+  it("does NOT extend single-volume range to latestChapter", () => {
     const volumes = [{ volumeNumber: 1, firstChapter: 1 }];
     const ranges = deriveVolumeRanges(volumes, 100);
     expect(ranges[0]).toStrictEqual({
       volumeNumber: 1,
       firstChapter: 1,
-      lastChapter: 100,
+      lastChapter: 1,
     });
   });
 
@@ -461,18 +484,23 @@ describe("deriveVolumeRanges", () => {
       firstChapter: 1,
       lastChapter: 16,
     });
+    // Vol 3 is the final volume, lastChapter = firstChapter
     expect(ranges[1]).toStrictEqual({
       volumeNumber: 3,
       firstChapter: 17,
-      lastChapter: 30,
+      lastChapter: 17,
     });
   });
 
-  it("produces 3 ranges from Chainsaw Man volumes with latestChapter=97", () => {
+  it("final Chainsaw Man volume does not extend to latestChapter", () => {
     const volumes = extractVolumesFromWikitext(CHAINSAW_MAN_WIKITEXT);
     const ranges = deriveVolumeRanges(volumes, 97);
     expect(ranges).toHaveLength(3);
-    expect(ranges[2]).toMatchObject({ volumeNumber: 3, lastChapter: 97 });
+    expect(ranges[2]).toMatchObject({
+      volumeNumber: 3,
+      firstChapter: 17,
+      lastChapter: 17,
+    });
   });
 });
 
