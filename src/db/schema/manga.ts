@@ -33,6 +33,9 @@ export const manga = sqliteTable(
       mode: "timestamp",
     }),
     wikipediaPageTitle: text("wikipedia_page_title"),
+    wikipediaFetchedAt: integer("wikipedia_fetched_at", {
+      mode: "timestamp",
+    }),
   },
   (t) => [unique("manga_manga_updates_id_unique").on(t.mangaUpdatesId)],
 );

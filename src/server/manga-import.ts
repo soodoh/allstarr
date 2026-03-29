@@ -346,6 +346,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
 
   // DB transaction: insert manga -> volumes -> chapters -> profiles -> history
   updateProgress("Saving to database...");
+  const wikiTimestamp = wikipediaPageTitle ? new Date() : null;
   const result = db.transaction((tx) => {
     const mangaRow = tx
       .insert(manga)
@@ -368,6 +369,7 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
         path: rootFolder ? `${rootFolder}/${sanitizedTitle}` : "",
         metadataUpdatedAt: new Date(),
         wikipediaPageTitle,
+        wikipediaFetchedAt: wikiTimestamp,
       })
       .returning()
       .get();
@@ -674,11 +676,10 @@ export async function refreshMangaInternal(
 
   // Fetch Wikipedia volume mappings if never fetched or stale (7+ days)
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-  const lastFetch = mangaRow.metadataUpdatedAt
-    ? new Date(mangaRow.metadataUpdatedAt).getTime()
+  const lastWikiFetch = mangaRow.wikipediaFetchedAt
+    ? new Date(mangaRow.wikipediaFetchedAt).getTime()
     : 0;
-  const wikipediaStale =
-    !mangaRow.wikipediaPageTitle || Date.now() - lastFetch > SEVEN_DAYS_MS;
+  const wikipediaStale = Date.now() - lastWikiFetch > SEVEN_DAYS_MS;
 
   let wikiMappings: WikipediaVolumeMapping[] | null = null;
   if (wikipediaStale) {
@@ -690,7 +691,10 @@ export async function refreshMangaInternal(
       if (wikiResult) {
         wikiMappings = wikiResult.mappings;
         db.update(manga)
-          .set({ wikipediaPageTitle: wikiResult.pageTitle })
+          .set({
+            wikipediaPageTitle: wikiResult.pageTitle,
+            wikipediaFetchedAt: new Date(),
+          })
           .where(eq(manga.id, mangaId))
           .run();
       }
