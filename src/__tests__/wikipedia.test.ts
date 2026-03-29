@@ -6,7 +6,7 @@ import {
   extractSubpageLinks,
   extractVolumesFromWikitext,
   deriveVolumeRanges,
-  applyWikipediaVolumeMappings,
+  applyVolumeMappings,
   pickBestSearchResult,
 } from "src/server/wikipedia";
 
@@ -504,9 +504,9 @@ describe("deriveVolumeRanges", () => {
   });
 });
 
-// ─── applyWikipediaVolumeMappings ─────────────────────────────────────────
+// ─── applyVolumeMappings ─────────────────────────────────────────
 
-describe("applyWikipediaVolumeMappings", () => {
+describe("applyVolumeMappings", () => {
   const mappings = [
     { volumeNumber: 1, firstChapter: 1, lastChapter: 7 },
     { volumeNumber: 2, firstChapter: 8, lastChapter: 16 },
@@ -515,75 +515,75 @@ describe("applyWikipediaVolumeMappings", () => {
 
   it("assigns volume 1 to chapter 1", () => {
     const chapters = [{ chapterNumber: "1", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("1");
   });
 
   it("assigns volume 1 to chapter 7", () => {
     const chapters = [{ chapterNumber: "7", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("1");
   });
 
   it("assigns volume 2 to chapter 8", () => {
     const chapters = [{ chapterNumber: "8", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("2");
   });
 
   it("assigns volume 3 to chapter 17", () => {
     const chapters = [{ chapterNumber: "17", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("3");
   });
 
   it("overrides an existing non-null volume", () => {
     const chapters = [{ chapterNumber: "8", volume: "99" }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("2");
   });
 
   it("leaves non-numeric chapter numbers ungrouped", () => {
     const chapters = [{ chapterNumber: "Bonus", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBeNull();
   });
 
   it("leaves chapters outside all ranges unchanged", () => {
     const chapters = [{ chapterNumber: "200", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBeNull();
   });
 
   it("handles decimal chapter numbers (e.g. 8.5 goes in vol 2)", () => {
     const chapters = [{ chapterNumber: "8.5", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0].volume).toBe("2");
   });
 
   it("does not mutate the input array", () => {
     const chapters = [{ chapterNumber: "1", volume: null }];
     const original = { ...chapters[0] };
-    applyWikipediaVolumeMappings(chapters, mappings);
+    applyVolumeMappings(chapters, mappings);
     expect(chapters[0]).toStrictEqual(original);
   });
 
   it("does not mutate individual chapter objects", () => {
     const chapter = { chapterNumber: "1", volume: null };
     const chapters = [chapter];
-    applyWikipediaVolumeMappings(chapters, mappings);
+    applyVolumeMappings(chapters, mappings);
     expect(chapter.volume).toBeNull();
   });
 
   it("returns a new array (not the same reference)", () => {
     const chapters = [{ chapterNumber: "1", volume: null }];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result).not.toBe(chapters);
   });
 
   it("returns copies of chapters when mappings is empty", () => {
     const chapters = [{ chapterNumber: "1", volume: "5" }];
-    const result = applyWikipediaVolumeMappings(chapters, []);
+    const result = applyVolumeMappings(chapters, []);
     expect(result[0].volume).toBe("5");
     expect(result).not.toBe(chapters);
   });
@@ -592,7 +592,7 @@ describe("applyWikipediaVolumeMappings", () => {
     const chapters = [
       { chapterNumber: "1", volume: null, title: "First Chapter" },
     ];
-    const result = applyWikipediaVolumeMappings(chapters, mappings);
+    const result = applyVolumeMappings(chapters, mappings);
     expect(result[0]).toMatchObject({ title: "First Chapter" });
   });
 });

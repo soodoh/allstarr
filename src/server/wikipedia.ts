@@ -238,11 +238,12 @@ export function extractVolumesFromWikitext(
 /**
  * Converts a list of volumes with firstChapter into full ranges.
  * For each volume, lastChapter = next volume's firstChapter - 1.
- * For the final volume, lastChapter = latestChapter (if provided) or firstChapter.
+ * For the final volume, lastChapter = firstChapter (no estimation).
+ * Chapters beyond the last known volume remain ungrouped.
  */
 export function deriveVolumeRanges(
   volumes: Array<{ volumeNumber: number; firstChapter: number | null }>,
-  latestChapter?: number,
+  _latestChapter?: number,
 ): WikipediaVolumeMapping[] {
   if (volumes.length === 0) {
     return [];
@@ -283,7 +284,7 @@ export function deriveVolumeRanges(
  * Returns a new array; does not mutate the input.
  * Non-numeric chapters (or those outside all ranges) are left with their existing volume.
  */
-export function applyWikipediaVolumeMappings<
+export function applyVolumeMappings<
   T extends { chapterNumber: string; volume: string | null },
 >(chapters: T[], mappings: WikipediaVolumeMapping[]): T[] {
   if (mappings.length === 0) {
