@@ -1,4 +1,9 @@
-import { basename } from "node:path";
+/** Extract the last path segment (like path.basename but without the node:path dependency). */
+function basename(filePath: string): string {
+  const i = filePath.lastIndexOf("/");
+  const j = filePath.lastIndexOf("\\");
+  return filePath.slice(Math.max(i, j) + 1);
+}
 
 export type MappedTvFile = {
   path: string;

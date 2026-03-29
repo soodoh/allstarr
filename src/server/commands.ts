@@ -5,7 +5,7 @@ import { activeAdhocCommands } from "src/db/schema";
 import { eq } from "drizzle-orm";
 import { eventBus } from "./event-bus";
 import { requireAuth } from "./middleware";
-import { isTaskRunning } from "./scheduler";
+import { isTaskRunning } from "./scheduler/state";
 
 export type CommandHandler = (
   body: Record<string, unknown>,
