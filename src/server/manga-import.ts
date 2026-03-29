@@ -82,7 +82,36 @@ function deduplicateReleases(
         mergeChapter(byChapter, key, volume, releaseDate, groupName, true);
       }
     } else if (normalized.includes("+")) {
-      // Compound entry (e.g., "775v2 + 790-792") — skip entirely
+      // Compound entry — try to salvage valid chapter numbers from each part
+      const parts = normalized.split("+").map((p) => p.trim());
+      for (const part of parts) {
+        const partNormalized = normalizeChapterNumber(part);
+        if (!partNormalized) {
+          continue;
+        }
+        const partExpanded = expandChapterRange(partNormalized);
+        if (partExpanded) {
+          for (const num of partExpanded) {
+            mergeChapter(
+              byChapter,
+              String(num),
+              volume,
+              releaseDate,
+              groupName,
+              true,
+            );
+          }
+        } else if (/^\d+(\.\d+)?$/.test(partNormalized)) {
+          mergeChapter(
+            byChapter,
+            partNormalized,
+            volume,
+            releaseDate,
+            groupName,
+            false,
+          );
+        }
+      }
       continue;
     } else {
       // Single chapter (numeric or special like "Chopper Man")
