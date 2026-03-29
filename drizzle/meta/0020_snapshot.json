@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f7bf22af-5bf4-48a6-88a8-f9ba0ebd8fee",
-  "prevId": "1f3932ed-c905-4014-b4b3-af73f727e59a",
+  "id": "eda0204e-73a8-48f4-af71-763bb187b07c",
+  "prevId": "5dc1ff2e-8bc0-45d4-8c96-92bfdc0f4812",
   "tables": {
     "account": {
       "name": "account",
@@ -2760,13 +2760,6 @@
           "autoincrement": false,
           "default": "''"
         },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "fanart_url": {
           "name": "fanart_url",
           "type": "text",
@@ -2844,6 +2837,13 @@
         "wikipedia_page_title": {
           "name": "wikipedia_page_title",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "wikipedia_fetched_at": {
+          "name": "wikipedia_fetched_at",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
