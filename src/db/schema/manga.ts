@@ -32,6 +32,7 @@ export const manga = sqliteTable(
     metadataUpdatedAt: integer("metadata_updated_at", {
       mode: "timestamp",
     }),
+    wikipediaPageTitle: text("wikipedia_page_title"),
   },
   (t) => [unique("manga_manga_updates_id_unique").on(t.mangaUpdatesId)],
 );
@@ -46,6 +47,7 @@ export const mangaVolumes = sqliteTable(
     volumeNumber: integer("volume_number"), // nullable for ungrouped chapters
     title: text("title"),
     monitored: integer("monitored", { mode: "boolean" }).default(true),
+    mappingSource: text("mapping_source").notNull().default("mangaupdates"),
   },
   (t) => [
     unique("manga_volumes_manga_volume_unique").on(t.mangaId, t.volumeNumber),

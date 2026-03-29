@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1f3932ed-c905-4014-b4b3-af73f727e59a",
-  "prevId": "3a01891e-1b24-4f7c-86aa-6e376b3e3c45",
+  "id": "5dc1ff2e-8bc0-45d4-8c96-92bfdc0f4812",
+  "prevId": "1f3932ed-c905-4014-b4b3-af73f727e59a",
   "tables": {
     "account": {
       "name": "account",
@@ -398,13 +398,6 @@
           "autoincrement": false,
           "default": "'[]'"
         },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "monitored": {
           "name": "monitored",
           "type": "integer",
@@ -579,13 +572,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'[]'"
-        },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "rating": {
           "name": "rating",
@@ -895,13 +881,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'[]'"
-        },
-        "cached_image_path": {
-          "name": "cached_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "is_default_cover": {
           "name": "is_default_cover",
@@ -1675,13 +1654,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -1821,20 +1793,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "path": {
           "name": "path",
@@ -2204,20 +2162,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
-        },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "minimum_availability": {
           "name": "minimum_availability",
@@ -2824,20 +2768,6 @@
           "autoincrement": false,
           "default": "''"
         },
-        "cached_poster_path": {
-          "name": "cached_poster_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cached_fanart_path": {
-          "name": "cached_fanart_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "images": {
           "name": "images",
           "type": "text",
@@ -2900,6 +2830,13 @@
         "metadata_updated_at": {
           "name": "metadata_updated_at",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "wikipedia_page_title": {
+          "name": "wikipedia_page_title",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -3056,6 +2993,14 @@
           "notNull": false,
           "autoincrement": false,
           "default": true
+        },
+        "mapping_source": {
+          "name": "mapping_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'mangaupdates'"
         }
       },
       "indexes": {
