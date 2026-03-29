@@ -1170,7 +1170,11 @@ export const importHardcoverBookFn = createServerFn({ method: "POST" })
 
 // ---------- Refresh Author Metadata ----------
 
-export async function refreshAuthorInternal(authorId: number): Promise<{
+export async function refreshAuthorInternal(
+  authorId: number,
+  // oxlint-disable-next-line no-empty-function -- Intentional no-op default for callers that don't need progress
+  updateProgress: (message: string) => void = () => {},
+): Promise<{
   booksUpdated: number;
   booksAdded: number;
   editionsUpdated: number;
@@ -1196,6 +1200,7 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
 
   // Fetch editions only for author's own books
   const authorBookIds = rawBooks.map((b) => b.id);
+  updateProgress("Fetching editions...");
   const editionsMap = await fetchBatchedEditions(authorBookIds);
 
   const now = new Date();
@@ -1238,7 +1243,10 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
 
     const seenForeignBookIds = new Set<string>();
 
-    for (const rawBook of rawBooks) {
+    for (const [index, rawBook] of rawBooks.entries()) {
+      updateProgress(
+        `Refreshing book ${index + 1} of ${rawBooks.length}: ${rawBook.title}`,
+      );
       const foreignBookId = String(rawBook.id);
       seenForeignBookIds.add(foreignBookId);
 
@@ -1613,6 +1621,8 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
       }
     }
 
+    updateProgress("Checking for removed entries...");
+
     // Orphan detection for books — find books linked to this author via booksAuthors
     const authorBookEntries = tx
       .select({
@@ -1690,8 +1700,8 @@ export async function refreshAuthorInternal(authorId: number): Promise<{
 
 const refreshAuthorHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as { authorId: number };
-  updateProgress("Refreshing author metadata...");
-  const result = await refreshAuthorInternal(data.authorId);
+  updateProgress("Fetching fresh data from Hardcover...");
+  const result = await refreshAuthorInternal(data.authorId, updateProgress);
   return result;
 };
 
@@ -1786,7 +1796,11 @@ function autoSwitchEditionsForBook(
 
 // ---------- Refresh Book Metadata ----------
 
-export async function refreshBookInternal(bookId: number): Promise<{
+export async function refreshBookInternal(
+  bookId: number,
+  // oxlint-disable-next-line no-empty-function -- Intentional no-op default for callers that don't need progress
+  updateProgress: (message: string) => void = () => {},
+): Promise<{
   booksUpdated: number;
   booksAdded: number;
   editionsUpdated: number;
@@ -1848,6 +1862,7 @@ export async function refreshBookInternal(bookId: number): Promise<{
   }
 
   const { book: rawBook, editions: rawEditions } = result;
+  updateProgress("Updating book information...");
   const now = new Date();
   const metadataProfile = getMetadataProfile();
   const profileLanguages = getProfileLanguages();
@@ -1908,7 +1923,10 @@ export async function refreshBookInternal(bookId: number): Promise<{
     let editionsAdded = 0;
     const seenEditionIds = new Set<string>();
 
-    for (const ed of rawEditions) {
+    for (const [index, ed] of rawEditions.entries()) {
+      updateProgress(
+        `Processing edition ${index + 1} of ${rawEditions.length}: ${ed.title}`,
+      );
       const foreignEditionId = String(ed.id);
       seenEditionIds.add(foreignEditionId);
 
@@ -1999,6 +2017,8 @@ export async function refreshBookInternal(bookId: number): Promise<{
         editionsAdded += 1;
       }
     }
+
+    updateProgress("Checking for removed editions...");
 
     // Orphan detection for editions
     const existingEditions = tx
@@ -2111,8 +2131,8 @@ export async function refreshBookInternal(bookId: number): Promise<{
 
 const refreshBookHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as { bookId: number };
-  updateProgress("Refreshing book metadata...");
-  const result = await refreshBookInternal(data.bookId);
+  updateProgress("Fetching fresh data from Hardcover...");
+  const result = await refreshBookInternal(data.bookId, updateProgress);
   return result;
 };
 
