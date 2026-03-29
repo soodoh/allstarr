@@ -555,6 +555,70 @@ function extractMangaUpdatesSlug(url: string | undefined): string | null {
 }
 
 /**
+ * Reassign ungrouped chapters to proper volumes when mapping data becomes
+ * available. Finds chapters currently in the "null volume" bucket and moves
+ * them to matching numbered volumes (creating volumes as needed).
+ */
+function reassignUngroupedChapters(
+  mangaId: number,
+  mappedChapters: DeduplicatedChapter[],
+  existingByNumber: Map<string, { id: number; mangaVolumeId: number }>,
+  ungroupedVolumeId: number,
+  mangaDexMappings: VolumeMapping[] | null,
+  wikiMappings: VolumeMapping[] | null,
+): void {
+  for (const ch of mappedChapters) {
+    if (!ch.volume) {
+      continue;
+    }
+    const existing = existingByNumber.get(ch.chapterNumber);
+    if (!existing || existing.mangaVolumeId !== ungroupedVolumeId) {
+      continue;
+    }
+
+    const volumeNum = Number.parseInt(ch.volume, 10);
+    if (Number.isNaN(volumeNum)) {
+      continue;
+    }
+
+    // Find or create the target volume
+    let targetVolume = db
+      .select({ id: mangaVolumes.id })
+      .from(mangaVolumes)
+      .where(
+        and(
+          eq(mangaVolumes.mangaId, mangaId),
+          eq(mangaVolumes.volumeNumber, volumeNum),
+        ),
+      )
+      .get();
+
+    if (!targetVolume) {
+      targetVolume = db
+        .insert(mangaVolumes)
+        .values({
+          mangaId,
+          volumeNumber: volumeNum,
+          title: volumeTitle(volumeNum),
+          monitored: true,
+          mappingSource: resolveMappingSource(
+            volumeNum,
+            mangaDexMappings,
+            wikiMappings,
+          ),
+        })
+        .returning({ id: mangaVolumes.id })
+        .get();
+    }
+
+    db.update(mangaChapters)
+      .set({ mangaVolumeId: targetVolume.id })
+      .where(eq(mangaChapters.id, existing.id))
+      .run();
+  }
+}
+
+/**
  * Find new chapters not already in the DB and insert them into
  * existing or new volumes. Also updates volume assignments for
  * existing ungrouped chapters when release data provides volume info.
@@ -565,11 +629,27 @@ function insertNewChapters(
   releases: MangaUpdatesRelease[],
   monitorOption: "all" | "future" | "missing" | "none",
   wikiMappings: VolumeMapping[] | null = null,
+  mangaDexMappings: VolumeMapping[] | null = null,
+  mangaDexChapterNumbers: string[] = [],
 ): number {
   const chapters = deduplicateReleases(releases);
-  const mappedChapters = wikiMappings
-    ? applyWikipediaVolumeMappings(chapters, wikiMappings)
-    : chapters;
+
+  // Apply MangaDex mappings (primary)
+  let mappedChapters = mangaDexMappings
+    ? applyWikipediaVolumeMappings(chapters, mangaDexMappings)
+    : [...chapters];
+
+  // Apply Wikipedia mappings only to chapters still unmapped
+  if (wikiMappings) {
+    mappedChapters = applyFallbackMappings(mappedChapters, wikiMappings);
+  }
+
+  // Supplement with chapters from MangaDex not in MangaUpdates
+  mappedChapters = supplementChaptersFromMangaDex(
+    mappedChapters,
+    mangaDexChapterNumbers,
+    mangaDexMappings,
+  );
 
   // Build map of existing chapters for dedup and volume updates
   const existingRows = db
@@ -607,51 +687,14 @@ function insertNewChapters(
   const ungroupedVolumeId = ungroupedVolume?.id ?? -1;
 
   // Update volume assignments for existing ungrouped chapters
-  for (const ch of mappedChapters) {
-    if (!ch.volume) {
-      continue;
-    }
-    const existing = existingByNumber.get(ch.chapterNumber);
-    if (!existing || existing.mangaVolumeId !== ungroupedVolumeId) {
-      continue;
-    }
-
-    const volumeNum = Number.parseInt(ch.volume, 10);
-    if (Number.isNaN(volumeNum)) {
-      continue;
-    }
-
-    // Find or create the target volume
-    let targetVolume = db
-      .select({ id: mangaVolumes.id })
-      .from(mangaVolumes)
-      .where(
-        and(
-          eq(mangaVolumes.mangaId, mangaId),
-          eq(mangaVolumes.volumeNumber, volumeNum),
-        ),
-      )
-      .get();
-
-    if (!targetVolume) {
-      targetVolume = db
-        .insert(mangaVolumes)
-        .values({
-          mangaId,
-          volumeNumber: volumeNum,
-          title: volumeTitle(volumeNum),
-          monitored: true,
-          mappingSource: wikiMappings ? "wikipedia" : "mangaupdates",
-        })
-        .returning({ id: mangaVolumes.id })
-        .get();
-    }
-
-    db.update(mangaChapters)
-      .set({ mangaVolumeId: targetVolume.id })
-      .where(eq(mangaChapters.id, existing.id))
-      .run();
-  }
+  reassignUngroupedChapters(
+    mangaId,
+    mappedChapters,
+    existingByNumber,
+    ungroupedVolumeId,
+    mangaDexMappings,
+    wikiMappings,
+  );
 
   const existingChapterNumbers = new Set(existingByNumber.keys());
   const newChapters = mappedChapters.filter(
@@ -691,7 +734,11 @@ function insertNewChapters(
           volumeNumber,
           title: volumeTitle(volumeNumber),
           monitored: true,
-          mappingSource: resolveMappingSource(volumeNumber, wikiMappings),
+          mappingSource: resolveMappingSource(
+            volumeNumber,
+            mangaDexMappings,
+            wikiMappings,
+          ),
         })
         .returning()
         .get();
@@ -780,8 +827,39 @@ export async function refreshMangaInternal(
     })();
   }
 
-  // Fetch Wikipedia volume mappings if never fetched or stale (7+ days)
+  // Fetch MangaDex volume mappings if never fetched or stale (7+ days)
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  let mangaDexMappings: VolumeMapping[] | null = null;
+  let mangaDexChapterNumbers: string[] = [];
+  const lastMdFetch = mangaRow.mangaDexFetchedAt
+    ? new Date(mangaRow.mangaDexFetchedAt).getTime()
+    : 0;
+  const mangaDexStale = Date.now() - lastMdFetch > SEVEN_DAYS_MS;
+
+  if (mangaDexStale) {
+    try {
+      const mdResult = await getMangaDexVolumeMappings(
+        mangaRow.title,
+        mangaRow.mangaUpdatesSlug ?? null,
+        mangaRow.mangaDexId,
+      );
+      if (mdResult) {
+        mangaDexMappings = mdResult.mappings;
+        mangaDexChapterNumbers = mdResult.allChapterNumbers;
+        db.update(manga)
+          .set({
+            mangaDexId: mdResult.mangaDexId,
+            mangaDexFetchedAt: new Date(),
+          })
+          .where(eq(manga.id, mangaId))
+          .run();
+      }
+    } catch {
+      // MangaDex fetch failed -- continue without
+    }
+  }
+
+  // Fetch Wikipedia volume mappings if never fetched or stale (7+ days)
   const lastWikiFetch = mangaRow.wikipediaFetchedAt
     ? new Date(mangaRow.wikipediaFetchedAt).getTime()
     : 0;
@@ -820,6 +898,8 @@ export async function refreshMangaInternal(
     allReleases,
     monitorOption,
     wikiMappings,
+    mangaDexMappings,
+    mangaDexChapterNumbers,
   );
 
   if (newChaptersAdded > 0) {
