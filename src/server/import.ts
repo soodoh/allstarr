@@ -436,19 +436,23 @@ const monitorBookSchema = z.object({
  * Core import logic shared between the public server function and cascade imports.
  * Callers must handle auth themselves.
  */
-async function importAuthorInternal(data: {
-  foreignAuthorId: number;
-  downloadProfileIds: number[];
-  monitorOption?:
-    | "all"
-    | "future"
-    | "missing"
-    | "existing"
-    | "first"
-    | "latest"
-    | "none";
-  monitorNewBooks?: "all" | "none" | "new";
-}): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
+async function importAuthorInternal(
+  data: {
+    foreignAuthorId: number;
+    downloadProfileIds: number[];
+    monitorOption?:
+      | "all"
+      | "future"
+      | "missing"
+      | "existing"
+      | "first"
+      | "latest"
+      | "none";
+    monitorNewBooks?: "all" | "none" | "new";
+  },
+  // oxlint-disable-next-line no-empty-function -- Intentional no-op default for callers that don't need progress
+  updateProgress: (message: string) => void = () => {},
+): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
   // Duplicate guard — allow upgrading stub authors
   const existing = db
     .select({ id: authors.id, isStub: authors.isStub })
@@ -463,6 +467,8 @@ async function importAuthorInternal(data: {
   const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
     data.foreignAuthorId,
   );
+
+  updateProgress(`Fetching editions for ${rawBooks.length} books...`);
 
   // Fetch editions only for author's own books
   const authorBookIds = rawBooks.map((b) => b.id);
@@ -618,7 +624,10 @@ async function importAuthorInternal(data: {
     // Insert all author books
     let booksAdded = 0;
     let editionsAdded = 0;
-    for (const rawBook of rawBooks) {
+    for (const [index, rawBook] of rawBooks.entries()) {
+      updateProgress(
+        `Importing book ${index + 1} of ${rawBooks.length}: ${rawBook.title}`,
+      );
       // Check if book already in DB
       const existingBook = tx
         .select({ id: books.id })
@@ -843,8 +852,8 @@ async function importAuthorInternal(data: {
 
 const importAuthorHandler: CommandHandler = async (body, updateProgress) => {
   const data = body as z.infer<typeof importAuthorSchema>;
-  updateProgress("Importing author from Hardcover...");
-  const result = await importAuthorInternal(data);
+  updateProgress("Fetching author details from Hardcover...");
+  const result = await importAuthorInternal(data, updateProgress);
 
   if (data.searchOnAdd) {
     updateProgress("Searching for available releases...");
@@ -950,12 +959,14 @@ const importBookHandler: CommandHandler = async (body, updateProgress) => {
     ensureEditionProfileLinks(alreadyImported.id, data.downloadProfileIds);
 
     // Still cascade-import co-authors
-    updateProgress("Importing co-authors...");
     const coAuthorContribs = deriveAuthorContributions(
       rawBook.contributions,
     ).filter((c) => c.foreignAuthorId !== String(primaryContrib.authorId));
     let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
-    for (const coAuthor of coAuthorContribs) {
+    for (const [index, coAuthor] of coAuthorContribs.entries()) {
+      updateProgress(
+        `Importing co-author ${index + 1} of ${coAuthorContribs.length}: ${coAuthor.name}`,
+      );
       try {
         await importAuthorInternal({
           foreignAuthorId: Number(coAuthor.foreignAuthorId),
@@ -1110,12 +1121,14 @@ const importBookHandler: CommandHandler = async (body, updateProgress) => {
   }
 
   // Cascade import co-authors sequentially (best-effort)
-  updateProgress("Importing co-authors...");
   const coAuthorContribs = deriveAuthorContributions(
     rawBook.contributions,
   ).filter((c) => c.foreignAuthorId !== String(primaryContrib.authorId));
   let additionalAuthorsImported = primaryAuthorImported ? 1 : 0;
-  for (const coAuthor of coAuthorContribs) {
+  for (const [index, coAuthor] of coAuthorContribs.entries()) {
+    updateProgress(
+      `Importing co-author ${index + 1} of ${coAuthorContribs.length}: ${coAuthor.name}`,
+    );
     try {
       await importAuthorInternal({
         foreignAuthorId: Number(coAuthor.foreignAuthorId),
