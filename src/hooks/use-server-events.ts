@@ -13,34 +13,35 @@ type UseServerEventsReturn = {
 function formatCommandResult(
   commandType: string,
   result: Record<string, unknown>,
+  title: string,
 ): string {
+  const label = title || "Unknown";
   switch (commandType) {
     case "importAuthor": {
-      const r = result as { booksAdded?: number; editionsAdded?: number };
-      return `Author imported with ${r.booksAdded ?? 0} books`;
+      const r = result as { booksAdded?: number };
+      return `${label} — Imported with ${r.booksAdded ?? 0} books`;
     }
     case "importBook": {
-      return "Book imported successfully";
+      return `${label} — Imported successfully`;
     }
     case "importManga": {
       const r = result as { chaptersAdded?: number; volumesAdded?: number };
-      return `Manga added with ${r.chaptersAdded ?? 0} chapters and ${r.volumesAdded ?? 0} volumes`;
+      return `${label} — Added with ${r.chaptersAdded ?? 0} chapters and ${r.volumesAdded ?? 0} volumes`;
     }
     case "addShow": {
       const r = result as { seasonCount?: number };
-      return `Show added with ${r.seasonCount ?? 0} seasons`;
+      return `${label} — Added with ${r.seasonCount ?? 0} seasons`;
     }
     case "addMovie": {
-      const r = result as { title?: string };
-      return `Movie added: ${r.title ?? ""}`;
+      return `${label} — Added successfully`;
     }
     case "refreshAuthor":
     case "refreshBook":
     case "refreshManga": {
-      return "Metadata refreshed";
+      return `${label} — Metadata refreshed`;
     }
     default: {
-      return "Task completed";
+      return title ? `${title} — Task completed` : "Task completed";
     }
   }
 }
@@ -170,9 +171,12 @@ export function useServerEvents(): UseServerEventsReturn {
         commandId: number;
         commandType: string;
         result: Record<string, unknown>;
+        title: string;
       };
       toast.dismiss(`command-${data.commandId}`);
-      toast.success(formatCommandResult(data.commandType, data.result));
+      toast.success(
+        formatCommandResult(data.commandType, data.result, data.title),
+      );
       invalidateForCommand(queryClient, data.commandType);
     });
 
@@ -181,9 +185,10 @@ export function useServerEvents(): UseServerEventsReturn {
         commandId: number;
         commandType: string;
         error: string;
+        title: string;
       };
       toast.dismiss(`command-${data.commandId}`);
-      toast.error(data.error);
+      toast.error(data.title ? `${data.title} — ${data.error}` : data.error);
     });
 
     return () => {

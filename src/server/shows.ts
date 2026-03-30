@@ -443,7 +443,11 @@ async function importFromEpisodeGroup(
   }
 }
 
-const addShowHandler: CommandHandler = async (body, updateProgress) => {
+const addShowHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as ReturnType<typeof addShowSchema.parse>;
 
   // Check if show already exists
@@ -464,6 +468,7 @@ const addShowHandler: CommandHandler = async (body, updateProgress) => {
   });
 
   const title = raw.name;
+  setTitle(title);
   const sortTitle = generateSortTitle(title);
   const status = mapShowStatus(raw.status);
   const network = raw.networks[0]?.name ?? "";

@@ -452,7 +452,14 @@ async function importAuthorInternal(
   },
   // oxlint-disable-next-line no-empty-function -- Intentional no-op default for callers that don't need progress
   updateProgress: (message: string) => void = () => {},
-): Promise<{ authorId: number; booksAdded: number; editionsAdded: number }> {
+  // oxlint-disable-next-line no-empty-function -- Intentional no-op default for callers that don't need title
+  setTitle: (title: string) => void = () => {},
+): Promise<{
+  authorId: number;
+  authorName: string;
+  booksAdded: number;
+  editionsAdded: number;
+}> {
   // Duplicate guard — allow upgrading stub authors
   const existing = db
     .select({ id: authors.id, isStub: authors.isStub })
@@ -467,6 +474,7 @@ async function importAuthorInternal(
   const { author: rawAuthor, books: rawBooks } = await fetchAuthorComplete(
     data.foreignAuthorId,
   );
+  setTitle(rawAuthor.name);
 
   updateProgress(`Fetching editions for ${rawBooks.length} books...`);
 
@@ -844,16 +852,25 @@ async function importAuthorInternal(
       }
     }
 
-    return { authorId: author.id, booksAdded, editionsAdded };
+    return {
+      authorId: author.id,
+      authorName: rawAuthor.name,
+      booksAdded,
+      editionsAdded,
+    };
   });
 }
 
 // ---------- Import Author ----------
 
-const importAuthorHandler: CommandHandler = async (body, updateProgress) => {
+const importAuthorHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as z.infer<typeof importAuthorSchema>;
   updateProgress("Fetching author details from Hardcover...");
-  const result = await importAuthorInternal(data, updateProgress);
+  const result = await importAuthorInternal(data, updateProgress, setTitle);
 
   if (data.searchOnAdd) {
     updateProgress("Searching for available releases...");
@@ -883,7 +900,11 @@ export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
 // ---------- Import Single Book ----------
 
 // oxlint-disable-next-line complexity -- Book import handler requires many conditional branches
-const importBookHandler: CommandHandler = async (body, updateProgress) => {
+const importBookHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as z.infer<typeof importBookSchema>;
 
   // Duplicate guard
@@ -904,6 +925,7 @@ const importBookHandler: CommandHandler = async (body, updateProgress) => {
   }
 
   const { book: rawBook, editions: rawEditions } = result;
+  setTitle(rawBook.title);
   const now = new Date();
 
   // Determine primary author from contributions
@@ -1698,8 +1720,20 @@ export async function refreshAuthorInternal(
   });
 }
 
-const refreshAuthorHandler: CommandHandler = async (body, updateProgress) => {
+const refreshAuthorHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as { authorId: number };
+  const authorRow = db
+    .select({ name: authors.name })
+    .from(authors)
+    .where(eq(authors.id, data.authorId))
+    .get();
+  if (authorRow) {
+    setTitle(authorRow.name);
+  }
   updateProgress("Fetching fresh data from Hardcover...");
   const result = await refreshAuthorInternal(data.authorId, updateProgress);
   return result;
@@ -2129,8 +2163,20 @@ export async function refreshBookInternal(
   });
 }
 
-const refreshBookHandler: CommandHandler = async (body, updateProgress) => {
+const refreshBookHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as { bookId: number };
+  const bookRow = db
+    .select({ title: books.title })
+    .from(books)
+    .where(eq(books.id, data.bookId))
+    .get();
+  if (bookRow) {
+    setTitle(bookRow.title);
+  }
   updateProgress("Fetching fresh data from Hardcover...");
   const result = await refreshBookInternal(data.bookId, updateProgress);
   return result;

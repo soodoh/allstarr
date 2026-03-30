@@ -26,12 +26,14 @@ export type ServerEvent =
       commandId: number;
       commandType: string;
       result: Record<string, unknown>;
+      title: string;
     }
   | {
       type: "commandFailed";
       commandId: number;
       commandType: string;
       error: string;
+      title: string;
     };
 
 class EventBus {
