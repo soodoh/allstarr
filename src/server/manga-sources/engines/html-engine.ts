@@ -48,7 +48,7 @@ export abstract class HtmlEngine implements MangaSource {
   ): Promise<CheerioAPI> {
     return this.fetcher.fetch<CheerioAPI>(cacheKey ?? url, async () => {
       const response = await fetch(url, {
-        headers: HtmlEngine.getHeaders(),
+        headers: HtmlEngine.buildHeaders(url),
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) {
@@ -59,11 +59,58 @@ export abstract class HtmlEngine implements MangaSource {
     });
   }
 
-  static getHeaders(): Record<string, string> {
+  /** POST a form and parse the HTML response. */
+  protected async postDocument(
+    url: string,
+    body: string | Record<string, string>,
+    cacheKey?: string,
+  ): Promise<CheerioAPI> {
+    return this.fetcher.fetch<CheerioAPI>(cacheKey ?? url, async () => {
+      const isFormData = typeof body !== "string";
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          ...HtmlEngine.buildHeaders(url),
+          "Content-Type": isFormData
+            ? "application/x-www-form-urlencoded"
+            : "text/plain",
+        },
+        body: isFormData ? new URLSearchParams(body).toString() : body,
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${url}`);
+      }
+      const html = await response.text();
+      return cheerio.load(html);
+    });
+  }
+
+  static buildHeaders(url: string): Record<string, string> {
+    let referer: string;
+    try {
+      const parsed = new URL(url);
+      referer = `${parsed.protocol}//${parsed.host}/`;
+    } catch {
+      referer = url;
+    }
+
     return {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: referer,
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "same-origin",
     };
+  }
+
+  // Keep for backward compat with engines calling HtmlEngine.getHeaders()
+  static getHeaders(): Record<string, string> {
+    return HtmlEngine.buildHeaders("https://example.com");
   }
 
   /** Extract the best image URL from an element (handles lazy-loading attrs). */
