@@ -138,12 +138,6 @@ export const TABLE_DEFAULTS: Record<TableId, TableColumnDef[]> = {
   ],
 
   manga: [
-    {
-      key: "monitored",
-      label: "Monitored",
-      locked: true,
-      defaultVisible: true,
-    },
     { key: "cover", label: "Cover", defaultVisible: true },
     { key: "title", label: "Title", locked: true, defaultVisible: true },
     { key: "type", label: "Type", defaultVisible: true },

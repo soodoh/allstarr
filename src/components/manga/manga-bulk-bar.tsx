@@ -12,20 +12,15 @@ import {
 } from "src/components/ui/select";
 import { useUpdateManga } from "src/hooks/mutations/manga";
 
-type Profile = { id: number; name: string };
-
 type MangaBulkBarProps = {
   selectedIds: Set<number>;
-  profiles: Profile[];
   onDone: () => void;
 };
 
 export default function MangaBulkBar({
   selectedIds,
-  profiles,
   onDone,
 }: MangaBulkBarProps): JSX.Element {
-  const [profileId, setProfileId] = useState("");
   const [monitorNewChapters, setMonitorNewChapters] = useState("");
   const [applying, setApplying] = useState(false);
 
@@ -42,7 +37,6 @@ export default function MangaBulkBar({
       const payload: {
         id: number;
         monitorNewChapters?: "all" | "future" | "missing" | "none";
-        downloadProfileIds?: number[];
       } = { id };
       if (monitorNewChapters) {
         payload.monitorNewChapters = monitorNewChapters as
@@ -50,9 +44,6 @@ export default function MangaBulkBar({
           | "future"
           | "missing"
           | "none";
-      }
-      if (profileId) {
-        payload.downloadProfileIds = [Number(profileId)];
       }
       return updateManga.mutateAsync(payload);
     });
@@ -74,19 +65,6 @@ export default function MangaBulkBar({
         <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
           {selectedIds.size} selected
         </span>
-
-        <Select value={profileId} onValueChange={setProfileId}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Profile" />
-          </SelectTrigger>
-          <SelectContent>
-            {profiles.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         <Select
           value={monitorNewChapters}

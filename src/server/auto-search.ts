@@ -26,7 +26,6 @@ import {
   mangaChapters,
   mangaVolumes,
   mangaFiles,
-  mangaDownloadProfiles,
 } from "src/db/schema";
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import {
@@ -793,7 +792,18 @@ function computeBestWeightsForMangaFiles(
 
 /** Find manga chapters that need searching: missing files or upgrade-eligible */
 export function getWantedManga(): WantedMangaChapter[] {
-  // Get all monitored chapters whose manga has at least one download profile assigned
+  // Get all manga-type download profiles (shared across all manga)
+  const mangaProfileList = db
+    .select()
+    .from(downloadProfiles)
+    .where(eq(downloadProfiles.contentType, "manga"))
+    .all();
+
+  if (mangaProfileList.length === 0) {
+    return [];
+  }
+
+  // Get all monitored chapters
   const monitoredChapters = db
     .select({
       id: mangaChapters.id,
@@ -808,12 +818,6 @@ export function getWantedManga(): WantedMangaChapter[] {
     .from(mangaChapters)
     .innerJoin(manga, eq(manga.id, mangaChapters.mangaId))
     .innerJoin(mangaVolumes, eq(mangaVolumes.id, mangaChapters.mangaVolumeId))
-    .where(
-      sql`EXISTS (
-        SELECT 1 FROM ${mangaDownloadProfiles}
-        WHERE ${mangaDownloadProfiles.mangaId} = ${mangaChapters.mangaId}
-      )`,
-    )
     .all();
 
   const wanted: WantedMangaChapter[] = [];
@@ -824,28 +828,9 @@ export function getWantedManga(): WantedMangaChapter[] {
       continue;
     }
 
-    // Get profiles for this manga
-    const profileRows = db
-      .select({
-        profileId: mangaDownloadProfiles.downloadProfileId,
-      })
-      .from(mangaDownloadProfiles)
-      .where(eq(mangaDownloadProfiles.mangaId, ch.mangaId))
-      .all();
-
-    if (profileRows.length === 0) {
-      continue;
-    }
-
-    const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
-    const profileList = db
-      .select()
-      .from(downloadProfiles)
-      .where(inArray(downloadProfiles.id, profileIds))
-      .all();
-
+    // Use all manga-type profiles
     const profileMap = new Map<number, ProfileInfo>();
-    for (const p of profileList) {
+    for (const p of mangaProfileList) {
       profileMap.set(p.id, {
         id: p.id,
         name: p.name,

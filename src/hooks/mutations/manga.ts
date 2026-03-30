@@ -2,12 +2,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { importMangaFn, refreshMangaMetadataFn } from "src/server/manga-import";
-import {
-  updateMangaFn,
-  deleteMangaFn,
-  monitorMangaProfileFn,
-  unmonitorMangaProfileFn,
-} from "src/server/manga";
+import { updateMangaFn, deleteMangaFn } from "src/server/manga";
 import { queryKeys } from "src/lib/query-keys";
 import type {
   addMangaSchema,
@@ -59,33 +54,6 @@ export function useDeleteManga() {
       queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
     },
     onError: () => toast.error("Failed to delete manga"),
-  });
-}
-
-export function useMonitorMangaProfile() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { mangaId: number; downloadProfileId: number }) =>
-      monitorMangaProfileFn({ data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
-    },
-    onError: () => toast.error("Failed to monitor manga profile"),
-  });
-}
-
-export function useUnmonitorMangaProfile() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      mangaId: number;
-      downloadProfileId: number;
-      deleteFiles: boolean;
-    }) => unmonitorMangaProfileFn({ data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
-    },
-    onError: () => toast.error("Failed to unmonitor manga profile"),
   });
 }
 

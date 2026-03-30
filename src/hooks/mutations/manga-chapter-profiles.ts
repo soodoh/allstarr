@@ -2,16 +2,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  bulkMonitorMangaChapterProfileFn,
-  bulkUnmonitorMangaChapterProfileFn,
+  bulkMonitorMangaChaptersFn,
+  bulkUnmonitorMangaChaptersFn,
 } from "src/server/manga";
 import { queryKeys } from "src/lib/query-keys";
 
-export function useBulkMonitorMangaChapterProfile() {
+export function useBulkMonitorMangaChapters() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { chapterIds: number[]; downloadProfileId: number }) =>
-      bulkMonitorMangaChapterProfileFn({ data }),
+    mutationFn: (data: { chapterIds: number[] }) =>
+      bulkMonitorMangaChaptersFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
     },
@@ -19,14 +19,11 @@ export function useBulkMonitorMangaChapterProfile() {
   });
 }
 
-export function useBulkUnmonitorMangaChapterProfile() {
+export function useBulkUnmonitorMangaChapters() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: {
-      chapterIds: number[];
-      downloadProfileId: number;
-      deleteFiles: boolean;
-    }) => bulkUnmonitorMangaChapterProfileFn({ data }),
+    mutationFn: (data: { chapterIds: number[]; deleteFiles: boolean }) =>
+      bulkUnmonitorMangaChaptersFn({ data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
     },

@@ -8,7 +8,7 @@ type MangaCardProps = {
     id: number;
     title: string;
     type: string;
-    year: number;
+    year: string | null;
     posterUrl: string;
     status: string;
     chapterCount: number;
@@ -60,7 +60,7 @@ export default function MangaCard({ manga }: MangaCardProps): JSX.Element {
             {manga.title}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
-            {manga.year > 0 && (
+            {manga.year && (
               <span className="text-xs text-muted-foreground">
                 {manga.year}
               </span>
