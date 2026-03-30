@@ -33,6 +33,7 @@ import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
+import { Route as AuthedSettingsMangaSourcesRouteImport } from './routes/_authed/settings/manga-sources'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsImportListsRouteImport } from './routes/_authed/settings/import-lists'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
@@ -177,6 +178,12 @@ const AuthedSettingsMediaManagementRoute =
     path: '/settings/media-management',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedSettingsMangaSourcesRoute =
+  AuthedSettingsMangaSourcesRouteImport.update({
+    id: '/settings/manga-sources',
+    path: '/settings/manga-sources',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
   id: '/settings/indexers',
   path: '/settings/indexers',
@@ -319,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -367,6 +375,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
+  '/_authed/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -467,6 +477,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/import-lists'
     | '/settings/indexers'
+    | '/settings/manga-sources'
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/import-lists'
     | '/settings/indexers'
+    | '/settings/manga-sources'
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
@@ -564,6 +576,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/general'
     | '/_authed/settings/import-lists'
     | '/_authed/settings/indexers'
+    | '/_authed/settings/manga-sources'
     | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
@@ -776,6 +789,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsMediaManagementRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/manga-sources': {
+      id: '/_authed/settings/manga-sources'
+      path: '/settings/manga-sources'
+      fullPath: '/settings/manga-sources'
+      preLoaderRoute: typeof AuthedSettingsMangaSourcesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/indexers': {
       id: '/_authed/settings/indexers'
       path: '/settings/indexers'
@@ -958,6 +978,7 @@ interface AuthedRouteChildren {
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsImportListsRoute: typeof AuthedSettingsImportListsRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
+  AuthedSettingsMangaSourcesRoute: typeof AuthedSettingsMangaSourcesRoute
   AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
@@ -996,6 +1017,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsImportListsRoute: AuthedSettingsImportListsRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
+  AuthedSettingsMangaSourcesRoute: AuthedSettingsMangaSourcesRoute,
   AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
