@@ -364,11 +364,17 @@ function supplementChaptersFromMangaDex(
       continue;
     }
     const parsed = Number.parseFloat(mdChapter);
-    const mapping = Number.isNaN(parsed)
-      ? undefined
-      : (mangaDexMappings ?? []).find(
-          (m) => parsed >= m.firstChapter && parsed <= m.lastChapter,
-        );
+    // Skip non-numeric, negative, and page-level uploads (e.g., 0.01-0.16)
+    if (
+      Number.isNaN(parsed) ||
+      parsed < 0 ||
+      (parsed < 1 && parsed !== 0 && parsed % 0.5 !== 0)
+    ) {
+      continue;
+    }
+    const mapping = (mangaDexMappings ?? []).find(
+      (m) => parsed >= m.firstChapter && parsed <= m.lastChapter,
+    );
     existingChapterNumbers.add(mdChapter);
     result.push({
       chapterNumber: mdChapter,
