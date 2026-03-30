@@ -339,17 +339,3 @@ export const bulkUnmonitorMangaChapterProfileFn = createServerFn({
 
     return { success: true };
   });
-
-// ─── Check existence ──────────────────────────────────────────────────────
-
-export const checkMangaExistsFn = createServerFn({ method: "GET" })
-  .inputValidator((d: { mangaUpdatesId: number }) => d)
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const row = db
-      .select({ id: manga.id, title: manga.title })
-      .from(manga)
-      .where(eq(manga.mangaUpdatesId, data.mangaUpdatesId))
-      .get();
-    return row ?? null;
-  });

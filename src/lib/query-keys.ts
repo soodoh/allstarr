@@ -79,18 +79,15 @@ export const queryKeys = {
     all: ["manga"] as const,
     lists: () => ["manga", "list"] as const,
     detail: (id: number) => ["manga", "detail", id] as const,
-    existence: (mangaUpdatesId: number) =>
-      ["manga", "existence", mangaUpdatesId] as const,
+    existence: (sourceId: string, sourceMangaUrl: string) =>
+      ["manga", "existence", sourceId, sourceMangaUrl] as const,
   },
 
-  // ─── MangaUpdates ─────────────────────────────────────────────────────
-  mangaUpdates: {
-    all: ["mangaUpdates"] as const,
-    search: (query: string) => ["mangaUpdates", "search", query] as const,
-    detail: (seriesId: number) => ["mangaUpdates", "detail", seriesId] as const,
-    releases: (seriesId: number) =>
-      ["mangaUpdates", "releases", seriesId] as const,
-    groups: (seriesId: number) => ["mangaUpdates", "groups", seriesId] as const,
+  // ─── Manga Sources ────────────────────────────────────────────────────
+  mangaSources: {
+    all: ["mangaSources"] as const,
+    search: (query: string) => ["mangaSources", "search", query] as const,
+    list: () => ["mangaSources", "list"] as const,
   },
 
   // ─── TMDB ────────────────────────────────────────────────────────────────
