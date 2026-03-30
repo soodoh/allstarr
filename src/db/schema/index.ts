@@ -24,7 +24,6 @@ export * from "./movie-import-list-exclusions";
 
 export * from "./manga";
 export * from "./manga-files";
-export * from "./manga-download-profiles";
 
 export * from "./tags";
 export * from "./history";
