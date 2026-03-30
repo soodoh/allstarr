@@ -1,4 +1,5 @@
 // oxlint-disable no-console -- Scheduler logs are intentional server-side diagnostics
+import { seedSourcesIfNeeded as seedMangaSources } from "src/server/manga-sources";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { eq } from "drizzle-orm";
@@ -150,6 +151,7 @@ export function ensureSchedulerStarted(): void {
   started = true;
 
   setTaskExecutor((taskId) => void executeTask(taskId));
+  seedMangaSources();
   seedTasksIfNeeded();
   startTimers();
   console.log(`[scheduler] Started with ${timers.size} task(s)`);
