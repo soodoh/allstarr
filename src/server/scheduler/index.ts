@@ -15,7 +15,7 @@ import "./tasks/rss-sync";
 import "./tasks/rescan-folders";
 import "./tasks/refresh-downloads";
 import "./tasks/refresh-tmdb-metadata";
-import "./tasks/refresh-mangaupdates-metadata";
+// import "./tasks/refresh-manga-sources"; // uncomment after Task 17
 import "./tasks/search-missing";
 // oxlint-enable import/no-unassigned-import
 

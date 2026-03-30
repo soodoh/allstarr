@@ -76,11 +76,6 @@ export const ReleaseType = {
   // Books
   SingleBook: 10,
   AuthorPack: 11,
-  // Manga
-  SingleChapter: 20,
-  MultiChapter: 21,
-  SingleVolume: 22,
-  MultiVolume: 23,
 } as const;
 
 export type ReleaseType = (typeof ReleaseType)[keyof typeof ReleaseType];
