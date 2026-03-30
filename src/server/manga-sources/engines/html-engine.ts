@@ -59,7 +59,7 @@ export abstract class HtmlEngine implements MangaSource {
     });
   }
 
-  protected static getHeaders(): Record<string, string> {
+  static getHeaders(): Record<string, string> {
     return {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -67,7 +67,7 @@ export abstract class HtmlEngine implements MangaSource {
   }
 
   /** Extract the best image URL from an element (handles lazy-loading attrs). */
-  protected static imgAttr(el: Cheerio<AnyNode>): string {
+  static imgAttr(el: Cheerio<AnyNode>): string {
     return (
       el.attr("data-src") ??
       el.attr("data-lazy-src") ??
@@ -79,7 +79,9 @@ export abstract class HtmlEngine implements MangaSource {
 
   /** Make a relative URL absolute using this source's baseUrl. */
   protected absUrl(path: string): string {
-    if (path.startsWith("http")) {return path;}
+    if (path.startsWith("http")) {
+      return path;
+    }
     return `${this.baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
   }
 
