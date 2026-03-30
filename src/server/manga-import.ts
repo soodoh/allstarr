@@ -186,6 +186,13 @@ const importMangaHandler: CommandHandler = async (body, updateProgress) => {
 
   updateProgress("Fetching chapter list...");
   const chapters = await source.getChapterList(data.sourceMangaUrl);
+
+  if (chapters.length === 0) {
+    throw new Error(
+      `No downloadable chapters found on ${source.name}. This manga may only have externally-hosted chapters. Try a different source.`,
+    );
+  }
+
   updateProgress(`Processing ${chapters.length} chapters...`);
 
   // Group chapters by volume

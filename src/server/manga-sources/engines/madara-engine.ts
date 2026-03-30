@@ -303,7 +303,7 @@ export class MadaraEngine extends HtmlEngine {
           const response = await fetch(ajaxUrl, {
             method: "POST",
             headers: {
-              ...HtmlEngine.getHeaders(),
+              ...HtmlEngine.buildHeaders(ajaxUrl),
               "Content-Type": "application/x-www-form-urlencoded",
             },
             body: "",
