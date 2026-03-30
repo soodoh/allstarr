@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import OptimizedImage from "src/components/shared/optimized-image";
-import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import {
   Table,
@@ -21,19 +20,12 @@ type Manga = {
   title: string;
   sortTitle: string;
   type: string;
-  year: number;
+  year: string | null;
   status: string;
   posterUrl: string;
   volumeCount: number;
   chapterCount: number;
   chapterFileCount: number;
-  downloadProfileIds?: number[];
-};
-
-type DownloadProfile = {
-  id: number;
-  name: string;
-  icon: string;
 };
 
 type MangaTableProps = {
@@ -42,8 +34,6 @@ type MangaTableProps = {
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
   onToggleAll?: () => void;
-  downloadProfiles?: DownloadProfile[];
-  onToggleProfile?: (mangaId: number, profileId: number) => void;
 };
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
@@ -52,8 +42,6 @@ const STATUS_BADGE: Record<string, { className: string; label: string }> = {
   hiatus: { className: "bg-yellow-600", label: "Hiatus" },
   cancelled: { className: "bg-red-600", label: "Cancelled" },
 };
-
-const EMPTY_PROFILE_IDS: number[] = [];
 
 type SortableKey =
   | "title"
@@ -88,7 +76,7 @@ const COLUMN_REGISTRY: Record<string, ColumnDef> = {
     label: "Year",
     sortKey: "year",
     colClassName: "w-20",
-    render: (manga) => (manga.year > 0 ? manga.year : "\u2014"),
+    render: (manga) => manga.year || "\u2014",
   },
   volumes: {
     label: "Volumes",
@@ -122,8 +110,6 @@ export default function MangaTable({
   selectedIds,
   onToggleSelect,
   onToggleAll,
-  downloadProfiles,
-  onToggleProfile,
 }: MangaTableProps): JSX.Element {
   const navigate = useNavigate();
   const { visibleColumns } = useTableColumns("manga");
@@ -152,7 +138,7 @@ export default function MangaTable({
             break;
           }
           case "year": {
-            cmp = a.year - b.year;
+            cmp = (a.year ?? "").localeCompare(b.year ?? "");
             break;
           }
           case "volumes": {
@@ -200,9 +186,6 @@ export default function MangaTable({
         <colgroup>
           {selectable && <col className="w-10" />}
           {visibleColumns.map((col) => {
-            if (col.key === "monitored") {
-              return <col key={col.key} className="w-10" />;
-            }
             if (col.key === "cover") {
               return <col key={col.key} className="w-14" />;
             }
@@ -223,7 +206,7 @@ export default function MangaTable({
               </TableHead>
             )}
             {visibleColumns.map((col) => {
-              if (col.key === "monitored" || col.key === "cover") {
+              if (col.key === "cover") {
                 return <TableHead key={col.key} />;
               }
               const def = COLUMN_REGISTRY[col.key];
@@ -274,31 +257,6 @@ export default function MangaTable({
                   </TableCell>
                 )}
                 {visibleColumns.map((col) => {
-                  if (col.key === "monitored") {
-                    // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Dynamic per-row filtering
-                    const assignedProfiles = downloadProfiles
-                      ? downloadProfiles.filter((p) =>
-                          (m.downloadProfileIds ?? EMPTY_PROFILE_IDS).includes(
-                            p.id,
-                          ),
-                        )
-                      : undefined;
-                    return (
-                      <TableCell key={col.key}>
-                        {assignedProfiles && onToggleProfile ? (
-                          <ProfileToggleIcons
-                            profiles={assignedProfiles}
-                            activeProfileIds={
-                              m.downloadProfileIds ?? EMPTY_PROFILE_IDS
-                            }
-                            onToggle={(profileId) =>
-                              onToggleProfile(m.id, profileId)
-                            }
-                          />
-                        ) : null}
-                      </TableCell>
-                    );
-                  }
                   if (col.key === "cover") {
                     return (
                       <TableCell key={col.key}>

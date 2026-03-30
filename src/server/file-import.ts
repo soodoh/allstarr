@@ -15,7 +15,6 @@ import {
   mangaChapters,
   mangaVolumes,
   mangaFiles,
-  mangaDownloadProfiles,
   shows,
   seasons,
   episodes,
@@ -457,30 +456,14 @@ function markFailed(id: number, message: string): void {
   console.warn(`[file-import] Failed: ${message}`);
 }
 
-function resolveMangaRootFolder(mangaId: number): string | null {
-  // Look up the first download profile linked to this manga
-  const link = db
-    .select({ downloadProfileId: mangaDownloadProfiles.downloadProfileId })
-    .from(mangaDownloadProfiles)
-    .where(eq(mangaDownloadProfiles.mangaId, mangaId))
-    .get();
-  if (link) {
-    const profile = db
-      .select()
-      .from(downloadProfiles)
-      .where(eq(downloadProfiles.id, link.downloadProfileId))
-      .get();
-    if (profile?.rootFolderPath) {
-      return profile.rootFolderPath;
-    }
-  }
-  // Fallback: any manga-type profile
-  const fallback = db
+function resolveMangaRootFolder(_mangaId: number): string | null {
+  // Use any manga-type download profile's root folder
+  const profile = db
     .select()
     .from(downloadProfiles)
     .where(eq(downloadProfiles.contentType, "manga"))
     .get();
-  return fallback?.rootFolderPath ?? null;
+  return profile?.rootFolderPath ?? null;
 }
 
 const VIDEO_EXTENSIONS = new Set([

@@ -1,49 +1,114 @@
+// src/server/manga-search.ts
 import { createServerFn } from "@tanstack/react-start";
+import { db } from "src/db";
+import { manga, mangaSources } from "src/db/schema";
 import { requireAuth } from "./middleware";
 import {
-  searchMangaUpdatesSeries,
-  getMangaUpdatesSeriesDetail,
-  getAllMangaUpdatesReleases,
-  getMangaUpdatesSeriesGroups,
-} from "./manga-updates";
-import {
-  searchMangaUpdatesSchema,
-  getMangaUpdatesDetailSchema,
+  searchMangaSourcesSchema,
+  checkMangaExistsSchema,
+  mangaSourceConfigSchema,
 } from "src/lib/validators";
+import {
+  getEnabledSources,
+  getAllSourceDefinitions,
+  setSourceEnabled,
+  setSourceConfig,
+} from "./manga-sources";
+import { and, eq } from "drizzle-orm";
 
-export const searchMangaFn = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => searchMangaUpdatesSchema.parse(d))
+export type MangaSearchResult = {
+  sourceId: string;
+  sourceName: string;
+  url: string;
+  title: string;
+  thumbnailUrl?: string;
+};
+
+export const searchMangaSourcesFn = createServerFn({ method: "GET" })
+  .inputValidator((d: unknown) => searchMangaSourcesSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const { query } = data;
-    const result = await searchMangaUpdatesSeries(query);
-    return result;
-  });
+    const sources = getEnabledSources();
 
-export const getMangaUpdatesDetailFn = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => getMangaUpdatesDetailSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const detail = await getMangaUpdatesSeriesDetail(data.seriesId);
-    return detail;
-  });
+    if (sources.length === 0) {
+      return {
+        results: [] as MangaSearchResult[],
+        error:
+          "No manga sources enabled. Enable sources in Settings > Manga Sources.",
+      };
+    }
 
-export const getMangaUpdatesReleasesFn = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => getMangaUpdatesDetailSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const detail = await getMangaUpdatesSeriesDetail(data.seriesId);
-    const allReleases = await getAllMangaUpdatesReleases(
-      data.seriesId,
-      detail.title,
+    // Search all enabled sources concurrently
+    const searchResults = await Promise.allSettled(
+      sources.map(async (source) => {
+        const page = await source.searchManga(1, data.query);
+        return page.manga.map((m) => ({
+          sourceId: source.id,
+          sourceName: source.name,
+          url: m.url,
+          title: m.title,
+          thumbnailUrl: m.thumbnailUrl,
+        }));
+      }),
     );
-    return { releases: allReleases, totalHits: allReleases.length };
+
+    const results: MangaSearchResult[] = [];
+    for (const result of searchResults) {
+      if (result.status === "fulfilled") {
+        results.push(...result.value);
+      }
+    }
+
+    return { results, error: null };
   });
 
-export const getMangaUpdatesGroupsFn = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => getMangaUpdatesDetailSchema.parse(d))
+export const checkMangaExistsFn = createServerFn({ method: "GET" })
+  .inputValidator((d: unknown) => checkMangaExistsSchema.parse(d))
   .handler(async ({ data }) => {
     await requireAuth();
-    const groups = await getMangaUpdatesSeriesGroups(data.seriesId);
-    return groups;
+    const existing = db
+      .select({ id: manga.id })
+      .from(manga)
+      .where(
+        and(
+          eq(manga.sourceId, data.sourceId),
+          eq(manga.sourceMangaUrl, data.sourceMangaUrl),
+        ),
+      )
+      .get();
+    return { exists: Boolean(existing), mangaId: existing?.id ?? null };
+  });
+
+// Source management server functions for the settings page
+export const getMangaSourceListFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requireAuth();
+    const defs = getAllSourceDefinitions();
+    const dbRows = db.select().from(mangaSources).all();
+    const dbMap = new Map(dbRows.map((r) => [r.sourceId, r]));
+
+    return defs.map((d) => ({
+      id: d.id,
+      name: d.name,
+      lang: d.lang,
+      group: d.group,
+      enabled: dbMap.get(d.id)?.enabled ?? false,
+      config: dbMap.get(d.id)?.config
+        ? JSON.parse(dbMap.get(d.id)!.config!)
+        : null,
+    }));
+  },
+);
+
+export const updateMangaSourceFn = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => mangaSourceConfigSchema.parse(d))
+  .handler(async ({ data }) => {
+    await requireAuth();
+    if (data.enabled !== undefined) {
+      setSourceEnabled(data.sourceId, data.enabled);
+    }
+    if (data.config) {
+      setSourceConfig(data.sourceId, data.config);
+    }
+    return { success: true };
   });

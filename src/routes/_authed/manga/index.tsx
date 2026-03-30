@@ -21,53 +21,18 @@ import MangaTable from "src/components/manga/manga-table";
 import MangaBulkBar from "src/components/manga/manga-bulk-bar";
 import Skeleton from "src/components/ui/skeleton";
 import { mangaListQuery } from "src/lib/queries/manga";
-import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
 import { userSettingsQuery } from "src/lib/queries/user-settings";
-import {
-  useMonitorMangaProfile,
-  useUnmonitorMangaProfile,
-} from "src/hooks/mutations";
 
 export const Route = createFileRoute("/_authed/manga/")({
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(mangaListQuery()),
-      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
       context.queryClient.ensureQueryData(userSettingsQuery("manga")),
     ]);
   },
   component: MangaPage,
   pendingComponent: MangaPageSkeleton,
 });
-
-type MangaWithProfiles = { id: number; downloadProfileIds?: number[] };
-
-function useMangaProfileToggle(mangaList: MangaWithProfiles[]) {
-  const monitorMangaProfile = useMonitorMangaProfile();
-  const unmonitorMangaProfile = useUnmonitorMangaProfile();
-
-  const handleToggle = useCallback(
-    (mangaId: number, profileId: number) => {
-      const m = mangaList.find((item) => item.id === mangaId);
-      const isActive = m?.downloadProfileIds?.includes(profileId);
-      if (isActive) {
-        unmonitorMangaProfile.mutate({
-          mangaId,
-          downloadProfileId: profileId,
-          deleteFiles: false,
-        });
-      } else {
-        monitorMangaProfile.mutate({ mangaId, downloadProfileId: profileId });
-      }
-    },
-    [mangaList, monitorMangaProfile, unmonitorMangaProfile],
-  );
-
-  return {
-    handleToggle,
-    isPending: monitorMangaProfile.isPending || unmonitorMangaProfile.isPending,
-  };
-}
 
 function MangaEmptyState() {
   return (
@@ -207,16 +172,6 @@ function MangaPage() {
   const [search, setSearch] = useState("");
 
   const { data: mangaList } = useSuspenseQuery(mangaListQuery());
-  const { data: allProfiles = [] } = useSuspenseQuery(
-    downloadProfilesListQuery(),
-  );
-  const mangaProfiles = useMemo(
-    () => allProfiles.filter((p) => p.contentType === "manga"),
-    [allProfiles],
-  );
-
-  const { handleToggle: handleToggleProfile } =
-    useMangaProfileToggle(mangaList);
 
   const filtered = useMemo(() => {
     if (!search.trim()) {
@@ -287,8 +242,6 @@ function MangaPage() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleAll={toggleAll}
-          downloadProfiles={mangaProfiles}
-          onToggleProfile={handleToggleProfile}
         />
       )}
 
@@ -301,11 +254,7 @@ function MangaPage() {
       )}
 
       {massEditMode && (
-        <MangaBulkBar
-          selectedIds={selectedIds}
-          profiles={mangaProfiles}
-          onDone={exitMassEdit}
-        />
+        <MangaBulkBar selectedIds={selectedIds} onDone={exitMassEdit} />
       )}
     </div>
   );

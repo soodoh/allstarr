@@ -1,7 +1,7 @@
 import { ReleaseType } from "./types";
 import type { ParsedPackInfo } from "./types";
 
-type ContentType = "tv" | "book" | "manga";
+type ContentType = "tv" | "book";
 
 type DetectionResult = {
   releaseType: ReleaseType;
@@ -23,14 +23,6 @@ const BOOK_COMPLETE = /\bcomplete\s+(?:collection|works|series)\b/i;
 const BOOK_COLLECTION = /\b(?:collection|anthology|omnibus)\b/i;
 const BOOK_N_BOOKS = /\(\d+\s+books?\)/i;
 const BOOK_SERIES = /\bseries\b/i;
-
-// Manga patterns
-const MANGA_MULTI_VOLUME =
-  /\b(?:Vol(?:ume)?s?|v)\.?\s*(\d+)\s*-\s*(?:Vol(?:ume)?s?|v)?\.?\s*(\d+)/i;
-const MANGA_SINGLE_VOLUME = /\b(?:Vol(?:ume)?|v)\.?\s*(\d+)\b/i;
-const MANGA_MULTI_CHAPTER =
-  /\b(?:Ch(?:apter)?s?|c)\.?\s*(\d+)\s*-\s*(?:Ch(?:apter)?s?|c)?\.?\s*(\d+)/i;
-const MANGA_SINGLE_CHAPTER = /\b(?:Ch(?:apter)?|c)\.?\s*(\d+)\b/i;
 
 function expandRange(start: number, end: number): number[] {
   const result: number[] = [];
@@ -130,62 +122,6 @@ function detectBookReleaseType(title: string): DetectionResult {
   return { releaseType: ReleaseType.SingleBook, packInfo: null };
 }
 
-function detectMangaReleaseType(title: string): DetectionResult {
-  const hasMultiVolume = title.match(MANGA_MULTI_VOLUME);
-  const hasSingleVolume = !hasMultiVolume && title.match(MANGA_SINGLE_VOLUME);
-  const hasMultiChapter = title.match(MANGA_MULTI_CHAPTER);
-  const hasSingleChapter =
-    !hasMultiChapter && title.match(MANGA_SINGLE_CHAPTER);
-
-  // Multi-volume: Vol 01-10
-  if (hasMultiVolume) {
-    const start = Number.parseInt(hasMultiVolume[1], 10);
-    const end = Number.parseInt(hasMultiVolume[2], 10);
-    return {
-      releaseType: ReleaseType.MultiVolume,
-      packInfo: { volumes: expandRange(start, end) },
-    };
-  }
-
-  // If both volume and chapter present (Vol 05 Ch 040), it's a single chapter release
-  if (hasSingleVolume && (hasMultiChapter || hasSingleChapter)) {
-    if (hasMultiChapter) {
-      const start = Number.parseInt(hasMultiChapter[1], 10);
-      const end = Number.parseInt(hasMultiChapter[2], 10);
-      return {
-        releaseType: ReleaseType.MultiChapter,
-        packInfo: { chapters: expandRange(start, end) },
-      };
-    }
-    return { releaseType: ReleaseType.SingleChapter, packInfo: null };
-  }
-
-  // Single volume (no chapter marker)
-  if (hasSingleVolume) {
-    return {
-      releaseType: ReleaseType.SingleVolume,
-      packInfo: { volumes: [Number.parseInt(hasSingleVolume[1], 10)] },
-    };
-  }
-
-  // Multi-chapter: Ch 040-045
-  if (hasMultiChapter) {
-    const start = Number.parseInt(hasMultiChapter[1], 10);
-    const end = Number.parseInt(hasMultiChapter[2], 10);
-    return {
-      releaseType: ReleaseType.MultiChapter,
-      packInfo: { chapters: expandRange(start, end) },
-    };
-  }
-
-  // Single chapter: Ch 040
-  if (hasSingleChapter) {
-    return { releaseType: ReleaseType.SingleChapter, packInfo: null };
-  }
-
-  return { releaseType: ReleaseType.Unknown, packInfo: null };
-}
-
 export default function detectReleaseType(
   title: string,
   contentType: ContentType,
@@ -196,9 +132,6 @@ export default function detectReleaseType(
     }
     case "book": {
       return detectBookReleaseType(title);
-    }
-    case "manga": {
-      return detectMangaReleaseType(title);
     }
     default: {
       return { releaseType: ReleaseType.Unknown, packInfo: null };

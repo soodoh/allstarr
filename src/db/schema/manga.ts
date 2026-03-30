@@ -7,8 +7,9 @@ export const manga = sqliteTable(
     title: text("title").notNull(),
     sortTitle: text("sort_title").notNull(),
     overview: text("overview").notNull().default(""),
-    mangaUpdatesId: integer("manga_updates_id").notNull(),
-    mangaUpdatesSlug: text("manga_updates_slug"),
+    sourceId: text("source_id").notNull(),
+    sourceMangaUrl: text("source_manga_url").notNull(),
+    sourceMangaThumbnail: text("source_manga_thumbnail"),
     type: text("type").notNull().default("manga"), // manga | manhwa | manhua
     year: text("year"),
     status: text("status").notNull().default("ongoing"), // ongoing | complete | hiatus | cancelled
@@ -33,16 +34,8 @@ export const manga = sqliteTable(
     metadataUpdatedAt: integer("metadata_updated_at", {
       mode: "timestamp",
     }),
-    wikipediaPageTitle: text("wikipedia_page_title"),
-    wikipediaFetchedAt: integer("wikipedia_fetched_at", {
-      mode: "timestamp",
-    }),
-    mangaDexId: text("manga_dex_id"),
-    mangaDexFetchedAt: integer("manga_dex_fetched_at", {
-      mode: "timestamp",
-    }),
   },
-  (t) => [unique("manga_manga_updates_id_unique").on(t.mangaUpdatesId)],
+  (t) => [unique("manga_source_url_unique").on(t.sourceId, t.sourceMangaUrl)],
 );
 
 export const mangaVolumes = sqliteTable(
@@ -52,10 +45,9 @@ export const mangaVolumes = sqliteTable(
     mangaId: integer("manga_id")
       .notNull()
       .references(() => manga.id, { onDelete: "cascade" }),
-    volumeNumber: integer("volume_number"), // nullable for ungrouped chapters
+    volumeNumber: integer("volume_number"),
     title: text("title"),
     monitored: integer("monitored", { mode: "boolean" }).default(true),
-    mappingSource: text("mapping_source").notNull().default("mangaupdates"),
   },
   (t) => [
     unique("manga_volumes_manga_volume_unique").on(t.mangaId, t.volumeNumber),
@@ -70,11 +62,18 @@ export const mangaChapters = sqliteTable("manga_chapters", {
   mangaId: integer("manga_id")
     .notNull()
     .references(() => manga.id, { onDelete: "cascade" }),
-  chapterNumber: text("chapter_number").notNull(), // supports "10.5", "Extra"
+  chapterNumber: text("chapter_number").notNull(),
   title: text("title"),
+  sourceChapterUrl: text("source_chapter_url"),
   releaseDate: text("release_date"),
   scanlationGroup: text("scanlation_group"),
   hasFile: integer("has_file", { mode: "boolean" }).default(false),
   monitored: integer("monitored", { mode: "boolean" }).default(true),
   lastSearchedAt: integer("last_searched_at"),
+});
+
+export const mangaSources = sqliteTable("manga_sources", {
+  sourceId: text("source_id").primaryKey(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  config: text("config"), // JSON blob for source-specific settings
 });

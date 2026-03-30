@@ -1,13 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import type { JSX, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { BookOpenText, Search, Star } from "lucide-react";
-import Markdown from "react-markdown";
+import { BookOpenText, Search } from "lucide-react";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
-import Switch from "src/components/ui/switch";
 import { Badge } from "src/components/ui/badge";
 import { Card, CardContent } from "src/components/ui/card";
 import {
@@ -25,15 +23,15 @@ import {
   SelectValue,
 } from "src/components/ui/select";
 import EmptyState from "src/components/shared/empty-state";
-import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import OptimizedImage from "src/components/shared/optimized-image";
-import { mangaUpdatesSearchQuery } from "src/lib/queries/manga-updates";
-import { mangaExistenceQuery } from "src/lib/queries/manga";
-import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
+import {
+  mangaSourcesSearchQuery,
+  mangaExistenceQuery,
+} from "src/lib/queries/manga";
 import { userSettingsQuery } from "src/lib/queries/user-settings";
 import { useAddManga } from "src/hooks/mutations/manga";
 import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
-import type { MangaUpdatesSeriesResult } from "src/server/manga-updates";
+import type { MangaSearchResult } from "src/server/manga-search";
 
 // ── Monitor Options ───────────────────────────────────────────────────────
 
@@ -50,31 +48,17 @@ function generateSortTitle(title: string): string {
   return title.replace(/^(The|A|An)\s+/i, "");
 }
 
-function extractSlugFromUrl(url: string): string | null {
-  // MangaUpdates URLs look like: https://www.mangaupdates.com/series/xxxxx/title-slug
-  // We need both the short ID and the title slug
-  const match = url.match(/\/series\/(.+)/);
-  return match?.[1] ?? null;
-}
-
-function stripHtml(html: string | undefined | null): string {
-  if (!html) {
-    return "";
-  }
-  return html.replaceAll(/<[^>]*>/g, "");
-}
-
 // ── Preview Modal ─────────────────────────────────────────────────────────
 
 type MangaPreviewModalProps = {
-  manga: MangaUpdatesSeriesResult;
+  manga: MangaSearchResult;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addDefaults?: Record<string, unknown> | null;
 };
 
 function MangaPreviewModal({
-  manga: series,
+  manga: result,
   open,
   onOpenChange,
   addDefaults,
@@ -84,67 +68,34 @@ function MangaPreviewModal({
   const upsertSettings = useUpsertUserSettings();
 
   const { data: existingManga = null } = useQuery({
-    ...mangaExistenceQuery(series.series_id),
-    enabled: open && series.series_id > 0,
+    ...mangaExistenceQuery(result.sourceId, result.url),
+    enabled: open && result.url.length > 0,
   });
 
-  const { data: allProfiles } = useQuery({
-    ...downloadProfilesListQuery(),
-    enabled: open,
-  });
-
-  const [downloadProfileIds, setDownloadProfileIds] = useState<number[]>(
-    () => (addDefaults?.downloadProfileIds as number[] | undefined) ?? [],
-  );
   const [monitorOption, setMonitorOption] = useState<string>(
     () => (addDefaults?.monitorOption as string | undefined) ?? "all",
   );
-  const [searchOnAdd, setSearchOnAdd] = useState(
-    () => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
-  );
-
-  const mangaProfiles = useMemo(
-    () => (allProfiles ?? []).filter((p) => p.contentType === "manga"),
-    [allProfiles],
-  );
-
-  const toggleProfile = (id: number) => {
-    setDownloadProfileIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    );
-  };
-
-  const description = series.description ?? "";
-  const descriptionPlain = stripHtml(description);
-  const genres = series.genres?.map((g) => g.genre) ?? [];
 
   const handleAdd = () => {
-    if (downloadProfileIds.length === 0) {
-      return;
-    }
     upsertSettings.mutate({
       tableId: "manga",
       addDefaults: {
-        downloadProfileIds,
         monitorOption,
-        searchOnAdd,
       },
     });
     addManga.mutate({
-      mangaUpdatesId: series.series_id,
-      title: series.title,
-      sortTitle: generateSortTitle(series.title),
-      overview: descriptionPlain,
-      mangaUpdatesSlug: extractSlugFromUrl(series.url),
-      type: series.type?.toLowerCase() ?? "manga",
-      year: series.year || null,
+      sourceId: result.sourceId,
+      sourceMangaUrl: result.url,
+      title: result.title,
+      sortTitle: generateSortTitle(result.title),
+      overview: "",
+      type: "manga",
+      year: null,
       status: "ongoing",
-      latestChapter: null,
-      posterUrl: series.image?.url?.original ?? "",
-      genres,
-      downloadProfileIds,
+      posterUrl: result.thumbnailUrl ?? "",
+      sourceMangaThumbnail: result.thumbnailUrl ?? null,
+      genres: [],
       monitorOption: monitorOption as "all" | "future" | "missing" | "none",
-      searchOnAdd,
     });
     onOpenChange(false);
   };
@@ -156,9 +107,9 @@ function MangaPreviewModal({
         onClick={(e) => e.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle className="sr-only">{series.title}</DialogTitle>
+          <DialogTitle className="sr-only">{result.title}</DialogTitle>
           <DialogDescription className="sr-only">
-            Add {series.title} to your library
+            Add {result.title} to your library
           </DialogDescription>
         </DialogHeader>
 
@@ -166,8 +117,8 @@ function MangaPreviewModal({
           {/* Poster + title row */}
           <div className="flex gap-4">
             <OptimizedImage
-              src={series.image?.url?.original ?? null}
-              alt={`${series.title} cover`}
+              src={result.thumbnailUrl ?? null}
+              alt={`${result.title} cover`}
               type="manga"
               width={128}
               height={192}
@@ -176,54 +127,19 @@ function MangaPreviewModal({
 
             <div className="min-w-0 flex-1 space-y-2">
               <h2 className="text-xl font-semibold leading-tight">
-                {series.title}
-                {series.year && (
-                  <span className="ml-2 text-base font-normal text-muted-foreground">
-                    ({series.year})
-                  </span>
-                )}
+                {result.title}
               </h2>
 
               <div className="flex flex-wrap items-center gap-2">
-                {series.type && (
-                  <Badge variant="secondary">{series.type}</Badge>
-                )}
-                {series.bayesian_rating > 0 && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Star className="h-3 w-3" />
-                    {series.bayesian_rating.toFixed(2)}
-                  </Badge>
-                )}
-                {existingManga && <Badge>Already in library</Badge>}
+                <Badge variant="secondary">{result.sourceName}</Badge>
+                {existingManga?.exists && <Badge>Already in library</Badge>}
               </div>
-
-              {genres.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {genres.map((genre) => (
-                    <Badge key={genre} variant="outline" className="text-xs">
-                      {genre}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {description && (
-                <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm prose-invert max-w-none">
-                  <Markdown>{description}</Markdown>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Add form */}
-          {!existingManga && (
+          {!existingManga?.exists && (
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-              <ProfileCheckboxGroup
-                profiles={mangaProfiles}
-                selectedIds={downloadProfileIds}
-                onToggle={toggleProfile}
-              />
-
               <div className="space-y-2">
                 <Label>Monitoring</Label>
                 <Select value={monitorOption} onValueChange={setMonitorOption}>
@@ -240,33 +156,20 @@ function MangaPreviewModal({
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="search-on-add">Search on Add</Label>
-                <Switch
-                  id="search-on-add"
-                  checked={searchOnAdd}
-                  onCheckedChange={setSearchOnAdd}
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={handleAdd}
-                disabled={downloadProfileIds.length === 0}
-              >
+              <Button className="w-full" onClick={handleAdd}>
                 Add Manga
               </Button>
             </div>
           )}
 
-          {existingManga && (
+          {existingManga?.exists && existingManga.mangaId && (
             <Button
               className="w-full"
               onClick={() => {
                 onOpenChange(false);
                 navigate({
                   to: "/manga/series/$mangaId",
-                  params: { mangaId: String(existingManga.id) },
+                  params: { mangaId: String(existingManga.mangaId) },
                 });
               }}
             >
@@ -282,26 +185,24 @@ function MangaPreviewModal({
 // ── Result Card ───────────────────────────────────────────────────────────
 
 function MangaResultCard({
-  manga: series,
+  manga: result,
   onClick,
 }: {
-  manga: MangaUpdatesSeriesResult;
-  onClick: (manga: MangaUpdatesSeriesResult) => void;
+  manga: MangaSearchResult;
+  onClick: (manga: MangaSearchResult) => void;
 }): JSX.Element {
-  const description = stripHtml(series.description);
-
   return (
     <button
       type="button"
       className="block w-full text-left"
-      onClick={() => onClick(series)}
+      onClick={() => onClick(result)}
     >
       <Card className="py-0 overflow-hidden hover:bg-accent/50 transition-colors cursor-pointer">
         <CardContent className="p-4">
           <div className="flex gap-4">
             <OptimizedImage
-              src={series.image?.url?.thumb ?? null}
-              alt={`${series.title} cover`}
+              src={result.thumbnailUrl ?? null}
+              alt={`${result.title} cover`}
               type="manga"
               width={64}
               height={96}
@@ -310,25 +211,10 @@ function MangaResultCard({
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                {series.year && <Badge variant="outline">{series.year}</Badge>}
-                {series.type && (
-                  <Badge variant="secondary">{series.type}</Badge>
-                )}
-                {series.bayesian_rating > 0 && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Star className="h-3 w-3" />
-                    {series.bayesian_rating.toFixed(2)}
-                  </Badge>
-                )}
+                <Badge variant="secondary">{result.sourceName}</Badge>
               </div>
 
-              <h3 className="font-semibold leading-tight">{series.title}</h3>
-
-              {description && (
-                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                  {description}
-                </p>
-              )}
+              <h3 className="font-semibold leading-tight">{result.title}</h3>
             </div>
           </div>
         </CardContent>
@@ -339,11 +225,11 @@ function MangaResultCard({
 
 // ── Main Search Component ─────────────────────────────────────────────────
 
-export default function MangaUpdatesSearch(): JSX.Element {
+export default function MangaSourceSearch(): JSX.Element {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [previewManga, setPreviewManga] = useState<
-    MangaUpdatesSeriesResult | undefined
+    MangaSearchResult | undefined
   >(undefined);
 
   const { data: settings } = useQuery(userSettingsQuery("manga"));
@@ -361,9 +247,10 @@ export default function MangaUpdatesSearch(): JSX.Element {
     isLoading,
     isError,
     error,
-  } = useQuery(mangaUpdatesSearchQuery(debouncedQuery));
+  } = useQuery(mangaSourcesSearchQuery(debouncedQuery));
 
   const results = searchData?.results ?? [];
+  const sourceError = searchData?.error ?? null;
 
   // Determine content to render
   let searchResultsContent: ReactNode;
@@ -378,12 +265,20 @@ export default function MangaUpdatesSearch(): JSX.Element {
         description={message}
       />
     );
+  } else if (sourceError) {
+    searchResultsContent = (
+      <EmptyState
+        icon={BookOpenText}
+        title="No sources available"
+        description={sourceError}
+      />
+    );
   } else if (!debouncedQuery || debouncedQuery.length < 2) {
     searchResultsContent = (
       <EmptyState
         icon={Search}
         title="Search for manga"
-        description="Enter a manga title above to search MangaUpdates."
+        description="Enter a manga title above to search across all enabled sources."
       />
     );
   } else if (isLoading) {
@@ -391,7 +286,7 @@ export default function MangaUpdatesSearch(): JSX.Element {
       <Card>
         <CardContent className="py-8">
           <p className="text-sm text-muted-foreground">
-            Searching MangaUpdates...
+            Searching manga sources...
           </p>
         </CardContent>
       </Card>
@@ -412,10 +307,10 @@ export default function MangaUpdatesSearch(): JSX.Element {
           &ldquo;{debouncedQuery}&rdquo;.
         </p>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          {results.map((series) => (
+          {results.map((result) => (
             <MangaResultCard
-              key={series.series_id}
-              manga={series}
+              key={`${result.sourceId}-${result.url}`}
+              manga={result}
               onClick={setPreviewManga}
             />
           ))}
