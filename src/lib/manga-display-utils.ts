@@ -1,4 +1,8 @@
-import { parseChapterNumber } from "src/server/manga-chapter-utils";
+function parseChapterNumber(raw: string): number | null {
+  const cleaned = raw.replace(/v\d+$/i, "").trim();
+  const num = Number.parseFloat(cleaned);
+  return Number.isNaN(num) ? null : num;
+}
 
 type Chapter = {
   id: number;
