@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
@@ -27,23 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "src/components/ui/select";
+import Input from "src/components/ui/input";
 import PageHeader from "src/components/shared/page-header";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
-import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
-import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
-import UnmonitorDialog from "src/components/shared/unmonitor-dialog";
 import OptimizedImage from "src/components/shared/optimized-image";
 import {
   useUpdateManga,
   useDeleteManga,
   useRefreshMangaMetadata,
-  useUnmonitorMangaProfile,
 } from "src/hooks/mutations/manga";
-import {
-  useBulkMonitorMangaChapterProfile,
-  useBulkUnmonitorMangaChapterProfile,
-} from "src/hooks/mutations/manga-chapter-profiles";
 
 type Chapter = {
   id: number;
@@ -62,8 +55,8 @@ type MangaDetail = {
   id: number;
   title: string;
   overview: string;
-  mangaUpdatesId: number;
-  mangaUpdatesSlug: string | null;
+  sourceId: string;
+  sourceMangaUrl: string;
   type: string;
   year: string | null;
   status: string;
@@ -71,20 +64,12 @@ type MangaDetail = {
   posterUrl: string;
   genres: string[] | null;
   monitorNewChapters: string;
-  downloadProfileIds: number[];
+  path: string;
   volumes: Volume[];
-};
-
-type DownloadProfile = {
-  id: number;
-  name: string;
-  icon: string;
-  contentType: string;
 };
 
 type MangaDetailHeaderProps = {
   manga: MangaDetail;
-  downloadProfiles: DownloadProfile[];
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -120,54 +105,40 @@ function getDescription(year: string | null, type: string): string | undefined {
 
 type EditMangaDialogProps = {
   manga: MangaDetail;
-  mangaProfiles: Array<{
-    id: number;
-    name: string;
-    icon: string;
-  }>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 function EditMangaDialog({
   manga,
-  mangaProfiles,
   open,
   onOpenChange,
 }: EditMangaDialogProps): JSX.Element {
   const router = useRouter();
   const updateManga = useUpdateManga();
-  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>(
-    manga.downloadProfileIds,
-  );
   const [monitorNewChapters, setMonitorNewChapters] = useState(
     manga.monitorNewChapters ?? "all",
   );
+  const [path, setPath] = useState(manga.path ?? "");
 
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedProfileIds(manga.downloadProfileIds);
       setMonitorNewChapters(manga.monitorNewChapters ?? "all");
+      setPath(manga.path ?? "");
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleProfile = (id: number) => {
-    setSelectedProfileIds((prev) =>
-      prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id],
-    );
-  };
 
   const handleSave = () => {
     updateManga.mutate(
       {
         id: manga.id,
-        downloadProfileIds: selectedProfileIds,
         monitorNewChapters: monitorNewChapters as
           | "all"
           | "future"
           | "missing"
           | "none",
+        path: path || undefined,
       },
       {
         onSuccess: () => {
@@ -182,7 +153,7 @@ function EditMangaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Download Profiles</DialogTitle>
+          <DialogTitle>Edit Manga</DialogTitle>
         </DialogHeader>
 
         <DialogBody>
@@ -205,11 +176,15 @@ function EditMangaDialog({
             </Select>
           </div>
 
-          <ProfileCheckboxGroup
-            profiles={mangaProfiles}
-            selectedIds={selectedProfileIds}
-            onToggle={toggleProfile}
-          />
+          {/* Path */}
+          <div className="space-y-2">
+            <Label>Path</Label>
+            <Input
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="/path/to/manga"
+            />
+          </div>
         </DialogBody>
 
         <DialogFooter>
@@ -227,31 +202,13 @@ function EditMangaDialog({
 
 export default function MangaDetailHeader({
   manga,
-  downloadProfiles,
 }: MangaDetailHeaderProps): JSX.Element {
   const navigate = useNavigate();
   const router = useRouter();
   const deleteManga = useDeleteManga();
   const refreshMetadata = useRefreshMangaMetadata();
-  const bulkMonitor = useBulkMonitorMangaChapterProfile();
-  const bulkUnmonitor = useBulkUnmonitorMangaChapterProfile();
-  const unmonitorMangaProfile = useUnmonitorMangaProfile();
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [editProfilesOpen, setEditProfilesOpen] = useState(false);
-  const [unmonitorProfileId, setUnmonitorProfileId] = useState<number | null>(
-    null,
-  );
-
-  const mangaProfiles = useMemo(
-    () => downloadProfiles.filter((p) => p.contentType === "manga"),
-    [downloadProfiles],
-  );
-
-  // Only profiles assigned to this manga (for header toggle icons)
-  const assignedProfiles = useMemo(() => {
-    const idSet = new Set(manga.downloadProfileIds);
-    return mangaProfiles.filter((p) => idSet.has(p.id));
-  }, [mangaProfiles, manga.downloadProfileIds]);
+  const [editOpen, setEditOpen] = useState(false);
 
   const handleRefreshMetadata = () => {
     refreshMetadata.mutate(manga.id, {
@@ -259,71 +216,10 @@ export default function MangaDetailHeader({
     });
   };
 
-  const mangaUpdatesUrl = manga.mangaUpdatesSlug
-    ? `https://www.mangaupdates.com/series/${manga.mangaUpdatesSlug}`
-    : null;
-
   // Compute chapter counts across all volumes
   const allChapters = manga.volumes.flatMap((v) => v.chapters);
   const chapterCount = allChapters.length;
   const chapterFileCount = allChapters.filter((ch) => ch.hasFile).length;
-
-  const mangaActiveProfileIds = useMemo(
-    () =>
-      manga.downloadProfileIds.filter(
-        (_pid) =>
-          allChapters.length > 0 && allChapters.every((ch) => ch.monitored),
-      ),
-    [manga.downloadProfileIds, allChapters],
-  );
-
-  const mangaPartialProfileIds = useMemo(
-    () =>
-      manga.downloadProfileIds.filter(
-        (pid) =>
-          !mangaActiveProfileIds.includes(pid) &&
-          allChapters.some((ch) => ch.monitored),
-      ),
-    [manga.downloadProfileIds, mangaActiveProfileIds, allChapters],
-  );
-
-  const handleMangaProfileToggle = (profileId: number) => {
-    const isActive = mangaActiveProfileIds.includes(profileId);
-
-    if (isActive) {
-      setUnmonitorProfileId(profileId);
-    } else {
-      // Partial or inactive — monitor all chapters for this profile
-      const chapterIds = allChapters.map((ch) => ch.id);
-      bulkMonitor.mutate(
-        { chapterIds, downloadProfileId: profileId },
-        { onSuccess: () => router.invalidate() },
-      );
-    }
-  };
-
-  const handleMangaUnmonitorConfirm = (deleteFiles: boolean) => {
-    if (unmonitorProfileId === null) {
-      return;
-    }
-    const chapterIds = allChapters.map((ch) => ch.id);
-    bulkUnmonitor.mutate(
-      { chapterIds, downloadProfileId: unmonitorProfileId, deleteFiles },
-      {
-        onSuccess: () => {
-          unmonitorMangaProfile.mutate(
-            { mangaId: manga.id, downloadProfileId: unmonitorProfileId },
-            {
-              onSuccess: () => {
-                setUnmonitorProfileId(null);
-                router.invalidate();
-              },
-            },
-          );
-        },
-      },
-    );
-  };
 
   const handleDelete = () => {
     deleteManga.mutate(
@@ -351,23 +247,13 @@ export default function MangaDetailHeader({
         <ActionButtonGroup
           onRefreshMetadata={handleRefreshMetadata}
           isRefreshing={refreshMetadata.isPending}
-          onEdit={() => setEditProfilesOpen(true)}
+          onEdit={() => setEditOpen(true)}
           onDelete={() => setDeleteOpen(true)}
-          externalUrl={mangaUpdatesUrl}
-          externalLabel="Open in MangaUpdates"
         />
       </div>
 
       {/* Page header */}
       <div className="flex items-start gap-3">
-        <ProfileToggleIcons
-          profiles={assignedProfiles}
-          activeProfileIds={mangaActiveProfileIds}
-          partialProfileIds={mangaPartialProfileIds}
-          onToggle={handleMangaProfileToggle}
-          size="lg"
-          direction="vertical"
-        />
         <div className="flex-1 min-w-0">
           <PageHeader
             title={manga.title}
@@ -420,6 +306,14 @@ export default function MangaDetailHeader({
                   </Badge>
                 </dd>
               </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Source</dt>
+                <dd>
+                  <Badge variant="outline" className="text-xs">
+                    {manga.sourceId}
+                  </Badge>
+                </dd>
+              </div>
               {manga.genres && manga.genres.length > 0 && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Genres</dt>
@@ -438,21 +332,6 @@ export default function MangaDetailHeader({
                   {chapterFileCount}/{chapterCount} chapters
                 </dd>
               </div>
-              {mangaUpdatesUrl && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">MangaUpdates</dt>
-                  <dd>
-                    <a
-                      href={mangaUpdatesUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-400 hover:underline"
-                    >
-                      {manga.mangaUpdatesId}
-                    </a>
-                  </dd>
-                </div>
-              )}
             </dl>
           </CardContent>
         </Card>
@@ -476,12 +355,11 @@ export default function MangaDetailHeader({
         </Card>
       </div>
 
-      {/* Edit profiles dialog */}
+      {/* Edit dialog */}
       <EditMangaDialog
         manga={manga}
-        mangaProfiles={mangaProfiles}
-        open={editProfilesOpen}
-        onOpenChange={setEditProfilesOpen}
+        open={editOpen}
+        onOpenChange={setEditOpen}
       />
 
       {/* Delete confirmation dialog */}
@@ -493,23 +371,6 @@ export default function MangaDetailHeader({
         onConfirm={handleDelete}
         loading={deleteManga.isPending}
         variant="destructive"
-      />
-
-      <UnmonitorDialog
-        open={unmonitorProfileId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setUnmonitorProfileId(null);
-          }
-        }}
-        profileName={
-          mangaProfiles.find((p) => p.id === unmonitorProfileId)?.name ?? ""
-        }
-        itemTitle={manga.title}
-        itemType="manga"
-        fileCount={0}
-        onConfirm={handleMangaUnmonitorConfirm}
-        isPending={bulkUnmonitor.isPending}
       />
     </>
   );
