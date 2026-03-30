@@ -16,6 +16,7 @@
         "@unpic/react": "^1.0.2",
         "adm-zip": "^0.5.16",
         "better-auth": "^1.4.18",
+        "cheerio": "^1.2.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
