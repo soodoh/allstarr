@@ -479,25 +479,22 @@ export const deleteUserSettingsSchema = z.object({
 // ─── Manga ──────────────────────────────────────────────────────────────
 
 export const addMangaSchema = z.object({
-  mangaUpdatesId: z.number(),
+  sourceId: z.string(),
+  sourceMangaUrl: z.string(),
   title: z.string(),
   sortTitle: z.string(),
   overview: z.string().default(""),
-  mangaUpdatesSlug: z.string().nullable().default(null),
   type: z.string().default("manga"),
   year: z.string().nullable().default(null),
   status: z.string().default("ongoing"),
-  latestChapter: z.number().nullable().default(null),
   posterUrl: z.string().default(""),
+  sourceMangaThumbnail: z.string().nullable().default(null),
   genres: z.array(z.string()).default([]),
-  downloadProfileIds: z.array(z.number()).min(1),
   monitorOption: z.enum(["all", "future", "missing", "none"]).default("all"),
-  searchOnAdd: z.boolean().default(false),
 });
 
 export const updateMangaSchema = z.object({
   id: z.number(),
-  downloadProfileIds: z.array(z.number()).optional(),
   monitorNewChapters: z.enum(["all", "future", "missing", "none"]).optional(),
   path: z.string().optional(),
 });
@@ -507,40 +504,21 @@ export const deleteMangaSchema = z.object({
   deleteFiles: z.boolean().default(false),
 });
 
-export const monitorMangaProfileSchema = z.object({
-  mangaId: z.number(),
-  downloadProfileId: z.number(),
-});
-
-export const unmonitorMangaProfileSchema = z.object({
-  mangaId: z.number(),
-  downloadProfileId: z.number(),
-  deleteFiles: z.boolean().default(false),
-});
-
-export const bulkMonitorMangaChapterProfileSchema = z.object({
-  chapterIds: z.array(z.number()),
-  downloadProfileId: z.number(),
-});
-
-export const bulkUnmonitorMangaChapterProfileSchema = z.object({
-  chapterIds: z.array(z.number()),
-  downloadProfileId: z.number(),
-  deleteFiles: z.boolean().default(false),
-});
-
 export const refreshMangaSchema = z.object({
   mangaId: z.number(),
 });
 
-export const searchMangaUpdatesSchema = z.object({
+export const searchMangaSourcesSchema = z.object({
   query: z.string().min(1),
 });
 
-export const getMangaUpdatesDetailSchema = z.object({
-  seriesId: z.number(),
+export const checkMangaExistsSchema = z.object({
+  sourceId: z.string(),
+  sourceMangaUrl: z.string(),
 });
 
-export const checkMangaExistsSchema = z.object({
-  mangaUpdatesId: z.number(),
+export const mangaSourceConfigSchema = z.object({
+  sourceId: z.string(),
+  enabled: z.boolean().optional(),
+  config: z.record(z.unknown()).optional(),
 });
