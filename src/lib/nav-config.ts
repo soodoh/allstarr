@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   Activity,
+  BookOpen,
   Download,
   FileText,
   FileType,
@@ -73,6 +74,13 @@ export const settingsNavItems: NavItem[] = [
     icon: Radar,
     description:
       "Configure Usenet or torrent indexers used to search for book releases.",
+  },
+  {
+    title: "Manga Sources",
+    to: "/settings/manga-sources",
+    icon: BookOpen,
+    description:
+      "Configure manga sources for chapter discovery and downloading.",
   },
   {
     title: "Import Lists",

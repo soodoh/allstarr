@@ -547,21 +547,17 @@ export const getIndexerStatusesFn = createServerFn({ method: "GET" }).handler(
 
 export function getReleaseTypeRank(releaseType: ReleaseType): number {
   switch (releaseType) {
-    case ReleaseType.MultiSeasonPack:
-    case ReleaseType.MultiVolume: {
+    case ReleaseType.MultiSeasonPack: {
       return 4;
     }
-    case ReleaseType.SeasonPack:
-    case ReleaseType.SingleVolume: {
+    case ReleaseType.SeasonPack: {
       return 3;
     }
     case ReleaseType.MultiEpisode:
-    case ReleaseType.MultiChapter:
     case ReleaseType.AuthorPack: {
       return 2;
     }
     case ReleaseType.SingleEpisode:
-    case ReleaseType.SingleChapter:
     case ReleaseType.SingleBook: {
       return 1;
     }
@@ -576,7 +572,7 @@ export type PackContext = {
   wantedEpisodesBySeason?: Map<number, Set<number>>;
   /** Set of wanted book IDs */
   wantedBookIds?: Set<number>;
-  /** Volume number → set of wanted chapter numbers in that volume */
+  /** Volume number → set of wanted chapter numbers in that volume (manga, unused by indexer pack logic) */
   wantedChaptersByVolume?: Map<number, Set<number>>;
   /** Total number of wanted items (used for "Complete Series" packs with no specific seasons) */
   totalWantedSeasons?: number;
@@ -622,45 +618,6 @@ function isMultiEpisodeQualified(
   return info.episodes.every((ep) => wanted.has(ep));
 }
 
-function isMultiVolumeQualified(
-  info: NonNullable<IndexerRelease["packInfo"]>,
-  ctx: PackContext,
-): boolean {
-  if (!ctx.wantedChaptersByVolume || !info.volumes) {
-    return false;
-  }
-  return info.volumes.every(
-    (v) => (ctx.wantedChaptersByVolume!.get(v)?.size ?? 0) > 0,
-  );
-}
-
-function isSingleVolumeQualified(
-  info: NonNullable<IndexerRelease["packInfo"]>,
-  ctx: PackContext,
-): boolean {
-  if (!ctx.wantedChaptersByVolume || !info.volumes?.[0]) {
-    return false;
-  }
-  const wanted = ctx.wantedChaptersByVolume.get(info.volumes[0]);
-  return (wanted?.size ?? 0) >= 2;
-}
-
-function isMultiChapterQualified(
-  info: NonNullable<IndexerRelease["packInfo"]>,
-  ctx: PackContext,
-): boolean {
-  if (!ctx.wantedChaptersByVolume || !info.chapters) {
-    return false;
-  }
-  const allWanted = new Set<number>();
-  for (const chSet of ctx.wantedChaptersByVolume.values()) {
-    for (const ch of chSet) {
-      allWanted.add(ch);
-    }
-  }
-  return info.chapters.every((ch) => allWanted.has(ch));
-}
-
 export function isPackQualified(
   release: IndexerRelease,
   packContext: PackContext | null,
@@ -694,15 +651,6 @@ export function isPackQualified(
       return packContext.wantedBookIds
         ? packContext.wantedBookIds.size > 0
         : false;
-    }
-    case ReleaseType.MultiVolume: {
-      return isMultiVolumeQualified(info, packContext);
-    }
-    case ReleaseType.SingleVolume: {
-      return isSingleVolumeQualified(info, packContext);
-    }
-    case ReleaseType.MultiChapter: {
-      return isMultiChapterQualified(info, packContext);
     }
     default: {
       return true;

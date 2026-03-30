@@ -8,13 +8,13 @@ import {
   TooltipTrigger,
 } from "src/components/ui/tooltip";
 
-type ActionButtonGroupProps = {
+export type ActionButtonGroupProps = {
   onRefreshMetadata: () => void;
   isRefreshing: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  externalUrl: string | null;
-  externalLabel: string;
+  externalUrl?: string | null;
+  externalLabel?: string;
 };
 
 export default function ActionButtonGroup({

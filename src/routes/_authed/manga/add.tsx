@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "src/components/ui/card";
-import MangaUpdatesSearch from "src/components/manga/manga-updates-search";
+import MangaSourceSearch from "src/components/manga/manga-source-search";
 import { userSettingsQuery } from "src/lib/queries/user-settings";
 
 export const Route = createFileRoute("/_authed/manga/add")({
@@ -33,10 +33,10 @@ function AddMangaPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Search MangaUpdates</CardTitle>
+          <CardTitle>Search Manga Sources</CardTitle>
         </CardHeader>
         <CardContent>
-          <MangaUpdatesSearch />
+          <MangaSourceSearch />
         </CardContent>
       </Card>
     </div>

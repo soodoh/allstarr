@@ -8,7 +8,7 @@ import Skeleton from "src/components/ui/skeleton";
 import MangaDetailHeader from "src/components/manga/manga-detail-header";
 import VolumeAccordion from "src/components/manga/volume-accordion";
 import NotFound from "src/components/NotFound";
-import { mangaDetailQuery, downloadProfilesListQuery } from "src/lib/queries";
+import { mangaDetailQuery } from "src/lib/queries";
 import { splitUngroupedVolumes } from "src/lib/manga-display-utils";
 import type { DisplayVolume } from "src/lib/manga-display-utils";
 
@@ -18,17 +18,14 @@ export const Route = createFileRoute("/_authed/manga/series/$mangaId")({
     if (!Number.isFinite(id) || id <= 0) {
       throw notFound();
     }
-    const [mangaData] = await Promise.all([
-      context.queryClient
-        .ensureQueryData(mangaDetailQuery(id))
-        .catch((error) => {
-          if (error instanceof Error && error.message.includes("not found")) {
-            throw notFound();
-          }
-          throw error;
-        }),
-      context.queryClient.ensureQueryData(downloadProfilesListQuery()),
-    ]);
+    const mangaData = await context.queryClient
+      .ensureQueryData(mangaDetailQuery(id))
+      .catch((error) => {
+        if (error instanceof Error && error.message.includes("not found")) {
+          throw notFound();
+        }
+        throw error;
+      });
     if (!mangaData) {
       throw notFound();
     }
@@ -44,9 +41,6 @@ function MangaDetailPage(): JSX.Element {
   const { data: mangaData } = useSuspenseQuery(
     mangaDetailQuery(Number(mangaId)),
   );
-  const { data: downloadProfiles } = useSuspenseQuery(
-    downloadProfilesListQuery(),
-  );
 
   if (!mangaData) {
     return <NotFound />;
@@ -57,18 +51,9 @@ function MangaDetailPage(): JSX.Element {
     mangaData.volumes as DisplayVolume[],
   );
 
-  // oxlint-disable-next-line react-perf/jsx-no-new-array-as-prop -- Pre-filtered once before map
-  const mangaDownloadProfiles = downloadProfiles.filter(
-    (p) =>
-      p.contentType === "manga" && mangaData.downloadProfileIds.includes(p.id),
-  );
-
   return (
     <div className="space-y-6">
-      <MangaDetailHeader
-        manga={mangaData}
-        downloadProfiles={downloadProfiles}
-      />
+      <MangaDetailHeader manga={mangaData} />
 
       {/* Volumes */}
       <Card>
@@ -85,7 +70,6 @@ function MangaDetailPage(): JSX.Element {
                     chapters: group.chapters,
                   }
                 }
-                downloadProfiles={mangaDownloadProfiles}
                 displayTitle={group.displayTitle}
                 accordionValue={group.key}
               />

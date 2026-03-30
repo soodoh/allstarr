@@ -5,19 +5,11 @@ import {
   mangaVolumes,
   mangaChapters,
   mangaFiles,
-  mangaDownloadProfiles,
   history,
 } from "src/db/schema";
-import { eq, sql, and, desc, inArray } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "./middleware";
-import {
-  updateMangaSchema,
-  deleteMangaSchema,
-  monitorMangaProfileSchema,
-  unmonitorMangaProfileSchema,
-  bulkMonitorMangaChapterProfileSchema,
-  bulkUnmonitorMangaChapterProfileSchema,
-} from "src/lib/validators";
+import { updateMangaSchema, deleteMangaSchema } from "src/lib/validators";
 import * as fs from "node:fs";
 
 // ─── List all manga ──────────────────────────────────────────────────────
@@ -26,14 +18,14 @@ export const getMangasFn = createServerFn({ method: "GET" }).handler(
   async () => {
     await requireAuth();
 
-    const rows = db
+    return db
       .select({
         id: manga.id,
         title: manga.title,
         sortTitle: manga.sortTitle,
         overview: manga.overview,
-        mangaUpdatesId: manga.mangaUpdatesId,
-        mangaUpdatesSlug: manga.mangaUpdatesSlug,
+        sourceId: manga.sourceId,
+        sourceMangaUrl: manga.sourceMangaUrl,
         type: manga.type,
         year: manga.year,
         status: manga.status,
@@ -57,28 +49,6 @@ export const getMangasFn = createServerFn({ method: "GET" }).handler(
       .groupBy(manga.id)
       .orderBy(desc(manga.createdAt))
       .all();
-
-    // Fetch manga-level download profile links
-    const profileLinks = db
-      .select({
-        mangaId: mangaDownloadProfiles.mangaId,
-        downloadProfileId: mangaDownloadProfiles.downloadProfileId,
-      })
-      .from(mangaDownloadProfiles)
-      .all();
-
-    const profilesByManga = new Map<number, number[]>();
-    for (const link of profileLinks) {
-      const arr = profilesByManga.get(link.mangaId) ?? [];
-      arr.push(link.downloadProfileId);
-      profilesByManga.set(link.mangaId, arr);
-    }
-
-    return rows.map((row) =>
-      Object.assign(row, {
-        downloadProfileIds: profilesByManga.get(row.id) ?? [],
-      }),
-    );
   },
 );
 
@@ -154,19 +124,8 @@ export const getMangaDetailFn = createServerFn({ method: "GET" })
       }),
     );
 
-    // Get download profile IDs
-    const profileLinks = db
-      .select({
-        downloadProfileId: mangaDownloadProfiles.downloadProfileId,
-      })
-      .from(mangaDownloadProfiles)
-      .where(eq(mangaDownloadProfiles.mangaId, data.id))
-      .all();
-    const downloadProfileIds = profileLinks.map((l) => l.downloadProfileId);
-
     return {
       ...mangaRow,
-      downloadProfileIds,
       volumes: volumesWithChapters,
     };
   });
@@ -178,7 +137,7 @@ export const updateMangaFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAuth();
 
-    const { id, downloadProfileIds, monitorNewChapters, path } = data;
+    const { id, monitorNewChapters, path } = data;
 
     const mangaRow = db.select().from(manga).where(eq(manga.id, id)).get();
 
@@ -197,19 +156,6 @@ export const updateMangaFn = createServerFn({ method: "POST" })
       updates.path = path;
     }
     db.update(manga).set(updates).where(eq(manga.id, id)).run();
-
-    // Update download profiles if provided
-    if (downloadProfileIds !== undefined) {
-      // Replace manga download profiles
-      db.delete(mangaDownloadProfiles)
-        .where(eq(mangaDownloadProfiles.mangaId, id))
-        .run();
-      for (const profileId of downloadProfileIds) {
-        db.insert(mangaDownloadProfiles)
-          .values({ mangaId: id, downloadProfileId: profileId })
-          .run();
-      }
-    }
 
     return db.select().from(manga).where(eq(manga.id, id)).get()!;
   });
@@ -267,47 +213,10 @@ export const deleteMangaFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-// ─── Monitor/unmonitor manga profile ──────────────────────────────────────
-
-export const monitorMangaProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => monitorMangaProfileSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-
-    db.insert(mangaDownloadProfiles)
-      .values({
-        mangaId: data.mangaId,
-        downloadProfileId: data.downloadProfileId,
-      })
-      .onConflictDoNothing()
-      .run();
-
-    return { success: true };
-  });
-
-export const unmonitorMangaProfileFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => unmonitorMangaProfileSchema.parse(d))
-  .handler(async ({ data }) => {
-    await requireAuth();
-
-    db.delete(mangaDownloadProfiles)
-      .where(
-        and(
-          eq(mangaDownloadProfiles.mangaId, data.mangaId),
-          eq(mangaDownloadProfiles.downloadProfileId, data.downloadProfileId),
-        ),
-      )
-      .run();
-
-    return { success: true };
-  });
-
 // ─── Bulk monitor/unmonitor chapters ──────────────────────────────────────
 
-export const bulkMonitorMangaChapterProfileFn = createServerFn({
-  method: "POST",
-})
-  .inputValidator((d: unknown) => bulkMonitorMangaChapterProfileSchema.parse(d))
+export const bulkMonitorMangaChaptersFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { chapterIds: number[] }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
 
@@ -321,12 +230,8 @@ export const bulkMonitorMangaChapterProfileFn = createServerFn({
     return { success: true };
   });
 
-export const bulkUnmonitorMangaChapterProfileFn = createServerFn({
-  method: "POST",
-})
-  .inputValidator((d: unknown) =>
-    bulkUnmonitorMangaChapterProfileSchema.parse(d),
-  )
+export const bulkUnmonitorMangaChaptersFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { chapterIds: number[]; deleteFiles: boolean }) => d)
   .handler(async ({ data }) => {
     await requireAuth();
 
@@ -338,18 +243,4 @@ export const bulkUnmonitorMangaChapterProfileFn = createServerFn({
     }
 
     return { success: true };
-  });
-
-// ─── Check existence ──────────────────────────────────────────────────────
-
-export const checkMangaExistsFn = createServerFn({ method: "GET" })
-  .inputValidator((d: { mangaUpdatesId: number }) => d)
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const row = db
-      .select({ id: manga.id, title: manga.title })
-      .from(manga)
-      .where(eq(manga.mangaUpdatesId, data.mangaUpdatesId))
-      .get();
-    return row ?? null;
   });
