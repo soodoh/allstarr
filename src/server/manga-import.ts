@@ -391,8 +391,13 @@ function supplementChaptersFromMangaDex(
 // ─── Import Manga ──────────────────────────────────────────────────────────
 
 // oxlint-disable-next-line complexity -- Import pipeline orchestrates multiple data sources
-const importMangaHandler: CommandHandler = async (body, updateProgress) => {
+const importMangaHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as unknown as ReturnType<typeof addMangaSchema.parse>;
+  setTitle(data.title);
 
   // Check for duplicates
   updateProgress("Checking for duplicates...");
@@ -951,7 +956,11 @@ export async function refreshMangaInternal(
   return { success: true, newChaptersAdded };
 }
 
-const refreshMangaHandler: CommandHandler = async (body, updateProgress) => {
+const refreshMangaHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as { mangaId: number };
 
   // Get manga title for progress message
@@ -960,8 +969,11 @@ const refreshMangaHandler: CommandHandler = async (body, updateProgress) => {
     .from(manga)
     .where(eq(manga.id, data.mangaId))
     .get();
+  if (mangaRow) {
+    setTitle(mangaRow.title);
+  }
 
-  updateProgress(`Fetching latest data for ${mangaRow?.title ?? "manga"}...`);
+  updateProgress("Fetching latest data...");
   const result = await refreshMangaInternal(data.mangaId);
 
   return { success: true, newChaptersAdded: result.newChaptersAdded };

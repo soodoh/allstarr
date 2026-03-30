@@ -10,6 +10,7 @@ import { isTaskRunning } from "./scheduler/state";
 export type CommandHandler = (
   body: Record<string, unknown>,
   updateProgress: (message: string) => void,
+  setTitle: (title: string) => void,
 ) => Promise<Record<string, unknown>>;
 
 type SubmitCommandOptions = {
@@ -60,17 +61,30 @@ async function doWork(
   handler: CommandHandler,
   body: Record<string, unknown>,
 ): Promise<void> {
+  let title = "";
+
+  const setTitle = (t: string): void => {
+    title = t;
+  };
+
   const updateProgress = (message: string): void => {
+    const progress = title ? `${title} — ${message}` : message;
     db.update(activeAdhocCommands)
-      .set({ progress: message })
+      .set({ progress })
       .where(eq(activeAdhocCommands.id, commandId))
       .run();
-    eventBus.emit({ type: "commandProgress", commandId, progress: message });
+    eventBus.emit({ type: "commandProgress", commandId, progress });
   };
 
   try {
-    const result = await handler(body, updateProgress);
-    eventBus.emit({ type: "commandCompleted", commandId, commandType, result });
+    const result = await handler(body, updateProgress, setTitle);
+    eventBus.emit({
+      type: "commandCompleted",
+      commandId,
+      commandType,
+      result,
+      title,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`[command] ${commandType} #${commandId} failed:`, error);
@@ -79,6 +93,7 @@ async function doWork(
       commandId,
       commandType,
       error: message,
+      title,
     });
   } finally {
     db.delete(activeAdhocCommands)

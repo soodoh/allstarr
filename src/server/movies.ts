@@ -72,7 +72,11 @@ async function populateCollectionCache(
   }
 }
 
-const addMovieHandler: CommandHandler = async (body, updateProgress) => {
+const addMovieHandler: CommandHandler = async (
+  body,
+  updateProgress,
+  setTitle,
+) => {
   const data = body as ReturnType<typeof addMovieSchema.parse>;
 
   // Check if movie already exists
@@ -134,6 +138,7 @@ const addMovieHandler: CommandHandler = async (body, updateProgress) => {
   }
 
   const title = raw.title;
+  setTitle(title);
   const sortTitle = generateSortTitle(title);
   const status = mapMovieStatus(raw.status);
   const studio = raw.production_companies[0]?.name ?? "";
