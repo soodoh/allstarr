@@ -6,36 +6,36 @@
  * Used both in GraphQL queries (_nin filter) and in post-fetch filtering.
  */
 export const NON_AUTHOR_ROLES = new Set([
-  // Editorial
-  "Editor",
-  "editor",
-  "Series Editor",
-  "Editor and Contributor",
-  "Editor/Introduction",
-  // Translation / adaptation
-  "Translator",
-  "Adapted by",
-  "Adapter",
-  "Adaptor",
-  // Art / production
-  "Illustrator",
-  "illustrator",
-  "Cover artist",
-  "Cover design",
-  "Photographer",
-  // Audio
-  "Narrator",
-  "Reader",
-  // Supplementary content
-  "Introduction",
-  "Foreword",
-  "Afterword",
-  // Other non-originating
-  "Compiler",
-  "Pseudonym",
-  "pseudonym",
-  "Compilation",
-  'as "Anonymous"',
+	// Editorial
+	"Editor",
+	"editor",
+	"Series Editor",
+	"Editor and Contributor",
+	"Editor/Introduction",
+	// Translation / adaptation
+	"Translator",
+	"Adapted by",
+	"Adapter",
+	"Adaptor",
+	// Art / production
+	"Illustrator",
+	"illustrator",
+	"Cover artist",
+	"Cover design",
+	"Photographer",
+	// Audio
+	"Narrator",
+	"Reader",
+	// Supplementary content
+	"Introduction",
+	"Foreword",
+	"Afterword",
+	// Other non-originating
+	"Compiler",
+	"Pseudonym",
+	"pseudonym",
+	"Compilation",
+	'as "Anonymous"',
 ]);
 
 /**

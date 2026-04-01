@@ -1,75 +1,74 @@
-// oxlint-disable explicit-module-boundary-types -- queryOptions return type is complex generic
-import { queryOptions, infiniteQueryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import {
-  getBooksFn,
-  getPaginatedBooksFn,
-  getBookFn,
-  getBookEditionsPaginatedFn,
-  checkBooksExistFn,
+	checkBooksExistFn,
+	getBookEditionsPaginatedFn,
+	getBookFn,
+	getBooksFn,
+	getPaginatedBooksFn,
 } from "src/server/books";
 import { queryKeys } from "../query-keys";
 
 export const booksListQuery = () =>
-  queryOptions({
-    queryKey: queryKeys.books.lists(),
-    queryFn: () => getBooksFn(),
-  });
+	queryOptions({
+		queryKey: queryKeys.books.lists(),
+		queryFn: () => getBooksFn(),
+	});
 
 export const booksInfiniteQuery = (
-  search = "",
-  monitored?: boolean,
-  sortKey?: string,
-  sortDir?: string,
+	search = "",
+	monitored?: boolean,
+	sortKey?: string,
+	sortDir?: string,
 ) =>
-  infiniteQueryOptions({
-    queryKey: queryKeys.books.infinite(search, monitored, sortKey, sortDir),
-    queryFn: ({ pageParam }) =>
-      getPaginatedBooksFn({
-        data: {
-          page: pageParam,
-          pageSize: 25,
-          search: search || undefined,
-          monitored,
-          sortKey,
-          sortDir,
-        },
-      }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-  });
+	infiniteQueryOptions({
+		queryKey: queryKeys.books.infinite(search, monitored, sortKey, sortDir),
+		queryFn: ({ pageParam }) =>
+			getPaginatedBooksFn({
+				data: {
+					page: pageParam,
+					pageSize: 25,
+					search: search || undefined,
+					monitored,
+					sortKey,
+					sortDir,
+				},
+			}),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) =>
+			lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+	});
 
 export const bookEditionsInfiniteQuery = (
-  bookId: number,
-  sortKey?: string,
-  sortDir?: string,
+	bookId: number,
+	sortKey?: string,
+	sortDir?: string,
 ) =>
-  infiniteQueryOptions({
-    queryKey: queryKeys.books.editionsInfinite(bookId, sortKey, sortDir),
-    queryFn: ({ pageParam }) =>
-      getBookEditionsPaginatedFn({
-        data: {
-          bookId,
-          page: pageParam,
-          pageSize: 25,
-          sortKey,
-          sortDir,
-        },
-      }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-  });
+	infiniteQueryOptions({
+		queryKey: queryKeys.books.editionsInfinite(bookId, sortKey, sortDir),
+		queryFn: ({ pageParam }) =>
+			getBookEditionsPaginatedFn({
+				data: {
+					bookId,
+					page: pageParam,
+					pageSize: 25,
+					sortKey,
+					sortDir,
+				},
+			}),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) =>
+			lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+	});
 
 export const bookDetailQuery = (id: number) =>
-  queryOptions({
-    queryKey: queryKeys.books.detail(id),
-    queryFn: () => getBookFn({ data: { id } }),
-  });
+	queryOptions({
+		queryKey: queryKeys.books.detail(id),
+		queryFn: () => getBookFn({ data: { id } }),
+	});
 
 export const booksExistQuery = (foreignBookIds: string[]) =>
-  queryOptions({
-    queryKey: queryKeys.books.existence(foreignBookIds),
-    queryFn: () => checkBooksExistFn({ data: { foreignBookIds } }),
-    enabled: foreignBookIds.length > 0,
-  });
+	queryOptions({
+		queryKey: queryKeys.books.existence(foreignBookIds),
+		queryFn: () => checkBooksExistFn({ data: { foreignBookIds } }),
+		enabled: foreignBookIds.length > 0,
+	});

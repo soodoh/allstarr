@@ -6,9 +6,9 @@ import { downloadProfiles } from "src/db/schema";
  * Replaces the global allowedLanguages setting.
  */
 export default function getProfileLanguages(): string[] {
-  const profiles = db
-    .select({ language: downloadProfiles.language })
-    .from(downloadProfiles)
-    .all();
-  return [...new Set(profiles.map((p) => p.language))];
+	const profiles = db
+		.select({ language: downloadProfiles.language })
+		.from(downloadProfiles)
+		.all();
+	return [...new Set(profiles.map((p) => p.language))];
 }

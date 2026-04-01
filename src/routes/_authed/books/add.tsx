@@ -1,307 +1,307 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import type { FormEvent, ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { userSettingsQuery } from "src/lib/queries/user-settings";
+import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
-import PageHeader from "src/components/shared/page-header";
-import EmptyState from "src/components/shared/empty-state";
-import { Button } from "src/components/ui/button";
-import Input from "src/components/ui/input";
-import { Badge } from "src/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "src/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
-import { searchHardcoverFn } from "src/server/search";
-import type {
-  HardcoverSearchItem,
-  HardcoverSearchMode,
-} from "src/server/search";
+import type { FormEvent, ReactNode } from "react";
+import { useState } from "react";
 import AuthorPreviewModal from "src/components/bookshelf/hardcover/author-preview-modal";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
+import EmptyState from "src/components/shared/empty-state";
 import OptimizedImage from "src/components/shared/optimized-image";
+import PageHeader from "src/components/shared/page-header";
+import { Badge } from "src/components/ui/badge";
+import { Button } from "src/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "src/components/ui/card";
+import Input from "src/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs";
+import { userSettingsQuery } from "src/lib/queries/user-settings";
+import type {
+	HardcoverSearchItem,
+	HardcoverSearchMode,
+} from "src/server/search";
+import { searchHardcoverFn } from "src/server/search";
 export const Route = createFileRoute("/_authed/books/add")({
-  loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(userSettingsQuery("books"));
-  },
-  component: AddToBookshelfPage,
+	loader: async ({ context }) => {
+		await context.queryClient.ensureQueryData(userSettingsQuery("books"));
+	},
+	component: AddToBookshelfPage,
 });
 
 const resultTypeConfig = {
-  all: { label: "All", description: "Books + Authors" },
-  books: { label: "Books", description: "Only books" },
-  authors: { label: "Authors", description: "Only authors" },
+	all: { label: "All", description: "Books + Authors" },
+	books: { label: "Books", description: "Only books" },
+	authors: { label: "Authors", description: "Only authors" },
 } satisfies Record<HardcoverSearchMode, { label: string; description: string }>;
 
 function AddToBookshelfPage() {
-  const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
-  const { data: settings } = useQuery(userSettingsQuery("books"));
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [previewAuthor, setPreviewAuthor] = useState<
-    HardcoverSearchItem | undefined
-  >(undefined);
-  const [previewBook, setPreviewBook] = useState<
-    HardcoverSearchItem | undefined
-  >(undefined);
+	const [query, setQuery] = useState("");
+	const [searchType, setSearchType] = useState<HardcoverSearchMode>("all");
+	const { data: settings } = useQuery(userSettingsQuery("books"));
+	const [error, setError] = useState<string | undefined>(undefined);
+	const [previewAuthor, setPreviewAuthor] = useState<
+		HardcoverSearchItem | undefined
+	>(undefined);
+	const [previewBook, setPreviewBook] = useState<
+		HardcoverSearchItem | undefined
+	>(undefined);
 
-  const searchMutation = useMutation({
-    mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
-      searchHardcoverFn({
-        data: {
-          query: params.query,
-          type: params.type,
-          limit: 20,
-        },
-      }),
-    onError: (err) => {
-      const message =
-        err instanceof Error ? err.message : "Search request failed.";
-      setError(message);
-    },
-  });
+	const searchMutation = useMutation({
+		mutationFn: (params: { query: string; type: HardcoverSearchMode }) =>
+			searchHardcoverFn({
+				data: {
+					query: params.query,
+					type: params.type,
+					limit: 20,
+				},
+			}),
+		onError: (err) => {
+			const message =
+				err instanceof Error ? err.message : "Search request failed.";
+			setError(message);
+		},
+	});
 
-  const results = searchMutation.data?.results ?? [];
-  const searchedQuery = searchMutation.data?.query ?? "";
+	const results = searchMutation.data?.results ?? [];
+	const searchedQuery = searchMutation.data?.query ?? "";
 
-  let searchResultsContent: ReactNode;
-  if (searchMutation.isPending) {
-    searchResultsContent = (
-      <Card>
-        <CardContent className="py-8">
-          <p className="text-sm text-muted-foreground">
-            Searching Hardcover...
-          </p>
-        </CardContent>
-      </Card>
-    );
-  } else if (!searchMutation.isSuccess) {
-    searchResultsContent = (
-      <EmptyState
-        icon={Search}
-        title="Search to add"
-        description="Search for authors or books on Hardcover, then add them to your bookshelf."
-      />
-    );
-  } else if (results.length === 0) {
-    searchResultsContent = (
-      <EmptyState
-        icon={Search}
-        title="No results"
-        description={`No ${searchType === "all" ? "books or authors" : searchType} found for "${searchedQuery}".`}
-      />
-    );
-  } else {
-    searchResultsContent = (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Showing {results.length} result{results.length === 1 ? "" : "s"} for
-          &ldquo;{searchedQuery}&rdquo;.
-        </p>
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          {results.map((result) => (
-            <ResultCard
-              key={`${result.type}-${result.id}`}
-              result={result}
-              onAuthorClick={setPreviewAuthor}
-              onBookClick={setPreviewBook}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
+	let searchResultsContent: ReactNode;
+	if (searchMutation.isPending) {
+		searchResultsContent = (
+			<Card>
+				<CardContent className="py-8">
+					<p className="text-sm text-muted-foreground">
+						Searching Hardcover...
+					</p>
+				</CardContent>
+			</Card>
+		);
+	} else if (!searchMutation.isSuccess) {
+		searchResultsContent = (
+			<EmptyState
+				icon={Search}
+				title="Search to add"
+				description="Search for authors or books on Hardcover, then add them to your bookshelf."
+			/>
+		);
+	} else if (results.length === 0) {
+		searchResultsContent = (
+			<EmptyState
+				icon={Search}
+				title="No results"
+				description={`No ${searchType === "all" ? "books or authors" : searchType} found for "${searchedQuery}".`}
+			/>
+		);
+	} else {
+		searchResultsContent = (
+			<div className="space-y-3">
+				<p className="text-sm text-muted-foreground">
+					Showing {results.length} result{results.length === 1 ? "" : "s"} for
+					&ldquo;{searchedQuery}&rdquo;.
+				</p>
+				<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+					{results.map((result) => (
+						<ResultCard
+							key={`${result.type}-${result.id}`}
+							result={result}
+							onAuthorClick={setPreviewAuthor}
+							onBookClick={setPreviewBook}
+						/>
+					))}
+				</div>
+			</div>
+		);
+	}
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setError("Enter at least 2 characters.");
-      return;
-    }
-    setError(undefined);
-    searchMutation.mutate({ query: trimmed, type: searchType });
-  };
+	const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const trimmed = query.trim();
+		if (trimmed.length < 2) {
+			setError("Enter at least 2 characters.");
+			return;
+		}
+		setError(undefined);
+		searchMutation.mutate({ query: trimmed, type: searchType });
+	};
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Add to Bookshelf"
-        description="Search Hardcover to find authors and books, then add them to your bookshelf."
-      />
+	return (
+		<div className="space-y-6">
+			<PageHeader
+				title="Add to Bookshelf"
+				description="Search Hardcover to find authors and books, then add them to your bookshelf."
+			/>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Search Hardcover</CardTitle>
-          <CardDescription>
-            Find authors or books to add to your bookshelf. Click a result to
-            preview and add it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Tabs
-            value={searchType}
-            onValueChange={(value) =>
-              setSearchType(value as HardcoverSearchMode)
-            }
-          >
-            <TabsList>
-              {Object.entries(resultTypeConfig).map(([value, config]) => (
-                <TabsTrigger key={value} value={value}>
-                  {config.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+			<Card>
+				<CardHeader>
+					<CardTitle>Search Hardcover</CardTitle>
+					<CardDescription>
+						Find authors or books to add to your bookshelf. Click a result to
+						preview and add it.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<Tabs
+						value={searchType}
+						onValueChange={(value) =>
+							setSearchType(value as HardcoverSearchMode)
+						}
+					>
+						<TabsList>
+							{Object.entries(resultTypeConfig).map(([value, config]) => (
+								<TabsTrigger key={value} value={value}>
+									{config.label}
+								</TabsTrigger>
+							))}
+						</TabsList>
+					</Tabs>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Search ${resultTypeConfig[searchType].description.toLowerCase()}`}
-              autoComplete="off"
-              aria-label="Search query"
-              autoFocus
-            />
-            <Button type="submit" disabled={searchMutation.isPending}>
-              <Search className="h-4 w-4" />
-              {searchMutation.isPending ? "Searching..." : "Search"}
-            </Button>
-          </form>
+					<form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
+						<Input
+							value={query}
+							onChange={(event) => setQuery(event.target.value)}
+							placeholder={`Search ${resultTypeConfig[searchType].description.toLowerCase()}`}
+							autoComplete="off"
+							aria-label="Search query"
+							autoFocus
+						/>
+						<Button type="submit" disabled={searchMutation.isPending}>
+							<Search className="h-4 w-4" />
+							{searchMutation.isPending ? "Searching..." : "Search"}
+						</Button>
+					</form>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
+					{error && <p className="text-sm text-destructive">{error}</p>}
+				</CardContent>
+			</Card>
 
-      {searchResultsContent}
+			{searchResultsContent}
 
-      {previewAuthor && (
-        <AuthorPreviewModal
-          author={previewAuthor}
-          open={Boolean(previewAuthor)}
-          onOpenChange={(open) => {
-            if (!open) {
-              setPreviewAuthor(undefined);
-            }
-          }}
-          addDefaults={settings?.addDefaults}
-        />
-      )}
+			{previewAuthor && (
+				<AuthorPreviewModal
+					author={previewAuthor}
+					open={Boolean(previewAuthor)}
+					onOpenChange={(open) => {
+						if (!open) {
+							setPreviewAuthor(undefined);
+						}
+					}}
+					addDefaults={settings?.addDefaults}
+				/>
+			)}
 
-      {previewBook && (
-        <BookPreviewModal
-          book={previewBook}
-          open={Boolean(previewBook)}
-          onOpenChange={(open) => {
-            if (!open) {
-              setPreviewBook(undefined);
-            }
-          }}
-          addDefaults={settings?.addDefaults}
-        />
-      )}
-    </div>
-  );
+			{previewBook && (
+				<BookPreviewModal
+					book={previewBook}
+					open={Boolean(previewBook)}
+					onOpenChange={(open) => {
+						if (!open) {
+							setPreviewBook(undefined);
+						}
+					}}
+					addDefaults={settings?.addDefaults}
+				/>
+			)}
+		</div>
+	);
 }
 
 function ResultCard({
-  result,
-  onAuthorClick,
-  onBookClick,
+	result,
+	onAuthorClick,
+	onBookClick,
 }: {
-  result: HardcoverSearchItem;
-  onAuthorClick: (author: HardcoverSearchItem) => void;
-  onBookClick: (book: HardcoverSearchItem) => void;
+	result: HardcoverSearchItem;
+	onAuthorClick: (author: HardcoverSearchItem) => void;
+	onBookClick: (book: HardcoverSearchItem) => void;
 }) {
-  const isAuthor = result.type === "author" && Boolean(result.slug);
-  const isBook = result.type === "book";
-  const isClickable = isAuthor || isBook;
+	const isAuthor = result.type === "author" && Boolean(result.slug);
+	const isBook = result.type === "book";
+	const isClickable = isAuthor || isBook;
 
-  let actionButton: ReactNode = null;
-  if (isAuthor) {
-    actionButton = (
-      <Button variant="outline" size="sm">
-        View Author Details
-      </Button>
-    );
-  } else if (isBook) {
-    actionButton = (
-      <Button variant="outline" size="sm">
-        View Book Details
-      </Button>
-    );
-  }
+	let actionButton: ReactNode = null;
+	if (isAuthor) {
+		actionButton = (
+			<Button variant="outline" size="sm">
+				View Author Details
+			</Button>
+		);
+	} else if (isBook) {
+		actionButton = (
+			<Button variant="outline" size="sm">
+				View Book Details
+			</Button>
+		);
+	}
 
-  const content = (
-    <Card
-      className={`py-0 overflow-hidden${isClickable ? " hover:bg-accent/50 transition-colors cursor-pointer" : ""}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex gap-4">
-          <OptimizedImage
-            src={result.coverUrl ?? null}
-            alt={`${result.title} cover`}
-            type="book"
-            width={64}
-            height={96}
-            className="h-24 w-16 shrink-0 rounded"
-          />
+	const content = (
+		<Card
+			className={`py-0 overflow-hidden${isClickable ? " hover:bg-accent/50 transition-colors cursor-pointer" : ""}`}
+		>
+			<CardContent className="p-4">
+				<div className="flex gap-4">
+					<OptimizedImage
+						src={result.coverUrl ?? null}
+						alt={`${result.title} cover`}
+						type="book"
+						width={64}
+						height={96}
+						className="h-24 w-16 shrink-0 rounded"
+					/>
 
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={result.type === "book" ? "secondary" : "outline"}>
-                {result.type === "book" ? "Book" : "Author"}
-              </Badge>
-              {result.releaseYear && (
-                <Badge variant="ghost">{result.releaseYear}</Badge>
-              )}
-            </div>
+					<div className="min-w-0 flex-1 space-y-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<Badge variant={result.type === "book" ? "secondary" : "outline"}>
+								{result.type === "book" ? "Book" : "Author"}
+							</Badge>
+							{result.releaseYear && (
+								<Badge variant="ghost">{result.releaseYear}</Badge>
+							)}
+						</div>
 
-            <h3 className="font-semibold leading-tight">{result.title}</h3>
-            {result.subtitle && (
-              <p className="text-sm text-muted-foreground">{result.subtitle}</p>
-            )}
-            {result.type === "author" && result.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                {result.description}
-              </p>
-            )}
+						<h3 className="font-semibold leading-tight">{result.title}</h3>
+						{result.subtitle && (
+							<p className="text-sm text-muted-foreground">{result.subtitle}</p>
+						)}
+						{result.type === "author" && result.description && (
+							<p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+								{result.description}
+							</p>
+						)}
 
-            {actionButton}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+						{actionButton}
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+	);
 
-  if (isAuthor) {
-    return (
-      <button
-        type="button"
-        className="block w-full text-left"
-        onClick={() => onAuthorClick(result)}
-      >
-        {content}
-      </button>
-    );
-  }
+	if (isAuthor) {
+		return (
+			<button
+				type="button"
+				className="block w-full text-left"
+				onClick={() => onAuthorClick(result)}
+			>
+				{content}
+			</button>
+		);
+	}
 
-  if (isBook) {
-    return (
-      <button
-        type="button"
-        className="block w-full text-left"
-        onClick={() => onBookClick(result)}
-      >
-        {content}
-      </button>
-    );
-  }
+	if (isBook) {
+		return (
+			<button
+				type="button"
+				className="block w-full text-left"
+				onClick={() => onBookClick(result)}
+			>
+				{content}
+			</button>
+		);
+	}
 
-  return content;
+	return content;
 }

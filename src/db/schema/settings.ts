@@ -1,8 +1,8 @@
 import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const settings = sqliteTable("settings", {
-  key: text("key").primaryKey(),
-  value: text("value", { mode: "json" }).$type<
-    string | number | boolean | null
-  >(),
+	key: text("key").primaryKey(),
+	value: text("value", { mode: "json" }).$type<
+		string | number | boolean | null
+	>(),
 });

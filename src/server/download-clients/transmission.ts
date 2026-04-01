@@ -1,310 +1,310 @@
-import type {
-  CanonicalStatus,
-  ConnectionConfig,
-  DownloadClientProvider,
-  DownloadItem,
-  DownloadRequest,
-  TestResult,
-} from "./types";
 import { buildBaseUrl, fetchWithTimeout } from "./http";
+import type {
+	CanonicalStatus,
+	ConnectionConfig,
+	DownloadClientProvider,
+	DownloadItem,
+	DownloadRequest,
+	TestResult,
+} from "./types";
 
 function normalizeStatus(status: number): CanonicalStatus {
-  switch (status) {
-    case 4: {
-      return "downloading";
-    }
-    case 5:
-    case 6: {
-      return "completed";
-    }
-    case 0: {
-      return "paused";
-    }
-    case 1:
-    case 2:
-    case 3: {
-      return "queued";
-    }
-    case 7: {
-      return "failed";
-    }
-    default: {
-      return "downloading";
-    }
-  }
+	switch (status) {
+		case 4: {
+			return "downloading";
+		}
+		case 5:
+		case 6: {
+			return "completed";
+		}
+		case 0: {
+			return "paused";
+		}
+		case 1:
+		case 2:
+		case 3: {
+			return "queued";
+		}
+		case 7: {
+			return "failed";
+		}
+		default: {
+			return "downloading";
+		}
+	}
 }
 
 type TransmissionRpcResponse = {
-  result?: string;
-  arguments?: Record<string, unknown>;
+	result?: string;
+	arguments?: Record<string, unknown>;
 };
 
 async function rpcCall(
-  baseUrl: string,
-  method: string,
-  args: Record<string, unknown>,
-  sessionId: string,
-  username?: string | null,
-  password?: string | null,
+	baseUrl: string,
+	method: string,
+	args: Record<string, unknown>,
+	sessionId: string,
+	username?: string | null,
+	password?: string | null,
 ): Promise<TransmissionRpcResponse> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-Transmission-Session-Id": sessionId,
-  };
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+		"X-Transmission-Session-Id": sessionId,
+	};
 
-  if (username || password) {
-    const encoded = Buffer.from(`${username ?? ""}:${password ?? ""}`).toString(
-      "base64",
-    );
-    headers["Authorization"] = `Basic ${encoded}`;
-  }
+	if (username || password) {
+		const encoded = Buffer.from(`${username ?? ""}:${password ?? ""}`).toString(
+			"base64",
+		);
+		headers.Authorization = `Basic ${encoded}`;
+	}
 
-  const response = await fetchWithTimeout(`${baseUrl}/transmission/rpc`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ method, arguments: args }),
-  });
+	const response = await fetchWithTimeout(`${baseUrl}/transmission/rpc`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({ method, arguments: args }),
+	});
 
-  if (response.status === 409) {
-    const newSessionId =
-      response.headers.get("X-Transmission-Session-Id") ?? "";
-    return rpcCall(baseUrl, method, args, newSessionId, username, password);
-  }
+	if (response.status === 409) {
+		const newSessionId =
+			response.headers.get("X-Transmission-Session-Id") ?? "";
+		return rpcCall(baseUrl, method, args, newSessionId, username, password);
+	}
 
-  if (!response.ok) {
-    throw new Error(`Transmission RPC error: HTTP ${response.status}`);
-  }
+	if (!response.ok) {
+		throw new Error(`Transmission RPC error: HTTP ${response.status}`);
+	}
 
-  return (await response.json()) as TransmissionRpcResponse;
+	return (await response.json()) as TransmissionRpcResponse;
 }
 
 const transmissionProvider: DownloadClientProvider = {
-  async testConnection(config: ConnectionConfig): Promise<TestResult> {
-    try {
-      const baseUrl = buildBaseUrl(
-        config.host,
-        config.port,
-        config.useSsl,
-        config.urlBase,
-      );
+	async testConnection(config: ConnectionConfig): Promise<TestResult> {
+		try {
+			const baseUrl = buildBaseUrl(
+				config.host,
+				config.port,
+				config.useSsl,
+				config.urlBase,
+			);
 
-      // Start with empty session id — will get 409 and retry with real one
-      const result = await rpcCall(
-        baseUrl,
-        "session-get",
-        {},
-        "",
-        config.username,
-        config.password,
-      );
+			// Start with empty session id — will get 409 and retry with real one
+			const result = await rpcCall(
+				baseUrl,
+				"session-get",
+				{},
+				"",
+				config.username,
+				config.password,
+			);
 
-      if (result.result !== "success") {
-        throw new Error(
-          `Unexpected result from Transmission: ${result.result}`,
-        );
-      }
+			if (result.result !== "success") {
+				throw new Error(
+					`Unexpected result from Transmission: ${result.result}`,
+				);
+			}
 
-      const version = String(result.arguments?.version ?? "");
-      return {
-        success: true,
-        message: "Connected to Transmission successfully",
-        version: version || null,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
-        version: null,
-      };
-    }
-  },
+			const version = String(result.arguments?.version ?? "");
+			return {
+				success: true,
+				message: "Connected to Transmission successfully",
+				version: version || null,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				message:
+					error instanceof Error ? error.message : "Unknown error occurred",
+				version: null,
+			};
+		}
+	},
 
-  async addDownload(
-    config: ConnectionConfig,
-    download: DownloadRequest,
-  ): Promise<string> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async addDownload(
+		config: ConnectionConfig,
+		download: DownloadRequest,
+	): Promise<string> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const args: Record<string, unknown> = {};
-    if (download.url) {
-      args.filename = download.url;
-    }
-    if (download.torrentData) {
-      args.metainfo = download.torrentData.toString("base64");
-    }
-    if (download.savePath) {
-      args["download-dir"] = download.savePath;
-    }
+		const args: Record<string, unknown> = {};
+		if (download.url) {
+			args.filename = download.url;
+		}
+		if (download.torrentData) {
+			args.metainfo = download.torrentData.toString("base64");
+		}
+		if (download.savePath) {
+			args["download-dir"] = download.savePath;
+		}
 
-    const result = await rpcCall(
-      baseUrl,
-      "torrent-add",
-      args,
-      "",
-      config.username,
-      config.password,
-    );
+		const result = await rpcCall(
+			baseUrl,
+			"torrent-add",
+			args,
+			"",
+			config.username,
+			config.password,
+		);
 
-    if (result.result !== "success") {
-      throw new Error(`Failed to add torrent: ${result.result}`);
-    }
+		if (result.result !== "success") {
+			throw new Error(`Failed to add torrent: ${result.result}`);
+		}
 
-    const torrent = (result.arguments?.["torrent-added"] ??
-      result.arguments?.["torrent-duplicate"]) as
-      | Record<string, unknown>
-      | undefined;
-    return String(torrent?.id ?? "");
-  },
+		const torrent = (result.arguments?.["torrent-added"] ??
+			result.arguments?.["torrent-duplicate"]) as
+			| Record<string, unknown>
+			| undefined;
+		return String(torrent?.id ?? "");
+	},
 
-  async removeDownload(
-    config: ConnectionConfig,
-    id: string,
-    deleteFiles: boolean,
-  ): Promise<void> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async removeDownload(
+		config: ConnectionConfig,
+		id: string,
+		deleteFiles: boolean,
+	): Promise<void> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const result = await rpcCall(
-      baseUrl,
-      "torrent-remove",
-      { ids: [Number(id)], "delete-local-data": deleteFiles },
-      "",
-      config.username,
-      config.password,
-    );
+		const result = await rpcCall(
+			baseUrl,
+			"torrent-remove",
+			{ ids: [Number(id)], "delete-local-data": deleteFiles },
+			"",
+			config.username,
+			config.password,
+		);
 
-    if (result.result !== "success") {
-      throw new Error(`Failed to remove torrent: ${result.result}`);
-    }
-  },
+		if (result.result !== "success") {
+			throw new Error(`Failed to remove torrent: ${result.result}`);
+		}
+	},
 
-  async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async pauseDownload(config: ConnectionConfig, id: string): Promise<void> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const result = await rpcCall(
-      baseUrl,
-      "torrent-stop",
-      { ids: [Number(id)] },
-      "",
-      config.username,
-      config.password,
-    );
+		const result = await rpcCall(
+			baseUrl,
+			"torrent-stop",
+			{ ids: [Number(id)] },
+			"",
+			config.username,
+			config.password,
+		);
 
-    if (result.result !== "success") {
-      throw new Error(`Failed to pause torrent: ${result.result}`);
-    }
-  },
+		if (result.result !== "success") {
+			throw new Error(`Failed to pause torrent: ${result.result}`);
+		}
+	},
 
-  async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async resumeDownload(config: ConnectionConfig, id: string): Promise<void> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const result = await rpcCall(
-      baseUrl,
-      "torrent-start",
-      { ids: [Number(id)] },
-      "",
-      config.username,
-      config.password,
-    );
+		const result = await rpcCall(
+			baseUrl,
+			"torrent-start",
+			{ ids: [Number(id)] },
+			"",
+			config.username,
+			config.password,
+		);
 
-    if (result.result !== "success") {
-      throw new Error(`Failed to resume torrent: ${result.result}`);
-    }
-  },
+		if (result.result !== "success") {
+			throw new Error(`Failed to resume torrent: ${result.result}`);
+		}
+	},
 
-  async setPriority(
-    config: ConnectionConfig,
-    id: string,
-    priority: number,
-  ): Promise<void> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async setPriority(
+		config: ConnectionConfig,
+		id: string,
+		priority: number,
+	): Promise<void> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const method = priority > 0 ? "queue-move-up" : "queue-move-down";
-    const result = await rpcCall(
-      baseUrl,
-      method,
-      { ids: [Number(id)] },
-      "",
-      config.username,
-      config.password,
-    );
+		const method = priority > 0 ? "queue-move-up" : "queue-move-down";
+		const result = await rpcCall(
+			baseUrl,
+			method,
+			{ ids: [Number(id)] },
+			"",
+			config.username,
+			config.password,
+		);
 
-    if (result.result !== "success") {
-      throw new Error(`Failed to set torrent priority: ${result.result}`);
-    }
-  },
+		if (result.result !== "success") {
+			throw new Error(`Failed to set torrent priority: ${result.result}`);
+		}
+	},
 
-  async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
-    const baseUrl = buildBaseUrl(
-      config.host,
-      config.port,
-      config.useSsl,
-      config.urlBase,
-    );
+	async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
+		const baseUrl = buildBaseUrl(
+			config.host,
+			config.port,
+			config.useSsl,
+			config.urlBase,
+		);
 
-    const result = await rpcCall(
-      baseUrl,
-      "torrent-get",
-      {
-        fields: [
-          "id",
-          "name",
-          "status",
-          "totalSize",
-          "downloadedEver",
-          "uploadSpeed",
-          "rateDownload",
-          "downloadDir",
-        ],
-      },
-      "",
-      config.username,
-      config.password,
-    );
+		const result = await rpcCall(
+			baseUrl,
+			"torrent-get",
+			{
+				fields: [
+					"id",
+					"name",
+					"status",
+					"totalSize",
+					"downloadedEver",
+					"uploadSpeed",
+					"rateDownload",
+					"downloadDir",
+				],
+			},
+			"",
+			config.username,
+			config.password,
+		);
 
-    const torrents =
-      (result.arguments?.torrents as Array<Record<string, unknown>>) ?? [];
-    return torrents.map((t) => {
-      const status = normalizeStatus(Number(t.status ?? 0));
-      return {
-        id: String(t.id ?? ""),
-        name: String(t.name ?? ""),
-        status,
-        size: Number(t.totalSize ?? 0),
-        downloaded: Number(t.downloadedEver ?? 0),
-        uploadSpeed: Number(t.uploadSpeed ?? 0),
-        downloadSpeed: Number(t.rateDownload ?? 0),
-        category: null,
-        outputPath: t.downloadDir ? String(t.downloadDir) : null,
-        isCompleted: status === "completed",
-      };
-    });
-  },
+		const torrents =
+			(result.arguments?.torrents as Array<Record<string, unknown>>) ?? [];
+		return torrents.map((t) => {
+			const status = normalizeStatus(Number(t.status ?? 0));
+			return {
+				id: String(t.id ?? ""),
+				name: String(t.name ?? ""),
+				status,
+				size: Number(t.totalSize ?? 0),
+				downloaded: Number(t.downloadedEver ?? 0),
+				uploadSpeed: Number(t.uploadSpeed ?? 0),
+				downloadSpeed: Number(t.rateDownload ?? 0),
+				category: null,
+				outputPath: t.downloadDir ? String(t.downloadDir) : null,
+				isCompleted: status === "completed",
+			};
+		});
+	},
 };
 
 export default transmissionProvider;

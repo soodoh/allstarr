@@ -1,356 +1,356 @@
-import { z } from "zod";
 import { TABLE_IDS } from "src/lib/table-column-defaults";
+import { z } from "zod";
 
 export const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
 
 // Download Profiles
 const downloadProfileBaseSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  rootFolderPath: z.string().min(1, "Root folder is required"),
-  cutoff: z.number().default(0),
-  items: z
-    .array(z.array(z.number()).min(1))
-    .min(1, "At least one quality must be added"),
-  upgradeAllowed: z.boolean().default(false),
-  icon: z.string().min(1, "Icon is required"),
-  categories: z.array(z.number()).default([]),
-  contentType: z.enum(["movie", "tv", "ebook", "audiobook", "manga"]),
-  language: z.string().min(2).max(3),
-  minCustomFormatScore: z.number().default(0),
-  upgradeUntilCustomFormatScore: z.number().default(0),
+	name: z.string().min(1, "Name is required"),
+	rootFolderPath: z.string().min(1, "Root folder is required"),
+	cutoff: z.number().default(0),
+	items: z
+		.array(z.array(z.number()).min(1))
+		.min(1, "At least one quality must be added"),
+	upgradeAllowed: z.boolean().default(false),
+	icon: z.string().min(1, "Icon is required"),
+	categories: z.array(z.number()).default([]),
+	contentType: z.enum(["movie", "tv", "ebook", "audiobook", "manga"]),
+	language: z.string().min(2).max(3),
+	minCustomFormatScore: z.number().default(0),
+	upgradeUntilCustomFormatScore: z.number().default(0),
 });
 
 export const createDownloadProfileSchema = downloadProfileBaseSchema.refine(
-  (data) => !data.upgradeAllowed || data.cutoff > 0,
-  {
-    message: "Upgrade cutoff quality is required",
-    path: ["cutoff"],
-  },
+	(data) => !data.upgradeAllowed || data.cutoff > 0,
+	{
+		message: "Upgrade cutoff quality is required",
+		path: ["cutoff"],
+	},
 );
 
 export const updateDownloadProfileSchema = downloadProfileBaseSchema
-  .extend({ id: z.number() })
-  .refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
-    message: "Upgrade cutoff quality is required",
-    path: ["cutoff"],
-  });
+	.extend({ id: z.number() })
+	.refine((data) => !data.upgradeAllowed || data.cutoff > 0, {
+		message: "Upgrade cutoff quality is required",
+		path: ["cutoff"],
+	});
 
 // Custom Formats
 export const customFormatContentTypes = [
-  "movie",
-  "tv",
-  "ebook",
-  "audiobook",
-  "manga",
+	"movie",
+	"tv",
+	"ebook",
+	"audiobook",
+	"manga",
 ] as const;
 
 export const customFormatCategories = [
-  "Audio Codec",
-  "Audio Channels",
-  "Video Codec",
-  "HDR",
-  "Resolution",
-  "Source",
-  "Quality Modifier",
-  "Streaming Service",
-  "Release Group",
-  "Edition",
-  "Release Type",
-  "Unwanted",
-  "Language",
-  "File Format",
-  "Audiobook Quality",
-  "Publisher",
+	"Audio Codec",
+	"Audio Channels",
+	"Video Codec",
+	"HDR",
+	"Resolution",
+	"Source",
+	"Quality Modifier",
+	"Streaming Service",
+	"Release Group",
+	"Edition",
+	"Release Type",
+	"Unwanted",
+	"Language",
+	"File Format",
+	"Audiobook Quality",
+	"Publisher",
 ] as const;
 
 export const cfSpecificationTypes = [
-  // Universal
-  "releaseTitle",
-  "releaseGroup",
-  "size",
-  "indexerFlag",
-  "language",
-  // Video
-  "videoSource",
-  "resolution",
-  "qualityModifier",
-  "edition",
-  "videoCodec",
-  "audioCodec",
-  "audioChannels",
-  "hdrFormat",
-  "streamingService",
-  "releaseType",
-  "year",
-  // Book/Audiobook
-  "fileFormat",
-  "audioBitrate",
-  "narrator",
-  "publisher",
-  "audioDuration",
+	// Universal
+	"releaseTitle",
+	"releaseGroup",
+	"size",
+	"indexerFlag",
+	"language",
+	// Video
+	"videoSource",
+	"resolution",
+	"qualityModifier",
+	"edition",
+	"videoCodec",
+	"audioCodec",
+	"audioChannels",
+	"hdrFormat",
+	"streamingService",
+	"releaseType",
+	"year",
+	// Book/Audiobook
+	"fileFormat",
+	"audioBitrate",
+	"narrator",
+	"publisher",
+	"audioDuration",
 ] as const;
 
 export const cfSpecificationSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(cfSpecificationTypes),
-  value: z.string().optional(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  negate: z.boolean().default(false),
-  required: z.boolean().default(true),
+	name: z.string().min(1),
+	type: z.enum(cfSpecificationTypes),
+	value: z.string().optional(),
+	min: z.number().optional(),
+	max: z.number().optional(),
+	negate: z.boolean().default(false),
+	required: z.boolean().default(true),
 });
 
 export const createCustomFormatSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  category: z.enum(customFormatCategories),
-  specifications: z.array(cfSpecificationSchema).default([]),
-  defaultScore: z.number().default(0),
-  contentTypes: z
-    .array(z.enum(customFormatContentTypes))
-    .min(1, "At least one content type required"),
-  includeInRenaming: z.boolean().default(false),
-  description: z.string().nullable().default(null),
+	name: z.string().min(1, "Name is required"),
+	category: z.enum(customFormatCategories),
+	specifications: z.array(cfSpecificationSchema).default([]),
+	defaultScore: z.number().default(0),
+	contentTypes: z
+		.array(z.enum(customFormatContentTypes))
+		.min(1, "At least one content type required"),
+	includeInRenaming: z.boolean().default(false),
+	description: z.string().nullable().default(null),
 });
 
 export const updateCustomFormatSchema = createCustomFormatSchema.extend({
-  id: z.number(),
+	id: z.number(),
 });
 
 export const profileCustomFormatScoreSchema = z.object({
-  profileId: z.number(),
-  customFormatId: z.number(),
-  score: z.number(),
+	profileId: z.number(),
+	customFormatId: z.number(),
+	score: z.number(),
 });
 
 export const bulkSetProfileCFScoresSchema = z.object({
-  profileId: z.number(),
-  scores: z.array(
-    z.object({
-      customFormatId: z.number(),
-      score: z.number(),
-    }),
-  ),
+	profileId: z.number(),
+	scores: z.array(
+		z.object({
+			customFormatId: z.number(),
+			score: z.number(),
+		}),
+	),
 });
 
 export const createDownloadFormatSchema = z.object({
-  title: z.string().min(1),
-  weight: z.number().default(1),
-  color: z.string().default("gray"),
-  minSize: z.number().default(0),
-  maxSize: z.number().default(0),
-  preferredSize: z.number().default(0),
-  contentTypes: z
-    .array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
-    .min(1, "At least one content type required"),
-  source: z.string().nullable().default(null),
-  resolution: z.number().default(0),
-  noMaxLimit: z.number().default(0),
-  noPreferredLimit: z.number().default(0),
+	title: z.string().min(1),
+	weight: z.number().default(1),
+	color: z.string().default("gray"),
+	minSize: z.number().default(0),
+	maxSize: z.number().default(0),
+	preferredSize: z.number().default(0),
+	contentTypes: z
+		.array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
+		.min(1, "At least one content type required"),
+	source: z.string().nullable().default(null),
+	resolution: z.number().default(0),
+	noMaxLimit: z.number().default(0),
+	noPreferredLimit: z.number().default(0),
 });
 
 export const updateDownloadFormatSchema = z.object({
-  id: z.number(),
-  title: z.string().min(1),
-  weight: z.number(),
-  color: z.string().default("gray"),
-  minSize: z.number().default(0),
-  maxSize: z.number().default(0),
-  preferredSize: z.number().default(0),
-  contentTypes: z
-    .array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
-    .min(1, "At least one content type required"),
-  source: z.string().nullable().default(null),
-  resolution: z.number().default(0),
-  noMaxLimit: z.number().default(0),
-  noPreferredLimit: z.number().default(0),
+	id: z.number(),
+	title: z.string().min(1),
+	weight: z.number(),
+	color: z.string().default("gray"),
+	minSize: z.number().default(0),
+	maxSize: z.number().default(0),
+	preferredSize: z.number().default(0),
+	contentTypes: z
+		.array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
+		.min(1, "At least one content type required"),
+	source: z.string().nullable().default(null),
+	resolution: z.number().default(0),
+	noMaxLimit: z.number().default(0),
+	noPreferredLimit: z.number().default(0),
 });
 
 export const browseDirectorySchema = z.object({
-  path: z.string().min(1, "Path is required"),
-  showHidden: z.boolean().default(true),
+	path: z.string().min(1, "Path is required"),
+	showHidden: z.boolean().default(true),
 });
 
 // Settings
 export const updateSettingSchema = z.object({
-  key: z.string().min(1),
-  value: z.unknown(),
+	key: z.string().min(1),
+	value: z.unknown(),
 });
 
 // Metadata Profile
 export const metadataProfileSchema = z.object({
-  skipMissingReleaseDate: z.boolean().default(true),
-  skipMissingIsbnAsin: z.boolean().default(true),
-  skipCompilations: z.boolean().default(false),
-  minimumPopularity: z.number().int().min(0).default(10),
-  minimumPages: z.number().int().min(0).default(0),
+	skipMissingReleaseDate: z.boolean().default(true),
+	skipMissingIsbnAsin: z.boolean().default(true),
+	skipCompilations: z.boolean().default(false),
+	minimumPopularity: z.number().int().min(0).default(10),
+	minimumPages: z.number().int().min(0).default(0),
 });
 
 // Authors
 export const createAuthorSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  sortName: z.string().min(1),
-  slug: z.string().nullable(),
-  bio: z.string().nullable(),
-  bornYear: z.number().nullable(),
-  deathYear: z.number().nullable(),
-  status: z.string().default("continuing"),
-  downloadProfileIds: z.array(z.number()).default([]),
-  foreignAuthorId: z.string().nullable(),
-  images: z
-    .array(z.object({ url: z.string(), coverType: z.string() }))
-    .default([]),
-  tags: z.array(z.number()).default([]),
+	name: z.string().min(1, "Name is required"),
+	sortName: z.string().min(1),
+	slug: z.string().nullable(),
+	bio: z.string().nullable(),
+	bornYear: z.number().nullable(),
+	deathYear: z.number().nullable(),
+	status: z.string().default("continuing"),
+	downloadProfileIds: z.array(z.number()).default([]),
+	foreignAuthorId: z.string().nullable(),
+	images: z
+		.array(z.object({ url: z.string(), coverType: z.string() }))
+		.default([]),
+	tags: z.array(z.number()).default([]),
 });
 
 export const updateAuthorSchema = z.object({
-  id: z.number(),
-  downloadProfileIds: z.array(z.number()).optional(),
-  monitorNewBooks: monitorNewItemsEnum.optional(),
+	id: z.number(),
+	downloadProfileIds: z.array(z.number()).optional(),
+	monitorNewBooks: monitorNewItemsEnum.optional(),
 });
 
 export const updateBookSchema = z.object({
-  id: z.number(),
-  autoSwitchEdition: z.boolean(),
+	id: z.number(),
+	autoSwitchEdition: z.boolean(),
 });
 
 export const deleteBookSchema = z.object({
-  id: z.number(),
-  deleteFiles: z.boolean().default(false),
-  addImportExclusion: z.boolean().default(false),
+	id: z.number(),
+	deleteFiles: z.boolean().default(false),
+	addImportExclusion: z.boolean().default(false),
 });
 
 export const addImportListExclusionSchema = z.object({
-  foreignBookId: z.string(),
-  title: z.string(),
-  authorName: z.string(),
+	foreignBookId: z.string(),
+	title: z.string(),
+	authorName: z.string(),
 });
 
 export const removeImportListExclusionSchema = z.object({
-  id: z.number(),
+	id: z.number(),
 });
 
 // Books
 export const createBookSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  slug: z.string().nullable(),
-  authorId: z.number(),
-  description: z.string().nullable(),
-  releaseDate: z.string().nullable(),
-  releaseYear: z.number().nullable(),
-  foreignBookId: z.string().nullable(),
-  images: z
-    .array(z.object({ url: z.string(), coverType: z.string() }))
-    .default([]),
-  rating: z.number().nullable(),
-  ratingsCount: z.number().nullable(),
-  usersCount: z.number().nullable(),
-  tags: z.array(z.number()).default([]),
+	title: z.string().min(1, "Title is required"),
+	slug: z.string().nullable(),
+	authorId: z.number(),
+	description: z.string().nullable(),
+	releaseDate: z.string().nullable(),
+	releaseYear: z.number().nullable(),
+	foreignBookId: z.string().nullable(),
+	images: z
+		.array(z.object({ url: z.string(), coverType: z.string() }))
+		.default([]),
+	rating: z.number().nullable(),
+	ratingsCount: z.number().nullable(),
+	usersCount: z.number().nullable(),
+	tags: z.array(z.number()).default([]),
 });
 
 // Editions
 export const createEditionSchema = z.object({
-  bookId: z.number(),
-  title: z.string().min(1, "Title is required"),
-  isbn10: z.string().nullable(),
-  isbn13: z.string().nullable(),
-  asin: z.string().nullable(),
-  format: z.string().nullable(),
-  pageCount: z.number().nullable(),
-  publisher: z.string().nullable(),
-  releaseDate: z.string().nullable(),
-  language: z.string().nullable(),
-  languageCode: z.string().nullable(),
-  country: z.string().nullable(),
-  usersCount: z.number().nullable(),
-  score: z.number().nullable(),
-  foreignEditionId: z.string().nullable(),
-  contributors: z
-    .array(
-      z.object({
-        authorId: z.string(),
-        name: z.string(),
-        contribution: z.string().nullable(),
-      }),
-    )
-    .default([]),
+	bookId: z.number(),
+	title: z.string().min(1, "Title is required"),
+	isbn10: z.string().nullable(),
+	isbn13: z.string().nullable(),
+	asin: z.string().nullable(),
+	format: z.string().nullable(),
+	pageCount: z.number().nullable(),
+	publisher: z.string().nullable(),
+	releaseDate: z.string().nullable(),
+	language: z.string().nullable(),
+	languageCode: z.string().nullable(),
+	country: z.string().nullable(),
+	usersCount: z.number().nullable(),
+	score: z.number().nullable(),
+	foreignEditionId: z.string().nullable(),
+	contributors: z
+		.array(
+			z.object({
+				authorId: z.string(),
+				name: z.string(),
+				contribution: z.string().nullable(),
+			}),
+		)
+		.default([]),
 });
 
 export const updateEditionSchema = createEditionSchema.partial().extend({
-  id: z.number(),
+	id: z.number(),
 });
 
 export const monitorBookProfileSchema = z.object({
-  bookId: z.number(),
-  downloadProfileId: z.number(),
+	bookId: z.number(),
+	downloadProfileId: z.number(),
 });
 
 export const unmonitorBookProfileSchema = z.object({
-  bookId: z.number(),
-  downloadProfileId: z.number(),
-  deleteFiles: z.boolean(),
+	bookId: z.number(),
+	downloadProfileId: z.number(),
+	deleteFiles: z.boolean(),
 });
 
 export const bulkMonitorBookProfileSchema = z.object({
-  bookIds: z.array(z.number()),
-  downloadProfileId: z.number(),
+	bookIds: z.array(z.number()),
+	downloadProfileId: z.number(),
 });
 
 export const bulkUnmonitorBookProfileSchema = z.object({
-  bookIds: z.array(z.number()),
-  downloadProfileId: z.number(),
-  deleteFiles: z.boolean(),
+	bookIds: z.array(z.number()),
+	downloadProfileId: z.number(),
+	deleteFiles: z.boolean(),
 });
 
 export const setEditionForProfileSchema = z.object({
-  editionId: z.number(),
-  downloadProfileId: z.number(),
+	editionId: z.number(),
+	downloadProfileId: z.number(),
 });
 
 // Download Clients
 export const downloadClientImplementationEnum = z.enum([
-  "qBittorrent",
-  "Transmission",
-  "Deluge",
-  "rTorrent",
-  "SABnzbd",
-  "NZBGet",
-  "Blackhole",
+	"qBittorrent",
+	"Transmission",
+	"Deluge",
+	"rTorrent",
+	"SABnzbd",
+	"NZBGet",
+	"Blackhole",
 ]);
 
 export const downloadClientProtocolEnum = z.enum(["torrent", "usenet"]);
 
 export const createDownloadClientSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  implementation: downloadClientImplementationEnum,
-  protocol: downloadClientProtocolEnum,
-  enabled: z.boolean().default(true),
-  priority: z.number().int().min(1).default(1),
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65_535),
-  useSsl: z.boolean().default(false),
-  urlBase: z.string().nullable(),
-  username: z.string().nullable(),
-  password: z.string().nullable(),
-  apiKey: z.string().nullable(),
-  category: z.string().default("allstarr"),
-  tag: z.string().nullable().default(null),
-  removeCompletedDownloads: z.boolean().default(true),
-  settings: z.record(z.string(), z.unknown()).nullable(),
+	name: z.string().min(1, "Name is required"),
+	implementation: downloadClientImplementationEnum,
+	protocol: downloadClientProtocolEnum,
+	enabled: z.boolean().default(true),
+	priority: z.number().int().min(1).default(1),
+	host: z.string().default("localhost"),
+	port: z.number().int().min(1).max(65_535),
+	useSsl: z.boolean().default(false),
+	urlBase: z.string().nullable(),
+	username: z.string().nullable(),
+	password: z.string().nullable(),
+	apiKey: z.string().nullable(),
+	category: z.string().default("allstarr"),
+	tag: z.string().nullable().default(null),
+	removeCompletedDownloads: z.boolean().default(true),
+	settings: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const updateDownloadClientSchema = createDownloadClientSchema.extend({
-  id: z.number(),
+	id: z.number(),
 });
 
 export const testDownloadClientSchema = z.object({
-  implementation: downloadClientImplementationEnum,
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65_535),
-  useSsl: z.boolean().default(false),
-  urlBase: z.string().nullable(),
-  username: z.string().nullable(),
-  password: z.string().nullable(),
-  apiKey: z.string().nullable(),
+	implementation: downloadClientImplementationEnum,
+	host: z.string().default("localhost"),
+	port: z.number().int().min(1).max(65_535),
+	useSsl: z.boolean().default(false),
+	urlBase: z.string().nullable(),
+	username: z.string().nullable(),
+	password: z.string().nullable(),
+	apiKey: z.string().nullable(),
 });
 
 // Indexers
@@ -358,167 +358,167 @@ export const indexerImplementationEnum = z.enum(["Newznab", "Torznab"]);
 export const indexerProtocolEnum = z.enum(["torrent", "usenet"]);
 
 export const createIndexerSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  implementation: indexerImplementationEnum,
-  protocol: indexerProtocolEnum,
-  baseUrl: z.string().min(1, "Base URL is required"),
-  apiPath: z.string().default("/api"),
-  apiKey: z.string().min(1, "API Key is required"),
-  categories: z.array(z.number()).default([]),
-  enableRss: z.boolean().default(true),
-  enableAutomaticSearch: z.boolean().default(true),
-  enableInteractiveSearch: z.boolean().default(true),
-  priority: z.number().int().min(1).default(25),
-  tag: z.string().nullable().default(null),
-  downloadClientId: z.number().nullable().default(null),
-  requestInterval: z.number().int().min(1000).default(5000),
-  dailyQueryLimit: z.number().int().min(0).default(0),
-  dailyGrabLimit: z.number().int().min(0).default(0),
+	name: z.string().min(1, "Name is required"),
+	implementation: indexerImplementationEnum,
+	protocol: indexerProtocolEnum,
+	baseUrl: z.string().min(1, "Base URL is required"),
+	apiPath: z.string().default("/api"),
+	apiKey: z.string().min(1, "API Key is required"),
+	categories: z.array(z.number()).default([]),
+	enableRss: z.boolean().default(true),
+	enableAutomaticSearch: z.boolean().default(true),
+	enableInteractiveSearch: z.boolean().default(true),
+	priority: z.number().int().min(1).default(25),
+	tag: z.string().nullable().default(null),
+	downloadClientId: z.number().nullable().default(null),
+	requestInterval: z.number().int().min(1000).default(5000),
+	dailyQueryLimit: z.number().int().min(0).default(0),
+	dailyGrabLimit: z.number().int().min(0).default(0),
 });
 
 export const updateIndexerSchema = createIndexerSchema.extend({
-  id: z.number(),
+	id: z.number(),
 });
 
 export const testIndexerSchema = z.object({
-  baseUrl: z.string().min(1, "Base URL is required"),
-  apiPath: z.string().default("/api"),
-  apiKey: z.string().min(1, "API Key is required"),
+	baseUrl: z.string().min(1, "Base URL is required"),
+	apiPath: z.string().default("/api"),
+	apiKey: z.string().min(1, "API Key is required"),
 });
 
 export const updateSyncedIndexerSchema = z.object({
-  id: z.number(),
-  tag: z.string().nullable().default(null),
-  downloadClientId: z.number().nullable(),
-  requestInterval: z.number().int().min(1000).default(5000),
-  dailyQueryLimit: z.number().int().min(0).default(0),
-  dailyGrabLimit: z.number().int().min(0).default(0),
+	id: z.number(),
+	tag: z.string().nullable().default(null),
+	downloadClientId: z.number().nullable(),
+	requestInterval: z.number().int().min(1000).default(5000),
+	dailyQueryLimit: z.number().int().min(0).default(0),
+	dailyGrabLimit: z.number().int().min(0).default(0),
 });
 
 // Blocklist
 export const addToBlocklistSchema = z.object({
-  bookId: z.number().nullable(),
-  authorId: z.number().nullable(),
-  sourceTitle: z.string().min(1),
-  protocol: z.enum(["torrent", "usenet"]).nullable(),
-  indexer: z.string().nullable(),
-  message: z.string().nullable(),
-  source: z.enum(["automatic", "manual"]).default("manual"),
+	bookId: z.number().nullable(),
+	authorId: z.number().nullable(),
+	sourceTitle: z.string().min(1),
+	protocol: z.enum(["torrent", "usenet"]).nullable(),
+	indexer: z.string().nullable(),
+	message: z.string().nullable(),
+	source: z.enum(["automatic", "manual"]).default("manual"),
 });
 
 export const removeFromBlocklistSchema = z.object({
-  id: z.number(),
+	id: z.number(),
 });
 
 export const bulkRemoveFromBlocklistSchema = z.object({
-  ids: z.array(z.number()).min(1),
+	ids: z.array(z.number()).min(1),
 });
 
 export const searchIndexersSchema = z.object({
-  query: z.string().min(1, "Query is required"),
-  bookId: z.number().nullable(),
-  categories: z.array(z.number()).nullable(),
+	query: z.string().min(1, "Query is required"),
+	bookId: z.number().nullable(),
+	categories: z.array(z.number()).nullable(),
 });
 
 export const removeFromQueueSchema = z.object({
-  downloadClientId: z.number(),
-  downloadItemId: z.string().min(1),
-  removeFromClient: z.boolean().default(true),
-  addToBlocklist: z.boolean().default(false),
-  sourceTitle: z.string().optional(),
-  protocol: z.enum(["torrent", "usenet"]).optional(),
+	downloadClientId: z.number(),
+	downloadItemId: z.string().min(1),
+	removeFromClient: z.boolean().default(true),
+	addToBlocklist: z.boolean().default(false),
+	sourceTitle: z.string().optional(),
+	protocol: z.enum(["torrent", "usenet"]).optional(),
 });
 
 export const pauseDownloadSchema = z.object({
-  downloadClientId: z.number(),
-  downloadItemId: z.string().min(1),
+	downloadClientId: z.number(),
+	downloadItemId: z.string().min(1),
 });
 
 export const resumeDownloadSchema = z.object({
-  downloadClientId: z.number(),
-  downloadItemId: z.string().min(1),
+	downloadClientId: z.number(),
+	downloadItemId: z.string().min(1),
 });
 
 export const setDownloadPrioritySchema = z.object({
-  downloadClientId: z.number(),
-  downloadItemId: z.string().min(1),
-  priority: z.number(),
+	downloadClientId: z.number(),
+	downloadItemId: z.string().min(1),
+	priority: z.number(),
 });
 
 export const grabReleaseSchema = z.object({
-  guid: z.string().min(1),
-  indexerId: z.number(),
-  indexerSource: z.enum(["manual", "synced"]),
-  title: z.string().min(1),
-  downloadUrl: z.string().min(1),
-  protocol: z.enum(["torrent", "usenet"]),
-  size: z.number(),
-  bookId: z.number().nullable(),
-  downloadClientId: z.number().nullable(),
+	guid: z.string().min(1),
+	indexerId: z.number(),
+	indexerSource: z.enum(["manual", "synced"]),
+	title: z.string().min(1),
+	downloadUrl: z.string().min(1),
+	protocol: z.enum(["torrent", "usenet"]),
+	size: z.number(),
+	bookId: z.number().nullable(),
+	downloadClientId: z.number().nullable(),
 });
 
 export const removeMovieImportExclusionSchema = z.object({
-  id: z.number(),
+	id: z.number(),
 });
 
 // User Settings
 export const tableIdSchema = z.enum(TABLE_IDS);
 
 export const upsertUserSettingsSchema = z.object({
-  tableId: tableIdSchema,
-  columnOrder: z.array(z.string()).optional(),
-  hiddenColumns: z.array(z.string()).optional(),
-  viewMode: z.enum(["table", "grid"]).optional(),
-  addDefaults: z.record(z.string(), z.unknown()).optional(),
+	tableId: tableIdSchema,
+	columnOrder: z.array(z.string()).optional(),
+	hiddenColumns: z.array(z.string()).optional(),
+	viewMode: z.enum(["table", "grid"]).optional(),
+	addDefaults: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const deleteUserSettingsSchema = z.object({
-  tableId: tableIdSchema,
+	tableId: tableIdSchema,
 });
 
 // ─── Manga ──────────────────────────────────────────────────────────────
 
 export const addMangaSchema = z.object({
-  sourceId: z.string(),
-  sourceMangaUrl: z.string(),
-  title: z.string(),
-  sortTitle: z.string(),
-  overview: z.string().default(""),
-  type: z.string().default("manga"),
-  year: z.string().nullable().default(null),
-  status: z.string().default("ongoing"),
-  posterUrl: z.string().default(""),
-  sourceMangaThumbnail: z.string().nullable().default(null),
-  genres: z.array(z.string()).default([]),
-  monitorOption: z.enum(["all", "future", "missing", "none"]).default("all"),
+	sourceId: z.string(),
+	sourceMangaUrl: z.string(),
+	title: z.string(),
+	sortTitle: z.string(),
+	overview: z.string().default(""),
+	type: z.string().default("manga"),
+	year: z.string().nullable().default(null),
+	status: z.string().default("ongoing"),
+	posterUrl: z.string().default(""),
+	sourceMangaThumbnail: z.string().nullable().default(null),
+	genres: z.array(z.string()).default([]),
+	monitorOption: z.enum(["all", "future", "missing", "none"]).default("all"),
 });
 
 export const updateMangaSchema = z.object({
-  id: z.number(),
-  monitorNewChapters: z.enum(["all", "future", "missing", "none"]).optional(),
-  path: z.string().optional(),
+	id: z.number(),
+	monitorNewChapters: z.enum(["all", "future", "missing", "none"]).optional(),
+	path: z.string().optional(),
 });
 
 export const deleteMangaSchema = z.object({
-  id: z.number(),
-  deleteFiles: z.boolean().default(false),
+	id: z.number(),
+	deleteFiles: z.boolean().default(false),
 });
 
 export const refreshMangaSchema = z.object({
-  mangaId: z.number(),
+	mangaId: z.number(),
 });
 
 export const searchMangaSourcesSchema = z.object({
-  query: z.string().min(1),
+	query: z.string().min(1),
 });
 
 export const checkMangaExistsSchema = z.object({
-  sourceId: z.string(),
-  sourceMangaUrl: z.string(),
+	sourceId: z.string(),
+	sourceMangaUrl: z.string(),
 });
 
 export const mangaSourceConfigSchema = z.object({
-  sourceId: z.string(),
-  enabled: z.boolean().optional(),
-  config: z.record(z.unknown()).optional(),
+	sourceId: z.string(),
+	enabled: z.boolean().optional(),
+	config: z.record(z.unknown()).optional(),
 });

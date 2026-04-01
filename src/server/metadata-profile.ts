@@ -1,22 +1,22 @@
+import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { settings } from "src/db/schema";
-import { eq } from "drizzle-orm";
 import { metadataProfileSchema } from "src/lib/validators";
 
 export type MetadataProfile = {
-  skipMissingReleaseDate: boolean;
-  skipMissingIsbnAsin: boolean;
-  skipCompilations: boolean;
-  minimumPopularity: number;
-  minimumPages: number;
+	skipMissingReleaseDate: boolean;
+	skipMissingIsbnAsin: boolean;
+	skipCompilations: boolean;
+	minimumPopularity: number;
+	minimumPages: number;
 };
 
 const DEFAULT_METADATA_PROFILE: MetadataProfile = {
-  skipMissingReleaseDate: true,
-  skipMissingIsbnAsin: true,
-  skipCompilations: false,
-  minimumPopularity: 10,
-  minimumPages: 0,
+	skipMissingReleaseDate: true,
+	skipMissingIsbnAsin: true,
+	skipCompilations: false,
+	minimumPopularity: 10,
+	minimumPages: 0,
 };
 
 /**
@@ -24,20 +24,20 @@ const DEFAULT_METADATA_PROFILE: MetadataProfile = {
  * Used by import logic (runs inside transactions).
  */
 export function getMetadataProfile(): MetadataProfile {
-  const row = db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, "metadata.hardcover.profile"))
-    .get();
-  if (!row?.value) {
-    return DEFAULT_METADATA_PROFILE;
-  }
-  try {
-    const raw =
-      typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-    const parsed = metadataProfileSchema.safeParse(raw);
-    return parsed.success ? parsed.data : DEFAULT_METADATA_PROFILE;
-  } catch {
-    return DEFAULT_METADATA_PROFILE;
-  }
+	const row = db
+		.select()
+		.from(settings)
+		.where(eq(settings.key, "metadata.hardcover.profile"))
+		.get();
+	if (!row?.value) {
+		return DEFAULT_METADATA_PROFILE;
+	}
+	try {
+		const raw =
+			typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+		const parsed = metadataProfileSchema.safeParse(raw);
+		return parsed.success ? parsed.data : DEFAULT_METADATA_PROFILE;
+	} catch {
+		return DEFAULT_METADATA_PROFILE;
+	}
 }

@@ -1,7 +1,7 @@
 /** Minimal interface for edition selection logic. */
 export type PickableEdition = {
-  languageCode: string | null;
-  isDefaultCover: boolean;
+	languageCode: string | null;
+	isDefaultCover: boolean;
 };
 
 /**
@@ -17,31 +17,31 @@ export type PickableEdition = {
  * 3. Falls back to the first edition in the array (pre-sorted by popularity).
  */
 export function pickBestEdition<T extends PickableEdition>(
-  editions: T[],
-  language: string,
+	editions: T[],
+	language: string,
 ): T | undefined {
-  const defaultCoverEdition = editions.find((e) => e.isDefaultCover);
-  const canonicalLanguage = defaultCoverEdition?.languageCode;
+	const defaultCoverEdition = editions.find((e) => e.isDefaultCover);
+	const canonicalLanguage = defaultCoverEdition?.languageCode;
 
-  if (language === "all" || language === canonicalLanguage) {
-    return defaultCoverEdition ?? editions[0];
-  }
+	if (language === "all" || language === canonicalLanguage) {
+		return defaultCoverEdition ?? editions[0];
+	}
 
-  if (!defaultCoverEdition) {
-    return editions[0];
-  }
+	if (!defaultCoverEdition) {
+		return editions[0];
+	}
 
-  return editions.find((e) => e.languageCode === language) ?? editions[0];
+	return editions.find((e) => e.languageCode === language) ?? editions[0];
 }
 
 /** Edition with enough data for profile-aware selection. */
 export type ProfilePickableEdition = {
-  id: number;
-  languageCode: string | null;
-  isDefaultCover: boolean;
-  format: string | null;
-  usersCount: number | null;
-  score: number | null;
+	id: number;
+	languageCode: string | null;
+	isDefaultCover: boolean;
+	format: string | null;
+	usersCount: number | null;
+	score: number | null;
 };
 
 /** Format sets per profile type. */
@@ -49,21 +49,21 @@ const EBOOK_FORMATS = new Set<string | null>(["Physical Book", "E-Book", null]);
 const AUDIOBOOK_FORMATS = new Set<string | null>(["Audiobook"]);
 
 export function matchesProfileFormat(
-  format: string | null,
-  profileType: "ebook" | "audio",
+	format: string | null,
+	profileType: "ebook" | "audio",
 ): boolean {
-  return profileType === "audio"
-    ? AUDIOBOOK_FORMATS.has(format)
-    : EBOOK_FORMATS.has(format);
+	return profileType === "audio"
+		? AUDIOBOOK_FORMATS.has(format)
+		: EBOOK_FORMATS.has(format);
 }
 
 function byPopularity(
-  a: ProfilePickableEdition,
-  b: ProfilePickableEdition,
+	a: ProfilePickableEdition,
+	b: ProfilePickableEdition,
 ): number {
-  const aScore = (a.usersCount ?? 0) * 1000 + (a.score ?? 0);
-  const bScore = (b.usersCount ?? 0) * 1000 + (b.score ?? 0);
-  return bScore - aScore;
+	const aScore = (a.usersCount ?? 0) * 1000 + (a.score ?? 0);
+	const bScore = (b.usersCount ?? 0) * 1000 + (b.score ?? 0);
+	return bScore - aScore;
 }
 
 /**
@@ -76,41 +76,41 @@ function byPopularity(
  * 5. Final fallback: best by popularity regardless of language
  */
 export function pickBestEditionForProfile<T extends ProfilePickableEdition>(
-  editions: T[],
-  profile: { language: string; contentType: "ebook" | "audiobook" },
+	editions: T[],
+	profile: { language: string; contentType: "ebook" | "audiobook" },
 ): T | undefined {
-  if (editions.length === 0) {
-    return undefined;
-  }
+	if (editions.length === 0) {
+		return undefined;
+	}
 
-  const profileMediaType =
-    profile.contentType === "audiobook" ? "audio" : "ebook";
-  const formatMatched = editions.filter((e) =>
-    matchesProfileFormat(e.format, profileMediaType),
-  );
+	const profileMediaType =
+		profile.contentType === "audiobook" ? "audio" : "ebook";
+	const formatMatched = editions.filter((e) =>
+		matchesProfileFormat(e.format, profileMediaType),
+	);
 
-  const pick = (candidates: T[]): T | undefined => {
-    const defaultCover = candidates.find(
-      (e) => e.isDefaultCover && e.languageCode === profile.language,
-    );
-    if (defaultCover) {
-      return defaultCover;
-    }
+	const pick = (candidates: T[]): T | undefined => {
+		const defaultCover = candidates.find(
+			(e) => e.isDefaultCover && e.languageCode === profile.language,
+		);
+		if (defaultCover) {
+			return defaultCover;
+		}
 
-    const langMatched = candidates
-      .filter((e) => e.languageCode === profile.language)
-      .toSorted(byPopularity);
-    if (langMatched.length > 0) {
-      return langMatched[0];
-    }
+		const langMatched = candidates
+			.filter((e) => e.languageCode === profile.language)
+			.toSorted(byPopularity);
+		if (langMatched.length > 0) {
+			return langMatched[0];
+		}
 
-    return candidates.toSorted(byPopularity)[0];
-  };
+		return candidates.toSorted(byPopularity)[0];
+	};
 
-  if (formatMatched.length > 0) {
-    return pick(formatMatched);
-  }
+	if (formatMatched.length > 0) {
+		return pick(formatMatched);
+	}
 
-  // No format match — fall back to all editions
-  return pick([...editions]);
+	// No format match — fall back to all editions
+	return pick([...editions]);
 }

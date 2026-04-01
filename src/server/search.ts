@@ -1,168 +1,168 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireAuth } from "./middleware";
-import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import { hardcoverFetch } from "./hardcover/client";
-import { getMetadataProfile } from "./metadata-profile";
+import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import type { MetadataProfile } from "./metadata-profile";
+import { getMetadataProfile } from "./metadata-profile";
+import { requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 
 export type HardcoverSearchMode = "all" | "books" | "authors";
 type HardcoverQueryType = "Book" | "Author";
 
 export type HardcoverEdition = {
-  id: string;
-  title: string;
-  author: string | null;
-  publisher: string | null;
-  type: string | null;
-  pages: number | null;
-  releaseDate: string | null;
-  isbn10: string | null;
-  isbn13: string | null;
-  asin: string | null;
-  language: string | null;
-  country: string | null;
-  readers: number;
-  score: number;
-  coverUrl: string | null;
+	id: string;
+	title: string;
+	author: string | null;
+	publisher: string | null;
+	type: string | null;
+	pages: number | null;
+	releaseDate: string | null;
+	isbn10: string | null;
+	isbn13: string | null;
+	asin: string | null;
+	language: string | null;
+	country: string | null;
+	readers: number;
+	score: number;
+	coverUrl: string | null;
 };
 
 export type HardcoverBookEditionsResult = {
-  editions: HardcoverEdition[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+	editions: HardcoverEdition[];
+	total: number;
+	page: number;
+	pageSize: number;
+	totalPages: number;
 };
 
 export type EditionSortKey =
-  | "title"
-  | "publisher"
-  | "type"
-  | "pages"
-  | "releaseDate"
-  | "isbn10"
-  | "isbn13"
-  | "asin"
-  | "language"
-  | "country"
-  | "readers"
-  | "score";
+	| "title"
+	| "publisher"
+	| "type"
+	| "pages"
+	| "releaseDate"
+	| "isbn10"
+	| "isbn13"
+	| "asin"
+	| "language"
+	| "country"
+	| "readers"
+	| "score";
 
 export type HardcoverSearchItem = {
-  id: string;
-  type: "book" | "author";
-  slug: string | null;
-  title: string;
-  subtitle: string | null;
-  description: string | null;
-  releaseYear: number | null;
-  readers: number | null;
-  coverUrl: string | null;
-  hardcoverUrl: string | null;
+	id: string;
+	type: "book" | "author";
+	slug: string | null;
+	title: string;
+	subtitle: string | null;
+	description: string | null;
+	releaseYear: number | null;
+	readers: number | null;
+	coverUrl: string | null;
+	hardcoverUrl: string | null;
 };
 
 export type HardcoverAuthorBookSeries = {
-  id: string;
-  title: string;
-  position: string | null;
+	id: string;
+	title: string;
+	position: string | null;
 };
 
 export type HardcoverAuthorBook = {
-  id: string;
-  title: string;
-  slug: string | null;
-  description: string | null;
-  releaseDate: string | null;
-  releaseYear: number | null;
-  rating: number | null;
-  ratingsCount: number | null;
-  usersCount: number | null;
-  coverUrl: string | null;
-  contribution: string | null;
-  contributors: string | null;
-  languageCode: string | null;
-  languageName: string | null;
-  hardcoverUrl: string | null;
-  series: HardcoverAuthorBookSeries[];
+	id: string;
+	title: string;
+	slug: string | null;
+	description: string | null;
+	releaseDate: string | null;
+	releaseYear: number | null;
+	rating: number | null;
+	ratingsCount: number | null;
+	usersCount: number | null;
+	coverUrl: string | null;
+	contribution: string | null;
+	contributors: string | null;
+	languageCode: string | null;
+	languageName: string | null;
+	hardcoverUrl: string | null;
+	series: HardcoverAuthorBookSeries[];
 };
 
 export type HardcoverSeriesBook = {
-  id: string;
-  title: string;
-  slug: string | null;
-  description: string | null;
-  releaseDate: string | null;
-  releaseYear: number | null;
-  rating: number | null;
-  usersCount: number | null;
-  coverUrl: string | null;
-  position: number | null;
-  hardcoverUrl: string | null;
-  isCompilation: boolean;
-  authorName: string | null;
-  languageName: string | null;
+	id: string;
+	title: string;
+	slug: string | null;
+	description: string | null;
+	releaseDate: string | null;
+	releaseYear: number | null;
+	rating: number | null;
+	usersCount: number | null;
+	coverUrl: string | null;
+	position: number | null;
+	hardcoverUrl: string | null;
+	isCompilation: boolean;
+	authorName: string | null;
+	languageName: string | null;
 };
 
 export type HardcoverSeriesBooksResult = {
-  seriesId: string;
-  seriesTitle: string;
-  books: HardcoverSeriesBook[];
+	seriesId: string;
+	seriesTitle: string;
+	books: HardcoverSeriesBook[];
 };
 
 export type HardcoverAuthorSeries = {
-  id: string;
-  name: string;
-  slug: string;
-  booksCount: number;
-  isCompleted: boolean | null;
+	id: string;
+	name: string;
+	slug: string;
+	booksCount: number;
+	isCompleted: boolean | null;
 };
 
 export type HardcoverLanguageOption = {
-  code: string;
-  name: string;
+	code: string;
+	name: string;
 };
 
 export type HardcoverAuthorDetail = {
-  id: string;
-  slug: string;
-  name: string;
-  bio: string | null;
-  booksCount: number | null;
-  bornYear: number | null;
-  deathYear: number | null;
-  imageUrl: string | null;
-  hardcoverUrl: string | null;
-  selectedLanguage: string;
-  page: number;
-  pageSize: number;
-  totalBooks: number;
-  totalPages: number;
-  languages: HardcoverLanguageOption[];
-  books: HardcoverAuthorBook[];
-  sortBy: "title" | "year" | "rating" | "readers";
-  sortDir: "asc" | "desc";
+	id: string;
+	slug: string;
+	name: string;
+	bio: string | null;
+	booksCount: number | null;
+	bornYear: number | null;
+	deathYear: number | null;
+	imageUrl: string | null;
+	hardcoverUrl: string | null;
+	selectedLanguage: string;
+	page: number;
+	pageSize: number;
+	totalBooks: number;
+	totalPages: number;
+	languages: HardcoverLanguageOption[];
+	books: HardcoverAuthorBook[];
+	sortBy: "title" | "year" | "rating" | "readers";
+	sortDir: "asc" | "desc";
 };
 
 const searchInputSchema = z.object({
-  query: z.string().trim().min(2).max(120),
-  type: z.enum(["all", "books", "authors"]).default("all"),
-  limit: z.number().int().min(1).max(50).default(20),
+	query: z.string().trim().min(2).max(120),
+	type: z.enum(["all", "books", "authors"]).default("all"),
+	limit: z.number().int().min(1).max(50).default(20),
 });
 
 const authorDetailsInputSchema = z.object({
-  foreignAuthorId: z.number().int().min(1),
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(500).default(25),
-  language: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^(all|[a-z]{2,3})$/)
-    .default("en"),
-  sortBy: z.enum(["title", "year", "rating", "readers"]).default("readers"),
-  sortDir: z.enum(["asc", "desc"]).default("desc"),
+	foreignAuthorId: z.number().int().min(1),
+	page: z.number().int().min(1).default(1),
+	pageSize: z.number().int().min(1).max(500).default(25),
+	language: z
+		.string()
+		.trim()
+		.toLowerCase()
+		.regex(/^(all|[a-z]{2,3})$/)
+		.default("en"),
+	sortBy: z.enum(["title", "year", "rating", "readers"]).default("readers"),
+	sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
 
 const searchQuery = `
@@ -269,47 +269,47 @@ const AUTHOR_CONTRIBUTION_WHERE = `_or: [{ contribution: { _is_null: true } }, {
  * queries on the author books page.
  */
 function bookWhereFilters(opts: {
-  skipCompilations: boolean;
-  skipMissingReleaseDate?: boolean;
-  skipMissingIsbnAsin?: boolean;
-  minimumPopularity?: number;
-  minimumPages?: number;
+	skipCompilations: boolean;
+	skipMissingReleaseDate?: boolean;
+	skipMissingIsbnAsin?: boolean;
+	minimumPopularity?: number;
+	minimumPages?: number;
 }): string {
-  const parts: string[] = [
-    `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
-  ];
-  if (opts.skipCompilations) {
-    parts.push(BOOK_COMPILATION_FILTER);
-  }
-  if (opts.skipMissingReleaseDate) {
-    parts.push(`release_date: { _is_null: false }`);
-  }
-  if (opts.minimumPopularity && opts.minimumPopularity > 0) {
-    parts.push(`users_count: { _gte: $minPopularity }`);
-  }
+	const parts: string[] = [
+		`contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
+	];
+	if (opts.skipCompilations) {
+		parts.push(BOOK_COMPILATION_FILTER);
+	}
+	if (opts.skipMissingReleaseDate) {
+		parts.push(`release_date: { _is_null: false }`);
+	}
+	if (opts.minimumPopularity && opts.minimumPopularity > 0) {
+		parts.push(`users_count: { _gte: $minPopularity }`);
+	}
 
-  // Build edition-level filters and merge into a single `editions:` clause
-  const editionConditions: string[] = [
-    `language: { code2: { _in: $langCodes } }`,
-  ];
-  if (opts.skipMissingIsbnAsin) {
-    editionConditions.push(
-      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
-    );
-  }
-  if (opts.minimumPages && opts.minimumPages > 0) {
-    editionConditions.push(
-      `_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
-    );
-  }
-  if (editionConditions.length === 1) {
-    parts.push(`editions: { ${editionConditions[0]} }`);
-  } else if (editionConditions.length > 1) {
-    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
-    parts.push(`editions: { _and: [${merged}] }`);
-  }
+	// Build edition-level filters and merge into a single `editions:` clause
+	const editionConditions: string[] = [
+		`language: { code2: { _in: $langCodes } }`,
+	];
+	if (opts.skipMissingIsbnAsin) {
+		editionConditions.push(
+			`_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+		);
+	}
+	if (opts.minimumPages && opts.minimumPages > 0) {
+		editionConditions.push(
+			`_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
+		);
+	}
+	if (editionConditions.length === 1) {
+		parts.push(`editions: { ${editionConditions[0]} }`);
+	} else if (editionConditions.length > 1) {
+		const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+		parts.push(`editions: { _and: [${merged}] }`);
+	}
 
-  return parts.join("\n      ");
+	return parts.join("\n      ");
 }
 
 /**
@@ -319,51 +319,51 @@ function bookWhereFilters(opts: {
  * as compilations on Hardcover).
  */
 function bookSeriesWhereFilters(opts: {
-  skipMissingReleaseDate?: boolean;
-  skipMissingIsbnAsin?: boolean;
-  minimumPopularity?: number;
-  minimumPages?: number;
+	skipMissingReleaseDate?: boolean;
+	skipMissingIsbnAsin?: boolean;
+	minimumPopularity?: number;
+	minimumPages?: number;
 }): string {
-  const parts: string[] = [
-    `series_id: { _eq: $seriesId }`,
-    BOOK_SERIES_COMPILATION_FILTER,
-  ];
+	const parts: string[] = [
+		`series_id: { _eq: $seriesId }`,
+		BOOK_SERIES_COMPILATION_FILTER,
+	];
 
-  // Build book-level and edition-level conditions that go inside `book: { ... }`
-  const bookConditions: string[] = [];
-  if (opts.skipMissingReleaseDate) {
-    bookConditions.push(`release_date: { _is_null: false }`);
-  }
-  if (opts.minimumPopularity && opts.minimumPopularity > 0) {
-    bookConditions.push(`users_count: { _gte: $minPopularity }`);
-  }
+	// Build book-level and edition-level conditions that go inside `book: { ... }`
+	const bookConditions: string[] = [];
+	if (opts.skipMissingReleaseDate) {
+		bookConditions.push(`release_date: { _is_null: false }`);
+	}
+	if (opts.minimumPopularity && opts.minimumPopularity > 0) {
+		bookConditions.push(`users_count: { _gte: $minPopularity }`);
+	}
 
-  const editionConditions: string[] = [
-    `language: { code2: { _in: $langCodes } }`,
-  ];
-  if (opts.skipMissingIsbnAsin) {
-    editionConditions.push(
-      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
-    );
-  }
-  if (opts.minimumPages && opts.minimumPages > 0) {
-    editionConditions.push(
-      `_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
-    );
-  }
+	const editionConditions: string[] = [
+		`language: { code2: { _in: $langCodes } }`,
+	];
+	if (opts.skipMissingIsbnAsin) {
+		editionConditions.push(
+			`_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+		);
+	}
+	if (opts.minimumPages && opts.minimumPages > 0) {
+		editionConditions.push(
+			`_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
+		);
+	}
 
-  if (editionConditions.length === 1) {
-    bookConditions.push(`editions: { ${editionConditions[0]} }`);
-  } else if (editionConditions.length > 1) {
-    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
-    bookConditions.push(`editions: { _and: [${merged}] }`);
-  }
+	if (editionConditions.length === 1) {
+		bookConditions.push(`editions: { ${editionConditions[0]} }`);
+	} else if (editionConditions.length > 1) {
+		const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+		bookConditions.push(`editions: { _and: [${merged}] }`);
+	}
 
-  if (bookConditions.length > 0) {
-    parts.push(`book: { ${bookConditions.join(", ")} }`);
-  }
+	if (bookConditions.length > 0) {
+		parts.push(`book: { ${bookConditions.join(", ")} }`);
+	}
 
-  return parts.join("\n      ");
+	return parts.join("\n      ");
 }
 
 /**
@@ -373,52 +373,52 @@ function bookSeriesWhereFilters(opts: {
  * Uses only the entry-level compilation flag for the same reason as above.
  */
 function seriesPositionsWhereFilters(opts: {
-  hasLanguage: boolean;
-  skipMissingReleaseDate?: boolean;
-  skipMissingIsbnAsin?: boolean;
-  minimumPopularity?: number;
-  minimumPages?: number;
+	hasLanguage: boolean;
+	skipMissingReleaseDate?: boolean;
+	skipMissingIsbnAsin?: boolean;
+	minimumPopularity?: number;
+	minimumPages?: number;
 }): string {
-  const parts: string[] = [
-    BOOK_SERIES_COMPILATION_FILTER,
-    `position: { _is_null: false }`,
-  ];
+	const parts: string[] = [
+		BOOK_SERIES_COMPILATION_FILTER,
+		`position: { _is_null: false }`,
+	];
 
-  const bookConditions: string[] = [];
-  if (opts.skipMissingReleaseDate) {
-    bookConditions.push(`release_date: { _is_null: false }`);
-  }
-  if (opts.minimumPopularity && opts.minimumPopularity > 0) {
-    bookConditions.push(`users_count: { _gte: $minPopularity }`);
-  }
+	const bookConditions: string[] = [];
+	if (opts.skipMissingReleaseDate) {
+		bookConditions.push(`release_date: { _is_null: false }`);
+	}
+	if (opts.minimumPopularity && opts.minimumPopularity > 0) {
+		bookConditions.push(`users_count: { _gte: $minPopularity }`);
+	}
 
-  const editionConditions: string[] = [];
-  if (opts.hasLanguage) {
-    editionConditions.push(`language: { code2: { _in: $langCodes } }`);
-  }
-  if (opts.skipMissingIsbnAsin) {
-    editionConditions.push(
-      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
-    );
-  }
-  if (opts.minimumPages && opts.minimumPages > 0) {
-    editionConditions.push(
-      `_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
-    );
-  }
+	const editionConditions: string[] = [];
+	if (opts.hasLanguage) {
+		editionConditions.push(`language: { code2: { _in: $langCodes } }`);
+	}
+	if (opts.skipMissingIsbnAsin) {
+		editionConditions.push(
+			`_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+		);
+	}
+	if (opts.minimumPages && opts.minimumPages > 0) {
+		editionConditions.push(
+			`_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
+		);
+	}
 
-  if (editionConditions.length === 1) {
-    bookConditions.push(`editions: { ${editionConditions[0]} }`);
-  } else if (editionConditions.length > 1) {
-    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
-    bookConditions.push(`editions: { _and: [${merged}] }`);
-  }
+	if (editionConditions.length === 1) {
+		bookConditions.push(`editions: { ${editionConditions[0]} }`);
+	} else if (editionConditions.length > 1) {
+		const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+		bookConditions.push(`editions: { _and: [${merged}] }`);
+	}
 
-  if (bookConditions.length > 0) {
-    parts.push(`book: { ${bookConditions.join(", ")} }`);
-  }
+	if (bookConditions.length > 0) {
+		parts.push(`book: { ${bookConditions.join(", ")} }`);
+	}
 
-  return parts.join("\n        ");
+	return parts.join("\n        ");
 }
 
 // ---------------------------------------------------------------------------
@@ -430,37 +430,37 @@ function seriesPositionsWhereFilters(opts: {
  * builder covers both the "all languages" and "specific language" variants.
  */
 function buildAuthorBooksPageQuery(
-  skipCompilations: boolean,
-  skipMissingReleaseDate = false,
-  skipMissingIsbnAsin = false,
-  minimumPopularity = 0,
-  minimumPages = 0,
+	skipCompilations: boolean,
+	skipMissingReleaseDate = false,
+	skipMissingIsbnAsin = false,
+	minimumPopularity = 0,
+	minimumPages = 0,
 ): string {
-  const varParts = [
-    `$slug: String!`,
-    `$limit: Int!`,
-    `$offset: Int!`,
-    `$langCodes: [String!]!`,
-    `$orderBy: [books_order_by!]!`,
-  ];
-  if (minimumPopularity > 0) {
-    varParts.push(`$minPopularity: Int!`);
-  }
-  if (minimumPages > 0) {
-    varParts.push(`$minPages: Int!`);
-  }
-  const varDefs = varParts.join(", ");
-  const queryName = "HardcoverAuthorBooksPage";
-  const where = bookWhereFilters({
-    skipCompilations,
-    skipMissingReleaseDate,
-    skipMissingIsbnAsin,
-    minimumPopularity,
-    minimumPages,
-  });
-  const editionsWhere = `where: { language: { code2: { _in: $langCodes } } }`;
+	const varParts = [
+		`$slug: String!`,
+		`$limit: Int!`,
+		`$offset: Int!`,
+		`$langCodes: [String!]!`,
+		`$orderBy: [books_order_by!]!`,
+	];
+	if (minimumPopularity > 0) {
+		varParts.push(`$minPopularity: Int!`);
+	}
+	if (minimumPages > 0) {
+		varParts.push(`$minPages: Int!`);
+	}
+	const varDefs = varParts.join(", ");
+	const queryName = "HardcoverAuthorBooksPage";
+	const where = bookWhereFilters({
+		skipCompilations,
+		skipMissingReleaseDate,
+		skipMissingIsbnAsin,
+		minimumPopularity,
+		minimumPages,
+	});
+	const editionsWhere = `where: { language: { code2: { _in: $langCodes } } }`;
 
-  return `
+	return `
 query ${queryName}(${varDefs}) {
   books_aggregate(where: {
     ${where}
@@ -531,28 +531,28 @@ query ${queryName}(${varDefs}) {
  * Builds the series books query (used when expanding a series row).
  */
 function buildSeriesBooksQuery(
-  skipMissingReleaseDate = false,
-  skipMissingIsbnAsin = false,
-  minimumPopularity = 0,
-  minimumPages = 0,
+	skipMissingReleaseDate = false,
+	skipMissingIsbnAsin = false,
+	minimumPopularity = 0,
+	minimumPages = 0,
 ): string {
-  const varParts = [`$seriesId: Int!`, `$langCodes: [String!]!`];
-  if (minimumPopularity > 0) {
-    varParts.push(`$minPopularity: Int!`);
-  }
-  if (minimumPages > 0) {
-    varParts.push(`$minPages: Int!`);
-  }
-  const varDefs = varParts.join(", ");
-  const queryName = "HardcoverSeriesBooks";
-  const where = bookSeriesWhereFilters({
-    skipMissingReleaseDate,
-    skipMissingIsbnAsin,
-    minimumPopularity,
-    minimumPages,
-  });
+	const varParts = [`$seriesId: Int!`, `$langCodes: [String!]!`];
+	if (minimumPopularity > 0) {
+		varParts.push(`$minPopularity: Int!`);
+	}
+	if (minimumPages > 0) {
+		varParts.push(`$minPages: Int!`);
+	}
+	const varDefs = varParts.join(", ");
+	const queryName = "HardcoverSeriesBooks";
+	const where = bookSeriesWhereFilters({
+		skipMissingReleaseDate,
+		skipMissingIsbnAsin,
+		minimumPopularity,
+		minimumPages,
+	});
 
-  return `
+	return `
 query ${queryName}(${varDefs}) {
   series_by_pk(id: $seriesId) {
     id
@@ -607,86 +607,86 @@ query ${queryName}(${varDefs}) {
  * Builds the author series listing query.
  */
 function buildAuthorSeriesQuery(
-  hasLanguage: boolean,
-  skipMissingReleaseDate = false,
-  skipMissingIsbnAsin = false,
-  minimumPopularity = 0,
-  minimumPages = 0,
+	hasLanguage: boolean,
+	skipMissingReleaseDate = false,
+	skipMissingIsbnAsin = false,
+	minimumPopularity = 0,
+	minimumPages = 0,
 ): string {
-  const varParts = [`$slug: String!`];
-  if (hasLanguage) {
-    varParts.push(`$langCodes: [String!]!`);
-  }
-  if (minimumPopularity > 0) {
-    varParts.push(`$minPopularity: Int!`);
-  }
-  if (minimumPages > 0) {
-    varParts.push(`$minPages: Int!`);
-  }
-  const varDefs = varParts.join(", ");
-  const queryName = "HardcoverAuthorSeries";
+	const varParts = [`$slug: String!`];
+	if (hasLanguage) {
+		varParts.push(`$langCodes: [String!]!`);
+	}
+	if (minimumPopularity > 0) {
+		varParts.push(`$minPopularity: Int!`);
+	}
+	if (minimumPages > 0) {
+		varParts.push(`$minPages: Int!`);
+	}
+	const varDefs = varParts.join(", ");
+	const queryName = "HardcoverAuthorSeries";
 
-  // Build edition-level conditions for the series-level WHERE
-  const seriesEditionConditions: string[] = [];
-  if (hasLanguage) {
-    seriesEditionConditions.push(`language: { code2: { _in: $langCodes } }`);
-  }
-  if (skipMissingIsbnAsin) {
-    seriesEditionConditions.push(
-      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
-    );
-  }
-  if (minimumPages > 0) {
-    seriesEditionConditions.push(
-      `_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
-    );
-  }
-  let seriesEditionFilter = "";
-  if (seriesEditionConditions.length === 1) {
-    seriesEditionFilter = `\n          editions: { ${seriesEditionConditions[0]} }`;
-  } else if (seriesEditionConditions.length > 1) {
-    const merged = seriesEditionConditions.map((c) => `{ ${c} }`).join(", ");
-    seriesEditionFilter = `\n          editions: { _and: [${merged}] }`;
-  }
+	// Build edition-level conditions for the series-level WHERE
+	const seriesEditionConditions: string[] = [];
+	if (hasLanguage) {
+		seriesEditionConditions.push(`language: { code2: { _in: $langCodes } }`);
+	}
+	if (skipMissingIsbnAsin) {
+		seriesEditionConditions.push(
+			`_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+		);
+	}
+	if (minimumPages > 0) {
+		seriesEditionConditions.push(
+			`_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
+		);
+	}
+	let seriesEditionFilter = "";
+	if (seriesEditionConditions.length === 1) {
+		seriesEditionFilter = `\n          editions: { ${seriesEditionConditions[0]} }`;
+	} else if (seriesEditionConditions.length > 1) {
+		const merged = seriesEditionConditions.map((c) => `{ ${c} }`).join(", ");
+		seriesEditionFilter = `\n          editions: { _and: [${merged}] }`;
+	}
 
-  const seriesBookConditions: string[] = [
-    `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
-  ];
-  if (skipMissingReleaseDate) {
-    seriesBookConditions.push(`release_date: { _is_null: false }`);
-  }
-  if (minimumPopularity > 0) {
-    seriesBookConditions.push(`users_count: { _gte: $minPopularity }`);
-  }
+	const seriesBookConditions: string[] = [
+		`contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
+	];
+	if (skipMissingReleaseDate) {
+		seriesBookConditions.push(`release_date: { _is_null: false }`);
+	}
+	if (minimumPopularity > 0) {
+		seriesBookConditions.push(`users_count: { _gte: $minPopularity }`);
+	}
 
-  const seriesWhere = `canonical_id: { _is_null: true }
+	const seriesWhere = `canonical_id: { _is_null: true }
       book_series: {
         book: {
           ${seriesBookConditions.join("\n          ")}${seriesEditionFilter}
         }
       }`;
 
-  const positionsWhere = seriesPositionsWhereFilters({
-    hasLanguage,
-    skipMissingReleaseDate,
-    skipMissingIsbnAsin,
-    minimumPopularity,
-    minimumPages,
-  });
+	const positionsWhere = seriesPositionsWhereFilters({
+		hasLanguage,
+		skipMissingReleaseDate,
+		skipMissingIsbnAsin,
+		minimumPopularity,
+		minimumPages,
+	});
 
-  const authorBooksBookConditions = [
-    `contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
-  ];
-  if (hasLanguage) {
-    authorBooksBookConditions.push(
-      `editions: { language: { code2: { _in: $langCodes } } }`,
-    );
-  }
-  const authorBooksWhere = `book: {
+	const authorBooksBookConditions = [
+		`contributions: { author: { slug: { _eq: $slug } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }`,
+	];
+	if (hasLanguage) {
+		authorBooksBookConditions.push(
+			`editions: { language: { code2: { _in: $langCodes } } }`,
+		);
+	}
+	const authorBooksWhere = `book: {
           ${authorBooksBookConditions.join("\n          ")}
         }`;
 
-  return `
+	return `
 query ${queryName}(${varDefs}) {
   series(
     where: {
@@ -731,512 +731,512 @@ query ${queryName}(${varDefs}) {
  * position is the canonical book.
  */
 function deduplicateSeriesBooks(
-  books: HardcoverSeriesBook[],
+	books: HardcoverSeriesBook[],
 ): HardcoverSeriesBook[] {
-  const seen = new Set<number>();
-  return books.filter((b) => {
-    if (b.position === null) {
-      return false;
-    }
-    if (seen.has(b.position)) {
-      return false;
-    }
-    seen.add(b.position);
-    return true;
-  });
+	const seen = new Set<number>();
+	return books.filter((b) => {
+		if (b.position === null) {
+			return false;
+		}
+		if (seen.has(b.position)) {
+			return false;
+		}
+		seen.add(b.position);
+		return true;
+	});
 }
 
 const seriesBooksInputSchema = z.object({
-  seriesId: z.number().int().min(1),
-  language: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^(all|[a-z]{2,3})$/)
-    .default("all"),
+	seriesId: z.number().int().min(1),
+	language: z
+		.string()
+		.trim()
+		.toLowerCase()
+		.regex(/^(all|[a-z]{2,3})$/)
+		.default("all"),
 });
 
 async function fetchSeriesBooks(
-  seriesId: number,
-  language: string,
+	seriesId: number,
+	language: string,
 ): Promise<HardcoverSeriesBooksResult> {
-  const profile = getMetadataProfile();
-  const langCodes = language === "all" ? getProfileLanguages() : [language];
+	const profile = getMetadataProfile();
+	const langCodes = language === "all" ? getProfileLanguages() : [language];
 
-  const result = await hardcoverFetch<{
-    series_by_pk?: unknown;
-    book_series?: unknown;
-  }>(
-    buildSeriesBooksQuery(
-      profile.skipMissingReleaseDate,
-      profile.skipMissingIsbnAsin,
-      profile.minimumPopularity,
-      profile.minimumPages,
-    ),
-    {
-      seriesId,
-      langCodes,
-      ...(profile.minimumPopularity > 0
-        ? { minPopularity: profile.minimumPopularity }
-        : {}),
-      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
-    },
-  );
+	const result = await hardcoverFetch<{
+		series_by_pk?: unknown;
+		book_series?: unknown;
+	}>(
+		buildSeriesBooksQuery(
+			profile.skipMissingReleaseDate,
+			profile.skipMissingIsbnAsin,
+			profile.minimumPopularity,
+			profile.minimumPages,
+		),
+		{
+			seriesId,
+			langCodes,
+			...(profile.minimumPopularity > 0
+				? { minPopularity: profile.minimumPopularity }
+				: {}),
+			...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+		},
+	);
 
-  const seriesRecord = toRecord(result?.series_by_pk);
-  if (!seriesRecord) {
-    throw new Error("Series not found on Hardcover.");
-  }
+	const seriesRecord = toRecord(result?.series_by_pk);
+	if (!seriesRecord) {
+		throw new Error("Series not found on Hardcover.");
+	}
 
-  const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
+	const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
 
-  const books: HardcoverSeriesBook[] = toRecordArray(result?.book_series)
-    .map((entry) => {
-      const bookRecord = toRecord(entry.book);
-      if (!bookRecord) {
-        return undefined;
-      }
-      const title = firstString(bookRecord, [["title"]]);
-      if (!title) {
-        return undefined;
-      }
-      const slug = firstString(bookRecord, [["slug"]]);
-      const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
-      const position = firstNumber(entry, [["position"]]);
-      const isCompilation = entry.compilation === true;
-      const authorName =
-        toRecordArray(bookRecord.contributions)
-          .map((c) => {
-            const authorRecord = toRecord(c.author);
-            return authorRecord
-              ? firstString(authorRecord, [["name"]])
-              : undefined;
-          })
-          .filter((n): n is string => n !== undefined)
-          .join(", ") || null;
-      const editions = toRecordArray(bookRecord.editions);
-      const languageRecord =
-        editions.length > 0 ? toRecord(editions[0].language) : undefined;
-      const languageName = languageRecord
-        ? (firstString(languageRecord, [["language"]]) ?? null)
-        : null;
-      return {
-        id,
-        title,
-        slug: slug ?? null,
-        description: firstString(bookRecord, [["description"]]) ?? null,
-        releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
-        releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
-        rating: firstNumber(bookRecord, [["rating"]]) ?? null,
-        usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
-        coverUrl: getCoverUrl(bookRecord) ?? null,
-        position: position ?? null,
-        hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
-        isCompilation,
-        authorName,
-        languageName,
-      };
-    })
-    .filter(Boolean) as HardcoverSeriesBook[];
+	const books: HardcoverSeriesBook[] = toRecordArray(result?.book_series)
+		.map((entry) => {
+			const bookRecord = toRecord(entry.book);
+			if (!bookRecord) {
+				return undefined;
+			}
+			const title = firstString(bookRecord, [["title"]]);
+			if (!title) {
+				return undefined;
+			}
+			const slug = firstString(bookRecord, [["slug"]]);
+			const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
+			const position = firstNumber(entry, [["position"]]);
+			const isCompilation = entry.compilation === true;
+			const authorName =
+				toRecordArray(bookRecord.contributions)
+					.map((c) => {
+						const authorRecord = toRecord(c.author);
+						return authorRecord
+							? firstString(authorRecord, [["name"]])
+							: undefined;
+					})
+					.filter((n): n is string => n !== undefined)
+					.join(", ") || null;
+			const editions = toRecordArray(bookRecord.editions);
+			const languageRecord =
+				editions.length > 0 ? toRecord(editions[0].language) : undefined;
+			const languageName = languageRecord
+				? (firstString(languageRecord, [["language"]]) ?? null)
+				: null;
+			return {
+				id,
+				title,
+				slug: slug ?? null,
+				description: firstString(bookRecord, [["description"]]) ?? null,
+				releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+				releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+				rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+				usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+				coverUrl: getCoverUrl(bookRecord) ?? null,
+				position: position ?? null,
+				hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+				isCompilation,
+				authorName,
+				languageName,
+			};
+		})
+		.filter(Boolean) as HardcoverSeriesBook[];
 
-  return {
-    seriesId: String(seriesId),
-    seriesTitle,
-    books: deduplicateSeriesBooks(books),
-  };
+	return {
+		seriesId: String(seriesId),
+		seriesTitle,
+		books: deduplicateSeriesBooks(books),
+	};
 }
 
 type SearchHit = {
-  document?: unknown;
+	document?: unknown;
 };
 
 type SearchPayload = {
-  hits?: unknown;
+	hits?: unknown;
 };
 
 function toRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return undefined;
+	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+		return value as Record<string, unknown>;
+	}
+	return undefined;
 }
 
 function getNestedValue(
-  record: Record<string, unknown>,
-  path: string[],
+	record: Record<string, unknown>,
+	path: string[],
 ): unknown {
-  let current: unknown = record;
-  for (const key of path) {
-    const next = toRecord(current);
-    if (!next || !(key in next)) {
-      return undefined;
-    }
-    current = next[key];
-  }
-  return current;
+	let current: unknown = record;
+	for (const key of path) {
+		const next = toRecord(current);
+		if (!next || !(key in next)) {
+			return undefined;
+		}
+		current = next[key];
+	}
+	return current;
 }
 
 function firstString(
-  record: Record<string, unknown>,
-  paths: string[][],
+	record: Record<string, unknown>,
+	paths: string[][],
 ): string | undefined {
-  for (const path of paths) {
-    const value = getNestedValue(record, path);
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.length > 0) {
-        return trimmed;
-      }
-    }
-  }
-  return undefined;
+	for (const path of paths) {
+		const value = getNestedValue(record, path);
+		if (typeof value === "string") {
+			const trimmed = value.trim();
+			if (trimmed.length > 0) {
+				return trimmed;
+			}
+		}
+	}
+	return undefined;
 }
 
 function firstNumber(
-  record: Record<string, unknown>,
-  paths: string[][],
+	record: Record<string, unknown>,
+	paths: string[][],
 ): number | undefined {
-  for (const path of paths) {
-    const value = getNestedValue(record, path);
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === "string") {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-  return undefined;
+	for (const path of paths) {
+		const value = getNestedValue(record, path);
+		if (typeof value === "number" && Number.isFinite(value)) {
+			return value;
+		}
+		if (typeof value === "string") {
+			const parsed = Number(value);
+			if (Number.isFinite(parsed)) {
+				return parsed;
+			}
+		}
+	}
+	return undefined;
 }
 
 function firstId(
-  record: Record<string, unknown>,
-  paths: string[][],
+	record: Record<string, unknown>,
+	paths: string[][],
 ): string | undefined {
-  const asString = firstString(record, paths);
-  if (asString) {
-    return asString;
-  }
-  const asNumber = firstNumber(record, paths);
-  if (asNumber === undefined) {
-    return undefined;
-  }
-  return String(asNumber);
+	const asString = firstString(record, paths);
+	if (asString) {
+		return asString;
+	}
+	const asNumber = firstNumber(record, paths);
+	if (asNumber === undefined) {
+		return undefined;
+	}
+	return String(asNumber);
 }
 
 function getStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter((entry) => entry.length > 0);
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+		.filter((entry) => entry.length > 0);
 }
 
 function parseYear(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const yearMatch = value.match(/\b(\d{4})\b/);
-  if (!yearMatch) {
-    return undefined;
-  }
-  const year = Number(yearMatch[1]);
-  return Number.isFinite(year) ? year : undefined;
+	if (!value) {
+		return undefined;
+	}
+	const yearMatch = value.match(/\b(\d{4})\b/);
+	if (!yearMatch) {
+		return undefined;
+	}
+	const year = Number(yearMatch[1]);
+	return Number.isFinite(year) ? year : undefined;
 }
 
 function normalizeLanguageCode(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const normalized = value.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : undefined;
+	if (!value) {
+		return undefined;
+	}
+	const normalized = value.trim().toLowerCase();
+	return normalized.length > 0 ? normalized : undefined;
 }
 
 function toRecordArray(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map((entry) => toRecord(entry)).filter(Boolean) as Array<
-    Record<string, unknown>
-  >;
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value.map((entry) => toRecord(entry)).filter(Boolean) as Array<
+		Record<string, unknown>
+	>;
 }
 
 function parseAggregateCount(value: unknown): number {
-  const aggregate = toRecord(value);
-  const aggregateInner = aggregate ? toRecord(aggregate.aggregate) : undefined;
-  const count = aggregateInner
-    ? firstNumber(aggregateInner, [["count"]])
-    : undefined;
-  return count ?? 0;
+	const aggregate = toRecord(value);
+	const aggregateInner = aggregate ? toRecord(aggregate.aggregate) : undefined;
+	const count = aggregateInner
+		? firstNumber(aggregateInner, [["count"]])
+		: undefined;
+	return count ?? 0;
 }
 
 function extractBookAuthorName(
-  record: Record<string, unknown>,
+	record: Record<string, unknown>,
 ): string | undefined {
-  const authorNames = getStringList(record.author_names);
-  if (authorNames.length > 0) {
-    return authorNames.join(", ");
-  }
+	const authorNames = getStringList(record.author_names);
+	if (authorNames.length > 0) {
+		return authorNames.join(", ");
+	}
 
-  const contributions = Array.isArray(record.contributions)
-    ? record.contributions
-    : [];
-  for (const contribution of contributions) {
-    const contributionRecord = toRecord(contribution);
-    const authorRecord = contributionRecord
-      ? toRecord(contributionRecord.author)
-      : undefined;
-    const name = authorRecord
-      ? firstString(authorRecord, [["name"]])
-      : undefined;
-    if (name) {
-      return name;
-    }
-  }
+	const contributions = Array.isArray(record.contributions)
+		? record.contributions
+		: [];
+	for (const contribution of contributions) {
+		const contributionRecord = toRecord(contribution);
+		const authorRecord = contributionRecord
+			? toRecord(contributionRecord.author)
+			: undefined;
+		const name = authorRecord
+			? firstString(authorRecord, [["name"]])
+			: undefined;
+		if (name) {
+			return name;
+		}
+	}
 
-  return firstString(record, [
-    ["authorName"],
-    ["author_name"],
-    ["author", "name"],
-  ]);
+	return firstString(record, [
+		["authorName"],
+		["author_name"],
+		["author", "name"],
+	]);
 }
 
 function getCoverUrl(record: Record<string, unknown>): string | undefined {
-  const imageRecord = toRecord(record.image);
-  if (imageRecord) {
-    const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
-    if (imageUrl) {
-      return imageUrl;
-    }
-  }
+	const imageRecord = toRecord(record.image);
+	if (imageRecord) {
+		const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
+		if (imageUrl) {
+			return imageUrl;
+		}
+	}
 
-  if (Array.isArray(record.images)) {
-    for (const image of record.images) {
-      const imageRecordFromList = toRecord(image);
-      if (!imageRecordFromList) {
-        continue;
-      }
-      const imageUrl = firstString(imageRecordFromList, [["url"]]);
-      if (imageUrl) {
-        return imageUrl;
-      }
-    }
-  }
+	if (Array.isArray(record.images)) {
+		for (const image of record.images) {
+			const imageRecordFromList = toRecord(image);
+			if (!imageRecordFromList) {
+				continue;
+			}
+			const imageUrl = firstString(imageRecordFromList, [["url"]]);
+			if (imageUrl) {
+				return imageUrl;
+			}
+		}
+	}
 
-  return firstString(record, [["coverUrl"], ["cover", "url"]]);
+	return firstString(record, [["coverUrl"], ["cover", "url"]]);
 }
 
 function toHardcoverAuthorBook(
-  bookRecord: Record<string, unknown>,
+	bookRecord: Record<string, unknown>,
 ): HardcoverAuthorBook | undefined {
-  const title = firstString(bookRecord, [["title"], ["name"]]);
-  if (!title) {
-    return undefined;
-  }
-  const slug = firstString(bookRecord, [["slug"]]);
-  const id =
-    firstId(bookRecord, [["id"], ["book_id"], ["foreign_book_id"]]) ??
-    slug ??
-    title;
-  const contributions = toRecordArray(bookRecord.contributions);
-  const contribution =
-    contributions.length > 0
-      ? (firstString(contributions[0], [["contribution"]]) ?? null)
-      : null;
-  const allContributions = toRecordArray(bookRecord.all_contributions);
-  const contributors =
-    allContributions
-      .map((c) => {
-        const authorRecord = toRecord(c.author);
-        return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
-      })
-      .filter((n): n is string => n !== undefined)
-      .join(", ") || null;
-  const editions = toRecordArray(bookRecord.editions);
-  const languageRecord =
-    editions.length > 0 ? toRecord(editions[0].language) : undefined;
-  const languageCode = languageRecord
-    ? (normalizeLanguageCode(
-        firstString(languageRecord, [["code2"], ["code3"]]),
-      ) ?? null)
-    : null;
-  const languageName = languageRecord
-    ? (firstString(languageRecord, [["language"]]) ?? null)
-    : null;
+	const title = firstString(bookRecord, [["title"], ["name"]]);
+	if (!title) {
+		return undefined;
+	}
+	const slug = firstString(bookRecord, [["slug"]]);
+	const id =
+		firstId(bookRecord, [["id"], ["book_id"], ["foreign_book_id"]]) ??
+		slug ??
+		title;
+	const contributions = toRecordArray(bookRecord.contributions);
+	const contribution =
+		contributions.length > 0
+			? (firstString(contributions[0], [["contribution"]]) ?? null)
+			: null;
+	const allContributions = toRecordArray(bookRecord.all_contributions);
+	const contributors =
+		allContributions
+			.map((c) => {
+				const authorRecord = toRecord(c.author);
+				return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+			})
+			.filter((n): n is string => n !== undefined)
+			.join(", ") || null;
+	const editions = toRecordArray(bookRecord.editions);
+	const languageRecord =
+		editions.length > 0 ? toRecord(editions[0].language) : undefined;
+	const languageCode = languageRecord
+		? (normalizeLanguageCode(
+				firstString(languageRecord, [["code2"], ["code3"]]),
+			) ?? null)
+		: null;
+	const languageName = languageRecord
+		? (firstString(languageRecord, [["language"]]) ?? null)
+		: null;
 
-  const bookSeriesEntries = toRecordArray(bookRecord.book_series);
-  const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
-    .map((entry) => {
-      const seriesRecord = toRecord(entry.series);
-      if (!seriesRecord) {
-        return undefined;
-      }
-      const seriesId = firstId(seriesRecord, [["id"]]);
-      const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
-      if (!seriesId || !seriesTitle) {
-        return undefined;
-      }
-      return {
-        id: seriesId,
-        title: seriesTitle,
-        position:
-          firstNumber(entry, [["position"]])?.toString() ??
-          firstString(entry, [["position"]]) ??
-          null,
-      };
-    })
-    .filter(Boolean) as HardcoverAuthorBookSeries[];
+	const bookSeriesEntries = toRecordArray(bookRecord.book_series);
+	const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
+		.map((entry) => {
+			const seriesRecord = toRecord(entry.series);
+			if (!seriesRecord) {
+				return undefined;
+			}
+			const seriesId = firstId(seriesRecord, [["id"]]);
+			const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
+			if (!seriesId || !seriesTitle) {
+				return undefined;
+			}
+			return {
+				id: seriesId,
+				title: seriesTitle,
+				position:
+					firstNumber(entry, [["position"]])?.toString() ??
+					firstString(entry, [["position"]]) ??
+					null,
+			};
+		})
+		.filter(Boolean) as HardcoverAuthorBookSeries[];
 
-  return {
-    id,
-    title,
-    slug: slug ?? null,
-    description: firstString(bookRecord, [["description"]]) ?? null,
-    releaseDate:
-      firstString(bookRecord, [["release_date"], ["published_date"]]) ?? null,
-    releaseYear:
-      firstNumber(bookRecord, [
-        ["release_year"],
-        ["published_year"],
-        ["year"],
-      ]) ??
-      parseYear(
-        firstString(bookRecord, [["release_date"], ["published_date"]]),
-      ) ??
-      null,
-    rating: firstNumber(bookRecord, [["rating"]]) ?? null,
-    ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
-    usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
-    coverUrl: getCoverUrl(bookRecord) ?? null,
-    contribution,
-    contributors,
-    languageCode,
-    languageName,
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
-    series,
-  };
+	return {
+		id,
+		title,
+		slug: slug ?? null,
+		description: firstString(bookRecord, [["description"]]) ?? null,
+		releaseDate:
+			firstString(bookRecord, [["release_date"], ["published_date"]]) ?? null,
+		releaseYear:
+			firstNumber(bookRecord, [
+				["release_year"],
+				["published_year"],
+				["year"],
+			]) ??
+			parseYear(
+				firstString(bookRecord, [["release_date"], ["published_date"]]),
+			) ??
+			null,
+		rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+		ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
+		usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+		coverUrl: getCoverUrl(bookRecord) ?? null,
+		contribution,
+		contributors,
+		languageCode,
+		languageName,
+		hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+		series,
+	};
 }
 
 function toBookResult(
-  document: Record<string, unknown>,
-  profile: MetadataProfile,
+	document: Record<string, unknown>,
+	profile: MetadataProfile,
 ): HardcoverSearchItem | undefined {
-  const title = firstString(document, [["title"], ["name"]]);
-  if (!title) {
-    return undefined;
-  }
+	const title = firstString(document, [["title"], ["name"]]);
+	if (!title) {
+		return undefined;
+	}
 
-  // Filter out compilation books when the metadata profile says to skip them
-  if (profile.skipCompilations && document.compilation === true) {
-    return undefined;
-  }
+	// Filter out compilation books when the metadata profile says to skip them
+	if (profile.skipCompilations && document.compilation === true) {
+		return undefined;
+	}
 
-  // Filter out books without an author
-  const subtitle = extractBookAuthorName(document);
-  if (!subtitle) {
-    return undefined;
-  }
-  const releaseYear =
-    firstNumber(document, [["release_year"], ["published_year"], ["year"]]) ??
-    parseYear(firstString(document, [["release_date"], ["published_date"]]));
-  const description = firstString(document, [
-    ["description"],
-    ["overview"],
-    ["blurb"],
-  ]);
-  const slug = firstString(document, [["slug"]]);
-  const rawId = firstId(document, [["id"], ["book_id"], ["foreign_book_id"]]);
-  const id = rawId ?? slug ?? title;
+	// Filter out books without an author
+	const subtitle = extractBookAuthorName(document);
+	if (!subtitle) {
+		return undefined;
+	}
+	const releaseYear =
+		firstNumber(document, [["release_year"], ["published_year"], ["year"]]) ??
+		parseYear(firstString(document, [["release_date"], ["published_date"]]));
+	const description = firstString(document, [
+		["description"],
+		["overview"],
+		["blurb"],
+	]);
+	const slug = firstString(document, [["slug"]]);
+	const rawId = firstId(document, [["id"], ["book_id"], ["foreign_book_id"]]);
+	const id = rawId ?? slug ?? title;
 
-  return {
-    id,
-    type: "book",
-    slug: slug ?? null,
-    title,
-    subtitle,
-    description: description ?? null,
-    releaseYear: releaseYear ?? null,
-    readers: firstNumber(document, [["users_count"]]) ?? null,
-    coverUrl: getCoverUrl(document) ?? null,
-    hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
-  };
+	return {
+		id,
+		type: "book",
+		slug: slug ?? null,
+		title,
+		subtitle,
+		description: description ?? null,
+		releaseYear: releaseYear ?? null,
+		readers: firstNumber(document, [["users_count"]]) ?? null,
+		coverUrl: getCoverUrl(document) ?? null,
+		hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+	};
 }
 
 function toAuthorResult(
-  document: Record<string, unknown>,
+	document: Record<string, unknown>,
 ): HardcoverSearchItem | undefined {
-  const name = firstString(document, [["name"], ["title"]]);
-  if (!name) {
-    return undefined;
-  }
+	const name = firstString(document, [["name"], ["title"]]);
+	if (!name) {
+		return undefined;
+	}
 
-  const booksCount = firstNumber(document, [["books_count"], ["book_count"]]);
-  const personalName = firstString(document, [["name_personal"]]);
-  let subtitle: string | null = null;
-  if (booksCount !== undefined) {
-    subtitle = `${booksCount} ${booksCount === 1 ? "book" : "books"}`;
-  } else if (personalName && personalName !== name) {
-    subtitle = personalName;
-  }
-  const description = firstString(document, [
-    ["description"],
-    ["bio"],
-    ["overview"],
-  ]);
-  const slug = firstString(document, [["slug"]]);
-  const rawId = firstId(document, [
-    ["id"],
-    ["author_id"],
-    ["foreign_author_id"],
-  ]);
-  const id = rawId ?? slug ?? name;
+	const booksCount = firstNumber(document, [["books_count"], ["book_count"]]);
+	const personalName = firstString(document, [["name_personal"]]);
+	let subtitle: string | null = null;
+	if (booksCount !== undefined) {
+		subtitle = `${booksCount} ${booksCount === 1 ? "book" : "books"}`;
+	} else if (personalName && personalName !== name) {
+		subtitle = personalName;
+	}
+	const description = firstString(document, [
+		["description"],
+		["bio"],
+		["overview"],
+	]);
+	const slug = firstString(document, [["slug"]]);
+	const rawId = firstId(document, [
+		["id"],
+		["author_id"],
+		["foreign_author_id"],
+	]);
+	const id = rawId ?? slug ?? name;
 
-  return {
-    id,
-    type: "author",
-    slug: slug ?? null,
-    title: name,
-    subtitle,
-    description: description ?? null,
-    releaseYear: null,
-    readers: firstNumber(document, [["users_count"]]) ?? null,
-    coverUrl: getCoverUrl(document) ?? null,
-    hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
-  };
+	return {
+		id,
+		type: "author",
+		slug: slug ?? null,
+		title: name,
+		subtitle,
+		description: description ?? null,
+		releaseYear: null,
+		readers: firstNumber(document, [["users_count"]]) ?? null,
+		coverUrl: getCoverUrl(document) ?? null,
+		hardcoverUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
+	};
 }
 
 function parseSearchPayload(payload: unknown): SearchHit[] {
-  const payloadRecord = toRecord(payload) as SearchPayload | undefined;
-  if (!payloadRecord) {
-    return [];
-  }
-  return Array.isArray(payloadRecord.hits)
-    ? (payloadRecord.hits as SearchHit[])
-    : [];
+	const payloadRecord = toRecord(payload) as SearchPayload | undefined;
+	if (!payloadRecord) {
+		return [];
+	}
+	return Array.isArray(payloadRecord.hits)
+		? (payloadRecord.hits as SearchHit[])
+		: [];
 }
 
 function interleave<T>(left: T[], right: T[], limit: number): T[] {
-  const merged: T[] = [];
-  const max = Math.max(left.length, right.length);
-  for (let i = 0; i < max; i += 1) {
-    if (i < left.length) {
-      merged.push(left[i]);
-    }
-    if (i < right.length) {
-      merged.push(right[i]);
-    }
-    if (merged.length >= limit) {
-      break;
-    }
-  }
-  return merged.slice(0, limit);
+	const merged: T[] = [];
+	const max = Math.max(left.length, right.length);
+	for (let i = 0; i < max; i += 1) {
+		if (i < left.length) {
+			merged.push(left[i]);
+		}
+		if (i < right.length) {
+			merged.push(right[i]);
+		}
+		if (merged.length >= limit) {
+			break;
+		}
+	}
+	return merged.slice(0, limit);
 }
 
 function sortByReaders(items: HardcoverSearchItem[]): HardcoverSearchItem[] {
-  return items.toSorted((a, b) => (b.readers ?? 0) - (a.readers ?? 0));
+	return items.toSorted((a, b) => (b.readers ?? 0) - (a.readers ?? 0));
 }
 
 /**
@@ -1246,35 +1246,35 @@ function sortByReaders(items: HardcoverSearchItem[]): HardcoverSearchItem[] {
  * relationship filter to check for any matching edition.
  */
 async function applyLanguageFilter(
-  items: HardcoverSearchItem[],
-  languages: string[],
+	items: HardcoverSearchItem[],
+	languages: string[],
 ): Promise<HardcoverSearchItem[]> {
-  const bookIds = items
-    .map((item) => Number(item.id))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  if (bookIds.length === 0) {
-    return items;
-  }
+	const bookIds = items
+		.map((item) => Number(item.id))
+		.filter((id) => Number.isFinite(id) && id > 0);
+	if (bookIds.length === 0) {
+		return items;
+	}
 
-  try {
-    const result = await hardcoverFetch<{ books?: unknown[] }>(
-      bookLanguageFilterQuery,
-      { ids: bookIds, langCodes: languages },
-    );
+	try {
+		const result = await hardcoverFetch<{ books?: unknown[] }>(
+			bookLanguageFilterQuery,
+			{ ids: bookIds, langCodes: languages },
+		);
 
-    const matchingIds = new Set<string>();
-    for (const book of toRecordArray(result?.books)) {
-      const bookId = firstId(book, [["id"]]);
-      if (bookId) {
-        matchingIds.add(bookId);
-      }
-    }
+		const matchingIds = new Set<string>();
+		for (const book of toRecordArray(result?.books)) {
+			const bookId = firstId(book, [["id"]]);
+			if (bookId) {
+				matchingIds.add(bookId);
+			}
+		}
 
-    return items.filter((item) => matchingIds.has(item.id));
-  } catch {
-    // If the language lookup fails, return unfiltered rather than breaking search
-    return items;
-  }
+		return items.filter((item) => matchingIds.has(item.id));
+	} catch {
+		// If the language lookup fails, return unfiltered rather than breaking search
+		return items;
+	}
 }
 
 /**
@@ -1283,34 +1283,34 @@ async function applyLanguageFilter(
  * to applyLanguageFilter.
  */
 async function applyIsbnAsinFilter(
-  items: HardcoverSearchItem[],
+	items: HardcoverSearchItem[],
 ): Promise<HardcoverSearchItem[]> {
-  const bookIds = items
-    .map((item) => Number(item.id))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  if (bookIds.length === 0) {
-    return items;
-  }
+	const bookIds = items
+		.map((item) => Number(item.id))
+		.filter((id) => Number.isFinite(id) && id > 0);
+	if (bookIds.length === 0) {
+		return items;
+	}
 
-  try {
-    const result = await hardcoverFetch<{ books?: unknown[] }>(
-      bookIsbnAsinFilterQuery,
-      { ids: bookIds },
-    );
+	try {
+		const result = await hardcoverFetch<{ books?: unknown[] }>(
+			bookIsbnAsinFilterQuery,
+			{ ids: bookIds },
+		);
 
-    const matchingIds = new Set<string>();
-    for (const book of toRecordArray(result?.books)) {
-      const bookId = firstId(book, [["id"]]);
-      if (bookId) {
-        matchingIds.add(bookId);
-      }
-    }
+		const matchingIds = new Set<string>();
+		for (const book of toRecordArray(result?.books)) {
+			const bookId = firstId(book, [["id"]]);
+			if (bookId) {
+				matchingIds.add(bookId);
+			}
+		}
 
-    return items.filter((item) => matchingIds.has(item.id));
-  } catch {
-    // If the ISBN/ASIN lookup fails, return unfiltered rather than breaking search
-    return items;
-  }
+		return items.filter((item) => matchingIds.has(item.id));
+	} catch {
+		// If the ISBN/ASIN lookup fails, return unfiltered rather than breaking search
+		return items;
+	}
 }
 
 /**
@@ -1319,34 +1319,34 @@ async function applyIsbnAsinFilter(
  * GraphQL query similar to applyIsbnAsinFilter.
  */
 async function applyPagesFilter(
-  items: HardcoverSearchItem[],
-  minPages: number,
+	items: HardcoverSearchItem[],
+	minPages: number,
 ): Promise<HardcoverSearchItem[]> {
-  const bookIds = items
-    .map((item) => Number(item.id))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  if (bookIds.length === 0) {
-    return items;
-  }
+	const bookIds = items
+		.map((item) => Number(item.id))
+		.filter((id) => Number.isFinite(id) && id > 0);
+	if (bookIds.length === 0) {
+		return items;
+	}
 
-  try {
-    const result = await hardcoverFetch<{ books?: unknown[] }>(
-      bookPagesFilterQuery,
-      { ids: bookIds, minPages },
-    );
+	try {
+		const result = await hardcoverFetch<{ books?: unknown[] }>(
+			bookPagesFilterQuery,
+			{ ids: bookIds, minPages },
+		);
 
-    const matchingIds = new Set<string>();
-    for (const book of toRecordArray(result?.books)) {
-      const bookId = firstId(book, [["id"]]);
-      if (bookId) {
-        matchingIds.add(bookId);
-      }
-    }
+		const matchingIds = new Set<string>();
+		for (const book of toRecordArray(result?.books)) {
+			const bookId = firstId(book, [["id"]]);
+			if (bookId) {
+				matchingIds.add(bookId);
+			}
+		}
 
-    return items.filter((item) => matchingIds.has(item.id));
-  } catch {
-    return items;
-  }
+		return items.filter((item) => matchingIds.has(item.id));
+	} catch {
+		return items;
+	}
 }
 
 /**
@@ -1356,75 +1356,75 @@ async function applyPagesFilter(
  * optionally by language.
  */
 function buildAuthorBookCountsQuery(
-  slugs: string[],
-  languages: string[],
-  skipCompilations: boolean,
-  skipMissingReleaseDate = false,
-  skipMissingIsbnAsin = false,
-  minimumPopularity = 0,
-  minimumPages = 0,
+	slugs: string[],
+	languages: string[],
+	skipCompilations: boolean,
+	skipMissingReleaseDate = false,
+	skipMissingIsbnAsin = false,
+	minimumPopularity = 0,
+	minimumPages = 0,
 ): string {
-  const hasLanguage = languages.length > 0;
-  const varParts: string[] = [];
-  if (hasLanguage) {
-    varParts.push(`$languageCodes: [String!]!`);
-  }
-  if (minimumPopularity > 0) {
-    varParts.push(`$minPopularity: Int!`);
-  }
-  if (minimumPages > 0) {
-    varParts.push(`$minPages: Int!`);
-  }
-  const varDefs = varParts.length > 0 ? `(${varParts.join(", ")})` : "";
-  const compilationFilter = skipCompilations
-    ? `\n      ${BOOK_COMPILATION_FILTER}`
-    : "";
-  const releaseDateFilter = skipMissingReleaseDate
-    ? `\n      release_date: { _is_null: false }`
-    : "";
-  const popularityFilter =
-    minimumPopularity > 0
-      ? `\n      users_count: { _gte: $minPopularity }`
-      : "";
+	const hasLanguage = languages.length > 0;
+	const varParts: string[] = [];
+	if (hasLanguage) {
+		varParts.push(`$languageCodes: [String!]!`);
+	}
+	if (minimumPopularity > 0) {
+		varParts.push(`$minPopularity: Int!`);
+	}
+	if (minimumPages > 0) {
+		varParts.push(`$minPages: Int!`);
+	}
+	const varDefs = varParts.length > 0 ? `(${varParts.join(", ")})` : "";
+	const compilationFilter = skipCompilations
+		? `\n      ${BOOK_COMPILATION_FILTER}`
+		: "";
+	const releaseDateFilter = skipMissingReleaseDate
+		? `\n      release_date: { _is_null: false }`
+		: "";
+	const popularityFilter =
+		minimumPopularity > 0
+			? `\n      users_count: { _gte: $minPopularity }`
+			: "";
 
-  // Build edition-level filters
-  const editionConditions: string[] = [];
-  if (hasLanguage) {
-    editionConditions.push(`language: { code2: { _in: $languageCodes } }`);
-  }
-  if (skipMissingIsbnAsin) {
-    editionConditions.push(
-      `_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
-    );
-  }
-  if (minimumPages > 0) {
-    editionConditions.push(
-      `_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
-    );
-  }
-  let editionFilter = "";
-  if (editionConditions.length === 1) {
-    editionFilter = `\n        editions: { ${editionConditions[0]} }`;
-  } else if (editionConditions.length > 1) {
-    const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
-    editionFilter = `\n        editions: { _and: [${merged}] }`;
-  }
+	// Build edition-level filters
+	const editionConditions: string[] = [];
+	if (hasLanguage) {
+		editionConditions.push(`language: { code2: { _in: $languageCodes } }`);
+	}
+	if (skipMissingIsbnAsin) {
+		editionConditions.push(
+			`_or: [{ isbn_10: { _is_null: false, _neq: "" } }, { isbn_13: { _is_null: false, _neq: "" } }, { asin: { _is_null: false, _neq: "" } }]`,
+		);
+	}
+	if (minimumPages > 0) {
+		editionConditions.push(
+			`_or: [{ pages: { _gte: $minPages } }, { reading_format: { format: { _eq: "Listened" } } }]`,
+		);
+	}
+	let editionFilter = "";
+	if (editionConditions.length === 1) {
+		editionFilter = `\n        editions: { ${editionConditions[0]} }`;
+	} else if (editionConditions.length > 1) {
+		const merged = editionConditions.map((c) => `{ ${c} }`).join(", ");
+		editionFilter = `\n        editions: { _and: [${merged}] }`;
+	}
 
-  const fragments = slugs
-    .map((slug, i) => {
-      // Escape any quotes in slug for safe embedding in GraphQL string literal
-      const safeSlug = slug
-        .replaceAll("\\", String.raw`\\`)
-        .replaceAll('"', String.raw`\"`);
-      return `  a${i}: books_aggregate(where: {
+	const fragments = slugs
+		.map((slug, i) => {
+			// Escape any quotes in slug for safe embedding in GraphQL string literal
+			const safeSlug = slug
+				.replaceAll("\\", String.raw`\\`)
+				.replaceAll('"', String.raw`\"`);
+			return `  a${i}: books_aggregate(where: {
       contributions: { author: { slug: { _eq: "${safeSlug}" } }, ${NON_AUTHOR_CONTRIBUTION_FILTER} }${compilationFilter}${releaseDateFilter}${popularityFilter}${editionFilter}
     }) {
       aggregate { count }
     }`;
-    })
-    .join("\n  ");
+		})
+		.join("\n  ");
 
-  return `query AuthorBookCounts${varDefs} {\n  ${fragments}\n}`;
+	return `query AuthorBookCounts${varDefs} {\n  ${fragments}\n}`;
 }
 
 /**
@@ -1433,73 +1433,73 @@ function buildAuthorBookCountsQuery(
  * non-editor contributions, language).
  */
 async function applyAuthorBookCounts(
-  items: HardcoverSearchItem[],
-  languages: string[],
-  skipCompilations: boolean,
-  skipMissingReleaseDate = false,
-  skipMissingIsbnAsin = false,
-  minimumPopularity = 0,
-  minimumPages = 0,
+	items: HardcoverSearchItem[],
+	languages: string[],
+	skipCompilations: boolean,
+	skipMissingReleaseDate = false,
+	skipMissingIsbnAsin = false,
+	minimumPopularity = 0,
+	minimumPages = 0,
 ): Promise<HardcoverSearchItem[]> {
-  const authorSlugs = items
-    .filter((item) => item.slug)
-    .map((item) => item.slug as string);
-  if (authorSlugs.length === 0) {
-    return items;
-  }
+	const authorSlugs = items
+		.filter((item) => item.slug)
+		.map((item) => item.slug as string);
+	if (authorSlugs.length === 0) {
+		return items;
+	}
 
-  try {
-    const query = buildAuthorBookCountsQuery(
-      authorSlugs,
-      languages,
-      skipCompilations,
-      skipMissingReleaseDate,
-      skipMissingIsbnAsin,
-      minimumPopularity,
-      minimumPages,
-    );
-    const variables: Record<string, unknown> = {};
-    if (languages.length > 0) {
-      variables.languageCodes = languages;
-    }
-    if (minimumPopularity > 0) {
-      variables.minPopularity = minimumPopularity;
-    }
-    if (minimumPages > 0) {
-      variables.minPages = minimumPages;
-    }
+	try {
+		const query = buildAuthorBookCountsQuery(
+			authorSlugs,
+			languages,
+			skipCompilations,
+			skipMissingReleaseDate,
+			skipMissingIsbnAsin,
+			minimumPopularity,
+			minimumPages,
+		);
+		const variables: Record<string, unknown> = {};
+		if (languages.length > 0) {
+			variables.languageCodes = languages;
+		}
+		if (minimumPopularity > 0) {
+			variables.minPopularity = minimumPopularity;
+		}
+		if (minimumPages > 0) {
+			variables.minPages = minimumPages;
+		}
 
-    const result = await hardcoverFetch<Record<string, unknown>>(
-      query,
-      variables,
-    );
+		const result = await hardcoverFetch<Record<string, unknown>>(
+			query,
+			variables,
+		);
 
-    // Build a slug → count map from the aliased results
-    const countBySlug = new Map<string, number>();
-    for (let i = 0; i < authorSlugs.length; i += 1) {
-      const count = parseAggregateCount(result?.[`a${i}`]);
-      countBySlug.set(authorSlugs[i], count);
-    }
+		// Build a slug → count map from the aliased results
+		const countBySlug = new Map<string, number>();
+		for (let i = 0; i < authorSlugs.length; i += 1) {
+			const count = parseAggregateCount(result?.[`a${i}`]);
+			countBySlug.set(authorSlugs[i], count);
+		}
 
-    const filtered = items.filter((item) => {
-      if (!item.slug || !countBySlug.has(item.slug)) {
-        return true;
-      }
-      return countBySlug.get(item.slug)! > 0;
-    });
+		const filtered = items.filter((item) => {
+			if (!item.slug || !countBySlug.has(item.slug)) {
+				return true;
+			}
+			return (countBySlug.get(item.slug) ?? 0) > 0;
+		});
 
-    for (const item of filtered) {
-      if (item.slug && countBySlug.has(item.slug)) {
-        const count = countBySlug.get(item.slug)!;
-        item.subtitle = `${count} ${count === 1 ? "book" : "books"}`;
-      }
-    }
+		for (const item of filtered) {
+			if (item.slug && countBySlug.has(item.slug)) {
+				const count = countBySlug.get(item.slug) ?? 0;
+				item.subtitle = `${count} ${count === 1 ? "book" : "books"}`;
+			}
+		}
 
-    return filtered;
-  } catch {
-    // If the count lookup fails, return items with original subtitles
-    return items;
-  }
+		return filtered;
+	} catch {
+		// If the count lookup fails, return items with original subtitles
+		return items;
+	}
 }
 
 /**
@@ -1508,9 +1508,9 @@ async function applyAuthorBookCounts(
  * same filtered author list as the book detail modal.
  */
 function buildBookContributorsQuery(bookIds: number[]): string {
-  const fragments = bookIds
-    .map(
-      (id, i) => `  b${i}: books(where: { id: { _eq: ${id} } }) {
+	const fragments = bookIds
+		.map(
+			(id, i) => `  b${i}: books(where: { id: { _eq: ${id} } }) {
       contributions(
         where: { ${AUTHOR_CONTRIBUTION_WHERE} }
         order_by: [{ id: asc }]
@@ -1518,10 +1518,10 @@ function buildBookContributorsQuery(bookIds: number[]): string {
         author { name }
       }
     }`,
-    )
-    .join("\n  ");
+		)
+		.join("\n  ");
 
-  return `query BookContributors {\n  ${fragments}\n}`;
+	return `query BookContributors {\n  ${fragments}\n}`;
 }
 
 /**
@@ -1530,450 +1530,448 @@ function buildBookContributorsQuery(bookIds: number[]): string {
  * editors, etc.).
  */
 async function applyBookContributors(
-  items: HardcoverSearchItem[],
+	items: HardcoverSearchItem[],
 ): Promise<HardcoverSearchItem[]> {
-  const bookEntries = items
-    .filter((item) => item.type === "book")
-    .map((item) => ({ item, id: Number(item.id) }))
-    .filter(({ id }) => Number.isFinite(id) && id > 0);
-  if (bookEntries.length === 0) {
-    return items;
-  }
+	const bookEntries = items
+		.filter((item) => item.type === "book")
+		.map((item) => ({ item, id: Number(item.id) }))
+		.filter(({ id }) => Number.isFinite(id) && id > 0);
+	if (bookEntries.length === 0) {
+		return items;
+	}
 
-  try {
-    const query = buildBookContributorsQuery(bookEntries.map((e) => e.id));
-    const result = await hardcoverFetch<Record<string, unknown>>(query, {});
+	try {
+		const query = buildBookContributorsQuery(bookEntries.map((e) => e.id));
+		const result = await hardcoverFetch<Record<string, unknown>>(query, {});
 
-    for (let i = 0; i < bookEntries.length; i += 1) {
-      const booksArray = toRecordArray(result?.[`b${i}`]);
-      if (booksArray.length === 0) {
-        continue;
-      }
-      const contributors = toRecordArray(booksArray[0].contributions)
-        .map((c) => {
-          const authorRecord = toRecord(c.author);
-          return authorRecord
-            ? firstString(authorRecord, [["name"]])
-            : undefined;
-        })
-        .filter(Boolean) as string[];
-      if (contributors.length > 0) {
-        bookEntries[i].item.subtitle = contributors.join(", ");
-      }
-    }
+		for (let i = 0; i < bookEntries.length; i += 1) {
+			const booksArray = toRecordArray(result?.[`b${i}`]);
+			if (booksArray.length === 0) {
+				continue;
+			}
+			const contributors = toRecordArray(booksArray[0].contributions)
+				.map((c) => {
+					const authorRecord = toRecord(c.author);
+					return authorRecord
+						? firstString(authorRecord, [["name"]])
+						: undefined;
+				})
+				.filter(Boolean) as string[];
+			if (contributors.length > 0) {
+				bookEntries[i].item.subtitle = contributors.join(", ");
+			}
+		}
 
-    return items;
-  } catch {
-    return items;
-  }
+		return items;
+	} catch {
+		return items;
+	}
 }
 
-// oxlint-disable-next-line complexity -- Complex data-fetching function with many filter steps
 async function fetchSearchResults(
-  query: string,
-  queryType: HardcoverQueryType,
-  limit: number,
+	query: string,
+	queryType: HardcoverQueryType,
+	limit: number,
 ): Promise<HardcoverSearchItem[]> {
-  const profile = getMetadataProfile();
-  const allowedLanguages = getProfileLanguages();
-  const filterByLanguage = allowedLanguages.length > 0;
-  // Request extra results when filtering by language to compensate for
-  // books that will be removed, so we can still fill up to `limit`.
-  const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
+	const profile = getMetadataProfile();
+	const allowedLanguages = getProfileLanguages();
+	const filterByLanguage = allowedLanguages.length > 0;
+	// Request extra results when filtering by language to compensate for
+	// books that will be removed, so we can still fill up to `limit`.
+	const requestLimit = filterByLanguage ? Math.min(limit * 3, 50) : limit;
 
-  const result = await hardcoverFetch<{
-    search?: { error?: string; results?: unknown };
-  }>(searchQuery, {
-    query,
-    queryType,
-    perPage: requestLimit,
-    page: 1,
-  });
+	const result = await hardcoverFetch<{
+		search?: { error?: string; results?: unknown };
+	}>(searchQuery, {
+		query,
+		queryType,
+		perPage: requestLimit,
+		page: 1,
+	});
 
-  const apiError = result?.search?.error;
-  if (apiError) {
-    throw new Error(apiError);
-  }
+	const apiError = result?.search?.error;
+	if (apiError) {
+		throw new Error(apiError);
+	}
 
-  const hits = parseSearchPayload(result?.search?.results);
-  const documents = hits
-    .map((hit) => toRecord(hit.document))
-    .filter(Boolean) as Array<Record<string, unknown>>;
+	const hits = parseSearchPayload(result?.search?.results);
+	const documents = hits
+		.map((hit) => toRecord(hit.document))
+		.filter(Boolean) as Array<Record<string, unknown>>;
 
-  let mapped = documents
-    .map((document) =>
-      queryType === "Book"
-        ? toBookResult(document, profile)
-        : toAuthorResult(document),
-    )
-    .filter(Boolean) as HardcoverSearchItem[];
+	let mapped = documents
+		.map((document) =>
+			queryType === "Book"
+				? toBookResult(document, profile)
+				: toAuthorResult(document),
+		)
+		.filter(Boolean) as HardcoverSearchItem[];
 
-  // Filter out books without a release year when the profile says to
-  if (profile.skipMissingReleaseDate && queryType === "Book") {
-    mapped = mapped.filter((item) => item.releaseYear !== null);
-  }
+	// Filter out books without a release year when the profile says to
+	if (profile.skipMissingReleaseDate && queryType === "Book") {
+		mapped = mapped.filter((item) => item.releaseYear !== null);
+	}
 
-  if (profile.skipMissingIsbnAsin && queryType === "Book") {
-    mapped = await applyIsbnAsinFilter(mapped);
-  }
+	if (profile.skipMissingIsbnAsin && queryType === "Book") {
+		mapped = await applyIsbnAsinFilter(mapped);
+	}
 
-  if (filterByLanguage && queryType === "Book") {
-    mapped = await applyLanguageFilter(mapped, allowedLanguages);
-  }
+	if (filterByLanguage && queryType === "Book") {
+		mapped = await applyLanguageFilter(mapped, allowedLanguages);
+	}
 
-  if (profile.minimumPopularity > 0 && queryType === "Book") {
-    mapped = mapped.filter(
-      (item) => (item.readers ?? 0) >= profile.minimumPopularity,
-    );
-  }
+	if (profile.minimumPopularity > 0 && queryType === "Book") {
+		mapped = mapped.filter(
+			(item) => (item.readers ?? 0) >= profile.minimumPopularity,
+		);
+	}
 
-  if (profile.minimumPages > 0 && queryType === "Book") {
-    mapped = await applyPagesFilter(mapped, profile.minimumPages);
-  }
+	if (profile.minimumPages > 0 && queryType === "Book") {
+		mapped = await applyPagesFilter(mapped, profile.minimumPages);
+	}
 
-  if (queryType === "Book") {
-    mapped = await applyBookContributors(mapped);
-  }
+	if (queryType === "Book") {
+		mapped = await applyBookContributors(mapped);
+	}
 
-  if (queryType === "Author") {
-    mapped = await applyAuthorBookCounts(
-      mapped,
-      allowedLanguages,
-      profile.skipCompilations,
-      profile.skipMissingReleaseDate,
-      profile.skipMissingIsbnAsin,
-      profile.minimumPopularity,
-      profile.minimumPages,
-    );
-  }
+	if (queryType === "Author") {
+		mapped = await applyAuthorBookCounts(
+			mapped,
+			allowedLanguages,
+			profile.skipCompilations,
+			profile.skipMissingReleaseDate,
+			profile.skipMissingIsbnAsin,
+			profile.minimumPopularity,
+			profile.minimumPages,
+		);
+	}
 
-  return mapped.slice(0, limit);
+	return mapped.slice(0, limit);
 }
 
 function buildOrderBy(
-  sortBy: "title" | "year" | "rating" | "readers",
-  sortDir: "asc" | "desc",
+	sortBy: "title" | "year" | "rating" | "readers",
+	sortDir: "asc" | "desc",
 ): Array<Record<string, unknown>> {
-  const dir = sortDir;
-  const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
-  if (sortBy === "title") {
-    return [{ title: dir }, { id: "asc" }];
-  }
-  if (sortBy === "rating") {
-    return [{ rating: dirNullsLast }, { id: "asc" }];
-  }
-  if (sortBy === "readers") {
-    return [{ users_count: dirNullsLast }, { id: "asc" }];
-  }
-  // year (default)
-  return [{ release_year: dirNullsLast }, { id: dir }];
+	const dir = sortDir;
+	const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
+	if (sortBy === "title") {
+		return [{ title: dir }, { id: "asc" }];
+	}
+	if (sortBy === "rating") {
+		return [{ rating: dirNullsLast }, { id: "asc" }];
+	}
+	if (sortBy === "readers") {
+		return [{ users_count: dirNullsLast }, { id: "asc" }];
+	}
+	// year (default)
+	return [{ release_year: dirNullsLast }, { id: dir }];
 }
 
 async function fetchAuthorBooksPage(
-  slug: string,
-  page: number,
-  pageSize: number,
-  selectedLanguage: string,
-  sortBy: "title" | "year" | "rating" | "readers",
-  sortDir: "asc" | "desc",
+	slug: string,
+	page: number,
+	pageSize: number,
+	selectedLanguage: string,
+	sortBy: "title" | "year" | "rating" | "readers",
+	sortDir: "asc" | "desc",
 ): Promise<{ books: HardcoverAuthorBook[]; totalBooks: number }> {
-  const offset = (page - 1) * pageSize;
-  const profile = getMetadataProfile();
-  const langCodes =
-    selectedLanguage === "all" ? getProfileLanguages() : [selectedLanguage];
+	const offset = (page - 1) * pageSize;
+	const profile = getMetadataProfile();
+	const langCodes =
+		selectedLanguage === "all" ? getProfileLanguages() : [selectedLanguage];
 
-  const result = await hardcoverFetch<{
-    books?: unknown;
-    books_aggregate?: unknown;
-  }>(
-    buildAuthorBooksPageQuery(
-      profile.skipCompilations,
-      profile.skipMissingReleaseDate,
-      profile.skipMissingIsbnAsin,
-      profile.minimumPopularity,
-      profile.minimumPages,
-    ),
-    {
-      slug,
-      limit: pageSize,
-      offset,
-      orderBy: buildOrderBy(sortBy, sortDir),
-      langCodes,
-      ...(profile.minimumPopularity > 0
-        ? { minPopularity: profile.minimumPopularity }
-        : {}),
-      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
-    },
-  );
+	const result = await hardcoverFetch<{
+		books?: unknown;
+		books_aggregate?: unknown;
+	}>(
+		buildAuthorBooksPageQuery(
+			profile.skipCompilations,
+			profile.skipMissingReleaseDate,
+			profile.skipMissingIsbnAsin,
+			profile.minimumPopularity,
+			profile.minimumPages,
+		),
+		{
+			slug,
+			limit: pageSize,
+			offset,
+			orderBy: buildOrderBy(sortBy, sortDir),
+			langCodes,
+			...(profile.minimumPopularity > 0
+				? { minPopularity: profile.minimumPopularity }
+				: {}),
+			...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+		},
+	);
 
-  const books = toRecordArray(result?.books)
-    .map((bookRecord) => toHardcoverAuthorBook(bookRecord))
-    .filter(Boolean) as HardcoverAuthorBook[];
-  const totalBooks = parseAggregateCount(result?.books_aggregate);
-  return { books, totalBooks };
+	const books = toRecordArray(result?.books)
+		.map((bookRecord) => toHardcoverAuthorBook(bookRecord))
+		.filter(Boolean) as HardcoverAuthorBook[];
+	const totalBooks = parseAggregateCount(result?.books_aggregate);
+	return { books, totalBooks };
 }
 
-// oxlint-disable-next-line complexity -- Complex data-fetching function with many validation steps
 async function fetchAuthorDetails(
-  authorId: number,
-  page: number,
-  pageSize: number,
-  language: string,
-  sortBy: "title" | "year" | "rating" | "readers",
-  sortDir: "asc" | "desc",
+	authorId: number,
+	page: number,
+	pageSize: number,
+	language: string,
+	sortBy: "title" | "year" | "rating" | "readers",
+	sortDir: "asc" | "desc",
 ): Promise<HardcoverAuthorDetail> {
-  const metaResult = await hardcoverFetch<{
-    authors?: unknown;
-    editions?: unknown;
-  }>(authorDetailsMetaQuery, { authorId });
+	const metaResult = await hardcoverFetch<{
+		authors?: unknown;
+		editions?: unknown;
+	}>(authorDetailsMetaQuery, { authorId });
 
-  const authors = toRecordArray(metaResult?.authors);
-  const author = authors.length > 0 ? authors[0] : undefined;
-  if (!author) {
-    throw new Error("Author not found on Hardcover.");
-  }
+	const authors = toRecordArray(metaResult?.authors);
+	const author = authors.length > 0 ? authors[0] : undefined;
+	if (!author) {
+		throw new Error("Author not found on Hardcover.");
+	}
 
-  const languagesMap = new Map<string, string>();
-  for (const edition of toRecordArray(metaResult?.editions)) {
-    const languageRecord = toRecord(edition.language);
-    if (!languageRecord) {
-      continue;
-    }
-    const code = normalizeLanguageCode(
-      firstString(languageRecord, [["code2"], ["code3"]]),
-    );
-    const name = firstString(languageRecord, [["language"]]);
-    if (!code || !name) {
-      continue;
-    }
-    if (!languagesMap.has(code)) {
-      languagesMap.set(code, name);
-    }
-  }
-  if (!languagesMap.has("en")) {
-    languagesMap.set("en", "English");
-  }
+	const languagesMap = new Map<string, string>();
+	for (const edition of toRecordArray(metaResult?.editions)) {
+		const languageRecord = toRecord(edition.language);
+		if (!languageRecord) {
+			continue;
+		}
+		const code = normalizeLanguageCode(
+			firstString(languageRecord, [["code2"], ["code3"]]),
+		);
+		const name = firstString(languageRecord, [["language"]]);
+		if (!code || !name) {
+			continue;
+		}
+		if (!languagesMap.has(code)) {
+			languagesMap.set(code, name);
+		}
+	}
+	if (!languagesMap.has("en")) {
+		languagesMap.set("en", "English");
+	}
 
-  const selectedLanguageRaw = normalizeLanguageCode(language) || "en";
-  const selectedLanguage =
-    selectedLanguageRaw === "all" || languagesMap.has(selectedLanguageRaw)
-      ? selectedLanguageRaw
-      : "en";
+	const selectedLanguageRaw = normalizeLanguageCode(language) || "en";
+	const selectedLanguage =
+		selectedLanguageRaw === "all" || languagesMap.has(selectedLanguageRaw)
+			? selectedLanguageRaw
+			: "en";
 
-  const authorSlug = firstString(author, [["slug"]]) || String(authorId);
+	const authorSlug = firstString(author, [["slug"]]) || String(authorId);
 
-  const booksPage = await fetchAuthorBooksPage(
-    authorSlug,
-    page,
-    pageSize,
-    selectedLanguage,
-    sortBy,
-    sortDir,
-  );
-  const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
-  const safePage = Math.min(page, totalPages);
-  let pagedBooks: HardcoverAuthorBook[];
-  if (safePage === page) {
-    pagedBooks = booksPage.books;
-  } else {
-    const safePageResult = await fetchAuthorBooksPage(
-      authorSlug,
-      safePage,
-      pageSize,
-      selectedLanguage,
-      sortBy,
-      sortDir,
-    );
-    pagedBooks = safePageResult.books;
-  }
-  const authorName = firstString(author, [["name"], ["title"]]);
-  if (!authorName) {
-    throw new Error("Author name is missing in Hardcover response.");
-  }
+	const booksPage = await fetchAuthorBooksPage(
+		authorSlug,
+		page,
+		pageSize,
+		selectedLanguage,
+		sortBy,
+		sortDir,
+	);
+	const totalPages = Math.max(1, Math.ceil(booksPage.totalBooks / pageSize));
+	const safePage = Math.min(page, totalPages);
+	let pagedBooks: HardcoverAuthorBook[];
+	if (safePage === page) {
+		pagedBooks = booksPage.books;
+	} else {
+		const safePageResult = await fetchAuthorBooksPage(
+			authorSlug,
+			safePage,
+			pageSize,
+			selectedLanguage,
+			sortBy,
+			sortDir,
+		);
+		pagedBooks = safePageResult.books;
+	}
+	const authorName = firstString(author, [["name"], ["title"]]);
+	if (!authorName) {
+		throw new Error("Author name is missing in Hardcover response.");
+	}
 
-  const languageOptions: HardcoverLanguageOption[] = [
-    { code: "all", name: "All Languages" },
-    ...[...languagesMap.entries()]
-      .map(([code, name]) => ({ code, name }))
-      .toSorted((a, b) => a.name.localeCompare(b.name)),
-  ];
+	const languageOptions: HardcoverLanguageOption[] = [
+		{ code: "all", name: "All Languages" },
+		...[...languagesMap.entries()]
+			.map(([code, name]) => ({ code, name }))
+			.toSorted((a, b) => a.name.localeCompare(b.name)),
+	];
 
-  return {
-    id:
-      firstId(author, [["id"], ["author_id"], ["foreign_author_id"]]) ||
-      authorSlug,
-    slug: authorSlug,
-    name: authorName,
-    bio: firstString(author, [["bio"], ["overview"]]) ?? null,
-    booksCount: booksPage.totalBooks,
-    bornYear: firstNumber(author, [["born_year"]]) ?? null,
-    deathYear: firstNumber(author, [["death_year"]]) ?? null,
-    imageUrl: getCoverUrl(author) ?? null,
-    hardcoverUrl: authorSlug
-      ? `https://hardcover.app/authors/${authorSlug}`
-      : null,
-    selectedLanguage,
-    page: safePage,
-    pageSize,
-    totalBooks: booksPage.totalBooks,
-    totalPages,
-    languages: languageOptions,
-    books: pagedBooks,
-    sortBy,
-    sortDir,
-  };
+	return {
+		id:
+			firstId(author, [["id"], ["author_id"], ["foreign_author_id"]]) ||
+			authorSlug,
+		slug: authorSlug,
+		name: authorName,
+		bio: firstString(author, [["bio"], ["overview"]]) ?? null,
+		booksCount: booksPage.totalBooks,
+		bornYear: firstNumber(author, [["born_year"]]) ?? null,
+		deathYear: firstNumber(author, [["death_year"]]) ?? null,
+		imageUrl: getCoverUrl(author) ?? null,
+		hardcoverUrl: authorSlug
+			? `https://hardcover.app/authors/${authorSlug}`
+			: null,
+		selectedLanguage,
+		page: safePage,
+		pageSize,
+		totalBooks: booksPage.totalBooks,
+		totalPages,
+		languages: languageOptions,
+		books: pagedBooks,
+		sortBy,
+		sortDir,
+	};
 }
 
 export const searchHardcoverFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => searchInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const { query, type, limit } = data;
+	.inputValidator((data: unknown) => searchInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		const { query, type, limit } = data;
 
-    if (type === "books") {
-      const results = sortByReaders(
-        await fetchSearchResults(query, "Book", limit),
-      );
-      return { query, type, results, total: results.length };
-    }
+		if (type === "books") {
+			const results = sortByReaders(
+				await fetchSearchResults(query, "Book", limit),
+			);
+			return { query, type, results, total: results.length };
+		}
 
-    if (type === "authors") {
-      const results = sortByReaders(
-        await fetchSearchResults(query, "Author", limit),
-      );
-      return { query, type, results, total: results.length };
-    }
+		if (type === "authors") {
+			const results = sortByReaders(
+				await fetchSearchResults(query, "Author", limit),
+			);
+			return { query, type, results, total: results.length };
+		}
 
-    const [bookResults, authorResults] = await Promise.all([
-      fetchSearchResults(query, "Book", limit),
-      fetchSearchResults(query, "Author", limit),
-    ]);
-    const results = interleave(
-      sortByReaders(bookResults),
-      sortByReaders(authorResults),
-      limit,
-    );
+		const [bookResults, authorResults] = await Promise.all([
+			fetchSearchResults(query, "Book", limit),
+			fetchSearchResults(query, "Author", limit),
+		]);
+		const results = interleave(
+			sortByReaders(bookResults),
+			sortByReaders(authorResults),
+			limit,
+		);
 
-    return { query, type, results, total: results.length };
-  });
+		return { query, type, results, total: results.length };
+	});
 
 export const getHardcoverAuthorFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => authorDetailsInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchAuthorDetails(
-      data.foreignAuthorId,
-      data.page,
-      data.pageSize,
-      data.language,
-      data.sortBy,
-      data.sortDir,
-    );
-  });
+	.inputValidator((data: unknown) => authorDetailsInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchAuthorDetails(
+			data.foreignAuthorId,
+			data.page,
+			data.pageSize,
+			data.language,
+			data.sortBy,
+			data.sortDir,
+		);
+	});
 
 export const getHardcoverSeriesBooksFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => seriesBooksInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchSeriesBooks(data.seriesId, data.language);
-  });
+	.inputValidator((data: unknown) => seriesBooksInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchSeriesBooks(data.seriesId, data.language);
+	});
 
 const authorSeriesInputSchema = z.object({
-  slug: z.string().min(1),
-  language: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^(all|[a-z]{2,3})$/)
-    .default("all"),
+	slug: z.string().min(1),
+	language: z
+		.string()
+		.trim()
+		.toLowerCase()
+		.regex(/^(all|[a-z]{2,3})$/)
+		.default("all"),
 });
 
 async function fetchAuthorSeries(
-  slug: string,
-  language: string,
+	slug: string,
+	language: string,
 ): Promise<HardcoverAuthorSeries[]> {
-  const profile = getMetadataProfile();
-  const hasLanguageFilter = language !== "all";
-  const langCodes = hasLanguageFilter ? [language] : getProfileLanguages();
+	const profile = getMetadataProfile();
+	const hasLanguageFilter = language !== "all";
+	const langCodes = hasLanguageFilter ? [language] : getProfileLanguages();
 
-  const result = await hardcoverFetch<{ series?: unknown }>(
-    buildAuthorSeriesQuery(
-      hasLanguageFilter,
-      profile.skipMissingReleaseDate,
-      profile.skipMissingIsbnAsin,
-      profile.minimumPopularity,
-      profile.minimumPages,
-    ),
-    {
-      slug,
-      ...(hasLanguageFilter ? { langCodes } : {}),
-      ...(profile.minimumPopularity > 0
-        ? { minPopularity: profile.minimumPopularity }
-        : {}),
-      ...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
-    },
-  );
+	const result = await hardcoverFetch<{ series?: unknown }>(
+		buildAuthorSeriesQuery(
+			hasLanguageFilter,
+			profile.skipMissingReleaseDate,
+			profile.skipMissingIsbnAsin,
+			profile.minimumPopularity,
+			profile.minimumPages,
+		),
+		{
+			slug,
+			...(hasLanguageFilter ? { langCodes } : {}),
+			...(profile.minimumPopularity > 0
+				? { minPopularity: profile.minimumPopularity }
+				: {}),
+			...(profile.minimumPages > 0 ? { minPages: profile.minimumPages } : {}),
+		},
+	);
 
-  return toRecordArray(result?.series)
-    .map((s) => {
-      // Count distinct non-null positions — mirrors the deduplicateSeriesBooks
-      // logic so this number matches exactly what the expanded view will show.
-      const positionRows = toRecordArray(s.positions);
-      const distinctPositions = new Set(
-        positionRows
-          .map((p) => firstNumber(p, [["position"]]))
-          .filter((p): p is number => p !== undefined),
-      );
-      const booksCount = distinctPositions.size;
+	return toRecordArray(result?.series)
+		.map((s) => {
+			// Count distinct non-null positions — mirrors the deduplicateSeriesBooks
+			// logic so this number matches exactly what the expanded view will show.
+			const positionRows = toRecordArray(s.positions);
+			const distinctPositions = new Set(
+				positionRows
+					.map((p) => firstNumber(p, [["position"]]))
+					.filter((p): p is number => p !== undefined),
+			);
+			const booksCount = distinctPositions.size;
 
-      // Check if the author's association is only through anthologies.
-      // If every book the author contributed to in this series has many
-      // primary authors (> 4), it's likely an anthology — not a real
-      // series association for this author.
-      const authorBookEntries = toRecordArray(s.author_books);
-      const hasNonAnthology = authorBookEntries.some((entry) => {
-        const bookRecord = toRecord(entry.book);
-        if (!bookRecord) {
-          return false;
-        }
-        const aggRecord = toRecord(bookRecord.primary_authors);
-        const aggregate = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
-        const count = aggregate
-          ? firstNumber(aggregate, [["count"]])
-          : undefined;
-        return count !== undefined && count <= 4;
-      });
-      // If author_books is empty or all entries are anthologies, skip
-      if (authorBookEntries.length > 0 && !hasNonAnthology) {
-        return undefined;
-      }
+			// Check if the author's association is only through anthologies.
+			// If every book the author contributed to in this series has many
+			// primary authors (> 4), it's likely an anthology — not a real
+			// series association for this author.
+			const authorBookEntries = toRecordArray(s.author_books);
+			const hasNonAnthology = authorBookEntries.some((entry) => {
+				const bookRecord = toRecord(entry.book);
+				if (!bookRecord) {
+					return false;
+				}
+				const aggRecord = toRecord(bookRecord.primary_authors);
+				const aggregate = aggRecord ? toRecord(aggRecord.aggregate) : undefined;
+				const count = aggregate
+					? firstNumber(aggregate, [["count"]])
+					: undefined;
+				return count !== undefined && count <= 4;
+			});
+			// If author_books is empty or all entries are anthologies, skip
+			if (authorBookEntries.length > 0 && !hasNonAnthology) {
+				return undefined;
+			}
 
-      return {
-        id: String(firstId(s, [["id"]]) ?? ""),
-        name: firstString(s, [["name"]]) ?? "",
-        slug: firstString(s, [["slug"]]) ?? "",
-        booksCount,
-        isCompleted:
-          typeof s.is_completed === "boolean" ? s.is_completed : null,
-        hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
-      };
-    })
-    .filter(
-      (s): s is NonNullable<typeof s> =>
-        s !== undefined &&
-        s !== null &&
-        s.id !== "" &&
-        s.name !== "" &&
-        s.booksCount > 0,
-    );
+			return {
+				id: String(firstId(s, [["id"]]) ?? ""),
+				name: firstString(s, [["name"]]) ?? "",
+				slug: firstString(s, [["slug"]]) ?? "",
+				booksCount,
+				isCompleted:
+					typeof s.is_completed === "boolean" ? s.is_completed : null,
+				hardcoverUrl: `https://hardcover.app/series/${firstString(s, [["slug"]]) ?? ""}`,
+			};
+		})
+		.filter(
+			(s): s is NonNullable<typeof s> =>
+				s !== undefined &&
+				s !== null &&
+				s.id !== "" &&
+				s.name !== "" &&
+				s.booksCount > 0,
+		);
 }
 
 export const getHardcoverAuthorSeriesFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => authorSeriesInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchAuthorSeries(data.slug, data.language);
-  });
+	.inputValidator((data: unknown) => authorSeriesInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchAuthorSeries(data.slug, data.language);
+	});
 
 // ---------------------------------------------------------------------------
 // Book editions (paginated, sorted)
@@ -2010,166 +2008,166 @@ query HardcoverBookEditions($bookId: Int!, $limit: Int!, $offset: Int!, $orderBy
 `;
 
 function buildEditionsOrderBy(
-  sortBy: EditionSortKey,
-  sortDir: "asc" | "desc",
+	sortBy: EditionSortKey,
+	sortDir: "asc" | "desc",
 ): Array<Record<string, unknown>> {
-  const dir = sortDir;
-  const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
-  const map: Record<EditionSortKey, Array<Record<string, unknown>>> = {
-    title: [{ title: dirNullsLast }, { id: "asc" }],
-    publisher: [{ publisher: { name: dirNullsLast } }, { id: "asc" }],
-    type: [{ reading_format: { format: dirNullsLast } }, { id: "asc" }],
-    pages: [{ pages: dirNullsLast }, { id: "asc" }],
-    releaseDate: [{ release_date: dirNullsLast }, { id: "asc" }],
-    isbn10: [{ isbn_10: dirNullsLast }, { id: "asc" }],
-    isbn13: [{ isbn_13: dirNullsLast }, { id: "asc" }],
-    asin: [{ asin: dirNullsLast }, { id: "asc" }],
-    language: [{ language: { language: dirNullsLast } }, { id: "asc" }],
-    country: [{ country: { name: dirNullsLast } }, { id: "asc" }],
-    readers: [{ users_count: dir }, { id: "asc" }],
-    score: [{ score: dir }, { id: "asc" }],
-  };
-  return map[sortBy];
+	const dir = sortDir;
+	const dirNullsLast = sortDir === "asc" ? "asc_nulls_last" : "desc_nulls_last";
+	const map: Record<EditionSortKey, Array<Record<string, unknown>>> = {
+		title: [{ title: dirNullsLast }, { id: "asc" }],
+		publisher: [{ publisher: { name: dirNullsLast } }, { id: "asc" }],
+		type: [{ reading_format: { format: dirNullsLast } }, { id: "asc" }],
+		pages: [{ pages: dirNullsLast }, { id: "asc" }],
+		releaseDate: [{ release_date: dirNullsLast }, { id: "asc" }],
+		isbn10: [{ isbn_10: dirNullsLast }, { id: "asc" }],
+		isbn13: [{ isbn_13: dirNullsLast }, { id: "asc" }],
+		asin: [{ asin: dirNullsLast }, { id: "asc" }],
+		language: [{ language: { language: dirNullsLast } }, { id: "asc" }],
+		country: [{ country: { name: dirNullsLast } }, { id: "asc" }],
+		readers: [{ users_count: dir }, { id: "asc" }],
+		score: [{ score: dir }, { id: "asc" }],
+	};
+	return map[sortBy];
+}
+
+/** Parse a single Hardcover edition record into a HardcoverEdition. */
+function parseEditionRecord(
+	record: Record<string, unknown>,
+): HardcoverEdition | undefined {
+	const id = firstId(record, [["id"]]);
+	if (!id) {
+		return undefined;
+	}
+	const title = firstString(record, [["title"]]) ?? "";
+
+	const contributors = Array.isArray(record.cached_contributors)
+		? record.cached_contributors
+		: [];
+	const authorNames = contributors
+		.map((c: unknown) => {
+			const contributorRecord = toRecord(c);
+			const authorRecord = contributorRecord
+				? toRecord(contributorRecord.author)
+				: undefined;
+			return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
+		})
+		.filter((n: unknown): n is string => typeof n === "string" && n.length > 0);
+	const author = authorNames.length > 0 ? authorNames.join(", ") : null;
+
+	const publisherRecord = toRecord(record.publisher);
+	const publisher = publisherRecord
+		? (firstString(publisherRecord, [["name"]]) ?? null)
+		: null;
+
+	const readingFormatRecord = toRecord(record.reading_format);
+	const type = readingFormatRecord
+		? (firstString(readingFormatRecord, [["format"]]) ?? null)
+		: null;
+
+	const languageRecord = toRecord(record.language);
+	const language = languageRecord
+		? (firstString(languageRecord, [["language"]]) ?? null)
+		: null;
+
+	const countryRecord = toRecord(record.country);
+	const country = countryRecord
+		? (firstString(countryRecord, [["name"]]) ?? null)
+		: null;
+
+	return {
+		id,
+		title,
+		author,
+		publisher,
+		type,
+		pages: firstNumber(record, [["pages"]]) ?? null,
+		releaseDate: firstString(record, [["release_date"]]) ?? null,
+		isbn10: firstString(record, [["isbn_10"]]) ?? null,
+		isbn13: firstString(record, [["isbn_13"]]) ?? null,
+		asin: firstString(record, [["asin"]]) ?? null,
+		language,
+		country,
+		readers: firstNumber(record, [["users_count"]]) ?? 0,
+		score: firstNumber(record, [["score"]]) ?? 0,
+		coverUrl: getCoverUrl(record) ?? null,
+	};
 }
 
 async function fetchBookEditions(
-  foreignBookId: number,
-  page: number,
-  pageSize: number,
-  sortBy: EditionSortKey,
-  sortDir: "asc" | "desc",
+	foreignBookId: number,
+	page: number,
+	pageSize: number,
+	sortBy: EditionSortKey,
+	sortDir: "asc" | "desc",
 ): Promise<HardcoverBookEditionsResult> {
-  const offset = (page - 1) * pageSize;
+	const offset = (page - 1) * pageSize;
 
-  const result = await hardcoverFetch<{
-    books?: unknown;
-    editions?: unknown;
-  }>(bookEditionsQuery, {
-    bookId: foreignBookId,
-    limit: pageSize,
-    offset,
-    orderBy: buildEditionsOrderBy(sortBy, sortDir),
-  });
+	const result = await hardcoverFetch<{
+		books?: unknown;
+		editions?: unknown;
+	}>(bookEditionsQuery, {
+		bookId: foreignBookId,
+		limit: pageSize,
+		offset,
+		orderBy: buildEditionsOrderBy(sortBy, sortDir),
+	});
 
-  const booksArray = toRecordArray(result?.books);
-  const total =
-    booksArray.length > 0
-      ? (firstNumber(booksArray[0], [["editions_count"]]) ?? 0)
-      : 0;
-  const editions: HardcoverEdition[] = toRecordArray(result?.editions)
-    .map((record) => {
-      const id = firstId(record, [["id"]]);
-      if (!id) {
-        return undefined;
-      }
-      const title = firstString(record, [["title"]]) ?? "";
+	const booksArray = toRecordArray(result?.books);
+	const total =
+		booksArray.length > 0
+			? (firstNumber(booksArray[0], [["editions_count"]]) ?? 0)
+			: 0;
+	const editions: HardcoverEdition[] = toRecordArray(result?.editions)
+		.map(parseEditionRecord)
+		.filter(Boolean) as HardcoverEdition[];
 
-      // Author from cached_contributors
-      const contributors = Array.isArray(record.cached_contributors)
-        ? record.cached_contributors
-        : [];
-      const authorNames = contributors
-        .map((c: unknown) => {
-          const contributorRecord = toRecord(c);
-          const authorRecord = contributorRecord
-            ? toRecord(contributorRecord.author)
-            : undefined;
-          return authorRecord
-            ? firstString(authorRecord, [["name"]])
-            : undefined;
-        })
-        .filter(
-          (n: unknown): n is string => typeof n === "string" && n.length > 0,
-        );
-      const author = authorNames.length > 0 ? authorNames.join(", ") : null;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-      const publisherRecord = toRecord(record.publisher);
-      const publisher = publisherRecord
-        ? (firstString(publisherRecord, [["name"]]) ?? null)
-        : null;
-
-      const readingFormatRecord = toRecord(record.reading_format);
-      const type = readingFormatRecord
-        ? (firstString(readingFormatRecord, [["format"]]) ?? null)
-        : null;
-
-      const languageRecord = toRecord(record.language);
-      const language = languageRecord
-        ? (firstString(languageRecord, [["language"]]) ?? null)
-        : null;
-
-      const countryRecord = toRecord(record.country);
-      const country = countryRecord
-        ? (firstString(countryRecord, [["name"]]) ?? null)
-        : null;
-
-      return {
-        id,
-        title,
-        author,
-        publisher,
-        type,
-        pages: firstNumber(record, [["pages"]]) ?? null,
-        releaseDate: firstString(record, [["release_date"]]) ?? null,
-        isbn10: firstString(record, [["isbn_10"]]) ?? null,
-        isbn13: firstString(record, [["isbn_13"]]) ?? null,
-        asin: firstString(record, [["asin"]]) ?? null,
-        language,
-        country,
-        readers: firstNumber(record, [["users_count"]]) ?? 0,
-        score: firstNumber(record, [["score"]]) ?? 0,
-        coverUrl: getCoverUrl(record) ?? null,
-      };
-    })
-    .filter(Boolean) as HardcoverEdition[];
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  return { editions, total, page, pageSize, totalPages };
+	return { editions, total, page, pageSize, totalPages };
 }
 
 const bookEditionsInputSchema = z.object({
-  foreignBookId: z.number().int().min(1),
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(25),
-  sortBy: z
-    .enum([
-      "title",
-      "publisher",
-      "type",
-      "pages",
-      "releaseDate",
-      "isbn10",
-      "isbn13",
-      "asin",
-      "language",
-      "country",
-      "readers",
-      "score",
-    ])
-    .default("readers"),
-  sortDir: z.enum(["asc", "desc"]).default("desc"),
+	foreignBookId: z.number().int().min(1),
+	page: z.number().int().min(1).default(1),
+	pageSize: z.number().int().min(1).max(100).default(25),
+	sortBy: z
+		.enum([
+			"title",
+			"publisher",
+			"type",
+			"pages",
+			"releaseDate",
+			"isbn10",
+			"isbn13",
+			"asin",
+			"language",
+			"country",
+			"readers",
+			"score",
+		])
+		.default("readers"),
+	sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
 
 export const getHardcoverBookEditionsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => bookEditionsInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchBookEditions(
-      data.foreignBookId,
-      data.page,
-      data.pageSize,
-      data.sortBy,
-      data.sortDir,
-    );
-  });
+	.inputValidator((data: unknown) => bookEditionsInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchBookEditions(
+			data.foreignBookId,
+			data.page,
+			data.pageSize,
+			data.sortBy,
+			data.sortDir,
+		);
+	});
 
 // ── Book edition languages ──────────────────────────────────────────────────
 
 export type BookLanguage = {
-  name: string;
-  code: string;
-  readers: number;
+	name: string;
+	code: string;
+	readers: number;
 };
 
 const bookEditionLanguagesQuery = `
@@ -2182,72 +2180,72 @@ query HardcoverBookEditionLanguages($bookId: Int!) {
 `;
 
 async function fetchBookEditionLanguages(
-  foreignBookId: number,
+	foreignBookId: number,
 ): Promise<BookLanguage[]> {
-  try {
-    const result = await hardcoverFetch<{ editions?: unknown }>(
-      bookEditionLanguagesQuery,
-      { bookId: foreignBookId },
-    );
+	try {
+		const result = await hardcoverFetch<{ editions?: unknown }>(
+			bookEditionLanguagesQuery,
+			{ bookId: foreignBookId },
+		);
 
-    const editions = toRecordArray(result?.editions);
-    const langMap = new Map<
-      string,
-      { name: string; code: string; readers: number }
-    >();
+		const editions = toRecordArray(result?.editions);
+		const langMap = new Map<
+			string,
+			{ name: string; code: string; readers: number }
+		>();
 
-    for (const edition of editions) {
-      const langRecord = toRecord(edition.language);
-      if (!langRecord) {
-        continue;
-      }
-      const code = firstString(langRecord, [["code2"]]);
-      const name = firstString(langRecord, [["language"]]);
-      if (!code || !name) {
-        continue;
-      }
-      const readers = firstNumber(edition, [["users_count"]]) ?? 0;
+		for (const edition of editions) {
+			const langRecord = toRecord(edition.language);
+			if (!langRecord) {
+				continue;
+			}
+			const code = firstString(langRecord, [["code2"]]);
+			const name = firstString(langRecord, [["language"]]);
+			if (!code || !name) {
+				continue;
+			}
+			const readers = firstNumber(edition, [["users_count"]]) ?? 0;
 
-      const existing = langMap.get(code);
-      if (existing) {
-        existing.readers += readers;
-      } else {
-        langMap.set(code, { name, code, readers });
-      }
-    }
+			const existing = langMap.get(code);
+			if (existing) {
+				existing.readers += readers;
+			} else {
+				langMap.set(code, { name, code, readers });
+			}
+		}
 
-    return [...langMap.values()].toSorted((a, b) => b.readers - a.readers);
-  } catch {
-    return [];
-  }
+		return [...langMap.values()].toSorted((a, b) => b.readers - a.readers);
+	} catch {
+		return [];
+	}
 }
 
 const bookLanguagesInputSchema = z.object({
-  foreignBookId: z.number().int().min(1),
+	foreignBookId: z.number().int().min(1),
 });
 
 export const getHardcoverBookLanguagesFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => bookLanguagesInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchBookEditionLanguages(data.foreignBookId);
-  });
+	.inputValidator((data: unknown) => bookLanguagesInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchBookEditionLanguages(data.foreignBookId);
+	});
 
 // ── Single book detail from Hardcover ───────────────────────────────────────
 
 export type HardcoverBookDetail = {
-  id: string;
-  title: string;
-  slug: string | null;
-  description: string | null;
-  releaseDate: string | null;
-  releaseYear: number | null;
-  rating: number | null;
-  ratingsCount: number | null;
-  usersCount: number | null;
-  coverUrl: string | null;
-  series: HardcoverAuthorBookSeries[];
-  contributors: Array<{ id: string; name: string }>;
+	id: string;
+	title: string;
+	slug: string | null;
+	description: string | null;
+	releaseDate: string | null;
+	releaseYear: number | null;
+	rating: number | null;
+	ratingsCount: number | null;
+	usersCount: number | null;
+	coverUrl: string | null;
+	series: HardcoverAuthorBookSeries[];
+	contributors: Array<{ id: string; name: string }>;
 };
 
 const singleBookQuery = `
@@ -2281,88 +2279,88 @@ query HardcoverSingleBook($bookId: Int!) {
 `;
 
 async function fetchSingleBook(
-  bookId: number,
+	bookId: number,
 ): Promise<HardcoverBookDetail | undefined> {
-  try {
-    const result = await hardcoverFetch<{ books?: unknown }>(singleBookQuery, {
-      bookId,
-    });
+	try {
+		const result = await hardcoverFetch<{ books?: unknown }>(singleBookQuery, {
+			bookId,
+		});
 
-    const booksArray = toRecordArray(result?.books);
-    if (booksArray.length === 0) {
-      return undefined;
-    }
+		const booksArray = toRecordArray(result?.books);
+		if (booksArray.length === 0) {
+			return undefined;
+		}
 
-    const bookRecord = booksArray[0];
-    const id = firstId(bookRecord, [["id"]]);
-    if (!id) {
-      return undefined;
-    }
+		const bookRecord = booksArray[0];
+		const id = firstId(bookRecord, [["id"]]);
+		if (!id) {
+			return undefined;
+		}
 
-    const bookSeriesEntries = toRecordArray(bookRecord.book_series);
-    const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
-      .map((entry) => {
-        const seriesRecord = toRecord(entry.series);
-        if (!seriesRecord) {
-          return undefined;
-        }
-        const seriesId = firstId(seriesRecord, [["id"]]);
-        const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
-        if (!seriesId || !seriesTitle) {
-          return undefined;
-        }
-        return {
-          id: seriesId,
-          title: seriesTitle,
-          position:
-            firstNumber(entry, [["position"]])?.toString() ??
-            firstString(entry, [["position"]]) ??
-            null,
-        };
-      })
-      .filter(Boolean) as HardcoverAuthorBookSeries[];
+		const bookSeriesEntries = toRecordArray(bookRecord.book_series);
+		const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
+			.map((entry) => {
+				const seriesRecord = toRecord(entry.series);
+				if (!seriesRecord) {
+					return undefined;
+				}
+				const seriesId = firstId(seriesRecord, [["id"]]);
+				const seriesTitle = firstString(seriesRecord, [["name"], ["title"]]);
+				if (!seriesId || !seriesTitle) {
+					return undefined;
+				}
+				return {
+					id: seriesId,
+					title: seriesTitle,
+					position:
+						firstNumber(entry, [["position"]])?.toString() ??
+						firstString(entry, [["position"]]) ??
+						null,
+				};
+			})
+			.filter(Boolean) as HardcoverAuthorBookSeries[];
 
-    const contributors = toRecordArray(bookRecord.contributions)
-      .map((c) => {
-        const authorRecord = toRecord(c.author);
-        if (!authorRecord) {
-          return undefined;
-        }
-        const authorId = firstId(authorRecord, [["id"]]);
-        const authorName = firstString(authorRecord, [["name"]]);
-        if (!authorId || !authorName) {
-          return undefined;
-        }
-        return { id: authorId, name: authorName };
-      })
-      .filter(Boolean) as Array<{ id: string; name: string }>;
+		const contributors = toRecordArray(bookRecord.contributions)
+			.map((c) => {
+				const authorRecord = toRecord(c.author);
+				if (!authorRecord) {
+					return undefined;
+				}
+				const authorId = firstId(authorRecord, [["id"]]);
+				const authorName = firstString(authorRecord, [["name"]]);
+				if (!authorId || !authorName) {
+					return undefined;
+				}
+				return { id: authorId, name: authorName };
+			})
+			.filter(Boolean) as Array<{ id: string; name: string }>;
 
-    return {
-      id,
-      title: firstString(bookRecord, [["title"]]) ?? "",
-      slug: firstString(bookRecord, [["slug"]]) ?? null,
-      description: firstString(bookRecord, [["description"]]) ?? null,
-      releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
-      releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
-      rating: firstNumber(bookRecord, [["rating"]]) ?? null,
-      ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
-      usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
-      coverUrl: getCoverUrl(bookRecord) ?? null,
-      series,
-      contributors,
-    };
-  } catch {
-    return undefined;
-  }
+		return {
+			id,
+			title: firstString(bookRecord, [["title"]]) ?? "",
+			slug: firstString(bookRecord, [["slug"]]) ?? null,
+			description: firstString(bookRecord, [["description"]]) ?? null,
+			releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+			releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+			rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+			ratingsCount: firstNumber(bookRecord, [["ratings_count"]]) ?? null,
+			usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+			coverUrl: getCoverUrl(bookRecord) ?? null,
+			series,
+			contributors,
+		};
+	} catch {
+		return undefined;
+	}
 }
 
 const singleBookInputSchema = z.object({
-  foreignBookId: z.number().int().min(1),
+	foreignBookId: z.number().int().min(1),
 });
 
 export const getHardcoverBookDetailFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => singleBookInputSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAuth();
-    return fetchSingleBook(data.foreignBookId);
-  });
+	.inputValidator((data: unknown) => singleBookInputSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		return fetchSingleBook(data.foreignBookId);
+	});

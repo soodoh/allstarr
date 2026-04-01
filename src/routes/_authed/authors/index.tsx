@@ -1,143 +1,143 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { LayoutGrid, List, Users, Search } from "lucide-react";
-import useViewMode from "src/hooks/use-view-mode";
+import { createFileRoute } from "@tanstack/react-router";
+import { LayoutGrid, List, Search, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AuthorCard from "src/components/bookshelf/authors/author-card";
+import AuthorTable from "src/components/bookshelf/authors/author-table";
+import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
+import EmptyState from "src/components/shared/empty-state";
+import {
+	AuthorCardsSkeleton,
+	AuthorTableRowsSkeleton,
+} from "src/components/shared/loading-skeleton";
+import PageHeader from "src/components/shared/page-header";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
-import PageHeader from "src/components/shared/page-header";
-import AuthorTable from "src/components/bookshelf/authors/author-table";
-import AuthorCard from "src/components/bookshelf/authors/author-card";
-import EmptyState from "src/components/shared/empty-state";
-import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
-import {
-  AuthorTableRowsSkeleton,
-  AuthorCardsSkeleton,
-} from "src/components/shared/loading-skeleton";
+import useViewMode from "src/hooks/use-view-mode";
 import { authorsInfiniteQuery } from "src/lib/queries";
 import { userSettingsQuery } from "src/lib/queries/user-settings";
 
 export const Route = createFileRoute("/_authed/authors/")({
-  loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
-      context.queryClient.ensureQueryData(userSettingsQuery("authors")),
-    ]);
-  },
-  component: AuthorsPage,
+	loader: async ({ context }) => {
+		await Promise.all([
+			context.queryClient.prefetchInfiniteQuery(authorsInfiniteQuery()),
+			context.queryClient.ensureQueryData(userSettingsQuery("authors")),
+		]);
+	},
+	component: AuthorsPage,
 });
 
 function AuthorsPage() {
-  const [view, setView] = useViewMode("authors");
-  const [search, setSearch] = useState("");
-  const sentinelRef = useRef<HTMLDivElement>(null);
+	const [view, setView] = useViewMode("authors");
+	const [search, setSearch] = useState("");
+	const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useInfiniteQuery(authorsInfiniteQuery(search));
+	const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+		useInfiniteQuery(authorsInfiniteQuery(search));
 
-  const authors = useMemo(
-    () => data?.pages.flatMap((p) => p.items) ?? [],
-    [data],
-  );
-  const total = data?.pages[0]?.total ?? 0;
+	const authors = useMemo(
+		() => data?.pages.flatMap((p) => p.items) ?? [],
+		[data],
+	);
+	const total = data?.pages[0]?.total ?? 0;
 
-  const handleObserver = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-      }
-    },
-    [hasNextPage, isFetchingNextPage, fetchNextPage],
-  );
+	const handleObserver = useCallback(
+		(entries: IntersectionObserverEntry[]) => {
+			if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+				fetchNextPage();
+			}
+		},
+		[hasNextPage, isFetchingNextPage, fetchNextPage],
+	);
 
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) {
-      return;
-    }
-    const observer = new IntersectionObserver(handleObserver, {
-      rootMargin: "200px",
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [handleObserver]);
+	useEffect(() => {
+		const el = sentinelRef.current;
+		if (!el) {
+			return;
+		}
+		const observer = new IntersectionObserver(handleObserver, {
+			rootMargin: "200px",
+		});
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [handleObserver]);
 
-  if (!isLoading && total === 0 && !search) {
-    return (
-      <div>
-        <PageHeader title="Authors" />
-        <EmptyState
-          icon={Users}
-          title="No authors yet"
-          description="Search Hardcover to add your first author."
-        />
-      </div>
-    );
-  }
+	if (!isLoading && total === 0 && !search) {
+		return (
+			<div>
+				<PageHeader title="Authors" />
+				<EmptyState
+					icon={Users}
+					title="No authors yet"
+					description="Search Hardcover to add your first author."
+				/>
+			</div>
+		);
+	}
 
-  let description: string;
-  if (search) {
-    description = `${total} matching authors`;
-  } else {
-    description = `${total} authors on your bookshelf`;
-  }
+	let description: string;
+	if (search) {
+		description = `${total} matching authors`;
+	} else {
+		description = `${total} authors on your bookshelf`;
+	}
 
-  const showLoading = isLoading || isFetchingNextPage;
+	const showLoading = isLoading || isFetchingNextPage;
 
-  return (
-    <div>
-      <PageHeader
-        title="Authors"
-        description={description}
-        actions={
-          <div className="flex gap-2">
-            <div className="flex border border-border rounded-md">
-              <Button
-                variant={view === "table" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("table")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={view === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setView("grid")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        }
-      />
+	return (
+		<div>
+			<PageHeader
+				title="Authors"
+				description={description}
+				actions={
+					<div className="flex gap-2">
+						<div className="flex border border-border rounded-md">
+							<Button
+								variant={view === "table" ? "secondary" : "ghost"}
+								size="icon"
+								onClick={() => setView("table")}
+							>
+								<List className="h-4 w-4" />
+							</Button>
+							<Button
+								variant={view === "grid" ? "secondary" : "ghost"}
+								size="icon"
+								onClick={() => setView("grid")}
+							>
+								<LayoutGrid className="h-4 w-4" />
+							</Button>
+						</div>
+					</div>
+				}
+			/>
 
-      <div className="mb-4 flex items-center gap-2">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        {view === "table" && <ColumnSettingsPopover tableId="authors" />}
-      </div>
+			<div className="mb-4 flex items-center gap-2">
+				<div className="relative max-w-sm flex-1">
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<Input
+						placeholder="Search by name..."
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						className="pl-9"
+					/>
+				</div>
+				{view === "table" && <ColumnSettingsPopover tableId="authors" />}
+			</div>
 
-      {view === "table" ? (
-        <AuthorTable authors={authors}>
-          {showLoading && <AuthorTableRowsSkeleton />}
-        </AuthorTable>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {authors.map((author) => (
-            <AuthorCard key={author.id} author={author} />
-          ))}
-          {showLoading && <AuthorCardsSkeleton />}
-        </div>
-      )}
+			{view === "table" ? (
+				<AuthorTable authors={authors}>
+					{showLoading && <AuthorTableRowsSkeleton />}
+				</AuthorTable>
+			) : (
+				<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+					{authors.map((author) => (
+						<AuthorCard key={author.id} author={author} />
+					))}
+					{showLoading && <AuthorCardsSkeleton />}
+				</div>
+			)}
 
-      <div ref={sentinelRef} className="h-1" />
-    </div>
-  );
+			<div ref={sentinelRef} className="h-1" />
+		</div>
+	);
 }

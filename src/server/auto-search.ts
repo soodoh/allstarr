@@ -1,1878 +1,1878 @@
-// oxlint-disable no-console -- Auto-search logs are intentional server-side diagnostics
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "src/db";
 import {
-  books,
-  booksAuthors,
-  editions,
-  editionDownloadProfiles,
-  bookFiles,
-  authors,
-  indexers,
-  syncedIndexers,
-  downloadClients,
-  history,
-  blocklist,
-  downloadProfiles,
-  trackedDownloads,
-  movies,
-  movieFiles,
-  movieDownloadProfiles,
-  shows,
-  seasons,
-  episodes,
-  episodeFiles,
-  episodeDownloadProfiles,
-  manga,
-  mangaChapters,
-  mangaVolumes,
-  mangaFiles,
+	authors,
+	blocklist,
+	bookFiles,
+	books,
+	booksAuthors,
+	downloadClients,
+	downloadProfiles,
+	editionDownloadProfiles,
+	editions,
+	episodeDownloadProfiles,
+	episodeFiles,
+	episodes,
+	history,
+	indexers,
+	manga,
+	mangaChapters,
+	mangaFiles,
+	mangaVolumes,
+	movieDownloadProfiles,
+	movieFiles,
+	movies,
+	seasons,
+	shows,
+	syncedIndexers,
+	trackedDownloads,
 } from "src/db/schema";
-import { eq, and, sql, asc, inArray } from "drizzle-orm";
-import {
-  getCategoriesForProfiles,
-  dedupeAndScoreReleases,
-  isPackQualified,
-  getReleaseTypeRank,
-} from "./indexers";
-import type { ProfileInfo, PackContext } from "./indexers";
-import { canQueryIndexer, anyIndexerAvailable } from "./indexer-rate-limiter";
-import { searchNewznab } from "./indexers/http";
-import {
-  enrichRelease,
-  getProfileWeight,
-  isFormatInProfile,
-} from "./indexers/format-parser";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
+import { anyIndexerAvailable, canQueryIndexer } from "./indexer-rate-limiter";
+import type { PackContext, ProfileInfo } from "./indexers";
+import {
+	dedupeAndScoreReleases,
+	getCategoriesForProfiles,
+	getReleaseTypeRank,
+	isPackQualified,
+} from "./indexers";
+import {
+	enrichRelease,
+	getProfileWeight,
+	isFormatInProfile,
+} from "./indexers/format-parser";
+import { searchNewznab } from "./indexers/http";
 import type { IndexerRelease } from "./indexers/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type AutoSearchOptions = {
-  delayBetweenBooks?: number;
-  maxBooks?: number;
-  bookIds?: number[];
+	delayBetweenBooks?: number;
+	maxBooks?: number;
+	bookIds?: number[];
 };
 
 type SearchDetail = {
-  bookId: number;
-  bookTitle: string;
-  authorName: string | null;
-  searched: boolean;
-  grabbed: boolean;
-  releaseTitle?: string;
-  error?: string;
+	bookId: number;
+	bookTitle: string;
+	authorName: string | null;
+	searched: boolean;
+	grabbed: boolean;
+	releaseTitle?: string;
+	error?: string;
 };
 
 type MovieSearchDetail = {
-  movieId: number;
-  movieTitle: string;
-  searched: boolean;
-  grabbed: boolean;
-  releaseTitle?: string;
-  error?: string;
+	movieId: number;
+	movieTitle: string;
+	searched: boolean;
+	grabbed: boolean;
+	releaseTitle?: string;
+	error?: string;
 };
 
 type EpisodeSearchDetail = {
-  episodeId: number;
-  showTitle: string;
-  seasonNumber: number;
-  episodeNumber: number;
-  searched: boolean;
-  grabbed: boolean;
-  releaseTitle?: string;
-  error?: string;
+	episodeId: number;
+	showTitle: string;
+	seasonNumber: number;
+	episodeNumber: number;
+	searched: boolean;
+	grabbed: boolean;
+	releaseTitle?: string;
+	error?: string;
 };
 
 export type AutoSearchResult = {
-  searched: number;
-  grabbed: number;
-  errors: number;
-  details: SearchDetail[];
-  movieDetails?: MovieSearchDetail[];
-  episodeDetails?: EpisodeSearchDetail[];
-  mangaDetails?: MangaSearchDetail[];
+	searched: number;
+	grabbed: number;
+	errors: number;
+	details: SearchDetail[];
+	movieDetails?: MovieSearchDetail[];
+	episodeDetails?: EpisodeSearchDetail[];
+	mangaDetails?: MangaSearchDetail[];
 };
 
 type EditionProfileTarget = {
-  editionId: number;
-  profile: ProfileInfo;
+	editionId: number;
+	profile: ProfileInfo;
 };
 
 type WantedBook = {
-  id: number;
-  title: string;
-  authorId: number | null;
-  authorName: string | null;
-  lastSearchedAt: number | null;
-  editionTargets: EditionProfileTarget[];
-  profiles: ProfileInfo[];
-  bestWeightByProfile: Map<number, number>;
+	id: number;
+	title: string;
+	authorId: number | null;
+	authorName: string | null;
+	lastSearchedAt: number | null;
+	editionTargets: EditionProfileTarget[];
+	profiles: ProfileInfo[];
+	bestWeightByProfile: Map<number, number>;
 };
 
 type WantedMovie = {
-  id: number;
-  title: string;
-  year: number;
-  lastSearchedAt: number | null;
-  profiles: ProfileInfo[];
-  bestWeightByProfile: Map<number, number>;
+	id: number;
+	title: string;
+	year: number;
+	lastSearchedAt: number | null;
+	profiles: ProfileInfo[];
+	bestWeightByProfile: Map<number, number>;
 };
 
 type WantedEpisode = {
-  id: number;
-  showId: number;
-  showTitle: string;
-  seasonNumber: number;
-  episodeNumber: number;
-  absoluteNumber: number | null;
-  seriesType: string;
-  airDate: string | null;
-  lastSearchedAt: number | null;
-  profiles: ProfileInfo[];
-  bestWeightByProfile: Map<number, number>;
+	id: number;
+	showId: number;
+	showTitle: string;
+	seasonNumber: number;
+	episodeNumber: number;
+	absoluteNumber: number | null;
+	seriesType: string;
+	airDate: string | null;
+	lastSearchedAt: number | null;
+	profiles: ProfileInfo[];
+	bestWeightByProfile: Map<number, number>;
 };
 
 type WantedMangaChapter = {
-  id: number;
-  mangaId: number;
-  mangaTitle: string;
-  chapterNumber: string;
-  volumeNumber: number | null;
-  lastSearchedAt: number | null;
-  profiles: ProfileInfo[];
-  bestWeightByProfile: Map<number, number>;
+	id: number;
+	mangaId: number;
+	mangaTitle: string;
+	chapterNumber: string;
+	volumeNumber: number | null;
+	lastSearchedAt: number | null;
+	profiles: ProfileInfo[];
+	bestWeightByProfile: Map<number, number>;
 };
 
 type MangaSearchDetail = {
-  chapterId: number;
-  mangaTitle: string;
-  chapterNumber: string;
-  searched: boolean;
-  grabbed: boolean;
-  releaseTitle?: string;
-  error?: string;
+	chapterId: number;
+	mangaTitle: string;
+	chapterNumber: string;
+	searched: boolean;
+	grabbed: boolean;
+	releaseTitle?: string;
+	error?: string;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
 }
 
 function sortBySearchPriority<T extends { id: number }>(
-  items: T[],
-  getLastSearched: (item: T) => number | null,
+	items: T[],
+	getLastSearched: (item: T) => number | null,
 ): T[] {
-  return [...items].toSorted((a, b) => {
-    const aLast = getLastSearched(a);
-    const bLast = getLastSearched(b);
-    // Never searched first
-    if (aLast === null && bLast !== null) {
-      return -1;
-    }
-    if (aLast !== null && bLast === null) {
-      return 1;
-    }
-    if (aLast === null && bLast === null) {
-      return 0;
-    }
-    // Oldest search first
-    return aLast! - bLast!;
-  });
+	return [...items].toSorted((a, b) => {
+		const aLast = getLastSearched(a);
+		const bLast = getLastSearched(b);
+		// Never searched first
+		if (aLast === null && bLast !== null) {
+			return -1;
+		}
+		if (aLast !== null && bLast === null) {
+			return 1;
+		}
+		if (aLast === null && bLast === null) {
+			return 0;
+		}
+		// Oldest search first (both guaranteed non-null after null checks above)
+		return (aLast as number) - (bLast as number);
+	});
 }
 
 // ─── Edition-level profile resolution ───────────────────────────────────────
 
 /** Get edition-level download profile targets for a book */
 function getEditionProfilesForBook(bookId: number): EditionProfileTarget[] {
-  const rows = db
-    .select({
-      editionId: editionDownloadProfiles.editionId,
-      profileId: editionDownloadProfiles.downloadProfileId,
-    })
-    .from(editionDownloadProfiles)
-    .innerJoin(editions, eq(editions.id, editionDownloadProfiles.editionId))
-    .where(eq(editions.bookId, bookId))
-    .all();
+	const rows = db
+		.select({
+			editionId: editionDownloadProfiles.editionId,
+			profileId: editionDownloadProfiles.downloadProfileId,
+		})
+		.from(editionDownloadProfiles)
+		.innerJoin(editions, eq(editions.id, editionDownloadProfiles.editionId))
+		.where(eq(editions.bookId, bookId))
+		.all();
 
-  if (rows.length === 0) {
-    return [];
-  }
+	if (rows.length === 0) {
+		return [];
+	}
 
-  const profileIds = [...new Set(rows.map((r) => r.profileId))];
-  const profiles = db
-    .select()
-    .from(downloadProfiles)
-    .where(inArray(downloadProfiles.id, profileIds))
-    .all();
+	const profileIds = [...new Set(rows.map((r) => r.profileId))];
+	const profiles = db
+		.select()
+		.from(downloadProfiles)
+		.where(inArray(downloadProfiles.id, profileIds))
+		.all();
 
-  const profileMap = new Map(
-    profiles.map((p) => [
-      p.id,
-      {
-        id: p.id,
-        name: p.name,
-        items: p.items,
-        cutoff: p.cutoff,
-        upgradeAllowed: p.upgradeAllowed,
-        categories: p.categories,
-        minCustomFormatScore: p.minCustomFormatScore,
-        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
-      } satisfies ProfileInfo,
-    ]),
-  );
+	const profileMap = new Map(
+		profiles.map((p) => [
+			p.id,
+			{
+				id: p.id,
+				name: p.name,
+				items: p.items,
+				cutoff: p.cutoff,
+				upgradeAllowed: p.upgradeAllowed,
+				categories: p.categories,
+				minCustomFormatScore: p.minCustomFormatScore,
+				upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
+			} satisfies ProfileInfo,
+		]),
+	);
 
-  return rows
-    .filter((r) => profileMap.has(r.profileId))
-    .map((r) => ({
-      editionId: r.editionId,
-      profile: profileMap.get(r.profileId)!,
-    }));
+	return rows
+		.filter((r) => profileMap.has(r.profileId))
+		.map((r) => ({
+			editionId: r.editionId,
+			// biome-ignore lint/style/noNonNullAssertion: guaranteed by .filter() above
+			profile: profileMap.get(r.profileId)!,
+		}));
 }
 
 // ─── Wanted books detection ─────────────────────────────────────────────────
 
 /** Find books that need searching: missing files or upgrade-eligible */
 export function getWantedBooks(): WantedBook[] {
-  // Get all books that have at least one edition with a download profile assigned
-  const monitoredBooks = db
-    .select({
-      id: books.id,
-      title: books.title,
-      lastSearchedAt: books.lastSearchedAt,
-      authorId: booksAuthors.authorId,
-      authorName: booksAuthors.authorName,
-      authorMonitored: authors.monitored,
-    })
-    .from(books)
-    .leftJoin(
-      booksAuthors,
-      and(eq(booksAuthors.bookId, books.id), eq(booksAuthors.isPrimary, true)),
-    )
-    .leftJoin(authors, eq(authors.id, booksAuthors.authorId))
-    .where(
-      sql`EXISTS (
+	// Get all books that have at least one edition with a download profile assigned
+	const monitoredBooks = db
+		.select({
+			id: books.id,
+			title: books.title,
+			lastSearchedAt: books.lastSearchedAt,
+			authorId: booksAuthors.authorId,
+			authorName: booksAuthors.authorName,
+			authorMonitored: authors.monitored,
+		})
+		.from(books)
+		.leftJoin(
+			booksAuthors,
+			and(eq(booksAuthors.bookId, books.id), eq(booksAuthors.isPrimary, true)),
+		)
+		.leftJoin(authors, eq(authors.id, booksAuthors.authorId))
+		.where(
+			sql`EXISTS (
         SELECT 1 FROM ${editionDownloadProfiles}
         INNER JOIN ${editions} ON ${editions.id} = ${editionDownloadProfiles.editionId}
         WHERE ${editions.bookId} = ${books.id}
       )`,
-    )
-    .all();
+		)
+		.all();
 
-  const wanted: WantedBook[] = [];
+	const wanted: WantedBook[] = [];
 
-  for (const book of monitoredBooks) {
-    // Skip books whose primary author is not monitored
-    if (book.authorMonitored === false) {
-      continue;
-    }
+	for (const book of monitoredBooks) {
+		// Skip books whose primary author is not monitored
+		if (book.authorMonitored === false) {
+			continue;
+		}
 
-    const editionTargets = getEditionProfilesForBook(book.id);
-    if (editionTargets.length === 0) {
-      continue;
-    }
+		const editionTargets = getEditionProfilesForBook(book.id);
+		if (editionTargets.length === 0) {
+			continue;
+		}
 
-    // Derive unique profiles from edition targets
-    const profileMap = new Map<number, ProfileInfo>();
-    for (const target of editionTargets) {
-      profileMap.set(target.profile.id, target.profile);
-    }
+		// Derive unique profiles from edition targets
+		const profileMap = new Map<number, ProfileInfo>();
+		for (const target of editionTargets) {
+			profileMap.set(target.profile.id, target.profile);
+		}
 
-    // Exclude profiles that already have an active tracked download
-    const activeDownloads = db
-      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
-      .from(trackedDownloads)
-      .where(
-        and(
-          eq(trackedDownloads.bookId, book.id),
-          inArray(trackedDownloads.state, [
-            "queued",
-            "downloading",
-            "completed",
-            "importPending",
-          ]),
-        ),
-      )
-      .all();
+		// Exclude profiles that already have an active tracked download
+		const activeDownloads = db
+			.select({ downloadProfileId: trackedDownloads.downloadProfileId })
+			.from(trackedDownloads)
+			.where(
+				and(
+					eq(trackedDownloads.bookId, book.id),
+					inArray(trackedDownloads.state, [
+						"queued",
+						"downloading",
+						"completed",
+						"importPending",
+					]),
+				),
+			)
+			.all();
 
-    const activeProfileIds = new Set(
-      activeDownloads
-        .map((d) => d.downloadProfileId)
-        .filter((id): id is number => id !== null),
-    );
+		const activeProfileIds = new Set(
+			activeDownloads
+				.map((d) => d.downloadProfileId)
+				.filter((id): id is number => id !== null),
+		);
 
-    for (const id of activeProfileIds) {
-      profileMap.delete(id);
-    }
+		for (const id of activeProfileIds) {
+			profileMap.delete(id);
+		}
 
-    const profiles = [...profileMap.values()];
-    if (profiles.length === 0) {
-      continue;
-    }
+		const profiles = [...profileMap.values()];
+		if (profiles.length === 0) {
+			continue;
+		}
 
-    // Check existing files for this book
-    const existingFiles = db
-      .select({ quality: bookFiles.quality })
-      .from(bookFiles)
-      .where(eq(bookFiles.bookId, book.id))
-      .all();
+		// Check existing files for this book
+		const existingFiles = db
+			.select({ quality: bookFiles.quality })
+			.from(bookFiles)
+			.where(eq(bookFiles.bookId, book.id))
+			.all();
 
-    // Compute per-profile best existing weight
-    const bestWeightByProfile = new Map<number, number>();
-    for (const profile of profiles) {
-      let best = 0;
-      for (const file of existingFiles) {
-        if (file.quality) {
-          const qualityId =
-            typeof file.quality === "object" &&
-            "quality" in file.quality &&
-            file.quality.quality
-              ? file.quality.quality.id
-              : 0;
-          const weight = getProfileWeight(qualityId, profile.items);
-          if (weight > best) {
-            best = weight;
-          }
-        }
-      }
-      bestWeightByProfile.set(profile.id, best);
-    }
+		// Compute per-profile best existing weight
+		const bestWeightByProfile = new Map<number, number>();
+		for (const profile of profiles) {
+			let best = 0;
+			for (const file of existingFiles) {
+				if (file.quality) {
+					const qualityId =
+						typeof file.quality === "object" &&
+						"quality" in file.quality &&
+						file.quality.quality
+							? file.quality.quality.id
+							: 0;
+					const weight = getProfileWeight(qualityId, profile.items);
+					if (weight > best) {
+						best = weight;
+					}
+				}
+			}
+			bestWeightByProfile.set(profile.id, best);
+		}
 
-    if (existingFiles.length === 0) {
-      // No files at all — wanted
-      wanted.push({
-        id: book.id,
-        title: book.title,
-        authorId: book.authorId,
-        authorName: book.authorName,
-        lastSearchedAt: book.lastSearchedAt,
-        editionTargets,
-        profiles,
-        bestWeightByProfile,
-      });
-      continue;
-    }
+		if (existingFiles.length === 0) {
+			// No files at all — wanted
+			wanted.push({
+				id: book.id,
+				title: book.title,
+				authorId: book.authorId,
+				authorName: book.authorName,
+				lastSearchedAt: book.lastSearchedAt,
+				editionTargets,
+				profiles,
+				bestWeightByProfile,
+			});
+			continue;
+		}
 
-    // Check if any profile allows upgrades and the best file is below cutoff
-    // or if a CF upgrade threshold is set (may need CF-based upgrade even at cutoff)
-    const upgradeNeeded = profiles.some((profile) => {
-      if (!profile.upgradeAllowed) {
-        return false;
-      }
-      const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-      // Below quality cutoff — definitely needs upgrade
-      if (bestWeight < cutoffWeight) {
-        return true;
-      }
-      // At or above cutoff but CF upgrade threshold is set — may still need
-      // a CF-based upgrade (we can't compute CF scores for existing files here,
-      // so we optimistically include the book and let findBestReleaseForProfile decide)
-      if (profile.upgradeUntilCustomFormatScore > 0) {
-        return true;
-      }
-      return false;
-    });
+		// Check if any profile allows upgrades and the best file is below cutoff
+		// or if a CF upgrade threshold is set (may need CF-based upgrade even at cutoff)
+		const upgradeNeeded = profiles.some((profile) => {
+			if (!profile.upgradeAllowed) {
+				return false;
+			}
+			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+			// Below quality cutoff — definitely needs upgrade
+			if (bestWeight < cutoffWeight) {
+				return true;
+			}
+			// At or above cutoff but CF upgrade threshold is set — may still need
+			// a CF-based upgrade (we can't compute CF scores for existing files here,
+			// so we optimistically include the book and let findBestReleaseForProfile decide)
+			if (profile.upgradeUntilCustomFormatScore > 0) {
+				return true;
+			}
+			return false;
+		});
 
-    if (upgradeNeeded) {
-      wanted.push({
-        id: book.id,
-        title: book.title,
-        authorId: book.authorId,
-        authorName: book.authorName,
-        lastSearchedAt: book.lastSearchedAt,
-        editionTargets,
-        profiles,
-        bestWeightByProfile,
-      });
-    }
-  }
+		if (upgradeNeeded) {
+			wanted.push({
+				id: book.id,
+				title: book.title,
+				authorId: book.authorId,
+				authorName: book.authorName,
+				lastSearchedAt: book.lastSearchedAt,
+				editionTargets,
+				profiles,
+				bestWeightByProfile,
+			});
+		}
+	}
 
-  return wanted;
+	return wanted;
 }
 
 // ─── Wanted movies detection ────────────────────────────────────────────────
 
 /** Find movies that need searching: missing files or upgrade-eligible */
 export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
-  // Get all movies that have at least one download profile assigned
-  const query = db
-    .select({
-      id: movies.id,
-      title: movies.title,
-      year: movies.year,
-      lastSearchedAt: movies.lastSearchedAt,
-    })
-    .from(movies)
-    .where(
-      sql`EXISTS (
+	// Get all movies that have at least one download profile assigned
+	const query = db
+		.select({
+			id: movies.id,
+			title: movies.title,
+			year: movies.year,
+			lastSearchedAt: movies.lastSearchedAt,
+		})
+		.from(movies)
+		.where(
+			sql`EXISTS (
         SELECT 1 FROM ${movieDownloadProfiles}
         WHERE ${movieDownloadProfiles.movieId} = ${movies.id}
       )`,
-    );
+		);
 
-  const monitoredMovies = query.all();
+	const monitoredMovies = query.all();
 
-  const wanted: WantedMovie[] = [];
+	const wanted: WantedMovie[] = [];
 
-  for (const movie of monitoredMovies) {
-    if (movieIds && !movieIds.includes(movie.id)) {
-      continue;
-    }
+	for (const movie of monitoredMovies) {
+		if (movieIds && !movieIds.includes(movie.id)) {
+			continue;
+		}
 
-    // Get profiles for this movie
-    const profileRows = db
-      .select({
-        profileId: movieDownloadProfiles.downloadProfileId,
-      })
-      .from(movieDownloadProfiles)
-      .where(eq(movieDownloadProfiles.movieId, movie.id))
-      .all();
+		// Get profiles for this movie
+		const profileRows = db
+			.select({
+				profileId: movieDownloadProfiles.downloadProfileId,
+			})
+			.from(movieDownloadProfiles)
+			.where(eq(movieDownloadProfiles.movieId, movie.id))
+			.all();
 
-    if (profileRows.length === 0) {
-      continue;
-    }
+		if (profileRows.length === 0) {
+			continue;
+		}
 
-    const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
-    const profileList = db
-      .select()
-      .from(downloadProfiles)
-      .where(inArray(downloadProfiles.id, profileIds))
-      .all();
+		const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
+		const profileList = db
+			.select()
+			.from(downloadProfiles)
+			.where(inArray(downloadProfiles.id, profileIds))
+			.all();
 
-    const profileMap = new Map<number, ProfileInfo>();
-    for (const p of profileList) {
-      profileMap.set(p.id, {
-        id: p.id,
-        name: p.name,
-        items: p.items,
-        cutoff: p.cutoff,
-        upgradeAllowed: p.upgradeAllowed,
-        categories: p.categories,
-        minCustomFormatScore: p.minCustomFormatScore,
-        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
-      });
-    }
+		const profileMap = new Map<number, ProfileInfo>();
+		for (const p of profileList) {
+			profileMap.set(p.id, {
+				id: p.id,
+				name: p.name,
+				items: p.items,
+				cutoff: p.cutoff,
+				upgradeAllowed: p.upgradeAllowed,
+				categories: p.categories,
+				minCustomFormatScore: p.minCustomFormatScore,
+				upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
+			});
+		}
 
-    // Exclude profiles that already have an active tracked download
-    const activeDownloads = db
-      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
-      .from(trackedDownloads)
-      .where(
-        and(
-          eq(trackedDownloads.movieId, movie.id),
-          inArray(trackedDownloads.state, [
-            "queued",
-            "downloading",
-            "completed",
-            "importPending",
-          ]),
-        ),
-      )
-      .all();
+		// Exclude profiles that already have an active tracked download
+		const activeDownloads = db
+			.select({ downloadProfileId: trackedDownloads.downloadProfileId })
+			.from(trackedDownloads)
+			.where(
+				and(
+					eq(trackedDownloads.movieId, movie.id),
+					inArray(trackedDownloads.state, [
+						"queued",
+						"downloading",
+						"completed",
+						"importPending",
+					]),
+				),
+			)
+			.all();
 
-    const activeProfileIds = new Set(
-      activeDownloads
-        .map((d) => d.downloadProfileId)
-        .filter((id): id is number => id !== null),
-    );
+		const activeProfileIds = new Set(
+			activeDownloads
+				.map((d) => d.downloadProfileId)
+				.filter((id): id is number => id !== null),
+		);
 
-    for (const id of activeProfileIds) {
-      profileMap.delete(id);
-    }
+		for (const id of activeProfileIds) {
+			profileMap.delete(id);
+		}
 
-    const profiles = [...profileMap.values()];
-    if (profiles.length === 0) {
-      continue;
-    }
+		const profiles = [...profileMap.values()];
+		if (profiles.length === 0) {
+			continue;
+		}
 
-    // Check existing files for this movie
-    const existingFiles = db
-      .select({ quality: movieFiles.quality })
-      .from(movieFiles)
-      .where(eq(movieFiles.movieId, movie.id))
-      .all();
+		// Check existing files for this movie
+		const existingFiles = db
+			.select({ quality: movieFiles.quality })
+			.from(movieFiles)
+			.where(eq(movieFiles.movieId, movie.id))
+			.all();
 
-    // Compute per-profile best existing weight
-    const bestWeightByProfile = new Map<number, number>();
-    for (const profile of profiles) {
-      let best = 0;
-      for (const file of existingFiles) {
-        if (file.quality) {
-          const qualityId =
-            typeof file.quality === "object" &&
-            "quality" in file.quality &&
-            file.quality.quality
-              ? file.quality.quality.id
-              : 0;
-          const weight = getProfileWeight(qualityId, profile.items);
-          if (weight > best) {
-            best = weight;
-          }
-        }
-      }
-      bestWeightByProfile.set(profile.id, best);
-    }
+		// Compute per-profile best existing weight
+		const bestWeightByProfile = new Map<number, number>();
+		for (const profile of profiles) {
+			let best = 0;
+			for (const file of existingFiles) {
+				if (file.quality) {
+					const qualityId =
+						typeof file.quality === "object" &&
+						"quality" in file.quality &&
+						file.quality.quality
+							? file.quality.quality.id
+							: 0;
+					const weight = getProfileWeight(qualityId, profile.items);
+					if (weight > best) {
+						best = weight;
+					}
+				}
+			}
+			bestWeightByProfile.set(profile.id, best);
+		}
 
-    if (existingFiles.length === 0) {
-      wanted.push({
-        id: movie.id,
-        title: movie.title,
-        year: movie.year,
-        lastSearchedAt: movie.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-      continue;
-    }
+		if (existingFiles.length === 0) {
+			wanted.push({
+				id: movie.id,
+				title: movie.title,
+				year: movie.year,
+				lastSearchedAt: movie.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+			continue;
+		}
 
-    // Check if any profile allows upgrades and the best file is below cutoff
-    const upgradeNeeded = profiles.some((profile) => {
-      if (!profile.upgradeAllowed) {
-        return false;
-      }
-      const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-      if (bestWeight < cutoffWeight) {
-        return true;
-      }
-      if (profile.upgradeUntilCustomFormatScore > 0) {
-        return true;
-      }
-      return false;
-    });
+		// Check if any profile allows upgrades and the best file is below cutoff
+		const upgradeNeeded = profiles.some((profile) => {
+			if (!profile.upgradeAllowed) {
+				return false;
+			}
+			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+			if (bestWeight < cutoffWeight) {
+				return true;
+			}
+			if (profile.upgradeUntilCustomFormatScore > 0) {
+				return true;
+			}
+			return false;
+		});
 
-    if (upgradeNeeded) {
-      wanted.push({
-        id: movie.id,
-        title: movie.title,
-        year: movie.year,
-        lastSearchedAt: movie.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-    }
-  }
+		if (upgradeNeeded) {
+			wanted.push({
+				id: movie.id,
+				title: movie.title,
+				year: movie.year,
+				lastSearchedAt: movie.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+		}
+	}
 
-  return wanted;
+	return wanted;
 }
 
 // ─── Wanted episodes detection ──────────────────────────────────────────────
 
 /** Find episodes that need searching: missing files or upgrade-eligible */
 export function getWantedEpisodes(
-  showId?: number,
-  cutoffUnmet?: boolean,
+	showId?: number,
+	cutoffUnmet?: boolean,
 ): WantedEpisode[] {
-  // Get all episodes that have at least one download profile assigned
-  const baseConditions = sql`EXISTS (
+	// Get all episodes that have at least one download profile assigned
+	const baseConditions = sql`EXISTS (
     SELECT 1 FROM ${episodeDownloadProfiles}
     WHERE ${episodeDownloadProfiles.episodeId} = ${episodes.id}
   )`;
 
-  const whereClause = showId
-    ? and(baseConditions, eq(episodes.showId, showId))
-    : baseConditions;
+	const whereClause = showId
+		? and(baseConditions, eq(episodes.showId, showId))
+		: baseConditions;
 
-  const monitoredEpisodes = db
-    .select({
-      id: episodes.id,
-      showId: episodes.showId,
-      showTitle: shows.title,
-      seasonNumber: seasons.seasonNumber,
-      episodeNumber: episodes.episodeNumber,
-      absoluteNumber: episodes.absoluteNumber,
-      seriesType: shows.seriesType,
-      airDate: episodes.airDate,
-      lastSearchedAt: episodes.lastSearchedAt,
-    })
-    .from(episodes)
-    .innerJoin(shows, eq(shows.id, episodes.showId))
-    .innerJoin(seasons, eq(seasons.id, episodes.seasonId))
-    .where(whereClause)
-    .all();
+	const monitoredEpisodes = db
+		.select({
+			id: episodes.id,
+			showId: episodes.showId,
+			showTitle: shows.title,
+			seasonNumber: seasons.seasonNumber,
+			episodeNumber: episodes.episodeNumber,
+			absoluteNumber: episodes.absoluteNumber,
+			seriesType: shows.seriesType,
+			airDate: episodes.airDate,
+			lastSearchedAt: episodes.lastSearchedAt,
+		})
+		.from(episodes)
+		.innerJoin(shows, eq(shows.id, episodes.showId))
+		.innerJoin(seasons, eq(seasons.id, episodes.seasonId))
+		.where(whereClause)
+		.all();
 
-  const wanted: WantedEpisode[] = [];
+	const wanted: WantedEpisode[] = [];
 
-  for (const ep of monitoredEpisodes) {
-    // Get profiles for this episode
-    const profileRows = db
-      .select({
-        profileId: episodeDownloadProfiles.downloadProfileId,
-      })
-      .from(episodeDownloadProfiles)
-      .where(eq(episodeDownloadProfiles.episodeId, ep.id))
-      .all();
+	for (const ep of monitoredEpisodes) {
+		// Get profiles for this episode
+		const profileRows = db
+			.select({
+				profileId: episodeDownloadProfiles.downloadProfileId,
+			})
+			.from(episodeDownloadProfiles)
+			.where(eq(episodeDownloadProfiles.episodeId, ep.id))
+			.all();
 
-    if (profileRows.length === 0) {
-      continue;
-    }
+		if (profileRows.length === 0) {
+			continue;
+		}
 
-    const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
-    const profileList = db
-      .select()
-      .from(downloadProfiles)
-      .where(inArray(downloadProfiles.id, profileIds))
-      .all();
+		const profileIds = [...new Set(profileRows.map((r) => r.profileId))];
+		const profileList = db
+			.select()
+			.from(downloadProfiles)
+			.where(inArray(downloadProfiles.id, profileIds))
+			.all();
 
-    const profileMap = new Map<number, ProfileInfo>();
-    for (const p of profileList) {
-      profileMap.set(p.id, {
-        id: p.id,
-        name: p.name,
-        items: p.items,
-        cutoff: p.cutoff,
-        upgradeAllowed: p.upgradeAllowed,
-        categories: p.categories,
-        minCustomFormatScore: p.minCustomFormatScore,
-        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
-      });
-    }
+		const profileMap = new Map<number, ProfileInfo>();
+		for (const p of profileList) {
+			profileMap.set(p.id, {
+				id: p.id,
+				name: p.name,
+				items: p.items,
+				cutoff: p.cutoff,
+				upgradeAllowed: p.upgradeAllowed,
+				categories: p.categories,
+				minCustomFormatScore: p.minCustomFormatScore,
+				upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
+			});
+		}
 
-    // Exclude profiles that already have an active tracked download
-    const activeDownloads = db
-      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
-      .from(trackedDownloads)
-      .where(
-        and(
-          eq(trackedDownloads.episodeId, ep.id),
-          inArray(trackedDownloads.state, [
-            "queued",
-            "downloading",
-            "completed",
-            "importPending",
-          ]),
-        ),
-      )
-      .all();
+		// Exclude profiles that already have an active tracked download
+		const activeDownloads = db
+			.select({ downloadProfileId: trackedDownloads.downloadProfileId })
+			.from(trackedDownloads)
+			.where(
+				and(
+					eq(trackedDownloads.episodeId, ep.id),
+					inArray(trackedDownloads.state, [
+						"queued",
+						"downloading",
+						"completed",
+						"importPending",
+					]),
+				),
+			)
+			.all();
 
-    const activeProfileIds = new Set(
-      activeDownloads
-        .map((d) => d.downloadProfileId)
-        .filter((id): id is number => id !== null),
-    );
+		const activeProfileIds = new Set(
+			activeDownloads
+				.map((d) => d.downloadProfileId)
+				.filter((id): id is number => id !== null),
+		);
 
-    for (const id of activeProfileIds) {
-      profileMap.delete(id);
-    }
+		for (const id of activeProfileIds) {
+			profileMap.delete(id);
+		}
 
-    const profiles = [...profileMap.values()];
-    if (profiles.length === 0) {
-      continue;
-    }
+		const profiles = [...profileMap.values()];
+		if (profiles.length === 0) {
+			continue;
+		}
 
-    // Check existing files for this episode
-    const existingFiles = db
-      .select({ quality: episodeFiles.quality })
-      .from(episodeFiles)
-      .where(eq(episodeFiles.episodeId, ep.id))
-      .all();
+		// Check existing files for this episode
+		const existingFiles = db
+			.select({ quality: episodeFiles.quality })
+			.from(episodeFiles)
+			.where(eq(episodeFiles.episodeId, ep.id))
+			.all();
 
-    // Compute per-profile best existing weight
-    const bestWeightByProfile = new Map<number, number>();
-    for (const profile of profiles) {
-      let best = 0;
-      for (const file of existingFiles) {
-        if (file.quality) {
-          const qualityId =
-            typeof file.quality === "object" &&
-            "quality" in file.quality &&
-            file.quality.quality
-              ? file.quality.quality.id
-              : 0;
-          const weight = getProfileWeight(qualityId, profile.items);
-          if (weight > best) {
-            best = weight;
-          }
-        }
-      }
-      bestWeightByProfile.set(profile.id, best);
-    }
+		// Compute per-profile best existing weight
+		const bestWeightByProfile = new Map<number, number>();
+		for (const profile of profiles) {
+			let best = 0;
+			for (const file of existingFiles) {
+				if (file.quality) {
+					const qualityId =
+						typeof file.quality === "object" &&
+						"quality" in file.quality &&
+						file.quality.quality
+							? file.quality.quality.id
+							: 0;
+					const weight = getProfileWeight(qualityId, profile.items);
+					if (weight > best) {
+						best = weight;
+					}
+				}
+			}
+			bestWeightByProfile.set(profile.id, best);
+		}
 
-    if (existingFiles.length === 0) {
-      wanted.push({
-        id: ep.id,
-        showId: ep.showId,
-        showTitle: ep.showTitle,
-        seasonNumber: ep.seasonNumber,
-        episodeNumber: ep.episodeNumber,
-        absoluteNumber: ep.absoluteNumber,
-        seriesType: ep.seriesType,
-        airDate: ep.airDate,
-        lastSearchedAt: ep.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-      continue;
-    }
+		if (existingFiles.length === 0) {
+			wanted.push({
+				id: ep.id,
+				showId: ep.showId,
+				showTitle: ep.showTitle,
+				seasonNumber: ep.seasonNumber,
+				episodeNumber: ep.episodeNumber,
+				absoluteNumber: ep.absoluteNumber,
+				seriesType: ep.seriesType,
+				airDate: ep.airDate,
+				lastSearchedAt: ep.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+			continue;
+		}
 
-    // If cutoffUnmet is false and files exist, skip (only want missing episodes)
-    if (!cutoffUnmet) {
-      continue;
-    }
+		// If cutoffUnmet is false and files exist, skip (only want missing episodes)
+		if (!cutoffUnmet) {
+			continue;
+		}
 
-    // Check if any profile allows upgrades and the best file is below cutoff
-    const upgradeNeeded = profiles.some((profile) => {
-      if (!profile.upgradeAllowed) {
-        return false;
-      }
-      const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-      if (bestWeight < cutoffWeight) {
-        return true;
-      }
-      if (profile.upgradeUntilCustomFormatScore > 0) {
-        return true;
-      }
-      return false;
-    });
+		// Check if any profile allows upgrades and the best file is below cutoff
+		const upgradeNeeded = profiles.some((profile) => {
+			if (!profile.upgradeAllowed) {
+				return false;
+			}
+			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+			if (bestWeight < cutoffWeight) {
+				return true;
+			}
+			if (profile.upgradeUntilCustomFormatScore > 0) {
+				return true;
+			}
+			return false;
+		});
 
-    if (upgradeNeeded) {
-      wanted.push({
-        id: ep.id,
-        showId: ep.showId,
-        showTitle: ep.showTitle,
-        seasonNumber: ep.seasonNumber,
-        episodeNumber: ep.episodeNumber,
-        absoluteNumber: ep.absoluteNumber,
-        seriesType: ep.seriesType,
-        airDate: ep.airDate,
-        lastSearchedAt: ep.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-    }
-  }
+		if (upgradeNeeded) {
+			wanted.push({
+				id: ep.id,
+				showId: ep.showId,
+				showTitle: ep.showTitle,
+				seasonNumber: ep.seasonNumber,
+				episodeNumber: ep.episodeNumber,
+				absoluteNumber: ep.absoluteNumber,
+				seriesType: ep.seriesType,
+				airDate: ep.airDate,
+				lastSearchedAt: ep.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+		}
+	}
 
-  return wanted;
+	return wanted;
 }
 
 // ─── Wanted manga chapters detection ────────────────────────────────────────
 
 /** Parse manga file quality (text column) and compute per-profile best weight */
 function computeBestWeightsForMangaFiles(
-  files: Array<{ quality: string | null }>,
-  profiles: ProfileInfo[],
+	files: Array<{ quality: string | null }>,
+	profiles: ProfileInfo[],
 ): Map<number, number> {
-  const bestWeightByProfile = new Map<number, number>();
-  for (const profile of profiles) {
-    let best = 0;
-    for (const file of files) {
-      if (file.quality) {
-        let qualityId = 0;
-        try {
-          const parsed =
-            typeof file.quality === "string"
-              ? JSON.parse(file.quality)
-              : file.quality;
-          if (
-            typeof parsed === "object" &&
-            parsed !== null &&
-            "quality" in parsed &&
-            parsed.quality
-          ) {
-            qualityId = parsed.quality.id ?? 0;
-          }
-        } catch {
-          // Not valid JSON — ignore
-        }
-        const weight = getProfileWeight(qualityId, profile.items);
-        if (weight > best) {
-          best = weight;
-        }
-      }
-    }
-    bestWeightByProfile.set(profile.id, best);
-  }
-  return bestWeightByProfile;
+	const bestWeightByProfile = new Map<number, number>();
+	for (const profile of profiles) {
+		let best = 0;
+		for (const file of files) {
+			if (file.quality) {
+				let qualityId = 0;
+				try {
+					const parsed =
+						typeof file.quality === "string"
+							? JSON.parse(file.quality)
+							: file.quality;
+					if (
+						typeof parsed === "object" &&
+						parsed !== null &&
+						"quality" in parsed &&
+						parsed.quality
+					) {
+						qualityId = parsed.quality.id ?? 0;
+					}
+				} catch {
+					// Not valid JSON — ignore
+				}
+				const weight = getProfileWeight(qualityId, profile.items);
+				if (weight > best) {
+					best = weight;
+				}
+			}
+		}
+		bestWeightByProfile.set(profile.id, best);
+	}
+	return bestWeightByProfile;
 }
 
 /** Find manga chapters that need searching: missing files or upgrade-eligible */
 export function getWantedManga(): WantedMangaChapter[] {
-  // Get all manga-type download profiles (shared across all manga)
-  const mangaProfileList = db
-    .select()
-    .from(downloadProfiles)
-    .where(eq(downloadProfiles.contentType, "manga"))
-    .all();
+	// Get all manga-type download profiles (shared across all manga)
+	const mangaProfileList = db
+		.select()
+		.from(downloadProfiles)
+		.where(eq(downloadProfiles.contentType, "manga"))
+		.all();
 
-  if (mangaProfileList.length === 0) {
-    return [];
-  }
+	if (mangaProfileList.length === 0) {
+		return [];
+	}
 
-  // Get all monitored chapters
-  const monitoredChapters = db
-    .select({
-      id: mangaChapters.id,
-      mangaId: mangaChapters.mangaId,
-      mangaTitle: manga.title,
-      chapterNumber: mangaChapters.chapterNumber,
-      volumeNumber: mangaVolumes.volumeNumber,
-      monitored: mangaChapters.monitored,
-      mangaMonitored: manga.monitored,
-      lastSearchedAt: mangaChapters.lastSearchedAt,
-    })
-    .from(mangaChapters)
-    .innerJoin(manga, eq(manga.id, mangaChapters.mangaId))
-    .innerJoin(mangaVolumes, eq(mangaVolumes.id, mangaChapters.mangaVolumeId))
-    .all();
+	// Get all monitored chapters
+	const monitoredChapters = db
+		.select({
+			id: mangaChapters.id,
+			mangaId: mangaChapters.mangaId,
+			mangaTitle: manga.title,
+			chapterNumber: mangaChapters.chapterNumber,
+			volumeNumber: mangaVolumes.volumeNumber,
+			monitored: mangaChapters.monitored,
+			mangaMonitored: manga.monitored,
+			lastSearchedAt: mangaChapters.lastSearchedAt,
+		})
+		.from(mangaChapters)
+		.innerJoin(manga, eq(manga.id, mangaChapters.mangaId))
+		.innerJoin(mangaVolumes, eq(mangaVolumes.id, mangaChapters.mangaVolumeId))
+		.all();
 
-  const wanted: WantedMangaChapter[] = [];
+	const wanted: WantedMangaChapter[] = [];
 
-  for (const ch of monitoredChapters) {
-    // Skip unmonitored chapters or manga
-    if (!ch.monitored || !ch.mangaMonitored) {
-      continue;
-    }
+	for (const ch of monitoredChapters) {
+		// Skip unmonitored chapters or manga
+		if (!ch.monitored || !ch.mangaMonitored) {
+			continue;
+		}
 
-    // Use all manga-type profiles
-    const profileMap = new Map<number, ProfileInfo>();
-    for (const p of mangaProfileList) {
-      profileMap.set(p.id, {
-        id: p.id,
-        name: p.name,
-        items: p.items,
-        cutoff: p.cutoff,
-        upgradeAllowed: p.upgradeAllowed,
-        categories: p.categories,
-        minCustomFormatScore: p.minCustomFormatScore,
-        upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
-      });
-    }
+		// Use all manga-type profiles
+		const profileMap = new Map<number, ProfileInfo>();
+		for (const p of mangaProfileList) {
+			profileMap.set(p.id, {
+				id: p.id,
+				name: p.name,
+				items: p.items,
+				cutoff: p.cutoff,
+				upgradeAllowed: p.upgradeAllowed,
+				categories: p.categories,
+				minCustomFormatScore: p.minCustomFormatScore,
+				upgradeUntilCustomFormatScore: p.upgradeUntilCustomFormatScore,
+			});
+		}
 
-    // Exclude profiles that already have an active tracked download
-    const activeDownloads = db
-      .select({ downloadProfileId: trackedDownloads.downloadProfileId })
-      .from(trackedDownloads)
-      .where(
-        and(
-          eq(trackedDownloads.mangaChapterId, ch.id),
-          inArray(trackedDownloads.state, [
-            "queued",
-            "downloading",
-            "completed",
-            "importPending",
-          ]),
-        ),
-      )
-      .all();
+		// Exclude profiles that already have an active tracked download
+		const activeDownloads = db
+			.select({ downloadProfileId: trackedDownloads.downloadProfileId })
+			.from(trackedDownloads)
+			.where(
+				and(
+					eq(trackedDownloads.mangaChapterId, ch.id),
+					inArray(trackedDownloads.state, [
+						"queued",
+						"downloading",
+						"completed",
+						"importPending",
+					]),
+				),
+			)
+			.all();
 
-    const activeProfileIds = new Set(
-      activeDownloads
-        .map((d) => d.downloadProfileId)
-        .filter((id): id is number => id !== null),
-    );
+		const activeProfileIds = new Set(
+			activeDownloads
+				.map((d) => d.downloadProfileId)
+				.filter((id): id is number => id !== null),
+		);
 
-    for (const id of activeProfileIds) {
-      profileMap.delete(id);
-    }
+		for (const id of activeProfileIds) {
+			profileMap.delete(id);
+		}
 
-    const profiles = [...profileMap.values()];
-    if (profiles.length === 0) {
-      continue;
-    }
+		const profiles = [...profileMap.values()];
+		if (profiles.length === 0) {
+			continue;
+		}
 
-    // Check existing files for this chapter
-    const existingFiles = db
-      .select({ quality: mangaFiles.quality })
-      .from(mangaFiles)
-      .where(eq(mangaFiles.chapterId, ch.id))
-      .all();
+		// Check existing files for this chapter
+		const existingFiles = db
+			.select({ quality: mangaFiles.quality })
+			.from(mangaFiles)
+			.where(eq(mangaFiles.chapterId, ch.id))
+			.all();
 
-    // Compute per-profile best existing weight
-    const bestWeightByProfile = computeBestWeightsForMangaFiles(
-      existingFiles,
-      profiles,
-    );
+		// Compute per-profile best existing weight
+		const bestWeightByProfile = computeBestWeightsForMangaFiles(
+			existingFiles,
+			profiles,
+		);
 
-    if (existingFiles.length === 0) {
-      // No files at all — wanted
-      wanted.push({
-        id: ch.id,
-        mangaId: ch.mangaId,
-        mangaTitle: ch.mangaTitle,
-        chapterNumber: ch.chapterNumber,
-        volumeNumber: ch.volumeNumber,
-        lastSearchedAt: ch.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-      continue;
-    }
+		if (existingFiles.length === 0) {
+			// No files at all — wanted
+			wanted.push({
+				id: ch.id,
+				mangaId: ch.mangaId,
+				mangaTitle: ch.mangaTitle,
+				chapterNumber: ch.chapterNumber,
+				volumeNumber: ch.volumeNumber,
+				lastSearchedAt: ch.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+			continue;
+		}
 
-    // Check if any profile allows upgrades and the best file is below cutoff
-    const upgradeNeeded = profiles.some((profile) => {
-      if (!profile.upgradeAllowed) {
-        return false;
-      }
-      const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-      const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-      if (bestWeight < cutoffWeight) {
-        return true;
-      }
-      if (profile.upgradeUntilCustomFormatScore > 0) {
-        return true;
-      }
-      return false;
-    });
+		// Check if any profile allows upgrades and the best file is below cutoff
+		const upgradeNeeded = profiles.some((profile) => {
+			if (!profile.upgradeAllowed) {
+				return false;
+			}
+			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
+			if (bestWeight < cutoffWeight) {
+				return true;
+			}
+			if (profile.upgradeUntilCustomFormatScore > 0) {
+				return true;
+			}
+			return false;
+		});
 
-    if (upgradeNeeded) {
-      wanted.push({
-        id: ch.id,
-        mangaId: ch.mangaId,
-        mangaTitle: ch.mangaTitle,
-        chapterNumber: ch.chapterNumber,
-        volumeNumber: ch.volumeNumber,
-        lastSearchedAt: ch.lastSearchedAt,
-        profiles,
-        bestWeightByProfile,
-      });
-    }
-  }
+		if (upgradeNeeded) {
+			wanted.push({
+				id: ch.id,
+				mangaId: ch.mangaId,
+				mangaTitle: ch.mangaTitle,
+				chapterNumber: ch.chapterNumber,
+				volumeNumber: ch.volumeNumber,
+				lastSearchedAt: ch.lastSearchedAt,
+				profiles,
+				bestWeightByProfile,
+			});
+		}
+	}
 
-  return wanted;
+	return wanted;
 }
 
 // ─── Search query builders ──────────────────────────────────────────────────
 
 function cleanSearchTerm(term: string): string {
-  let cleaned = term;
-  // Strip leading "The " (case-insensitive)
-  cleaned = cleaned.replace(/^the\s+/i, "");
-  // Replace " & " with space
-  cleaned = cleaned.replaceAll(" & ", " ");
-  // Replace periods with spaces
-  cleaned = cleaned.replaceAll(".", " ");
-  // Remove diacritical marks (accents)
-  cleaned = cleaned.normalize("NFD").replaceAll(/[\u0300-\u036F]/g, "");
-  // Collapse whitespace and trim
-  cleaned = cleaned.replaceAll(/\s+/g, " ").trim();
-  return cleaned;
+	let cleaned = term;
+	// Strip leading "The " (case-insensitive)
+	cleaned = cleaned.replace(/^the\s+/i, "");
+	// Replace " & " with space
+	cleaned = cleaned.replaceAll(" & ", " ");
+	// Replace periods with spaces
+	cleaned = cleaned.replaceAll(".", " ");
+	// Remove diacritical marks (accents)
+	cleaned = cleaned.normalize("NFD").replaceAll(/[\u0300-\u036F]/g, "");
+	// Collapse whitespace and trim
+	cleaned = cleaned.replaceAll(/\s+/g, " ").trim();
+	return cleaned;
 }
 
 function padNumber(n: number): string {
-  return n.toString().padStart(2, "0");
+	return n.toString().padStart(2, "0");
 }
 
 function buildMovieSearchQuery(movie: WantedMovie): string {
-  const cleanTitle = cleanSearchTerm(movie.title);
-  return `"${cleanTitle}" ${movie.year}`;
+	const cleanTitle = cleanSearchTerm(movie.title);
+	return `"${cleanTitle}" ${movie.year}`;
 }
 
 function buildEpisodeSearchQueries(episode: WantedEpisode): string[] {
-  const showName = cleanSearchTerm(episode.showTitle);
-  switch (episode.seriesType) {
-    case "daily": {
-      return [`"${showName}" ${episode.airDate ?? ""}`.trim()];
-    }
-    case "anime": {
-      // Always search seasonal format; additionally search absolute format if available
-      return [
-        `"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
-        ...(episode.absoluteNumber === null
-          ? []
-          : [`"${showName}" ${padNumber(episode.absoluteNumber)}`]),
-      ];
-    }
-    default: {
-      // "standard"
-      return [
-        `"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
-      ];
-    }
-  }
+	const showName = cleanSearchTerm(episode.showTitle);
+	switch (episode.seriesType) {
+		case "daily": {
+			return [`"${showName}" ${episode.airDate ?? ""}`.trim()];
+		}
+		case "anime": {
+			// Always search seasonal format; additionally search absolute format if available
+			return [
+				`"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
+				...(episode.absoluteNumber === null
+					? []
+					: [`"${showName}" ${padNumber(episode.absoluteNumber)}`]),
+			];
+		}
+		default: {
+			// "standard"
+			return [
+				`"${showName}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
+			];
+		}
+	}
 }
 
 function buildMangaSearchQuery(chapter: WantedMangaChapter): string {
-  const title = cleanSearchTerm(chapter.mangaTitle);
-  if (chapter.volumeNumber !== null) {
-    return `"${title}" Vol ${chapter.volumeNumber} Ch ${chapter.chapterNumber}`;
-  }
-  return `"${title}" Chapter ${chapter.chapterNumber}`;
+	const title = cleanSearchTerm(chapter.mangaTitle);
+	if (chapter.volumeNumber !== null) {
+		return `"${title}" Vol ${chapter.volumeNumber} Ch ${chapter.chapterNumber}`;
+	}
+	return `"${title}" Chapter ${chapter.chapterNumber}`;
 }
 
 // ─── Per-book search + grab ─────────────────────────────────────────────────
 
 type EnabledIndexers = {
-  manual: Array<typeof indexers.$inferSelect>;
-  synced: Array<typeof syncedIndexers.$inferSelect>;
+	manual: Array<typeof indexers.$inferSelect>;
+	synced: Array<typeof syncedIndexers.$inferSelect>;
 };
 
 /** Search all indexers for a given query (extracted to reduce duplication) */
 async function searchIndexers(
-  ixs: EnabledIndexers,
-  query: string,
-  categories: number[],
-  bookParams?: { author: string; title: string },
-  contentType?: "book" | "tv" | "manga",
-  logPrefix = "[auto-search]",
+	ixs: EnabledIndexers,
+	query: string,
+	categories: number[],
+	bookParams?: { author: string; title: string },
+	contentType?: "book" | "tv" | "manga",
+	logPrefix = "[auto-search]",
 ): Promise<IndexerRelease[]> {
-  const allReleases: IndexerRelease[] = [];
+	const allReleases: IndexerRelease[] = [];
 
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `${logPrefix} Indexer "${synced.name}" skipped: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+	for (const synced of syncedWithKey) {
+		const gate = canQueryIndexer("synced", synced.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`${logPrefix} Indexer "${synced.name}" skipped: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        bookParams,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || synced.name,
-              allstarrIndexerId: synced.id,
-              indexerSource: "synced" as const,
-            },
-            contentType,
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `${logPrefix} Indexer "${synced.name}" failed:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: synced.baseUrl,
+					apiPath: synced.apiPath ?? "/api",
+					apiKey: synced.apiKey ?? "",
+				},
+				query,
+				categories,
+				bookParams,
+				{ indexerType: "synced", indexerId: synced.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease(
+						{
+							...r,
+							indexer: r.indexer || synced.name,
+							allstarrIndexerId: synced.id,
+							indexerSource: "synced" as const,
+						},
+						contentType,
+					),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`${logPrefix} Indexer "${synced.name}" failed:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  for (const ix of ixs.manual) {
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `${logPrefix} Indexer "${ix.name}" skipped: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	for (const ix of ixs.manual) {
+		const gate = canQueryIndexer("manual", ix.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`${logPrefix} Indexer "${ix.name}" skipped: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        bookParams,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease(
-            {
-              ...r,
-              indexer: r.indexer || ix.name,
-              allstarrIndexerId: ix.id,
-              indexerSource: "manual" as const,
-            },
-            contentType,
-          ),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `${logPrefix} Manual indexer failed:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: ix.baseUrl,
+					apiPath: ix.apiPath ?? "/api",
+					apiKey: ix.apiKey,
+				},
+				query,
+				categories,
+				bookParams,
+				{ indexerType: "manual", indexerId: ix.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease(
+						{
+							...r,
+							indexer: r.indexer || ix.name,
+							allstarrIndexerId: ix.id,
+							indexerSource: "manual" as const,
+						},
+						contentType,
+					),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`${logPrefix} Manual indexer failed:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  return allReleases;
+	return allReleases;
 }
 
 function getEnabledIndexers(): EnabledIndexers {
-  return {
-    manual: db
-      .select()
-      .from(indexers)
-      .where(eq(indexers.enableRss, true))
-      .orderBy(asc(indexers.priority))
-      .all(),
-    synced: db
-      .select()
-      .from(syncedIndexers)
-      .where(eq(syncedIndexers.enableRss, true))
-      .orderBy(asc(syncedIndexers.priority))
-      .all(),
-  };
+	return {
+		manual: db
+			.select()
+			.from(indexers)
+			.where(eq(indexers.enableRss, true))
+			.orderBy(asc(indexers.priority))
+			.all(),
+		synced: db
+			.select()
+			.from(syncedIndexers)
+			.where(eq(syncedIndexers.enableRss, true))
+			.orderBy(asc(syncedIndexers.priority))
+			.all(),
+	};
 }
 
 async function searchAndGrabForBook(
-  book: WantedBook,
-  ixs: EnabledIndexers,
+	book: WantedBook,
+	ixs: EnabledIndexers,
 ): Promise<SearchDetail> {
-  const detail: SearchDetail = {
-    bookId: book.id,
-    bookTitle: book.title,
-    authorName: book.authorName,
-    searched: false,
-    grabbed: false,
-  };
+	const detail: SearchDetail = {
+		bookId: book.id,
+		bookTitle: book.title,
+		authorName: book.authorName,
+		searched: false,
+		grabbed: false,
+	};
 
-  // Build search query
-  const query = book.authorName
-    ? `${book.authorName} ${book.title}`
-    : book.title;
-  const bookParams = book.authorName
-    ? { author: book.authorName, title: book.title }
-    : undefined;
+	// Build search query
+	const query = book.authorName
+		? `${book.authorName} ${book.title}`
+		: book.title;
+	const bookParams = book.authorName
+		? { author: book.authorName, title: book.title }
+		: undefined;
 
-  // Derive categories from profiles
-  const categories = getCategoriesForProfiles(book.profiles);
+	// Derive categories from profiles
+	const categories = getCategoriesForProfiles(book.profiles);
 
-  // Search indexers sequentially with rate limiter gating
-  const allReleases: IndexerRelease[] = [];
+	// Search indexers sequentially with rate limiter gating
+	const allReleases: IndexerRelease[] = [];
 
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    // Rate limiter gate — automatic searches enforce daily caps
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[rss-sync] Indexer "${synced.name}" skipped: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+	for (const synced of syncedWithKey) {
+		// Rate limiter gate — automatic searches enforce daily caps
+		const gate = canQueryIndexer("synced", synced.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`[rss-sync] Indexer "${synced.name}" skipped: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        bookParams,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-            indexerSource: "synced" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[rss-sync] Indexer "${synced.name}" failed:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: synced.baseUrl,
+					apiPath: synced.apiPath ?? "/api",
+					apiKey: synced.apiKey ?? "",
+				},
+				query,
+				categories,
+				bookParams,
+				{ indexerType: "synced", indexerId: synced.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || synced.name,
+						allstarrIndexerId: synced.id,
+						indexerSource: "synced" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[rss-sync] Indexer "${synced.name}" failed:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  for (const ix of ixs.manual) {
-    // Rate limiter gate — automatic searches enforce daily caps
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(`[rss-sync] Indexer "${ix.name}" skipped: ${gate.reason}`);
-        continue;
-      }
-    }
+	for (const ix of ixs.manual) {
+		// Rate limiter gate — automatic searches enforce daily caps
+		const gate = canQueryIndexer("manual", ix.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(`[rss-sync] Indexer "${ix.name}" skipped: ${gate.reason}`);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        bookParams,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || ix.name,
-            allstarrIndexerId: ix.id,
-            indexerSource: "manual" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[rss-sync] Manual indexer failed:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: ix.baseUrl,
+					apiPath: ix.apiPath ?? "/api",
+					apiKey: ix.apiKey,
+				},
+				query,
+				categories,
+				bookParams,
+				{ indexerType: "manual", indexerId: ix.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || ix.name,
+						allstarrIndexerId: ix.id,
+						indexerSource: "manual" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[rss-sync] Manual indexer failed:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  detail.searched = true;
+	detail.searched = true;
 
-  if (allReleases.length === 0) {
-    return detail;
-  }
+	if (allReleases.length === 0) {
+		return detail;
+	}
 
-  // Score, deduplicate, and grab per profile
-  const bookInfo = { title: book.title, authorName: book.authorName };
-  const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
-  const grabbedTitles = await grabPerProfile(scored, book);
+	// Score, deduplicate, and grab per profile
+	const bookInfo = { title: book.title, authorName: book.authorName };
+	const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
+	const grabbedTitles = await grabPerProfile(scored, book);
 
-  if (grabbedTitles.length > 0) {
-    detail.grabbed = true;
-    detail.releaseTitle = grabbedTitles.join(", ");
-  }
+	if (grabbedTitles.length > 0) {
+		detail.grabbed = true;
+		detail.releaseTitle = grabbedTitles.join(", ");
+	}
 
-  return detail;
+	return detail;
 }
 
 /** Try to grab the best release for each unique profile on the book */
 async function grabPerProfile(
-  scored: IndexerRelease[],
-  book: WantedBook,
+	scored: IndexerRelease[],
+	book: WantedBook,
 ): Promise<string[]> {
-  const blocklistedTitles = new Set(
-    db
-      .select({ sourceTitle: blocklist.sourceTitle })
-      .from(blocklist)
-      .where(eq(blocklist.bookId, book.id))
-      .all()
-      .map((b) => b.sourceTitle),
-  );
+	const blocklistedTitles = new Set(
+		db
+			.select({ sourceTitle: blocklist.sourceTitle })
+			.from(blocklist)
+			.where(eq(blocklist.bookId, book.id))
+			.all()
+			.map((b) => b.sourceTitle),
+	);
 
-  const grabbedGuids = new Set(
-    db
-      .select({ data: history.data })
-      .from(history)
-      .where(
-        and(eq(history.eventType, "bookGrabbed"), eq(history.bookId, book.id)),
-      )
-      .all()
-      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
-      .filter(Boolean),
-  );
+	const grabbedGuids = new Set(
+		db
+			.select({ data: history.data })
+			.from(history)
+			.where(
+				and(eq(history.eventType, "bookGrabbed"), eq(history.bookId, book.id)),
+			)
+			.all()
+			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
+			.filter(Boolean),
+	);
 
-  const satisfiedProfiles = new Set<number>();
-  const grabbedTitles: string[] = [];
+	const satisfiedProfiles = new Set<number>();
+	const grabbedTitles: string[] = [];
 
-  for (const profile of book.profiles) {
-    if (satisfiedProfiles.has(profile.id)) {
-      continue;
-    }
+	for (const profile of book.profiles) {
+		if (satisfiedProfiles.has(profile.id)) {
+			continue;
+		}
 
-    const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
-    const bestRelease = findBestReleaseForProfile(
-      scored,
-      profile,
-      bestExistingWeight,
-      blocklistedTitles,
-      grabbedGuids,
-    );
+		const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
+		const bestRelease = findBestReleaseForProfile(
+			scored,
+			profile,
+			bestExistingWeight,
+			blocklistedTitles,
+			grabbedGuids,
+		);
 
-    if (!bestRelease) {
-      continue;
-    }
+		if (!bestRelease) {
+			continue;
+		}
 
-    const grabbed = await grabRelease(bestRelease, book, profile.id);
-    if (grabbed) {
-      satisfiedProfiles.add(profile.id);
-      grabbedTitles.push(bestRelease.title);
-      grabbedGuids.add(bestRelease.guid);
-      console.log(
-        `[rss-sync] Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
-      );
-    }
-  }
+		const grabbed = await grabRelease(bestRelease, book, profile.id);
+		if (grabbed) {
+			satisfiedProfiles.add(profile.id);
+			grabbedTitles.push(bestRelease.title);
+			grabbedGuids.add(bestRelease.guid);
+			console.log(
+				`[rss-sync] Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
+			);
+		}
+	}
 
-  return grabbedTitles;
+	return grabbedTitles;
 }
 
 // ─── Pack-aware book search helpers ─────────────────────────────────────────
 
 /** Grab a release for an author-level pack or individual book */
 async function grabReleaseForBookPack(
-  release: IndexerRelease,
-  authorId: number | null,
-  bookId: number | undefined,
-  profileId: number,
+	release: IndexerRelease,
+	authorId: number | null,
+	bookId: number | undefined,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        authorId: authorId ?? null,
-        bookId: bookId ?? null,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				authorId: authorId ?? null,
+				bookId: bookId ?? null,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "bookGrabbed",
-      bookId: bookId ?? null,
-      authorId,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "bookGrabbed",
+			bookId: bookId ?? null,
+			authorId,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 /** Try to grab the best release for each wanted book, with pack context */
 async function grabPerProfileForBooks(
-  scored: IndexerRelease[],
-  wantedBooks: WantedBook[],
-  packContext: PackContext,
+	scored: IndexerRelease[],
+	wantedBooks: WantedBook[],
+	packContext: PackContext,
 ): Promise<PackSearchResult> {
-  const grabbedGuids = new Set<string>();
-  let grabbed = false;
+	const grabbedGuids = new Set<string>();
+	let grabbed = false;
 
-  // Collect blocklisted titles for the author's books
-  const bookIds = wantedBooks.map((b) => b.id);
-  const blocklistedTitles =
-    bookIds.length > 0
-      ? new Set(
-          db
-            .select({ sourceTitle: blocklist.sourceTitle })
-            .from(blocklist)
-            .where(inArray(blocklist.bookId, bookIds))
-            .all()
-            .map((b) => b.sourceTitle),
-        )
-      : new Set<string>();
+	// Collect blocklisted titles for the author's books
+	const bookIds = wantedBooks.map((b) => b.id);
+	const blocklistedTitles =
+		bookIds.length > 0
+			? new Set(
+					db
+						.select({ sourceTitle: blocklist.sourceTitle })
+						.from(blocklist)
+						.where(inArray(blocklist.bookId, bookIds))
+						.all()
+						.map((b) => b.sourceTitle),
+				)
+			: new Set<string>();
 
-  for (const book of wantedBooks) {
-    for (const profile of book.profiles) {
-      const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
-      const best = findBestReleaseForProfile(
-        scored,
-        profile,
-        bestExistingWeight,
-        blocklistedTitles,
-        grabbedGuids,
-        0,
-        packContext,
-      );
-      if (!best) {
-        continue;
-      }
+	for (const book of wantedBooks) {
+		for (const profile of book.profiles) {
+			const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
+			const best = findBestReleaseForProfile(
+				scored,
+				profile,
+				bestExistingWeight,
+				blocklistedTitles,
+				grabbedGuids,
+				0,
+				packContext,
+			);
+			if (!best) {
+				continue;
+			}
 
-      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-      const result = await grabReleaseForBookPack(
-        best,
-        book.authorId,
-        isPack ? undefined : book.id,
-        profile.id,
-      );
-      if (result) {
-        grabbedGuids.add(best.guid);
-        grabbed = true;
-        console.log(
-          `[auto-search] Grabbed "${best.title}" for "${book.title}"${isPack ? " (author pack)" : ""} (profile: ${profile.name})`,
-        );
-      }
-    }
-  }
-  return { searched: true, grabbed };
+			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+			const result = await grabReleaseForBookPack(
+				best,
+				book.authorId,
+				isPack ? undefined : book.id,
+				profile.id,
+			);
+			if (result) {
+				grabbedGuids.add(best.guid);
+				grabbed = true;
+				console.log(
+					`[auto-search] Grabbed "${best.title}" for "${book.title}"${isPack ? " (author pack)" : ""} (profile: ${profile.name})`,
+				);
+			}
+		}
+	}
+	return { searched: true, grabbed };
 }
 
 /** Search at the author level (just author name) for author-collection packs */
 async function searchAndGrabForAuthor(
-  authorName: string,
-  wantedBooks: WantedBook[],
-  ixs: EnabledIndexers,
+	authorName: string,
+	wantedBooks: WantedBook[],
+	ixs: EnabledIndexers,
 ): Promise<PackSearchResult> {
-  const cleanName = cleanSearchTerm(authorName);
-  const query = `"${cleanName}"`;
+	const cleanName = cleanSearchTerm(authorName);
+	const query = `"${cleanName}"`;
 
-  // Derive categories from all book profiles
-  const allProfiles = wantedBooks.flatMap((b) => b.profiles);
-  const categories = getCategoriesForProfiles(allProfiles);
+	// Derive categories from all book profiles
+	const allProfiles = wantedBooks.flatMap((b) => b.profiles);
+	const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases = await searchIndexers(
-    ixs,
-    query,
-    categories,
-    undefined,
-    "book",
-    "[auto-search]",
-  );
+	const allReleases = await searchIndexers(
+		ixs,
+		query,
+		categories,
+		undefined,
+		"book",
+		"[auto-search]",
+	);
 
-  if (allReleases.length === 0) {
-    return { searched: true, grabbed: false };
-  }
+	if (allReleases.length === 0) {
+		return { searched: true, grabbed: false };
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const packContext: PackContext = {
-    wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
-  };
-  return grabPerProfileForBooks(scored, wantedBooks, packContext);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const packContext: PackContext = {
+		wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
+	};
+	return grabPerProfileForBooks(scored, wantedBooks, packContext);
 }
 
 // ─── Per-movie search + grab ────────────────────────────────────────────────
 
 async function searchAndGrabForMovie(
-  movie: WantedMovie,
-  ixs: EnabledIndexers,
+	movie: WantedMovie,
+	ixs: EnabledIndexers,
 ): Promise<MovieSearchDetail> {
-  const detail: MovieSearchDetail = {
-    movieId: movie.id,
-    movieTitle: movie.title,
-    searched: false,
-    grabbed: false,
-  };
+	const detail: MovieSearchDetail = {
+		movieId: movie.id,
+		movieTitle: movie.title,
+		searched: false,
+		grabbed: false,
+	};
 
-  const query = buildMovieSearchQuery(movie);
-  const categories = getCategoriesForProfiles(movie.profiles);
+	const query = buildMovieSearchQuery(movie);
+	const categories = getCategoriesForProfiles(movie.profiles);
 
-  const allReleases: IndexerRelease[] = [];
+	const allReleases: IndexerRelease[] = [];
 
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    // Rate limiter gate — automatic searches enforce daily caps
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+	for (const synced of syncedWithKey) {
+		// Rate limiter gate — automatic searches enforce daily caps
+		const gate = canQueryIndexer("synced", synced.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`[auto-search] Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-            indexerSource: "synced" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Indexer "${synced.name}" failed for movie:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: synced.baseUrl,
+					apiPath: synced.apiPath ?? "/api",
+					apiKey: synced.apiKey ?? "",
+				},
+				query,
+				categories,
+				undefined,
+				{ indexerType: "synced", indexerId: synced.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || synced.name,
+						allstarrIndexerId: synced.id,
+						indexerSource: "synced" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[auto-search] Indexer "${synced.name}" failed for movie:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  for (const ix of ixs.manual) {
-    // Rate limiter gate — automatic searches enforce daily caps
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	for (const ix of ixs.manual) {
+		// Rate limiter gate — automatic searches enforce daily caps
+		const gate = canQueryIndexer("manual", ix.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`[auto-search] Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || ix.name,
-            allstarrIndexerId: ix.id,
-            indexerSource: "manual" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Manual indexer failed for movie:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: ix.baseUrl,
+					apiPath: ix.apiPath ?? "/api",
+					apiKey: ix.apiKey,
+				},
+				query,
+				categories,
+				undefined,
+				{ indexerType: "manual", indexerId: ix.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || ix.name,
+						allstarrIndexerId: ix.id,
+						indexerSource: "manual" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[auto-search] Manual indexer failed for movie:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  detail.searched = true;
+	detail.searched = true;
 
-  if (allReleases.length === 0) {
-    return detail;
-  }
+	if (allReleases.length === 0) {
+		return detail;
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const grabbedTitles = await grabPerProfileForMovie(scored, movie);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const grabbedTitles = await grabPerProfileForMovie(scored, movie);
 
-  if (grabbedTitles.length > 0) {
-    detail.grabbed = true;
-    detail.releaseTitle = grabbedTitles.join(", ");
-  }
+	if (grabbedTitles.length > 0) {
+		detail.grabbed = true;
+		detail.releaseTitle = grabbedTitles.join(", ");
+	}
 
-  return detail;
+	return detail;
 }
 
 /** Try to grab the best release for each unique profile on the movie */
 async function grabPerProfileForMovie(
-  scored: IndexerRelease[],
-  movie: WantedMovie,
+	scored: IndexerRelease[],
+	movie: WantedMovie,
 ): Promise<string[]> {
-  const blocklistedTitles = new Set(
-    db
-      .select({ sourceTitle: blocklist.sourceTitle })
-      .from(blocklist)
-      .where(eq(blocklist.movieId, movie.id))
-      .all()
-      .map((b) => b.sourceTitle),
-  );
+	const blocklistedTitles = new Set(
+		db
+			.select({ sourceTitle: blocklist.sourceTitle })
+			.from(blocklist)
+			.where(eq(blocklist.movieId, movie.id))
+			.all()
+			.map((b) => b.sourceTitle),
+	);
 
-  const grabbedGuids = new Set(
-    db
-      .select({ data: history.data })
-      .from(history)
-      .where(
-        and(
-          eq(history.eventType, "movieGrabbed"),
-          eq(history.movieId, movie.id),
-        ),
-      )
-      .all()
-      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
-      .filter(Boolean),
-  );
+	const grabbedGuids = new Set(
+		db
+			.select({ data: history.data })
+			.from(history)
+			.where(
+				and(
+					eq(history.eventType, "movieGrabbed"),
+					eq(history.movieId, movie.id),
+				),
+			)
+			.all()
+			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
+			.filter(Boolean),
+	);
 
-  const satisfiedProfiles = new Set<number>();
-  const grabbedTitles: string[] = [];
+	const satisfiedProfiles = new Set<number>();
+	const grabbedTitles: string[] = [];
 
-  for (const profile of movie.profiles) {
-    if (satisfiedProfiles.has(profile.id)) {
-      continue;
-    }
+	for (const profile of movie.profiles) {
+		if (satisfiedProfiles.has(profile.id)) {
+			continue;
+		}
 
-    const bestExistingWeight = movie.bestWeightByProfile.get(profile.id) ?? 0;
-    const bestRelease = findBestReleaseForProfile(
-      scored,
-      profile,
-      bestExistingWeight,
-      blocklistedTitles,
-      grabbedGuids,
-    );
+		const bestExistingWeight = movie.bestWeightByProfile.get(profile.id) ?? 0;
+		const bestRelease = findBestReleaseForProfile(
+			scored,
+			profile,
+			bestExistingWeight,
+			blocklistedTitles,
+			grabbedGuids,
+		);
 
-    if (!bestRelease) {
-      continue;
-    }
+		if (!bestRelease) {
+			continue;
+		}
 
-    const grabbed = await grabReleaseForMovie(bestRelease, movie, profile.id);
-    if (grabbed) {
-      satisfiedProfiles.add(profile.id);
-      grabbedTitles.push(bestRelease.title);
-      grabbedGuids.add(bestRelease.guid);
-      console.log(
-        `[auto-search] Grabbed "${bestRelease.title}" for movie "${movie.title}" (profile: ${profile.name})`,
-      );
-    }
-  }
+		const grabbed = await grabReleaseForMovie(bestRelease, movie, profile.id);
+		if (grabbed) {
+			satisfiedProfiles.add(profile.id);
+			grabbedTitles.push(bestRelease.title);
+			grabbedGuids.add(bestRelease.guid);
+			console.log(
+				`[auto-search] Grabbed "${bestRelease.title}" for movie "${movie.title}" (profile: ${profile.name})`,
+			);
+		}
+	}
 
-  return grabbedTitles;
+	return grabbedTitles;
 }
 
 // ─── Per-episode search + grab ──────────────────────────────────────────────
 
 async function searchAndGrabForEpisode(
-  episode: WantedEpisode,
-  ixs: EnabledIndexers,
+	episode: WantedEpisode,
+	ixs: EnabledIndexers,
 ): Promise<EpisodeSearchDetail> {
-  const detail: EpisodeSearchDetail = {
-    episodeId: episode.id,
-    showTitle: episode.showTitle,
-    seasonNumber: episode.seasonNumber,
-    episodeNumber: episode.episodeNumber,
-    searched: false,
-    grabbed: false,
-  };
+	const detail: EpisodeSearchDetail = {
+		episodeId: episode.id,
+		showTitle: episode.showTitle,
+		seasonNumber: episode.seasonNumber,
+		episodeNumber: episode.episodeNumber,
+		searched: false,
+		grabbed: false,
+	};
 
-  const queries = buildEpisodeSearchQueries(episode);
-  const categories = getCategoriesForProfiles(episode.profiles);
+	const queries = buildEpisodeSearchQueries(episode);
+	const categories = getCategoriesForProfiles(episode.profiles);
 
-  const allReleases: IndexerRelease[] = [];
+	const allReleases: IndexerRelease[] = [];
 
-  for (const query of queries) {
-    const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-    for (const synced of syncedWithKey) {
-      // Rate limiter gate — automatic searches enforce daily caps
-      const gate = canQueryIndexer("synced", synced.id);
-      if (!gate.allowed) {
-        if (gate.reason === "pacing" && gate.waitMs) {
-          await sleep(gate.waitMs);
-        } else {
-          console.log(
-            `[auto-search] Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
-          );
-          continue;
-        }
-      }
+	for (const query of queries) {
+		const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+		for (const synced of syncedWithKey) {
+			// Rate limiter gate — automatic searches enforce daily caps
+			const gate = canQueryIndexer("synced", synced.id);
+			if (!gate.allowed) {
+				if (gate.reason === "pacing" && gate.waitMs) {
+					await sleep(gate.waitMs);
+				} else {
+					console.log(
+						`[auto-search] Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
+					);
+					continue;
+				}
+			}
 
-      try {
-        const results = await searchNewznab(
-          {
-            baseUrl: synced.baseUrl,
-            apiPath: synced.apiPath ?? "/api",
-            apiKey: synced.apiKey!,
-          },
-          query,
-          categories,
-          undefined,
-          { indexerType: "synced", indexerId: synced.id },
-        );
-        allReleases.push(
-          ...results.map((r) =>
-            enrichRelease({
-              ...r,
-              indexer: r.indexer || synced.name,
-              allstarrIndexerId: synced.id,
-              indexerSource: "synced" as const,
-            }),
-          ),
-        );
-      } catch (error) {
-        console.error(
-          `[auto-search] Indexer "${synced.name}" failed for episode:`,
-          error instanceof Error ? error.message : error,
-        );
-      }
-    }
+			try {
+				const results = await searchNewznab(
+					{
+						baseUrl: synced.baseUrl,
+						apiPath: synced.apiPath ?? "/api",
+						apiKey: synced.apiKey ?? "",
+					},
+					query,
+					categories,
+					undefined,
+					{ indexerType: "synced", indexerId: synced.id },
+				);
+				allReleases.push(
+					...results.map((r) =>
+						enrichRelease({
+							...r,
+							indexer: r.indexer || synced.name,
+							allstarrIndexerId: synced.id,
+							indexerSource: "synced" as const,
+						}),
+					),
+				);
+			} catch (error) {
+				console.error(
+					`[auto-search] Indexer "${synced.name}" failed for episode:`,
+					error instanceof Error ? error.message : error,
+				);
+			}
+		}
 
-    for (const ix of ixs.manual) {
-      // Rate limiter gate — automatic searches enforce daily caps
-      const gate = canQueryIndexer("manual", ix.id);
-      if (!gate.allowed) {
-        if (gate.reason === "pacing" && gate.waitMs) {
-          await sleep(gate.waitMs);
-        } else {
-          console.log(
-            `[auto-search] Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
-          );
-          continue;
-        }
-      }
+		for (const ix of ixs.manual) {
+			// Rate limiter gate — automatic searches enforce daily caps
+			const gate = canQueryIndexer("manual", ix.id);
+			if (!gate.allowed) {
+				if (gate.reason === "pacing" && gate.waitMs) {
+					await sleep(gate.waitMs);
+				} else {
+					console.log(
+						`[auto-search] Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
+					);
+					continue;
+				}
+			}
 
-      try {
-        const results = await searchNewznab(
-          {
-            baseUrl: ix.baseUrl,
-            apiPath: ix.apiPath ?? "/api",
-            apiKey: ix.apiKey,
-          },
-          query,
-          categories,
-          undefined,
-          { indexerType: "manual", indexerId: ix.id },
-        );
-        allReleases.push(
-          ...results.map((r) =>
-            enrichRelease({
-              ...r,
-              indexer: r.indexer || ix.name,
-              allstarrIndexerId: ix.id,
-              indexerSource: "manual" as const,
-            }),
-          ),
-        );
-      } catch (error) {
-        console.error(
-          `[auto-search] Manual indexer failed for episode:`,
-          error instanceof Error ? error.message : error,
-        );
-      }
-    }
-  }
+			try {
+				const results = await searchNewznab(
+					{
+						baseUrl: ix.baseUrl,
+						apiPath: ix.apiPath ?? "/api",
+						apiKey: ix.apiKey,
+					},
+					query,
+					categories,
+					undefined,
+					{ indexerType: "manual", indexerId: ix.id },
+				);
+				allReleases.push(
+					...results.map((r) =>
+						enrichRelease({
+							...r,
+							indexer: r.indexer || ix.name,
+							allstarrIndexerId: ix.id,
+							indexerSource: "manual" as const,
+						}),
+					),
+				);
+			} catch (error) {
+				console.error(
+					`[auto-search] Manual indexer failed for episode:`,
+					error instanceof Error ? error.message : error,
+				);
+			}
+		}
+	}
 
-  detail.searched = true;
+	detail.searched = true;
 
-  if (allReleases.length === 0) {
-    return detail;
-  }
+	if (allReleases.length === 0) {
+		return detail;
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const grabbedTitles = await grabPerProfileForEpisode(scored, episode);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const grabbedTitles = await grabPerProfileForEpisode(scored, episode);
 
-  if (grabbedTitles.length > 0) {
-    detail.grabbed = true;
-    detail.releaseTitle = grabbedTitles.join(", ");
-  }
+	if (grabbedTitles.length > 0) {
+		detail.grabbed = true;
+		detail.releaseTitle = grabbedTitles.join(", ");
+	}
 
-  return detail;
+	return detail;
 }
 
 /** Try to grab the best release for each unique profile on the episode */
 async function grabPerProfileForEpisode(
-  scored: IndexerRelease[],
-  episode: WantedEpisode,
+	scored: IndexerRelease[],
+	episode: WantedEpisode,
 ): Promise<string[]> {
-  const blocklistedTitles = new Set(
-    db
-      .select({ sourceTitle: blocklist.sourceTitle })
-      .from(blocklist)
-      .where(eq(blocklist.showId, episode.showId))
-      .all()
-      .map((b) => b.sourceTitle),
-  );
+	const blocklistedTitles = new Set(
+		db
+			.select({ sourceTitle: blocklist.sourceTitle })
+			.from(blocklist)
+			.where(eq(blocklist.showId, episode.showId))
+			.all()
+			.map((b) => b.sourceTitle),
+	);
 
-  const grabbedGuids = new Set(
-    db
-      .select({ data: history.data })
-      .from(history)
-      .where(
-        and(
-          eq(history.eventType, "episodeGrabbed"),
-          eq(history.episodeId, episode.id),
-        ),
-      )
-      .all()
-      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
-      .filter(Boolean),
-  );
+	const grabbedGuids = new Set(
+		db
+			.select({ data: history.data })
+			.from(history)
+			.where(
+				and(
+					eq(history.eventType, "episodeGrabbed"),
+					eq(history.episodeId, episode.id),
+				),
+			)
+			.all()
+			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
+			.filter(Boolean),
+	);
 
-  const satisfiedProfiles = new Set<number>();
-  const grabbedTitles: string[] = [];
+	const satisfiedProfiles = new Set<number>();
+	const grabbedTitles: string[] = [];
 
-  for (const profile of episode.profiles) {
-    if (satisfiedProfiles.has(profile.id)) {
-      continue;
-    }
+	for (const profile of episode.profiles) {
+		if (satisfiedProfiles.has(profile.id)) {
+			continue;
+		}
 
-    const bestExistingWeight = episode.bestWeightByProfile.get(profile.id) ?? 0;
-    const bestRelease = findBestReleaseForProfile(
-      scored,
-      profile,
-      bestExistingWeight,
-      blocklistedTitles,
-      grabbedGuids,
-    );
+		const bestExistingWeight = episode.bestWeightByProfile.get(profile.id) ?? 0;
+		const bestRelease = findBestReleaseForProfile(
+			scored,
+			profile,
+			bestExistingWeight,
+			blocklistedTitles,
+			grabbedGuids,
+		);
 
-    if (!bestRelease) {
-      continue;
-    }
+		if (!bestRelease) {
+			continue;
+		}
 
-    const grabbed = await grabReleaseForEpisode(
-      bestRelease,
-      episode,
-      profile.id,
-    );
-    if (grabbed) {
-      satisfiedProfiles.add(profile.id);
-      grabbedTitles.push(bestRelease.title);
-      grabbedGuids.add(bestRelease.guid);
-      console.log(
-        `[auto-search] Grabbed "${bestRelease.title}" for "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)} (profile: ${profile.name})`,
-      );
-    }
-  }
+		const grabbed = await grabReleaseForEpisode(
+			bestRelease,
+			episode,
+			profile.id,
+		);
+		if (grabbed) {
+			satisfiedProfiles.add(profile.id);
+			grabbedTitles.push(bestRelease.title);
+			grabbedGuids.add(bestRelease.guid);
+			console.log(
+				`[auto-search] Grabbed "${bestRelease.title}" for "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)} (profile: ${profile.name})`,
+			);
+		}
+	}
 
-  return grabbedTitles;
+	return grabbedTitles;
 }
 
 // ─── Pack-aware episode search helpers ─────────────────────────────────────
@@ -1881,2123 +1881,2125 @@ type PackSearchResult = { searched: boolean; grabbed: boolean };
 
 /** Build a PackContext from a season map of wanted episodes */
 function buildPackContextFromSeasons(
-  seasonMap: Map<number, WantedEpisode[]>,
+	seasonMap: Map<number, WantedEpisode[]>,
 ): PackContext {
-  const wantedEpisodesBySeason = new Map<number, Set<number>>();
-  for (const [seasonNumber, eps] of seasonMap) {
-    wantedEpisodesBySeason.set(
-      seasonNumber,
-      new Set(eps.map((e) => e.episodeNumber)),
-    );
-  }
-  return {
-    wantedEpisodesBySeason,
-    totalWantedSeasons: seasonMap.size,
-  };
+	const wantedEpisodesBySeason = new Map<number, Set<number>>();
+	for (const [seasonNumber, eps] of seasonMap) {
+		wantedEpisodesBySeason.set(
+			seasonNumber,
+			new Set(eps.map((e) => e.episodeNumber)),
+		);
+	}
+	return {
+		wantedEpisodesBySeason,
+		totalWantedSeasons: seasonMap.size,
+	};
 }
 
 /** Grab a release for a show-level or season-level pack, or individual episode */
 async function grabReleaseForEpisodePack(
-  release: IndexerRelease,
-  showId: number,
-  episodeId: number | undefined,
-  profileId: number,
+	release: IndexerRelease,
+	showId: number,
+	episodeId: number | undefined,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        showId,
-        episodeId: episodeId ?? null,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				showId,
+				episodeId: episodeId ?? null,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "episodeGrabbed",
-      showId,
-      episodeId: episodeId ?? null,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "episodeGrabbed",
+			showId,
+			episodeId: episodeId ?? null,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 /** Try to grab the best release for each wanted episode, with pack context */
 async function grabPerProfileForEpisodes(
-  scored: IndexerRelease[],
-  wantedEpisodes: WantedEpisode[],
-  packContext: PackContext,
+	scored: IndexerRelease[],
+	wantedEpisodes: WantedEpisode[],
+	packContext: PackContext,
 ): Promise<PackSearchResult> {
-  const grabbedGuids = new Set<string>();
-  let grabbed = false;
+	const grabbedGuids = new Set<string>();
+	let grabbed = false;
 
-  // Collect blocklisted titles for the show (all episodes share the same show)
-  const showId = wantedEpisodes[0]?.showId;
-  const blocklistedTitles = showId
-    ? new Set(
-        db
-          .select({ sourceTitle: blocklist.sourceTitle })
-          .from(blocklist)
-          .where(eq(blocklist.showId, showId))
-          .all()
-          .map((b) => b.sourceTitle),
-      )
-    : new Set<string>();
+	// Collect blocklisted titles for the show (all episodes share the same show)
+	const showId = wantedEpisodes[0]?.showId;
+	const blocklistedTitles = showId
+		? new Set(
+				db
+					.select({ sourceTitle: blocklist.sourceTitle })
+					.from(blocklist)
+					.where(eq(blocklist.showId, showId))
+					.all()
+					.map((b) => b.sourceTitle),
+			)
+		: new Set<string>();
 
-  for (const ep of wantedEpisodes) {
-    for (const profile of ep.profiles) {
-      const bestExistingWeight = ep.bestWeightByProfile.get(profile.id) ?? 0;
-      const best = findBestReleaseForProfile(
-        scored,
-        profile,
-        bestExistingWeight,
-        blocklistedTitles,
-        grabbedGuids,
-        0,
-        packContext,
-      );
-      if (!best) {
-        continue;
-      }
+	for (const ep of wantedEpisodes) {
+		for (const profile of ep.profiles) {
+			const bestExistingWeight = ep.bestWeightByProfile.get(profile.id) ?? 0;
+			const best = findBestReleaseForProfile(
+				scored,
+				profile,
+				bestExistingWeight,
+				blocklistedTitles,
+				grabbedGuids,
+				0,
+				packContext,
+			);
+			if (!best) {
+				continue;
+			}
 
-      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-      const result = await grabReleaseForEpisodePack(
-        best,
-        ep.showId,
-        isPack ? undefined : ep.id,
-        profile.id,
-      );
-      if (result) {
-        grabbedGuids.add(best.guid);
-        grabbed = true;
-        console.log(
-          `[auto-search] Grabbed "${best.title}" for "${ep.showTitle}"${isPack ? " (pack)" : ` S${padNumber(ep.seasonNumber)}E${padNumber(ep.episodeNumber)}`} (profile: ${profile.name})`,
-        );
-      }
-    }
-  }
-  return { searched: true, grabbed };
+			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+			const result = await grabReleaseForEpisodePack(
+				best,
+				ep.showId,
+				isPack ? undefined : ep.id,
+				profile.id,
+			);
+			if (result) {
+				grabbedGuids.add(best.guid);
+				grabbed = true;
+				console.log(
+					`[auto-search] Grabbed "${best.title}" for "${ep.showTitle}"${isPack ? " (pack)" : ` S${padNumber(ep.seasonNumber)}E${padNumber(ep.episodeNumber)}`} (profile: ${profile.name})`,
+				);
+			}
+		}
+	}
+	return { searched: true, grabbed };
 }
 
 /** Search at the season level ("show name" S##) and grab best pack releases */
 async function searchAndGrabForSeason(
-  show: { id: number; title: string },
-  seasonNumber: number,
-  wantedEpisodes: WantedEpisode[],
-  allSeasonMap: Map<number, WantedEpisode[]>,
-  ixs: EnabledIndexers,
+	show: { id: number; title: string },
+	seasonNumber: number,
+	wantedEpisodes: WantedEpisode[],
+	allSeasonMap: Map<number, WantedEpisode[]>,
+	ixs: EnabledIndexers,
 ): Promise<PackSearchResult> {
-  const showName = cleanSearchTerm(show.title);
-  const query = `"${showName}" S${padNumber(seasonNumber)}`;
-  const allProfiles = wantedEpisodes.flatMap((ep) => ep.profiles);
-  const categories = getCategoriesForProfiles(allProfiles);
+	const showName = cleanSearchTerm(show.title);
+	const query = `"${showName}" S${padNumber(seasonNumber)}`;
+	const allProfiles = wantedEpisodes.flatMap((ep) => ep.profiles);
+	const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases = await searchIndexers(
-    ixs,
-    query,
-    categories,
-    undefined,
-    "tv",
-    "[auto-search:season]",
-  );
-  if (allReleases.length === 0) {
-    return { searched: true, grabbed: false };
-  }
+	const allReleases = await searchIndexers(
+		ixs,
+		query,
+		categories,
+		undefined,
+		"tv",
+		"[auto-search:season]",
+	);
+	if (allReleases.length === 0) {
+		return { searched: true, grabbed: false };
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const packContext = buildPackContextFromSeasons(allSeasonMap);
-  return grabPerProfileForEpisodes(scored, wantedEpisodes, packContext);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const packContext = buildPackContextFromSeasons(allSeasonMap);
+	return grabPerProfileForEpisodes(scored, wantedEpisodes, packContext);
 }
 
 /** Search at the show level (just show name) for multi-season packs */
 async function searchAndGrabForShow(
-  show: { id: number; title: string },
-  seasonMap: Map<number, WantedEpisode[]>,
-  ixs: EnabledIndexers,
+	show: { id: number; title: string },
+	seasonMap: Map<number, WantedEpisode[]>,
+	ixs: EnabledIndexers,
 ): Promise<PackSearchResult> {
-  const showName = cleanSearchTerm(show.title);
-  const query = `"${showName}"`;
-  const allProfiles = [...seasonMap.values()]
-    .flat()
-    .flatMap((ep) => ep.profiles);
-  const categories = getCategoriesForProfiles(allProfiles);
+	const showName = cleanSearchTerm(show.title);
+	const query = `"${showName}"`;
+	const allProfiles = [...seasonMap.values()]
+		.flat()
+		.flatMap((ep) => ep.profiles);
+	const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases = await searchIndexers(
-    ixs,
-    query,
-    categories,
-    undefined,
-    "tv",
-    "[auto-search:show]",
-  );
-  if (allReleases.length === 0) {
-    return { searched: true, grabbed: false };
-  }
+	const allReleases = await searchIndexers(
+		ixs,
+		query,
+		categories,
+		undefined,
+		"tv",
+		"[auto-search:show]",
+	);
+	if (allReleases.length === 0) {
+		return { searched: true, grabbed: false };
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const packContext = buildPackContextFromSeasons(seasonMap);
-  const allEpisodes = [...seasonMap.values()].flat();
-  return grabPerProfileForEpisodes(scored, allEpisodes, packContext);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const packContext = buildPackContextFromSeasons(seasonMap);
+	const allEpisodes = [...seasonMap.values()].flat();
+	return grabPerProfileForEpisodes(scored, allEpisodes, packContext);
 }
 
 // ─── Movie search ───────────────────────────────────────────────────────────
 
 export async function searchForMovie(
-  movieId: number,
+	movieId: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  const wantedMovies = getWantedMovies([movieId]);
-  if (wantedMovies.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const wantedMovies = getWantedMovies([movieId]);
+	if (wantedMovies.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const ixs = getEnabledIndexers();
-  if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const ixs = getEnabledIndexers();
+	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  let searched = 0;
-  let grabbed = 0;
+	let searched = 0;
+	let grabbed = 0;
 
-  for (const movie of wantedMovies) {
-    const detail = await searchAndGrabForMovie(movie, ixs);
-    if (detail.searched) {
-      searched += 1;
-    }
-    if (detail.grabbed) {
-      grabbed += 1;
-    }
-  }
+	for (const movie of wantedMovies) {
+		const detail = await searchAndGrabForMovie(movie, ixs);
+		if (detail.searched) {
+			searched += 1;
+		}
+		if (detail.grabbed) {
+			grabbed += 1;
+		}
+	}
 
-  return { searched, grabbed };
+	return { searched, grabbed };
 }
 
 // ─── Book/Author search ─────────────────────────────────────────────────────
 
 export async function searchForAuthorBooks(
-  authorId: number,
+	authorId: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  // Get all book IDs for this author
-  const authorBooks = db
-    .select({ bookId: booksAuthors.bookId })
-    .from(booksAuthors)
-    .where(eq(booksAuthors.authorId, authorId))
-    .all();
+	// Get all book IDs for this author
+	const authorBooks = db
+		.select({ bookId: booksAuthors.bookId })
+		.from(booksAuthors)
+		.where(eq(booksAuthors.authorId, authorId))
+		.all();
 
-  if (authorBooks.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	if (authorBooks.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const bookIdList = authorBooks.map((b) => b.bookId);
-  const result = await runAutoSearch({ bookIds: bookIdList });
-  return { searched: result.searched, grabbed: result.grabbed };
+	const bookIdList = authorBooks.map((b) => b.bookId);
+	const result = await runAutoSearch({ bookIds: bookIdList });
+	return { searched: result.searched, grabbed: result.grabbed };
 }
 
 export async function searchForBook(
-  bookId: number,
+	bookId: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  const result = await runAutoSearch({ bookIds: [bookId], maxBooks: 1 });
-  return { searched: result.searched, grabbed: result.grabbed };
+	const result = await runAutoSearch({ bookIds: [bookId], maxBooks: 1 });
+	return { searched: result.searched, grabbed: result.grabbed };
 }
 
 // ─── Show search ────────────────────────────────────────────────────────────
 
 /** Search a single season with fallback to individual episodes */
 async function searchSeasonWithFallback(
-  show: { id: number; title: string },
-  seasonNumber: number,
-  seasonEpisodes: WantedEpisode[],
-  seasonMap: Map<number, WantedEpisode[]>,
-  ixs: EnabledIndexers,
-  delay: number,
+	show: { id: number; title: string },
+	seasonNumber: number,
+	seasonEpisodes: WantedEpisode[],
+	seasonMap: Map<number, WantedEpisode[]>,
+	ixs: EnabledIndexers,
+	delay: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  let searched = 0;
-  let grabbed = 0;
+	let searched = 0;
+	let grabbed = 0;
 
-  if (seasonEpisodes.length >= 2) {
-    try {
-      const seasonResult = await searchAndGrabForSeason(
-        show,
-        seasonNumber,
-        seasonEpisodes,
-        seasonMap,
-        ixs,
-      );
-      if (seasonResult.searched) {
-        searched += seasonEpisodes.length;
-      }
-      if (seasonResult.grabbed) {
-        grabbed += 1;
-        return { searched, grabbed };
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
-        error,
-      );
-    }
-    await sleep(delay);
-  }
+	if (seasonEpisodes.length >= 2) {
+		try {
+			const seasonResult = await searchAndGrabForSeason(
+				show,
+				seasonNumber,
+				seasonEpisodes,
+				seasonMap,
+				ixs,
+			);
+			if (seasonResult.searched) {
+				searched += seasonEpisodes.length;
+			}
+			if (seasonResult.grabbed) {
+				grabbed += 1;
+				return { searched, grabbed };
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+				error,
+			);
+		}
+		await sleep(delay);
+	}
 
-  // Fallback to individual episode search
-  for (let i = 0; i < seasonEpisodes.length; i += 1) {
-    const episode = seasonEpisodes[i];
-    try {
-      const detail = await searchAndGrabForEpisode(episode, ixs);
-      if (detail.searched) {
-        searched += 1;
-      }
-      if (detail.grabbed) {
-        grabbed += 1;
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
-        error,
-      );
-    }
-    if (i < seasonEpisodes.length - 1) {
-      await sleep(delay);
-    }
-  }
+	// Fallback to individual episode search
+	for (let i = 0; i < seasonEpisodes.length; i += 1) {
+		const episode = seasonEpisodes[i];
+		try {
+			const detail = await searchAndGrabForEpisode(episode, ixs);
+			if (detail.searched) {
+				searched += 1;
+			}
+			if (detail.grabbed) {
+				grabbed += 1;
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+				error,
+			);
+		}
+		if (i < seasonEpisodes.length - 1) {
+			await sleep(delay);
+		}
+	}
 
-  return { searched, grabbed };
+	return { searched, grabbed };
 }
 
 export async function searchForShow(
-  showId: number,
-  cutoffUnmet?: boolean,
+	showId: number,
+	cutoffUnmet?: boolean,
 ): Promise<{ searched: number; grabbed: number }> {
-  const wantedEpisodes = getWantedEpisodes(showId, cutoffUnmet);
-  if (wantedEpisodes.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const wantedEpisodes = getWantedEpisodes(showId, cutoffUnmet);
+	if (wantedEpisodes.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const ixs = getEnabledIndexers();
-  if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const ixs = getEnabledIndexers();
+	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const DELAY_BETWEEN_ITEMS = 2000;
-  let searched = 0;
-  let grabbed = 0;
+	const DELAY_BETWEEN_ITEMS = 2000;
+	let searched = 0;
+	let grabbed = 0;
 
-  const seasonMap = new Map<number, WantedEpisode[]>();
-  for (const ep of wantedEpisodes) {
-    if (!seasonMap.has(ep.seasonNumber)) {
-      seasonMap.set(ep.seasonNumber, []);
-    }
-    seasonMap.get(ep.seasonNumber)!.push(ep);
-  }
+	const seasonMap = new Map<number, WantedEpisode[]>();
+	for (const ep of wantedEpisodes) {
+		if (!seasonMap.has(ep.seasonNumber)) {
+			seasonMap.set(ep.seasonNumber, []);
+		}
+		seasonMap.get(ep.seasonNumber)?.push(ep);
+	}
 
-  const show = { id: showId, title: wantedEpisodes[0].showTitle };
+	const show = { id: showId, title: wantedEpisodes[0].showTitle };
 
-  // Multiple seasons → show-level search first
-  if (seasonMap.size > 1) {
-    try {
-      const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
-      if (packResult.searched) {
-        searched += wantedEpisodes.length;
-      }
-      if (packResult.grabbed) {
-        grabbed += 1;
-        return { searched, grabbed };
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in show-level search for "${show.title}":`,
-        error,
-      );
-    }
-    await sleep(DELAY_BETWEEN_ITEMS);
-  }
+	// Multiple seasons → show-level search first
+	if (seasonMap.size > 1) {
+		try {
+			const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
+			if (packResult.searched) {
+				searched += wantedEpisodes.length;
+			}
+			if (packResult.grabbed) {
+				grabbed += 1;
+				return { searched, grabbed };
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in show-level search for "${show.title}":`,
+				error,
+			);
+		}
+		await sleep(DELAY_BETWEEN_ITEMS);
+	}
 
-  // Per-season with fallback
-  let isFirstSeason = true;
-  for (const [seasonNumber, seasonEpisodes] of seasonMap) {
-    if (!isFirstSeason) {
-      await sleep(DELAY_BETWEEN_ITEMS);
-    }
-    isFirstSeason = false;
-    const sr = await searchSeasonWithFallback(
-      show,
-      seasonNumber,
-      seasonEpisodes,
-      seasonMap,
-      ixs,
-      DELAY_BETWEEN_ITEMS,
-    );
-    searched += sr.searched;
-    grabbed += sr.grabbed;
-  }
+	// Per-season with fallback
+	let isFirstSeason = true;
+	for (const [seasonNumber, seasonEpisodes] of seasonMap) {
+		if (!isFirstSeason) {
+			await sleep(DELAY_BETWEEN_ITEMS);
+		}
+		isFirstSeason = false;
+		const sr = await searchSeasonWithFallback(
+			show,
+			seasonNumber,
+			seasonEpisodes,
+			seasonMap,
+			ixs,
+			DELAY_BETWEEN_ITEMS,
+		);
+		searched += sr.searched;
+		grabbed += sr.grabbed;
+	}
 
-  return { searched, grabbed };
+	return { searched, grabbed };
 }
 
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
 
 /** Record book search details and update lastSearchedAt */
 function recordBookDetails(
-  booksToRecord: WantedBook[],
-  searchResult: PackSearchResult,
-  result: AutoSearchResult,
+	booksToRecord: WantedBook[],
+	searchResult: PackSearchResult,
+	result: AutoSearchResult,
 ): void {
-  for (const book of booksToRecord) {
-    result.details.push({
-      bookId: book.id,
-      bookTitle: book.title,
-      authorName: book.authorName,
-      searched: searchResult.searched,
-      grabbed: searchResult.grabbed,
-    });
-    if (searchResult.searched) {
-      result.searched += 1;
-    }
-    db.update(books)
-      .set({ lastSearchedAt: Date.now() })
-      .where(eq(books.id, book.id))
-      .run();
-  }
-  if (searchResult.grabbed) {
-    result.grabbed += 1;
-  }
+	for (const book of booksToRecord) {
+		result.details.push({
+			bookId: book.id,
+			bookTitle: book.title,
+			authorName: book.authorName,
+			searched: searchResult.searched,
+			grabbed: searchResult.grabbed,
+		});
+		if (searchResult.searched) {
+			result.searched += 1;
+		}
+		db.update(books)
+			.set({ lastSearchedAt: Date.now() })
+			.where(eq(books.id, book.id))
+			.run();
+	}
+	if (searchResult.grabbed) {
+		result.grabbed += 1;
+	}
 }
 
 /** Search individual books and record results */
 async function processIndividualBooks(
-  booksToSearch: WantedBook[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	booksToSearch: WantedBook[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  for (let i = 0; i < booksToSearch.length; i += 1) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      break;
-    }
+	for (let i = 0; i < booksToSearch.length; i += 1) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			break;
+		}
 
-    const book = booksToSearch[i];
-    try {
-      const detail = await searchAndGrabForBook(book, ixs);
-      if (detail.searched) {
-        result.searched += 1;
-      }
-      if (detail.grabbed) {
-        result.grabbed += 1;
-      }
-      result.details.push(detail);
-      db.update(books)
-        .set({ lastSearchedAt: Date.now() })
-        .where(eq(books.id, book.id))
-        .run();
-    } catch (error) {
-      result.errors += 1;
-      result.details.push({
-        bookId: book.id,
-        bookTitle: book.title,
-        authorName: book.authorName,
-        searched: false,
-        grabbed: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-      console.error(
-        `[auto-search] Error searching for book "${book.title}":`,
-        error,
-      );
-    }
+		const book = booksToSearch[i];
+		try {
+			const detail = await searchAndGrabForBook(book, ixs);
+			if (detail.searched) {
+				result.searched += 1;
+			}
+			if (detail.grabbed) {
+				result.grabbed += 1;
+			}
+			result.details.push(detail);
+			db.update(books)
+				.set({ lastSearchedAt: Date.now() })
+				.where(eq(books.id, book.id))
+				.run();
+		} catch (error) {
+			result.errors += 1;
+			result.details.push({
+				bookId: book.id,
+				bookTitle: book.title,
+				authorName: book.authorName,
+				searched: false,
+				grabbed: false,
+				error: error instanceof Error ? error.message : "Unknown error",
+			});
+			console.error(
+				`[auto-search] Error searching for book "${book.title}":`,
+				error,
+			);
+		}
 
-    if (i < booksToSearch.length - 1) {
-      await sleep(delay);
-    }
-  }
+		if (i < booksToSearch.length - 1) {
+			await sleep(delay);
+		}
+	}
 }
 
 /** Process wanted books: group by author, try author-level search, then fallback */
 async function processWantedBooks(
-  wantedBooks: WantedBook[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	wantedBooks: WantedBook[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  // Group books by primary author
-  const booksByAuthor = new Map<string, WantedBook[]>();
-  for (const book of wantedBooks) {
-    const key = book.authorName ?? "__no_author__";
-    if (!booksByAuthor.has(key)) {
-      booksByAuthor.set(key, []);
-    }
-    booksByAuthor.get(key)!.push(book);
-  }
+	// Group books by primary author
+	const booksByAuthor = new Map<string, WantedBook[]>();
+	for (const book of wantedBooks) {
+		const key = book.authorName ?? "__no_author__";
+		if (!booksByAuthor.has(key)) {
+			booksByAuthor.set(key, []);
+		}
+		booksByAuthor.get(key)?.push(book);
+	}
 
-  let isFirstGroup = true;
-  for (const [authorName, authorBooks] of booksByAuthor) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
-      break;
-    }
-    if (!isFirstGroup) {
-      await sleep(delay);
-    }
-    isFirstGroup = false;
+	let isFirstGroup = true;
+	for (const [authorName, authorBooks] of booksByAuthor) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			break;
+		}
+		if (!isFirstGroup) {
+			await sleep(delay);
+		}
+		isFirstGroup = false;
 
-    // 2+ books by same author → author-level search first
-    if (authorBooks.length >= 2 && authorName !== "__no_author__") {
-      try {
-        const packResult = await searchAndGrabForAuthor(
-          authorName,
-          authorBooks,
-          ixs,
-        );
-        recordBookDetails(authorBooks, packResult, result);
-        if (packResult.grabbed) {
-          continue;
-        }
-      } catch (error) {
-        console.error(
-          `[auto-search] Error in author-level search for "${authorName}":`,
-          error,
-        );
-      }
-      await sleep(delay);
-    }
+		// 2+ books by same author → author-level search first
+		if (authorBooks.length >= 2 && authorName !== "__no_author__") {
+			try {
+				const packResult = await searchAndGrabForAuthor(
+					authorName,
+					authorBooks,
+					ixs,
+				);
+				recordBookDetails(authorBooks, packResult, result);
+				if (packResult.grabbed) {
+					continue;
+				}
+			} catch (error) {
+				console.error(
+					`[auto-search] Error in author-level search for "${authorName}":`,
+					error,
+				);
+			}
+			await sleep(delay);
+		}
 
-    // Fallback to individual book search
-    await processIndividualBooks(authorBooks, ixs, result, delay);
-  }
+		// Fallback to individual book search
+		await processIndividualBooks(authorBooks, ixs, result, delay);
+	}
 }
 
 /** Process wanted movies: search, score, and grab per profile */
 async function processWantedMovies(
-  wantedMovies: WantedMovie[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	wantedMovies: WantedMovie[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  for (let i = 0; i < wantedMovies.length; i += 1) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
-      break;
-    }
+	for (let i = 0; i < wantedMovies.length; i += 1) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			break;
+		}
 
-    const movie = wantedMovies[i];
+		const movie = wantedMovies[i];
 
-    try {
-      const detail = await searchAndGrabForMovie(movie, ixs);
-      if (detail.searched) {
-        result.searched += 1;
-      }
-      if (detail.grabbed) {
-        result.grabbed += 1;
-      }
-      result.movieDetails!.push(detail);
-      db.update(movies)
-        .set({ lastSearchedAt: Date.now() })
-        .where(eq(movies.id, movie.id))
-        .run();
-    } catch (error) {
-      result.errors += 1;
-      result.movieDetails!.push({
-        movieId: movie.id,
-        movieTitle: movie.title,
-        searched: false,
-        grabbed: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-      console.error(
-        `[auto-search] Error searching for movie "${movie.title}":`,
-        error,
-      );
-    }
+		try {
+			const detail = await searchAndGrabForMovie(movie, ixs);
+			if (detail.searched) {
+				result.searched += 1;
+			}
+			if (detail.grabbed) {
+				result.grabbed += 1;
+			}
+			result.movieDetails?.push(detail);
+			db.update(movies)
+				.set({ lastSearchedAt: Date.now() })
+				.where(eq(movies.id, movie.id))
+				.run();
+		} catch (error) {
+			result.errors += 1;
+			result.movieDetails?.push({
+				movieId: movie.id,
+				movieTitle: movie.title,
+				searched: false,
+				grabbed: false,
+				error: error instanceof Error ? error.message : "Unknown error",
+			});
+			console.error(
+				`[auto-search] Error searching for movie "${movie.title}":`,
+				error,
+			);
+		}
 
-    if (i < wantedMovies.length - 1) {
-      await sleep(delay);
-    }
-  }
+		if (i < wantedMovies.length - 1) {
+			await sleep(delay);
+		}
+	}
 }
 
 /** Record episode search details in auto-search result */
 function recordEpisodeDetails(
-  eps: WantedEpisode[],
-  searchResult: SearchDetail,
-  result: AutoSearchResult,
+	eps: WantedEpisode[],
+	searchResult: SearchDetail,
+	result: AutoSearchResult,
 ): void {
-  for (const ep of eps) {
-    result.episodeDetails!.push({
-      episodeId: ep.id,
-      showTitle: ep.showTitle,
-      seasonNumber: ep.seasonNumber,
-      episodeNumber: ep.episodeNumber,
-      searched: searchResult.searched,
-      grabbed: searchResult.grabbed,
-    });
-    if (searchResult.searched) {
-      result.searched += 1;
-    }
-    db.update(episodes)
-      .set({ lastSearchedAt: Date.now() })
-      .where(eq(episodes.id, ep.id))
-      .run();
-  }
-  if (searchResult.grabbed) {
-    result.grabbed += 1;
-  }
+	for (const ep of eps) {
+		result.episodeDetails?.push({
+			episodeId: ep.id,
+			showTitle: ep.showTitle,
+			seasonNumber: ep.seasonNumber,
+			episodeNumber: ep.episodeNumber,
+			searched: searchResult.searched,
+			grabbed: searchResult.grabbed,
+		});
+		if (searchResult.searched) {
+			result.searched += 1;
+		}
+		db.update(episodes)
+			.set({ lastSearchedAt: Date.now() })
+			.where(eq(episodes.id, ep.id))
+			.run();
+	}
+	if (searchResult.grabbed) {
+		result.grabbed += 1;
+	}
 }
 
 /** Process a single season: try season-level search, then fallback to individual episodes */
 async function processSeasonEpisodes(
-  show: { id: number; title: string },
-  seasonNumber: number,
-  seasonEpisodes: WantedEpisode[],
-  seasonMap: Map<number, WantedEpisode[]>,
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	show: { id: number; title: string },
+	seasonNumber: number,
+	seasonEpisodes: WantedEpisode[],
+	seasonMap: Map<number, WantedEpisode[]>,
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  if (seasonEpisodes.length >= 2) {
-    try {
-      const seasonResult = await searchAndGrabForSeason(
-        show,
-        seasonNumber,
-        seasonEpisodes,
-        seasonMap,
-        ixs,
-      );
-      recordEpisodeDetails(seasonEpisodes, seasonResult, result);
-      if (seasonResult.grabbed) {
-        return;
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
-        error,
-      );
-    }
-    await sleep(delay);
-  }
+	if (seasonEpisodes.length >= 2) {
+		try {
+			const seasonResult = await searchAndGrabForSeason(
+				show,
+				seasonNumber,
+				seasonEpisodes,
+				seasonMap,
+				ixs,
+			);
+			recordEpisodeDetails(seasonEpisodes, seasonResult, result);
+			if (seasonResult.grabbed) {
+				return;
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+				error,
+			);
+		}
+		await sleep(delay);
+	}
 
-  // Fallback to individual episode search
-  for (let i = 0; i < seasonEpisodes.length; i += 1) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      break;
-    }
-    const episode = seasonEpisodes[i];
-    try {
-      const detail = await searchAndGrabForEpisode(episode, ixs);
-      if (detail.searched) {
-        result.searched += 1;
-      }
-      if (detail.grabbed) {
-        result.grabbed += 1;
-      }
-      result.episodeDetails!.push(detail);
-      db.update(episodes)
-        .set({ lastSearchedAt: Date.now() })
-        .where(eq(episodes.id, episode.id))
-        .run();
-    } catch (error) {
-      result.errors += 1;
-      result.episodeDetails!.push({
-        episodeId: episode.id,
-        showTitle: episode.showTitle,
-        seasonNumber: episode.seasonNumber,
-        episodeNumber: episode.episodeNumber,
-        searched: false,
-        grabbed: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-      console.error(
-        `[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
-        error,
-      );
-    }
-    if (i < seasonEpisodes.length - 1) {
-      await sleep(delay);
-    }
-  }
+	// Fallback to individual episode search
+	for (let i = 0; i < seasonEpisodes.length; i += 1) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			break;
+		}
+		const episode = seasonEpisodes[i];
+		try {
+			const detail = await searchAndGrabForEpisode(episode, ixs);
+			if (detail.searched) {
+				result.searched += 1;
+			}
+			if (detail.grabbed) {
+				result.grabbed += 1;
+			}
+			result.episodeDetails?.push(detail);
+			db.update(episodes)
+				.set({ lastSearchedAt: Date.now() })
+				.where(eq(episodes.id, episode.id))
+				.run();
+		} catch (error) {
+			result.errors += 1;
+			result.episodeDetails?.push({
+				episodeId: episode.id,
+				showTitle: episode.showTitle,
+				seasonNumber: episode.seasonNumber,
+				episodeNumber: episode.episodeNumber,
+				searched: false,
+				grabbed: false,
+				error: error instanceof Error ? error.message : "Unknown error",
+			});
+			console.error(
+				`[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+				error,
+			);
+		}
+		if (i < seasonEpisodes.length - 1) {
+			await sleep(delay);
+		}
+	}
 }
 
 /** Process wanted episodes: group by show/season and search at broadest applicable level */
 async function processWantedEpisodes(
-  wantedEpisodes: WantedEpisode[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	wantedEpisodes: WantedEpisode[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
-  for (const ep of wantedEpisodes) {
-    if (!episodesByShow.has(ep.showId)) {
-      episodesByShow.set(ep.showId, new Map());
-    }
-    const showMap = episodesByShow.get(ep.showId)!;
-    if (!showMap.has(ep.seasonNumber)) {
-      showMap.set(ep.seasonNumber, []);
-    }
-    showMap.get(ep.seasonNumber)!.push(ep);
-  }
+	const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
+	for (const ep of wantedEpisodes) {
+		if (!episodesByShow.has(ep.showId)) {
+			episodesByShow.set(ep.showId, new Map());
+		}
+		// biome-ignore lint/style/noNonNullAssertion: key guaranteed to exist after set above
+		const showMap = episodesByShow.get(ep.showId)!;
+		if (!showMap.has(ep.seasonNumber)) {
+			showMap.set(ep.seasonNumber, []);
+		}
+		showMap.get(ep.seasonNumber)?.push(ep);
+	}
 
-  let isFirstShow = true;
-  for (const [showId, seasonMap] of episodesByShow) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
-      break;
-    }
-    if (!isFirstShow) {
-      await sleep(delay);
-    }
-    isFirstShow = false;
+	let isFirstShow = true;
+	for (const [showId, seasonMap] of episodesByShow) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			break;
+		}
+		if (!isFirstShow) {
+			await sleep(delay);
+		}
+		isFirstShow = false;
 
-    const show = {
-      id: showId,
-      title: seasonMap.values().next().value![0].showTitle,
-    };
+		const show = {
+			id: showId,
+			title: seasonMap.values().next().value?.[0].showTitle,
+		};
 
-    // Multiple seasons → show-level search first
-    if (seasonMap.size > 1) {
-      try {
-        const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
-        recordEpisodeDetails(
-          [...seasonMap.values()].flat(),
-          packResult,
-          result,
-        );
-        if (packResult.grabbed) {
-          continue;
-        }
-      } catch (error) {
-        console.error(
-          `[auto-search] Error in show-level search for "${show.title}":`,
-          error,
-        );
-      }
-      await sleep(delay);
-    }
+		// Multiple seasons → show-level search first
+		if (seasonMap.size > 1) {
+			try {
+				const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
+				recordEpisodeDetails(
+					[...seasonMap.values()].flat(),
+					packResult,
+					result,
+				);
+				if (packResult.grabbed) {
+					continue;
+				}
+			} catch (error) {
+				console.error(
+					`[auto-search] Error in show-level search for "${show.title}":`,
+					error,
+				);
+			}
+			await sleep(delay);
+		}
 
-    // Per-season with fallback
-    let isFirstSeason = true;
-    for (const [seasonNumber, seasonEpisodes] of seasonMap) {
-      if (
-        !anyIndexerAvailable(
-          ixs.manual.map((m) => m.id),
-          ixs.synced.map((s) => s.id),
-        )
-      ) {
-        break;
-      }
-      if (!isFirstSeason) {
-        await sleep(delay);
-      }
-      isFirstSeason = false;
-      await processSeasonEpisodes(
-        show,
-        seasonNumber,
-        seasonEpisodes,
-        seasonMap,
-        ixs,
-        result,
-        delay,
-      );
-    }
-  }
+		// Per-season with fallback
+		let isFirstSeason = true;
+		for (const [seasonNumber, seasonEpisodes] of seasonMap) {
+			if (
+				!anyIndexerAvailable(
+					ixs.manual.map((m) => m.id),
+					ixs.synced.map((s) => s.id),
+				)
+			) {
+				break;
+			}
+			if (!isFirstSeason) {
+				await sleep(delay);
+			}
+			isFirstSeason = false;
+			await processSeasonEpisodes(
+				show,
+				seasonNumber,
+				seasonEpisodes,
+				seasonMap,
+				ixs,
+				result,
+				delay,
+			);
+		}
+	}
 }
 
 // ─── Per-manga-chapter search + grab ────────────────────────────────────────
 
 async function searchAndGrabForManga(
-  chapter: WantedMangaChapter,
-  ixs: EnabledIndexers,
+	chapter: WantedMangaChapter,
+	ixs: EnabledIndexers,
 ): Promise<MangaSearchDetail> {
-  const detail: MangaSearchDetail = {
-    chapterId: chapter.id,
-    mangaTitle: chapter.mangaTitle,
-    chapterNumber: chapter.chapterNumber,
-    searched: false,
-    grabbed: false,
-  };
+	const detail: MangaSearchDetail = {
+		chapterId: chapter.id,
+		mangaTitle: chapter.mangaTitle,
+		chapterNumber: chapter.chapterNumber,
+		searched: false,
+		grabbed: false,
+	};
 
-  const query = buildMangaSearchQuery(chapter);
-  const categories = getCategoriesForProfiles(chapter.profiles);
+	const query = buildMangaSearchQuery(chapter);
+	const categories = getCategoriesForProfiles(chapter.profiles);
 
-  const allReleases: IndexerRelease[] = [];
+	const allReleases: IndexerRelease[] = [];
 
-  const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-  for (const synced of syncedWithKey) {
-    const gate = canQueryIndexer("synced", synced.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${synced.name}" skipped for manga: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
+	for (const synced of syncedWithKey) {
+		const gate = canQueryIndexer("synced", synced.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`[auto-search] Indexer "${synced.name}" skipped for manga: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: synced.baseUrl,
-          apiPath: synced.apiPath ?? "/api",
-          apiKey: synced.apiKey!,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "synced", indexerId: synced.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || synced.name,
-            allstarrIndexerId: synced.id,
-            indexerSource: "synced" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Indexer "${synced.name}" failed for manga:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: synced.baseUrl,
+					apiPath: synced.apiPath ?? "/api",
+					apiKey: synced.apiKey ?? "",
+				},
+				query,
+				categories,
+				undefined,
+				{ indexerType: "synced", indexerId: synced.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || synced.name,
+						allstarrIndexerId: synced.id,
+						indexerSource: "synced" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[auto-search] Indexer "${synced.name}" failed for manga:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  for (const ix of ixs.manual) {
-    const gate = canQueryIndexer("manual", ix.id);
-    if (!gate.allowed) {
-      if (gate.reason === "pacing" && gate.waitMs) {
-        await sleep(gate.waitMs);
-      } else {
-        console.log(
-          `[auto-search] Indexer "${ix.name}" skipped for manga: ${gate.reason}`,
-        );
-        continue;
-      }
-    }
+	for (const ix of ixs.manual) {
+		const gate = canQueryIndexer("manual", ix.id);
+		if (!gate.allowed) {
+			if (gate.reason === "pacing" && gate.waitMs) {
+				await sleep(gate.waitMs);
+			} else {
+				console.log(
+					`[auto-search] Indexer "${ix.name}" skipped for manga: ${gate.reason}`,
+				);
+				continue;
+			}
+		}
 
-    try {
-      const results = await searchNewznab(
-        {
-          baseUrl: ix.baseUrl,
-          apiPath: ix.apiPath ?? "/api",
-          apiKey: ix.apiKey,
-        },
-        query,
-        categories,
-        undefined,
-        { indexerType: "manual", indexerId: ix.id },
-      );
-      allReleases.push(
-        ...results.map((r) =>
-          enrichRelease({
-            ...r,
-            indexer: r.indexer || ix.name,
-            allstarrIndexerId: ix.id,
-            indexerSource: "manual" as const,
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error(
-        `[auto-search] Manual indexer failed for manga:`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: ix.baseUrl,
+					apiPath: ix.apiPath ?? "/api",
+					apiKey: ix.apiKey,
+				},
+				query,
+				categories,
+				undefined,
+				{ indexerType: "manual", indexerId: ix.id },
+			);
+			allReleases.push(
+				...results.map((r) =>
+					enrichRelease({
+						...r,
+						indexer: r.indexer || ix.name,
+						allstarrIndexerId: ix.id,
+						indexerSource: "manual" as const,
+					}),
+				),
+			);
+		} catch (error) {
+			console.error(
+				`[auto-search] Manual indexer failed for manga:`,
+				error instanceof Error ? error.message : error,
+			);
+		}
+	}
 
-  detail.searched = true;
+	detail.searched = true;
 
-  if (allReleases.length === 0) {
-    return detail;
-  }
+	if (allReleases.length === 0) {
+		return detail;
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const grabbedTitles = await grabPerProfileForManga(scored, chapter);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const grabbedTitles = await grabPerProfileForManga(scored, chapter);
 
-  if (grabbedTitles.length > 0) {
-    detail.grabbed = true;
-    detail.releaseTitle = grabbedTitles.join(", ");
-  }
+	if (grabbedTitles.length > 0) {
+		detail.grabbed = true;
+		detail.releaseTitle = grabbedTitles.join(", ");
+	}
 
-  return detail;
+	return detail;
 }
 
 /** Try to grab the best release for each unique profile on the manga chapter */
 async function grabPerProfileForManga(
-  scored: IndexerRelease[],
-  chapter: WantedMangaChapter,
+	scored: IndexerRelease[],
+	chapter: WantedMangaChapter,
 ): Promise<string[]> {
-  // Blocklist: no mangaId column in blocklist table, so use empty set
-  const blocklistedTitles = new Set<string>();
+	// Blocklist: no mangaId column in blocklist table, so use empty set
+	const blocklistedTitles = new Set<string>();
 
-  const grabbedGuids = new Set(
-    db
-      .select({ data: history.data })
-      .from(history)
-      .where(
-        and(
-          eq(history.eventType, "mangaChapterGrabbed"),
-          eq(history.mangaChapterId, chapter.id),
-        ),
-      )
-      .all()
-      .map((h) => (h.data as Record<string, unknown>)?.guid as string)
-      .filter(Boolean),
-  );
+	const grabbedGuids = new Set(
+		db
+			.select({ data: history.data })
+			.from(history)
+			.where(
+				and(
+					eq(history.eventType, "mangaChapterGrabbed"),
+					eq(history.mangaChapterId, chapter.id),
+				),
+			)
+			.all()
+			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
+			.filter(Boolean),
+	);
 
-  const satisfiedProfiles = new Set<number>();
-  const grabbedTitles: string[] = [];
+	const satisfiedProfiles = new Set<number>();
+	const grabbedTitles: string[] = [];
 
-  for (const profile of chapter.profiles) {
-    if (satisfiedProfiles.has(profile.id)) {
-      continue;
-    }
+	for (const profile of chapter.profiles) {
+		if (satisfiedProfiles.has(profile.id)) {
+			continue;
+		}
 
-    const bestExistingWeight = chapter.bestWeightByProfile.get(profile.id) ?? 0;
-    const bestRelease = findBestReleaseForProfile(
-      scored,
-      profile,
-      bestExistingWeight,
-      blocklistedTitles,
-      grabbedGuids,
-    );
+		const bestExistingWeight = chapter.bestWeightByProfile.get(profile.id) ?? 0;
+		const bestRelease = findBestReleaseForProfile(
+			scored,
+			profile,
+			bestExistingWeight,
+			blocklistedTitles,
+			grabbedGuids,
+		);
 
-    if (!bestRelease) {
-      continue;
-    }
+		if (!bestRelease) {
+			continue;
+		}
 
-    const grabbed = await grabReleaseForManga(bestRelease, chapter, profile.id);
-    if (grabbed) {
-      satisfiedProfiles.add(profile.id);
-      grabbedTitles.push(bestRelease.title);
-      grabbedGuids.add(bestRelease.guid);
-      console.log(
-        `[auto-search] Grabbed "${bestRelease.title}" for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber} (profile: ${profile.name})`,
-      );
-    }
-  }
+		const grabbed = await grabReleaseForManga(bestRelease, chapter, profile.id);
+		if (grabbed) {
+			satisfiedProfiles.add(profile.id);
+			grabbedTitles.push(bestRelease.title);
+			grabbedGuids.add(bestRelease.guid);
+			console.log(
+				`[auto-search] Grabbed "${bestRelease.title}" for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber} (profile: ${profile.name})`,
+			);
+		}
+	}
 
-  return grabbedTitles;
+	return grabbedTitles;
 }
 
 async function grabReleaseForManga(
-  release: IndexerRelease,
-  chapter: WantedMangaChapter,
-  profileId: number,
+	release: IndexerRelease,
+	chapter: WantedMangaChapter,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        mangaId: chapter.mangaId,
-        mangaChapterId: chapter.id,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				mangaId: chapter.mangaId,
+				mangaChapterId: chapter.id,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "mangaChapterGrabbed",
-      mangaId: chapter.mangaId,
-      mangaChapterId: chapter.id,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "mangaChapterGrabbed",
+			mangaId: chapter.mangaId,
+			mangaChapterId: chapter.id,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 // ─── Pack-aware manga search helpers ────────────────────────────────────────
 
 /** Grab a release for a manga pack (volume/series level) or individual chapter */
 async function grabReleaseForMangaPack(
-  release: IndexerRelease,
-  mangaId: number,
-  chapterId: number | undefined,
-  profileId: number,
+	release: IndexerRelease,
+	mangaId: number,
+	chapterId: number | undefined,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        mangaId,
-        mangaChapterId: chapterId ?? null,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				mangaId,
+				mangaChapterId: chapterId ?? null,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "mangaChapterGrabbed",
-      mangaId,
-      mangaChapterId: chapterId ?? null,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "mangaChapterGrabbed",
+			mangaId,
+			mangaChapterId: chapterId ?? null,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 /** Build a PackContext from a volume map of wanted chapters */
 function buildPackContextFromVolumes(
-  volumeMap: Map<number, WantedMangaChapter[]>,
+	volumeMap: Map<number, WantedMangaChapter[]>,
 ): PackContext {
-  const wantedChaptersByVolume = new Map<number, Set<number>>();
-  for (const [volNum, chapters] of volumeMap) {
-    wantedChaptersByVolume.set(
-      volNum,
-      new Set(chapters.map((ch) => Number(ch.chapterNumber))),
-    );
-  }
-  return { wantedChaptersByVolume };
+	const wantedChaptersByVolume = new Map<number, Set<number>>();
+	for (const [volNum, chapters] of volumeMap) {
+		wantedChaptersByVolume.set(
+			volNum,
+			new Set(chapters.map((ch) => Number(ch.chapterNumber))),
+		);
+	}
+	return { wantedChaptersByVolume };
 }
 
 /** Try to grab the best release for each wanted chapter, with pack context */
 async function grabPerProfileForMangaChapters(
-  scored: IndexerRelease[],
-  wantedChapters: WantedMangaChapter[],
-  packContext: PackContext,
+	scored: IndexerRelease[],
+	wantedChapters: WantedMangaChapter[],
+	packContext: PackContext,
 ): Promise<PackSearchResult> {
-  const grabbedGuids = new Set<string>();
-  let grabbed = false;
+	const grabbedGuids = new Set<string>();
+	let grabbed = false;
 
-  // Blocklist: no mangaId column in blocklist table, so use empty set
-  const blocklistedTitles = new Set<string>();
+	// Blocklist: no mangaId column in blocklist table, so use empty set
+	const blocklistedTitles = new Set<string>();
 
-  for (const ch of wantedChapters) {
-    for (const profile of ch.profiles) {
-      const bestExistingWeight = ch.bestWeightByProfile.get(profile.id) ?? 0;
-      const best = findBestReleaseForProfile(
-        scored,
-        profile,
-        bestExistingWeight,
-        blocklistedTitles,
-        grabbedGuids,
-        0,
-        packContext,
-      );
-      if (!best) {
-        continue;
-      }
+	for (const ch of wantedChapters) {
+		for (const profile of ch.profiles) {
+			const bestExistingWeight = ch.bestWeightByProfile.get(profile.id) ?? 0;
+			const best = findBestReleaseForProfile(
+				scored,
+				profile,
+				bestExistingWeight,
+				blocklistedTitles,
+				grabbedGuids,
+				0,
+				packContext,
+			);
+			if (!best) {
+				continue;
+			}
 
-      const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-      const result = await grabReleaseForMangaPack(
-        best,
-        ch.mangaId,
-        isPack ? undefined : ch.id,
-        profile.id,
-      );
-      if (result) {
-        grabbedGuids.add(best.guid);
-        grabbed = true;
-        console.log(
-          `[auto-search] Grabbed "${best.title}" for manga "${ch.mangaTitle}"${isPack ? " (pack)" : ` Ch ${ch.chapterNumber}`} (profile: ${profile.name})`,
-        );
-      }
-    }
-  }
-  return { searched: true, grabbed };
+			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+			const result = await grabReleaseForMangaPack(
+				best,
+				ch.mangaId,
+				isPack ? undefined : ch.id,
+				profile.id,
+			);
+			if (result) {
+				grabbedGuids.add(best.guid);
+				grabbed = true;
+				console.log(
+					`[auto-search] Grabbed "${best.title}" for manga "${ch.mangaTitle}"${isPack ? " (pack)" : ` Ch ${ch.chapterNumber}`} (profile: ${profile.name})`,
+				);
+			}
+		}
+	}
+	return { searched: true, grabbed };
 }
 
 /** Search at the volume level ("title" Vol ##) and grab best pack releases */
 async function searchAndGrabForMangaVolume(
-  mangaTitle: string,
-  volumeNumber: number,
-  wantedChapters: WantedMangaChapter[],
-  allVolumeMap: Map<number, WantedMangaChapter[]>,
-  ixs: EnabledIndexers,
+	mangaTitle: string,
+	volumeNumber: number,
+	wantedChapters: WantedMangaChapter[],
+	allVolumeMap: Map<number, WantedMangaChapter[]>,
+	ixs: EnabledIndexers,
 ): Promise<PackSearchResult> {
-  const cleanTitle = cleanSearchTerm(mangaTitle);
-  const query = `"${cleanTitle}" Vol ${volumeNumber}`;
+	const cleanTitle = cleanSearchTerm(mangaTitle);
+	const query = `"${cleanTitle}" Vol ${volumeNumber}`;
 
-  const allProfiles = wantedChapters.flatMap((ch) => ch.profiles);
-  const categories = getCategoriesForProfiles(allProfiles);
+	const allProfiles = wantedChapters.flatMap((ch) => ch.profiles);
+	const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases = await searchIndexers(
-    ixs,
-    query,
-    categories,
-    undefined,
-    "manga",
-    "[auto-search]",
-  );
+	const allReleases = await searchIndexers(
+		ixs,
+		query,
+		categories,
+		undefined,
+		"manga",
+		"[auto-search]",
+	);
 
-  if (allReleases.length === 0) {
-    return { searched: true, grabbed: false };
-  }
+	if (allReleases.length === 0) {
+		return { searched: true, grabbed: false };
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const packContext = buildPackContextFromVolumes(allVolumeMap);
-  return grabPerProfileForMangaChapters(scored, wantedChapters, packContext);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const packContext = buildPackContextFromVolumes(allVolumeMap);
+	return grabPerProfileForMangaChapters(scored, wantedChapters, packContext);
 }
 
 /** Search at the series level (just manga title) for multi-volume packs */
 async function searchAndGrabForMangaSeries(
-  mangaTitle: string,
-  volumeMap: Map<number, WantedMangaChapter[]>,
-  ixs: EnabledIndexers,
+	mangaTitle: string,
+	volumeMap: Map<number, WantedMangaChapter[]>,
+	ixs: EnabledIndexers,
 ): Promise<PackSearchResult> {
-  const cleanTitle = cleanSearchTerm(mangaTitle);
-  const query = `"${cleanTitle}"`;
+	const cleanTitle = cleanSearchTerm(mangaTitle);
+	const query = `"${cleanTitle}"`;
 
-  const allProfiles = [...volumeMap.values()]
-    .flat()
-    .flatMap((ch) => ch.profiles);
-  const categories = getCategoriesForProfiles(allProfiles);
+	const allProfiles = [...volumeMap.values()]
+		.flat()
+		.flatMap((ch) => ch.profiles);
+	const categories = getCategoriesForProfiles(allProfiles);
 
-  const allReleases = await searchIndexers(
-    ixs,
-    query,
-    categories,
-    undefined,
-    "manga",
-    "[auto-search]",
-  );
+	const allReleases = await searchIndexers(
+		ixs,
+		query,
+		categories,
+		undefined,
+		"manga",
+		"[auto-search]",
+	);
 
-  if (allReleases.length === 0) {
-    return { searched: true, grabbed: false };
-  }
+	if (allReleases.length === 0) {
+		return { searched: true, grabbed: false };
+	}
 
-  const scored = dedupeAndScoreReleases(allReleases, null, null);
-  const packContext = buildPackContextFromVolumes(volumeMap);
-  const allChapters = [...volumeMap.values()].flat();
-  return grabPerProfileForMangaChapters(scored, allChapters, packContext);
+	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const packContext = buildPackContextFromVolumes(volumeMap);
+	const allChapters = [...volumeMap.values()].flat();
+	return grabPerProfileForMangaChapters(scored, allChapters, packContext);
 }
 
 // ─── Manga search ───────────────────────────────────────────────────────────
 
 /** Search a single volume with fallback to individual chapters */
 async function searchVolumeWithFallback(
-  mangaTitle: string,
-  volumeNumber: number,
-  volumeChapters: WantedMangaChapter[],
-  volumeMap: Map<number, WantedMangaChapter[]>,
-  ixs: EnabledIndexers,
-  delay: number,
+	mangaTitle: string,
+	volumeNumber: number,
+	volumeChapters: WantedMangaChapter[],
+	volumeMap: Map<number, WantedMangaChapter[]>,
+	ixs: EnabledIndexers,
+	delay: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  let searched = 0;
-  let grabbed = 0;
+	let searched = 0;
+	let grabbed = 0;
 
-  if (volumeChapters.length >= 2) {
-    try {
-      const volResult = await searchAndGrabForMangaVolume(
-        mangaTitle,
-        volumeNumber,
-        volumeChapters,
-        volumeMap,
-        ixs,
-      );
-      if (volResult.searched) {
-        searched += volumeChapters.length;
-      }
-      if (volResult.grabbed) {
-        grabbed += 1;
-        return { searched, grabbed };
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
-        error,
-      );
-    }
-    await sleep(delay);
-  }
+	if (volumeChapters.length >= 2) {
+		try {
+			const volResult = await searchAndGrabForMangaVolume(
+				mangaTitle,
+				volumeNumber,
+				volumeChapters,
+				volumeMap,
+				ixs,
+			);
+			if (volResult.searched) {
+				searched += volumeChapters.length;
+			}
+			if (volResult.grabbed) {
+				grabbed += 1;
+				return { searched, grabbed };
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
+				error,
+			);
+		}
+		await sleep(delay);
+	}
 
-  // Fallback to individual chapter search
-  for (let i = 0; i < volumeChapters.length; i += 1) {
-    const chapter = volumeChapters[i];
-    try {
-      const detail = await searchAndGrabForManga(chapter, ixs);
-      if (detail.searched) {
-        searched += 1;
-      }
-      if (detail.grabbed) {
-        grabbed += 1;
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
-        error,
-      );
-    }
-    if (i < volumeChapters.length - 1) {
-      await sleep(delay);
-    }
-  }
+	// Fallback to individual chapter search
+	for (let i = 0; i < volumeChapters.length; i += 1) {
+		const chapter = volumeChapters[i];
+		try {
+			const detail = await searchAndGrabForManga(chapter, ixs);
+			if (detail.searched) {
+				searched += 1;
+			}
+			if (detail.grabbed) {
+				grabbed += 1;
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+				error,
+			);
+		}
+		if (i < volumeChapters.length - 1) {
+			await sleep(delay);
+		}
+	}
 
-  return { searched, grabbed };
+	return { searched, grabbed };
 }
 
 export async function searchForManga(
-  mangaId: number,
+	mangaId: number,
 ): Promise<{ searched: number; grabbed: number }> {
-  const allWanted = getWantedManga();
-  const wantedChapters = allWanted.filter((ch) => ch.mangaId === mangaId);
-  if (wantedChapters.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const allWanted = getWantedManga();
+	const wantedChapters = allWanted.filter((ch) => ch.mangaId === mangaId);
+	if (wantedChapters.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const ixs = getEnabledIndexers();
-  if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-    return { searched: 0, grabbed: 0 };
-  }
+	const ixs = getEnabledIndexers();
+	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
+		return { searched: 0, grabbed: 0 };
+	}
 
-  const DELAY_BETWEEN_ITEMS = 2000;
-  let searched = 0;
-  let grabbed = 0;
+	const DELAY_BETWEEN_ITEMS = 2000;
+	let searched = 0;
+	let grabbed = 0;
 
-  // Group by volume
-  const volumeMap = new Map<number, WantedMangaChapter[]>();
-  for (const ch of wantedChapters) {
-    const vol = ch.volumeNumber ?? 0;
-    if (!volumeMap.has(vol)) {
-      volumeMap.set(vol, []);
-    }
-    volumeMap.get(vol)!.push(ch);
-  }
+	// Group by volume
+	const volumeMap = new Map<number, WantedMangaChapter[]>();
+	for (const ch of wantedChapters) {
+		const vol = ch.volumeNumber ?? 0;
+		if (!volumeMap.has(vol)) {
+			volumeMap.set(vol, []);
+		}
+		volumeMap.get(vol)?.push(ch);
+	}
 
-  const mangaTitle = wantedChapters[0].mangaTitle;
+	const mangaTitle = wantedChapters[0].mangaTitle;
 
-  // Multiple volumes → series-level search first
-  if (volumeMap.size > 1) {
-    try {
-      const packResult = await searchAndGrabForMangaSeries(
-        mangaTitle,
-        volumeMap,
-        ixs,
-      );
-      if (packResult.searched) {
-        searched += wantedChapters.length;
-      }
-      if (packResult.grabbed) {
-        grabbed += 1;
-        return { searched, grabbed };
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in series-level search for "${mangaTitle}":`,
-        error,
-      );
-    }
-    await sleep(DELAY_BETWEEN_ITEMS);
-  }
+	// Multiple volumes → series-level search first
+	if (volumeMap.size > 1) {
+		try {
+			const packResult = await searchAndGrabForMangaSeries(
+				mangaTitle,
+				volumeMap,
+				ixs,
+			);
+			if (packResult.searched) {
+				searched += wantedChapters.length;
+			}
+			if (packResult.grabbed) {
+				grabbed += 1;
+				return { searched, grabbed };
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in series-level search for "${mangaTitle}":`,
+				error,
+			);
+		}
+		await sleep(DELAY_BETWEEN_ITEMS);
+	}
 
-  // Per-volume with fallback
-  let isFirstVolume = true;
-  for (const [volumeNumber, volumeChapters] of volumeMap) {
-    if (!isFirstVolume) {
-      await sleep(DELAY_BETWEEN_ITEMS);
-    }
-    isFirstVolume = false;
-    const vr = await searchVolumeWithFallback(
-      mangaTitle,
-      volumeNumber,
-      volumeChapters,
-      volumeMap,
-      ixs,
-      DELAY_BETWEEN_ITEMS,
-    );
-    searched += vr.searched;
-    grabbed += vr.grabbed;
-  }
+	// Per-volume with fallback
+	let isFirstVolume = true;
+	for (const [volumeNumber, volumeChapters] of volumeMap) {
+		if (!isFirstVolume) {
+			await sleep(DELAY_BETWEEN_ITEMS);
+		}
+		isFirstVolume = false;
+		const vr = await searchVolumeWithFallback(
+			mangaTitle,
+			volumeNumber,
+			volumeChapters,
+			volumeMap,
+			ixs,
+			DELAY_BETWEEN_ITEMS,
+		);
+		searched += vr.searched;
+		grabbed += vr.grabbed;
+	}
 
-  return { searched, grabbed };
+	return { searched, grabbed };
 }
 
 /** Record manga search details and update lastSearchedAt */
 function recordMangaDetails(
-  chapters: WantedMangaChapter[],
-  searchResult: PackSearchResult,
-  result: AutoSearchResult,
+	chapters: WantedMangaChapter[],
+	searchResult: PackSearchResult,
+	result: AutoSearchResult,
 ): void {
-  for (const ch of chapters) {
-    result.mangaDetails!.push({
-      chapterId: ch.id,
-      mangaTitle: ch.mangaTitle,
-      chapterNumber: ch.chapterNumber,
-      searched: searchResult.searched,
-      grabbed: searchResult.grabbed,
-    });
-    if (searchResult.searched) {
-      result.searched += 1;
-    }
-    db.update(mangaChapters)
-      .set({ lastSearchedAt: Date.now() })
-      .where(eq(mangaChapters.id, ch.id))
-      .run();
-  }
-  if (searchResult.grabbed) {
-    result.grabbed += 1;
-  }
+	for (const ch of chapters) {
+		result.mangaDetails?.push({
+			chapterId: ch.id,
+			mangaTitle: ch.mangaTitle,
+			chapterNumber: ch.chapterNumber,
+			searched: searchResult.searched,
+			grabbed: searchResult.grabbed,
+		});
+		if (searchResult.searched) {
+			result.searched += 1;
+		}
+		db.update(mangaChapters)
+			.set({ lastSearchedAt: Date.now() })
+			.where(eq(mangaChapters.id, ch.id))
+			.run();
+	}
+	if (searchResult.grabbed) {
+		result.grabbed += 1;
+	}
 }
 
 /** Process individual manga chapters and record results */
 async function processIndividualMangaChapters(
-  chaptersToSearch: WantedMangaChapter[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	chaptersToSearch: WantedMangaChapter[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  for (let i = 0; i < chaptersToSearch.length; i += 1) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      break;
-    }
+	for (let i = 0; i < chaptersToSearch.length; i += 1) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			break;
+		}
 
-    const chapter = chaptersToSearch[i];
-    try {
-      const detail = await searchAndGrabForManga(chapter, ixs);
-      if (detail.searched) {
-        result.searched += 1;
-      }
-      if (detail.grabbed) {
-        result.grabbed += 1;
-      }
-      result.mangaDetails!.push(detail);
-      db.update(mangaChapters)
-        .set({ lastSearchedAt: Date.now() })
-        .where(eq(mangaChapters.id, chapter.id))
-        .run();
-    } catch (error) {
-      result.errors += 1;
-      result.mangaDetails!.push({
-        chapterId: chapter.id,
-        mangaTitle: chapter.mangaTitle,
-        chapterNumber: chapter.chapterNumber,
-        searched: false,
-        grabbed: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-      console.error(
-        `[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
-        error,
-      );
-    }
+		const chapter = chaptersToSearch[i];
+		try {
+			const detail = await searchAndGrabForManga(chapter, ixs);
+			if (detail.searched) {
+				result.searched += 1;
+			}
+			if (detail.grabbed) {
+				result.grabbed += 1;
+			}
+			result.mangaDetails?.push(detail);
+			db.update(mangaChapters)
+				.set({ lastSearchedAt: Date.now() })
+				.where(eq(mangaChapters.id, chapter.id))
+				.run();
+		} catch (error) {
+			result.errors += 1;
+			result.mangaDetails?.push({
+				chapterId: chapter.id,
+				mangaTitle: chapter.mangaTitle,
+				chapterNumber: chapter.chapterNumber,
+				searched: false,
+				grabbed: false,
+				error: error instanceof Error ? error.message : "Unknown error",
+			});
+			console.error(
+				`[auto-search] Error searching for manga "${chapter.mangaTitle}" Ch ${chapter.chapterNumber}:`,
+				error,
+			);
+		}
 
-    if (i < chaptersToSearch.length - 1) {
-      await sleep(delay);
-    }
-  }
+		if (i < chaptersToSearch.length - 1) {
+			await sleep(delay);
+		}
+	}
 }
 
 /** Process a single volume: try volume-level search, then fallback to individual chapters */
 async function processVolumeChapters(
-  mangaTitle: string,
-  volumeNumber: number,
-  volumeChapters: WantedMangaChapter[],
-  volumeMap: Map<number, WantedMangaChapter[]>,
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	mangaTitle: string,
+	volumeNumber: number,
+	volumeChapters: WantedMangaChapter[],
+	volumeMap: Map<number, WantedMangaChapter[]>,
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  if (volumeChapters.length >= 2) {
-    try {
-      const volResult = await searchAndGrabForMangaVolume(
-        mangaTitle,
-        volumeNumber,
-        volumeChapters,
-        volumeMap,
-        ixs,
-      );
-      recordMangaDetails(volumeChapters, volResult, result);
-      if (volResult.grabbed) {
-        return;
-      }
-    } catch (error) {
-      console.error(
-        `[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
-        error,
-      );
-    }
-    await sleep(delay);
-  }
+	if (volumeChapters.length >= 2) {
+		try {
+			const volResult = await searchAndGrabForMangaVolume(
+				mangaTitle,
+				volumeNumber,
+				volumeChapters,
+				volumeMap,
+				ixs,
+			);
+			recordMangaDetails(volumeChapters, volResult, result);
+			if (volResult.grabbed) {
+				return;
+			}
+		} catch (error) {
+			console.error(
+				`[auto-search] Error in volume-level search for "${mangaTitle}" Vol ${volumeNumber}:`,
+				error,
+			);
+		}
+		await sleep(delay);
+	}
 
-  // Fallback to individual chapter search
-  await processIndividualMangaChapters(volumeChapters, ixs, result, delay);
+	// Fallback to individual chapter search
+	await processIndividualMangaChapters(volumeChapters, ixs, result, delay);
 }
 
 /** Process wanted manga: group by series/volume, search at broadest applicable level */
 async function processWantedManga(
-  wantedChapters: WantedMangaChapter[],
-  ixs: EnabledIndexers,
-  result: AutoSearchResult,
-  delay: number,
+	wantedChapters: WantedMangaChapter[],
+	ixs: EnabledIndexers,
+	result: AutoSearchResult,
+	delay: number,
 ): Promise<void> {
-  // Group chapters by manga (series), then by volume
-  const chaptersByManga = new Map<number, Map<number, WantedMangaChapter[]>>();
-  for (const ch of wantedChapters) {
-    if (!chaptersByManga.has(ch.mangaId)) {
-      chaptersByManga.set(ch.mangaId, new Map());
-    }
-    const mangaMap = chaptersByManga.get(ch.mangaId)!;
-    const vol = ch.volumeNumber ?? 0;
-    if (!mangaMap.has(vol)) {
-      mangaMap.set(vol, []);
-    }
-    mangaMap.get(vol)!.push(ch);
-  }
+	// Group chapters by manga (series), then by volume
+	const chaptersByManga = new Map<number, Map<number, WantedMangaChapter[]>>();
+	for (const ch of wantedChapters) {
+		if (!chaptersByManga.has(ch.mangaId)) {
+			chaptersByManga.set(ch.mangaId, new Map());
+		}
+		// biome-ignore lint/style/noNonNullAssertion: key guaranteed to exist after set above
+		const mangaMap = chaptersByManga.get(ch.mangaId)!;
+		const vol = ch.volumeNumber ?? 0;
+		if (!mangaMap.has(vol)) {
+			mangaMap.set(vol, []);
+		}
+		mangaMap.get(vol)?.push(ch);
+	}
 
-  let isFirstSeries = true;
-  for (const [, volumeMap] of chaptersByManga) {
-    if (
-      !anyIndexerAvailable(
-        ixs.manual.map((m) => m.id),
-        ixs.synced.map((s) => s.id),
-      )
-    ) {
-      console.log("[auto-search] All indexers exhausted, stopping cycle early");
-      break;
-    }
-    if (!isFirstSeries) {
-      await sleep(delay);
-    }
-    isFirstSeries = false;
+	let isFirstSeries = true;
+	for (const [, volumeMap] of chaptersByManga) {
+		if (
+			!anyIndexerAvailable(
+				ixs.manual.map((m) => m.id),
+				ixs.synced.map((s) => s.id),
+			)
+		) {
+			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			break;
+		}
+		if (!isFirstSeries) {
+			await sleep(delay);
+		}
+		isFirstSeries = false;
 
-    const mangaTitle = volumeMap.values().next().value![0].mangaTitle;
+		const mangaTitle = volumeMap.values().next().value?.[0].mangaTitle;
 
-    // Multiple volumes → series-level search first
-    if (volumeMap.size > 1) {
-      try {
-        const packResult = await searchAndGrabForMangaSeries(
-          mangaTitle,
-          volumeMap,
-          ixs,
-        );
-        recordMangaDetails([...volumeMap.values()].flat(), packResult, result);
-        if (packResult.grabbed) {
-          continue;
-        }
-      } catch (error) {
-        console.error(
-          `[auto-search] Error in series-level search for "${mangaTitle}":`,
-          error,
-        );
-      }
-      await sleep(delay);
-    }
+		// Multiple volumes → series-level search first
+		if (volumeMap.size > 1) {
+			try {
+				const packResult = await searchAndGrabForMangaSeries(
+					mangaTitle,
+					volumeMap,
+					ixs,
+				);
+				recordMangaDetails([...volumeMap.values()].flat(), packResult, result);
+				if (packResult.grabbed) {
+					continue;
+				}
+			} catch (error) {
+				console.error(
+					`[auto-search] Error in series-level search for "${mangaTitle}":`,
+					error,
+				);
+			}
+			await sleep(delay);
+		}
 
-    // Per-volume with fallback
-    let isFirstVolume = true;
-    for (const [volumeNumber, volumeChapters] of volumeMap) {
-      if (
-        !anyIndexerAvailable(
-          ixs.manual.map((m) => m.id),
-          ixs.synced.map((s) => s.id),
-        )
-      ) {
-        break;
-      }
-      if (!isFirstVolume) {
-        await sleep(delay);
-      }
-      isFirstVolume = false;
-      await processVolumeChapters(
-        mangaTitle,
-        volumeNumber,
-        volumeChapters,
-        volumeMap,
-        ixs,
-        result,
-        delay,
-      );
-    }
-  }
+		// Per-volume with fallback
+		let isFirstVolume = true;
+		for (const [volumeNumber, volumeChapters] of volumeMap) {
+			if (
+				!anyIndexerAvailable(
+					ixs.manual.map((m) => m.id),
+					ixs.synced.map((s) => s.id),
+				)
+			) {
+				break;
+			}
+			if (!isFirstVolume) {
+				await sleep(delay);
+			}
+			isFirstVolume = false;
+			await processVolumeChapters(
+				mangaTitle,
+				volumeNumber,
+				volumeChapters,
+				volumeMap,
+				ixs,
+				result,
+				delay,
+			);
+		}
+	}
 }
 
 export async function runAutoSearch(
-  options: AutoSearchOptions = {},
+	options: AutoSearchOptions = {},
 ): Promise<AutoSearchResult> {
-  const { delayBetweenBooks = 2000, maxBooks, bookIds } = options;
+	const { delayBetweenBooks = 2000, maxBooks, bookIds } = options;
 
-  const result: AutoSearchResult = {
-    searched: 0,
-    grabbed: 0,
-    errors: 0,
-    details: [],
-    movieDetails: [],
-    episodeDetails: [],
-    mangaDetails: [],
-  };
+	const result: AutoSearchResult = {
+		searched: 0,
+		grabbed: 0,
+		errors: 0,
+		details: [],
+		movieDetails: [],
+		episodeDetails: [],
+		mangaDetails: [],
+	};
 
-  const ixs = getEnabledIndexers();
+	const ixs = getEnabledIndexers();
 
-  if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-    console.log("[auto-search] No RSS-enabled indexers configured");
-    return result;
-  }
+	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
+		console.log("[auto-search] No RSS-enabled indexers configured");
+		return result;
+	}
 
-  // ── Books ──────────────────────────────────────────────────────────────
-  let wantedBooks = sortBySearchPriority(
-    getWantedBooks(),
-    (b) => b.lastSearchedAt,
-  );
-  if (bookIds) {
-    const idSet = new Set(bookIds);
-    wantedBooks = wantedBooks.filter((b) => idSet.has(b.id));
-  }
-  if (maxBooks) {
-    wantedBooks = wantedBooks.slice(0, maxBooks);
-  }
+	// ── Books ──────────────────────────────────────────────────────────────
+	let wantedBooks = sortBySearchPriority(
+		getWantedBooks(),
+		(b) => b.lastSearchedAt,
+	);
+	if (bookIds) {
+		const idSet = new Set(bookIds);
+		wantedBooks = wantedBooks.filter((b) => idSet.has(b.id));
+	}
+	if (maxBooks) {
+		wantedBooks = wantedBooks.slice(0, maxBooks);
+	}
 
-  await processWantedBooks(wantedBooks, ixs, result, delayBetweenBooks);
+	await processWantedBooks(wantedBooks, ixs, result, delayBetweenBooks);
 
-  // ── Movies & Episodes (full auto-search only, not book-specific) ───────
-  if (!bookIds) {
-    if (wantedBooks.length > 0) {
-      await sleep(delayBetweenBooks);
-    }
+	// ── Movies & Episodes (full auto-search only, not book-specific) ───────
+	if (!bookIds) {
+		if (wantedBooks.length > 0) {
+			await sleep(delayBetweenBooks);
+		}
 
-    const wantedMovies = sortBySearchPriority(
-      getWantedMovies(),
-      (m) => m.lastSearchedAt,
-    );
-    await processWantedMovies(wantedMovies, ixs, result, delayBetweenBooks);
+		const wantedMovies = sortBySearchPriority(
+			getWantedMovies(),
+			(m) => m.lastSearchedAt,
+		);
+		await processWantedMovies(wantedMovies, ixs, result, delayBetweenBooks);
 
-    const wantedEpisodes = sortBySearchPriority(
-      getWantedEpisodes(),
-      (e) => e.lastSearchedAt,
-    );
-    if (wantedMovies.length > 0 && wantedEpisodes.length > 0) {
-      await sleep(delayBetweenBooks);
-    }
+		const wantedEpisodes = sortBySearchPriority(
+			getWantedEpisodes(),
+			(e) => e.lastSearchedAt,
+		);
+		if (wantedMovies.length > 0 && wantedEpisodes.length > 0) {
+			await sleep(delayBetweenBooks);
+		}
 
-    await processWantedEpisodes(wantedEpisodes, ixs, result, delayBetweenBooks);
+		await processWantedEpisodes(wantedEpisodes, ixs, result, delayBetweenBooks);
 
-    // ── Manga Chapters ────────────────────────────────────────────────────
-    const wantedManga = sortBySearchPriority(
-      getWantedManga(),
-      (m) => m.lastSearchedAt,
-    );
-    if (
-      (wantedMovies.length > 0 || wantedEpisodes.length > 0) &&
-      wantedManga.length > 0
-    ) {
-      await sleep(delayBetweenBooks);
-    }
+		// ── Manga Chapters ────────────────────────────────────────────────────
+		const wantedManga = sortBySearchPriority(
+			getWantedManga(),
+			(m) => m.lastSearchedAt,
+		);
+		if (
+			(wantedMovies.length > 0 || wantedEpisodes.length > 0) &&
+			wantedManga.length > 0
+		) {
+			await sleep(delayBetweenBooks);
+		}
 
-    await processWantedManga(wantedManga, ixs, result, delayBetweenBooks);
-  }
+		await processWantedManga(wantedManga, ixs, result, delayBetweenBooks);
+	}
 
-  return result;
+	return result;
 }
 
 // ─── Release filtering ──────────────────────────────────────────────────────
 
 /** Check if the profile has reached its upgrade ceiling (quality cutoff + CF threshold) */
 function isUpgradeCeiling(
-  profile: ProfileInfo,
-  bestExistingWeight: number,
-  bestExistingCFScore: number,
+	profile: ProfileInfo,
+	bestExistingWeight: number,
+	bestExistingCFScore: number,
 ): boolean {
-  const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-  const atCutoffTier = bestExistingWeight >= cutoffWeight;
-  if (!atCutoffTier) {
-    return false;
-  }
-  // No CF threshold set — quality cutoff alone is the ceiling
-  if (profile.upgradeUntilCustomFormatScore === 0) {
-    return true;
-  }
-  // Both quality cutoff and CF threshold must be met
-  return bestExistingCFScore >= profile.upgradeUntilCustomFormatScore;
+	const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
+	const atCutoffTier = bestExistingWeight >= cutoffWeight;
+	if (!atCutoffTier) {
+		return false;
+	}
+	// No CF threshold set — quality cutoff alone is the ceiling
+	if (profile.upgradeUntilCustomFormatScore === 0) {
+		return true;
+	}
+	// Both quality cutoff and CF threshold must be met
+	return bestExistingCFScore >= profile.upgradeUntilCustomFormatScore;
 }
 
 /** Check if a release is an acceptable upgrade over existing files */
 function isUpgradeCandidate(
-  release: IndexerRelease,
-  bestExistingWeight: number,
-  bestExistingCFScore: number,
+	release: IndexerRelease,
+	bestExistingWeight: number,
+	bestExistingCFScore: number,
 ): boolean {
-  if (release.quality.weight > bestExistingWeight) {
-    return true;
-  }
-  // Same tier — only upgrade if CF score is better
-  return (
-    release.quality.weight === bestExistingWeight &&
-    release.cfScore > bestExistingCFScore
-  );
+	if (release.quality.weight > bestExistingWeight) {
+		return true;
+	}
+	// Same tier — only upgrade if CF score is better
+	return (
+		release.quality.weight === bestExistingWeight &&
+		release.cfScore > bestExistingCFScore
+	);
 }
 
 /** Compare two candidates — return true if release is better than current best */
 function isBetterCandidate(
-  release: IndexerRelease,
-  current: IndexerRelease,
-  profileItems: number[][],
+	release: IndexerRelease,
+	current: IndexerRelease,
+	profileItems: number[][],
 ): boolean {
-  const currentWeight = getProfileWeight(current.quality.id, profileItems);
-  const releaseWeight = getProfileWeight(release.quality.id, profileItems);
-  if (releaseWeight > currentWeight) {
-    return true;
-  }
-  return releaseWeight === currentWeight && release.cfScore > current.cfScore;
+	const currentWeight = getProfileWeight(current.quality.id, profileItems);
+	const releaseWeight = getProfileWeight(release.quality.id, profileItems);
+	if (releaseWeight > currentWeight) {
+		return true;
+	}
+	return releaseWeight === currentWeight && release.cfScore > current.cfScore;
 }
 
 export function findBestReleaseForProfile(
-  releases: IndexerRelease[],
-  profile: ProfileInfo,
-  bestExistingWeight: number,
-  blocklistedTitles: Set<string>,
-  grabbedGuids: Set<string>,
-  bestExistingCFScore = 0,
-  packContext: PackContext | null = null,
+	releases: IndexerRelease[],
+	profile: ProfileInfo,
+	bestExistingWeight: number,
+	blocklistedTitles: Set<string>,
+	grabbedGuids: Set<string>,
+	bestExistingCFScore = 0,
+	packContext: PackContext | null = null,
 ): IndexerRelease | null {
-  const existingCF = bestExistingCFScore;
+	const existingCF = bestExistingCFScore;
 
-  // If files exist but upgrades aren't allowed, skip
-  if (bestExistingWeight > 0 && !profile.upgradeAllowed) {
-    return null;
-  }
+	// If files exist but upgrades aren't allowed, skip
+	if (bestExistingWeight > 0 && !profile.upgradeAllowed) {
+		return null;
+	}
 
-  // If at or above upgrade ceiling, skip
-  if (
-    bestExistingWeight > 0 &&
-    isUpgradeCeiling(profile, bestExistingWeight, existingCF)
-  ) {
-    return null;
-  }
+	// If at or above upgrade ceiling, skip
+	if (
+		bestExistingWeight > 0 &&
+		isUpgradeCeiling(profile, bestExistingWeight, existingCF)
+	) {
+		return null;
+	}
 
-  let bestCandidate: IndexerRelease | null = null;
+	let bestCandidate: IndexerRelease | null = null;
 
-  for (const release of releases) {
-    if (!isFormatInProfile(release.quality.id, profile.items)) {
-      continue;
-    }
-    if (release.rejections.length > 0) {
-      continue;
-    }
-    if (blocklistedTitles.has(release.title)) {
-      continue;
-    }
-    if (grabbedGuids.has(release.guid)) {
-      continue;
-    }
-    if (release.cfScore < profile.minCustomFormatScore) {
-      continue;
-    }
-    // Skip disqualified packs
-    if (!isPackQualified(release, packContext)) {
-      continue;
-    }
+	for (const release of releases) {
+		if (!isFormatInProfile(release.quality.id, profile.items)) {
+			continue;
+		}
+		if (release.rejections.length > 0) {
+			continue;
+		}
+		if (blocklistedTitles.has(release.title)) {
+			continue;
+		}
+		if (grabbedGuids.has(release.guid)) {
+			continue;
+		}
+		if (release.cfScore < profile.minCustomFormatScore) {
+			continue;
+		}
+		// Skip disqualified packs
+		if (!isPackQualified(release, packContext)) {
+			continue;
+		}
 
-    // For upgrades, ensure the release is actually better
-    if (
-      bestExistingWeight > 0 &&
-      !isUpgradeCandidate(release, bestExistingWeight, existingCF)
-    ) {
-      continue;
-    }
+		// For upgrades, ensure the release is actually better
+		if (
+			bestExistingWeight > 0 &&
+			!isUpgradeCandidate(release, bestExistingWeight, existingCF)
+		) {
+			continue;
+		}
 
-    if (
-      !bestCandidate ||
-      isBetterCandidate(release, bestCandidate, profile.items)
-    ) {
-      bestCandidate = release;
-    }
-  }
+		if (
+			!bestCandidate ||
+			isBetterCandidate(release, bestCandidate, profile.items)
+		) {
+			bestCandidate = release;
+		}
+	}
 
-  return bestCandidate;
+	return bestCandidate;
 }
 
 // ─── Grab helper ────────────────────────────────────────────────────────────
 
 async function grabRelease(
-  release: IndexerRelease,
-  book: WantedBook,
-  profileId: number,
+	release: IndexerRelease,
+	book: WantedBook,
+	profileId: number,
 ): Promise<boolean> {
-  let client;
+	let client: typeof downloadClients.$inferSelect | undefined;
 
-  // Check indexer-level download client override
-  const indexerTable =
-    release.indexerSource === "synced" ? syncedIndexers : indexers;
-  const indexerRow = db
-    .select({ downloadClientId: indexerTable.downloadClientId })
-    .from(indexerTable)
-    .where(eq(indexerTable.id, release.allstarrIndexerId))
-    .get();
+	// Check indexer-level download client override
+	const indexerTable =
+		release.indexerSource === "synced" ? syncedIndexers : indexers;
+	const indexerRow = db
+		.select({ downloadClientId: indexerTable.downloadClientId })
+		.from(indexerTable)
+		.where(eq(indexerTable.id, release.allstarrIndexerId))
+		.get();
 
-  if (indexerRow?.downloadClientId) {
-    client = db
-      .select()
-      .from(downloadClients)
-      .where(eq(downloadClients.id, indexerRow.downloadClientId))
-      .get();
-  }
+	if (indexerRow?.downloadClientId) {
+		client = db
+			.select()
+			.from(downloadClients)
+			.where(eq(downloadClients.id, indexerRow.downloadClientId))
+			.get();
+	}
 
-  if (!client) {
-    // Find matching download client by protocol + priority
-    const matchingClients = db
-      .select()
-      .from(downloadClients)
-      .where(eq(downloadClients.enabled, true))
-      .orderBy(asc(downloadClients.priority))
-      .all()
-      .filter((c) => c.protocol === release.protocol);
+	if (!client) {
+		// Find matching download client by protocol + priority
+		const matchingClients = db
+			.select()
+			.from(downloadClients)
+			.where(eq(downloadClients.enabled, true))
+			.orderBy(asc(downloadClients.priority))
+			.all()
+			.filter((c) => c.protocol === release.protocol);
 
-    if (matchingClients.length === 0) {
-      console.warn(
-        `[rss-sync] No enabled ${release.protocol} download client for "${release.title}"`,
-      );
-      return false;
-    }
-    client = matchingClients[0];
-  }
-  // Look up indexer tag
-  const indexerTagRow = db
-    .select({ tag: indexerTable.tag })
-    .from(indexerTable)
-    .where(eq(indexerTable.id, release.allstarrIndexerId))
-    .get();
-  const combinedTag =
-    [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+		if (matchingClients.length === 0) {
+			console.warn(
+				`[rss-sync] No enabled ${release.protocol} download client for "${release.title}"`,
+			);
+			return false;
+		}
+		client = matchingClients[0];
+	}
+	// Look up indexer tag
+	const indexerTagRow = db
+		.select({ tag: indexerTable.tag })
+		.from(indexerTable)
+		.where(eq(indexerTable.id, release.allstarrIndexerId))
+		.get();
+	const combinedTag =
+		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  // Track the download
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        bookId: book.id,
-        authorId: book.authorId ?? null,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	// Track the download
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				bookId: book.id,
+				authorId: book.authorId ?? null,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  // Record history event
-  db.insert(history)
-    .values({
-      eventType: "bookGrabbed",
-      bookId: book.id,
-      authorId: book.authorId,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "rssSync",
-      },
-    })
-    .run();
+	// Record history event
+	db.insert(history)
+		.values({
+			eventType: "bookGrabbed",
+			bookId: book.id,
+			authorId: book.authorId,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "rssSync",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 // ─── Grab helpers for movies and episodes ───────────────────────────────────
 
 /** Resolve a download client from an indexer release */
 function resolveDownloadClient(release: IndexerRelease) {
-  let client;
+	let client: typeof downloadClients.$inferSelect | undefined;
 
-  const indexerTable =
-    release.indexerSource === "synced" ? syncedIndexers : indexers;
-  const indexerRow = db
-    .select({ downloadClientId: indexerTable.downloadClientId })
-    .from(indexerTable)
-    .where(eq(indexerTable.id, release.allstarrIndexerId))
-    .get();
+	const indexerTable =
+		release.indexerSource === "synced" ? syncedIndexers : indexers;
+	const indexerRow = db
+		.select({ downloadClientId: indexerTable.downloadClientId })
+		.from(indexerTable)
+		.where(eq(indexerTable.id, release.allstarrIndexerId))
+		.get();
 
-  if (indexerRow?.downloadClientId) {
-    client = db
-      .select()
-      .from(downloadClients)
-      .where(eq(downloadClients.id, indexerRow.downloadClientId))
-      .get();
-  }
+	if (indexerRow?.downloadClientId) {
+		client = db
+			.select()
+			.from(downloadClients)
+			.where(eq(downloadClients.id, indexerRow.downloadClientId))
+			.get();
+	}
 
-  if (!client) {
-    const matchingClients = db
-      .select()
-      .from(downloadClients)
-      .where(eq(downloadClients.enabled, true))
-      .orderBy(asc(downloadClients.priority))
-      .all()
-      .filter((c) => c.protocol === release.protocol);
+	if (!client) {
+		const matchingClients = db
+			.select()
+			.from(downloadClients)
+			.where(eq(downloadClients.enabled, true))
+			.orderBy(asc(downloadClients.priority))
+			.all()
+			.filter((c) => c.protocol === release.protocol);
 
-    if (matchingClients.length === 0) {
-      return null;
-    }
-    client = matchingClients[0];
-  }
+		if (matchingClients.length === 0) {
+			return null;
+		}
+		client = matchingClients[0];
+	}
 
-  const indexerTagRow = db
-    .select({ tag: indexerTable.tag })
-    .from(indexerTable)
-    .where(eq(indexerTable.id, release.allstarrIndexerId))
-    .get();
-  const combinedTag =
-    [client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
+	const indexerTagRow = db
+		.select({ tag: indexerTable.tag })
+		.from(indexerTable)
+		.where(eq(indexerTable.id, release.allstarrIndexerId))
+		.get();
+	const combinedTag =
+		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
 
-  return { client, combinedTag };
+	return { client, combinedTag };
 }
 
 async function grabReleaseForMovie(
-  release: IndexerRelease,
-  movie: WantedMovie,
-  profileId: number,
+	release: IndexerRelease,
+	movie: WantedMovie,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        movieId: movie.id,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				movieId: movie.id,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "movieGrabbed",
-      movieId: movie.id,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "movieGrabbed",
+			movieId: movie.id,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }
 
 async function grabReleaseForEpisode(
-  release: IndexerRelease,
-  episode: WantedEpisode,
-  profileId: number,
+	release: IndexerRelease,
+	episode: WantedEpisode,
+	profileId: number,
 ): Promise<boolean> {
-  const resolved = resolveDownloadClient(release);
-  if (!resolved) {
-    console.warn(
-      `[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
-    );
-    return false;
-  }
+	const resolved = resolveDownloadClient(release);
+	if (!resolved) {
+		console.warn(
+			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		);
+		return false;
+	}
 
-  const { client, combinedTag } = resolved;
+	const { client, combinedTag } = resolved;
 
-  const provider = getProvider(client.implementation);
-  const config: ConnectionConfig = {
-    implementation: client.implementation as ConnectionConfig["implementation"],
-    host: client.host,
-    port: client.port,
-    useSsl: client.useSsl,
-    urlBase: client.urlBase,
-    username: client.username,
-    password: client.password,
-    apiKey: client.apiKey,
-    category: client.category,
-    tag: client.tag,
-    settings: client.settings as Record<string, unknown> | null,
-  };
+	const provider = getProvider(client.implementation);
+	const config: ConnectionConfig = {
+		implementation: client.implementation as ConnectionConfig["implementation"],
+		host: client.host,
+		port: client.port,
+		useSsl: client.useSsl,
+		urlBase: client.urlBase,
+		username: client.username,
+		password: client.password,
+		apiKey: client.apiKey,
+		category: client.category,
+		tag: client.tag,
+		settings: client.settings as Record<string, unknown> | null,
+	};
 
-  const downloadId = await provider.addDownload(config, {
-    url: release.downloadUrl,
-    torrentData: null,
-    nzbData: null,
-    category: null,
-    tag: combinedTag,
-    savePath: null,
-  });
+	const downloadId = await provider.addDownload(config, {
+		url: release.downloadUrl,
+		torrentData: null,
+		nzbData: null,
+		category: null,
+		tag: combinedTag,
+		savePath: null,
+	});
 
-  if (downloadId) {
-    db.insert(trackedDownloads)
-      .values({
-        downloadClientId: client.id,
-        downloadId,
-        showId: episode.showId,
-        episodeId: episode.id,
-        downloadProfileId: profileId,
-        releaseTitle: release.title,
-        protocol: release.protocol,
-        indexerId: release.allstarrIndexerId,
-        guid: release.guid,
-        state: "queued",
-      })
-      .run();
-  }
+	if (downloadId) {
+		db.insert(trackedDownloads)
+			.values({
+				downloadClientId: client.id,
+				downloadId,
+				showId: episode.showId,
+				episodeId: episode.id,
+				downloadProfileId: profileId,
+				releaseTitle: release.title,
+				protocol: release.protocol,
+				indexerId: release.allstarrIndexerId,
+				guid: release.guid,
+				state: "queued",
+			})
+			.run();
+	}
 
-  db.insert(history)
-    .values({
-      eventType: "episodeGrabbed",
-      showId: episode.showId,
-      episodeId: episode.id,
-      data: {
-        title: release.title,
-        guid: release.guid,
-        indexerId: release.allstarrIndexerId,
-        downloadClientId: client.id,
-        downloadClientName: client.name,
-        protocol: release.protocol,
-        size: release.size,
-        quality: release.quality.name,
-        source: "autoSearch",
-      },
-    })
-    .run();
+	db.insert(history)
+		.values({
+			eventType: "episodeGrabbed",
+			showId: episode.showId,
+			episodeId: episode.id,
+			data: {
+				title: release.title,
+				guid: release.guid,
+				indexerId: release.allstarrIndexerId,
+				downloadClientId: client.id,
+				downloadClientName: client.name,
+				protocol: release.protocol,
+				size: release.size,
+				quality: release.quality.name,
+				source: "autoSearch",
+			},
+		})
+		.run();
 
-  return true;
+	return true;
 }

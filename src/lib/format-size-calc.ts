@@ -7,15 +7,15 @@
  */
 
 export type EditionMeta = {
-  pageCount?: number | null;
-  audioLength?: number | null; // in minutes
-  videoLength?: number | null; // in minutes
+	pageCount?: number | null;
+	audioLength?: number | null; // in minutes
+	videoLength?: number | null; // in minutes
 };
 
 export type EffectiveSizeLimits = {
-  minSize: number; // MB
-  maxSize: number; // MB (0 = unlimited)
-  preferredSize: number; // MB
+	minSize: number; // MB
+	maxSize: number; // MB (0 = unlimited)
+	preferredSize: number; // MB
 };
 
 const DEFAULT_PAGE_COUNT = 300;
@@ -24,16 +24,16 @@ const DEFAULT_VIDEO_DURATION = 120; // minutes
 
 /** Derive size calculation mode from content type(s) */
 export function sizeMode(
-  contentType: string | string[],
+	contentType: string | string[],
 ): "ebook" | "audio" | "video" {
-  const ct = Array.isArray(contentType) ? contentType[0] : contentType;
-  if (ct === "audiobook") {
-    return "audio";
-  }
-  if (ct === "movie" || ct === "tv") {
-    return "video";
-  }
-  return "ebook";
+	const ct = Array.isArray(contentType) ? contentType[0] : contentType;
+	if (ct === "audiobook") {
+		return "audio";
+	}
+	if (ct === "movie" || ct === "tv") {
+		return "video";
+	}
+	return "ebook";
 }
 
 /**
@@ -47,59 +47,59 @@ export function sizeMode(
  * @param defaults - optional override for default dimensions
  */
 export function computeEffectiveSizes(
-  type: "ebook" | "audio" | "video",
-  minRate: number,
-  maxRate: number,
-  preferredRate: number,
-  editionMeta?: EditionMeta | null,
-  defaults?: { defaultPageCount?: number; defaultAudioDuration?: number },
+	type: "ebook" | "audio" | "video",
+	minRate: number,
+	maxRate: number,
+	preferredRate: number,
+	editionMeta?: EditionMeta | null,
+	defaults?: { defaultPageCount?: number; defaultAudioDuration?: number },
 ): EffectiveSizeLimits {
-  if (type === "ebook") {
-    const pages =
-      editionMeta?.pageCount ??
-      defaults?.defaultPageCount ??
-      DEFAULT_PAGE_COUNT;
-    return {
-      minSize: minRate * (pages / 100),
-      maxSize: maxRate === 0 ? 0 : maxRate * (pages / 100),
-      preferredSize: preferredRate * (pages / 100),
-    };
-  }
+	if (type === "ebook") {
+		const pages =
+			editionMeta?.pageCount ??
+			defaults?.defaultPageCount ??
+			DEFAULT_PAGE_COUNT;
+		return {
+			minSize: minRate * (pages / 100),
+			maxSize: maxRate === 0 ? 0 : maxRate * (pages / 100),
+			preferredSize: preferredRate * (pages / 100),
+		};
+	}
 
-  if (type === "video") {
-    // video: MB/min × duration
-    const durationMin = editionMeta?.videoLength ?? DEFAULT_VIDEO_DURATION;
-    return {
-      minSize: minRate * durationMin,
-      maxSize: maxRate === 0 ? 0 : maxRate * durationMin,
-      preferredSize: preferredRate * durationMin,
-    };
-  }
+	if (type === "video") {
+		// video: MB/min × duration
+		const durationMin = editionMeta?.videoLength ?? DEFAULT_VIDEO_DURATION;
+		return {
+			minSize: minRate * durationMin,
+			maxSize: maxRate === 0 ? 0 : maxRate * durationMin,
+			preferredSize: preferredRate * durationMin,
+		};
+	}
 
-  // audio: kbps → MB
-  const durationMin =
-    editionMeta?.audioLength ??
-    defaults?.defaultAudioDuration ??
-    DEFAULT_AUDIO_DURATION;
-  const durationSec = durationMin * 60;
+	// audio: kbps → MB
+	const durationMin =
+		editionMeta?.audioLength ??
+		defaults?.defaultAudioDuration ??
+		DEFAULT_AUDIO_DURATION;
+	const durationSec = durationMin * 60;
 
-  return {
-    minSize: (minRate * 128 * durationSec) / (1024 * 1024),
-    maxSize: maxRate === 0 ? 0 : (maxRate * 128 * durationSec) / (1024 * 1024),
-    preferredSize: (preferredRate * 128 * durationSec) / (1024 * 1024),
-  };
+	return {
+		minSize: (minRate * 128 * durationSec) / (1024 * 1024),
+		maxSize: maxRate === 0 ? 0 : (maxRate * 128 * durationSec) / (1024 * 1024),
+		preferredSize: (preferredRate * 128 * durationSec) / (1024 * 1024),
+	};
 }
 
 /** Format a size in MB as a human-readable string (e.g., "45 MB", "1.5 GB", "No limit") */
 export function formatEffectiveSize(
-  mb: number,
-  context: "min" | "max" = "max",
+	mb: number,
+	context: "min" | "max" = "max",
 ): string {
-  if (mb === 0) {
-    return context === "min" ? "0" : "No limit";
-  }
-  if (mb >= 1024) {
-    return `${(mb / 1024).toFixed(1)} GB`;
-  }
-  return `${Math.round(mb)} MB`;
+	if (mb === 0) {
+		return context === "min" ? "0" : "No limit";
+	}
+	if (mb >= 1024) {
+		return `${(mb / 1024).toFixed(1)} GB`;
+	}
+	return `${Math.round(mb)} MB`;
 }
