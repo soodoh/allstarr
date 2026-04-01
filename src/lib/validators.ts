@@ -469,7 +469,12 @@ export const upsertUserSettingsSchema = z.object({
 	columnOrder: z.array(z.string()).optional(),
 	hiddenColumns: z.array(z.string()).optional(),
 	viewMode: z.enum(["table", "grid"]).optional(),
-	addDefaults: z.record(z.string(), z.unknown()).optional(),
+	addDefaults: z
+		.record(
+			z.string(),
+			z.union([z.string(), z.number(), z.boolean(), z.null()]),
+		)
+		.optional(),
 });
 
 export const deleteUserSettingsSchema = z.object({
@@ -520,5 +525,5 @@ export const checkMangaExistsSchema = z.object({
 export const mangaSourceConfigSchema = z.object({
 	sourceId: z.string(),
 	enabled: z.boolean().optional(),
-	config: z.record(z.unknown()).optional(),
+	config: z.record(z.string(), z.unknown()).optional(),
 });

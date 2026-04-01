@@ -113,8 +113,9 @@ const xmlParser = new XMLParser({
 	isArray: (tagName) => tagName === "item" || tagName === "newznab:attr",
 });
 
-// biome-ignore lint/suspicious/noExplicitAny: XML parsed items have deeply nested dynamic shapes
-type XmlItem = any;
+type XmlValue = string | number | boolean | null | XmlNode | XmlValue[];
+type XmlNode = { [key: string]: XmlValue };
+type XmlItem = XmlNode;
 
 /** Extract `newznab:attr` elements into a Map<name, value>. */
 function parseNewznabAttrs(item: XmlItem): Map<string, string> {
@@ -124,8 +125,9 @@ function parseNewznabAttrs(item: XmlItem): Map<string, string> {
 		return map;
 	}
 	for (const a of attrList) {
-		const name = a?.["@_name"];
-		const value = a?.["@_value"];
+		const attr = a as XmlNode;
+		const name = attr?.["@_name"];
+		const value = attr?.["@_value"];
 		if (
 			name !== undefined &&
 			name !== null &&
@@ -145,7 +147,8 @@ function detectProtocol(
 	if (attrs.has("seeders") || attrs.has("magneturl")) {
 		return "torrent";
 	}
-	const encType = item?.enclosure?.["@_type"];
+	const enc = item?.enclosure as XmlNode | undefined;
+	const encType = enc?.["@_type"];
 	if (typeof encType === "string") {
 		if (encType.includes("torrent")) {
 			return "torrent";
@@ -165,8 +168,9 @@ function parseCategories(item: XmlItem): Array<{ id: number; name: string }> {
 	const attrList = item?.["newznab:attr"];
 	if (Array.isArray(attrList)) {
 		for (const a of attrList) {
-			if (a?.["@_name"] === "category") {
-				const id = Number(a["@_value"]);
+			const attr = a as XmlNode;
+			if (attr?.["@_name"] === "category") {
+				const id = Number(attr["@_value"]);
 				if (!Number.isNaN(id) && !seen.has(id)) {
 					seen.add(id);
 					cats.push({ id, name: "" });
@@ -193,25 +197,25 @@ function resolveDownloadUrl(
 	item: XmlItem,
 	attrs: Map<string, string>,
 ): { downloadUrl: string; magnetUrl: string | null } | null {
+	const enc = item?.enclosure as XmlNode | undefined;
 	const downloadUrl =
-		item?.enclosure?.["@_url"] ??
-		attrs.get("downloadurl") ??
-		item?.link ??
-		null;
+		enc?.["@_url"] ?? attrs.get("downloadurl") ?? item?.link ?? null;
 	const magnetUrl = attrs.get("magneturl") ?? null;
 	const resolved = downloadUrl ?? magnetUrl;
 	if (!resolved) {
 		return null;
 	}
-	return { downloadUrl: resolved, magnetUrl };
+	return { downloadUrl: String(resolved), magnetUrl };
 }
 
 function resolveGuid(item: XmlItem): string {
-	return String(item?.guid?.["#text"] ?? item?.guid ?? item?.link ?? "");
+	const guid = item?.guid as XmlNode | undefined;
+	return String(guid?.["#text"] ?? item?.guid ?? item?.link ?? "");
 }
 
 function resolveSize(item: XmlItem, attrs: Map<string, string>): number {
-	return Number(attrs.get("size") ?? item?.enclosure?.["@_length"] ?? 0);
+	const enc = item?.enclosure as XmlNode | undefined;
+	return Number(attrs.get("size") ?? enc?.["@_length"] ?? 0);
 }
 
 function resolvePeerInfo(attrs: Map<string, string>): {
@@ -392,7 +396,7 @@ async function fetchNewznabFeed(
 		return [];
 	}
 
-	let rawItems: unknown[];
+	let rawItems: XmlNode[];
 	if (Array.isArray(channel.item)) {
 		rawItems = channel.item;
 	} else if (channel.item) {

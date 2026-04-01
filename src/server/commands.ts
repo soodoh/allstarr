@@ -137,6 +137,10 @@ export function submitCommand(opts: SubmitCommandOptions): {
 export const getActiveCommandsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAuth();
-		return db.select().from(activeAdhocCommands).all();
+		const rows = db.select().from(activeAdhocCommands).all();
+		return rows.map((row) => ({
+			...row,
+			body: row.body as Record<string, never>,
+		}));
 	},
 );

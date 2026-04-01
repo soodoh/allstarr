@@ -317,8 +317,8 @@ class MangaPlusSource extends ApiEngine {
 
 		const pages = data.success?.mangaViewer?.pages ?? [];
 		return pages
-			.filter((p) => p.mangaPage?.imageUrl)
-			.map((p) => p.mangaPage?.imageUrl);
+			.map((p) => p.mangaPage?.imageUrl)
+			.filter((url): url is string => url !== undefined);
 	}
 
 	protected static override getHeaders(): Record<string, string> {

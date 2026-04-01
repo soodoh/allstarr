@@ -1,7 +1,7 @@
 import type { ParsedPackInfo } from "./types";
 import { ReleaseType } from "./types";
 
-type ContentType = "tv" | "book";
+type ContentType = "tv" | "book" | "manga";
 
 type DetectionResult = {
 	releaseType: ReleaseType;

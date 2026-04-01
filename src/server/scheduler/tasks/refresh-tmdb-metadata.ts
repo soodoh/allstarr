@@ -81,7 +81,7 @@ registerTask({
 			}
 
 			completed += 1;
-			updateProgress(completed, totalItems);
+			updateProgress(`${completed}/${totalItems}`);
 
 			if (completed < totalItems) {
 				await sleep(1000);
@@ -103,7 +103,7 @@ registerTask({
 			}
 
 			completed += 1;
-			updateProgress(completed, totalItems);
+			updateProgress(`${completed}/${totalItems}`);
 
 			if (completed < totalItems) {
 				await sleep(1000);
