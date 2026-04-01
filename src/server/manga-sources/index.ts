@@ -1,4 +1,3 @@
-// oxlint-disable import/no-unassigned-import -- Side-effect imports register all sources in the registry
 // API sources
 import "./sources/mangadex";
 import "./sources/comick";
@@ -15,23 +14,24 @@ import "./sites/manga-box-sites";
 import "./sources/mangafire";
 import "./sources/webtoons";
 import "./sources/ninemanga";
+
 // oxlint-enable import/no-unassigned-import
 
 // Re-export public API
 export {
-  getSource,
-  getEnabledSources,
-  getAllSourceDefinitions,
-  setSourceEnabled,
-  setSourceConfig,
-  seedSourcesIfNeeded,
+	getAllSourceDefinitions,
+	getEnabledSources,
+	getSource,
+	seedSourcesIfNeeded,
+	setSourceConfig,
+	setSourceEnabled,
 } from "./registry";
 export type {
-  MangaSource,
-  MangaPage,
-  SourceManga,
-  MangaDetails,
-  SourceChapter,
-  PageUrl,
-  SourceDefinition,
+	MangaDetails,
+	MangaPage,
+	MangaSource,
+	PageUrl,
+	SourceChapter,
+	SourceDefinition,
+	SourceManga,
 } from "./types";

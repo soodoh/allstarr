@@ -1,81 +1,78 @@
 import { createServerFn } from "@tanstack/react-start";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "src/db";
-import { history, authors, books } from "src/db/schema";
-import { and, eq, desc, sql } from "drizzle-orm";
+import { authors, books, history } from "src/db/schema";
 import { requireAuth } from "./middleware";
 
 export const getHistoryFn = createServerFn({ method: "GET" })
-  .inputValidator(
-    (d: {
-      page?: number;
-      limit?: number;
-      eventType?: string;
-      bookId?: number;
-    }) => d,
-  )
-  .handler(async ({ data }) => {
-    await requireAuth();
-    const page = data.page || 1;
-    const limit = data.limit || 20;
-    const offset = (page - 1) * limit;
+	.inputValidator(
+		(d: {
+			page?: number;
+			limit?: number;
+			eventType?: string;
+			bookId?: number;
+		}) => d,
+	)
+	.handler(async ({ data }) => {
+		await requireAuth();
+		const page = data.page || 1;
+		const limit = data.limit || 20;
+		const offset = (page - 1) * limit;
 
-    let query = db
-      .select({
-        id: history.id,
-        eventType: history.eventType,
-        bookId: history.bookId,
-        authorId: history.authorId,
-        data: history.data,
-        date: history.date,
-        authorName: authors.name,
-        bookTitle: books.title,
-      })
-      .from(history)
-      .leftJoin(authors, eq(history.authorId, authors.id))
-      .leftJoin(books, eq(history.bookId, books.id))
-      .orderBy(desc(history.date))
-      .$dynamic();
+		let query = db
+			.select({
+				id: history.id,
+				eventType: history.eventType,
+				bookId: history.bookId,
+				authorId: history.authorId,
+				data: history.data,
+				date: history.date,
+				authorName: authors.name,
+				bookTitle: books.title,
+			})
+			.from(history)
+			.leftJoin(authors, eq(history.authorId, authors.id))
+			.leftJoin(books, eq(history.bookId, books.id))
+			.orderBy(desc(history.date))
+			.$dynamic();
 
-    const conditions = [];
-    if (data.eventType) {
-      conditions.push(eq(history.eventType, data.eventType));
-    }
-    if (data.bookId) {
-      conditions.push(eq(history.bookId, data.bookId));
-    }
+		const conditions = [];
+		if (data.eventType) {
+			conditions.push(eq(history.eventType, data.eventType));
+		}
+		if (data.bookId) {
+			conditions.push(eq(history.bookId, data.bookId));
+		}
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+		if (conditions.length > 0) {
+			query = query.where(and(...conditions));
+		}
 
-    const items = query.limit(limit).offset(offset).all();
+		const items = query.limit(limit).offset(offset).all();
 
-    const countConditions = [];
-    if (data.eventType) {
-      countConditions.push(eq(history.eventType, data.eventType));
-    }
-    if (data.bookId) {
-      countConditions.push(eq(history.bookId, data.bookId));
-    }
+		const countConditions = [];
+		if (data.eventType) {
+			countConditions.push(eq(history.eventType, data.eventType));
+		}
+		if (data.bookId) {
+			countConditions.push(eq(history.bookId, data.bookId));
+		}
 
-    const countQuery =
-      countConditions.length > 0
-        ? db
-            .select({ count: sql<number>`count(*)` })
-            .from(history)
-            .where(and(...countConditions))
-            .get()
-        : db
-            .select({ count: sql<number>`count(*)` })
-            .from(history)
-            .get();
+		const countQuery =
+			countConditions.length > 0
+				? db
+						.select({ count: sql<number>`count(*)` })
+						.from(history)
+						.where(and(...countConditions))
+						.get()
+				: db.select({ count: sql<number>`count(*)` }).from(history).get();
 
-    const total = countQuery?.count || 0;
+		const total = countQuery?.count || 0;
 
-    return {
-      items,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    };
-  });
+		return {
+			items,
+			total,
+			page,
+			totalPages: Math.ceil(total / limit),
+		};
+	});

@@ -1,35 +1,35 @@
 function parseChapterNumber(raw: string): number | null {
-  const cleaned = raw.replace(/v\d+$/i, "").trim();
-  const num = Number.parseFloat(cleaned);
-  return Number.isNaN(num) ? null : num;
+	const cleaned = raw.replace(/v\d+$/i, "").trim();
+	const num = Number.parseFloat(cleaned);
+	return Number.isNaN(num) ? null : num;
 }
 
 type Chapter = {
-  id: number;
-  chapterNumber: string;
-  title: string | null;
-  releaseDate: string | null;
-  scanlationGroup: string | null;
-  hasFile: boolean | null;
-  monitored: boolean | null;
+	id: number;
+	chapterNumber: string;
+	title: string | null;
+	releaseDate: string | null;
+	scanlationGroup: string | null;
+	hasFile: boolean | null;
+	monitored: boolean | null;
 };
 
 export type DisplayVolume = {
-  id: number;
-  volumeNumber: number | null;
-  title: string | null;
-  chapters: Chapter[];
+	id: number;
+	volumeNumber: number | null;
+	title: string | null;
+	chapters: Chapter[];
 };
 
 export type DisplayGroup = {
-  /** Unique key for React rendering and accordion value */
-  key: string;
-  /** Label shown in the accordion trigger */
-  displayTitle: string;
-  /** The original volume (null for synthetic ungrouped groups) */
-  volume: DisplayVolume | null;
-  /** Chapters in this group */
-  chapters: Chapter[];
+	/** Unique key for React rendering and accordion value */
+	key: string;
+	/** Label shown in the accordion trigger */
+	displayTitle: string;
+	/** The original volume (null for synthetic ungrouped groups) */
+	volume: DisplayVolume | null;
+	/** Chapters in this group */
+	chapters: Chapter[];
 };
 
 /**
@@ -38,102 +38,102 @@ export type DisplayGroup = {
  * Non-numeric specials go into a "Specials" group at the bottom.
  */
 export function splitUngroupedVolumes(
-  volumes: DisplayVolume[],
+	volumes: DisplayVolume[],
 ): DisplayGroup[] {
-  const knownVolumes = volumes.filter((v) => v.volumeNumber !== null);
-  const ungroupedVolumes = volumes.filter((v) => v.volumeNumber === null);
-  const allUngroupedChapters = ungroupedVolumes.flatMap((v) => v.chapters);
+	const knownVolumes = volumes.filter((v) => v.volumeNumber !== null);
+	const ungroupedVolumes = volumes.filter((v) => v.volumeNumber === null);
+	const allUngroupedChapters = ungroupedVolumes.flatMap((v) => v.chapters);
 
-  // Split ungrouped into numeric and non-numeric (specials)
-  const numericChapters: Array<{ chapter: Chapter; parsed: number }> = [];
-  const specialChapters: Chapter[] = [];
+	// Split ungrouped into numeric and non-numeric (specials)
+	const numericChapters: Array<{ chapter: Chapter; parsed: number }> = [];
+	const specialChapters: Chapter[] = [];
 
-  for (const ch of allUngroupedChapters) {
-    const parsed = parseChapterNumber(ch.chapterNumber);
-    if (parsed === null) {
-      specialChapters.push(ch);
-    } else {
-      numericChapters.push({ chapter: ch, parsed });
-    }
-  }
+	for (const ch of allUngroupedChapters) {
+		const parsed = parseChapterNumber(ch.chapterNumber);
+		if (parsed === null) {
+			specialChapters.push(ch);
+		} else {
+			numericChapters.push({ chapter: ch, parsed });
+		}
+	}
 
-  // Sort known volumes descending by volumeNumber
-  const sortedKnown = [...knownVolumes].toSorted(
-    (a, b) => b.volumeNumber! - a.volumeNumber!,
-  );
+	// Sort known volumes descending by volumeNumber
+	const sortedKnown = [...knownVolumes].toSorted(
+		(a, b) => (b.volumeNumber ?? 0) - (a.volumeNumber ?? 0),
+	);
 
-  // Compute the max chapter number for each known volume (skip empty volumes)
-  const volumesWithMax = sortedKnown
-    .map((vol) => {
-      const chapterNums = vol.chapters
-        .map((c) => parseChapterNumber(c.chapterNumber))
-        .filter((n): n is number => n !== null);
-      return {
-        volume: vol,
-        maxChapter: chapterNums.length > 0 ? Math.max(...chapterNums) : null,
-      };
-    })
-    .filter(
-      (v): v is { volume: DisplayVolume; maxChapter: number } =>
-        v.maxChapter !== null,
-    );
+	// Compute the max chapter number for each known volume (skip empty volumes)
+	const volumesWithMax = sortedKnown
+		.map((vol) => {
+			const chapterNums = vol.chapters
+				.map((c) => parseChapterNumber(c.chapterNumber))
+				.filter((n): n is number => n !== null);
+			return {
+				volume: vol,
+				maxChapter: chapterNums.length > 0 ? Math.max(...chapterNums) : null,
+			};
+		})
+		.filter(
+			(v): v is { volume: DisplayVolume; maxChapter: number } =>
+				v.maxChapter !== null,
+		);
 
-  // Walk through volumes top-down, collecting ungrouped chapters in each gap
-  const groups: DisplayGroup[] = [];
-  let unassigned = [...numericChapters];
+	// Walk through volumes top-down, collecting ungrouped chapters in each gap
+	const groups: DisplayGroup[] = [];
+	let unassigned = [...numericChapters];
 
-  for (const { volume, maxChapter } of volumesWithMax) {
-    // Chapters above this volume's max chapter
-    const inGap = unassigned.filter((c) => c.parsed > maxChapter);
-    unassigned = unassigned.filter((c) => c.parsed <= maxChapter);
+	for (const { volume, maxChapter } of volumesWithMax) {
+		// Chapters above this volume's max chapter
+		const inGap = unassigned.filter((c) => c.parsed > maxChapter);
+		unassigned = unassigned.filter((c) => c.parsed <= maxChapter);
 
-    if (inGap.length > 0) {
-      groups.push(makeUngroupedGroup(inGap));
-    }
+		if (inGap.length > 0) {
+			groups.push(makeUngroupedGroup(inGap));
+		}
 
-    groups.push({
-      key: `volume-${volume.id}`,
-      displayTitle: `Volume ${volume.volumeNumber}`,
-      volume,
-      chapters: volume.chapters,
-    });
-  }
+		groups.push({
+			key: `volume-${volume.id}`,
+			displayTitle: `Volume ${volume.volumeNumber}`,
+			volume,
+			chapters: volume.chapters,
+		});
+	}
 
-  // Remaining ungrouped chapters below the lowest volume
-  if (unassigned.length > 0) {
-    groups.push(makeUngroupedGroup(unassigned));
-  }
+	// Remaining ungrouped chapters below the lowest volume
+	if (unassigned.length > 0) {
+		groups.push(makeUngroupedGroup(unassigned));
+	}
 
-  // Specials at the bottom
-  if (specialChapters.length > 0) {
-    groups.push({
-      key: "specials",
-      displayTitle: "Specials",
-      volume: null,
-      chapters: specialChapters,
-    });
-  }
+	// Specials at the bottom
+	if (specialChapters.length > 0) {
+		groups.push({
+			key: "specials",
+			displayTitle: "Specials",
+			volume: null,
+			chapters: specialChapters,
+		});
+	}
 
-  return groups;
+	return groups;
 }
 
 function makeUngroupedGroup(
-  items: Array<{ chapter: Chapter; parsed: number }>,
+	items: Array<{ chapter: Chapter; parsed: number }>,
 ): DisplayGroup {
-  const sorted = [...items].toSorted((a, b) => b.parsed - a.parsed);
-  const min = sorted.at(-1).parsed;
-  const max = sorted[0].parsed;
-  let label: string;
-  if (sorted.length === 1 || min === max) {
-    label = `Chapter ${min}`;
-  } else {
-    label = `Chapters ${min}-${max}`;
-  }
+	const sorted = [...items].toSorted((a, b) => b.parsed - a.parsed);
+	const min = sorted.at(-1).parsed;
+	const max = sorted[0].parsed;
+	let label: string;
+	if (sorted.length === 1 || min === max) {
+		label = `Chapter ${min}`;
+	} else {
+		label = `Chapters ${min}-${max}`;
+	}
 
-  return {
-    key: `ungrouped-${min}-${max}`,
-    displayTitle: label,
-    volume: null,
-    chapters: sorted.map((s) => s.chapter),
-  };
+	return {
+		key: `ungrouped-${min}-${max}`,
+		displayTitle: label,
+		volume: null,
+		chapters: sorted.map((s) => s.chapter),
+	};
 }

@@ -1,13 +1,11 @@
-// oxlint-disable no-console -- Scheduler logs are intentional server-side diagnostics
-import { seedSourcesIfNeeded as seedMangaSources } from "src/server/manga-sources";
+import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
-import { eq } from "drizzle-orm";
-import { getAllTasks, getTask } from "./registry";
+import { seedSourcesIfNeeded as seedMangaSources } from "src/server/manga-sources";
 import { eventBus } from "../event-bus";
+import { getAllTasks, getTask } from "./registry";
+import { isTaskRunning, markTaskComplete, markTaskRunning } from "./state";
 import { getTimers, setTaskExecutor } from "./timers";
-import { markTaskRunning, markTaskComplete, isTaskRunning } from "./state";
-// oxlint-disable import/no-unassigned-import -- Side-effect imports register tasks in the registry
 import "./tasks/check-health";
 import "./tasks/housekeeping";
 import "./tasks/backup";
@@ -18,149 +16,150 @@ import "./tasks/refresh-downloads";
 import "./tasks/refresh-tmdb-metadata";
 import "./tasks/refresh-manga-sources";
 import "./tasks/search-missing";
+
 // oxlint-enable import/no-unassigned-import
 
-export { isTaskRunning, clearRunningTasks } from "./state";
+export { clearRunningTasks, isTaskRunning } from "./state";
 
 let started = false;
 const timers = getTimers();
 
 function seedTasksIfNeeded(): void {
-  const existing = db.select().from(scheduledTasks).all();
-  const existingIds = new Set(existing.map((t) => t.id));
+	const existing = db.select().from(scheduledTasks).all();
+	const existingIds = new Set(existing.map((t) => t.id));
 
-  for (const task of getAllTasks()) {
-    if (!existingIds.has(task.id)) {
-      db.insert(scheduledTasks)
-        .values({
-          id: task.id,
-          name: task.name,
-          interval: task.defaultInterval,
-          group: task.group,
-          enabled: true,
-        })
-        .run();
-    }
-  }
+	for (const task of getAllTasks()) {
+		if (!existingIds.has(task.id)) {
+			db.insert(scheduledTasks)
+				.values({
+					id: task.id,
+					name: task.name,
+					interval: task.defaultInterval,
+					group: task.group,
+					enabled: true,
+				})
+				.run();
+		}
+	}
 }
 
 async function executeTask(taskId: string): Promise<void> {
-  if (isTaskRunning(taskId)) {
-    return;
-  }
+	if (isTaskRunning(taskId)) {
+		return;
+	}
 
-  const task = getTask(taskId);
-  if (!task) {
-    return;
-  }
+	const task = getTask(taskId);
+	if (!task) {
+		return;
+	}
 
-  markTaskRunning(taskId);
-  const start = Date.now();
+	markTaskRunning(taskId);
+	const start = Date.now();
 
-  try {
-    const updateProgress = (message: string): void => {
-      db.update(scheduledTasks)
-        .set({ progress: message })
-        .where(eq(scheduledTasks.id, taskId))
-        .run();
-      eventBus.emit({ type: "taskUpdated", taskId });
-    };
+	try {
+		const updateProgress = (message: string): void => {
+			db.update(scheduledTasks)
+				.set({ progress: message })
+				.where(eq(scheduledTasks.id, taskId))
+				.run();
+			eventBus.emit({ type: "taskUpdated", taskId });
+		};
 
-    const result = await task.handler(updateProgress);
-    const duration = Date.now() - start;
+		const result = await task.handler(updateProgress);
+		const duration = Date.now() - start;
 
-    db.update(scheduledTasks)
-      .set({
-        progress: null,
-        lastExecution: new Date(),
-        lastDuration: duration,
-        lastResult: result.success ? "success" : "error",
-        lastMessage: result.message,
-      })
-      .where(eq(scheduledTasks.id, taskId))
-      .run();
+		db.update(scheduledTasks)
+			.set({
+				progress: null,
+				lastExecution: new Date(),
+				lastDuration: duration,
+				lastResult: result.success ? "success" : "error",
+				lastMessage: result.message,
+			})
+			.where(eq(scheduledTasks.id, taskId))
+			.run();
 
-    console.log(`[scheduler] ${task.name}: ${result.message} (${duration}ms)`);
-    eventBus.emit({ type: "taskUpdated", taskId });
-  } catch (error) {
-    const duration = Date.now() - start;
-    const message = error instanceof Error ? error.message : "Unknown error";
+		console.log(`[scheduler] ${task.name}: ${result.message} (${duration}ms)`);
+		eventBus.emit({ type: "taskUpdated", taskId });
+	} catch (error) {
+		const duration = Date.now() - start;
+		const message = error instanceof Error ? error.message : "Unknown error";
 
-    db.update(scheduledTasks)
-      .set({
-        progress: null,
-        lastExecution: new Date(),
-        lastDuration: duration,
-        lastResult: "error",
-        lastMessage: message,
-      })
-      .where(eq(scheduledTasks.id, taskId))
-      .run();
+		db.update(scheduledTasks)
+			.set({
+				progress: null,
+				lastExecution: new Date(),
+				lastDuration: duration,
+				lastResult: "error",
+				lastMessage: message,
+			})
+			.where(eq(scheduledTasks.id, taskId))
+			.run();
 
-    console.error(`[scheduler] ${task.name} failed: ${message}`);
-    eventBus.emit({ type: "taskUpdated", taskId });
-  } finally {
-    markTaskComplete(taskId);
-  }
+		console.error(`[scheduler] ${task.name} failed: ${message}`);
+		eventBus.emit({ type: "taskUpdated", taskId });
+	} finally {
+		markTaskComplete(taskId);
+	}
 }
 
 function startTimers(): void {
-  const dbTasks = db.select().from(scheduledTasks).all();
+	const dbTasks = db.select().from(scheduledTasks).all();
 
-  for (const dbTask of dbTasks) {
-    if (!dbTask.enabled) {
-      continue;
-    }
+	for (const dbTask of dbTasks) {
+		if (!dbTask.enabled) {
+			continue;
+		}
 
-    const task = getTask(dbTask.id);
-    if (!task) {
-      continue;
-    }
+		const task = getTask(dbTask.id);
+		if (!task) {
+			continue;
+		}
 
-    const intervalMs = dbTask.interval * 1000;
+		const intervalMs = dbTask.interval * 1000;
 
-    // Calculate delay until next execution
-    let delay = intervalMs;
-    if (dbTask.lastExecution) {
-      const elapsed = Date.now() - dbTask.lastExecution.getTime();
-      delay = Math.max(0, intervalMs - elapsed);
-    }
+		// Calculate delay until next execution
+		let delay = intervalMs;
+		if (dbTask.lastExecution) {
+			const elapsed = Date.now() - dbTask.lastExecution.getTime();
+			delay = Math.max(0, intervalMs - elapsed);
+		}
 
-    // Schedule first run after delay, then repeat at interval
-    const timeoutId = setTimeout(() => {
-      void executeTask(dbTask.id);
-      const intervalId = setInterval(
-        () => void executeTask(dbTask.id),
-        intervalMs,
-      );
-      timers.set(dbTask.id, intervalId);
-    }, delay);
+		// Schedule first run after delay, then repeat at interval
+		const timeoutId = setTimeout(() => {
+			void executeTask(dbTask.id);
+			const intervalId = setInterval(
+				() => void executeTask(dbTask.id),
+				intervalMs,
+			);
+			timers.set(dbTask.id, intervalId);
+		}, delay);
 
-    // Store timeout as timer (will be replaced by interval after first run)
-    timers.set(
-      dbTask.id,
-      timeoutId as unknown as ReturnType<typeof setInterval>,
-    );
-  }
+		// Store timeout as timer (will be replaced by interval after first run)
+		timers.set(
+			dbTask.id,
+			timeoutId as unknown as ReturnType<typeof setInterval>,
+		);
+	}
 }
 
 export function ensureSchedulerStarted(): void {
-  if (started) {
-    return;
-  }
-  started = true;
+	if (started) {
+		return;
+	}
+	started = true;
 
-  setTaskExecutor((taskId) => void executeTask(taskId));
-  seedMangaSources();
-  seedTasksIfNeeded();
-  startTimers();
-  console.log(`[scheduler] Started with ${timers.size} task(s)`);
+	setTaskExecutor((taskId) => void executeTask(taskId));
+	seedMangaSources();
+	seedTasksIfNeeded();
+	startTimers();
+	console.log(`[scheduler] Started with ${timers.size} task(s)`);
 }
 
 export async function runTaskNow(taskId: string): Promise<void> {
-  const task = getTask(taskId);
-  if (!task) {
-    throw new Error(`Unknown task: ${taskId}`);
-  }
-  await executeTask(taskId);
+	const task = getTask(taskId);
+	if (!task) {
+		throw new Error(`Unknown task: ${taskId}`);
+	}
+	await executeTask(taskId);
 }

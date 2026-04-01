@@ -1,17 +1,17 @@
-import { sqliteTable, integer, unique } from "drizzle-orm/sqlite-core";
-import { movies } from "./movies";
+import { integer, sqliteTable, unique } from "drizzle-orm/sqlite-core";
 import { downloadProfiles } from "./download-profiles";
+import { movies } from "./movies";
 
 export const movieDownloadProfiles = sqliteTable(
-  "movie_download_profiles",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    movieId: integer("movie_id")
-      .notNull()
-      .references(() => movies.id, { onDelete: "cascade" }),
-    downloadProfileId: integer("download_profile_id")
-      .notNull()
-      .references(() => downloadProfiles.id, { onDelete: "cascade" }),
-  },
-  (t) => [unique().on(t.movieId, t.downloadProfileId)],
+	"movie_download_profiles",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		movieId: integer("movie_id")
+			.notNull()
+			.references(() => movies.id, { onDelete: "cascade" }),
+		downloadProfileId: integer("download_profile_id")
+			.notNull()
+			.references(() => downloadProfiles.id, { onDelete: "cascade" }),
+	},
+	(t) => [unique().on(t.movieId, t.downloadProfileId)],
 );
