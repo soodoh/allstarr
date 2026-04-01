@@ -16,7 +16,7 @@ type CollectionMovie = {
 	movieId: number | null;
 };
 
-type Collection = {
+export type Collection = {
 	id: number;
 	title: string;
 	overview: string;

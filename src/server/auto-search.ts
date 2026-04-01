@@ -2482,7 +2482,7 @@ async function processWantedMovies(
 /** Record episode search details in auto-search result */
 function recordEpisodeDetails(
 	eps: WantedEpisode[],
-	searchResult: SearchDetail,
+	searchResult: PackSearchResult,
 	result: AutoSearchResult,
 ): void {
 	for (const ep of eps) {
@@ -2625,7 +2625,7 @@ async function processWantedEpisodes(
 
 		const show = {
 			id: showId,
-			title: seasonMap.values().next().value?.[0].showTitle,
+			title: seasonMap.values().next().value?.[0].showTitle ?? "Unknown",
 		};
 
 		// Multiple seasons → show-level search first
@@ -3440,7 +3440,8 @@ async function processWantedManga(
 		}
 		isFirstSeries = false;
 
-		const mangaTitle = volumeMap.values().next().value?.[0].mangaTitle;
+		const mangaTitle =
+			volumeMap.values().next().value?.[0].mangaTitle ?? "Unknown";
 
 		// Multiple volumes → series-level search first
 		if (volumeMap.size > 1) {

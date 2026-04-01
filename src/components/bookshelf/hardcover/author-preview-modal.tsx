@@ -23,7 +23,10 @@ import {
 	SelectValue,
 } from "src/components/ui/select";
 import Skeleton from "src/components/ui/skeleton";
-import { useImportHardcoverAuthor } from "src/hooks/mutations";
+import {
+	type ImportAuthorData,
+	useImportHardcoverAuthor,
+} from "src/hooks/mutations";
 import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
 import {
 	authorExistsQuery,
@@ -101,8 +104,8 @@ function AddForm({
 		importAuthor.mutate({
 			foreignAuthorId: Number(fullAuthor.id),
 			downloadProfileIds,
-			monitorOption,
-			monitorNewBooks,
+			monitorOption: monitorOption as ImportAuthorData["monitorOption"],
+			monitorNewBooks: monitorNewBooks as ImportAuthorData["monitorNewBooks"],
 			searchOnAdd,
 		});
 		onSuccess();

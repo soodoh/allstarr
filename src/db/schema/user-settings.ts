@@ -22,7 +22,7 @@ export const userSettings = sqliteTable(
 			.notNull(),
 		viewMode: text("view_mode").$type<"table" | "grid">(),
 		addDefaults: text("add_defaults", { mode: "json" }).$type<
-			Record<string, unknown>
+			Record<string, string | number | boolean | null>
 		>(),
 	},
 	(table) => [

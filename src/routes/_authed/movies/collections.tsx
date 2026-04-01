@@ -3,7 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FolderOpen, RefreshCw, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import AddMissingMoviesDialog from "src/components/movies/add-missing-movies-dialog";
-import CollectionCard from "src/components/movies/collection-card";
+import CollectionCard, {
+	type Collection,
+} from "src/components/movies/collection-card";
 import EditCollectionDialog from "src/components/movies/edit-collection-dialog";
 import { MoviePreviewModal } from "src/components/movies/tmdb-movie-search";
 import EmptyState from "src/components/shared/empty-state";
@@ -42,15 +44,12 @@ function CollectionsPage() {
 	const [search, setSearch] = useState("");
 	const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
 	const [sort, setSort] = useState<SortOption>("title");
-	const [editCollection, setEditCollection] = useState<
-		(typeof collections)[number] | null
-	>(null);
+	const [editCollection, setEditCollection] = useState<Collection | null>(null);
 	const [previewMovie, setPreviewMovie] = useState<TmdbMovieResult | null>(
 		null,
 	);
-	const [addMissingCollection, setAddMissingCollection] = useState<
-		(typeof collections)[number] | null
-	>(null);
+	const [addMissingCollection, setAddMissingCollection] =
+		useState<Collection | null>(null);
 
 	const refreshCollections = useRefreshCollections();
 	const excludeMovie = useAddMovieImportExclusion();
@@ -110,7 +109,7 @@ function CollectionsPage() {
 	}, [collections, search, quickFilter, sort]);
 
 	const handleToggleMonitor = useCallback(
-		(collection: (typeof collections)[number]) => {
+		(collection: Collection) => {
 			updateCollection.mutate({
 				id: collection.id,
 				monitored: !collection.monitored,

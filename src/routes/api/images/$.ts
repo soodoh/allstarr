@@ -37,8 +37,7 @@ async function findImageFile(basePath: string): Promise<string | null> {
 	return null;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: sharp pipeline type requires dynamic import
-type SharpPipeline = any;
+type SharpPipeline = import("sharp").Sharp;
 
 function applyOutputFormat(
 	pipeline: SharpPipeline,

@@ -120,7 +120,7 @@ function ImportListsPage() {
 										<TableCell>{item.title}</TableCell>
 										<TableCell>{item.authorName}</TableCell>
 										<TableCell>
-											{new Date(item.createdAt).toLocaleDateString()}
+											{new Date(item.createdAt ?? "").toLocaleDateString()}
 										</TableCell>
 										<TableCell>
 											<Button
@@ -178,7 +178,7 @@ function ImportListsPage() {
 										<TableCell>{item.title}</TableCell>
 										<TableCell>{item.year ?? "—"}</TableCell>
 										<TableCell>
-											{new Date(item.createdAt).toLocaleDateString()}
+											{new Date(item.createdAt ?? "").toLocaleDateString()}
 										</TableCell>
 										<TableCell>
 											<Button

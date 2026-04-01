@@ -121,7 +121,7 @@ function makeUngroupedGroup(
 	items: Array<{ chapter: Chapter; parsed: number }>,
 ): DisplayGroup {
 	const sorted = [...items].toSorted((a, b) => b.parsed - a.parsed);
-	const min = sorted.at(-1).parsed;
+	const min = sorted.at(-1)!.parsed;
 	const max = sorted[0].parsed;
 	let label: string;
 	if (sorted.length === 1 || min === max) {
