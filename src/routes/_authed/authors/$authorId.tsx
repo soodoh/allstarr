@@ -907,102 +907,109 @@ function SeriesTab({
 		return map;
 	}, [hardcoverSeries]);
 
-	const getSeriesEntries = (s: AuthorSeries): MergedSeriesEntry[] => {
-		const entries: MergedSeriesEntry[] = [];
+	const getSeriesEntries = useCallback(
+		(s: AuthorSeries): MergedSeriesEntry[] => {
+			const entries: MergedSeriesEntry[] = [];
 
-		for (const sb of s.books) {
-			const book = bookMap.get(sb.bookId);
-			if (!book) {
-				continue;
-			}
-			if (
-				language !== "all" &&
-				(book.languageCodes.length === 0 ||
-					!book.languageCodes.includes(language))
-			) {
-				continue;
-			}
-			entries.push({ kind: "local", book, position: sb.position });
-		}
-
-		const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : null;
-		if (foreignId !== null) {
-			const hcBooks = hardcoverSeriesMap.get(foreignId) ?? [];
-			for (const hcBook of hcBooks) {
-				if (localForeignBookIds.has(hcBook.foreignBookId)) {
+			for (const sb of s.books) {
+				const book = bookMap.get(sb.bookId);
+				if (!book) {
 					continue;
 				}
-				// Filter by language: skip external books that don't have an
-				// edition in the selected language. Unlike local books, if we
-				// can't confirm the language (no editions), we exclude them.
 				if (
 					language !== "all" &&
-					!hcBook.editions.some((e) => e.languageCode === language)
+					(book.languageCodes.length === 0 ||
+						!book.languageCodes.includes(language))
 				) {
 					continue;
 				}
-
-				// Apply metadata profile filters to external book editions
-				let qualifyingEditions = hcBook.editions;
-				if (metadataProfile.skipMissingIsbnAsin) {
-					qualifyingEditions = qualifyingEditions.filter(
-						(e) => e.isbn10 || e.isbn13 || e.asin,
-					);
-				}
-				if (metadataProfile.skipMissingReleaseDate) {
-					qualifyingEditions = qualifyingEditions.filter((e) => e.releaseDate);
-				}
-				// Skip the book if no qualifying editions remain
-				if (qualifyingEditions.length === 0) {
-					continue;
-				}
-				// Skip the book itself if it has no release date (book-level check)
-				if (metadataProfile.skipMissingReleaseDate && !hcBook.releaseDate) {
-					continue;
-				}
-
-				entries.push({ kind: "external", ...hcBook });
+				entries.push({ kind: "local", book, position: sb.position });
 			}
-		}
 
-		return filterPartialEditions(dedupeByPosition(entries));
-	};
+			const foreignId = s.foreignSeriesId ? Number(s.foreignSeriesId) : null;
+			if (foreignId !== null) {
+				const hcBooks = hardcoverSeriesMap.get(foreignId) ?? [];
+				for (const hcBook of hcBooks) {
+					if (localForeignBookIds.has(hcBook.foreignBookId)) {
+						continue;
+					}
+					// Filter by language: skip external books that don't have an
+					// edition in the selected language. Unlike local books, if we
+					// can't confirm the language (no editions), we exclude them.
+					if (
+						language !== "all" &&
+						!hcBook.editions.some((e) => e.languageCode === language)
+					) {
+						continue;
+					}
+
+					// Apply metadata profile filters to external book editions
+					let qualifyingEditions = hcBook.editions;
+					if (metadataProfile.skipMissingIsbnAsin) {
+						qualifyingEditions = qualifyingEditions.filter(
+							(e) => e.isbn10 || e.isbn13 || e.asin,
+						);
+					}
+					if (metadataProfile.skipMissingReleaseDate) {
+						qualifyingEditions = qualifyingEditions.filter(
+							(e) => e.releaseDate,
+						);
+					}
+					// Skip the book if no qualifying editions remain
+					if (qualifyingEditions.length === 0) {
+						continue;
+					}
+					// Skip the book itself if it has no release date (book-level check)
+					if (metadataProfile.skipMissingReleaseDate && !hcBook.releaseDate) {
+						continue;
+					}
+
+					entries.push({ kind: "external", ...hcBook });
+				}
+			}
+
+			return filterPartialEditions(dedupeByPosition(entries));
+		},
+		[
+			bookMap,
+			language,
+			hardcoverSeriesMap,
+			localForeignBookIds,
+			metadataProfile,
+		],
+	);
 
 	// Precompute entry counts per series so we can filter out empty ones and show counts.
-	const seriesWithCounts = useMemo(
-		() => {
-			const q = searchQuery.toLowerCase();
-			const result: Array<{ series: AuthorSeries; entryCount: number }> = [];
-			for (const s of seriesList) {
-				if (q && !s.title.toLowerCase().includes(q)) {
-					continue;
-				}
-				const count = getSeriesEntries(s).length;
-				if (count > 0) {
-					result.push({ series: s, entryCount: count });
-				}
+	const seriesWithCounts = useMemo(() => {
+		const q = searchQuery.toLowerCase();
+		const result: Array<{ series: AuthorSeries; entryCount: number }> = [];
+		for (const s of seriesList) {
+			if (q && !s.title.toLowerCase().includes(q)) {
+				continue;
 			}
-			// Sort by aggregate readers descending
-			result.sort((a, b) => {
-				const aEntries = getSeriesEntries(a.series);
-				const bEntries = getSeriesEntries(b.series);
-				let aReaders = 0;
-				for (const e of aEntries) {
-					aReaders +=
-						e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
-				}
-				let bReaders = 0;
-				for (const e of bEntries) {
-					bReaders +=
-						e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
-				}
-				return bReaders - aReaders;
-			});
-			return result;
-		},
-		// biome-ignore lint/correctness/useExhaustiveDependencies: getSeriesEntries is intentionally included as a dep
-		[seriesList, searchQuery, getSeriesEntries],
-	);
+			const count = getSeriesEntries(s).length;
+			if (count > 0) {
+				result.push({ series: s, entryCount: count });
+			}
+		}
+		// Sort by aggregate readers descending
+		result.sort((a, b) => {
+			const aEntries = getSeriesEntries(a.series);
+			const bEntries = getSeriesEntries(b.series);
+			let aReaders = 0;
+			for (const e of aEntries) {
+				aReaders +=
+					e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
+			}
+			let bReaders = 0;
+			for (const e of bEntries) {
+				bReaders +=
+					e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
+			}
+			return bReaders - aReaders;
+		});
+		return result;
+	}, [seriesList, searchQuery, getSeriesEntries]);
 
 	const openPreview = (
 		entry: MergedSeriesEntry & { kind: "external" },

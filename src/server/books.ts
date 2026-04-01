@@ -229,14 +229,14 @@ export const getPaginatedBooksFn = createServerFn({ method: "GET" })
 						),
 					),
 			);
-			conditions.push(
-				// biome-ignore lint/style/noNonNullAssertion: or() with 3 args always returns a value
-				or(
-					like(books.title, pattern),
-					like(booksAuthors.authorName, pattern),
-					seriesMatch,
-				)!,
+			const searchCondition = or(
+				like(books.title, pattern),
+				like(booksAuthors.authorName, pattern),
+				seriesMatch,
 			);
+			if (searchCondition) {
+				conditions.push(searchCondition);
+			}
 		}
 
 		if (conditions.length > 0) {

@@ -907,8 +907,9 @@ export const updateShowFn = createServerFn({ method: "POST" })
 			}
 		} // end if (downloadProfileIds !== undefined)
 
-		// biome-ignore lint/style/noNonNullAssertion: row guaranteed to exist after update
-		return db.select().from(shows).where(eq(shows.id, id)).get()!;
+		const row = db.select().from(shows).where(eq(shows.id, id)).get();
+		if (!row) throw new Error(`Show ${id} not found after update`);
+		return row;
 	});
 
 export const deleteShowFn = createServerFn({ method: "POST" })

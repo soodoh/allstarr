@@ -359,8 +359,9 @@ export const updateMovieFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		// biome-ignore lint/style/noNonNullAssertion: row guaranteed to exist after update
-		return db.select().from(movies).where(eq(movies.id, id)).get()!;
+		const row = db.select().from(movies).where(eq(movies.id, id)).get();
+		if (!row) throw new Error(`Movie ${id} not found after update`);
+		return row;
 	});
 
 export const deleteMovieFn = createServerFn({ method: "POST" })
