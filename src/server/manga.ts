@@ -157,8 +157,9 @@ export const updateMangaFn = createServerFn({ method: "POST" })
 		}
 		db.update(manga).set(updates).where(eq(manga.id, id)).run();
 
-		// biome-ignore lint/style/noNonNullAssertion: row guaranteed to exist after update
-		return db.select().from(manga).where(eq(manga.id, id)).get()!;
+		const row = db.select().from(manga).where(eq(manga.id, id)).get();
+		if (!row) throw new Error(`Manga ${id} not found after update`);
+		return row;
 	});
 
 // ─── Delete manga ──────────────────────────────────────────────────────────

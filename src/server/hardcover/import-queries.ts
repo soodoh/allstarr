@@ -263,8 +263,6 @@ export async function fetchAuthorComplete(
 	const BATCH_SIZE = 500;
 	let offset = 0;
 	const allBooks: HardcoverRawBook[] = [];
-	// biome-ignore lint/style/useConst: assigned after API call
-	let author: HardcoverRawAuthor | undefined;
 	let totalBooks = 0;
 
 	// First page — also fetches author meta
@@ -280,7 +278,7 @@ export async function fetchAuthorComplete(
 		throw new Error("Author not found on Hardcover.");
 	}
 
-	author = {
+	const author: HardcoverRawAuthor = {
 		id: firstNumber(authorRecord, [["id"]]) ?? authorId,
 		name: firstString(authorRecord, [["name"]]) ?? "",
 		slug: firstString(authorRecord, [["slug"]]) ?? null,

@@ -178,13 +178,9 @@ function applySeasonEpisode(stripped: string, result: ParsedRelease): void {
 	}
 	result.season = Number.parseInt(multiEpMatch[1], 10);
 	const epSegment = multiEpMatch[2]; // e.g. "E01E02E03"
-	const epNumbers: number[] = [];
-	const epRe = /E(\d{1,3})/gi;
-	let m: RegExpExecArray | null;
-	// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration pattern
-	while ((m = epRe.exec(epSegment)) !== null) {
-		epNumbers.push(Number.parseInt(m[1], 10));
-	}
+	const epNumbers = [...epSegment.matchAll(/E(\d{1,3})/gi)].map((m) =>
+		Number.parseInt(m[1], 10),
+	);
 	if (epNumbers.length > 1) {
 		result.episodes = epNumbers;
 		result.episode = epNumbers[0];

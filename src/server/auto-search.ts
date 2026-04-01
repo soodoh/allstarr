@@ -224,13 +224,10 @@ function getEditionProfilesForBook(bookId: number): EditionProfileTarget[] {
 		]),
 	);
 
-	return rows
-		.filter((r) => profileMap.has(r.profileId))
-		.map((r) => ({
-			editionId: r.editionId,
-			// biome-ignore lint/style/noNonNullAssertion: guaranteed by .filter() above
-			profile: profileMap.get(r.profileId)!,
-		}));
+	return rows.flatMap((r) => {
+		const profile = profileMap.get(r.profileId);
+		return profile ? [{ editionId: r.editionId, profile }] : [];
+	});
 }
 
 // ─── Wanted books detection ─────────────────────────────────────────────────
@@ -2597,15 +2594,17 @@ async function processWantedEpisodes(
 ): Promise<void> {
 	const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
 	for (const ep of wantedEpisodes) {
-		if (!episodesByShow.has(ep.showId)) {
-			episodesByShow.set(ep.showId, new Map());
+		let showMap = episodesByShow.get(ep.showId);
+		if (!showMap) {
+			showMap = new Map();
+			episodesByShow.set(ep.showId, showMap);
 		}
-		// biome-ignore lint/style/noNonNullAssertion: key guaranteed to exist after set above
-		const showMap = episodesByShow.get(ep.showId)!;
-		if (!showMap.has(ep.seasonNumber)) {
-			showMap.set(ep.seasonNumber, []);
+		let seasonList = showMap.get(ep.seasonNumber);
+		if (!seasonList) {
+			seasonList = [];
+			showMap.set(ep.seasonNumber, seasonList);
 		}
-		showMap.get(ep.seasonNumber)?.push(ep);
+		seasonList.push(ep);
 	}
 
 	let isFirstShow = true;
@@ -3411,16 +3410,18 @@ async function processWantedManga(
 	// Group chapters by manga (series), then by volume
 	const chaptersByManga = new Map<number, Map<number, WantedMangaChapter[]>>();
 	for (const ch of wantedChapters) {
-		if (!chaptersByManga.has(ch.mangaId)) {
-			chaptersByManga.set(ch.mangaId, new Map());
+		let mangaMap = chaptersByManga.get(ch.mangaId);
+		if (!mangaMap) {
+			mangaMap = new Map();
+			chaptersByManga.set(ch.mangaId, mangaMap);
 		}
-		// biome-ignore lint/style/noNonNullAssertion: key guaranteed to exist after set above
-		const mangaMap = chaptersByManga.get(ch.mangaId)!;
 		const vol = ch.volumeNumber ?? 0;
-		if (!mangaMap.has(vol)) {
-			mangaMap.set(vol, []);
+		let volList = mangaMap.get(vol);
+		if (!volList) {
+			volList = [];
+			mangaMap.set(vol, volList);
 		}
-		mangaMap.get(vol)?.push(ch);
+		volList.push(ch);
 	}
 
 	let isFirstSeries = true;

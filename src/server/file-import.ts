@@ -1218,6 +1218,7 @@ async function importMangaDownload(
 		markFailed(td.id, "Missing manga or chapter ID on tracked download");
 		return;
 	}
+	const mangaChapterId = td.mangaChapterId;
 
 	const mangaRow = db
 		.select()
@@ -1347,8 +1348,7 @@ async function importMangaDownload(
 
 			db.insert(mangaFiles)
 				.values({
-					// biome-ignore lint/style/noNonNullAssertion: guaranteed non-null by guard at line 1220
-					chapterId: td.mangaChapterId!,
+					chapterId: mangaChapterId,
 					path: destPath,
 					size: fs.statSync(destPath).size,
 					format,
