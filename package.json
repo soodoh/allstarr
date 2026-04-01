@@ -11,8 +11,7 @@
     "start": "bun .output/server/index.mjs",
     "lint": "bun x --bun oxlint . && prettier --check .",
     "lint:fix": "bun x --bun oxlint --fix . && prettier --write .",
-    "lint-staged": "lint-staged",
-    "prepare": "husky",
+    "prepare": "lefthook install",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -20,12 +19,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "bunx playwright test --config e2e/playwright.config.ts"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "oxlint --fix --config oxlint.config.ts"
-    ],
-    "*.{js,jsx,ts,tsx,css,html,json,md,mdx,yaml,yml}": "prettier --write"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -76,8 +69,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.31.9",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
+    "lefthook": "^1.11.13",
     "oxlint": "^1.49.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.1.18",
