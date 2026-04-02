@@ -54,6 +54,65 @@ function useMovieProfileToggle(movies: MovieWithProfiles[]) {
 	};
 }
 
+function MoviesPageActions({
+	view,
+	setView,
+	massEditMode,
+	toggleMassEdit,
+}: {
+	view: "table" | "grid";
+	setView: (v: "table" | "grid") => void;
+	massEditMode: boolean;
+	toggleMassEdit: () => void;
+}) {
+	return (
+		<div className="flex gap-2">
+			{!massEditMode && (
+				<div className="flex border border-border rounded-md">
+					<Button
+						variant={view === "table" ? "secondary" : "ghost"}
+						size="icon"
+						onClick={() => setView("table")}
+					>
+						<List className="h-4 w-4" />
+					</Button>
+					<Button
+						variant={view === "grid" ? "secondary" : "ghost"}
+						size="icon"
+						onClick={() => setView("grid")}
+					>
+						<LayoutGrid className="h-4 w-4" />
+					</Button>
+				</div>
+			)}
+			<Button
+				variant={massEditMode ? "destructive" : "outline"}
+				onClick={toggleMassEdit}
+			>
+				{massEditMode ? (
+					<>
+						<X className="mr-2 h-4 w-4" />
+						Cancel
+					</>
+				) : (
+					<>
+						<Pencil className="mr-2 h-4 w-4" />
+						Mass Editor
+					</>
+				)}
+			</Button>
+			{!massEditMode && (
+				<Button asChild>
+					<Link to="/movies/add">
+						<Plus className="mr-2 h-4 w-4" />
+						Add Movie
+					</Link>
+				</Button>
+			)}
+		</div>
+	);
+}
+
 function MoviesPage() {
 	const [view, setView] = useViewMode("movies");
 	const [search, setSearch] = useState("");
@@ -154,50 +213,12 @@ function MoviesPage() {
 				title="Movies"
 				description={description}
 				actions={
-					<div className="flex gap-2">
-						{!massEditMode && (
-							<div className="flex border border-border rounded-md">
-								<Button
-									variant={view === "table" ? "secondary" : "ghost"}
-									size="icon"
-									onClick={() => setView("table")}
-								>
-									<List className="h-4 w-4" />
-								</Button>
-								<Button
-									variant={view === "grid" ? "secondary" : "ghost"}
-									size="icon"
-									onClick={() => setView("grid")}
-								>
-									<LayoutGrid className="h-4 w-4" />
-								</Button>
-							</div>
-						)}
-						<Button
-							variant={massEditMode ? "destructive" : "outline"}
-							onClick={toggleMassEdit}
-						>
-							{massEditMode ? (
-								<>
-									<X className="mr-2 h-4 w-4" />
-									Cancel
-								</>
-							) : (
-								<>
-									<Pencil className="mr-2 h-4 w-4" />
-									Mass Editor
-								</>
-							)}
-						</Button>
-						{!massEditMode && (
-							<Button asChild>
-								<Link to="/movies/add">
-									<Plus className="mr-2 h-4 w-4" />
-									Add Movie
-								</Link>
-							</Button>
-						)}
-					</div>
+					<MoviesPageActions
+						view={view}
+						setView={setView}
+						massEditMode={massEditMode}
+						toggleMassEdit={toggleMassEdit}
+					/>
 				}
 			/>
 
