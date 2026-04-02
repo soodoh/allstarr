@@ -4,6 +4,17 @@
 
 import { hardcoverFetch } from "./client";
 import { AUTHOR_ROLE_FILTER } from "./constants";
+import {
+	extractCountry,
+	extractFormat,
+	extractLanguage,
+	extractPublisher,
+	firstNumber,
+	firstString,
+	getCoverUrl,
+	toRecord,
+	toRecordArray,
+} from "./record-helpers";
 import type {
 	HardcoverRawAuthor,
 	HardcoverRawBook,
@@ -18,88 +29,6 @@ import type {
 const EDITIONS_BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 500;
 const EDITIONS_CONCURRENCY = 3;
-
-// ---------------------------------------------------------------------------
-// Shared GraphQL helpers (duplicated from search.ts to avoid coupling)
-// ---------------------------------------------------------------------------
-
-function toRecord(value: unknown): Record<string, unknown> | undefined {
-	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-		return value as Record<string, unknown>;
-	}
-	return undefined;
-}
-
-function toRecordArray(value: unknown): Array<Record<string, unknown>> {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-	return value.map((entry) => toRecord(entry)).filter(Boolean) as Array<
-		Record<string, unknown>
-	>;
-}
-
-function firstString(
-	record: Record<string, unknown>,
-	paths: string[][],
-): string | undefined {
-	for (const path of paths) {
-		let current: unknown = record;
-		for (const key of path) {
-			const next = toRecord(current);
-			if (!next || !(key in next)) {
-				current = undefined;
-				break;
-			}
-			current = next[key];
-		}
-		if (typeof current === "string") {
-			const trimmed = current.trim();
-			if (trimmed.length > 0) {
-				return trimmed;
-			}
-		}
-	}
-	return undefined;
-}
-
-function firstNumber(
-	record: Record<string, unknown>,
-	paths: string[][],
-): number | undefined {
-	for (const path of paths) {
-		let current: unknown = record;
-		for (const key of path) {
-			const next = toRecord(current);
-			if (!next || !(key in next)) {
-				current = undefined;
-				break;
-			}
-			current = next[key];
-		}
-		if (typeof current === "number" && Number.isFinite(current)) {
-			return current;
-		}
-		if (typeof current === "string") {
-			const parsed = Number(current);
-			if (Number.isFinite(parsed)) {
-				return parsed;
-			}
-		}
-	}
-	return undefined;
-}
-
-function getCoverUrl(record: Record<string, unknown>): string | undefined {
-	const imageRecord = toRecord(record.image);
-	if (imageRecord) {
-		const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
-		if (imageUrl) {
-			return imageUrl;
-		}
-	}
-	return undefined;
-}
 
 const FORMAT_DISPLAY_NAMES: Record<string, string> = {
 	Read: "Physical Book",
@@ -443,11 +372,20 @@ function parseSeriesBookEntry(
 	}
 
 	const contributions = toRecordArray(bookRecord.contributions);
-	const primaryContribution =
-		contributions.length > 0 ? contributions[0] : undefined;
-	const primaryAuthor = primaryContribution
-		? toRecord(primaryContribution.author)
-		: undefined;
+	const primaryAuthor =
+		contributions.length > 0 ? toRecord(contributions[0].author) : undefined;
+	const authorId = primaryAuthor
+		? (firstNumber(primaryAuthor, [["id"]]) ?? null)
+		: null;
+	const authorName = primaryAuthor
+		? (firstString(primaryAuthor, [["name"]]) ?? null)
+		: null;
+	const authorSlug = primaryAuthor
+		? (firstString(primaryAuthor, [["slug"]]) ?? null)
+		: null;
+	const authorImageUrl = primaryAuthor
+		? (getCoverUrl(primaryAuthor) ?? null)
+		: null;
 
 	const defaultCoverEditionId =
 		firstNumber(bookRecord, [["default_cover_edition_id"]]) ?? null;
@@ -468,16 +406,10 @@ function parseSeriesBookEntry(
 		rating: firstNumber(bookRecord, [["rating"]]) ?? null,
 		usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
 		coverUrl: getCoverUrl(bookRecord) ?? null,
-		authorId: primaryAuthor
-			? (firstNumber(primaryAuthor, [["id"]]) ?? null)
-			: null,
-		authorName: primaryAuthor
-			? (firstString(primaryAuthor, [["name"]]) ?? null)
-			: null,
-		authorSlug: primaryAuthor
-			? (firstString(primaryAuthor, [["slug"]]) ?? null)
-			: null,
-		authorImageUrl: primaryAuthor ? (getCoverUrl(primaryAuthor) ?? null) : null,
+		authorId,
+		authorName,
+		authorSlug,
+		authorImageUrl,
 		defaultCoverEditionId,
 		editions: bookEditions,
 	};
@@ -595,20 +527,11 @@ function parseEdition(
 		return undefined;
 	}
 
-	const publisherRecord = toRecord(record.publisher);
-	const readingFormatRecord = toRecord(record.reading_format);
-	const languageRecord = toRecord(record.language);
-	const countryRecord = toRecord(record.country);
-
-	const cachedContributors = Array.isArray(record.cached_contributors)
-		? record.cached_contributors
-		: [];
-	const contributors = cachedContributors
-		.map((c: unknown) => {
-			const cr = toRecord(c);
-			if (!cr) {
-				return undefined;
-			}
+	const lang = extractLanguage(record);
+	const contributors = toRecordArray(
+		Array.isArray(record.cached_contributors) ? record.cached_contributors : [],
+	)
+		.map((cr) => {
 			const authorRecord = toRecord(cr.author);
 			return {
 				authorId: String(
@@ -632,27 +555,15 @@ function parseEdition(
 		isbn10: firstString(record, [["isbn_10"]]) ?? null,
 		isbn13: firstString(record, [["isbn_13"]]) ?? null,
 		asin: firstString(record, [["asin"]]) ?? null,
-		format: mapEditionFormat(
-			readingFormatRecord
-				? (firstString(readingFormatRecord, [["format"]]) ?? null)
-				: null,
-		),
+		format: mapEditionFormat(extractFormat(record)),
 		pageCount: firstNumber(record, [["pages"]]) ?? null,
 		audioLength: firstNumber(record, [["audio_seconds"]]) ?? null,
-		publisher: publisherRecord
-			? (firstString(publisherRecord, [["name"]]) ?? null)
-			: null,
+		publisher: extractPublisher(record),
 		editionInformation: firstString(record, [["edition_information"]]) ?? null,
 		releaseDate: firstString(record, [["release_date"]]) ?? null,
-		language: languageRecord
-			? (firstString(languageRecord, [["language"]]) ?? null)
-			: null,
-		languageCode: languageRecord
-			? (firstString(languageRecord, [["code2"]]) ?? null)
-			: null,
-		country: countryRecord
-			? (firstString(countryRecord, [["name"]]) ?? null)
-			: null,
+		language: lang.name,
+		languageCode: lang.code,
+		country: extractCountry(record),
 		usersCount: firstNumber(record, [["users_count"]]) ?? 0,
 		score: firstNumber(record, [["score"]]) ?? 0,
 		coverUrl: getCoverUrl(record) ?? null,
