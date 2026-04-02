@@ -176,10 +176,9 @@ function RejectionsCell({ release }: { release: IndexerRelease }): JSX.Element {
 				<PopoverContent side="left" className="w-80">
 					<p className="text-sm font-medium mb-2">Release Rejected</p>
 					<ul className="space-y-1">
-						{rejections.map((rejection, idx) => (
+						{rejections.map((rejection) => (
 							<li
-								// biome-ignore lint/suspicious/noArrayIndexKey: rejection messages may not be unique
-								key={idx}
+								key={rejection.reason}
 								className="text-sm text-muted-foreground flex gap-2"
 							>
 								<span className="text-red-400 shrink-0">*</span>
