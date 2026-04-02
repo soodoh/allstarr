@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import type { JSX } from "react";
 import NotFound from "src/components/NotFound";
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import SeasonAccordion from "src/components/tv/season-accordion";
 import ShowDetailHeader from "src/components/tv/show-detail-header";
 import { Accordion } from "src/components/ui/accordion";
@@ -108,9 +109,8 @@ function ShowDetailSkeleton(): JSX.Element {
 				<Skeleton className="w-full xl:w-44 aspect-[2/3] xl:aspect-auto xl:h-64 rounded-lg shrink-0" />
 				<Card className="w-full xl:w-72 xl:shrink-0">
 					<CardContent className="pt-6 space-y-3">
-						{Array.from({ length: 8 }).map((_, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-							<div key={i} className="flex justify-between gap-4">
+						{SKELETON_KEYS.slice(0, 8).map((key) => (
+							<div key={key} className="flex justify-between gap-4">
 								<Skeleton className="h-4 w-20" />
 								<Skeleton className="h-4 w-24" />
 							</div>
@@ -129,10 +129,9 @@ function ShowDetailSkeleton(): JSX.Element {
 			{/* Seasons accordion */}
 			<Card>
 				<CardContent className="pt-6 space-y-4">
-					{Array.from({ length: 3 }).map((_, i) => (
+					{SKELETON_KEYS.slice(0, 3).map((key) => (
 						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-							key={i}
+							key={key}
 							className="flex items-center gap-4 py-3 border-b last:border-b-0"
 						>
 							<Skeleton className="h-5 w-24" />

@@ -9,6 +9,7 @@ import CollectionCard, {
 import EditCollectionDialog from "src/components/movies/edit-collection-dialog";
 import { MoviePreviewModal } from "src/components/movies/tmdb-movie-search";
 import EmptyState from "src/components/shared/empty-state";
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import PageHeader from "src/components/shared/page-header";
 import { Button } from "src/components/ui/button";
 import Input from "src/components/ui/input";
@@ -267,9 +268,8 @@ function CollectionsPageSkeleton() {
 				<Skeleton className="h-9 w-64" />
 				<Skeleton className="h-9 w-32" />
 			</div>
-			{Array.from({ length: 3 }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-				<Skeleton key={`skel-${i}`} className="h-40 w-full rounded-lg" />
+			{SKELETON_KEYS.slice(0, 3).map((key) => (
+				<Skeleton key={key} className="h-40 w-full rounded-lg" />
 			))}
 		</div>
 	);

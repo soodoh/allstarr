@@ -7,6 +7,7 @@ import {
 	Loader2,
 } from "lucide-react";
 import type { JSX } from "react";
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import SortableTableHead from "src/components/shared/sortable-table-head";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
@@ -101,9 +102,8 @@ function ReleaseTableSkeleton(): JSX.Element {
 	return (
 		<div className="space-y-2">
 			<Skeleton className="h-10 w-full" />
-			{Array.from({ length: 6 }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-				<Skeleton key={i} className="h-12 w-full" />
+			{SKELETON_KEYS.slice(0, 6).map((key) => (
+				<Skeleton key={key} className="h-12 w-full" />
 			))}
 		</div>
 	);

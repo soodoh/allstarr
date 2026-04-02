@@ -5,6 +5,7 @@ import { useState } from "react";
 import MovieDetailHeader from "src/components/movies/movie-detail-header";
 import MovieFilesTab from "src/components/movies/movie-files-tab";
 import NotFound from "src/components/NotFound";
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import { Card, CardContent } from "src/components/ui/card";
 import Skeleton from "src/components/ui/skeleton";
 import {
@@ -118,9 +119,8 @@ function MovieDetailSkeleton(): JSX.Element {
 				<Skeleton className="w-full xl:w-44 aspect-[2/3] xl:aspect-auto xl:h-64 rounded-lg shrink-0" />
 				<Card className="w-full xl:w-72 xl:shrink-0">
 					<CardContent className="pt-6 space-y-3">
-						{Array.from({ length: 7 }).map((_, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-							<div key={i} className="flex justify-between gap-4">
+						{SKELETON_KEYS.slice(0, 7).map((key) => (
+							<div key={key} className="flex justify-between gap-4">
 								<Skeleton className="h-4 w-20" />
 								<Skeleton className="h-4 w-24" />
 							</div>

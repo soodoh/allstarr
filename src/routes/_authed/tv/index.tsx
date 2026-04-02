@@ -4,6 +4,7 @@ import { LayoutGrid, List, Pencil, Plus, Search, Tv, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import EmptyState from "src/components/shared/empty-state";
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import PageHeader from "src/components/shared/page-header";
 import ShowBulkBar from "src/components/tv/show-bulk-bar";
 import ShowCard from "src/components/tv/show-card";
@@ -289,9 +290,8 @@ function ShowsPageSkeleton() {
 			</div>
 			<Skeleton className="h-10 w-full max-w-sm" />
 			<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-				{Array.from({ length: 12 }).map((_, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholder
-					<div key={i} className="flex flex-col gap-2">
+				{SKELETON_KEYS.slice(0, 12).map((key) => (
+					<div key={key} className="flex flex-col gap-2">
 						<Skeleton className="w-full aspect-[2/3] rounded-xl" />
 						<Skeleton className="h-4 w-3/4" />
 						<Skeleton className="h-3 w-1/2" />
