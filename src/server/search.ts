@@ -3,6 +3,11 @@ import { z } from "zod";
 import { hardcoverFetch } from "./hardcover/client";
 import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
 import {
+	extractContributorNames,
+	extractCountry,
+	extractFormat,
+	extractLanguage,
+	extractPublisher,
 	firstId,
 	firstNumber,
 	firstString,
@@ -767,6 +772,43 @@ const seriesBooksInputSchema = z.object({
 		.default("all"),
 });
 
+function toSeriesBook(
+	entry: Record<string, unknown>,
+): HardcoverSeriesBook | undefined {
+	const bookRecord = toRecord(entry.book);
+	if (!bookRecord) {
+		return undefined;
+	}
+	const title = firstString(bookRecord, [["title"]]);
+	if (!title) {
+		return undefined;
+	}
+	const slug = firstString(bookRecord, [["slug"]]);
+	const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
+	const position = firstNumber(entry, [["position"]]);
+	const isCompilation = entry.compilation === true;
+	const authorName =
+		extractContributorNames(bookRecord.contributions).join(", ") || null;
+	const lang = extractLanguage(toRecordArray(bookRecord.editions)[0] ?? {});
+
+	return {
+		id,
+		title,
+		slug: slug ?? null,
+		description: firstString(bookRecord, [["description"]]) ?? null,
+		releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
+		releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
+		rating: firstNumber(bookRecord, [["rating"]]) ?? null,
+		usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
+		coverUrl: getCoverUrl(bookRecord) ?? null,
+		position: position ?? null,
+		hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
+		isCompilation,
+		authorName,
+		languageName: lang.name,
+	};
+}
+
 async function fetchSeriesBooks(
 	seriesId: number,
 	language: string,
@@ -802,52 +844,7 @@ async function fetchSeriesBooks(
 	const seriesTitle = firstString(seriesRecord, [["name"]]) ?? String(seriesId);
 
 	const books: HardcoverSeriesBook[] = toRecordArray(result?.book_series)
-		.map((entry) => {
-			const bookRecord = toRecord(entry.book);
-			if (!bookRecord) {
-				return undefined;
-			}
-			const title = firstString(bookRecord, [["title"]]);
-			if (!title) {
-				return undefined;
-			}
-			const slug = firstString(bookRecord, [["slug"]]);
-			const id = firstId(bookRecord, [["id"]]) ?? slug ?? title;
-			const position = firstNumber(entry, [["position"]]);
-			const isCompilation = entry.compilation === true;
-			const authorName =
-				toRecordArray(bookRecord.contributions)
-					.map((c) => {
-						const authorRecord = toRecord(c.author);
-						return authorRecord
-							? firstString(authorRecord, [["name"]])
-							: undefined;
-					})
-					.filter((n): n is string => n !== undefined)
-					.join(", ") || null;
-			const editions = toRecordArray(bookRecord.editions);
-			const languageRecord =
-				editions.length > 0 ? toRecord(editions[0].language) : undefined;
-			const languageName = languageRecord
-				? (firstString(languageRecord, [["language"]]) ?? null)
-				: null;
-			return {
-				id,
-				title,
-				slug: slug ?? null,
-				description: firstString(bookRecord, [["description"]]) ?? null,
-				releaseDate: firstString(bookRecord, [["release_date"]]) ?? null,
-				releaseYear: firstNumber(bookRecord, [["release_year"]]) ?? null,
-				rating: firstNumber(bookRecord, [["rating"]]) ?? null,
-				usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
-				coverUrl: getCoverUrl(bookRecord) ?? null,
-				position: position ?? null,
-				hardcoverUrl: slug ? `https://hardcover.app/books/${slug}` : null,
-				isCompilation,
-				authorName,
-				languageName,
-			};
-		})
+		.map(toSeriesBook)
 		.filter(Boolean) as HardcoverSeriesBook[];
 
 	return {
@@ -922,26 +919,11 @@ function toHardcoverAuthorBook(
 		contributions.length > 0
 			? (firstString(contributions[0], [["contribution"]]) ?? null)
 			: null;
-	const allContributions = toRecordArray(bookRecord.all_contributions);
 	const contributors =
-		allContributions
-			.map((c) => {
-				const authorRecord = toRecord(c.author);
-				return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
-			})
-			.filter((n): n is string => n !== undefined)
-			.join(", ") || null;
-	const editions = toRecordArray(bookRecord.editions);
-	const languageRecord =
-		editions.length > 0 ? toRecord(editions[0].language) : undefined;
-	const languageCode = languageRecord
-		? (normalizeLanguageCode(
-				firstString(languageRecord, [["code2"], ["code3"]]),
-			) ?? null)
-		: null;
-	const languageName = languageRecord
-		? (firstString(languageRecord, [["language"]]) ?? null)
-		: null;
+		extractContributorNames(bookRecord.all_contributions).join(", ") || null;
+	const lang = extractLanguage(toRecordArray(bookRecord.editions)[0] ?? {});
+	const languageCode = lang.code;
+	const languageName = lang.name;
 
 	const bookSeriesEntries = toRecordArray(bookRecord.book_series);
 	const series: HardcoverAuthorBookSeries[] = bookSeriesEntries
@@ -1588,6 +1570,25 @@ async function fetchAuthorBooksPage(
 	return { books, totalBooks };
 }
 
+function buildLanguageMap(
+	editions: Array<Record<string, unknown>>,
+): Map<string, string> {
+	const languagesMap = new Map<string, string>();
+	for (const edition of editions) {
+		const lang = extractLanguage(edition);
+		if (!lang.code || !lang.name) {
+			continue;
+		}
+		if (!languagesMap.has(lang.code)) {
+			languagesMap.set(lang.code, lang.name);
+		}
+	}
+	if (!languagesMap.has("en")) {
+		languagesMap.set("en", "English");
+	}
+	return languagesMap;
+}
+
 async function fetchAuthorDetails(
 	authorId: number,
 	page: number,
@@ -1607,26 +1608,7 @@ async function fetchAuthorDetails(
 		throw new Error("Author not found on Hardcover.");
 	}
 
-	const languagesMap = new Map<string, string>();
-	for (const edition of toRecordArray(metaResult?.editions)) {
-		const languageRecord = toRecord(edition.language);
-		if (!languageRecord) {
-			continue;
-		}
-		const code = normalizeLanguageCode(
-			firstString(languageRecord, [["code2"], ["code3"]]),
-		);
-		const name = firstString(languageRecord, [["language"]]);
-		if (!code || !name) {
-			continue;
-		}
-		if (!languagesMap.has(code)) {
-			languagesMap.set(code, name);
-		}
-	}
-	if (!languagesMap.has("en")) {
-		languagesMap.set("en", "English");
-	}
+	const languagesMap = buildLanguageMap(toRecordArray(metaResult?.editions));
 
 	const selectedLanguageRaw = normalizeLanguageCode(language) || "en";
 	const selectedLanguage =
@@ -1916,39 +1898,13 @@ function parseEditionRecord(
 	}
 	const title = firstString(record, [["title"]]) ?? "";
 
-	const contributors = Array.isArray(record.cached_contributors)
-		? record.cached_contributors
-		: [];
-	const authorNames = contributors
-		.map((c: unknown) => {
-			const contributorRecord = toRecord(c);
-			const authorRecord = contributorRecord
-				? toRecord(contributorRecord.author)
-				: undefined;
-			return authorRecord ? firstString(authorRecord, [["name"]]) : undefined;
-		})
-		.filter((n: unknown): n is string => typeof n === "string" && n.length > 0);
-	const author = authorNames.length > 0 ? authorNames.join(", ") : null;
+	const author =
+		extractContributorNames(record.cached_contributors).join(", ") || null;
 
-	const publisherRecord = toRecord(record.publisher);
-	const publisher = publisherRecord
-		? (firstString(publisherRecord, [["name"]]) ?? null)
-		: null;
-
-	const readingFormatRecord = toRecord(record.reading_format);
-	const type = readingFormatRecord
-		? (firstString(readingFormatRecord, [["format"]]) ?? null)
-		: null;
-
-	const languageRecord = toRecord(record.language);
-	const language = languageRecord
-		? (firstString(languageRecord, [["language"]]) ?? null)
-		: null;
-
-	const countryRecord = toRecord(record.country);
-	const country = countryRecord
-		? (firstString(countryRecord, [["name"]]) ?? null)
-		: null;
+	const publisher = extractPublisher(record);
+	const type = extractFormat(record);
+	const lang = extractLanguage(record);
+	const country = extractCountry(record);
 
 	return {
 		id,
@@ -1961,7 +1917,7 @@ function parseEditionRecord(
 		isbn10: firstString(record, [["isbn_10"]]) ?? null,
 		isbn13: firstString(record, [["isbn_13"]]) ?? null,
 		asin: firstString(record, [["asin"]]) ?? null,
-		language,
+		language: lang.name,
 		country,
 		readers: firstNumber(record, [["users_count"]]) ?? 0,
 		score: firstNumber(record, [["score"]]) ?? 0,
