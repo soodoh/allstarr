@@ -31,9 +31,12 @@ export default function ProfileCheckboxGroup({
 						const Icon = getProfileIcon(p.icon);
 						return (
 							<div key={p.id} className="space-y-2">
-								{/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders an input internally */}
-								<label className="flex items-center gap-2 cursor-pointer">
+								<label
+									htmlFor={`profile-${p.id}`}
+									className="flex items-center gap-2 cursor-pointer"
+								>
 									<Checkbox
+										id={`profile-${p.id}`}
 										checked={selectedIds.includes(p.id)}
 										onCheckedChange={() => onToggle(p.id)}
 									/>
