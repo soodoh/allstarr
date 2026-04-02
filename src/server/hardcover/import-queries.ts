@@ -350,6 +350,26 @@ function parseSeriesBookEdition(
 	} satisfies HardcoverRawSeriesBookEdition;
 }
 
+function extractPrimaryAuthor(bookRecord: Record<string, unknown>): {
+	id: number | null;
+	name: string | null;
+	slug: string | null;
+	imageUrl: string | null;
+} {
+	const contributions = toRecordArray(bookRecord.contributions);
+	const author =
+		contributions.length > 0 ? toRecord(contributions[0].author) : undefined;
+	if (!author) {
+		return { id: null, name: null, slug: null, imageUrl: null };
+	}
+	return {
+		id: firstNumber(author, [["id"]]) ?? null,
+		name: firstString(author, [["name"]]) ?? null,
+		slug: firstString(author, [["slug"]]) ?? null,
+		imageUrl: getCoverUrl(author) ?? null,
+	};
+}
+
 /** Parse a single book_series entry into a HardcoverRawSeriesBook. */
 function parseSeriesBookEntry(
 	entry: Record<string, unknown>,
@@ -371,21 +391,7 @@ function parseSeriesBookEntry(
 		return undefined;
 	}
 
-	const contributions = toRecordArray(bookRecord.contributions);
-	const primaryAuthor =
-		contributions.length > 0 ? toRecord(contributions[0].author) : undefined;
-	const authorId = primaryAuthor
-		? (firstNumber(primaryAuthor, [["id"]]) ?? null)
-		: null;
-	const authorName = primaryAuthor
-		? (firstString(primaryAuthor, [["name"]]) ?? null)
-		: null;
-	const authorSlug = primaryAuthor
-		? (firstString(primaryAuthor, [["slug"]]) ?? null)
-		: null;
-	const authorImageUrl = primaryAuthor
-		? (getCoverUrl(primaryAuthor) ?? null)
-		: null;
+	const primaryAuthor = extractPrimaryAuthor(bookRecord);
 
 	const defaultCoverEditionId =
 		firstNumber(bookRecord, [["default_cover_edition_id"]]) ?? null;
@@ -406,10 +412,10 @@ function parseSeriesBookEntry(
 		rating: firstNumber(bookRecord, [["rating"]]) ?? null,
 		usersCount: firstNumber(bookRecord, [["users_count"]]) ?? null,
 		coverUrl: getCoverUrl(bookRecord) ?? null,
-		authorId,
-		authorName,
-		authorSlug,
-		authorImageUrl,
+		authorId: primaryAuthor.id,
+		authorName: primaryAuthor.name,
+		authorSlug: primaryAuthor.slug,
+		authorImageUrl: primaryAuthor.imageUrl,
 		defaultCoverEditionId,
 		editions: bookEditions,
 	};
