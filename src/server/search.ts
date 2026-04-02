@@ -2,6 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { hardcoverFetch } from "./hardcover/client";
 import { AUTHOR_ROLE_FILTER } from "./hardcover/constants";
+import {
+	firstId,
+	firstNumber,
+	firstString,
+	getCoverUrl,
+	getStringList,
+	normalizeLanguageCode,
+	parseYear,
+	toRecord,
+	toRecordArray,
+} from "./hardcover/record-helpers";
 import type { MetadataProfile } from "./metadata-profile";
 import { getMetadataProfile } from "./metadata-profile";
 import { requireAuth } from "./middleware";
@@ -854,116 +865,6 @@ type SearchPayload = {
 	hits?: unknown;
 };
 
-function toRecord(value: unknown): Record<string, unknown> | undefined {
-	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-		return value as Record<string, unknown>;
-	}
-	return undefined;
-}
-
-function getNestedValue(
-	record: Record<string, unknown>,
-	path: string[],
-): unknown {
-	let current: unknown = record;
-	for (const key of path) {
-		const next = toRecord(current);
-		if (!next || !(key in next)) {
-			return undefined;
-		}
-		current = next[key];
-	}
-	return current;
-}
-
-function firstString(
-	record: Record<string, unknown>,
-	paths: string[][],
-): string | undefined {
-	for (const path of paths) {
-		const value = getNestedValue(record, path);
-		if (typeof value === "string") {
-			const trimmed = value.trim();
-			if (trimmed.length > 0) {
-				return trimmed;
-			}
-		}
-	}
-	return undefined;
-}
-
-function firstNumber(
-	record: Record<string, unknown>,
-	paths: string[][],
-): number | undefined {
-	for (const path of paths) {
-		const value = getNestedValue(record, path);
-		if (typeof value === "number" && Number.isFinite(value)) {
-			return value;
-		}
-		if (typeof value === "string") {
-			const parsed = Number(value);
-			if (Number.isFinite(parsed)) {
-				return parsed;
-			}
-		}
-	}
-	return undefined;
-}
-
-function firstId(
-	record: Record<string, unknown>,
-	paths: string[][],
-): string | undefined {
-	const asString = firstString(record, paths);
-	if (asString) {
-		return asString;
-	}
-	const asNumber = firstNumber(record, paths);
-	if (asNumber === undefined) {
-		return undefined;
-	}
-	return String(asNumber);
-}
-
-function getStringList(value: unknown): string[] {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-	return value
-		.map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-		.filter((entry) => entry.length > 0);
-}
-
-function parseYear(value: string | undefined): number | undefined {
-	if (!value) {
-		return undefined;
-	}
-	const yearMatch = value.match(/\b(\d{4})\b/);
-	if (!yearMatch) {
-		return undefined;
-	}
-	const year = Number(yearMatch[1]);
-	return Number.isFinite(year) ? year : undefined;
-}
-
-function normalizeLanguageCode(value: string | undefined): string | undefined {
-	if (!value) {
-		return undefined;
-	}
-	const normalized = value.trim().toLowerCase();
-	return normalized.length > 0 ? normalized : undefined;
-}
-
-function toRecordArray(value: unknown): Array<Record<string, unknown>> {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-	return value.map((entry) => toRecord(entry)).filter(Boolean) as Array<
-		Record<string, unknown>
-	>;
-}
-
 function parseAggregateCount(value: unknown): number {
 	const aggregate = toRecord(value);
 	const aggregateInner = aggregate ? toRecord(aggregate.aggregate) : undefined;
@@ -1002,31 +903,6 @@ function extractBookAuthorName(
 		["author_name"],
 		["author", "name"],
 	]);
-}
-
-function getCoverUrl(record: Record<string, unknown>): string | undefined {
-	const imageRecord = toRecord(record.image);
-	if (imageRecord) {
-		const imageUrl = firstString(imageRecord, [["url"], ["large"], ["medium"]]);
-		if (imageUrl) {
-			return imageUrl;
-		}
-	}
-
-	if (Array.isArray(record.images)) {
-		for (const image of record.images) {
-			const imageRecordFromList = toRecord(image);
-			if (!imageRecordFromList) {
-				continue;
-			}
-			const imageUrl = firstString(imageRecordFromList, [["url"]]);
-			if (imageUrl) {
-				return imageUrl;
-			}
-		}
-	}
-
-	return firstString(record, [["coverUrl"], ["cover", "url"]]);
 }
 
 function toHardcoverAuthorBook(
