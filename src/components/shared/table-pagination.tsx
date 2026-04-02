@@ -20,16 +20,16 @@ type TablePaginationProps = {
 	onPageSizeChange: (size: number) => void;
 };
 
-/** Returns the page numbers to render, inserting `undefined` for ellipsis gaps. */
+/** Returns the page numbers to render, inserting unique ellipsis strings for gaps. */
 function getPageNumbers(
 	page: number,
 	totalPages: number,
-): Array<number | undefined> {
+): Array<number | string> {
 	if (totalPages <= 7) {
 		return Array.from({ length: totalPages }, (_, i) => i + 1);
 	}
 
-	const pages: Array<number | undefined> = [];
+	const pages: Array<number | string> = [];
 	const around = new Set(
 		[1, totalPages, page - 1, page, page + 1].filter(
 			(p) => p >= 1 && p <= totalPages,
@@ -37,9 +37,11 @@ function getPageNumbers(
 	);
 
 	let prev: number | undefined;
+	let ellipsisCount = 0;
 	for (const p of [...around].toSorted((a, b) => a - b)) {
 		if (prev !== undefined && p - prev > 1) {
-			pages.push(undefined); // ellipsis
+			ellipsisCount++;
+			pages.push(`ellipsis-${ellipsisCount}`);
 		}
 		pages.push(p);
 		prev = p;
@@ -106,11 +108,10 @@ export default function TablePagination({
 					<ChevronLeft className="h-4 w-4" />
 				</Button>
 
-				{pageNumbers.map((p, idx) =>
-					p === undefined ? (
+				{pageNumbers.map((p) =>
+					typeof p === "string" ? (
 						<span
-							// biome-ignore lint/suspicious/noArrayIndexKey: ellipsis placeholders have no unique identifier
-							key={`ellipsis-${idx}`}
+							key={p}
 							className="flex h-8 w-8 items-center justify-center text-muted-foreground"
 						>
 							…
