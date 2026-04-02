@@ -2,6 +2,7 @@ import { Slider as SliderPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 import { useMemo } from "react";
 
+import { SKELETON_KEYS } from "src/components/shared/loading-skeleton";
 import { cn } from "src/lib/utils";
 
 function resolveValues(
@@ -61,13 +62,12 @@ export default function Slider({
 					)}
 				/>
 			</SliderPrimitive.Track>
-			{Array.from({ length: _values.length }, (_, index) => {
+			{SKELETON_KEYS.slice(0, _values.length).map((key, index) => {
 				const isDisabled = disabledThumbs?.has(index) ?? false;
 				return (
 					<SliderPrimitive.Thumb
 						data-slot="slider-thumb"
-						// biome-ignore lint/suspicious/noArrayIndexKey: slider thumbs are identified by position
-						key={index}
+						key={key}
 						className={cn(
 							"border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
 							isDisabled && "pointer-events-none opacity-30 cursor-default",
