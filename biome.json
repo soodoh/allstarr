@@ -45,27 +45,6 @@
 	},
 	"overrides": [
 		{
-			"includes": [
-				"src/server/hardcover/import-queries.ts",
-				"src/server/search.ts",
-				"src/components/hardcover/book-preview-modal.tsx",
-				"src/routes/_authed/movies/index.tsx",
-				"src/routes/_authed/tv/index.tsx"
-			],
-			"linter": {
-				"rules": {
-					"complexity": {
-						"noExcessiveCognitiveComplexity": {
-							"level": "error",
-							"options": {
-								"maxAllowedComplexity": 25
-							}
-						}
-					}
-				}
-			}
-		},
-		{
 			"includes": ["src/routes/api/**"],
 			"linter": {
 				"rules": {
