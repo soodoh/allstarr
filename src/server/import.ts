@@ -511,6 +511,7 @@ export async function importAuthorInternal(
 					deathYear: rawAuthor.deathYear,
 					status: rawAuthor.deathYear ? "deceased" : "continuing",
 					isStub: false,
+					monitored: data.monitorOption !== "none",
 					images: toImageArray(rawAuthor.imageUrl),
 					metadataUpdatedAt: now,
 					updatedAt: now,
@@ -520,11 +521,13 @@ export async function importAuthorInternal(
 			author = { id: existingInTx.id, name: rawAuthor.name };
 
 			// Insert download profile join rows
-			for (const profileId of data.downloadProfileIds) {
-				tx.insert(authorDownloadProfiles)
-					.values({ authorId: author.id, downloadProfileId: profileId })
-					.onConflictDoNothing()
-					.run();
+			if (data.monitorOption !== "none") {
+				for (const profileId of data.downloadProfileIds) {
+					tx.insert(authorDownloadProfiles)
+						.values({ authorId: author.id, downloadProfileId: profileId })
+						.onConflictDoNothing()
+						.run();
+				}
 			}
 		} else {
 			// Insert new author
@@ -539,6 +542,7 @@ export async function importAuthorInternal(
 					deathYear: rawAuthor.deathYear,
 					status: rawAuthor.deathYear ? "deceased" : "continuing",
 					isStub: false,
+					monitored: data.monitorOption !== "none",
 					foreignAuthorId: String(data.foreignAuthorId),
 					images: toImageArray(rawAuthor.imageUrl),
 					metadataUpdatedAt: now,
@@ -547,10 +551,12 @@ export async function importAuthorInternal(
 				.get();
 
 			// Insert download profile join rows
-			for (const profileId of data.downloadProfileIds) {
-				tx.insert(authorDownloadProfiles)
-					.values({ authorId: author.id, downloadProfileId: profileId })
-					.run();
+			if (data.monitorOption !== "none") {
+				for (const profileId of data.downloadProfileIds) {
+					tx.insert(authorDownloadProfiles)
+						.values({ authorId: author.id, downloadProfileId: profileId })
+						.run();
+				}
 			}
 
 			tx.insert(history)
@@ -617,10 +623,12 @@ export async function importAuthorInternal(
 		const metadataProfile = getMetadataProfile();
 		const profileLanguages = getProfileLanguages();
 
-		// Set monitorNewBooks on the author
-		if (data.monitorNewBooks) {
+		// Set monitorNewBooks on the author (force "none" when monitorOption is "none")
+		const effectiveMonitorNewBooks =
+			data.monitorOption === "none" ? "none" : data.monitorNewBooks;
+		if (effectiveMonitorNewBooks) {
 			tx.update(authors)
-				.set({ monitorNewBooks: data.monitorNewBooks })
+				.set({ monitorNewBooks: effectiveMonitorNewBooks })
 				.where(eq(authors.id, author.id))
 				.run();
 		}
@@ -773,7 +781,7 @@ export async function importAuthorInternal(
 		}
 
 		// ── Apply monitorOption: create edition-profile links for monitored books ──
-		const monitorOption = data.monitorOption ?? "all";
+		const monitorOption = data.monitorOption;
 		if (
 			monitorOption !== "none" &&
 			data.downloadProfileIds.length > 0 &&
@@ -872,7 +880,7 @@ const importAuthorHandler: CommandHandler = async (
 	updateProgress("Fetching author details from Hardcover...");
 	const result = await importAuthorInternal(data, updateProgress, setTitle);
 
-	if (data.searchOnAdd) {
+	if (data.searchOnAdd && data.monitorOption !== "none") {
 		updateProgress("Searching for available releases...");
 		void searchForAuthorBooks(result.authorId).catch((error) =>
 			console.error("Search after import failed:", error),

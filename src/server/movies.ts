@@ -195,14 +195,16 @@ const addMovieHandler: CommandHandler = async (
 			.where(eq(movieCollections.id, collectionId))
 			.run();
 
-		// Always update collection download profiles to match
-		db.delete(movieCollectionDownloadProfiles)
-			.where(eq(movieCollectionDownloadProfiles.collectionId, collectionId))
-			.run();
-		for (const profileId of data.downloadProfileIds) {
-			db.insert(movieCollectionDownloadProfiles)
-				.values({ collectionId, downloadProfileId: profileId })
+		// Update collection download profiles to match (skip when not monitoring)
+		if (data.monitorOption !== "none") {
+			db.delete(movieCollectionDownloadProfiles)
+				.where(eq(movieCollectionDownloadProfiles.collectionId, collectionId))
 				.run();
+			for (const profileId of data.downloadProfileIds) {
+				db.insert(movieCollectionDownloadProfiles)
+					.values({ collectionId, downloadProfileId: profileId })
+					.run();
+			}
 		}
 	}
 
