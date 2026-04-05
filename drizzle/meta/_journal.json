@@ -169,6 +169,13 @@
       "when": 1775415181042,
       "tag": "0023_loving_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1775505600000,
+      "tag": "0024_comic_ebook_formats",
+      "breakpoints": true
     }
   ]
 }
