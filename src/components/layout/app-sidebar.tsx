@@ -32,6 +32,7 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 } from "src/components/ui/sidebar";
+import { useUserRole } from "src/hooks/use-role";
 import { settingsNavItems, systemNavItems } from "src/lib/nav-config";
 import { queueListQuery } from "src/lib/queries/queue";
 
@@ -123,7 +124,20 @@ function getActiveGroup(currentPath: string, groups: NavGroup[]): NavGroup {
 export default function AppSidebar(): JSX.Element {
 	const routerState = useRouterState();
 	const currentPath = routerState.location.pathname;
-	const activeGroup = getActiveGroup(currentPath, navGroups);
+	const role = useUserRole();
+	const visibleGroups =
+		role === "requester"
+			? [
+					{
+						title: "Requests",
+						to: "/requests",
+						icon: BookOpen,
+						matchPrefixes: ["/requests"],
+						children: [],
+					} satisfies NavGroup,
+				]
+			: navGroups;
+	const activeGroup = getActiveGroup(currentPath, visibleGroups);
 	const { data: queueCount } = useQuery({
 		...queueListQuery(),
 		select: (data) => data.items.length,
@@ -148,7 +162,7 @@ export default function AppSidebar(): JSX.Element {
 				<SidebarGroup>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{navGroups.map((group) => {
+							{visibleGroups.map((group) => {
 								const isActive = group.title === activeGroup.title;
 								return (
 									<SidebarMenuItem key={group.title}>
