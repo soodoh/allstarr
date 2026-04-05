@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq, inArray, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "src/db";
 import {
 	authors,
+	bookFiles,
 	bookImportListExclusions,
 	books,
+	booksAuthors,
 	editionDownloadProfiles,
 	editions,
 	history,
@@ -59,7 +61,216 @@ export const getSeriesListFn = createServerFn({ method: "GET" }).handler(
 			.where(inArray(seriesDownloadProfiles.seriesId, seriesIds))
 			.all();
 
-		return seriesRecords.map((s) => {
+		// Collect all book IDs across all series
+		const allBookIds = [...new Set(allLinks.map((l) => l.bookId))];
+
+		// Batch-fetch book details
+		const allBooks =
+			allBookIds.length > 0
+				? db
+						.select({
+							id: books.id,
+							title: books.title,
+							slug: books.slug,
+							description: books.description,
+							releaseDate: books.releaseDate,
+							releaseYear: books.releaseYear,
+							foreignBookId: books.foreignBookId,
+							images: books.images,
+							rating: books.rating,
+							ratingsCount: books.ratingsCount,
+							usersCount: books.usersCount,
+							tags: books.tags,
+							metadataSourceMissingSince: books.metadataSourceMissingSince,
+						})
+						.from(books)
+						.where(inArray(books.id, allBookIds))
+						.all()
+				: [];
+
+		// Batch-fetch booksAuthors for all books
+		const allBookAuthorEntries =
+			allBookIds.length > 0
+				? db
+						.select({
+							bookId: booksAuthors.bookId,
+							authorId: booksAuthors.authorId,
+							foreignAuthorId: booksAuthors.foreignAuthorId,
+							authorName: booksAuthors.authorName,
+							isPrimary: booksAuthors.isPrimary,
+						})
+						.from(booksAuthors)
+						.where(inArray(booksAuthors.bookId, allBookIds))
+						.all()
+				: [];
+
+		const bookAuthorsMap = new Map<
+			number,
+			Array<{
+				authorId: number | null;
+				foreignAuthorId: string;
+				authorName: string;
+				isPrimary: boolean;
+			}>
+		>();
+		for (const entry of allBookAuthorEntries) {
+			const arr = bookAuthorsMap.get(entry.bookId) ?? [];
+			arr.push({
+				authorId: entry.authorId,
+				foreignAuthorId: entry.foreignAuthorId,
+				authorName: entry.authorName,
+				isPrimary: entry.isPrimary,
+			});
+			bookAuthorsMap.set(entry.bookId, arr);
+		}
+
+		// Batch-fetch editions for all books
+		const allEditions =
+			allBookIds.length > 0
+				? db
+						.select({
+							id: editions.id,
+							bookId: editions.bookId,
+							title: editions.title,
+							releaseDate: editions.releaseDate,
+							format: editions.format,
+							pageCount: editions.pageCount,
+							isbn10: editions.isbn10,
+							isbn13: editions.isbn13,
+							asin: editions.asin,
+							usersCount: editions.usersCount,
+							score: editions.score,
+							languageCode: editions.languageCode,
+							images: editions.images,
+							isDefaultCover: editions.isDefaultCover,
+							metadataSourceMissingSince: editions.metadataSourceMissingSince,
+						})
+						.from(editions)
+						.where(inArray(editions.bookId, allBookIds))
+						.orderBy(desc(editions.usersCount))
+						.all()
+				: [];
+
+		// Batch-fetch edition download profile links
+		const allEditionIds = allEditions.map((e) => e.id);
+		const editionProfileLinks =
+			allEditionIds.length > 0
+				? db
+						.select({
+							editionId: editionDownloadProfiles.editionId,
+							downloadProfileId: editionDownloadProfiles.downloadProfileId,
+						})
+						.from(editionDownloadProfiles)
+						.where(inArray(editionDownloadProfiles.editionId, allEditionIds))
+						.all()
+				: [];
+
+		const editionProfilesMap = new Map<number, number[]>();
+		for (const link of editionProfileLinks) {
+			const arr = editionProfilesMap.get(link.editionId) ?? [];
+			arr.push(link.downloadProfileId);
+			editionProfilesMap.set(link.editionId, arr);
+		}
+
+		// Group editions by bookId
+		const bookEditionsMap = new Map<
+			number,
+			Array<(typeof allEditions)[number] & { downloadProfileIds: number[] }>
+		>();
+		for (const ed of allEditions) {
+			const arr = bookEditionsMap.get(ed.bookId) ?? [];
+			arr.push({
+				...ed,
+				downloadProfileIds: editionProfilesMap.get(ed.id) ?? [],
+			});
+			bookEditionsMap.set(ed.bookId, arr);
+		}
+
+		// Batch-fetch file counts
+		const fileCountsMap = new Map<number, number>();
+		if (allBookIds.length > 0) {
+			const fileCounts = db
+				.select({
+					bookId: bookFiles.bookId,
+					count: sql<number>`count(*)`,
+				})
+				.from(bookFiles)
+				.where(inArray(bookFiles.bookId, allBookIds))
+				.groupBy(bookFiles.bookId)
+				.all();
+			for (const fc of fileCounts) {
+				fileCountsMap.set(fc.bookId, fc.count);
+			}
+		}
+
+		// Get available languages across all series books
+		const availableLanguages =
+			allBookIds.length > 0
+				? (db
+						.select({
+							languageCode: editions.languageCode,
+							language: editions.language,
+							totalReaders: sql<number>`COALESCE(SUM(${books.usersCount}), 0)`,
+						})
+						.from(editions)
+						.innerJoin(books, eq(editions.bookId, books.id))
+						.where(inArray(books.id, allBookIds))
+						.groupBy(editions.languageCode, editions.language)
+						.orderBy(desc(sql`COALESCE(SUM(${books.usersCount}), 0)`))
+						.all()
+						.filter((l) => l.languageCode && l.language) as Array<{
+						languageCode: string;
+						language: string;
+						totalReaders: number;
+					}>)
+				: [];
+
+		// Build enriched book map
+		const enrichedBooks = new Map<
+			number,
+			(typeof allBooks)[number] & {
+				bookAuthors: Array<{
+					authorId: number | null;
+					foreignAuthorId: string;
+					authorName: string;
+					isPrimary: boolean;
+				}>;
+				authorName: string | null;
+				authorForeignId: string | null;
+				downloadProfileIds: number[];
+				languageCodes: string[];
+				editions: Array<
+					(typeof allEditions)[number] & { downloadProfileIds: number[] }
+				>;
+				fileCount: number;
+				missingEditionsCount: number;
+			}
+		>();
+		for (const b of allBooks) {
+			const ba = bookAuthorsMap.get(b.id) ?? [];
+			const primaryAuthor = ba.find((a) => a.isPrimary);
+			const bookEditions = bookEditionsMap.get(b.id) ?? [];
+			const bookDownloadProfileIds = [
+				...new Set(bookEditions.flatMap((e) => e.downloadProfileIds)),
+			];
+			enrichedBooks.set(b.id, {
+				...b,
+				bookAuthors: ba,
+				authorName: primaryAuthor?.authorName ?? null,
+				authorForeignId: primaryAuthor?.foreignAuthorId ?? null,
+				downloadProfileIds: bookDownloadProfileIds,
+				languageCodes: [
+					...new Set(bookEditions.map((e) => e.languageCode).filter(Boolean)),
+				] as string[],
+				editions: bookEditions,
+				fileCount: fileCountsMap.get(b.id) ?? 0,
+				missingEditionsCount: bookEditions.filter(
+					(e) => e.metadataSourceMissingSince !== null,
+				).length,
+			});
+		}
+
+		const seriesList = seriesRecords.map((s) => {
 			const bookLinks = allLinks.filter((l) => l.seriesId === s.id);
 			const profileIds = allProfileLinks
 				.filter((pl) => pl.seriesId === s.id)
@@ -75,6 +286,12 @@ export const getSeriesListFn = createServerFn({ method: "GET" }).handler(
 				downloadProfileIds: profileIds,
 			};
 		});
+
+		return {
+			series: seriesList,
+			books: [...enrichedBooks.values()],
+			availableLanguages,
+		};
 	},
 );
 

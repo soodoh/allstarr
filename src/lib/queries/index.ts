@@ -10,6 +10,7 @@ export * from "./indexers";
 export * from "./manga";
 export * from "./movies";
 export * from "./queue";
+export * from "./series";
 export * from "./settings";
 export * from "./shows";
 export * from "./system-status";
