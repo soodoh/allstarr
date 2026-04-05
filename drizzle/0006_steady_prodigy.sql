@@ -1,1 +1,0 @@
-ALTER TABLE `download_profiles` DROP COLUMN `series_types`;

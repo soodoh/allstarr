@@ -1,1 +1,0 @@
-ALTER TABLE `shows` ADD `episode_group_id` text;
