@@ -17,6 +17,7 @@ import {
 	Loader2,
 	Plus,
 	Search,
+	Settings2,
 	Star,
 	X,
 } from "lucide-react";
@@ -39,6 +40,7 @@ import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
 import PageHeader from "src/components/shared/page-header";
+import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
@@ -51,7 +53,9 @@ import {
 } from "src/components/ui/card";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "src/components/ui/dialog";
@@ -87,6 +91,7 @@ import {
 	useUnmonitorBookProfile,
 	useUpdateAuthor,
 } from "src/hooks/mutations";
+import { useUpdateSeries } from "src/hooks/mutations/series";
 import { useTableColumns } from "src/hooks/use-table-columns";
 import { pickBestEdition } from "src/lib/editions";
 import {
@@ -203,7 +208,9 @@ type AuthorSeries = {
 	slug: string | null;
 	foreignSeriesId: string | null;
 	isCompleted: boolean | null;
+	monitored: boolean;
 	books: Array<{ bookId: number; position: string }>;
+	downloadProfileIds: number[];
 };
 
 // ---------- Helpers ----------
@@ -801,6 +808,7 @@ function SeriesTab({
 	const router = useRouter();
 	const monitorBookProfile = useMonitorBookProfile();
 	const unmonitorBookProfile = useUnmonitorBookProfile();
+	const updateSeries = useUpdateSeries();
 	const navigate = useNavigate();
 	const { visibleColumns: seriesVisibleColumns } =
 		useTableColumns("author-series");
@@ -817,6 +825,11 @@ function SeriesTab({
 		bookTitle: string;
 		profileName: string;
 		fileCount: number;
+	} | null>(null);
+	const [editProfilesTarget, setEditProfilesTarget] = useState<{
+		seriesId: number;
+		seriesTitle: string;
+		downloadProfileIds: number[];
 	} | null>(null);
 	const [searchInput, setSearchInput] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
@@ -1105,6 +1118,20 @@ function SeriesTab({
 							onClick={() => setExpandedId(isExpanded ? undefined : s.id)}
 						>
 							<div className="flex items-center gap-3">
+								<button
+									type="button"
+									className={`h-2.5 w-2.5 rounded-full shrink-0 ${s.monitored ? "bg-green-500" : "bg-muted-foreground/40"}`}
+									onClick={(e) => {
+										e.stopPropagation();
+										updateSeries.mutate({
+											id: s.id,
+											monitored: !s.monitored,
+										});
+									}}
+									aria-label={
+										s.monitored ? "Unmonitor series" : "Monitor series"
+									}
+								/>
 								<Library className="h-4 w-4 text-muted-foreground shrink-0" />
 								<span className="font-medium text-sm">{s.title}</span>
 								<Badge variant="secondary" className="text-xs">
@@ -1121,9 +1148,27 @@ function SeriesTab({
 									</Badge>
 								)}
 							</div>
-							<ChevronRight
-								className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
-							/>
+							<div className="flex items-center gap-2">
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={(e) => {
+										e.stopPropagation();
+										setEditProfilesTarget({
+											seriesId: s.id,
+											seriesTitle: s.title,
+											downloadProfileIds: s.downloadProfileIds,
+										});
+									}}
+									aria-label="Edit download profiles"
+								>
+									<Settings2 className="h-3.5 w-3.5" />
+								</Button>
+								<ChevronRight
+									className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+								/>
+							</div>
 						</button>
 
 						{isExpanded && (
@@ -1450,7 +1495,84 @@ function SeriesTab({
 				}}
 				isPending={unmonitorBookProfile.isPending}
 			/>
+
+			{editProfilesTarget && (
+				<EditSeriesProfilesDialog
+					open
+					onOpenChange={(open) => {
+						if (!open) {
+							setEditProfilesTarget(null);
+						}
+					}}
+					seriesId={editProfilesTarget.seriesId}
+					seriesTitle={editProfilesTarget.seriesTitle}
+					downloadProfileIds={editProfilesTarget.downloadProfileIds}
+					profiles={authorDownloadProfiles}
+				/>
+			)}
 		</div>
+	);
+}
+
+// ---------- Edit Series Profiles Dialog ----------
+
+function EditSeriesProfilesDialog({
+	open,
+	onOpenChange,
+	seriesId,
+	seriesTitle,
+	downloadProfileIds,
+	profiles,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	seriesId: number;
+	seriesTitle: string;
+	downloadProfileIds: number[];
+	profiles: DownloadProfileInfo[];
+}) {
+	const updateSeries = useUpdateSeries();
+	const [selectedIds, setSelectedIds] = useState<number[]>(downloadProfileIds);
+
+	const handleToggle = (id: number) => {
+		setSelectedIds((prev) =>
+			prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+		);
+	};
+
+	const handleSave = () => {
+		updateSeries.mutate(
+			{ id: seriesId, downloadProfileIds: selectedIds },
+			{ onSuccess: () => onOpenChange(false) },
+		);
+	};
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Edit Profiles for {seriesTitle}</DialogTitle>
+				</DialogHeader>
+				<DialogBody>
+					<ProfileCheckboxGroup
+						profiles={profiles}
+						selectedIds={selectedIds}
+						onToggle={handleToggle}
+					/>
+				</DialogBody>
+				<DialogFooter>
+					<Button variant="outline" onClick={() => onOpenChange(false)}>
+						Cancel
+					</Button>
+					<Button onClick={handleSave} disabled={updateSeries.isPending}>
+						{updateSeries.isPending ? (
+							<Loader2 className="h-4 w-4 animate-spin mr-2" />
+						) : null}
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
