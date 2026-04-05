@@ -11,6 +11,7 @@ import {
 	Radar,
 	Settings,
 	Sliders,
+	Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -22,6 +23,12 @@ export type NavItem = {
 };
 
 export const settingsNavItems: NavItem[] = [
+	{
+		title: "Users",
+		to: "/settings/users",
+		icon: Users,
+		description: "Manage users, roles, and authentication providers.",
+	},
 	{
 		title: "General",
 		to: "/settings/general",
