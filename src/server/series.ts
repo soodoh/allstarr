@@ -383,6 +383,17 @@ export async function refreshSeriesInternal(seriesId?: number): Promise<{
 		return stats;
 	}
 
+	// Build a map of foreignBookId → local book ID (hoisted outside loop)
+	const allLocalBooks = db
+		.select({ id: books.id, foreignBookId: books.foreignBookId })
+		.from(books)
+		.all();
+	const foreignToLocalBook = new Map(
+		allLocalBooks
+			.filter((b) => b.foreignBookId !== null)
+			.map((b) => [b.foreignBookId as string, b.id]),
+	);
+
 	for (const rawSeries of rawSeriesList) {
 		const localSeries = foreignIdToLocal.get(rawSeries.id);
 		if (!localSeries) {
@@ -417,18 +428,6 @@ export async function refreshSeriesInternal(seriesId?: number): Promise<{
 				.where(eq(seriesBookLinks.seriesId, localSeries.id))
 				.all();
 			const existingBookIds = new Set(existingBookLinks.map((l) => l.bookId));
-
-			// Also look up all local books by foreignBookId so we can detect ones
-			// already in the library but not yet linked to this series
-			const allLocalBooks = db
-				.select({ id: books.id, foreignBookId: books.foreignBookId })
-				.from(books)
-				.all();
-			const foreignToLocalBook = new Map(
-				allLocalBooks
-					.filter((b) => b.foreignBookId !== null)
-					.map((b) => [b.foreignBookId as string, b.id]),
-			);
 
 			for (const rawBook of rawSeries.books) {
 				const foreignBookIdStr = String(rawBook.bookId);
@@ -542,6 +541,8 @@ export async function refreshSeriesInternal(seriesId?: number): Promise<{
 					})
 					.run();
 
+				// Update the map so subsequent series iterations see this book
+				foreignToLocalBook.set(foreignBookIdStr, newLocalBook.id);
 				stats.booksAdded += 1;
 			}
 
