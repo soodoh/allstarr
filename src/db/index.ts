@@ -72,5 +72,10 @@ if (hasRoleCol) {
 	sqlite.run(`UPDATE user SET role = 'admin' WHERE role IS NULL;`);
 }
 
+// Seed default auth settings if not present
+sqlite.run(`
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
+`);
+
 // Seed built-in custom formats if they don't exist yet
 seedBuiltinCustomFormats(db);
