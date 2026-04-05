@@ -51,6 +51,12 @@ export const queryKeys = {
 			["books", "existence", ...foreignBookIds] as const,
 	},
 
+	// ─── Series ─────────────────────────────────────────────────────────────
+	series: {
+		all: ["series"] as const,
+		list: () => ["series", "list"] as const,
+	},
+
 	// ─── Movies ──────────────────────────────────────────────────────────────
 	movies: {
 		all: ["movies"] as const,
