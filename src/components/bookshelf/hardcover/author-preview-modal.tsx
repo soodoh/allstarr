@@ -85,6 +85,13 @@ function AddForm({
 	const importAuthor = useImportHardcoverAuthor();
 	const upsertSettings = useUpsertUserSettings();
 
+	const handleMonitorOptionChange = (value: string) => {
+		setMonitorOption(value);
+		if (value === "none") {
+			setMonitorNewBooks("none");
+		}
+	};
+
 	const toggleProfile = (id: number) => {
 		setDownloadProfileIds((prev) =>
 			prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -117,7 +124,7 @@ function AddForm({
 
 			<div className="space-y-2">
 				<Label>Monitor</Label>
-				<Select value={monitorOption} onValueChange={setMonitorOption}>
+				<Select value={monitorOption} onValueChange={handleMonitorOptionChange}>
 					<SelectTrigger className="w-full">
 						<SelectValue />
 					</SelectTrigger>

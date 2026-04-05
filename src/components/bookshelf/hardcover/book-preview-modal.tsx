@@ -94,6 +94,13 @@ function AddBookForm({
 	const importBook = useImportHardcoverBook();
 	const upsertSettings = useUpsertUserSettings();
 
+	const handleMonitorOptionChange = (value: MonitorOption) => {
+		setMonitorOption(value);
+		if (value === "none") {
+			setMonitorNewBooks("none");
+		}
+	};
+
 	const toggleProfile = (id: number) => {
 		setDownloadProfileIds((prev) =>
 			prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -138,7 +145,7 @@ function AddBookForm({
 					<Label className="text-xs text-muted-foreground">Monitor</Label>
 					<Select
 						value={monitorOption}
-						onValueChange={(v) => setMonitorOption(v as MonitorOption)}
+						onValueChange={(v) => handleMonitorOptionChange(v as MonitorOption)}
 					>
 						<SelectTrigger className="h-8 w-48 text-xs">
 							<SelectValue />

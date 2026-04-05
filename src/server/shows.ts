@@ -529,10 +529,12 @@ const addShowHandler: CommandHandler = async (
 			.get();
 
 		// Insert join table for download profiles
-		for (const profileId of data.downloadProfileIds) {
-			tx.insert(showDownloadProfiles)
-				.values({ showId: showRow.id, downloadProfileId: profileId })
-				.run();
+		if (data.monitorOption !== "none") {
+			for (const profileId of data.downloadProfileIds) {
+				tx.insert(showDownloadProfiles)
+					.values({ showId: showRow.id, downloadProfileId: profileId })
+					.run();
+			}
 		}
 
 		// Insert seasons and episodes
@@ -615,6 +617,14 @@ const addShowHandler: CommandHandler = async (
 		// Compute absolute episode numbers for anime shows
 		computeAbsoluteNumbers(showRow.id);
 
+		// Force monitorNewSeasons to "none" when monitorOption is "none"
+		if (data.monitorOption === "none") {
+			tx.update(shows)
+				.set({ monitorNewSeasons: "none" })
+				.where(eq(shows.id, showRow.id))
+				.run();
+		}
+
 		// Insert history event
 		tx.insert(history)
 			.values({
@@ -628,7 +638,10 @@ const addShowHandler: CommandHandler = async (
 	});
 
 	// Fire-and-forget search if requested (outside transaction)
-	if (data.searchOnAdd || data.searchCutoffUnmet) {
+	if (
+		(data.searchOnAdd || data.searchCutoffUnmet) &&
+		data.monitorOption !== "none"
+	) {
 		updateProgress("Searching for available releases...");
 		void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
 			console.error("Search after add failed:", error),

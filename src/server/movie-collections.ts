@@ -170,17 +170,19 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
 			.where(eq(movieCollections.id, collection.id))
 			.run();
 
-		// Update collection download profiles
-		db.delete(movieCollectionDownloadProfiles)
-			.where(eq(movieCollectionDownloadProfiles.collectionId, collection.id))
-			.run();
-		for (const profileId of data.downloadProfileIds) {
-			db.insert(movieCollectionDownloadProfiles)
-				.values({
-					collectionId: collection.id,
-					downloadProfileId: profileId,
-				})
+		// Update collection download profiles (skip when not monitoring)
+		if (data.monitorOption !== "none") {
+			db.delete(movieCollectionDownloadProfiles)
+				.where(eq(movieCollectionDownloadProfiles.collectionId, collection.id))
 				.run();
+			for (const profileId of data.downloadProfileIds) {
+				db.insert(movieCollectionDownloadProfiles)
+					.values({
+						collectionId: collection.id,
+						downloadProfileId: profileId,
+					})
+					.run();
+			}
 		}
 
 		// Get missing movies
