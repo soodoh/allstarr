@@ -16,7 +16,7 @@ import {
 } from "src/db/schema";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import { fetchSeriesComplete } from "./hardcover/import-queries";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 
 export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
@@ -489,7 +489,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 export const createAuthorFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createAuthorSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { downloadProfileIds, ...authorData } = data;
 		const author = db.insert(authors).values(authorData).returning().get();
 
@@ -514,7 +514,7 @@ export const createAuthorFn = createServerFn({ method: "POST" })
 export const updateAuthorFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateAuthorSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, downloadProfileIds, monitorNewBooks } = data;
 
 		const author = db.select().from(authors).where(eq(authors.id, id)).get();
@@ -558,7 +558,7 @@ export const updateAuthorFn = createServerFn({ method: "POST" })
 export const deleteAuthorFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const author = db
 			.select()
 			.from(authors)
