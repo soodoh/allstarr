@@ -356,7 +356,7 @@ function syncBookAuthors(
  * Ensure edition-profile links exist for a book across the given download profiles.
  * Picks the best edition per profile and inserts links if missing.
  */
-function ensureEditionProfileLinks(
+export function ensureEditionProfileLinks(
 	bookId: number,
 	downloadProfileIds: number[],
 ): void {
@@ -436,7 +436,7 @@ const monitorBookSchema = z.object({
  * Core import logic shared between the public server function and cascade imports.
  * Callers must handle auth themselves.
  */
-async function importAuthorInternal(
+export async function importAuthorInternal(
 	data: {
 		foreignAuthorId: number;
 		downloadProfileIds: number[];
