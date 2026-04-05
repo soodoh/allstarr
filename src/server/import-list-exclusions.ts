@@ -10,7 +10,7 @@ import {
 	removeMovieImportExclusionSchema,
 } from "src/lib/validators";
 import { z } from "zod";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 // ─── Book Exclusions ─────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ export const getBookImportExclusionsFn = createServerFn({ method: "GET" })
 export const removeBookImportExclusionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => removeImportListExclusionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(bookImportListExclusions)
 			.where(eq(bookImportListExclusions.id, data.id))
 			.run();
@@ -75,7 +75,7 @@ export const getMovieImportExclusionsFn = createServerFn({ method: "GET" })
 export const removeMovieImportExclusionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => removeMovieImportExclusionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(movieImportListExclusions)
 			.where(eq(movieImportListExclusions.id, data.id))
 			.run();

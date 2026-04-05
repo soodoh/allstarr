@@ -7,7 +7,7 @@ import {
 	updateCustomFormatSchema,
 } from "src/lib/validators";
 import { invalidateCFCache } from "./indexers/cf-scoring";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 // ---------------------------------------------------------------------------
 // CRUD
@@ -38,7 +38,7 @@ export const getCustomFormatFn = createServerFn({ method: "GET" })
 export const createCustomFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createCustomFormatSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.insert(customFormats)
 			.values({
@@ -53,7 +53,7 @@ export const createCustomFormatFn = createServerFn({ method: "POST" })
 export const updateCustomFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateCustomFormatSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...values } = data;
 
 		// Check if this is a builtin CF — if so, mark as user-modified
@@ -82,7 +82,7 @@ export const updateCustomFormatFn = createServerFn({ method: "POST" })
 export const deleteCustomFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		// Cascade on profileCustomFormats handles join table cleanup
 		db.delete(customFormats).where(eq(customFormats.id, data.id)).run();
 		invalidateCFCache();
@@ -92,7 +92,7 @@ export const deleteCustomFormatFn = createServerFn({ method: "POST" })
 export const duplicateCustomFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const source = db
 			.select()
 			.from(customFormats)
@@ -147,7 +147,7 @@ export const setProfileCFScoreFn = createServerFn({ method: "POST" })
 		(d: { profileId: number; customFormatId: number; score: number }) => d,
 	)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		// Upsert: insert or replace on conflict
 		const result = db
 			.insert(profileCustomFormats)
@@ -177,7 +177,7 @@ export const bulkSetProfileCFScoresFn = createServerFn({ method: "POST" })
 		}) => d,
 	)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		// Replace all existing scores for this profile
 		db.delete(profileCustomFormats)
 			.where(eq(profileCustomFormats.profileId, data.profileId))
@@ -206,7 +206,7 @@ export const bulkSetProfileCFScoresFn = createServerFn({ method: "POST" })
 export const removeProfileCFsFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { profileId: number; customFormatIds: number[] }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		if (data.customFormatIds.length === 0) {
 			return { success: true };
 		}

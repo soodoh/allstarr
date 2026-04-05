@@ -10,7 +10,7 @@ import {
 } from "src/lib/validators";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export const getDownloadClientsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
@@ -37,7 +37,7 @@ export const getDownloadClientFn = createServerFn({ method: "GET" })
 export const createDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.insert(downloadClients)
 			.values({
@@ -53,7 +53,7 @@ export const createDownloadClientFn = createServerFn({ method: "POST" })
 export const updateDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...values } = data;
 		return db
 			.update(downloadClients)
@@ -70,7 +70,7 @@ export const updateDownloadClientFn = createServerFn({ method: "POST" })
 export const deleteDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(downloadClients).where(eq(downloadClients.id, data.id)).run();
 		return { success: true };
 	});
@@ -78,7 +78,7 @@ export const deleteDownloadClientFn = createServerFn({ method: "POST" })
 export const testDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => testDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const provider = getProvider(data.implementation);
 		const config: ConnectionConfig = {
 			implementation: data.implementation,

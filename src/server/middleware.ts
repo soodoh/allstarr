@@ -23,3 +23,11 @@ export async function requireAuth() {
 	ensureSchedulerStarted();
 	return session;
 }
+
+export async function requireAdmin() {
+	const session = await requireAuth();
+	if (session.user.role !== "admin") {
+		throw new Error("Forbidden: admin access required");
+	}
+	return session;
+}

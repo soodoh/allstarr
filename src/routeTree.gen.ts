@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
@@ -19,6 +20,7 @@ import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedSeriesIndexRouteImport } from './routes/_authed/series/index'
+import { Route as AuthedRequestsIndexRouteImport } from './routes/_authed/requests/index'
 import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
@@ -30,6 +32,7 @@ import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
 import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
 import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
 import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/events'
+import { Route as AuthedSettingsUsersRouteImport } from './routes/_authed/settings/users'
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
@@ -55,6 +58,11 @@ import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/
 import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
 import { Route as AuthedTvSeriesShowIdRouteImport } from './routes/_authed/tv/series/$showId'
 
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -102,6 +110,11 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
 const AuthedSeriesIndexRoute = AuthedSeriesIndexRouteImport.update({
   id: '/series/',
   path: '/series/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRequestsIndexRoute = AuthedRequestsIndexRouteImport.update({
+  id: '/requests/',
+  path: '/requests/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
@@ -157,6 +170,11 @@ const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
 const AuthedSystemEventsRoute = AuthedSystemEventsRouteImport.update({
   id: '/system/events',
   path: '/system/events',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsUsersRoute = AuthedSettingsUsersRouteImport.update({
+  id: '/settings/users',
+  path: '/settings/users',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
@@ -288,6 +306,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/api': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -308,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/settings/users': typeof AuthedSettingsUsersRoute
   '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
@@ -319,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
   '/movies/': typeof AuthedMoviesIndexRoute
+  '/requests/': typeof AuthedRequestsIndexRoute
   '/series/': typeof AuthedSeriesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
@@ -333,6 +354,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/api': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
@@ -354,6 +376,7 @@ export interface FileRoutesByTo {
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/settings/users': typeof AuthedSettingsUsersRoute
   '/system/events': typeof AuthedSystemEventsRoute
   '/system/status': typeof AuthedSystemStatusRoute
   '/system/tasks': typeof AuthedSystemTasksRoute
@@ -365,6 +388,7 @@ export interface FileRoutesByTo {
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
   '/movies': typeof AuthedMoviesIndexRoute
+  '/requests': typeof AuthedRequestsIndexRoute
   '/series': typeof AuthedSeriesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
@@ -381,6 +405,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/api/__test-reset': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
@@ -402,6 +427,7 @@ export interface FileRoutesById {
   '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
+  '/_authed/settings/users': typeof AuthedSettingsUsersRoute
   '/_authed/system/events': typeof AuthedSystemEventsRoute
   '/_authed/system/status': typeof AuthedSystemStatusRoute
   '/_authed/system/tasks': typeof AuthedSystemTasksRoute
@@ -413,6 +439,7 @@ export interface FileRoutesById {
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
   '/_authed/movies/': typeof AuthedMoviesIndexRoute
+  '/_authed/requests/': typeof AuthedRequestsIndexRoute
   '/_authed/series/': typeof AuthedSeriesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
@@ -430,6 +457,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/setup'
     | '/api'
     | '/api/events'
     | '/activity/blocklist'
@@ -450,6 +478,7 @@ export interface FileRouteTypes {
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
+    | '/settings/users'
     | '/system/events'
     | '/system/status'
     | '/system/tasks'
@@ -461,6 +490,7 @@ export interface FileRouteTypes {
     | '/authors/'
     | '/books/'
     | '/movies/'
+    | '/requests/'
     | '/series/'
     | '/settings/'
     | '/system/'
@@ -475,6 +505,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
+    | '/setup'
     | '/api'
     | '/api/events'
     | '/'
@@ -496,6 +527,7 @@ export interface FileRouteTypes {
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
+    | '/settings/users'
     | '/system/events'
     | '/system/status'
     | '/system/tasks'
@@ -507,6 +539,7 @@ export interface FileRouteTypes {
     | '/authors'
     | '/books'
     | '/movies'
+    | '/requests'
     | '/series'
     | '/settings'
     | '/system'
@@ -522,6 +555,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/register'
+    | '/setup'
     | '/api/__test-reset'
     | '/api/events'
     | '/_authed/'
@@ -543,6 +577,7 @@ export interface FileRouteTypes {
     | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
+    | '/_authed/settings/users'
     | '/_authed/system/events'
     | '/_authed/system/status'
     | '/_authed/system/tasks'
@@ -554,6 +589,7 @@ export interface FileRouteTypes {
     | '/_authed/authors/'
     | '/_authed/books/'
     | '/_authed/movies/'
+    | '/_authed/requests/'
     | '/_authed/series/'
     | '/_authed/settings/'
     | '/_authed/system/'
@@ -570,6 +606,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  SetupRoute: typeof SetupRoute
   Api_testResetRoute: typeof Api_testResetRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -583,6 +620,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -651,6 +695,13 @@ declare module '@tanstack/react-router' {
       path: '/series'
       fullPath: '/series/'
       preLoaderRoute: typeof AuthedSeriesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/requests/': {
+      id: '/_authed/requests/'
+      path: '/requests'
+      fullPath: '/requests/'
+      preLoaderRoute: typeof AuthedRequestsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/movies/': {
@@ -728,6 +779,13 @@ declare module '@tanstack/react-router' {
       path: '/system/events'
       fullPath: '/system/events'
       preLoaderRoute: typeof AuthedSystemEventsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/users': {
+      id: '/_authed/settings/users'
+      path: '/settings/users'
+      fullPath: '/settings/users'
+      preLoaderRoute: typeof AuthedSettingsUsersRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/settings/profiles': {
@@ -921,6 +979,7 @@ interface AuthedRouteChildren {
   AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
+  AuthedSettingsUsersRoute: typeof AuthedSettingsUsersRoute
   AuthedSystemEventsRoute: typeof AuthedSystemEventsRoute
   AuthedSystemStatusRoute: typeof AuthedSystemStatusRoute
   AuthedSystemTasksRoute: typeof AuthedSystemTasksRoute
@@ -930,6 +989,7 @@ interface AuthedRouteChildren {
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
+  AuthedRequestsIndexRoute: typeof AuthedRequestsIndexRoute
   AuthedSeriesIndexRoute: typeof AuthedSeriesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
@@ -957,6 +1017,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
+  AuthedSettingsUsersRoute: AuthedSettingsUsersRoute,
   AuthedSystemEventsRoute: AuthedSystemEventsRoute,
   AuthedSystemStatusRoute: AuthedSystemStatusRoute,
   AuthedSystemTasksRoute: AuthedSystemTasksRoute,
@@ -966,6 +1027,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
+  AuthedRequestsIndexRoute: AuthedRequestsIndexRoute,
   AuthedSeriesIndexRoute: AuthedSeriesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
@@ -980,6 +1042,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  SetupRoute: SetupRoute,
   Api_testResetRoute: Api_testResetRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

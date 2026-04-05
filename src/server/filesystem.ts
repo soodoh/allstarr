@@ -1,7 +1,7 @@
 import type { Dirent } from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import { browseDirectorySchema } from "src/lib/validators";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 type DirectoryEntry = {
 	name: string;
@@ -26,7 +26,7 @@ export const browseDirectoryFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<BrowseDirectoryResult> => {
 		const fs = await import("node:fs");
 
-		await requireAuth();
+		await requireAdmin();
 
 		const current = fs.existsSync(data.path) ? data.path : process.cwd();
 
