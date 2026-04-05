@@ -162,6 +162,13 @@
       "when": 1774901877877,
       "tag": "0022_woozy_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1775415181042,
+      "tag": "0023_loving_the_executioner",
+      "breakpoints": true
     }
   ]
 }
