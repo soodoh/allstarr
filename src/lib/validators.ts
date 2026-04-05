@@ -479,3 +479,15 @@ export const upsertUserSettingsSchema = z.object({
 export const deleteUserSettingsSchema = z.object({
 	tableId: tableIdSchema,
 });
+
+// ─── Series ──────────────────────────────────────────────────────────────
+
+export const updateSeriesSchema = z.object({
+	id: z.number(),
+	monitored: z.boolean().optional(),
+	downloadProfileIds: z.array(z.number()).optional(),
+});
+
+export const refreshSeriesSchema = z.object({
+	seriesId: z.number().optional(),
+});

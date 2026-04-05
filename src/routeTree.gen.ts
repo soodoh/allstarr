@@ -18,6 +18,7 @@ import { Route as Api_testResetRouteImport } from './routes/api/__test-reset'
 import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedSeriesIndexRouteImport } from './routes/_authed/series/index'
 import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
@@ -96,6 +97,11 @@ const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
 const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSeriesIndexRoute = AuthedSeriesIndexRouteImport.update({
+  id: '/series/',
+  path: '/series/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
   '/movies/': typeof AuthedMoviesIndexRoute
+  '/series/': typeof AuthedSeriesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
   '/tv/': typeof AuthedTvIndexRoute
@@ -358,6 +365,7 @@ export interface FileRoutesByTo {
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
   '/movies': typeof AuthedMoviesIndexRoute
+  '/series': typeof AuthedSeriesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
   '/tv': typeof AuthedTvIndexRoute
@@ -405,6 +413,7 @@ export interface FileRoutesById {
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
   '/_authed/movies/': typeof AuthedMoviesIndexRoute
+  '/_authed/series/': typeof AuthedSeriesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
   '/_authed/tv/': typeof AuthedTvIndexRoute
@@ -452,6 +461,7 @@ export interface FileRouteTypes {
     | '/authors/'
     | '/books/'
     | '/movies/'
+    | '/series/'
     | '/settings/'
     | '/system/'
     | '/tv/'
@@ -497,6 +507,7 @@ export interface FileRouteTypes {
     | '/authors'
     | '/books'
     | '/movies'
+    | '/series'
     | '/settings'
     | '/system'
     | '/tv'
@@ -543,6 +554,7 @@ export interface FileRouteTypes {
     | '/_authed/authors/'
     | '/_authed/books/'
     | '/_authed/movies/'
+    | '/_authed/series/'
     | '/_authed/settings/'
     | '/_authed/system/'
     | '/_authed/tv/'
@@ -632,6 +644,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/series/': {
+      id: '/_authed/series/'
+      path: '/series'
+      fullPath: '/series/'
+      preLoaderRoute: typeof AuthedSeriesIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/movies/': {
@@ -911,6 +930,7 @@ interface AuthedRouteChildren {
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
+  AuthedSeriesIndexRoute: typeof AuthedSeriesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
   AuthedTvIndexRoute: typeof AuthedTvIndexRoute
@@ -946,6 +966,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
+  AuthedSeriesIndexRoute: AuthedSeriesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
   AuthedTvIndexRoute: AuthedTvIndexRoute,

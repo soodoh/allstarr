@@ -173,6 +173,20 @@
     {
       "idx": 24,
       "version": "6",
+      "when": 1775417817572,
+      "tag": "0023_perfect_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1775417942338,
+      "tag": "0024_next_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
       "when": 1775505600000,
       "tag": "0024_comic_ebook_formats",
       "breakpoints": true

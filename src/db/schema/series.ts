@@ -15,6 +15,10 @@ export const series = sqliteTable("series", {
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
+	monitored: integer("monitored", { mode: "boolean" }).notNull().default(false),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+		() => new Date(),
+	),
 });
 
 export const seriesBookLinks = sqliteTable("series_book_links", {

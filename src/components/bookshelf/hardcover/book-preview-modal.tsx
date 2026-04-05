@@ -61,7 +61,7 @@ type AddBookFormProps = {
 
 function AddBookForm({
 	book,
-	bookDetail: _bookDetail,
+	bookDetail,
 	authorExists,
 	onSuccess,
 	onCancel,
@@ -89,6 +89,7 @@ function AddBookForm({
 	const [searchOnAdd, setSearchOnAdd] = useState(
 		() => (addDefaults?.searchOnAdd as boolean | undefined) ?? false,
 	);
+	const [monitorSeries, setMonitorSeries] = useState(false);
 
 	const importBook = useImportHardcoverBook();
 	const upsertSettings = useUpsertUserSettings();
@@ -115,6 +116,7 @@ function AddBookForm({
 			monitorOption,
 			monitorNewBooks,
 			searchOnAdd,
+			monitorSeries,
 		});
 		onSuccess();
 	};
@@ -191,6 +193,19 @@ function AddBookForm({
 					Start search for new book
 				</Label>
 			</div>
+
+			{bookDetail?.series && bookDetail.series.length > 0 && (
+				<div className="flex items-center gap-2">
+					<Checkbox
+						id="monitor-series"
+						checked={monitorSeries}
+						onCheckedChange={(checked) => setMonitorSeries(Boolean(checked))}
+					/>
+					<Label htmlFor="monitor-series" className="text-sm cursor-pointer">
+						Monitor series ({bookDetail.series.map((s) => s.title).join(", ")})
+					</Label>
+				</div>
+			)}
 
 			<div className="flex gap-2">
 				<Button variant="outline" className="flex-1" onClick={onCancel}>
