@@ -7,12 +7,12 @@ import {
 	deleteOidcProviderSchema,
 	updateOidcProviderSchema,
 } from "src/lib/validators";
-import { requireAdmin } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export const listOidcProvidersFn = createServerFn({
 	method: "GET",
 }).handler(async () => {
-	await requireAdmin();
+	await requireAuth();
 	return db.select().from(oidcProviders).all();
 });
 
