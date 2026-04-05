@@ -14,6 +14,7 @@ import {
 	history,
 	series,
 	seriesBookLinks,
+	seriesDownloadProfiles,
 } from "src/db/schema";
 import { pickBestEditionForProfile } from "src/lib/editions";
 import { z } from "zod";
@@ -31,6 +32,7 @@ import type { MetadataProfile } from "./metadata-profile";
 import { getMetadataProfile } from "./metadata-profile";
 import { requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
+import { refreshSeriesInternal } from "./series";
 
 // ---------- Metadata profile filtering ----------
 
@@ -416,6 +418,7 @@ const importBookSchema = z.object({
 	monitorOption: monitorOptionEnum,
 	monitorNewBooks: z.enum(["all", "none", "new"]).default("all"),
 	searchOnAdd: z.boolean().default(false),
+	monitorSeries: z.boolean().default(false),
 });
 
 const refreshAuthorSchema = z.object({
@@ -1000,6 +1003,43 @@ const importBookHandler: CommandHandler = async (
 			);
 		}
 
+		if (data.monitorSeries) {
+			const bookSeriesLinks = db
+				.select({ seriesId: seriesBookLinks.seriesId })
+				.from(seriesBookLinks)
+				.where(eq(seriesBookLinks.bookId, alreadyImported.id))
+				.all();
+
+			for (const link of bookSeriesLinks) {
+				db.update(series)
+					.set({ monitored: true, updatedAt: new Date() })
+					.where(eq(series.id, link.seriesId))
+					.run();
+
+				const existingProfiles = db
+					.select()
+					.from(seriesDownloadProfiles)
+					.where(eq(seriesDownloadProfiles.seriesId, link.seriesId))
+					.all();
+
+				if (existingProfiles.length === 0) {
+					for (const profileId of data.downloadProfileIds) {
+						db.insert(seriesDownloadProfiles)
+							.values({
+								seriesId: link.seriesId,
+								downloadProfileId: profileId,
+							})
+							.onConflictDoNothing()
+							.run();
+					}
+				}
+
+				void refreshSeriesInternal(link.seriesId).catch((error) =>
+					console.error("Series refresh after book add failed:", error),
+				);
+			}
+		}
+
 		return {
 			bookId: alreadyImported.id,
 			authorId: primaryAuthorId,
@@ -1158,6 +1198,43 @@ const importBookHandler: CommandHandler = async (
 		void searchForBook(txResult.bookId).catch((error) =>
 			console.error("Search after import failed:", error),
 		);
+	}
+
+	if (data.monitorSeries) {
+		const bookSeriesLinks = db
+			.select({ seriesId: seriesBookLinks.seriesId })
+			.from(seriesBookLinks)
+			.where(eq(seriesBookLinks.bookId, txResult.bookId))
+			.all();
+
+		for (const link of bookSeriesLinks) {
+			db.update(series)
+				.set({ monitored: true, updatedAt: new Date() })
+				.where(eq(series.id, link.seriesId))
+				.run();
+
+			const existingProfiles = db
+				.select()
+				.from(seriesDownloadProfiles)
+				.where(eq(seriesDownloadProfiles.seriesId, link.seriesId))
+				.all();
+
+			if (existingProfiles.length === 0) {
+				for (const profileId of data.downloadProfileIds) {
+					db.insert(seriesDownloadProfiles)
+						.values({
+							seriesId: link.seriesId,
+							downloadProfileId: profileId,
+						})
+						.onConflictDoNothing()
+						.run();
+				}
+			}
+
+			void refreshSeriesInternal(link.seriesId).catch((error) =>
+				console.error("Series refresh after book add failed:", error),
+			);
+		}
 	}
 
 	return {
