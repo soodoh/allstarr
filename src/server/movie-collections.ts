@@ -16,7 +16,7 @@ import {
 	updateMovieCollectionSchema,
 } from "src/lib/tmdb-validators";
 import { searchForMovie } from "./auto-search";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type { TmdbCollectionDetail, TmdbMovieDetail } from "./tmdb/types";
 import {
@@ -71,7 +71,7 @@ export const getMovieCollectionsFn = createServerFn({ method: "GET" }).handler(
 export const updateMovieCollectionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateMovieCollectionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const { id, downloadProfileIds, ...updates } = data;
 
@@ -145,7 +145,7 @@ export const refreshCollectionsFn = createServerFn({
 export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => addMissingCollectionMoviesSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const collection = db
 			.select()
@@ -284,7 +284,7 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
 export const addMovieImportExclusionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => addMovieImportExclusionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.insert(movieImportListExclusions)
 			.values({
 				tmdbId: data.tmdbId,

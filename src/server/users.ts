@@ -9,11 +9,11 @@ import {
 	setUserRoleSchema,
 	updateDefaultRoleSchema,
 } from "src/lib/validators";
-import { requireAdmin } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export const listUsersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAdmin();
+		await requireAuth();
 
 		const users = db
 			.select({
@@ -119,7 +119,7 @@ export const deleteUserFn = createServerFn({ method: "POST" })
 
 export const getDefaultRoleFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAdmin();
+		await requireAuth();
 		const row = db
 			.select()
 			.from(settings)

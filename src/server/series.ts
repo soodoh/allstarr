@@ -17,7 +17,7 @@ import {
 import { refreshSeriesSchema, updateSeriesSchema } from "src/lib/validators";
 import { fetchSeriesComplete } from "./hardcover/import-queries";
 import { ensureEditionProfileLinks, importAuthorInternal } from "./import";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 
 // ─── Get Series List ────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export const getSeriesListFn = createServerFn({ method: "GET" }).handler(
 export const updateSeriesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateSeriesSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const { id, downloadProfileIds, ...updates } = data;
 
@@ -562,6 +562,6 @@ export async function refreshSeriesInternal(seriesId?: number): Promise<{
 export const refreshSeriesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => refreshSeriesSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return refreshSeriesInternal(data.seriesId);
 	});
