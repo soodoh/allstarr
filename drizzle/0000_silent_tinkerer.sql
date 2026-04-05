@@ -625,7 +625,7 @@ CREATE TABLE `user_settings` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `user_settings_user_table_idx` ON `user_settings` (`user_id`,`table_id`);
+CREATE UNIQUE INDEX `user_settings_user_table_idx` ON `user_settings` (`user_id`,`table_id`);--> statement-breakpoint
 -- ============================================================
 -- Seed Data
 -- ============================================================
@@ -691,8 +691,6 @@ INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_al
   ('4k (TV)',           './data/tv_shows/4k/',   0, '[]', 1, 'hd',   '[5030,5040,5045]',      'tv',    'en', 0, 5000),
   ('720-1080p (Movie)', './data/movies/1080p/',  0, '[]', 1, 'clapperboard', '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000),
   ('4k (Movie)',        './data/movies/4k/',     0, '[]', 1, 'hd',   '[2030,2040,2045,2050]', 'movie', 'en', 0, 10000);--> statement-breakpoint
-
---> statement-breakpoint
 
 -- Download Profile: Anime 1080p (was missing from original migrations)
 INSERT INTO download_profiles (name, root_folder_path, cutoff, items, upgrade_allowed, icon, categories, content_type, language, min_custom_format_score, upgrade_until_custom_format_score) VALUES
