@@ -53,7 +53,7 @@ import type {
 	ReleaseStatusMap,
 } from "./indexers/types";
 import { ReleaseType } from "./indexers/types";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import { fetchQueueItems } from "./queue";
 
 // ─── Category constants ──────────────────────────────────────────────────────
@@ -394,7 +394,7 @@ export const getIndexerFn = createServerFn({ method: "GET" })
 export const createIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createIndexerSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.insert(indexers)
 			.values({
@@ -421,7 +421,7 @@ export const createIndexerFn = createServerFn({ method: "POST" })
 export const updateIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateIndexerSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...values } = data;
 		return db
 			.update(indexers)

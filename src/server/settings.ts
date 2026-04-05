@@ -4,7 +4,7 @@ import { db } from "src/db";
 import { settings } from "src/db/schema";
 import { metadataProfileSchema, updateSettingSchema } from "src/lib/validators";
 import { getMetadataProfile } from "./metadata-profile";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export type { MetadataProfile } from "./metadata-profile";
 
@@ -48,7 +48,7 @@ export const getSettingFn = createServerFn({ method: "GET" })
 export const updateSettingFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateSettingSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.insert(settings)
 			.values({ key: data.key, value: JSON.stringify(data.value) })
 			.onConflictDoUpdate({
@@ -61,7 +61,7 @@ export const updateSettingFn = createServerFn({ method: "POST" })
 
 export const regenerateApiKeyFn = createServerFn({ method: "POST" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		const newKey = crypto.randomUUID();
 		db.insert(settings)
 			.values({ key: "general.apiKey", value: JSON.stringify(newKey) })
@@ -86,7 +86,7 @@ export const getMetadataProfileFn = createServerFn({ method: "GET" }).handler(
 export const updateMetadataProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => metadataProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.insert(settings)
 			.values({
 				key: "metadata.hardcover.profile",

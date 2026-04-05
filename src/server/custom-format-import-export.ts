@@ -4,7 +4,7 @@ import { db } from "src/db";
 import { customFormats } from "src/db/schema";
 import type { CustomFormatSpecification } from "src/db/schema/custom-formats";
 import { invalidateCFCache } from "./indexers/cf-scoring";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 // ---------------------------------------------------------------------------
 // Export types
@@ -63,7 +63,7 @@ export const importCustomFormatsFn = createServerFn({ method: "POST" })
 		}) => d,
 	)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		let imported = 0;
 		let skipped = 0;

@@ -8,7 +8,7 @@ import {
 } from "src/db/schema";
 import { PRESETS } from "src/lib/custom-format-preset-data";
 import { invalidateCFCache } from "./indexers/cf-scoring";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export type { PresetCF } from "src/lib/custom-format-preset-data";
 
@@ -41,7 +41,7 @@ export const getPresetsFn = createServerFn({ method: "GET" })
 export const applyPresetFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { profileId: number; presetName: string }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		// 1. Find preset
 		const preset = PRESETS.find((p) => p.name === data.presetName);

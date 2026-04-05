@@ -4,7 +4,7 @@ import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { z } from "zod";
 import { eventBus } from "./event-bus";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import { isTaskRunning } from "./scheduler/state";
 import { clearTaskTimer, rescheduleTask } from "./scheduler/timers";
 
@@ -59,7 +59,7 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 export const runScheduledTaskFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { taskId: string }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { runTaskNow } = await import("./scheduler");
 		await runTaskNow(data.taskId);
 		return { success: true };
@@ -70,7 +70,7 @@ export const toggleTaskEnabledFn = createServerFn({ method: "POST" })
 		z.object({ taskId: z.string(), enabled: z.boolean() }).parse(d),
 	)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.update(scheduledTasks)
 			.set({ enabled: data.enabled })
 			.where(eq(scheduledTasks.id, data.taskId))

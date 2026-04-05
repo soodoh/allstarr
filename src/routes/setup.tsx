@@ -1,9 +1,4 @@
-import {
-	createFileRoute,
-	Link,
-	redirect,
-	useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,51 +14,24 @@ import {
 import Input from "src/components/ui/input";
 import Label from "src/components/ui/label";
 import { signUp } from "src/lib/auth-client";
-import { getRegistrationStatusFn, hasUsersFn } from "src/server/setup";
+import { hasUsersFn } from "src/server/setup";
 
-export const Route = createFileRoute("/register")({
+export const Route = createFileRoute("/setup")({
 	beforeLoad: async () => {
 		const { hasUsers } = await hasUsersFn();
-		if (!hasUsers) {
-			throw redirect({ to: "/setup" });
+		if (hasUsers) {
+			throw redirect({ to: "/login" });
 		}
 	},
-	loader: async () => {
-		return getRegistrationStatusFn();
-	},
-	component: RegisterPage,
+	component: SetupPage,
 });
 
-function RegisterPage() {
+function SetupPage() {
 	const navigate = useNavigate();
-	const { registrationDisabled } = Route.useLoaderData();
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
-
-	if (registrationDisabled) {
-		return (
-			<div className="flex min-h-screen items-center justify-center">
-				<Card className="w-full max-w-md">
-					<CardHeader className="text-center">
-						<CardTitle className="text-2xl font-bold">
-							Registration Disabled
-						</CardTitle>
-						<CardDescription>
-							Account registration is currently disabled. Contact your
-							administrator for access.
-						</CardDescription>
-					</CardHeader>
-					<CardFooter className="justify-center">
-						<Link to="/login" className="text-primary underline">
-							Back to Sign In
-						</Link>
-					</CardFooter>
-				</Card>
-			</div>
-		);
-	}
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
@@ -71,13 +39,13 @@ function RegisterPage() {
 		try {
 			const result = await signUp.email({ name, email, password });
 			if (result.error) {
-				toast.error(result.error.message || "Failed to register");
+				toast.error(result.error.message || "Failed to create account");
 			} else {
-				toast.success("Account created! Signing in...");
+				toast.success("Admin account created!");
 				navigate({ to: "/" });
 			}
 		} catch {
-			toast.error("Failed to register");
+			toast.error("Failed to create account");
 		} finally {
 			setLoading(false);
 		}
@@ -87,8 +55,12 @@ function RegisterPage() {
 		<div className="flex min-h-screen items-center justify-center">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
-					<CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-					<CardDescription>Register for a new Allstarr account</CardDescription>
+					<CardTitle className="text-2xl font-bold">
+						Welcome to Allstarr
+					</CardTitle>
+					<CardDescription>
+						Create your administrator account to get started.
+					</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleSubmit}>
 					<CardContent className="space-y-4">
@@ -108,7 +80,7 @@ function RegisterPage() {
 							<Input
 								id="email"
 								type="email"
-								placeholder="you@example.com"
+								placeholder="admin@example.com"
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								required
@@ -127,16 +99,10 @@ function RegisterPage() {
 							/>
 						</div>
 					</CardContent>
-					<CardFooter className="mt-6 flex flex-col gap-4">
+					<CardFooter className="mt-6">
 						<Button type="submit" className="w-full" disabled={loading}>
-							{loading ? "Creating account..." : "Create Account"}
+							{loading ? "Creating account..." : "Create Admin Account"}
 						</Button>
-						<p className="text-sm text-muted-foreground">
-							Already have an account?{" "}
-							<Link to="/login" className="text-primary underline">
-								Sign In
-							</Link>
-						</p>
 					</CardFooter>
 				</form>
 			</Card>

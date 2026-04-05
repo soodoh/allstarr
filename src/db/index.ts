@@ -58,5 +58,24 @@ sqlite.run(`
 
 export const db = drizzle({ client: sqlite, schema });
 
+// Promote existing users with no role to admin (pre-roles migration).
+// Guard: only run if the role column exists (i.e., migration has been applied).
+const hasRoleCol =
+	(
+		sqlite
+			.query(
+				"SELECT COUNT(*) as n FROM pragma_table_info('user') WHERE name = 'role'",
+			)
+			.get() as { n: number }
+	).n > 0;
+if (hasRoleCol) {
+	sqlite.run(`UPDATE user SET role = 'admin' WHERE role IS NULL;`);
+}
+
+// Seed default auth settings if not present
+sqlite.run(`
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
+`);
+
 // Seed built-in custom formats if they don't exist yet
 seedBuiltinCustomFormats(db);

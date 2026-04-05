@@ -30,7 +30,7 @@ import {
 	updateBookSchema,
 	updateEditionSchema,
 } from "src/lib/validators";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export const getBooksFn = createServerFn({ method: "GET" }).handler(
 	async () => {
@@ -998,7 +998,7 @@ export const getBookFn = createServerFn({ method: "GET" })
 export const createBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { authorId, ...bookData } = data;
 		const book = db.insert(books).values(bookData).returning().get();
 
@@ -1039,7 +1039,7 @@ export const createBookFn = createServerFn({ method: "POST" })
 export const updateBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...updates } = data;
 		db.update(books)
 			.set({
@@ -1054,7 +1054,7 @@ export const updateBookFn = createServerFn({ method: "POST" })
 export const deleteBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const book = db.select().from(books).where(eq(books.id, data.id)).get();
 		if (!book) {
@@ -1119,7 +1119,7 @@ export const deleteBookFn = createServerFn({ method: "POST" })
 export const monitorBookProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => monitorBookProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { bookId, downloadProfileId } = data;
 
 		const profile = db
@@ -1187,7 +1187,7 @@ export const monitorBookProfileFn = createServerFn({ method: "POST" })
 export const unmonitorBookProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => unmonitorBookProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { bookId, downloadProfileId, deleteFiles } = data;
 
 		const bookEditions = db

@@ -7,7 +7,7 @@ import {
 	bulkRemoveFromBlocklistSchema,
 	removeFromBlocklistSchema,
 } from "src/lib/validators";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export const getBlocklistFn = createServerFn({ method: "GET" })
 	.inputValidator((d: { page?: number; limit?: number }) => d)
@@ -63,7 +63,7 @@ export const getBlocklistFn = createServerFn({ method: "GET" })
 export const addToBlocklistFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => addToBlocklistSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.insert(blocklist)
 			.values({
@@ -82,7 +82,7 @@ export const addToBlocklistFn = createServerFn({ method: "POST" })
 export const removeFromBlocklistFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => removeFromBlocklistSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(blocklist).where(eq(blocklist.id, data.id)).run();
 		return { success: true };
 	});
@@ -90,7 +90,7 @@ export const removeFromBlocklistFn = createServerFn({ method: "POST" })
 export const bulkRemoveFromBlocklistFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkRemoveFromBlocklistSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(blocklist).where(inArray(blocklist.id, data.ids)).run();
 		return { success: true, removed: data.ids.length };
 	});
