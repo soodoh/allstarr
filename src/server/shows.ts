@@ -26,7 +26,7 @@ import {
 import { searchForShow } from "./auto-search";
 import type { CommandHandler } from "./commands";
 import { submitCommand } from "./commands";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type {
 	TmdbEpisodeGroupDetail,
@@ -648,7 +648,7 @@ const addShowHandler: CommandHandler = async (
 export const addShowFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => addShowSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "addShow",
 			name: `Add show: ${data.tmdbId}`,
@@ -807,7 +807,7 @@ export const getShowDetailFn = createServerFn({ method: "GET" })
 export const updateShowFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateShowSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const {
 			id,
@@ -915,7 +915,7 @@ export const updateShowFn = createServerFn({ method: "POST" })
 export const deleteShowFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteShowSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const show = db.select().from(shows).where(eq(shows.id, data.id)).get();
 
@@ -978,7 +978,7 @@ export const checkShowExistsFn = createServerFn({ method: "GET" })
 export const monitorEpisodeProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => monitorEpisodeProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.insert(episodeDownloadProfiles)
 			.values({
@@ -994,7 +994,7 @@ export const monitorEpisodeProfileFn = createServerFn({ method: "POST" })
 export const unmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => unmonitorEpisodeProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.delete(episodeDownloadProfiles)
 			.where(
@@ -1011,7 +1011,7 @@ export const unmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 export const bulkMonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkMonitorEpisodeProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		for (const episodeId of data.episodeIds) {
 			db.insert(episodeDownloadProfiles)
@@ -1029,7 +1029,7 @@ export const bulkMonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 export const bulkUnmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkUnmonitorEpisodeProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		if (data.episodeIds.length > 0) {
 			db.delete(episodeDownloadProfiles)
@@ -1051,7 +1051,7 @@ export const bulkUnmonitorEpisodeProfileFn = createServerFn({ method: "POST" })
 export const monitorShowProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => monitorShowProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.insert(showDownloadProfiles)
 			.values({
@@ -1067,7 +1067,7 @@ export const monitorShowProfileFn = createServerFn({ method: "POST" })
 export const unmonitorShowProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => unmonitorShowProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.delete(showDownloadProfiles)
 			.where(
@@ -1219,6 +1219,6 @@ export async function refreshShowInternal(
 export const refreshShowMetadataFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => refreshShowSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return refreshShowInternal(data.showId);
 	});

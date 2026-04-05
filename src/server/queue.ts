@@ -16,7 +16,7 @@ import {
 } from "src/lib/validators";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig, DownloadItem } from "./download-clients/types";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 export type QueueItem = DownloadItem & {
 	downloadClientId: number;
@@ -168,7 +168,7 @@ export const getQueueFn = createServerFn({ method: "GET" }).handler(
 export const removeFromQueueFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => removeFromQueueSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const client = db
 			.select()
@@ -206,7 +206,7 @@ export const removeFromQueueFn = createServerFn({ method: "POST" })
 export const pauseDownloadFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => pauseDownloadSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const client = db
 			.select()
 			.from(downloadClients)
@@ -227,7 +227,7 @@ export const pauseDownloadFn = createServerFn({ method: "POST" })
 export const resumeDownloadFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => resumeDownloadSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const client = db
 			.select()
 			.from(downloadClients)
@@ -248,7 +248,7 @@ export const resumeDownloadFn = createServerFn({ method: "POST" })
 export const setDownloadPriorityFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => setDownloadPrioritySchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const client = db
 			.select()
 			.from(downloadClients)

@@ -23,7 +23,7 @@ import {
 import { searchForMovie } from "./auto-search";
 import type { CommandHandler } from "./commands";
 import { submitCommand } from "./commands";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type { TmdbCollectionDetail, TmdbMovieDetail } from "./tmdb/types";
 import {
@@ -229,7 +229,7 @@ const addMovieHandler: CommandHandler = async (
 export const addMovieFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => addMovieSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "addMovie",
 			name: `Add movie: ${data.tmdbId}`,
@@ -332,7 +332,7 @@ export const getMovieDetailFn = createServerFn({ method: "GET" })
 export const updateMovieFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateMovieSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const { id, downloadProfileIds, ...updates } = data;
 
@@ -367,7 +367,7 @@ export const updateMovieFn = createServerFn({ method: "POST" })
 export const deleteMovieFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteMovieSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		const movie = db.select().from(movies).where(eq(movies.id, data.id)).get();
 
@@ -537,14 +537,14 @@ export async function refreshMovieInternal(
 export const refreshMovieMetadataFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => refreshMovieSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return refreshMovieInternal(data.movieId);
 	});
 
 export const monitorMovieProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => monitorMovieProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.insert(movieDownloadProfiles)
 			.values({
@@ -560,7 +560,7 @@ export const monitorMovieProfileFn = createServerFn({ method: "POST" })
 export const unmonitorMovieProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => unmonitorMovieProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		db.delete(movieDownloadProfiles)
 			.where(

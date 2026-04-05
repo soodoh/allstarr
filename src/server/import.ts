@@ -30,7 +30,7 @@ import {
 import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
 import type { MetadataProfile } from "./metadata-profile";
 import { getMetadataProfile } from "./metadata-profile";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 import { refreshSeriesInternal } from "./series";
 
@@ -885,7 +885,7 @@ const importAuthorHandler: CommandHandler = async (
 export const importHardcoverAuthorFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => importAuthorSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "importAuthor",
 			name: `Import author: Hardcover #${data.foreignAuthorId}`,
@@ -1247,7 +1247,7 @@ const importBookHandler: CommandHandler = async (
 export const importHardcoverBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => importBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "importBook",
 			name: `Import book: Hardcover #${data.foreignBookId}`,
@@ -1807,7 +1807,7 @@ const refreshAuthorHandler: CommandHandler = async (
 export const refreshAuthorMetadataFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => refreshAuthorSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "refreshAuthor",
 			name: `Refresh author: #${data.authorId}`,
@@ -2248,7 +2248,7 @@ const refreshBookHandler: CommandHandler = async (
 export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => refreshBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return submitCommand({
 			commandType: "refreshBook",
 			name: `Refresh book: #${data.bookId}`,
@@ -2264,7 +2264,7 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 export const monitorBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => monitorBookSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		// Fetch book from Hardcover to sync booksAuthors if needed
 		const localBook = db

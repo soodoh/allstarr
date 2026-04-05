@@ -25,7 +25,7 @@ import {
 	updateDownloadProfileSchema,
 } from "src/lib/validators";
 import { invalidateFormatDefCache } from "./indexers/format-parser";
-import { requireAuth } from "./middleware";
+import { requireAdmin, requireAuth } from "./middleware";
 
 async function validateRootFolderPath(rootFolderPath: string): Promise<void> {
 	if (!rootFolderPath) {
@@ -62,7 +62,7 @@ export const getDownloadProfileFn = createServerFn({ method: "GET" })
 export const createDownloadProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		await validateRootFolderPath(data.rootFolderPath);
 		return db
 			.insert(downloadProfiles)
@@ -76,7 +76,7 @@ export const createDownloadProfileFn = createServerFn({ method: "POST" })
 export const updateDownloadProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateDownloadProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		await validateRootFolderPath(data.rootFolderPath);
 		const { id, ...values } = data;
 		return db
@@ -92,7 +92,7 @@ export const updateDownloadProfileFn = createServerFn({ method: "POST" })
 export const deleteDownloadProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(downloadProfiles).where(eq(downloadProfiles.id, data.id)).run();
 		return { success: true };
 	});
@@ -172,7 +172,7 @@ export const moveProfileFilesFn = createServerFn({ method: "POST" })
 			d,
 	)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const profile = db
 			.select()
 			.from(downloadProfiles)
@@ -383,7 +383,7 @@ export const getDownloadFormatsFn = createServerFn({
 export const createDownloadFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadFormatSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const result = db.insert(downloadFormats).values(data).returning().get();
 		invalidateFormatDefCache();
 		return result;
@@ -392,7 +392,7 @@ export const createDownloadFormatFn = createServerFn({ method: "POST" })
 export const updateDownloadFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateDownloadFormatSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...values } = data;
 		const result = db
 			.update(downloadFormats)
