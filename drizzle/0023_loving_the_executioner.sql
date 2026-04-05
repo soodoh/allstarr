@@ -1,9 +1,9 @@
-DROP TABLE `manga`;--> statement-breakpoint
-DROP TABLE `manga_chapters`;--> statement-breakpoint
-DROP TABLE `manga_sources`;--> statement-breakpoint
-DROP TABLE `manga_volumes`;--> statement-breakpoint
-DROP TABLE `manga_files`;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
+DROP TABLE IF EXISTS `manga`;--> statement-breakpoint
+DROP TABLE IF EXISTS `manga_volumes`;--> statement-breakpoint
+DROP TABLE IF EXISTS `manga_chapters`;--> statement-breakpoint
+DROP TABLE IF EXISTS `manga_files`;--> statement-breakpoint
+DROP TABLE IF EXISTS `manga_sources`;--> statement-breakpoint
 CREATE TABLE `__new_history` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`event_type` text NOT NULL,
