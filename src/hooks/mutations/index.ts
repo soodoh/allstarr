@@ -8,6 +8,7 @@ export * from "./indexer-search";
 export * from "./indexers";
 export * from "./movies";
 export * from "./queue";
+export * from "./series";
 export * from "./settings";
 export * from "./shows";
 export * from "./user-settings";

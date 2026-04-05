@@ -14,6 +14,7 @@ import "./tasks/rescan-folders";
 import "./tasks/refresh-downloads";
 import "./tasks/refresh-tmdb-metadata";
 import "./tasks/search-missing";
+import "./tasks/refresh-series-metadata";
 
 // oxlint-enable import/no-unassigned-import
 

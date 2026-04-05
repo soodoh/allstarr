@@ -12,6 +12,7 @@ import {
 	history,
 	series,
 	seriesBookLinks,
+	seriesDownloadProfiles,
 } from "src/db/schema";
 import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
 import { fetchSeriesComplete } from "./hardcover/import-queries";
@@ -254,6 +255,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 							foreignSeriesId: series.foreignSeriesId,
 							position: seriesBookLinks.position,
 							isCompleted: series.isCompleted,
+							monitored: series.monitored,
 						})
 						.from(seriesBookLinks)
 						.innerJoin(series, eq(seriesBookLinks.seriesId, series.id))
@@ -275,6 +277,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 				slug: string | null;
 				foreignSeriesId: string | null;
 				isCompleted: boolean | null;
+				monitored: boolean;
 				books: Array<{ bookId: number; position: string }>;
 			}
 		>();
@@ -286,6 +289,7 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 					slug: link.seriesSlug,
 					foreignSeriesId: link.foreignSeriesId,
 					isCompleted: link.isCompleted,
+					monitored: link.monitored,
 					books: [],
 				});
 			}
@@ -295,20 +299,46 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 			});
 		}
 
-		const authorSeries = [...seriesMap.values()].toSorted((a, b) => {
-			// Sort by aggregate readers descending
-			let aReaders = 0;
-			for (const sb of a.books) {
-				const book = authorBooks.find((ab) => ab.id === sb.bookId);
-				aReaders += book?.usersCount ?? 0;
-			}
-			let bReaders = 0;
-			for (const sb of b.books) {
-				const book = authorBooks.find((ab) => ab.id === sb.bookId);
-				bReaders += book?.usersCount ?? 0;
-			}
-			return bReaders - aReaders;
-		});
+		// Batch-fetch series download profile links
+		const seriesIds = [...seriesMap.keys()];
+		const seriesProfileLinks =
+			seriesIds.length > 0
+				? db
+						.select({
+							seriesId: seriesDownloadProfiles.seriesId,
+							downloadProfileId: seriesDownloadProfiles.downloadProfileId,
+						})
+						.from(seriesDownloadProfiles)
+						.where(inArray(seriesDownloadProfiles.seriesId, seriesIds))
+						.all()
+				: [];
+
+		const seriesProfilesMap = new Map<number, number[]>();
+		for (const link of seriesProfileLinks) {
+			const arr = seriesProfilesMap.get(link.seriesId) ?? [];
+			arr.push(link.downloadProfileId);
+			seriesProfilesMap.set(link.seriesId, arr);
+		}
+
+		const authorSeries = [...seriesMap.values()]
+			.map((s) => ({
+				...s,
+				downloadProfileIds: seriesProfilesMap.get(s.id) ?? [],
+			}))
+			.toSorted((a, b) => {
+				// Sort by aggregate readers descending
+				let aReaders = 0;
+				for (const sb of a.books) {
+					const book = authorBooks.find((ab) => ab.id === sb.bookId);
+					aReaders += book?.usersCount ?? 0;
+				}
+				let bReaders = 0;
+				for (const sb of b.books) {
+					const book = authorBooks.find((ab) => ab.id === sb.bookId);
+					bReaders += book?.usersCount ?? 0;
+				}
+				return bReaders - aReaders;
+			});
 
 		// Fetch all editions for author's books (pre-sorted by readers desc)
 		const allEditions =
