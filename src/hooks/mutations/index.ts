@@ -10,6 +10,7 @@ export * from "./manga";
 export * from "./manga-chapter-profiles";
 export * from "./movies";
 export * from "./queue";
+export * from "./series";
 export * from "./settings";
 export * from "./shows";
 export * from "./user-settings";
