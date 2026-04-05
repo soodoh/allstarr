@@ -9,7 +9,7 @@ class Database {
 	}
 	query() {
 		return {
-			get: () => null,
+			get: () => ({}),
 			all: () => [],
 			run: () => ({ lastInsertRowid: 0, changes: 0 }),
 			values: () => [],
@@ -17,7 +17,7 @@ class Database {
 	}
 	prepare() {
 		return {
-			get: () => null,
+			get: () => ({}),
 			all: () => [],
 			run: () => ({ lastInsertRowid: 0, changes: 0 }),
 			values: () => [],
