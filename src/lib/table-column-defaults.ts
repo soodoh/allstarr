@@ -17,7 +17,6 @@ export const TABLE_IDS = [
 	"book-editions",
 	"tv",
 	"movies",
-	"manga",
 ] as const;
 
 export type TableId = (typeof TABLE_IDS)[number];
@@ -134,16 +133,6 @@ export const TABLE_DEFAULTS: Record<TableId, TableColumnDef[]> = {
 		{ key: "title", label: "Title", locked: true, defaultVisible: true },
 		{ key: "year", label: "Year", defaultVisible: true },
 		{ key: "studio", label: "Studio", defaultVisible: true },
-		{ key: "status", label: "Status", defaultVisible: true },
-	],
-
-	manga: [
-		{ key: "cover", label: "Cover", defaultVisible: true },
-		{ key: "title", label: "Title", locked: true, defaultVisible: true },
-		{ key: "type", label: "Type", defaultVisible: true },
-		{ key: "year", label: "Year", defaultVisible: true },
-		{ key: "volumes", label: "Volumes", defaultVisible: true },
-		{ key: "chapters", label: "Chapters", defaultVisible: true },
 		{ key: "status", label: "Status", defaultVisible: true },
 	],
 };

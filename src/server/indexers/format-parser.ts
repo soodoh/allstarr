@@ -289,7 +289,7 @@ export function enrichRelease(
 		| "releaseType"
 		| "packInfo"
 	>,
-	contentType: "tv" | "book" | "manga" = "book",
+	contentType: "tv" | "book" = "book",
 ): IndexerRelease {
 	const { releaseType, packInfo } = detectReleaseType(
 		release.title,

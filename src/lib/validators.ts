@@ -14,7 +14,7 @@ const downloadProfileBaseSchema = z.object({
 	upgradeAllowed: z.boolean().default(false),
 	icon: z.string().min(1, "Icon is required"),
 	categories: z.array(z.number()).default([]),
-	contentType: z.enum(["movie", "tv", "ebook", "audiobook", "manga"]),
+	contentType: z.enum(["movie", "tv", "ebook", "audiobook"]),
 	language: z.string().min(2).max(3),
 	minCustomFormatScore: z.number().default(0),
 	upgradeUntilCustomFormatScore: z.number().default(0),
@@ -41,7 +41,6 @@ export const customFormatContentTypes = [
 	"tv",
 	"ebook",
 	"audiobook",
-	"manga",
 ] as const;
 
 export const customFormatCategories = [
@@ -140,7 +139,7 @@ export const createDownloadFormatSchema = z.object({
 	maxSize: z.number().default(0),
 	preferredSize: z.number().default(0),
 	contentTypes: z
-		.array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
+		.array(z.enum(["movie", "tv", "ebook", "audiobook"]))
 		.min(1, "At least one content type required"),
 	source: z.string().nullable().default(null),
 	resolution: z.number().default(0),
@@ -157,7 +156,7 @@ export const updateDownloadFormatSchema = z.object({
 	maxSize: z.number().default(0),
 	preferredSize: z.number().default(0),
 	contentTypes: z
-		.array(z.enum(["movie", "tv", "ebook", "audiobook", "manga"]))
+		.array(z.enum(["movie", "tv", "ebook", "audiobook"]))
 		.min(1, "At least one content type required"),
 	source: z.string().nullable().default(null),
 	resolution: z.number().default(0),
@@ -479,51 +478,4 @@ export const upsertUserSettingsSchema = z.object({
 
 export const deleteUserSettingsSchema = z.object({
 	tableId: tableIdSchema,
-});
-
-// ─── Manga ──────────────────────────────────────────────────────────────
-
-export const addMangaSchema = z.object({
-	sourceId: z.string(),
-	sourceMangaUrl: z.string(),
-	title: z.string(),
-	sortTitle: z.string(),
-	overview: z.string().default(""),
-	type: z.string().default("manga"),
-	year: z.string().nullable().default(null),
-	status: z.string().default("ongoing"),
-	posterUrl: z.string().default(""),
-	sourceMangaThumbnail: z.string().nullable().default(null),
-	genres: z.array(z.string()).default([]),
-	monitorOption: z.enum(["all", "future", "missing", "none"]).default("all"),
-});
-
-export const updateMangaSchema = z.object({
-	id: z.number(),
-	monitorNewChapters: z.enum(["all", "future", "missing", "none"]).optional(),
-	path: z.string().optional(),
-});
-
-export const deleteMangaSchema = z.object({
-	id: z.number(),
-	deleteFiles: z.boolean().default(false),
-});
-
-export const refreshMangaSchema = z.object({
-	mangaId: z.number(),
-});
-
-export const searchMangaSourcesSchema = z.object({
-	query: z.string().min(1),
-});
-
-export const checkMangaExistsSchema = z.object({
-	sourceId: z.string(),
-	sourceMangaUrl: z.string(),
-});
-
-export const mangaSourceConfigSchema = z.object({
-	sourceId: z.string(),
-	enabled: z.boolean().optional(),
-	config: z.record(z.string(), z.unknown()).optional(),
 });

@@ -19,7 +19,6 @@ import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
-import { Route as AuthedMangaIndexRouteImport } from './routes/_authed/manga/index'
 import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
 import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
@@ -33,7 +32,6 @@ import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/
 import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
 import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
 import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
-import { Route as AuthedSettingsMangaSourcesRouteImport } from './routes/_authed/settings/manga-sources'
 import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
 import { Route as AuthedSettingsImportListsRouteImport } from './routes/_authed/settings/import-lists'
 import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
@@ -44,7 +42,6 @@ import { Route as AuthedMoviesCollectionsRouteImport } from './routes/_authed/mo
 import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
 import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
-import { Route as AuthedMangaAddRouteImport } from './routes/_authed/manga/add'
 import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
 import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
 import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
@@ -56,7 +53,6 @@ import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/te
 import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
 import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
 import { Route as AuthedTvSeriesShowIdRouteImport } from './routes/_authed/tv/series/$showId'
-import { Route as AuthedMangaSeriesMangaIdRouteImport } from './routes/_authed/manga/series/$mangaId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -105,11 +101,6 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
 const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
   id: '/movies/',
   path: '/movies/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedMangaIndexRoute = AuthedMangaIndexRouteImport.update({
-  id: '/manga/',
-  path: '/manga/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedBooksIndexRoute = AuthedBooksIndexRouteImport.update({
@@ -178,12 +169,6 @@ const AuthedSettingsMediaManagementRoute =
     path: '/settings/media-management',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedSettingsMangaSourcesRoute =
-  AuthedSettingsMangaSourcesRouteImport.update({
-    id: '/settings/manga-sources',
-    path: '/settings/manga-sources',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
   id: '/settings/indexers',
   path: '/settings/indexers',
@@ -235,11 +220,6 @@ const AuthedMoviesAddRoute = AuthedMoviesAddRouteImport.update({
 const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
   id: '/movies/$movieId',
   path: '/movies/$movieId',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedMangaAddRoute = AuthedMangaAddRouteImport.update({
-  id: '/manga/add',
-  path: '/manga/add',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
@@ -297,12 +277,6 @@ const AuthedTvSeriesShowIdRoute = AuthedTvSeriesShowIdRouteImport.update({
   path: '/tv/series/$showId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedMangaSeriesMangaIdRoute =
-  AuthedMangaSeriesMangaIdRouteImport.update({
-    id: '/manga/series/$mangaId',
-    path: '/manga/series/$mangaId',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -315,7 +289,6 @@ export interface FileRoutesByFullPath {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
-  '/manga/add': typeof AuthedMangaAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -326,7 +299,6 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
-  '/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -340,12 +312,10 @@ export interface FileRoutesByFullPath {
   '/activity/': typeof AuthedActivityIndexRoute
   '/authors/': typeof AuthedAuthorsIndexRoute
   '/books/': typeof AuthedBooksIndexRoute
-  '/manga/': typeof AuthedMangaIndexRoute
   '/movies/': typeof AuthedMoviesIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/system/': typeof AuthedSystemIndexRoute
   '/tv/': typeof AuthedTvIndexRoute
-  '/manga/series/$mangaId': typeof AuthedMangaSeriesMangaIdRoute
   '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
@@ -364,7 +334,6 @@ export interface FileRoutesByTo {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
-  '/manga/add': typeof AuthedMangaAddRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -375,7 +344,6 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AuthedSettingsGeneralRoute
   '/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/settings/indexers': typeof AuthedSettingsIndexersRoute
-  '/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -389,12 +357,10 @@ export interface FileRoutesByTo {
   '/activity': typeof AuthedActivityIndexRoute
   '/authors': typeof AuthedAuthorsIndexRoute
   '/books': typeof AuthedBooksIndexRoute
-  '/manga': typeof AuthedMangaIndexRoute
   '/movies': typeof AuthedMoviesIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/system': typeof AuthedSystemIndexRoute
   '/tv': typeof AuthedTvIndexRoute
-  '/manga/series/$mangaId': typeof AuthedMangaSeriesMangaIdRoute
   '/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
@@ -415,7 +381,6 @@ export interface FileRoutesById {
   '/_authed/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/_authed/books/$bookId': typeof AuthedBooksBookIdRoute
   '/_authed/books/add': typeof AuthedBooksAddRoute
-  '/_authed/manga/add': typeof AuthedMangaAddRoute
   '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
   '/_authed/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -426,7 +391,6 @@ export interface FileRoutesById {
   '/_authed/settings/general': typeof AuthedSettingsGeneralRoute
   '/_authed/settings/import-lists': typeof AuthedSettingsImportListsRoute
   '/_authed/settings/indexers': typeof AuthedSettingsIndexersRoute
-  '/_authed/settings/manga-sources': typeof AuthedSettingsMangaSourcesRoute
   '/_authed/settings/media-management': typeof AuthedSettingsMediaManagementRoute
   '/_authed/settings/metadata': typeof AuthedSettingsMetadataRoute
   '/_authed/settings/profiles': typeof AuthedSettingsProfilesRoute
@@ -440,12 +404,10 @@ export interface FileRoutesById {
   '/_authed/activity/': typeof AuthedActivityIndexRoute
   '/_authed/authors/': typeof AuthedAuthorsIndexRoute
   '/_authed/books/': typeof AuthedBooksIndexRoute
-  '/_authed/manga/': typeof AuthedMangaIndexRoute
   '/_authed/movies/': typeof AuthedMoviesIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/system/': typeof AuthedSystemIndexRoute
   '/_authed/tv/': typeof AuthedTvIndexRoute
-  '/_authed/manga/series/$mangaId': typeof AuthedMangaSeriesMangaIdRoute
   '/_authed/tv/series/$showId': typeof AuthedTvSeriesShowIdRoute
   '/api/v1/indexer/$id': typeof ApiV1IndexerIdRoute
   '/api/v1/indexer/schema': typeof ApiV1IndexerSchemaRoute
@@ -466,7 +428,6 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
-    | '/manga/add'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -477,7 +438,6 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/import-lists'
     | '/settings/indexers'
-    | '/settings/manga-sources'
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
@@ -491,12 +451,10 @@ export interface FileRouteTypes {
     | '/activity/'
     | '/authors/'
     | '/books/'
-    | '/manga/'
     | '/movies/'
     | '/settings/'
     | '/system/'
     | '/tv/'
-    | '/manga/series/$mangaId'
     | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
@@ -515,7 +473,6 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
-    | '/manga/add'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -526,7 +483,6 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/import-lists'
     | '/settings/indexers'
-    | '/settings/manga-sources'
     | '/settings/media-management'
     | '/settings/metadata'
     | '/settings/profiles'
@@ -540,12 +496,10 @@ export interface FileRouteTypes {
     | '/activity'
     | '/authors'
     | '/books'
-    | '/manga'
     | '/movies'
     | '/settings'
     | '/system'
     | '/tv'
-    | '/manga/series/$mangaId'
     | '/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
@@ -565,7 +519,6 @@ export interface FileRouteTypes {
     | '/_authed/authors/$authorId'
     | '/_authed/books/$bookId'
     | '/_authed/books/add'
-    | '/_authed/manga/add'
     | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
     | '/_authed/movies/calendar'
@@ -576,7 +529,6 @@ export interface FileRouteTypes {
     | '/_authed/settings/general'
     | '/_authed/settings/import-lists'
     | '/_authed/settings/indexers'
-    | '/_authed/settings/manga-sources'
     | '/_authed/settings/media-management'
     | '/_authed/settings/metadata'
     | '/_authed/settings/profiles'
@@ -590,12 +542,10 @@ export interface FileRouteTypes {
     | '/_authed/activity/'
     | '/_authed/authors/'
     | '/_authed/books/'
-    | '/_authed/manga/'
     | '/_authed/movies/'
     | '/_authed/settings/'
     | '/_authed/system/'
     | '/_authed/tv/'
-    | '/_authed/manga/series/$mangaId'
     | '/_authed/tv/series/$showId'
     | '/api/v1/indexer/$id'
     | '/api/v1/indexer/schema'
@@ -691,13 +641,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/manga/': {
-      id: '/_authed/manga/'
-      path: '/manga'
-      fullPath: '/manga/'
-      preLoaderRoute: typeof AuthedMangaIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/books/': {
       id: '/_authed/books/'
       path: '/books'
@@ -789,13 +732,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSettingsMediaManagementRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/settings/manga-sources': {
-      id: '/_authed/settings/manga-sources'
-      path: '/settings/manga-sources'
-      fullPath: '/settings/manga-sources'
-      preLoaderRoute: typeof AuthedSettingsMangaSourcesRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/settings/indexers': {
       id: '/_authed/settings/indexers'
       path: '/settings/indexers'
@@ -864,13 +800,6 @@ declare module '@tanstack/react-router' {
       path: '/movies/$movieId'
       fullPath: '/movies/$movieId'
       preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/manga/add': {
-      id: '/_authed/manga/add'
-      path: '/manga/add'
-      fullPath: '/manga/add'
-      preLoaderRoute: typeof AuthedMangaAddRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/books/add': {
@@ -950,13 +879,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTvSeriesShowIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/manga/series/$mangaId': {
-      id: '/_authed/manga/series/$mangaId'
-      path: '/manga/series/$mangaId'
-      fullPath: '/manga/series/$mangaId'
-      preLoaderRoute: typeof AuthedMangaSeriesMangaIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
   }
 }
 
@@ -967,7 +889,6 @@ interface AuthedRouteChildren {
   AuthedAuthorsAuthorIdRoute: typeof AuthedAuthorsAuthorIdRoute
   AuthedBooksBookIdRoute: typeof AuthedBooksBookIdRoute
   AuthedBooksAddRoute: typeof AuthedBooksAddRoute
-  AuthedMangaAddRoute: typeof AuthedMangaAddRoute
   AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
   AuthedMoviesCalendarRoute: typeof AuthedMoviesCalendarRoute
@@ -978,7 +899,6 @@ interface AuthedRouteChildren {
   AuthedSettingsGeneralRoute: typeof AuthedSettingsGeneralRoute
   AuthedSettingsImportListsRoute: typeof AuthedSettingsImportListsRoute
   AuthedSettingsIndexersRoute: typeof AuthedSettingsIndexersRoute
-  AuthedSettingsMangaSourcesRoute: typeof AuthedSettingsMangaSourcesRoute
   AuthedSettingsMediaManagementRoute: typeof AuthedSettingsMediaManagementRoute
   AuthedSettingsMetadataRoute: typeof AuthedSettingsMetadataRoute
   AuthedSettingsProfilesRoute: typeof AuthedSettingsProfilesRoute
@@ -990,12 +910,10 @@ interface AuthedRouteChildren {
   AuthedActivityIndexRoute: typeof AuthedActivityIndexRoute
   AuthedAuthorsIndexRoute: typeof AuthedAuthorsIndexRoute
   AuthedBooksIndexRoute: typeof AuthedBooksIndexRoute
-  AuthedMangaIndexRoute: typeof AuthedMangaIndexRoute
   AuthedMoviesIndexRoute: typeof AuthedMoviesIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSystemIndexRoute: typeof AuthedSystemIndexRoute
   AuthedTvIndexRoute: typeof AuthedTvIndexRoute
-  AuthedMangaSeriesMangaIdRoute: typeof AuthedMangaSeriesMangaIdRoute
   AuthedTvSeriesShowIdRoute: typeof AuthedTvSeriesShowIdRoute
 }
 
@@ -1006,7 +924,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAuthorsAuthorIdRoute: AuthedAuthorsAuthorIdRoute,
   AuthedBooksBookIdRoute: AuthedBooksBookIdRoute,
   AuthedBooksAddRoute: AuthedBooksAddRoute,
-  AuthedMangaAddRoute: AuthedMangaAddRoute,
   AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
   AuthedMoviesCalendarRoute: AuthedMoviesCalendarRoute,
@@ -1017,7 +934,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSettingsGeneralRoute: AuthedSettingsGeneralRoute,
   AuthedSettingsImportListsRoute: AuthedSettingsImportListsRoute,
   AuthedSettingsIndexersRoute: AuthedSettingsIndexersRoute,
-  AuthedSettingsMangaSourcesRoute: AuthedSettingsMangaSourcesRoute,
   AuthedSettingsMediaManagementRoute: AuthedSettingsMediaManagementRoute,
   AuthedSettingsMetadataRoute: AuthedSettingsMetadataRoute,
   AuthedSettingsProfilesRoute: AuthedSettingsProfilesRoute,
@@ -1029,12 +945,10 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedActivityIndexRoute: AuthedActivityIndexRoute,
   AuthedAuthorsIndexRoute: AuthedAuthorsIndexRoute,
   AuthedBooksIndexRoute: AuthedBooksIndexRoute,
-  AuthedMangaIndexRoute: AuthedMangaIndexRoute,
   AuthedMoviesIndexRoute: AuthedMoviesIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSystemIndexRoute: AuthedSystemIndexRoute,
   AuthedTvIndexRoute: AuthedTvIndexRoute,
-  AuthedMangaSeriesMangaIdRoute: AuthedMangaSeriesMangaIdRoute,
   AuthedTvSeriesShowIdRoute: AuthedTvSeriesShowIdRoute,
 }
 

@@ -73,22 +73,6 @@ export const queryKeys = {
 		existence: (tmdbId: number) => ["shows", "existence", tmdbId] as const,
 	},
 
-	// ─── Manga ──────────────────────────────────────────────────────────────
-	manga: {
-		all: ["manga"] as const,
-		lists: () => ["manga", "list"] as const,
-		detail: (id: number) => ["manga", "detail", id] as const,
-		existence: (sourceId: string, sourceMangaUrl: string) =>
-			["manga", "existence", sourceId, sourceMangaUrl] as const,
-	},
-
-	// ─── Manga Sources ────────────────────────────────────────────────────
-	mangaSources: {
-		all: ["mangaSources"] as const,
-		search: (query: string) => ["mangaSources", "search", query] as const,
-		list: () => ["mangaSources", "list"] as const,
-	},
-
 	// ─── TMDB ────────────────────────────────────────────────────────────────
 	tmdb: {
 		all: ["tmdb"] as const,

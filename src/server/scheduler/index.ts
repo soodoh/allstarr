@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
-import { seedSourcesIfNeeded as seedMangaSources } from "src/server/manga-sources";
 import { eventBus } from "../event-bus";
 import { getAllTasks, getTask } from "./registry";
 import { isTaskRunning, markTaskComplete, markTaskRunning } from "./state";
@@ -14,7 +13,6 @@ import "./tasks/rss-sync";
 import "./tasks/rescan-folders";
 import "./tasks/refresh-downloads";
 import "./tasks/refresh-tmdb-metadata";
-import "./tasks/refresh-manga-sources";
 import "./tasks/search-missing";
 
 // oxlint-enable import/no-unassigned-import
@@ -150,7 +148,6 @@ export function ensureSchedulerStarted(): void {
 	started = true;
 
 	setTaskExecutor((taskId) => void executeTask(taskId));
-	seedMangaSources();
 	seedTasksIfNeeded();
 	startTimers();
 	console.log(`[scheduler] Started with ${timers.size} task(s)`);

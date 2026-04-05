@@ -15,8 +15,6 @@ export * from "./episode-download-profiles";
 export * from "./episode-files";
 export * from "./history";
 export * from "./indexers";
-export * from "./manga";
-export * from "./manga-files";
 export * from "./movie-collection-download-profiles";
 export * from "./movie-collection-movies";
 export * from "./movie-collections";

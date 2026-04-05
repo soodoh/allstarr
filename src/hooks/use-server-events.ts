@@ -23,10 +23,6 @@ function formatCommandResult(
 		case "importBook": {
 			return `${label} — Imported successfully`;
 		}
-		case "importManga": {
-			const r = result as { chaptersAdded?: number; volumesAdded?: number };
-			return `${label} — Added with ${r.chaptersAdded ?? 0} chapters and ${r.volumesAdded ?? 0} volumes`;
-		}
 		case "addShow": {
 			const r = result as { seasonCount?: number };
 			return `${label} — Added with ${r.seasonCount ?? 0} seasons`;
@@ -35,8 +31,7 @@ function formatCommandResult(
 			return `${label} — Added successfully`;
 		}
 		case "refreshAuthor":
-		case "refreshBook":
-		case "refreshManga": {
+		case "refreshBook": {
 			return `${label} — Metadata refreshed`;
 		}
 		default: {
@@ -61,13 +56,6 @@ function invalidateForCommand(
 		case "importBook":
 		case "refreshBook": {
 			queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
-			break;
-		}
-		case "importManga":
-		case "refreshManga": {
-			queryClient.invalidateQueries({ queryKey: queryKeys.manga.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
 			break;
 		}

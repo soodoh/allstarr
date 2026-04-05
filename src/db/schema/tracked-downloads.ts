@@ -3,7 +3,6 @@ import { authors } from "./authors";
 import { books } from "./books";
 import { downloadClients } from "./download-clients";
 import { downloadProfiles } from "./download-profiles";
-import { manga, mangaChapters } from "./manga";
 import { movies } from "./movies";
 import { episodes, shows } from "./shows";
 
@@ -32,13 +31,6 @@ export const trackedDownloads = sqliteTable("tracked_downloads", {
 	movieId: integer("movie_id").references(() => movies.id, {
 		onDelete: "set null",
 	}),
-	mangaId: integer("manga_id").references(() => manga.id, {
-		onDelete: "set null",
-	}),
-	mangaChapterId: integer("manga_chapter_id").references(
-		() => mangaChapters.id,
-		{ onDelete: "set null" },
-	),
 	releaseTitle: text("release_title").notNull(),
 	protocol: text("protocol").notNull(),
 	indexerId: integer("indexer_id"),

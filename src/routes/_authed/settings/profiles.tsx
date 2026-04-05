@@ -51,13 +51,13 @@ type ProfileValues = {
 	items: number[][];
 	upgradeAllowed: boolean;
 	categories: number[];
-	contentType: "ebook" | "movie" | "tv" | "audiobook" | "manga";
+	contentType: "ebook" | "movie" | "tv" | "audiobook";
 	language: string;
 	minCustomFormatScore: number;
 	upgradeUntilCustomFormatScore: number;
 };
 
-type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook" | "manga";
+type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook";
 
 function ProfilesPage() {
 	const { serverCwd } = Route.useLoaderData();
@@ -158,7 +158,6 @@ function ProfilesPage() {
 					<TabsTrigger value="tv">TV</TabsTrigger>
 					<TabsTrigger value="ebook">Ebook</TabsTrigger>
 					<TabsTrigger value="audiobook">Audiobook</TabsTrigger>
-					<TabsTrigger value="manga">Manga</TabsTrigger>
 				</TabsList>
 				<TabsContent value={activeTab}>
 					<DownloadProfileList
@@ -196,8 +195,7 @@ function ProfilesPage() {
 											| "ebook"
 											| "movie"
 											| "tv"
-											| "audiobook"
-											| "manga",
+											| "audiobook",
 										language: editingProfile.language,
 										minCustomFormatScore: editingProfile.minCustomFormatScore,
 										upgradeUntilCustomFormatScore:

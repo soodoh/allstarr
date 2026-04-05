@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mapBookFiles, mapMangaFiles, mapTvFiles } from "./import-mapping";
+import { mapBookFiles, mapTvFiles } from "./import-mapping";
 
 describe("mapTvFiles", () => {
 	test("maps S01E01 pattern to season/episode", () => {
@@ -34,51 +34,6 @@ describe("mapTvFiles", () => {
 		]);
 		expect(result).toEqual([
 			{ path: "/downloads/Show.S01E01.mkv", season: 1, episode: 1 },
-		]);
-	});
-});
-
-describe("mapMangaFiles", () => {
-	test("maps Vol and Ch patterns", () => {
-		const result = mapMangaFiles([
-			"/downloads/Manga Vol.05 Ch.040.cbz",
-			"/downloads/Manga Vol.05 Ch.041.cbz",
-		]);
-		expect(result).toEqual([
-			{ path: "/downloads/Manga Vol.05 Ch.040.cbz", volume: 5, chapter: 40 },
-			{ path: "/downloads/Manga Vol.05 Ch.041.cbz", volume: 5, chapter: 41 },
-		]);
-	});
-
-	test("maps chapter-only patterns", () => {
-		const result = mapMangaFiles([
-			"/downloads/Manga Chapter 40.cbz",
-			"/downloads/Manga Chapter 41.cbz",
-		]);
-		expect(result).toEqual([
-			{ path: "/downloads/Manga Chapter 40.cbz", volume: null, chapter: 40 },
-			{ path: "/downloads/Manga Chapter 41.cbz", volume: null, chapter: 41 },
-		]);
-	});
-
-	test("maps volume-only patterns (no chapter)", () => {
-		const result = mapMangaFiles([
-			"/downloads/Manga Vol.01.cbz",
-			"/downloads/Manga Vol.02.cbz",
-		]);
-		expect(result).toEqual([
-			{ path: "/downloads/Manga Vol.01.cbz", volume: 1, chapter: null },
-			{ path: "/downloads/Manga Vol.02.cbz", volume: 2, chapter: null },
-		]);
-	});
-
-	test("skips non-matching files", () => {
-		const result = mapMangaFiles([
-			"/downloads/Manga Vol.05 Ch.040.cbz",
-			"/downloads/cover.jpg",
-		]);
-		expect(result).toEqual([
-			{ path: "/downloads/Manga Vol.05 Ch.040.cbz", volume: 5, chapter: 40 },
 		]);
 	});
 });

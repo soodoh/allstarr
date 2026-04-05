@@ -4,8 +4,7 @@ export type ImageEntityType =
 	| "editions"
 	| "movies"
 	| "shows"
-	| "seasons"
-	| "manga";
+	| "seasons";
 
 function getExtensionFromContentType(contentType: string): string {
 	const map: Record<string, string> = {
