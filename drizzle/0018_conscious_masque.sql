@@ -1,1 +1,0 @@
-ALTER TABLE `manga_chapters` ADD `last_searched_at` integer;
