@@ -527,3 +527,15 @@ export const mangaSourceConfigSchema = z.object({
 	enabled: z.boolean().optional(),
 	config: z.record(z.string(), z.unknown()).optional(),
 });
+
+// ─── Series ──────────────────────────────────────────────────────────────
+
+export const updateSeriesSchema = z.object({
+	id: z.number(),
+	monitored: z.boolean().optional(),
+	downloadProfileIds: z.array(z.number()).optional(),
+});
+
+export const refreshSeriesSchema = z.object({
+	seriesId: z.number().optional(),
+});
