@@ -27,6 +27,7 @@ export * from "./movies";
 export * from "./profile-custom-formats";
 export * from "./scheduled-tasks";
 export * from "./series";
+export * from "./series-download-profiles";
 export * from "./settings";
 export * from "./show-download-profiles";
 export * from "./shows";
