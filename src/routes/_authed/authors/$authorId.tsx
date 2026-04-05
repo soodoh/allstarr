@@ -36,6 +36,7 @@ import NotFound from "src/components/NotFound";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
+import EditProfilesDialog from "src/components/shared/edit-series-profiles-dialog";
 import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
@@ -1497,7 +1498,7 @@ function SeriesTab({
 			/>
 
 			{editProfilesTarget && (
-				<EditSeriesProfilesDialog
+				<EditProfilesDialog
 					open
 					onOpenChange={(open) => {
 						if (!open) {
@@ -1511,68 +1512,6 @@ function SeriesTab({
 				/>
 			)}
 		</div>
-	);
-}
-
-// ---------- Edit Series Profiles Dialog ----------
-
-function EditSeriesProfilesDialog({
-	open,
-	onOpenChange,
-	seriesId,
-	seriesTitle,
-	downloadProfileIds,
-	profiles,
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	seriesId: number;
-	seriesTitle: string;
-	downloadProfileIds: number[];
-	profiles: DownloadProfileInfo[];
-}) {
-	const updateSeries = useUpdateSeries();
-	const [selectedIds, setSelectedIds] = useState<number[]>(downloadProfileIds);
-
-	const handleToggle = (id: number) => {
-		setSelectedIds((prev) =>
-			prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-		);
-	};
-
-	const handleSave = () => {
-		updateSeries.mutate(
-			{ id: seriesId, downloadProfileIds: selectedIds },
-			{ onSuccess: () => onOpenChange(false) },
-		);
-	};
-
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Edit Profiles for {seriesTitle}</DialogTitle>
-				</DialogHeader>
-				<DialogBody>
-					<ProfileCheckboxGroup
-						profiles={profiles}
-						selectedIds={selectedIds}
-						onToggle={handleToggle}
-					/>
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)}>
-						Cancel
-					</Button>
-					<Button onClick={handleSave} disabled={updateSeries.isPending}>
-						{updateSeries.isPending ? (
-							<Loader2 className="h-4 w-4 animate-spin mr-2" />
-						) : null}
-						Save
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
 	);
 }
 

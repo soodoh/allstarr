@@ -21,6 +21,7 @@ import AdditionalAuthors from "src/components/bookshelf/books/additional-authors
 import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
+import EditProfilesDialog from "src/components/shared/edit-series-profiles-dialog";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
 import PageHeader from "src/components/shared/page-header";
@@ -28,14 +29,6 @@ import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
-import {
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "src/components/ui/dialog";
 import Input from "src/components/ui/input";
 import {
 	Select,
@@ -398,68 +391,6 @@ const SERIES_COLUMN_REGISTRY: Record<
 	},
 };
 
-// ---------- Edit Profiles Dialog ----------
-
-function EditProfilesDialog({
-	open,
-	onOpenChange,
-	seriesId,
-	seriesTitle,
-	downloadProfileIds,
-	profiles,
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	seriesId: number;
-	seriesTitle: string;
-	downloadProfileIds: number[];
-	profiles: DownloadProfileInfo[];
-}) {
-	const updateSeries = useUpdateSeries();
-	const [selectedIds, setSelectedIds] = useState<number[]>(downloadProfileIds);
-
-	const handleToggle = (id: number) => {
-		setSelectedIds((prev) =>
-			prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-		);
-	};
-
-	const handleSave = () => {
-		updateSeries.mutate(
-			{ id: seriesId, downloadProfileIds: selectedIds },
-			{ onSuccess: () => onOpenChange(false) },
-		);
-	};
-
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Edit Profiles for {seriesTitle}</DialogTitle>
-				</DialogHeader>
-				<DialogBody>
-					<ProfileCheckboxGroup
-						profiles={profiles}
-						selectedIds={selectedIds}
-						onToggle={handleToggle}
-					/>
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)}>
-						Cancel
-					</Button>
-					<Button onClick={handleSave} disabled={updateSeries.isPending}>
-						{updateSeries.isPending ? (
-							<Loader2 className="h-4 w-4 animate-spin mr-2" />
-						) : null}
-						Save
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 // ---------- Main page ----------
 
 function SeriesPage() {
@@ -667,31 +598,26 @@ function SeriesPage() {
 
 	const seriesWithCounts = useMemo(() => {
 		const q = searchQuery.toLowerCase();
-		const result: Array<{ series: SeriesEntry; entryCount: number }> = [];
+		const result: Array<{
+			series: SeriesEntry;
+			entryCount: number;
+			totalReaders: number;
+		}> = [];
 		for (const s of allSeries) {
 			if (q && !s.title.toLowerCase().includes(q)) {
 				continue;
 			}
-			const count = getSeriesEntries(s).length;
-			if (count > 0) {
-				result.push({ series: s, entryCount: count });
+			const entries = getSeriesEntries(s);
+			if (entries.length > 0) {
+				let totalReaders = 0;
+				for (const e of entries) {
+					totalReaders +=
+						e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
+				}
+				result.push({ series: s, entryCount: entries.length, totalReaders });
 			}
 		}
-		result.sort((a, b) => {
-			const aEntries = getSeriesEntries(a.series);
-			const bEntries = getSeriesEntries(b.series);
-			let aReaders = 0;
-			for (const e of aEntries) {
-				aReaders +=
-					e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
-			}
-			let bReaders = 0;
-			for (const e of bEntries) {
-				bReaders +=
-					e.kind === "local" ? (e.book.usersCount ?? 0) : (e.usersCount ?? 0);
-			}
-			return bReaders - aReaders;
-		});
+		result.sort((a, b) => b.totalReaders - a.totalReaders);
 		return result;
 	}, [allSeries, searchQuery, getSeriesEntries]);
 
