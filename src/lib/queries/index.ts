@@ -7,7 +7,6 @@ export * from "./filesystem";
 export * from "./hardcover";
 export * from "./history";
 export * from "./indexers";
-export * from "./manga";
 export * from "./movies";
 export * from "./queue";
 export * from "./settings";

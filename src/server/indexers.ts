@@ -572,8 +572,6 @@ export type PackContext = {
 	wantedEpisodesBySeason?: Map<number, Set<number>>;
 	/** Set of wanted book IDs */
 	wantedBookIds?: Set<number>;
-	/** Volume number → set of wanted chapter numbers in that volume (manga, unused by indexer pack logic) */
-	wantedChaptersByVolume?: Map<number, Set<number>>;
 	/** Total number of wanted items (used for "Complete Series" packs with no specific seasons) */
 	totalWantedSeasons?: number;
 };
@@ -832,7 +830,7 @@ async function searchAllIndexers(
 	categories: number[],
 	bookParams?: BookSearchParams,
 	interactive = false,
-	contentType: "tv" | "book" | "manga" = "book",
+	contentType: "tv" | "book" = "book",
 ): Promise<{ releases: IndexerRelease[]; warnings: string[] }> {
 	const allReleases: IndexerRelease[] = [];
 	const warnings: string[] = [];

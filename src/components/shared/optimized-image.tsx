@@ -1,17 +1,10 @@
 import { Image } from "@unpic/react";
-import {
-	BookOpen,
-	BookOpenText,
-	Film,
-	ImageIcon,
-	ImageOff,
-	Tv,
-} from "lucide-react";
+import { BookOpen, Film, ImageIcon, ImageOff, Tv } from "lucide-react";
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { cn } from "src/lib/utils";
 
-type ImageType = "book" | "movie" | "show" | "author" | "manga" | "generic";
+type ImageType = "book" | "movie" | "show" | "author" | "generic";
 
 type OptimizedImageProps = {
 	src: string | null;
@@ -28,7 +21,7 @@ const fallbacks: Record<ImageType, { icon: typeof Film; label: string }> = {
 	book: { icon: BookOpen, label: "No cover" },
 	movie: { icon: Film, label: "No poster" },
 	show: { icon: Tv, label: "No poster" },
-	manga: { icon: BookOpenText, label: "No cover" },
+
 	author: { icon: ImageOff, label: "No photo" },
 	generic: { icon: ImageIcon, label: "No image" },
 };

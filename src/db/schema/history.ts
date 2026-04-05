@@ -1,7 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { authors } from "./authors";
 import { books } from "./books";
-import { manga, mangaChapters } from "./manga";
 import { movies } from "./movies";
 import { episodes, shows } from "./shows";
 
@@ -23,13 +22,6 @@ export const history = sqliteTable("history", {
 	movieId: integer("movie_id").references(() => movies.id, {
 		onDelete: "set null",
 	}),
-	mangaId: integer("manga_id").references(() => manga.id, {
-		onDelete: "set null",
-	}),
-	mangaChapterId: integer("manga_chapter_id").references(
-		() => mangaChapters.id,
-		{ onDelete: "set null" },
-	),
 	data: text("data", { mode: "json" }).$type<
 		Record<string, string | number | boolean | null>
 	>(),

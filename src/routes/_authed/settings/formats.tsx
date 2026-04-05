@@ -48,13 +48,13 @@ type FormatValues = {
 	preferredSize: number;
 	noMaxLimit: number;
 	noPreferredLimit: number;
-	contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook" | "manga">;
+	contentTypes: Array<"ebook" | "movie" | "tv" | "audiobook">;
 	source: string | null;
 	resolution: number;
 };
 
 const DEFAULTS_CONFIG: Record<
-	"ebook" | "audiobook" | "movie" | "tv" | "manga",
+	"ebook" | "audiobook" | "movie" | "tv",
 	{ label: string; key: string; fallback: number; unit: string; hint: string }
 > = {
 	ebook: {
@@ -85,13 +85,6 @@ const DEFAULTS_CONFIG: Record<
 		unit: "minutes",
 		hint: "Used when an episode\u2019s runtime is unavailable",
 	},
-	manga: {
-		label: "Default Manga Chapter Pages",
-		key: "format.manga.defaultChapterPages",
-		fallback: 20,
-		unit: "pages",
-		hint: "Used when a chapter\u2019s page count is unavailable",
-	},
 };
 
 function DefaultsSection({
@@ -99,7 +92,7 @@ function DefaultsSection({
 	settingsMap,
 	onUpdate,
 }: {
-	contentType: "all" | "ebook" | "audiobook" | "movie" | "tv" | "manga";
+	contentType: "all" | "ebook" | "audiobook" | "movie" | "tv";
 	settingsMap: Record<string, unknown>;
 	onUpdate: (key: string, value: number) => void;
 }) {
@@ -150,7 +143,7 @@ function DefaultsSection({
 	);
 }
 
-type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook" | "manga";
+type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook";
 
 function FormatsPage() {
 	const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
@@ -250,7 +243,6 @@ function FormatsPage() {
 					<TabsTrigger value="tv">TV</TabsTrigger>
 					<TabsTrigger value="ebook">Ebook</TabsTrigger>
 					<TabsTrigger value="audiobook">Audiobook</TabsTrigger>
-					<TabsTrigger value="manga">Manga</TabsTrigger>
 				</TabsList>
 
 				<div className="relative my-4">
@@ -299,7 +291,7 @@ function FormatsPage() {
 										noMaxLimit: editingDef.noMaxLimit ?? 0,
 										noPreferredLimit: editingDef.noPreferredLimit ?? 0,
 										contentTypes: editingDef.contentTypes as Array<
-											"ebook" | "movie" | "tv" | "audiobook" | "manga"
+											"ebook" | "movie" | "tv" | "audiobook"
 										>,
 										source: editingDef.source ?? null,
 										resolution: editingDef.resolution ?? 0,

@@ -6,8 +6,6 @@ export * from "./download-profiles";
 export * from "./import";
 export * from "./indexer-search";
 export * from "./indexers";
-export * from "./manga";
-export * from "./manga-chapter-profiles";
 export * from "./movies";
 export * from "./queue";
 export * from "./settings";

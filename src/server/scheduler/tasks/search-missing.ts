@@ -14,7 +14,7 @@ registerTask({
 	id: "search-missing",
 	name: "Search for Missing",
 	description:
-		"Search indexers for all wanted items across books, movies, TV shows, and manga.",
+		"Search indexers for all wanted items across books, movies, and TV shows.",
 	defaultInterval: 24 * 60 * 60, // 24 hours
 	group: "search",
 	handler: async (updateProgress): Promise<TaskResult> => {
@@ -65,9 +65,6 @@ registerTask({
 		const episodeCount = (result.episodeDetails ?? []).filter(
 			(d) => d.searched,
 		).length;
-		const mangaCount = (result.mangaDetails ?? []).filter(
-			(d) => d.searched,
-		).length;
 
 		if (bookCount > 0) {
 			typeParts.push(plural(bookCount, "book"));
@@ -77,9 +74,6 @@ registerTask({
 		}
 		if (episodeCount > 0) {
 			typeParts.push(plural(episodeCount, "episode"));
-		}
-		if (mangaCount > 0) {
-			typeParts.push(plural(mangaCount, "chapter"));
 		}
 
 		const searched =

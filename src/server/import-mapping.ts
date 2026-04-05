@@ -11,20 +11,12 @@ export type MappedTvFile = {
 	episode: number;
 };
 
-export type MappedMangaFile = {
-	path: string;
-	volume: number | null;
-	chapter: number | null;
-};
-
 export type MappedBookFile = {
 	path: string;
 	extractedTitle: string;
 };
 
 const TV_EPISODE_PATTERN = /S(\d{1,2})E(\d{1,3})/i;
-const MANGA_VOL_PATTERN = /\b(?:Vol(?:ume)?|v)\.?\s*(\d+)/i;
-const MANGA_CH_PATTERN = /\b(?:Ch(?:apter)?|c)\.?\s*(\d+)/i;
 const BOOK_AUTHOR_TITLE = /^(.+?)\s*-\s*(.+?)(?:\.\w+)?$/;
 
 export function mapTvFiles(filePaths: string[]): MappedTvFile[] {
@@ -37,24 +29,6 @@ export function mapTvFiles(filePaths: string[]): MappedTvFile[] {
 				path: filePath,
 				season: Number.parseInt(match[1], 10),
 				episode: Number.parseInt(match[2], 10),
-			});
-		}
-	}
-	return results;
-}
-
-export function mapMangaFiles(filePaths: string[]): MappedMangaFile[] {
-	const results: MappedMangaFile[] = [];
-	for (const filePath of filePaths) {
-		const name = basename(filePath);
-		const volMatch = name.match(MANGA_VOL_PATTERN);
-		const chMatch = name.match(MANGA_CH_PATTERN);
-
-		if (volMatch || chMatch) {
-			results.push({
-				path: filePath,
-				volume: volMatch ? Number.parseInt(volMatch[1], 10) : null,
-				chapter: chMatch ? Number.parseInt(chMatch[1], 10) : null,
 			});
 		}
 	}
