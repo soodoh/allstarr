@@ -1,7 +1,7 @@
 pre-commit:
   commands:
     check:
-      glob: "*.{js,jsx,ts,tsx,css,html,json}"
+      glob: "src/**/*.{js,jsx,ts,tsx,css,html,json}"
       staged: true
       run: bunx biome check --write {staged_files}
       stage_fixed: true
