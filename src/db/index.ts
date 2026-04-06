@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
+import fs from "node:fs";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
+import { downloadProfiles } from "./schema";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
 sqlite.run(`PRAGMA journal_mode = ${process.env.SQLITE_JOURNAL_MODE || "WAL"}`);
@@ -75,3 +77,14 @@ if (hasRoleCol) {
 sqlite.run(`
   INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
 `);
+
+// Ensure root folder directories exist for all download profiles
+const profiles = db
+	.select({ rootFolderPath: downloadProfiles.rootFolderPath })
+	.from(downloadProfiles)
+	.all();
+for (const { rootFolderPath } of profiles) {
+	if (rootFolderPath) {
+		fs.mkdirSync(rootFolderPath, { recursive: true });
+	}
+}
