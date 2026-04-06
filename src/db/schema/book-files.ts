@@ -1,5 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { books } from "./books";
+import { downloadProfiles } from "./download-profiles";
 
 export const bookFiles = sqliteTable("book_files", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -24,4 +25,8 @@ export const bookFiles = sqliteTable("book_files", {
 	codec: text("codec"),
 	pageCount: integer("page_count"),
 	language: text("language"),
+	downloadProfileId: integer("download_profile_id").references(
+		() => downloadProfiles.id,
+		{ onDelete: "set null" },
+	),
 });

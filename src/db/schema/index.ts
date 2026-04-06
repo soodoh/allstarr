@@ -33,4 +33,5 @@ export * from "./shows";
 export * from "./synced-indexers";
 export * from "./tags";
 export * from "./tracked-downloads";
+export * from "./unmapped-files";
 export * from "./user-settings";
