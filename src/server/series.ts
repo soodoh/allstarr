@@ -40,7 +40,7 @@ export const getSeriesListFn = createServerFn({ method: "GET" }).handler(
 
 		const seriesIds = seriesWithMonitoredBooks.map((r) => r.seriesId);
 		if (seriesIds.length === 0) {
-			return [];
+			return { series: [], books: [], availableLanguages: [] };
 		}
 
 		const seriesRecords = db
@@ -373,7 +373,7 @@ export async function refreshSeriesInternal(seriesId?: number): Promise<{
 		Number(s.foreignSeriesId),
 	);
 
-	let rawSeriesList;
+	let rawSeriesList: Awaited<ReturnType<typeof fetchSeriesComplete>>;
 	try {
 		rawSeriesList = await fetchSeriesComplete(foreignSeriesIds, langCodes, 0);
 	} catch (err) {

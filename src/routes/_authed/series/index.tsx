@@ -673,7 +673,7 @@ function SeriesPage() {
 						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
 						<Input
 							className="pl-8 pr-8 h-9 text-sm"
-							placeholder="Filter by series name\u2026"
+							placeholder="Filter by series name..."
 							value={searchInput}
 							onChange={(e) => handleSearchChange(e.target.value)}
 						/>
