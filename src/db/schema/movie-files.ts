@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { downloadProfiles } from "./download-profiles";
 import { movies } from "./movies";
 
 export const movieFiles = sqliteTable("movie_files", {
@@ -19,4 +20,8 @@ export const movieFiles = sqliteTable("movie_files", {
 	duration: integer("duration"),
 	codec: text("codec"),
 	container: text("container"),
+	downloadProfileId: integer("download_profile_id").references(
+		() => downloadProfiles.id,
+		{ onDelete: "set null" },
+	),
 });
