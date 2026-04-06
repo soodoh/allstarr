@@ -1,7 +1,6 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
-import { seedBuiltinCustomFormats } from "./seed-custom-formats";
 
 const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
 sqlite.run(`PRAGMA journal_mode = ${process.env.SQLITE_JOURNAL_MODE || "WAL"}`);
@@ -76,6 +75,3 @@ if (hasRoleCol) {
 sqlite.run(`
   INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
 `);
-
-// Seed built-in custom formats if they don't exist yet
-seedBuiltinCustomFormats(db);

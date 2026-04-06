@@ -8,6 +8,13 @@
       "when": 1775429542962,
       "tag": "0000_dapper_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775615100000,
+      "tag": "0001_seed_formats_profiles",
+      "breakpoints": true
     }
   ]
 }
