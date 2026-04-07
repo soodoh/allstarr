@@ -78,7 +78,7 @@ jobs:
         run: bun run build
 
   e2e:
-    name: End-to-End Tests
+    name: Playwright
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -89,6 +89,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
 
       - name: End-to-End Tests
         run: bun run test:e2e
