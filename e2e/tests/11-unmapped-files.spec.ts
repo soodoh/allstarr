@@ -554,4 +554,53 @@ test.describe("Unmapped Files", () => {
         rootFolderPath: secondRoot,
       });
   });
+
+  test("ignored unmapped files stay ignored after rescan all", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    const file = seedUnmappedEbook(db, tempDir, "ignored-after-rescan.epub");
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
+
+    await page.getByTitle("Ignore").click();
+    await expect(page.getByText(file.filename, { exact: true })).toHaveCount(0);
+
+    await expect
+      .poll(() =>
+        db
+          .select({ ignored: schema.unmappedFiles.ignored })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.id, file.id))
+          .get()?.ignored ?? null,
+      )
+      .toBe(true);
+
+    await page.getByRole("button", { name: "Rescan All" }).click();
+
+    await expect(page.getByText(file.filename, { exact: true })).toHaveCount(0);
+
+    await expect
+      .poll(() =>
+        db
+          .select({ ignored: schema.unmappedFiles.ignored })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.id, file.id))
+          .get()?.ignored ?? null,
+      )
+      .toBe(true);
+
+    await page.getByRole("button", { name: "Show Ignored" }).click();
+    await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
+  });
 });
