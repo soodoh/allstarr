@@ -26,7 +26,8 @@ export type ServerEvent =
 			commandType: string;
 			error: string;
 			title: string;
-	  };
+	  }
+	| { type: "unmappedFilesUpdated" };
 
 class EventBus {
 	private clients = new Set<ReadableStreamDefaultController>();
