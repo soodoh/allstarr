@@ -22,6 +22,7 @@ jobs:
       major: ${{ steps.resolve.outputs.major }}
       minor: ${{ steps.resolve.outputs.minor }}
       publish_mode: ${{ steps.resolve.outputs.publish_mode }}
+      publish_floating_tags: ${{ steps.resolve.outputs.publish_floating_tags }}
     steps:
       - name: Resolve publish mode
         id: resolve
@@ -31,6 +32,7 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           PUSH_TAG: ${{ github.ref_name }}
           REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -38,6 +40,7 @@ jobs:
           if [[ "$EVENT_NAME" == "release" && "$EVENT_ACTION" == "published" ]]; then
             tag="$RELEASE_TAG"
             publish_mode="release"
+            publish_floating_tags="true"
           elif [[ "$EVENT_NAME" == "push" ]]; then
             tag="$PUSH_TAG"
           else
@@ -55,25 +58,31 @@ jobs:
           minor="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
 
           if [[ "$EVENT_NAME" == "push" ]]; then
-            release_api="https://api.github.com/repos/$REPOSITORY/releases/tags/$tag"
-            http_status=$(curl --silent --show-error --output /tmp/release.json --write-out '%{http_code}' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "$release_api")
+            publish_floating_tags="false"
 
-            case "$http_status" in
-              200)
-                publish_mode="skip"
-                ;;
-              404)
-                publish_mode="manual-tag"
-                ;;
-              *)
-                echo "Failed to resolve release state for $tag (HTTP $http_status)."
-                cat /tmp/release.json
-                exit 1
-                ;;
-            esac
+            if [[ "$GITHUB_ACTOR" == "github-actions[bot]" ]]; then
+              publish_mode="skip"
+            else
+              release_api="https://api.github.com/repos/$REPOSITORY/releases/tags/$tag"
+              http_status=$(curl --silent --show-error --output /tmp/release.json --write-out '%{http_code}' \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "$release_api")
+
+              case "$http_status" in
+                200)
+                  publish_mode="skip"
+                  ;;
+                404)
+                  publish_mode="manual-tag"
+                  ;;
+                *)
+                  echo "Failed to resolve release state for $tag (HTTP $http_status)."
+                  cat /tmp/release.json
+                  exit 1
+                  ;;
+              esac
+            fi
           fi
 
           {
@@ -82,6 +91,7 @@ jobs:
             echo "major=$major"
             echo "minor=$minor"
             echo "publish_mode=$publish_mode"
+            echo "publish_floating_tags=$publish_floating_tags"
           } >> "$GITHUB_OUTPUT"
 
   lint:
@@ -93,7 +103,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -113,7 +123,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -133,7 +143,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -153,7 +163,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -173,7 +183,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -214,7 +224,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.context.outputs.tag }}
+          ref: refs/tags/${{ needs.context.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -233,9 +243,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
             type=raw,value=${{ needs.context.outputs.version }}
-            type=raw,value=${{ needs.context.outputs.minor }}
-            type=raw,value=${{ needs.context.outputs.major }}
-            type=raw,value=latest
+            type=raw,value=${{ needs.context.outputs.minor }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=${{ needs.context.outputs.major }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
