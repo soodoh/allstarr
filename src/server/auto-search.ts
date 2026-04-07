@@ -40,10 +40,11 @@ import {
 } from "./indexers/format-parser";
 import { searchNewznab } from "./indexers/http";
 import type { IndexerRelease } from "./indexers/types";
+import { logError, logInfo, logWarn } from "./logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type AutoSearchOptions = {
+type AutoSearchOptions = {
 	delayBetweenBooks?: number;
 	maxBooks?: number;
 	bookIds?: number[];
@@ -79,7 +80,7 @@ type EpisodeSearchDetail = {
 	error?: string;
 };
 
-export type AutoSearchResult = {
+type AutoSearchResult = {
 	searched: number;
 	grabbed: number;
 	errors: number;
@@ -796,9 +797,7 @@ async function searchIndexers(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(
-					`${logPrefix} Indexer "${synced.name}" skipped: ${gate.reason}`,
-				);
+				logInfo(logPrefix, `Indexer "${synced.name}" skipped: ${gate.reason}`);
 				continue;
 			}
 		}
@@ -829,10 +828,7 @@ async function searchIndexers(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`${logPrefix} Indexer "${synced.name}" failed:`,
-				error instanceof Error ? error.message : error,
-			);
+			logError(logPrefix, `Indexer "${synced.name}" failed`, error);
 		}
 	}
 
@@ -842,9 +838,7 @@ async function searchIndexers(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(
-					`${logPrefix} Indexer "${ix.name}" skipped: ${gate.reason}`,
-				);
+				logInfo(logPrefix, `Indexer "${ix.name}" skipped: ${gate.reason}`);
 				continue;
 			}
 		}
@@ -875,10 +869,7 @@ async function searchIndexers(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`${logPrefix} Manual indexer failed:`,
-				error instanceof Error ? error.message : error,
-			);
+			logError(logPrefix, "Manual indexer failed", error);
 		}
 	}
 
@@ -936,9 +927,7 @@ async function searchAndGrabForBook(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(
-					`[rss-sync] Indexer "${synced.name}" skipped: ${gate.reason}`,
-				);
+				logInfo("rss-sync", `Indexer "${synced.name}" skipped: ${gate.reason}`);
 				continue;
 			}
 		}
@@ -966,10 +955,7 @@ async function searchAndGrabForBook(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`[rss-sync] Indexer "${synced.name}" failed:`,
-				error instanceof Error ? error.message : error,
-			);
+			logError("rss-sync", `Indexer "${synced.name}" failed`, error);
 		}
 	}
 
@@ -980,7 +966,7 @@ async function searchAndGrabForBook(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(`[rss-sync] Indexer "${ix.name}" skipped: ${gate.reason}`);
+				logInfo("rss-sync", `Indexer "${ix.name}" skipped: ${gate.reason}`);
 				continue;
 			}
 		}
@@ -1008,10 +994,7 @@ async function searchAndGrabForBook(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`[rss-sync] Manual indexer failed:`,
-				error instanceof Error ? error.message : error,
-			);
+			logError("rss-sync", "Manual indexer failed", error);
 		}
 	}
 
@@ -1086,8 +1069,9 @@ async function grabPerProfile(
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			grabbedGuids.add(bestRelease.guid);
-			console.log(
-				`[rss-sync] Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
+			logInfo(
+				"rss-sync",
+				`Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
 			);
 		}
 	}
@@ -1106,8 +1090,9 @@ async function grabReleaseForBookPack(
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		console.warn(
-			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		logWarn(
+			"auto-search",
+			`No enabled ${release.protocol} download client for "${release.title}"`,
 		);
 		return false;
 	}
@@ -1226,8 +1211,9 @@ async function grabPerProfileForBooks(
 			if (result) {
 				grabbedGuids.add(best.guid);
 				grabbed = true;
-				console.log(
-					`[auto-search] Grabbed "${best.title}" for "${book.title}"${isPack ? " (author pack)" : ""} (profile: ${profile.name})`,
+				logInfo(
+					"auto-search",
+					`Grabbed "${best.title}" for "${book.title}"${isPack ? " (author pack)" : ""} (profile: ${profile.name})`,
 				);
 			}
 		}
@@ -1294,8 +1280,9 @@ async function searchAndGrabForMovie(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(
-					`[auto-search] Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
+				logInfo(
+					"auto-search",
+					`Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
 				);
 				continue;
 			}
@@ -1324,9 +1311,10 @@ async function searchAndGrabForMovie(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`[auto-search] Indexer "${synced.name}" failed for movie:`,
-				error instanceof Error ? error.message : error,
+			logError(
+				"auto-search",
+				`Indexer "${synced.name}" failed for movie`,
+				error,
 			);
 		}
 	}
@@ -1338,8 +1326,9 @@ async function searchAndGrabForMovie(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
-				console.log(
-					`[auto-search] Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
+				logInfo(
+					"auto-search",
+					`Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
 				);
 				continue;
 			}
@@ -1368,10 +1357,7 @@ async function searchAndGrabForMovie(
 				),
 			);
 		} catch (error) {
-			console.error(
-				`[auto-search] Manual indexer failed for movie:`,
-				error instanceof Error ? error.message : error,
-			);
+			logError("auto-search", "Manual indexer failed for movie", error);
 		}
 	}
 
@@ -1447,8 +1433,9 @@ async function grabPerProfileForMovie(
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			grabbedGuids.add(bestRelease.guid);
-			console.log(
-				`[auto-search] Grabbed "${bestRelease.title}" for movie "${movie.title}" (profile: ${profile.name})`,
+			logInfo(
+				"auto-search",
+				`Grabbed "${bestRelease.title}" for movie "${movie.title}" (profile: ${profile.name})`,
 			);
 		}
 	}
@@ -1485,8 +1472,9 @@ async function searchAndGrabForEpisode(
 				if (gate.reason === "pacing" && gate.waitMs) {
 					await sleep(gate.waitMs);
 				} else {
-					console.log(
-						`[auto-search] Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
+					logInfo(
+						"auto-search",
+						`Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
 					);
 					continue;
 				}
@@ -1515,9 +1503,10 @@ async function searchAndGrabForEpisode(
 					),
 				);
 			} catch (error) {
-				console.error(
-					`[auto-search] Indexer "${synced.name}" failed for episode:`,
-					error instanceof Error ? error.message : error,
+				logError(
+					"auto-search",
+					`Indexer "${synced.name}" failed for episode`,
+					error,
 				);
 			}
 		}
@@ -1529,8 +1518,9 @@ async function searchAndGrabForEpisode(
 				if (gate.reason === "pacing" && gate.waitMs) {
 					await sleep(gate.waitMs);
 				} else {
-					console.log(
-						`[auto-search] Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
+					logInfo(
+						"auto-search",
+						`Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
 					);
 					continue;
 				}
@@ -1559,10 +1549,7 @@ async function searchAndGrabForEpisode(
 					),
 				);
 			} catch (error) {
-				console.error(
-					`[auto-search] Manual indexer failed for episode:`,
-					error instanceof Error ? error.message : error,
-				);
+				logError("auto-search", "Manual indexer failed for episode", error);
 			}
 		}
 	}
@@ -1643,8 +1630,9 @@ async function grabPerProfileForEpisode(
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			grabbedGuids.add(bestRelease.guid);
-			console.log(
-				`[auto-search] Grabbed "${bestRelease.title}" for "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)} (profile: ${profile.name})`,
+			logInfo(
+				"auto-search",
+				`Grabbed "${bestRelease.title}" for "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)} (profile: ${profile.name})`,
 			);
 		}
 	}
@@ -1682,8 +1670,9 @@ async function grabReleaseForEpisodePack(
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		console.warn(
-			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		logWarn(
+			"auto-search",
+			`No enabled ${release.protocol} download client for "${release.title}"`,
 		);
 		return false;
 	}
@@ -1801,8 +1790,9 @@ async function grabPerProfileForEpisodes(
 			if (result) {
 				grabbedGuids.add(best.guid);
 				grabbed = true;
-				console.log(
-					`[auto-search] Grabbed "${best.title}" for "${ep.showTitle}"${isPack ? " (pack)" : ` S${padNumber(ep.seasonNumber)}E${padNumber(ep.episodeNumber)}`} (profile: ${profile.name})`,
+				logInfo(
+					"auto-search",
+					`Grabbed "${best.title}" for "${ep.showTitle}"${isPack ? " (pack)" : ` S${padNumber(ep.seasonNumber)}E${padNumber(ep.episodeNumber)}`} (profile: ${profile.name})`,
 				);
 			}
 		}
@@ -1961,8 +1951,9 @@ async function searchSeasonWithFallback(
 				return { searched, grabbed };
 			}
 		} catch (error) {
-			console.error(
-				`[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+			logError(
+				"auto-search",
+				`Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}`,
 				error,
 			);
 		}
@@ -1981,8 +1972,9 @@ async function searchSeasonWithFallback(
 				grabbed += 1;
 			}
 		} catch (error) {
-			console.error(
-				`[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+			logError(
+				"auto-search",
+				`Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
 				error,
 			);
 		}
@@ -2034,8 +2026,9 @@ export async function searchForShow(
 				return { searched, grabbed };
 			}
 		} catch (error) {
-			console.error(
-				`[auto-search] Error in show-level search for "${show.title}":`,
+			logError(
+				"auto-search",
+				`Error in show-level search for "${show.title}"`,
 				error,
 			);
 		}
@@ -2134,8 +2127,9 @@ async function processIndividualBooks(
 				grabbed: false,
 				error: error instanceof Error ? error.message : "Unknown error",
 			});
-			console.error(
-				`[auto-search] Error searching for book "${book.title}":`,
+			logError(
+				"auto-search",
+				`Error searching for book "${book.title}"`,
 				error,
 			);
 		}
@@ -2171,7 +2165,7 @@ async function processWantedBooks(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
-			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
 		if (!isFirstGroup) {
@@ -2192,8 +2186,9 @@ async function processWantedBooks(
 					continue;
 				}
 			} catch (error) {
-				console.error(
-					`[auto-search] Error in author-level search for "${authorName}":`,
+				logError(
+					"auto-search",
+					`Error in author-level search for "${authorName}"`,
 					error,
 				);
 			}
@@ -2219,7 +2214,7 @@ async function processWantedMovies(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
-			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
 
@@ -2247,8 +2242,9 @@ async function processWantedMovies(
 				grabbed: false,
 				error: error instanceof Error ? error.message : "Unknown error",
 			});
-			console.error(
-				`[auto-search] Error searching for movie "${movie.title}":`,
+			logError(
+				"auto-search",
+				`Error searching for movie "${movie.title}"`,
 				error,
 			);
 		}
@@ -2311,8 +2307,9 @@ async function processSeasonEpisodes(
 				return;
 			}
 		} catch (error) {
-			console.error(
-				`[auto-search] Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}:`,
+			logError(
+				"auto-search",
+				`Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}`,
 				error,
 			);
 		}
@@ -2354,8 +2351,9 @@ async function processSeasonEpisodes(
 				grabbed: false,
 				error: error instanceof Error ? error.message : "Unknown error",
 			});
-			console.error(
-				`[auto-search] Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}:`,
+			logError(
+				"auto-search",
+				`Error searching for episode "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)}`,
 				error,
 			);
 		}
@@ -2395,7 +2393,7 @@ async function processWantedEpisodes(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
-			console.log("[auto-search] All indexers exhausted, stopping cycle early");
+			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
 		if (!isFirstShow) {
@@ -2421,8 +2419,9 @@ async function processWantedEpisodes(
 					continue;
 				}
 			} catch (error) {
-				console.error(
-					`[auto-search] Error in show-level search for "${show.title}":`,
+				logError(
+					"auto-search",
+					`Error in show-level search for "${show.title}"`,
 					error,
 				);
 			}
@@ -2474,7 +2473,7 @@ export async function runAutoSearch(
 	const ixs = getEnabledIndexers();
 
 	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-		console.log("[auto-search] No RSS-enabled indexers configured");
+		logInfo("auto-search", "No RSS-enabled indexers configured");
 		return result;
 	}
 
@@ -2673,8 +2672,9 @@ async function grabRelease(
 			.filter((c) => c.protocol === release.protocol);
 
 		if (matchingClients.length === 0) {
-			console.warn(
-				`[rss-sync] No enabled ${release.protocol} download client for "${release.title}"`,
+			logWarn(
+				"rss-sync",
+				`No enabled ${release.protocol} download client for "${release.title}"`,
 			);
 			return false;
 		}
@@ -2809,8 +2809,9 @@ async function grabReleaseForMovie(
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		console.warn(
-			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		logWarn(
+			"auto-search",
+			`No enabled ${release.protocol} download client for "${release.title}"`,
 		);
 		return false;
 	}
@@ -2885,8 +2886,9 @@ async function grabReleaseForEpisode(
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		console.warn(
-			`[auto-search] No enabled ${release.protocol} download client for "${release.title}"`,
+		logWarn(
+			"auto-search",
+			`No enabled ${release.protocol} download client for "${release.title}"`,
 		);
 		return false;
 	}

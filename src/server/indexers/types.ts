@@ -1,17 +1,3 @@
-export type IndexerConnectionConfig = {
-	host: string;
-	port: number;
-	useSsl: boolean;
-	urlBase: string | null;
-	apiKey: string;
-};
-
-export type TestResult = {
-	success: boolean;
-	message: string;
-	version: string | null;
-};
-
 /** Raw search result shape returned by Prowlarr's /api/v1/search endpoint */
 export type ProwlarrSearchResult = {
 	guid: string;
@@ -32,15 +18,6 @@ export type ProwlarrSearchResult = {
 	categories: Array<{ id: number; name: string }> | null;
 	age: number | null;
 	indexerFlags: number | null;
-};
-
-/** Prowlarr indexer info from /api/v1/indexer */
-export type ProwlarrIndexerInfo = {
-	id: number;
-	name: string;
-	enable: boolean;
-	protocol: string;
-	privacy: string;
 };
 
 /** Quality annotation attached to an IndexerRelease */

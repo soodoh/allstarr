@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import AdmZip from "adm-zip";
+import { logWarn } from "./logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type AudioMeta = {
+type AudioMeta = {
 	duration: number; // seconds
 	bitrate: number; // kbps
 	sampleRate: number; // Hz
@@ -12,12 +13,12 @@ export type AudioMeta = {
 	codec: string;
 };
 
-export type EbookMeta = {
+type EbookMeta = {
 	pageCount: number | null;
 	language: string | null;
 };
 
-export type VideoMeta = {
+type VideoMeta = {
 	duration: number; // seconds
 	codec: string; // "h264", "hevc", "av1", etc.
 	container: string; // "mkv", "mp4", etc.
@@ -92,8 +93,9 @@ export async function probeAudioFile(
 			codec: audioStream?.codec_name ?? "unknown",
 		};
 	} catch (error) {
-		console.warn(
-			`[media-probe] Failed to probe audio "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
+		logWarn(
+			"media-probe",
+			`Failed to probe audio "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
 		);
 		return null;
 	}
@@ -150,8 +152,9 @@ export async function probeVideoFile(
 			container: path.extname(filePath).replace(/^\./, "").toLowerCase(),
 		};
 	} catch (error) {
-		console.warn(
-			`[media-probe] Failed to probe video "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
+		logWarn(
+			"media-probe",
+			`Failed to probe video "${filePath}": ${error instanceof Error ? error.message : "Unknown error"}`,
 		);
 		return null;
 	}

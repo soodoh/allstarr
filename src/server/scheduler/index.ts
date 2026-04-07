@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { eventBus } from "../event-bus";
+import { logError, logInfo } from "../logger";
 import { getAllTasks, getTask } from "./registry";
 import { isTaskRunning, markTaskComplete, markTaskRunning } from "./state";
 import { getTimers, setTaskExecutor } from "./timers";
@@ -76,7 +77,7 @@ async function executeTask(taskId: string): Promise<void> {
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
 
-		console.log(`[scheduler] ${task.name}: ${result.message} (${duration}ms)`);
+		logInfo("scheduler", `${task.name}: ${result.message} (${duration}ms)`);
 		eventBus.emit({ type: "taskUpdated", taskId });
 	} catch (error) {
 		const duration = Date.now() - start;
@@ -93,7 +94,7 @@ async function executeTask(taskId: string): Promise<void> {
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
 
-		console.error(`[scheduler] ${task.name} failed: ${message}`);
+		logError("scheduler", `${task.name} failed: ${message}`, error);
 		eventBus.emit({ type: "taskUpdated", taskId });
 	} finally {
 		markTaskComplete(taskId);
@@ -149,7 +150,7 @@ export function ensureSchedulerStarted(): void {
 	setTaskExecutor((taskId) => void executeTask(taskId));
 	seedTasksIfNeeded();
 	startTimers();
-	console.log(`[scheduler] Started with ${timers.size} task(s)`);
+	logInfo("scheduler", `Started with ${timers.size} task(s)`);
 }
 
 export async function runTaskNow(taskId: string): Promise<void> {

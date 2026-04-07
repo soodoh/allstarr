@@ -37,7 +37,7 @@ type ProfileCF = {
 	contentTypes: string[];
 };
 
-export type CFScoreResult = {
+type CFScoreResult = {
 	totalScore: number;
 	matchedFormats: Array<{ cfId: number; name: string; score: number }>;
 };

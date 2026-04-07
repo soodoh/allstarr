@@ -10,6 +10,7 @@ import {
 	unmappedFiles,
 } from "src/db/schema";
 import { eventBus } from "src/server/event-bus";
+import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
 
@@ -150,8 +151,9 @@ export const deleteUnmappedFilesFn = createServerFn({ method: "POST" })
 			try {
 				fs.unlinkSync(file.path);
 			} catch (error) {
-				console.warn(
-					`[unmapped-files] Failed to delete file from disk: ${file.path}: ${error instanceof Error ? error.message : String(error)}`,
+				logWarn(
+					"unmapped-files",
+					`Failed to delete file from disk: ${file.path}: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 

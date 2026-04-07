@@ -1,5 +1,6 @@
 import type { ScanStats } from "src/server/disk-scan";
 import { getRootFolderPaths, rescanRootFolder } from "src/server/disk-scan";
+import { logError } from "src/server/logger";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
 
@@ -39,8 +40,9 @@ registerTask({
 				totals.unmatchedFiles += result.unmatchedFiles;
 				totals.errors.push(...result.errors);
 			} catch (error) {
-				console.error(
-					`[rescan-folders] Failed to scan folder "${folderPath}":`,
+				logError(
+					"rescan-folders",
+					`Failed to scan folder "${folderPath}"`,
 					error,
 				);
 				totals.errors.push(

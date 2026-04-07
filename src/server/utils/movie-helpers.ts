@@ -1,6 +1,6 @@
 import { TMDB_IMAGE_BASE } from "../tmdb/types";
 
-export type MovieStatus =
+type MovieStatus =
 	| "tba"
 	| "announced"
 	| "inCinemas"

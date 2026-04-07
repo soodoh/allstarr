@@ -1,4 +1,3 @@
-export type DownloadProtocol = "torrent" | "usenet";
 export type CanonicalStatus =
 	| "downloading"
 	| "completed"

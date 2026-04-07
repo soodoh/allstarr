@@ -5,6 +5,7 @@ import {
 	reportRateLimited,
 	reportSuccess,
 } from "../indexer-rate-limiter";
+import { logInfo } from "../logger";
 
 // ─── Newznab feed search (per-indexer, like Readarr) ──────────────────────────
 
@@ -249,8 +250,9 @@ async function fetchWithRetry(
 		}
 		const backoff = retryAfter || BASE_BACKOFF_MS * 2 ** attempt;
 		const capped = Math.min(backoff, 30_000);
-		console.log(
-			`[indexer] 429 rate-limited, retrying in ${Math.round(capped / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
+		logInfo(
+			"indexer",
+			`429 rate-limited, retrying in ${Math.round(capped / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
 		);
 		await sleep(capped);
 	}

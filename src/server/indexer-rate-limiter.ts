@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { indexers, syncedIndexers } from "src/db/schema";
+import { logInfo } from "./logger";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -208,8 +209,9 @@ export function reportRateLimited(
 	const backoffUntil = Date.now() + backoffMs;
 
 	persistBackoff(indexerType, indexerId, backoffUntil, newLevel);
-	console.log(
-		`[rate-limiter] ${indexerType}:${indexerId} rate-limited, backoff until ${new Date(backoffUntil).toISOString()} (level ${newLevel})`,
+	logInfo(
+		"rate-limiter",
+		`${indexerType}:${indexerId} rate-limited, backoff until ${new Date(backoffUntil).toISOString()} (level ${newLevel})`,
 	);
 }
 

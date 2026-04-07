@@ -5,13 +5,13 @@ function basename(filePath: string): string {
 	return filePath.slice(Math.max(i, j) + 1);
 }
 
-export type MappedTvFile = {
+type MappedTvFile = {
 	path: string;
 	season: number;
 	episode: number;
 };
 
-export type MappedBookFile = {
+type MappedBookFile = {
 	path: string;
 	extractedTitle: string;
 };

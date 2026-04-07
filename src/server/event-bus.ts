@@ -1,6 +1,6 @@
 import type { QueueItem } from "./queue";
 
-export type ServerEvent =
+type ServerEvent =
 	| { type: "queueUpdated" }
 	| { type: "queueProgress"; data: { items: QueueItem[]; warnings: string[] } }
 	| { type: "taskUpdated"; taskId: string }

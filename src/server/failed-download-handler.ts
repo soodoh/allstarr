@@ -7,6 +7,7 @@ import type {
 	DownloadClientProvider,
 } from "./download-clients/types";
 import { eventBus } from "./event-bus";
+import { logInfo, logWarn } from "./logger";
 import getMediaSetting from "./settings-reader";
 
 export default async function handleFailedDownload(
@@ -48,8 +49,9 @@ export default async function handleFailedDownload(
 			})
 			.run();
 
-		console.log(
-			`[failed-download] Blocklisted "${td.releaseTitle}" and searching for alternative`,
+		logInfo(
+			"failed-download",
+			`Blocklisted "${td.releaseTitle}" and searching for alternative`,
 		);
 
 		await runAutoSearch({ bookIds: [td.bookId] });
@@ -60,12 +62,14 @@ export default async function handleFailedDownload(
 	if (removeFailed) {
 		try {
 			await provider.removeDownload(config, td.downloadId, true);
-			console.log(
-				`[failed-download] Removed failed download "${td.releaseTitle}" from client`,
+			logInfo(
+				"failed-download",
+				`Removed failed download "${td.releaseTitle}" from client`,
 			);
 		} catch (error) {
-			console.warn(
-				`[failed-download] Failed to remove download from client: ${error instanceof Error ? error.message : "Unknown error"}`,
+			logWarn(
+				"failed-download",
+				`Failed to remove download from client: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		}
 	}
