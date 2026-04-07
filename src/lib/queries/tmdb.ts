@@ -1,9 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import {
-	searchTmdbFn,
-	searchTmdbMoviesFn,
-	searchTmdbShowsFn,
-} from "src/server/tmdb/search";
+import { searchTmdbMoviesFn, searchTmdbShowsFn } from "src/server/tmdb/search";
 import { queryKeys } from "../query-keys";
 
 export const tmdbSearchMoviesQuery = (query: string) =>
@@ -17,12 +13,5 @@ export const tmdbSearchShowsQuery = (query: string) =>
 	queryOptions({
 		queryKey: queryKeys.tmdb.searchShows(query),
 		queryFn: () => searchTmdbShowsFn({ data: { query } }),
-		enabled: query.length >= 2,
-	});
-
-export const tmdbSearchMultiQuery = (query: string) =>
-	queryOptions({
-		queryKey: queryKeys.tmdb.searchMulti(query),
-		queryFn: () => searchTmdbFn({ data: { query } }),
 		enabled: query.length >= 2,
 	});

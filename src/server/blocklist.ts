@@ -3,7 +3,6 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "src/db";
 import { authors, blocklist, books, movies, shows } from "src/db/schema";
 import {
-	addToBlocklistSchema,
 	bulkRemoveFromBlocklistSchema,
 	removeFromBlocklistSchema,
 } from "src/lib/validators";
@@ -58,25 +57,6 @@ export const getBlocklistFn = createServerFn({ method: "GET" })
 			page,
 			totalPages: Math.ceil(total / limit),
 		};
-	});
-
-export const addToBlocklistFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => addToBlocklistSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		return db
-			.insert(blocklist)
-			.values({
-				bookId: data.bookId,
-				authorId: data.authorId,
-				sourceTitle: data.sourceTitle,
-				protocol: data.protocol,
-				indexer: data.indexer,
-				message: data.message,
-				source: data.source,
-			})
-			.returning()
-			.get();
 	});
 
 export const removeFromBlocklistFn = createServerFn({ method: "POST" })

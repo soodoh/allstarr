@@ -207,7 +207,7 @@ function getEditionProfilesForBook(bookId: number): EditionProfileTarget[] {
 // ─── Wanted books detection ─────────────────────────────────────────────────
 
 /** Find books that need searching: missing files or upgrade-eligible */
-export function getWantedBooks(): WantedBook[] {
+function getWantedBooks(): WantedBook[] {
 	// Get all books that have at least one edition with a download profile assigned
 	const monitoredBooks = db
 		.select({
@@ -368,7 +368,7 @@ export function getWantedBooks(): WantedBook[] {
 // ─── Wanted movies detection ────────────────────────────────────────────────
 
 /** Find movies that need searching: missing files or upgrade-eligible */
-export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
+function getWantedMovies(movieIds?: number[]): WantedMovie[] {
 	// Get all movies that have at least one download profile assigned
 	const query = db
 		.select({
@@ -534,7 +534,7 @@ export function getWantedMovies(movieIds?: number[]): WantedMovie[] {
 // ─── Wanted episodes detection ──────────────────────────────────────────────
 
 /** Find episodes that need searching: missing files or upgrade-eligible */
-export function getWantedEpisodes(
+function getWantedEpisodes(
 	showId?: number,
 	cutoffUnmet?: boolean,
 ): WantedEpisode[] {
@@ -2570,7 +2570,7 @@ function isBetterCandidate(
 	return releaseWeight === currentWeight && release.cfScore > current.cfScore;
 }
 
-export function findBestReleaseForProfile(
+function findBestReleaseForProfile(
 	releases: IndexerRelease[],
 	profile: ProfileInfo,
 	bestExistingWeight: number,

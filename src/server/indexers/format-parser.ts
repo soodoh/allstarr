@@ -336,7 +336,3 @@ export function isFormatInProfile(
 ): boolean {
 	return items.some((group) => group.includes(qualityId));
 }
-
-export function flattenProfileItems(items: number[][]): number[] {
-	return items.flat();
-}

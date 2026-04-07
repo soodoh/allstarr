@@ -187,5 +187,3 @@ export const LANGUAGES: Array<{ code: string; name: string }> = [
 	{ code: "zh", name: "Chinese" },
 	{ code: "zu", name: "Zulu" },
 ];
-
-export const LANGUAGE_MAP = new Map(LANGUAGES.map((l) => [l.code, l.name]));

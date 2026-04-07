@@ -259,7 +259,7 @@ function peekStatus(indexerType: IndexerType, indexerId: number): GateResult {
 	return { allowed: true };
 }
 
-export function getIndexerStatus(
+function getIndexerStatus(
 	indexerType: IndexerType,
 	indexerId: number,
 ): IndexerStatus {

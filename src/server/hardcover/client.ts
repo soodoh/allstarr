@@ -11,7 +11,7 @@ const hardcover = createApiFetcher({
 	retry: { maxRetries: 5, baseDelayMs: 2000 },
 });
 
-export function getAuthorizationHeader(): string {
+function getAuthorizationHeader(): string {
 	const rawToken = process.env.HARDCOVER_TOKEN?.trim();
 	if (!rawToken) {
 		throw new Error("HARDCOVER_TOKEN is not configured.");

@@ -42,33 +42,6 @@ async function fillInput(locator: Locator, value: string): Promise<void> {
   }
 }
 
-export async function registerUser(page: Page, baseUrl: string): Promise<void> {
-  await page.goto(`${baseUrl}/register`);
-  await waitForHydration(page);
-  await fillInput(page.getByLabel("Name"), TEST_USER.name);
-  await fillInput(page.getByLabel("Email"), TEST_USER.email);
-  await fillInput(page.getByLabel("Password"), TEST_USER.password);
-  await page.getByRole("button", { name: /create account/i }).click();
-  await page.waitForURL(
-    (url) =>
-      !url.pathname.includes("/register") && !url.pathname.includes("/login"),
-    { timeout: 15_000 },
-  );
-}
-
-export async function loginUser(page: Page, baseUrl: string): Promise<void> {
-  await page.goto(`${baseUrl}/login`);
-  await waitForHydration(page);
-  await fillInput(page.getByLabel("Email"), TEST_USER.email);
-  await fillInput(page.getByLabel("Password"), TEST_USER.password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL(
-    (url) =>
-      !url.pathname.includes("/login") && !url.pathname.includes("/register"),
-    { timeout: 15_000 },
-  );
-}
-
 export async function ensureAuthenticated(
   page: Page,
   baseUrl: string,

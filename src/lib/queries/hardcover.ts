@@ -1,13 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
 import { getSeriesFromHardcoverFn } from "src/server/authors";
-import type { EditionSortKey } from "src/server/search";
 import {
 	getHardcoverAuthorFn,
-	getHardcoverAuthorSeriesFn,
 	getHardcoverBookDetailFn,
-	getHardcoverBookEditionsFn,
 	getHardcoverBookLanguagesFn,
-	getHardcoverSeriesBooksFn,
 } from "src/server/search";
 import { queryKeys } from "../query-keys";
 
@@ -28,38 +24,6 @@ export const hardcoverAuthorQuery = (
 		queryFn: () =>
 			getHardcoverAuthorFn({
 				data: { foreignAuthorId, ...params },
-			}),
-	});
-
-export const hardcoverAuthorSeriesQuery = (slug: string, lang: string) =>
-	queryOptions({
-		queryKey: queryKeys.hardcover.authorSeries(slug, lang),
-		queryFn: () =>
-			getHardcoverAuthorSeriesFn({ data: { slug, language: lang } }),
-	});
-
-export const hardcoverSeriesBooksQuery = (seriesId: number, language: string) =>
-	queryOptions({
-		queryKey: queryKeys.hardcover.seriesBooks(seriesId, language),
-		queryFn: () => getHardcoverSeriesBooksFn({ data: { seriesId, language } }),
-	});
-
-type HardcoverBookEditionsParams = {
-	page: number;
-	pageSize: number;
-	sortBy: EditionSortKey;
-	sortDir: "asc" | "desc";
-};
-
-export const hardcoverBookEditionsQuery = (
-	foreignBookId: number,
-	params: HardcoverBookEditionsParams,
-) =>
-	queryOptions({
-		queryKey: queryKeys.hardcover.bookEditions(foreignBookId, params),
-		queryFn: () =>
-			getHardcoverBookEditionsFn({
-				data: { foreignBookId, ...params },
 			}),
 	});
 

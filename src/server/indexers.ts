@@ -70,7 +70,7 @@ export type ProfileInfo = {
 };
 
 /** Look up the download profiles for a book's primary author */
-export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
+function getProfilesForBook(bookId: number): ProfileInfo[] | null {
 	const bookAuthor = db
 		.select({ authorId: booksAuthors.authorId })
 		.from(booksAuthors)
@@ -113,7 +113,7 @@ export function getProfilesForBook(bookId: number): ProfileInfo[] | null {
 }
 
 /** Derive a union of allowed definition IDs across all profiles, preserving group structure */
-export function unionProfileItems(profiles: ProfileInfo[]): number[][] | null {
+function unionProfileItems(profiles: ProfileInfo[]): number[][] | null {
 	if (profiles.length === 0) {
 		return null;
 	}
@@ -151,7 +151,7 @@ export function getCategoriesForProfiles(profiles: ProfileInfo[]): number[] {
  * Removes: file extensions, format tags, release group tags, year/version tags,
  * series info in brackets, and normalizes separators to spaces.
  */
-export function cleanReleaseTitle(title: string): string {
+function cleanReleaseTitle(title: string): string {
 	let cleaned = title;
 	// Remove file extensions (ebook + audiobook formats)
 	cleaned = cleaned.replace(
@@ -184,10 +184,7 @@ export type BookInfo = { title: string; authorName: string | null };
  * abbreviations like "R. Jordan" matching "Robert Jordan".
  * Title check uses the same approach to handle extra tokens and substrings.
  */
-export function isRelevantRelease(
-	releaseTitle: string,
-	bookInfo: BookInfo,
-): boolean {
+function isRelevantRelease(releaseTitle: string, bookInfo: BookInfo): boolean {
 	const cleaned = cleanReleaseTitle(releaseTitle);
 
 	// Author check
@@ -242,7 +239,7 @@ function getDimensionContext(
 }
 
 /** Compute rejections and format score for a release against the author's profiles */
-export function computeReleaseMetrics(
+function computeReleaseMetrics(
 	release: IndexerRelease,
 	profiles: ProfileInfo[] | null,
 	editionMeta?: EditionMeta | null,
@@ -375,21 +372,6 @@ export const getIndexersFn = createServerFn({ method: "GET" }).handler(
 		return db.select().from(indexers).all();
 	},
 );
-
-export const getIndexerFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { id: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const result = db
-			.select()
-			.from(indexers)
-			.where(eq(indexers.id, data.id))
-			.get();
-		if (!result) {
-			throw new Error("Indexer not found");
-		}
-		return result;
-	});
 
 export const createIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createIndexerSchema.parse(d))

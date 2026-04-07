@@ -44,21 +44,6 @@ export const getDownloadProfilesFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export const getDownloadProfileFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { id: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAuth();
-		const result = db
-			.select()
-			.from(downloadProfiles)
-			.where(eq(downloadProfiles.id, data.id))
-			.get();
-		if (!result) {
-			throw new Error("Download profile not found");
-		}
-		return result;
-	});
-
 export const createDownloadProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadProfileSchema.parse(d))
 	.handler(async ({ data }) => {

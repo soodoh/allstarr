@@ -20,21 +20,6 @@ export const getCustomFormatsFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export const getCustomFormatFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { id: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAuth();
-		const result = db
-			.select()
-			.from(customFormats)
-			.where(eq(customFormats.id, data.id))
-			.get();
-		if (!result) {
-			throw new Error("Custom format not found");
-		}
-		return result;
-	});
-
 export const createCustomFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createCustomFormatSchema.parse(d))
 	.handler(async ({ data }) => {

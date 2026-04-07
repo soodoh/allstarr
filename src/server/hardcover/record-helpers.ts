@@ -18,7 +18,7 @@ export function toRecordArray(value: unknown): Array<Record<string, unknown>> {
 	>;
 }
 
-export function getNestedValue(
+function getNestedValue(
 	record: Record<string, unknown>,
 	path: string[],
 ): unknown {
