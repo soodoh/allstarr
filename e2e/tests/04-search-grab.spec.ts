@@ -461,11 +461,17 @@ test.describe("Search and Grab", () => {
     // Check the tracked download references the override client
     const tracked = db.select().from(schema.trackedDownloads).all();
     expect(tracked.length).toBeGreaterThanOrEqual(1);
-    const last = tracked.at(-1);
-    expect(last).toBeDefined();
-    if (!last) {
-      throw new Error("Expected a tracked download row");
+    const trackedDownload = tracked.find(
+      (row) =>
+        row.releaseTitle === TORRENT_RELEASES[0].title &&
+        row.downloadClientId === overrideClient.id &&
+        row.bookId === bookId &&
+        row.protocol === "torrent",
+    );
+    expect(trackedDownload).toBeDefined();
+    if (!trackedDownload) {
+      throw new Error("Expected the grabbed release to create a tracked download");
     }
-    expect(last.downloadClientId).toBe(overrideClient.id);
+    expect(trackedDownload.downloadClientId).toBe(overrideClient.id);
   });
 });
