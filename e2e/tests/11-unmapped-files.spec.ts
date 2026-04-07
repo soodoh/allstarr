@@ -17,10 +17,11 @@ type SeededUnmappedFile = {
   path: string;
 };
 
-function seedUnmappedEbook(
+function seedUnmappedFile(
   db: Parameters<typeof seedAuthor>[0],
   rootFolderPath: string,
   filename: string,
+  overrides: Partial<typeof schema.unmappedFiles.$inferInsert> = {},
 ): SeededUnmappedFile {
   const incomingDir = join(rootFolderPath, "incoming");
   mkdirSync(incomingDir, { recursive: true });
@@ -46,6 +47,7 @@ function seedUnmappedEbook(
         source: "filename",
       },
       ignored: false,
+      ...overrides,
     })
     .returning()
     .get();
@@ -55,6 +57,14 @@ function seedUnmappedEbook(
     filename,
     path: filePath,
   };
+}
+
+function seedUnmappedEbook(
+  db: Parameters<typeof seedAuthor>[0],
+  rootFolderPath: string,
+  filename: string,
+): SeededUnmappedFile {
+  return seedUnmappedFile(db, rootFolderPath, filename);
 }
 
 test.describe("Unmapped Files", () => {
@@ -602,5 +612,78 @@ test.describe("Unmapped Files", () => {
 
     await page.getByRole("button", { name: "Show Ignored" }).click();
     await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
+  });
+
+  test("search and content-type filters narrow mixed unmapped entries", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    const audiobookRoot = `${tempDir}-audio`;
+
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    seedDownloadProfile(db, {
+      name: "Unmapped Audiobook Profile",
+      rootFolderPath: audiobookRoot,
+      contentType: "audiobook",
+    });
+
+    const ebookFile = seedUnmappedFile(db, tempDir, "filter-ebook.epub", {
+      contentType: "ebook",
+      format: "EPUB",
+      hints: {
+        title: "Filter Ebook",
+        author: "Filter Author",
+        source: "filename",
+      },
+    });
+    const audiobookFile = seedUnmappedFile(
+      db,
+      audiobookRoot,
+      "filter-audio.m4b",
+      {
+        contentType: "audiobook",
+        format: "M4B",
+        hints: {
+          title: "Filter Audio",
+          author: "Filter Author",
+          source: "filename",
+        },
+        quality: {
+          quality: { id: 2, name: "M4B" },
+          revision: { version: 1, real: 0 },
+        },
+      },
+    );
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText(ebookFile.filename, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(audiobookFile.filename, { exact: true }),
+    ).toBeVisible();
+
+    await page.getByPlaceholder("Search files...").fill("filter-ebook");
+    await expect(page.getByText(ebookFile.filename, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(audiobookFile.filename, { exact: true }),
+    ).toHaveCount(0);
+
+    await page.getByPlaceholder("Search files...").clear();
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "Audiobooks" }).click();
+
+    await expect(
+      page.getByText(audiobookFile.filename, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(ebookFile.filename, { exact: true })).toHaveCount(
+      0,
+    );
   });
 });
