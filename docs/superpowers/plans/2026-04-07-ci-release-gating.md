@@ -51,7 +51,8 @@
 | `src/server/users.test.ts` | Create | Cover non-admin user creation role handling |
 | `src/server/download-manager.test.ts` | Modify | Align test expectations with current inferred types |
 | `.github/workflows/ci.yml` | Modify | Expand CI into separate validation jobs |
-| `.github/workflows/release.yml` | Modify | Keep release gated on successful CI and pin release work to the validated commit |
+| `.github/workflows/release.yml` | Modify | Keep release gated on successful CI and invoke pinned release logic from the validated checkout |
+| `scripts/release-from-validated-commit.sh` | Create | Run versioning, push, and GitHub release creation from the checked-out validated commit |
 | `.github/workflows/docker-publish.yml` | Modify | Publish only for formal releases/tags and gate manual tags behind reduced validation |
 
 ---
@@ -425,6 +426,7 @@ git commit -m "ci: expand validation workflow"
 
 **Files:**
 - Modify: `.github/workflows/release.yml`
+- Create: `scripts/release-from-validated-commit.sh`
 
 - [ ] **Step 1: Check out the exact commit that passed CI**
 
@@ -441,29 +443,27 @@ Update the checkout and branch preparation steps in `.github/workflows/release.y
         run: git checkout -B main
 ```
 
-- [ ] **Step 2: Push the release commit back to `main` explicitly**
+- [ ] **Step 2: Move mutable release logic into a repo script checked out from the validated commit**
 
-Replace the generic push command in the `Commit and push changes` step with an explicit branch target:
+Create `scripts/release-from-validated-commit.sh` and have it:
 
-```bash
-git push origin HEAD:main
-```
+- run `bun run changeset version`
+- commit changes when present
+- push with `git push origin HEAD:main`
+- compute `RELEASE_SHA=$(git rev-parse HEAD)`
+- create the release with `gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"`
 
-This avoids relying on an implicit upstream branch after checking out the validated SHA.
+The script should be idempotent when there are no version changes: emit `changed=false` and exit successfully without trying to create a release.
 
-- [ ] **Step 3: Create the GitHub Release from the release commit**
+- [ ] **Step 3: Call the pinned script from `release.yml`**
 
-Update the release creation step so the tag is created from the actual release commit that was just pushed:
+Replace the inline version/commit/release logic in the workflow with a step that executes the checked-out repo script:
 
 ```yaml
-      - name: Create GitHub Release
-        if: steps.commit.outputs.changed == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          RELEASE_SHA=$(git rev-parse HEAD)
-          gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"
+      - name: Run release script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/release-from-validated-commit.sh
 ```
 
 - [ ] **Step 4: Review the release gate condition**
@@ -479,7 +479,7 @@ Expected: PR-triggered CI runs never invoke the release workflow, and failed `ma
 - [ ] **Step 5: Commit the release workflow changes**
 
 ```bash
-git add .github/workflows/release.yml
+git add .github/workflows/release.yml scripts/release-from-validated-commit.sh
 git commit -m "ci: pin release workflow to validated commit"
 ```
 
