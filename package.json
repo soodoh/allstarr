@@ -4,8 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "changeset": "changeset",
-    "version": "changeset version",
     "dev": "bun --bun vite dev",
     "build": "bun --bun vite build",
     "start": "bun .output/server/index.mjs",
@@ -53,7 +51,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
-    "@changesets/cli": "^2.30.0",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@commitlint/types": "^20.5.0",
