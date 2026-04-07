@@ -167,10 +167,11 @@ export default function MappingDialog({
 
 					{/* Search */}
 					<div className="space-y-1.5">
-						<Label>Search Library</Label>
+						<Label htmlFor="unmapped-file-library-search">Search Library</Label>
 						<div className="relative">
 							<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 							<Input
+								id="unmapped-file-library-search"
 								placeholder="Search by title..."
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
