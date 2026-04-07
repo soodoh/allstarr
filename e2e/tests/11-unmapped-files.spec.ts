@@ -475,4 +475,83 @@ test.describe("Unmapped Files", () => {
         rootFolderPath: tempDir,
       });
   });
+
+  test("rescan all discovers newly added files across multiple root folders", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    const secondRoot = `${tempDir}-secondary`;
+
+    seedDownloadProfile(db, {
+      name: "Primary Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    seedDownloadProfile(db, {
+      name: "Secondary Unmapped Ebook Profile",
+      rootFolderPath: secondRoot,
+      contentType: "ebook",
+    });
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    const primaryIncomingDir = join(tempDir, "incoming");
+    mkdirSync(primaryIncomingDir, { recursive: true });
+    const primaryFilePath = join(primaryIncomingDir, "rescan-all-primary.epub");
+    writeFileSync(primaryFilePath, "primary dummy epub content");
+
+    const secondaryIncomingDir = join(secondRoot, "incoming");
+    mkdirSync(secondaryIncomingDir, { recursive: true });
+    const secondaryFilePath = join(
+      secondaryIncomingDir,
+      "rescan-all-secondary.epub",
+    );
+    writeFileSync(secondaryFilePath, "secondary dummy epub content");
+
+    await page.getByRole("button", { name: "Rescan All" }).click();
+
+    await expect(
+      page.getByText("rescan-all-primary.epub", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("rescan-all-secondary.epub", { exact: true }),
+    ).toBeVisible();
+
+    await expect
+      .poll(() =>
+        db
+          .select({
+            path: schema.unmappedFiles.path,
+            rootFolderPath: schema.unmappedFiles.rootFolderPath,
+          })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.path, primaryFilePath))
+          .get() ?? null,
+      )
+      .toEqual({
+        path: primaryFilePath,
+        rootFolderPath: tempDir,
+      });
+
+    await expect
+      .poll(() =>
+        db
+          .select({
+            path: schema.unmappedFiles.path,
+            rootFolderPath: schema.unmappedFiles.rootFolderPath,
+          })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.path, secondaryFilePath))
+          .get() ?? null,
+      )
+      .toEqual({
+        path: secondaryFilePath,
+        rootFolderPath: secondRoot,
+      });
+  });
 });
