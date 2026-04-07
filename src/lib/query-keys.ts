@@ -219,6 +219,17 @@ export const queryKeys = {
 			["blocklist", "list", params] as const,
 	},
 
+	// ─── Unmapped Files ────────────────────────────────────────────────
+	unmappedFiles: {
+		all: ["unmappedFiles"] as const,
+		list: (params: {
+			showIgnored?: boolean;
+			contentType?: string;
+			search?: string;
+		}) => ["unmappedFiles", "list", params] as const,
+		count: () => ["unmappedFiles", "count"] as const,
+	},
+
 	// ─── Commands ──────────────────────────────────────────────────────────
 	commands: {
 		all: ["commands"] as const,
