@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { count, eq } from "drizzle-orm";
-import { db } from "src/db";
+import { db, sqlite } from "src/db";
 import {
 	downloadClients,
 	indexers,
@@ -138,7 +138,7 @@ export async function getSystemAbout(): Promise<SystemAbout> {
 	}
 
 	const sqliteVer = (
-		db.$client.prepare("SELECT sqlite_version() as v").get() as { v: string }
+		sqlite.prepare("SELECT sqlite_version() as v").get() as { v: string }
 	).v;
 
 	const isDocker =

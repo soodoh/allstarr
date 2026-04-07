@@ -3,7 +3,11 @@ import { BookOpen, Film, Search, Tv } from "lucide-react";
 import type { ComponentType, JSX } from "react";
 import { Card, CardContent } from "src/components/ui/card";
 import { formatBytes, formatRelativeTime } from "src/lib/format";
-import type { QualityBreakdownItem, RecentActivityItem } from "src/lib/queries";
+import type {
+	DashboardContentStat,
+	QualityBreakdownItem,
+	RecentActivityItem,
+} from "src/lib/queries";
 
 type ContentTypeConfig = {
 	key: "books" | "shows" | "movies";
@@ -68,12 +72,7 @@ const QUALITY_COLORS = [
 
 type ContentTypeCardProps = {
 	config: ContentTypeConfig;
-	stats: {
-		total: number;
-		monitored: number;
-		fileCount: number;
-		extra: { label: string; value: number };
-	};
+	stats: DashboardContentStat;
 	qualityBreakdown: QualityBreakdownItem[];
 	storageBytes: number;
 	storageTotalBytes: number;

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a gated CI and release pipeline so pull requests and `main` pushes run the full validation suite, Changesets releases only happen after successful CI, and Docker images publish only for formal releases or manually pushed tags that pass reduced validation.
+**Goal:** Add a gated CI and release pipeline so pull requests and `main` pushes run the full validation suite, including a real standalone TypeScript check, Changesets releases only happen after successful CI, and Docker images publish only for formal releases or manually pushed tags that pass reduced validation.
 
-**Architecture:** Keep responsibilities split across three workflows. `CI` becomes the single validation gate with separate jobs for lint, typecheck, unit tests, build, Playwright, and Docker verification. `Release` remains downstream of successful `CI`, while `Docker Publish` publishes from `release.published` or a guarded manual-tag path with reduced checks.
+**Architecture:** First make the repository pass a strict standalone `tsc --noEmit` run by fixing the current root-cause clusters: Bun/TypeScript environment typing, stale query/type exports, route/admin context type drift, and indexer release-shape mismatches. Then wire the validated `typecheck` script into the expanded `CI` workflow. `Release` remains downstream of successful `CI`, while `Docker Publish` publishes from `release.published` or a guarded manual-tag path with reduced checks.
 
 **Tech Stack:** GitHub Actions, Bun, Biome, TypeScript, Vitest, Playwright, Docker Buildx, Changesets, GitHub CLI
 
@@ -15,22 +15,88 @@
 | File | Action | Responsibility |
 |------|--------|----------------|
 | `package.json` | Modify | Add a dedicated `typecheck` script for CI |
+| `tsconfig.json` | Modify | Make standalone TypeScript understand Bun globals/modules and repo compiler expectations |
+| `src/db/index.ts` | Modify | Fix Bun SQLite typing and generic proxy typing used by standalone TypeScript |
+| `src/lib/auth-server.ts` | Modify | Align auth/database typing with standalone TypeScript expectations |
+| `src/server/system-info.ts` | Modify | Fix Bun global typing and DB client typing in system info |
+| `src/server/setup.ts` | Modify | Fix Bun SQLite typing usage in setup path |
+| `src/server/scheduler/tasks/backup.ts` | Modify | Fix DB client typing under standalone TypeScript |
+| `src/server/scheduler/tasks/housekeeping.ts` | Modify | Fix DB client typing under standalone TypeScript |
+| `src/lib/queries/index.ts` | Modify | Export query result types used by dashboard and system status UI |
+| `src/components/dashboard/content-type-card.tsx` | Modify | Consume correct exported query types |
+| `src/routes/_authed/system/status.tsx` | Modify | Consume correct exported query types |
+| `src/components/bookshelf/hardcover/book-preview-modal.tsx` | Modify | Align book import payload shape with current server types |
+| `src/components/shared/edit-series-profiles-dialog.tsx` | Modify | Align nullable icon typing with profile dialog props |
+| `src/routes/_authed/authors/$authorId.tsx` | Modify | Resolve `DownloadProfileInfo` drift with current shared type |
+| `src/routes/_authed/series/index.tsx` | Modify | Resolve route API/type mismatch in series page |
+| `src/routes/_authed/settings/index.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/general.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/formats.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/download-clients.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/import-lists.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/indexers.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/media-management.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/metadata.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/profiles.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/custom-formats.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/routes/_authed/settings/users.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/lib/admin-route.ts` | Modify | Provide the shared admin-route typing boundary for settings routes |
+| `src/routes/login.tsx` | Modify | Add explicit typing where implicit any breaks standalone TypeScript |
+| `src/server/auto-search.ts` | Modify | Fix indexer release object construction to satisfy shared type |
+| `src/server/indexers.ts` | Modify | Fix indexer release object construction to satisfy shared type |
+| `src/server/indexers/http.ts` | Modify | Import or declare missing search-result type used by HTTP client |
+| `src/lib/admin-route.ts` | Modify | Provide the shared admin-route typing boundary for settings routes |
+| `src/lib/auth-server.ts` | Modify | Align Better Auth role registration with repo-managed roles |
+| `src/server/users.ts` | Modify | Align role typing with Better Auth role constraints |
+| `src/server/users.test.ts` | Create | Cover non-admin user creation role handling |
+| `src/server/download-manager.test.ts` | Modify | Align test expectations with current inferred types |
 | `.github/workflows/ci.yml` | Modify | Expand CI into separate validation jobs |
-| `.github/workflows/release.yml` | Modify | Keep release gated on successful CI and pin release work to the validated commit |
+| `.github/workflows/release.yml` | Modify | Keep release gated on successful CI and invoke pinned release logic from the validated checkout |
+| `scripts/release-from-validated-commit.sh` | Create | Run versioning, push, and GitHub release creation from the checked-out validated commit |
 | `.github/workflows/docker-publish.yml` | Modify | Publish only for formal releases/tags and gate manual tags behind reduced validation |
 
 ---
 
-### Task 1: Add A Dedicated Typecheck Script
+### Task 1: Establish A Real Standalone Typecheck Entry Point
 
 **Files:**
 - Modify: `package.json`
+- Modify: `tsconfig.json`
 
 - [ ] **Step 1: Read the existing scripts block**
 
 Read `package.json` and confirm the current script layout around `lint`, `test`, `build`, and `test:e2e`.
 
-- [ ] **Step 2: Add the `typecheck` script**
+- [ ] **Step 2: Update TypeScript config for standalone checking**
+
+Update `tsconfig.json` so standalone TypeScript has the environment types it needs:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "types": ["bun", "node"],
+    "paths": {
+      "src/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "e2e", "vite.config.ts", "vitest.config.ts"]
+}
+```
+
+If TypeScript 6 still emits only the `baseUrl` deprecation diagnostic, add the minimal compiler flag needed to keep the standalone run usable, but do not suppress real type errors.
+
+- [ ] **Step 3: Add the `typecheck` script**
 
 Update the `scripts` section in `package.json` to add a dedicated TypeScript check:
 
@@ -43,21 +109,187 @@ Update the `scripts` section in `package.json` to add a dedicated TypeScript che
 "prepare": "lefthook install",
 ```
 
-- [ ] **Step 3: Run the new script locally**
+- [ ] **Step 4: Run the new script locally**
 
 Run: `bun run typecheck`
-Expected: TypeScript exits successfully with no emitted files and no type errors.
+Expected: the command runs under standalone TypeScript and reports the current repo type errors instead of failing immediately on missing Bun/environment typing.
 
-- [ ] **Step 4: Commit the script change**
+- [ ] **Step 5: Commit the script/config change**
 
 ```bash
-git add package.json
-git commit -m "chore: add ci typecheck script"
+git add package.json tsconfig.json
+git commit -m "chore: add standalone typecheck entrypoint"
 ```
 
 ---
 
-### Task 2: Expand `CI` Into The Full Validation Gate
+### Task 2: Fix Bun Runtime Typing For Standalone TypeScript
+
+**Files:**
+- Modify: `src/db/index.ts`
+- Modify: `src/lib/auth-server.ts`
+- Modify: `src/server/system-info.ts`
+- Modify: `src/server/setup.ts`
+- Modify: `src/server/scheduler/tasks/backup.ts`
+- Modify: `src/server/scheduler/tasks/housekeeping.ts`
+
+- [ ] **Step 1: Reproduce the Bun/runtime typing cluster**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected initial failures include `bun:sqlite` and `db.$client` errors in the files listed above.
+
+- [ ] **Step 2: Fix the root typing boundary in the DB/auth layer**
+
+Adjust the shared DB typing so standalone TypeScript understands the Bun-backed database client and the proxy fallback. This work should eliminate the `bun:sqlite` module errors and the `Property '$client' does not exist on type 'AppDatabase'` errors without weakening the database types to `any`.
+
+- [ ] **Step 3: Fix Bun global usage in server utilities**
+
+Update the affected server files so references to `bun:sqlite` and Bun-backed DB clients typecheck cleanly under the standalone compiler.
+
+- [ ] **Step 4: Re-run the typecheck command**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected: the Bun/runtime typing errors disappear. Remaining failures should be limited to application-level typing clusters.
+
+- [ ] **Step 5: Commit the Bun/runtime typing fixes**
+
+```bash
+git add src/db/index.ts src/lib/auth-server.ts src/server/system-info.ts src/server/setup.ts src/server/scheduler/tasks/backup.ts src/server/scheduler/tasks/housekeeping.ts
+git commit -m "fix: align bun runtime types with standalone typecheck"
+```
+
+---
+
+### Task 3: Fix Stale Query Exports And UI Type Drift
+
+**Files:**
+- Modify: `src/lib/queries/index.ts`
+- Modify: `src/components/dashboard/content-type-card.tsx`
+- Modify: `src/routes/_authed/system/status.tsx`
+- Modify: `src/components/bookshelf/hardcover/book-preview-modal.tsx`
+- Modify: `src/hooks/mutations/import.ts`
+- Modify: `src/components/shared/edit-series-profiles-dialog.tsx`
+- Modify: `src/routes/_authed/authors/$authorId.tsx`
+- Modify: `src/routes/_authed/series/index.tsx`
+- Modify: `src/routes/login.tsx`
+- Modify: `src/server/download-manager.test.ts`
+- Modify: `e2e/fixtures/fake-servers/base.ts`
+- Modify: `e2e/global-setup.ts`
+- Modify: `e2e/tests/04-search-grab.spec.ts`
+- Modify: `e2e/tests/07-download-lifecycle.spec.ts`
+- Modify: `e2e/tests/08-disk-scan.spec.ts`
+
+- [ ] **Step 1: Reproduce the UI/shared-type cluster**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected failures include missing exported query types, stale payload property names, nullable profile icon mismatches, route API signature drift, the implicit `any` in `src/routes/login.tsx`, and newly surfaced `e2e` type drift around generic fake-server state, narrowed port literals, possibly undefined array access, and profile `items` seed data shapes.
+
+- [ ] **Step 2: Fix shared type exports instead of patching consumers ad hoc**
+
+Update `src/lib/queries/index.ts` to export the query result types currently consumed by dashboard and system-status UI. Then align the two consumers to use the shared exported types rather than local copies.
+
+- [ ] **Step 3: Fix remaining UI/type-drift mismatches**
+
+Resolve the book preview import payload shape, the nullable icon mismatch, the duplicated `DownloadProfileInfo` drift, the series page call-site mismatch, the login implicit `any`, the test typing issue in `src/server/download-manager.test.ts`, and the `e2e` type drift in the fake-server base helper, global setup port handling, nullable array access, and seeded profile `items` shapes.
+
+- [ ] **Step 4: Re-run the typecheck command**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected: the UI/shared-type cluster is gone. Remaining failures should be concentrated in route/admin typing and indexer/server typing.
+
+- [ ] **Step 5: Commit the shared-type fixes**
+
+```bash
+git add src/lib/queries/index.ts src/components/dashboard/content-type-card.tsx src/routes/_authed/system/status.tsx src/components/bookshelf/hardcover/book-preview-modal.tsx src/hooks/mutations/import.ts src/components/shared/edit-series-profiles-dialog.tsx src/routes/_authed/authors/\$authorId.tsx src/routes/_authed/series/index.tsx src/routes/login.tsx src/server/download-manager.test.ts e2e/fixtures/fake-servers/base.ts e2e/global-setup.ts e2e/tests/04-search-grab.spec.ts e2e/tests/07-download-lifecycle.spec.ts e2e/tests/08-disk-scan.spec.ts
+git commit -m "fix: resolve standalone ui type drift"
+```
+
+---
+
+### Task 4: Fix Route/Admin And Indexer Type Clusters
+
+**Files:**
+- Modify: `src/routes/_authed/settings/index.tsx`
+- Modify: `src/routes/_authed/settings/general.tsx`
+- Modify: `src/routes/_authed/settings/formats.tsx`
+- Modify: `src/routes/_authed/settings/download-clients.tsx`
+- Modify: `src/routes/_authed/settings/import-lists.tsx`
+- Modify: `src/routes/_authed/settings/indexers.tsx`
+- Modify: `src/routes/_authed/settings/media-management.tsx`
+- Modify: `src/routes/_authed/settings/metadata.tsx`
+- Modify: `src/routes/_authed/settings/profiles.tsx`
+- Modify: `src/routes/_authed/settings/custom-formats.tsx`
+- Modify: `src/routes/_authed/settings/users.tsx`
+- Modify: `src/lib/admin-route.ts`
+- Modify: `src/lib/auth-server.ts`
+- Modify: `src/server/auto-search.ts`
+- Modify: `src/server/indexers.ts`
+- Modify: `src/server/indexers/http.ts`
+- Modify: `src/server/users.ts`
+- Create: `src/server/users.test.ts`
+
+- [ ] **Step 1: Reproduce the remaining route/admin and indexer failures**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected remaining failures include `AdminBeforeLoadArgs` incompatibilities across the settings routes, indexer release shape mismatches in `auto-search` and `indexers`, the missing `ProwlarrSearchResult` symbol in `src/server/indexers/http.ts`, and role typing issues in `src/server/users.ts`.
+
+- [ ] **Step 2: Fix the route/admin type boundary once**
+
+Identify the shared `AdminBeforeLoadArgs` and session-role types that settings routes depend on, then update the shared typing boundary or the route signatures so all settings routes typecheck through the same source of truth.
+
+- [ ] **Step 3: Fix the indexer release construction at the source**
+
+Fix the indexer release construction at the source. If the missing `ProwlarrSearchResult` type import in `src/server/indexers/http.ts` is the actual root cause, fix it there; otherwise update `src/server/auto-search.ts` and `src/server/indexers.ts` so constructed release objects satisfy the current `IndexerRelease` contract instead of relying on partial objects.
+
+- [ ] **Step 4: Fix the remaining user-role typing mismatch**
+
+Update the Better Auth integration and `src/server/users.ts` so the role values passed into create-user APIs match the actual allowed role types used in this repository, and add a focused regression test for non-admin user creation if the fix changes runtime behavior.
+
+- [ ] **Step 5: Re-run the typecheck command**
+
+Run:
+
+```bash
+bun run typecheck
+```
+
+Expected: `bun run typecheck` succeeds with no emitted files and no type errors.
+
+- [ ] **Step 6: Commit the route/admin and indexer fixes**
+
+```bash
+git add src/routes/_authed/settings/index.tsx src/routes/_authed/settings/general.tsx src/routes/_authed/settings/formats.tsx src/routes/_authed/settings/download-clients.tsx src/routes/_authed/settings/import-lists.tsx src/routes/_authed/settings/indexers.tsx src/routes/_authed/settings/media-management.tsx src/routes/_authed/settings/metadata.tsx src/routes/_authed/settings/profiles.tsx src/routes/_authed/settings/custom-formats.tsx src/routes/_authed/settings/users.tsx src/lib/admin-route.ts src/lib/auth-server.ts src/server/auto-search.ts src/server/indexers.ts src/server/indexers/http.ts src/server/users.ts src/server/users.test.ts
+git commit -m "fix: make standalone typecheck pass"
+```
+
+---
+
+### Task 5: Expand `CI` Into The Full Validation Gate
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
@@ -190,10 +422,11 @@ git commit -m "ci: expand validation workflow"
 
 ---
 
-### Task 3: Pin `Release` To The Validated Commit
+### Task 6: Pin `Release` To The Validated Commit
 
 **Files:**
 - Modify: `.github/workflows/release.yml`
+- Create: `scripts/release-from-validated-commit.sh`
 
 - [ ] **Step 1: Check out the exact commit that passed CI**
 
@@ -210,29 +443,27 @@ Update the checkout and branch preparation steps in `.github/workflows/release.y
         run: git checkout -B main
 ```
 
-- [ ] **Step 2: Push the release commit back to `main` explicitly**
+- [ ] **Step 2: Move mutable release logic into a repo script checked out from the validated commit**
 
-Replace the generic push command in the `Commit and push changes` step with an explicit branch target:
+Create `scripts/release-from-validated-commit.sh` and have it:
 
-```bash
-git push origin HEAD:main
-```
+- run `bun run changeset version`
+- commit changes when present
+- push with `git push origin HEAD:main`
+- compute `RELEASE_SHA=$(git rev-parse HEAD)`
+- create the release with `gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"`
 
-This avoids relying on an implicit upstream branch after checking out the validated SHA.
+The script should be idempotent when there are no version changes: emit `changed=false` and exit successfully without trying to create a release.
 
-- [ ] **Step 3: Create the GitHub Release from the release commit**
+- [ ] **Step 3: Call the pinned script from `release.yml`**
 
-Update the release creation step so the tag is created from the actual release commit that was just pushed:
+Replace the inline version/commit/release logic in the workflow with a step that executes the checked-out repo script:
 
 ```yaml
-      - name: Create GitHub Release
-        if: steps.commit.outputs.changed == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          RELEASE_SHA=$(git rev-parse HEAD)
-          gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"
+      - name: Run release script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/release-from-validated-commit.sh
 ```
 
 - [ ] **Step 4: Review the release gate condition**
@@ -248,13 +479,13 @@ Expected: PR-triggered CI runs never invoke the release workflow, and failed `ma
 - [ ] **Step 5: Commit the release workflow changes**
 
 ```bash
-git add .github/workflows/release.yml
+git add .github/workflows/release.yml scripts/release-from-validated-commit.sh
 git commit -m "ci: pin release workflow to validated commit"
 ```
 
 ---
 
-### Task 4: Gate Docker Publishing Behind Releases And Manual Tag Validation
+### Task 7: Gate Docker Publishing Behind Releases And Manual Tag Validation
 
 **Files:**
 - Modify: `.github/workflows/docker-publish.yml`
@@ -275,7 +506,17 @@ on:
 
 Remove the existing `workflow_run` trigger entirely.
 
-- [ ] **Step 2: Add a context job that decides which publish mode applies**
+- [ ] **Step 2: Add workflow-level concurrency by tag**
+
+Serialize publish runs for the same tag so a `push`-triggered run and a `release.published` run cannot publish concurrently:
+
+```yaml
+concurrency:
+  group: docker-publish-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+```
+
+- [ ] **Step 3: Add a context job that decides which publish mode applies**
 
 Create a first job named `context` that emits:
 
@@ -284,6 +525,7 @@ Create a first job named `context` that emits:
 - `major`
 - `minor`
 - `publish_mode`
+- `publish_floating_tags`
 
 Use this shell logic:
 
@@ -299,6 +541,7 @@ Use this shell logic:
       major: ${{ steps.resolve.outputs.major }}
       minor: ${{ steps.resolve.outputs.minor }}
       publish_mode: ${{ steps.resolve.outputs.publish_mode }}
+      publish_floating_tags: ${{ steps.resolve.outputs.publish_floating_tags }}
     steps:
       - name: Resolve publish context
         id: resolve
@@ -309,13 +552,16 @@ Use this shell logic:
             TAG="${{ github.event.release.tag_name }}"
             VERSION="${TAG#v}"
             echo "publish_mode=release" >> "$GITHUB_OUTPUT"
+            echo "publish_floating_tags=true" >> "$GITHUB_OUTPUT"
           else
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
             if gh release view "$TAG" >/dev/null 2>&1; then
               echo "publish_mode=skip" >> "$GITHUB_OUTPUT"
+              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
             else
               echo "publish_mode=manual-tag" >> "$GITHUB_OUTPUT"
+              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
             fi
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -324,7 +570,7 @@ Use this shell logic:
           echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
 ```
 
-- [ ] **Step 3: Add reduced validation jobs for manual tags**
+- [ ] **Step 4: Add reduced validation jobs for manual tags**
 
 Add these jobs, each gated with:
 
@@ -361,7 +607,7 @@ Repeat the same pattern for:
 - `build` running `bun run build`
 - `docker-verify` using `docker/setup-buildx-action@v3` and `docker/build-push-action@v6` with `push: false`
 
-- [ ] **Step 4: Update the publish job to depend on the gate**
+- [ ] **Step 5: Update the publish job to depend on the gate**
 
 Replace the current single `build` job with a `publish` job that depends on:
 
@@ -390,9 +636,9 @@ if: |
   )
 ```
 
-- [ ] **Step 5: Publish from the resolved tag with explicit semver tags**
+- [ ] **Step 6: Publish from the resolved tag with release-only floating tags**
 
-In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata:
+In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. After logging into GHCR, inspect whether `${version}` already exists and record that as a step output. If `${version}` does not exist yet, build once and push `${version}` plus any enabled floating tags. If `${version}` already exists and `publish_floating_tags == 'true'`, do not rebuild; instead, promote the existing `${version}` image to `major.minor`, `major`, and `latest` so every tag for the release points at the same digest:
 
 ```yaml
   publish:
@@ -434,18 +680,29 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check whether the version tag already exists
+        id: version-tag
+        run: |
+          if docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ github.repository }}:${{ needs.context.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract metadata
         id: meta
+        if: ${{ steps.version-tag.outputs.exists != 'true' }}
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=raw,value=${{ needs.context.outputs.version }}
-            type=raw,value=${{ needs.context.outputs.minor }}
-            type=raw,value=${{ needs.context.outputs.major }}
-            type=raw,value=latest
+            type=raw,value=${{ needs.context.outputs.version }},enable=${{ steps.version-tag.outputs.exists != 'true' }}
+            type=raw,value=${{ needs.context.outputs.minor }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=${{ needs.context.outputs.major }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
 
       - name: Build and push image
+        if: ${{ steps.version-tag.outputs.exists != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -455,18 +712,32 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Promote existing exact tag to floating tags
+        if: ${{ steps.version-tag.outputs.exists == 'true' && needs.context.outputs.publish_floating_tags == 'true' }}
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}"
+          SOURCE="$IMAGE:${{ needs.context.outputs.version }}"
+          docker buildx imagetools create \
+            --tag "$IMAGE:${{ needs.context.outputs.minor }}" \
+            --tag "$IMAGE:${{ needs.context.outputs.major }}" \
+            --tag "$IMAGE:latest" \
+            "$SOURCE"
 ```
 
-- [ ] **Step 6: Review the trigger paths before committing**
+- [ ] **Step 7: Review the trigger paths before committing**
 
 Confirm the YAML now expresses these behaviors:
 
 - `release.published` publishes immediately without rerunning Playwright
 - direct manual `v*` tag pushes run lint, typecheck, unit, build, and Docker verify before publish
-- a tag that already has a GitHub Release sets `publish_mode=skip`, so the tag push path does not duplicate the release-backed publish
+- a tag that already has a GitHub Release also sets `publish_mode=skip`, so duplicate publish is avoided even for out-of-band release creation
+- `push` and `release.published` runs for the same tag are serialized, so only one publish path can act at a time
+- if a manual-tag path publishes the immutable `${version}` first, the later `release.published` path promotes that existing exact image to floating tags without rebuilding a different digest
+- manual tag publishes only push the immutable `${version}` image tag, while formal releases also update floating tags
 - no plain `main` push can publish Docker images anymore
 
-- [ ] **Step 7: Commit the Docker publish workflow changes**
+- [ ] **Step 8: Commit the Docker publish workflow changes**
 
 ```bash
 git add .github/workflows/docker-publish.yml
@@ -475,7 +746,7 @@ git commit -m "ci: gate docker publish behind releases"
 
 ---
 
-### Task 5: Final Verification Pass
+### Task 8: Final Verification Pass
 
 **Files:**
 - Review: `.github/workflows/ci.yml`

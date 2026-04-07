@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Attach main to validated commit
+        run: git checkout -B main "${{ github.event.workflow_run.head_sha }}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -32,26 +38,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Version packages
-        run: bun run changeset version
-
-      - name: Commit and push changes
-        id: commit
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git add .
-            git commit -m "chore: release"
-            git push
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to commit"
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create GitHub Release
-        if: steps.commit.outputs.changed == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          gh release create "v${VERSION}" --generate-notes
+      - name: Release from validated commit
+        run: ./scripts/release-from-validated-commit.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

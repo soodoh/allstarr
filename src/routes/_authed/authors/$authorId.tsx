@@ -36,7 +36,9 @@ import NotFound from "src/components/NotFound";
 import ActionButtonGroup from "src/components/shared/action-button-group";
 import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
 import ConfirmDialog from "src/components/shared/confirm-dialog";
-import EditProfilesDialog from "src/components/shared/edit-series-profiles-dialog";
+import EditProfilesDialog, {
+	type DownloadProfileInfo,
+} from "src/components/shared/edit-series-profiles-dialog";
 import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
@@ -214,8 +216,6 @@ type AuthorSeries = {
 // ---------- Helpers ----------
 
 // ---------- Books tab ----------
-
-type DownloadProfileInfo = { id: number; name: string; icon: string };
 
 function BooksTab({
 	currentAuthorId,

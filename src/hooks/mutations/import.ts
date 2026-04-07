@@ -22,6 +22,8 @@ export type ImportAuthorData = {
 	searchOnAdd?: boolean;
 };
 
+// The exported TanStack server-fn callable widens its `data` payload too far at
+// this import site, so invalid keys are not rejected if we derive from it here.
 type ImportBookData = {
 	foreignBookId: number;
 	downloadProfileIds: number[];
@@ -35,6 +37,7 @@ type ImportBookData = {
 		| "none";
 	monitorNewBooks?: "all" | "none" | "new";
 	searchOnAdd?: boolean;
+	monitorSeries?: boolean;
 };
 
 export function useImportHardcoverAuthor() {

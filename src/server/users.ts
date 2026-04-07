@@ -9,8 +9,15 @@ import {
 	setUserRoleSchema,
 	updateDefaultRoleSchema,
 } from "src/lib/validators";
+import type { z } from "zod";
 import { requireAdmin } from "./middleware";
 import { getSettingValue, upsertSettingValue } from "./settings-store";
+
+type DefaultUserRole = z.infer<typeof updateDefaultRoleSchema>["role"];
+
+function isDefaultUserRole(role: string): role is DefaultUserRole {
+	return role === "viewer" || role === "requester";
+}
 
 export const listUsersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
@@ -123,12 +130,14 @@ export const deleteUserFn = createServerFn({ method: "POST" })
 export const getDefaultRoleFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAdmin();
-		const defaultRole = getSettingValue("auth.defaultRole", "requester");
+		const defaultRole = getSettingValue<string>(
+			"auth.defaultRole",
+			"requester",
+		);
 		return {
-			defaultRole:
-				defaultRole === "viewer" || defaultRole === "requester"
-					? defaultRole
-					: "requester",
+			defaultRole: isDefaultUserRole(defaultRole)
+				? defaultRole
+				: ("requester" satisfies DefaultUserRole),
 		};
 	},
 );

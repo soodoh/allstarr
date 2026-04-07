@@ -1,5 +1,5 @@
 import { lt } from "drizzle-orm";
-import { db } from "src/db";
+import { db, sqlite } from "src/db";
 import { history } from "src/db/schema";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
@@ -20,7 +20,7 @@ registerTask({
 			.all();
 
 		// Optimize the database
-		db.$client.run("PRAGMA optimize");
+		sqlite.run("PRAGMA optimize");
 
 		return {
 			success: true,
