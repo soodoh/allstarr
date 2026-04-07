@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
-import { writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { writeFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
 import Database from "better-sqlite3";
 import PORTS from "./ports";
 
@@ -52,6 +52,7 @@ async function globalSetup(): Promise<void> {
   await killPortListeners();
 
   // 1. Create template DB via drizzle-kit push
+  mkdirSync(dirname(TEMPLATE_DB_PATH), { recursive: true });
   if (existsSync(TEMPLATE_DB_PATH)) {
     unlinkSync(TEMPLATE_DB_PATH);
   }

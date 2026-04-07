@@ -58,6 +58,13 @@ test.describe("Auto-Search", () => {
   test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
     await ensureAuthenticated(page, appUrl);
 
+    await fetch(`${fakeServers.QBITTORRENT}/__reset`, {
+      method: "POST",
+    });
+    await fetch(`${fakeServers.NEWZNAB}/__reset`, {
+      method: "POST",
+    });
+
     // Clean up data from previous tests to prevent interference
     db.delete(schema.trackedDownloads).run();
     db.delete(schema.history).run();
@@ -79,7 +86,7 @@ test.describe("Auto-Search", () => {
       name: "Auto Profile",
       rootFolderPath: "/books",
       cutoff: 1,
-      items: [1, 2, 3, 4, 5],
+      items: [[1], [2], [3], [4], [5]],
       upgradeAllowed: false,
       categories: [7020],
     });
@@ -254,7 +261,7 @@ test.describe("Auto-Search", () => {
       .set({
         upgradeAllowed: true,
         cutoff: 4,
-        items: [1, 2, 3, 4, 5],
+        items: [[1], [2], [3], [4], [5]],
       })
       .run();
 
@@ -403,7 +410,7 @@ test.describe("Auto-Search", () => {
     expect(qbState.addedDownloads).toHaveLength(0);
   });
 
-  test("search respects maxBooks limit", async ({
+  test("RSS sync groups multiple wanted books by author", async ({
     page,
     appUrl,
     db,
@@ -428,15 +435,19 @@ test.describe("Auto-Search", () => {
     }
     checkpoint();
 
-    // The RSS sync task uses a default delayBetweenBooks, but we can verify
-    // the indexer was searched for multiple books by checking searchLog
+    // RSS sync groups 2+ wanted books from the same author into one author-level
+    // search before falling back to per-book queries.
     await triggerTask(page, appUrl, "RSS Sync");
 
-    // Verify the indexer received search requests for the wanted books
+    // Verify the indexer received a single author-level search request.
     const newznabState = await fetch(`${fakeServers.NEWZNAB}/__state`).then(
       (r) => r.json(),
     );
-    // Should have searched at least 2 books (the original + at least one extra)
-    expect(newznabState.searchLog.length).toBeGreaterThanOrEqual(2);
+    expect(newznabState.searchLog).toHaveLength(1);
+    expect(newznabState.searchLog[0]).toMatchObject({
+      type: "search",
+      query: '"Auto Author"',
+      categories: "7020",
+    });
   });
 });

@@ -42,6 +42,19 @@ async function fillInput(locator: Locator, value: string): Promise<void> {
   }
 }
 
+async function submitAccountForm(page: Page): Promise<void> {
+  await page
+    .getByRole("button", { name: /create( admin)? account/i })
+    .click();
+  await page.waitForURL(
+    (url) =>
+      !url.pathname.includes("/setup") &&
+      !url.pathname.includes("/register") &&
+      !url.pathname.includes("/login"),
+    { timeout: 15_000 },
+  );
+}
+
 export async function ensureAuthenticated(
   page: Page,
   baseUrl: string,
@@ -53,7 +66,9 @@ export async function ensureAuthenticated(
   const currentUrl = page.url();
 
   if (!currentUrl.includes("/login") && !currentUrl.includes("/register")) {
-    return;
+    if (!currentUrl.includes("/setup")) {
+      return;
+    }
   }
 
   if (currentUrl.includes("/login")) {
@@ -74,17 +89,14 @@ export async function ensureAuthenticated(
     }
   }
 
-  await page.goto(`${baseUrl}/register`);
+  await page.goto(
+    currentUrl.includes("/setup") ? `${baseUrl}/setup` : `${baseUrl}/register`,
+  );
   await waitForHydration(page);
   await fillInput(page.getByLabel("Name"), TEST_USER.name);
   await fillInput(page.getByLabel("Email"), TEST_USER.email);
   await fillInput(page.getByLabel("Password"), TEST_USER.password);
-  await page.getByRole("button", { name: /create account/i }).click();
-  await page.waitForURL(
-    (url) =>
-      !url.pathname.includes("/register") && !url.pathname.includes("/login"),
-    { timeout: 15_000 },
-  );
+  await submitAccountForm(page);
 }
 
-export { fillInput, waitForHydration };
+export { fillInput, submitAccountForm, waitForHydration };

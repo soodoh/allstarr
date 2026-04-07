@@ -84,7 +84,7 @@ test.describe("Blocklist and Failure Recovery", () => {
         name: "Failure Profile",
         rootFolderPath: tempDir,
         cutoff: 1,
-        items: [1, 2, 3, 4, 5],
+        items: [[1], [2], [3], [4], [5]],
         upgradeAllowed: false,
         categories: [7020],
       });
@@ -619,6 +619,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 
     await navigateTo(page, appUrl, `/books/${bookId}`);
     await page.getByRole("tab", { name: "Search Releases" }).click();
+    await page.getByRole("button", { name: "Search" }).click();
 
     // Wait for releases to load
     await expect(

@@ -18,7 +18,8 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "bunx playwright test --config e2e/playwright.config.ts"
+    "test:e2e:install": "bunx playwright install chromium",
+    "test:e2e": "bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

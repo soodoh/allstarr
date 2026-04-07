@@ -1,4 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
+import { eq, type InferSelectModel } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
@@ -14,14 +14,13 @@ export function seedDownloadProfile(
     .values({
       name: "Default Profile",
       rootFolderPath: "/books",
-      cutoff: 1,
-      items: [1, 2, 3, 4, 5],
+      cutoff: 4,
+      items: [[4], [5], [3], [2]],
       upgradeAllowed: false,
       icon: "book-open",
       categories: [],
-      mediaType: "ebook",
-      contentType: "book",
-      enabled: true,
+      contentType: "ebook",
+      language: "en",
       ...overrides,
     })
     .returning()
@@ -57,6 +56,18 @@ export function seedBook(
   authorId: number,
   overrides: Partial<typeof schema.books.$inferInsert> = {},
 ): InferSelectModel<typeof schema.books> {
+  const authorRow = db
+    .select({
+      name: schema.authors.name,
+      foreignAuthorId: schema.authors.foreignAuthorId,
+    })
+    .from(schema.authors)
+    .where(eq(schema.authors.id, authorId))
+    .get();
+  if (!authorRow) {
+    throw new Error(`Author ${authorId} not found while seeding a book`);
+  }
+
   const bookRows = db
     .insert(schema.books)
     .values({
@@ -78,8 +89,8 @@ export function seedBook(
     .values({
       bookId: book.id,
       authorId,
-      foreignAuthorId: "hc-author-1",
-      authorName: "Test Author",
+      foreignAuthorId: authorRow.foreignAuthorId ?? `seed-author-${authorId}`,
+      authorName: authorRow.name ?? `Seed Author ${authorId}`,
       isPrimary: true,
     })
     .run();

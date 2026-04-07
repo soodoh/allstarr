@@ -198,7 +198,7 @@ function IndexersPage() {
 			</div>
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className="max-w-lg">
+				<DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>{dialogTitle}</DialogTitle>
 					</DialogHeader>

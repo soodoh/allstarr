@@ -256,7 +256,7 @@ test.describe("Author and Book Import", () => {
     ).toBeVisible();
   });
 
-  test("import author to bookshelf", async ({ page, appUrl }) => {
+  test("import author to bookshelf", async ({ page, appUrl, db }) => {
     await navigateTo(page, appUrl, "/books/add");
 
     const searchInput = page.getByLabel("Search query");
@@ -290,6 +290,18 @@ test.describe("Author and Book Import", () => {
 
     // Dialog should close after import
     await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 10_000 });
+
+    await expect
+      .poll(
+        () =>
+          db
+            .select({ id: schema.authors.id })
+            .from(schema.authors)
+            .where(eq(schema.authors.foreignAuthorId, String(MOCK_AUTHOR.id)))
+            .all().length,
+        { timeout: 10_000 },
+      )
+      .toBe(1);
 
     // Navigate to bookshelf to verify author was added
     await navigateTo(page, appUrl, "/authors");
@@ -508,7 +520,12 @@ test.describe("Author and Book Import", () => {
     expect(authorProfiles.length).toBeGreaterThanOrEqual(0);
   });
 
-  test("toggle edition download profile", async ({ page, appUrl, db }) => {
+  test("toggle edition download profile", async ({
+    page,
+    appUrl,
+    db,
+    checkpoint,
+  }) => {
     const { seedAuthor, seedBook, seedEdition, seedDownloadProfile } =
       await import("../fixtures/seed-data");
     const profile = seedDownloadProfile(db, {
@@ -517,7 +534,10 @@ test.describe("Author and Book Import", () => {
     });
     const author = seedAuthor(db, { name: "Edition Toggle Author" });
     const book = seedBook(db, author.id, { title: "Edition Toggle Book" });
-    seedEdition(db, book.id, { title: "Toggle Edition" });
+    seedEdition(db, book.id, {
+      title: "Toggle Edition",
+      format: "EPUB",
+    });
 
     // First assign a profile to the author so edition toggles are visible
     db.insert(schema.authorDownloadProfiles)
@@ -526,6 +546,7 @@ test.describe("Author and Book Import", () => {
         downloadProfileId: profile.id,
       })
       .run();
+    checkpoint();
 
     await navigateTo(page, appUrl, `/books/${book.id}`);
 
@@ -537,10 +558,10 @@ test.describe("Author and Book Import", () => {
     // Verify the Editions tab is present (default active tab)
     await expect(page.getByRole("tab", { name: "Editions" })).toBeVisible();
 
-    // The book detail page should show the edition info
-    await expect(page.getByText("Toggle Edition")).toBeVisible({
-      timeout: 5000,
-    });
+    await page.getByRole("button", { name: "Choose Edition" }).click();
+    await expect(
+      page.getByRole("dialog", { name: /select edition for toggle profile/i }),
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test("delete author", async ({ page, appUrl, db }) => {
