@@ -22,12 +22,6 @@ function DialogPortal({
 	return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
-function DialogClose({
-	...props
-}: ComponentProps<typeof DialogPrimitive.Close>): JSX.Element {
-	return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
-}
-
 function DialogOverlay({
 	className,
 	...props
@@ -160,13 +154,10 @@ function DialogDescription({
 export {
 	Dialog,
 	DialogBody,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogOverlay,
-	DialogPortal,
 	DialogTitle,
 	DialogTrigger,
 };

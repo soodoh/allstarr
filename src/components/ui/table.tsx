@@ -43,22 +43,6 @@ function TableBody({
 	);
 }
 
-function TableFooter({
-	className,
-	...props
-}: ComponentProps<"tfoot">): JSX.Element {
-	return (
-		<tfoot
-			data-slot="table-footer"
-			className={cn(
-				"bg-muted/50 border-t font-medium [&>tr]:last:border-b-0",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
 function TableRow({ className, ...props }: ComponentProps<"tr">): JSX.Element {
 	return (
 		<tr
@@ -98,26 +82,4 @@ function TableCell({ className, ...props }: ComponentProps<"td">): JSX.Element {
 	);
 }
 
-function TableCaption({
-	className,
-	...props
-}: ComponentProps<"caption">): JSX.Element {
-	return (
-		<caption
-			data-slot="table-caption"
-			className={cn("text-muted-foreground mt-4 text-sm", className)}
-			{...props}
-		/>
-	);
-}
-
-export {
-	Table,
-	TableBody,
-	TableCaption,
-	TableCell,
-	TableFooter,
-	TableHead,
-	TableHeader,
-	TableRow,
-};
+export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow };

@@ -12,18 +12,6 @@ function Sheet({
 	return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 }
 
-function SheetTrigger({
-	...props
-}: ComponentProps<typeof SheetPrimitive.Trigger>): JSX.Element {
-	return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
-}
-
-function SheetClose({
-	...props
-}: ComponentProps<typeof SheetPrimitive.Close>): JSX.Element {
-	return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
-}
-
 function SheetPortal({
 	...props
 }: ComponentProps<typeof SheetPrimitive.Portal>): JSX.Element {
@@ -100,19 +88,6 @@ function SheetHeader({
 	);
 }
 
-function SheetFooter({
-	className,
-	...props
-}: ComponentProps<"div">): JSX.Element {
-	return (
-		<div
-			data-slot="sheet-footer"
-			className={cn("mt-auto flex flex-col gap-2 p-4", className)}
-			{...props}
-		/>
-	);
-}
-
 function SheetTitle({
 	className,
 	...props
@@ -139,13 +114,4 @@ function SheetDescription({
 	);
 }
 
-export {
-	Sheet,
-	SheetClose,
-	SheetContent,
-	SheetDescription,
-	SheetFooter,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
-};
+export { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle };
