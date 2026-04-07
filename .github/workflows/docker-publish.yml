@@ -256,25 +256,71 @@ jobs:
 
           echo "exists=$exists" >> "$GITHUB_OUTPUT"
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
-          tags: |
-            type=raw,value=${{ needs.context.outputs.version }},enable=${{ steps.existing-tag.outputs.exists != 'true' }}
-            type=raw,value=${{ needs.context.outputs.minor }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
-            type=raw,value=${{ needs.context.outputs.major }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
-            type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+      - name: Resolve publish actions
+        id: publish-actions
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository }}
+          VERSION: ${{ needs.context.outputs.version }}
+          MINOR: ${{ needs.context.outputs.minor }}
+          MAJOR: ${{ needs.context.outputs.major }}
+          PUBLISH_FLOATING_TAGS: ${{ needs.context.outputs.publish_floating_tags }}
+          EXACT_EXISTS: ${{ steps.existing-tag.outputs.exists }}
+        run: |
+          set -euo pipefail
+
+          build_needed=false
+          promote_needed=false
+          build_tags="$IMAGE:$VERSION"
+          floating_tags=""
+
+          if [[ "$PUBLISH_FLOATING_TAGS" == "true" ]]; then
+            floating_tags="$IMAGE:$MINOR,$IMAGE:$MAJOR,$IMAGE:latest"
+            build_tags="$build_tags,$floating_tags"
+          fi
+
+          if [[ "$EXACT_EXISTS" != "true" ]]; then
+            build_needed=true
+          elif [[ "$PUBLISH_FLOATING_TAGS" == "true" ]]; then
+            promote_needed=true
+          fi
+
+          {
+            echo "build_needed=$build_needed"
+            echo "promote_needed=$promote_needed"
+            echo "build_tags=$build_tags"
+            echo "floating_tags=$floating_tags"
+            echo "source_ref=$IMAGE:$VERSION"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
-        if: ${{ steps.existing-tag.outputs.exists != 'true' || needs.context.outputs.publish_floating_tags == 'true' }}
+        if: ${{ steps.publish-actions.outputs.build_needed == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.publish-actions.outputs.build_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Promote exact image to floating tags
+        if: ${{ steps.publish-actions.outputs.promote_needed == 'true' }}
+        env:
+          SOURCE_REF: ${{ steps.publish-actions.outputs.source_ref }}
+          FLOATING_TAGS: ${{ steps.publish-actions.outputs.floating_tags }}
+        run: |
+          set -euo pipefail
+
+          args=()
+          IFS=',' read -r -a tags <<< "$FLOATING_TAGS"
+          for tag in "${tags[@]}"; do
+            if [[ -n "$tag" ]]; then
+              args+=(--tag "$tag")
+            fi
+          done
+
+          if [[ "${#args[@]}" -eq 0 ]]; then
+            exit 0
+          fi
+
+          docker buildx imagetools create "${args[@]}" "$SOURCE_REF"
