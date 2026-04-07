@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { test, expect } from "../fixtures/app";
@@ -392,5 +392,42 @@ test.describe("Unmapped Files", () => {
     await expect(
       page.getByText(secondFile.filename, { exact: true }),
     ).toBeVisible();
+  });
+
+  test("rescan removes stale unmapped files missing from disk", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    const file = seedUnmappedEbook(db, tempDir, "rescan-stale.epub");
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
+
+    unlinkSync(file.path);
+    await expect.poll(() => existsSync(file.path)).toBe(false);
+
+    await page.getByRole("button", { name: "Rescan", exact: true }).click();
+
+    await expect(page.getByText(file.filename, { exact: true })).toHaveCount(0);
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    await expect
+      .poll(() =>
+        db
+          .select({ id: schema.unmappedFiles.id })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.id, file.id))
+          .get() ?? null,
+      )
+      .toBeNull();
   });
 });
