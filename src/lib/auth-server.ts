@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
+import { defaultRoles, userAc } from "better-auth/plugins/admin/access";
 import { and, eq } from "drizzle-orm";
 import { db, sqlite } from "src/db";
 import { oidcProviders } from "src/db/schema";
@@ -60,6 +61,11 @@ function getRequestUrl(ctx: unknown): string {
 }
 
 const oidcConfig = loadOidcProviders();
+const adminPluginRoles = {
+	...defaultRoles,
+	viewer: userAc,
+	requester: userAc,
+} as const;
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, {
@@ -71,6 +77,7 @@ export const auth = betterAuth({
 	plugins: [
 		admin({
 			defaultRole: "requester",
+			roles: adminPluginRoles,
 		}),
 		...(oidcConfig.length > 0 ? [genericOAuth({ config: oidcConfig })] : []),
 	],
