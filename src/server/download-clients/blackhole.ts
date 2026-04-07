@@ -1,3 +1,4 @@
+import { createServerOnlyFn } from "@tanstack/react-start";
 import type {
 	ConnectionConfig,
 	DownloadClientProvider,
@@ -16,12 +17,9 @@ function getWatchFolder(config: ConnectionConfig): string {
 	return watchFolder.trim();
 }
 
-async function loadBlackholeNode() {
-	if (!import.meta.env.SSR) {
-		throw new Error("Blackhole provider is only available on the server");
-	}
-	return import("./blackhole-node");
-}
+const loadBlackholeNode = createServerOnlyFn(
+	async () => import("./blackhole-node"),
+);
 
 const blackholeProvider: DownloadClientProvider = {
 	async testConnection(config: ConnectionConfig): Promise<TestResult> {

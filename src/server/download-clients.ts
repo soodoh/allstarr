@@ -8,7 +8,6 @@ import {
 	testDownloadClientSchema,
 	updateDownloadClientSchema,
 } from "src/lib/validators";
-import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 import { requireAdmin } from "./middleware";
 
@@ -64,6 +63,9 @@ export const testDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => testDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const { default: getProvider } = await import(
+			"./download-clients/registry"
+		);
 		const provider = await getProvider(data.implementation);
 		const config: ConnectionConfig = {
 			implementation: data.implementation,
