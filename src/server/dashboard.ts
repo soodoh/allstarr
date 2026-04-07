@@ -243,7 +243,7 @@ export const getDashboardRecentActivityFn = createServerFn({
 			eventType: item.eventType,
 			itemName,
 			contentType,
-			date: item.date,
+			date: item.date.getTime(),
 		} satisfies RecentActivityItem;
 	});
 });
