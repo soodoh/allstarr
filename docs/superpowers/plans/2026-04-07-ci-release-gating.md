@@ -506,7 +506,17 @@ on:
 
 Remove the existing `workflow_run` trigger entirely.
 
-- [ ] **Step 2: Add a context job that decides which publish mode applies**
+- [ ] **Step 2: Add workflow-level concurrency by tag**
+
+Serialize publish runs for the same tag so a `push`-triggered run and a `release.published` run cannot publish concurrently:
+
+```yaml
+concurrency:
+  group: docker-publish-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+```
+
+- [ ] **Step 3: Add a context job that decides which publish mode applies**
 
 Create a first job named `context` that emits:
 
@@ -546,10 +556,7 @@ Use this shell logic:
           else
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
-            if [[ "${{ github.actor }}" == "github-actions[bot]" ]]; then
-              echo "publish_mode=skip" >> "$GITHUB_OUTPUT"
-              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
-            elif gh release view "$TAG" >/dev/null 2>&1; then
+            if gh release view "$TAG" >/dev/null 2>&1; then
               echo "publish_mode=skip" >> "$GITHUB_OUTPUT"
               echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
             else
@@ -563,7 +570,7 @@ Use this shell logic:
           echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
 ```
 
-- [ ] **Step 3: Add reduced validation jobs for manual tags**
+- [ ] **Step 4: Add reduced validation jobs for manual tags**
 
 Add these jobs, each gated with:
 
@@ -600,7 +607,7 @@ Repeat the same pattern for:
 - `build` running `bun run build`
 - `docker-verify` using `docker/setup-buildx-action@v3` and `docker/build-push-action@v6` with `push: false`
 
-- [ ] **Step 4: Update the publish job to depend on the gate**
+- [ ] **Step 5: Update the publish job to depend on the gate**
 
 Replace the current single `build` job with a `publish` job that depends on:
 
@@ -629,9 +636,9 @@ if: |
   )
 ```
 
-- [ ] **Step 5: Publish from the resolved tag with release-only floating tags**
+- [ ] **Step 6: Publish from the resolved tag with release-only floating tags**
 
-In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. Always publish the immutable `${version}` tag, and only publish floating tags (`major.minor`, `major`, `latest`) when `publish_floating_tags == 'true'`:
+In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. After logging into GHCR, inspect whether `${version}` already exists and record that as a step output. Always publish the immutable `${version}` tag only when it does not already exist, and only publish floating tags (`major.minor`, `major`, `latest`) when `publish_floating_tags == 'true'`:
 
 ```yaml
   publish:
@@ -673,18 +680,28 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check whether the version tag already exists
+        id: version-tag
+        run: |
+          if docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ github.repository }}:${{ needs.context.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=raw,value=${{ needs.context.outputs.version }}
+            type=raw,value=${{ needs.context.outputs.version }},enable=${{ steps.version-tag.outputs.exists != 'true' }}
             type=raw,value=${{ needs.context.outputs.minor }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
             type=raw,value=${{ needs.context.outputs.major }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
             type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
 
       - name: Build and push image
+        if: ${{ steps.version-tag.outputs.exists != 'true' || needs.context.outputs.publish_floating_tags == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -696,18 +713,19 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           cache-to: type=gha,mode=max
 ```
 
-- [ ] **Step 6: Review the trigger paths before committing**
+- [ ] **Step 7: Review the trigger paths before committing**
 
 Confirm the YAML now expresses these behaviors:
 
 - `release.published` publishes immediately without rerunning Playwright
 - direct manual `v*` tag pushes run lint, typecheck, unit, build, and Docker verify before publish
-- bot-created tag pushes from the automated release workflow set `publish_mode=skip`, so the tag push path cannot race the later `release.published` event
 - a tag that already has a GitHub Release also sets `publish_mode=skip`, so duplicate publish is avoided even for out-of-band release creation
+- `push` and `release.published` runs for the same tag are serialized, so only one publish path can act at a time
+- if a manual-tag path publishes the immutable `${version}` first, the later `release.published` path only applies floating tags and does not republish the exact version
 - manual tag publishes only push the immutable `${version}` image tag, while formal releases also update floating tags
 - no plain `main` push can publish Docker images anymore
 
-- [ ] **Step 7: Commit the Docker publish workflow changes**
+- [ ] **Step 8: Commit the Docker publish workflow changes**
 
 ```bash
 git add .github/workflows/docker-publish.yml
