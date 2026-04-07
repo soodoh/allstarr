@@ -638,7 +638,7 @@ if: |
 
 - [ ] **Step 6: Publish from the resolved tag with release-only floating tags**
 
-In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. After logging into GHCR, inspect whether `${version}` already exists and record that as a step output. Always publish the immutable `${version}` tag only when it does not already exist, and only publish floating tags (`major.minor`, `major`, `latest`) when `publish_floating_tags == 'true'`:
+In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. After logging into GHCR, inspect whether `${version}` already exists and record that as a step output. If `${version}` does not exist yet, build once and push `${version}` plus any enabled floating tags. If `${version}` already exists and `publish_floating_tags == 'true'`, do not rebuild; instead, promote the existing `${version}` image to `major.minor`, `major`, and `latest` so every tag for the release points at the same digest:
 
 ```yaml
   publish:
@@ -691,6 +691,7 @@ In the `publish` job, check out the resolved tag and use the context outputs for
 
       - name: Extract metadata
         id: meta
+        if: ${{ steps.version-tag.outputs.exists != 'true' }}
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
@@ -701,7 +702,7 @@ In the `publish` job, check out the resolved tag and use the context outputs for
             type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
 
       - name: Build and push image
-        if: ${{ steps.version-tag.outputs.exists != 'true' || needs.context.outputs.publish_floating_tags == 'true' }}
+        if: ${{ steps.version-tag.outputs.exists != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -711,6 +712,17 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Promote existing exact tag to floating tags
+        if: ${{ steps.version-tag.outputs.exists == 'true' && needs.context.outputs.publish_floating_tags == 'true' }}
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}"
+          SOURCE="$IMAGE:${{ needs.context.outputs.version }}"
+          docker buildx imagetools create \
+            --tag "$IMAGE:${{ needs.context.outputs.minor }}" \
+            --tag "$IMAGE:${{ needs.context.outputs.major }}" \
+            --tag "$IMAGE:latest" \
+            "$SOURCE"
 ```
 
 - [ ] **Step 7: Review the trigger paths before committing**
@@ -721,7 +733,7 @@ Confirm the YAML now expresses these behaviors:
 - direct manual `v*` tag pushes run lint, typecheck, unit, build, and Docker verify before publish
 - a tag that already has a GitHub Release also sets `publish_mode=skip`, so duplicate publish is avoided even for out-of-band release creation
 - `push` and `release.published` runs for the same tag are serialized, so only one publish path can act at a time
-- if a manual-tag path publishes the immutable `${version}` first, the later `release.published` path only applies floating tags and does not republish the exact version
+- if a manual-tag path publishes the immutable `${version}` first, the later `release.published` path promotes that existing exact image to floating tags without rebuilding a different digest
 - manual tag publishes only push the immutable `${version}` image tag, while formal releases also update floating tags
 - no plain `main` push can publish Docker images anymore
 
