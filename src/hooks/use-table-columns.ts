@@ -8,7 +8,7 @@ import {
 	TABLE_DEFAULTS,
 } from "src/lib/table-column-defaults";
 
-export type ResolvedColumns = {
+type ResolvedColumns = {
 	/** All columns in display order (includes hidden) */
 	allColumns: TableColumnDef[];
 	/** Only visible columns in display order */

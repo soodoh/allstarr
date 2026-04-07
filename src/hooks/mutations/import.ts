@@ -22,7 +22,7 @@ export type ImportAuthorData = {
 	searchOnAdd?: boolean;
 };
 
-export type ImportBookData = {
+type ImportBookData = {
 	foreignBookId: number;
 	downloadProfileIds: number[];
 	monitorOption?:

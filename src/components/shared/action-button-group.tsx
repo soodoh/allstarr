@@ -8,7 +8,7 @@ import {
 	TooltipTrigger,
 } from "src/components/ui/tooltip";
 
-export type ActionButtonGroupProps = {
+type ActionButtonGroupProps = {
 	onRefreshMetadata: () => void;
 	isRefreshing: boolean;
 	onEdit: () => void;

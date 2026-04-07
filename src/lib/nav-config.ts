@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-export type NavItem = {
+type NavItem = {
 	title: string;
 	to: string;
 	icon: ComponentType<{ className?: string }>;

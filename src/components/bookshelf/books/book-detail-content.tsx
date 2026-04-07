@@ -16,12 +16,12 @@ type AuthorLink = {
 	name: string;
 };
 
-export type BookLanguageEntry = {
+type BookLanguageEntry = {
 	name: string;
 	code: string;
 };
 
-export type BookDetailData = {
+type BookDetailData = {
 	title: string;
 	coverUrl: string | null;
 	images: Array<{ url: string; coverType: string }>;

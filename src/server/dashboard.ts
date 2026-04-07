@@ -21,7 +21,7 @@ type ContentTypeStat = {
 	extra: { label: string; value: number };
 };
 
-export type ContentTypeStats = {
+type ContentTypeStats = {
 	books: ContentTypeStat;
 	shows: ContentTypeStat;
 	movies: ContentTypeStat;
@@ -71,12 +71,12 @@ export const getDashboardContentStatsFn = createServerFn({
 	} satisfies ContentTypeStats;
 });
 
-export type QualityBreakdownItem = {
+type QualityBreakdownItem = {
 	name: string;
 	count: number;
 };
 
-export type QualityBreakdown = {
+type QualityBreakdown = {
 	books: QualityBreakdownItem[];
 	shows: QualityBreakdownItem[];
 	movies: QualityBreakdownItem[];
@@ -145,12 +145,12 @@ export const getDashboardQualityBreakdownFn = createServerFn({
 	} satisfies QualityBreakdown;
 });
 
-export type StorageStat = {
+type StorageStat = {
 	contentType: string;
 	totalSize: number;
 };
 
-export type DashboardStorage = {
+type DashboardStorage = {
 	byContentType: StorageStat[];
 	totalUsed: number;
 	totalCapacity: number;
@@ -196,7 +196,7 @@ export const getDashboardStorageStatsFn = createServerFn({
 	} satisfies DashboardStorage;
 });
 
-export type RecentActivityItem = {
+type RecentActivityItem = {
 	id: number;
 	eventType: string;
 	itemName: string | null;

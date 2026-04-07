@@ -1,5 +1,5 @@
 /** Minimal interface for edition selection logic. */
-export type PickableEdition = {
+type PickableEdition = {
 	languageCode: string | null;
 	isDefaultCover: boolean;
 };
@@ -35,7 +35,7 @@ export function pickBestEdition<T extends PickableEdition>(
 }
 
 /** Edition with enough data for profile-aware selection. */
-export type ProfilePickableEdition = {
+type ProfilePickableEdition = {
 	id: number;
 	languageCode: string | null;
 	isDefaultCover: boolean;

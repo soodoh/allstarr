@@ -10,8 +10,6 @@ import { PRESETS } from "src/lib/custom-format-preset-data";
 import { invalidateCFCache } from "./indexers/cf-scoring";
 import { requireAdmin, requireAuth } from "./middleware";
 
-export type { PresetCF } from "src/lib/custom-format-preset-data";
-
 // ---------------------------------------------------------------------------
 // Server functions
 // ---------------------------------------------------------------------------

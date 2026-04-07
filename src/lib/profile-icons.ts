@@ -74,5 +74,3 @@ export function getProfileIcon(icon: string | null): LucideIcon {
 	}
 	return BookOpen;
 }
-
-export type ProfileIconKey = keyof typeof PROFILE_ICONS;
