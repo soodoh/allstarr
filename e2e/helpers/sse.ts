@@ -17,33 +17,68 @@ export default async function captureSSEEvents(
   action: () => Promise<void>,
   timeoutMs = 5000,
 ): Promise<CapturedEvent[]> {
-  // Inject an EventSource listener into the page
-  const handle = await page.evaluateHandle(
-    ({ url, types, timeout }) => {
-      return new Promise<CapturedEvent[]>((resolve) => {
-        const events: CapturedEvent[] = [];
-        const es = new EventSource(`${url}/api/sse`);
+  await page.evaluate(
+    ({ url, types }) => {
+      const globalWindow = window as typeof window & {
+        __allstarrSseCapture?: {
+          es: EventSource;
+          ready: boolean;
+          events: CapturedEvent[];
+        };
+      };
 
-        for (const type of types) {
-          es.addEventListener(type, (e) => {
-            events.push({ type, data: (e as MessageEvent).data });
-          });
-        }
+      globalWindow.__allstarrSseCapture?.es.close();
 
-        setTimeout(() => {
-          es.close();
-          resolve(events);
-        }, timeout);
+      const events: CapturedEvent[] = [];
+      const es = new EventSource(`${url}/api/events`);
+      const capture = {
+        es,
+        ready: false,
+        events,
+      };
+
+      es.addEventListener("open", () => {
+        capture.ready = true;
       });
+
+      for (const type of types) {
+        es.addEventListener(type, (e) => {
+          events.push({ type, data: (e as MessageEvent).data });
+        });
+      }
+
+      globalWindow.__allstarrSseCapture = capture;
     },
-    { url: baseUrl, types: eventTypes, timeout: timeoutMs },
+    { url: baseUrl, types: eventTypes },
   );
+
+  await page.waitForFunction(() => {
+    const globalWindow = window as typeof window & {
+      __allstarrSseCapture?: { ready: boolean };
+    };
+    return globalWindow.__allstarrSseCapture?.ready === true;
+  });
 
   // Perform the action while SSE is listening
   await action();
 
-  // Wait for the SSE collection to complete
-  const events = await handle.jsonValue();
-  await handle.dispose();
+  await page.waitForTimeout(timeoutMs);
+
+  const events = await page.evaluate(() => {
+    const globalWindow = window as typeof window & {
+      __allstarrSseCapture?: {
+        es: EventSource;
+        events: CapturedEvent[];
+      };
+    };
+    const capture = globalWindow.__allstarrSseCapture;
+    if (!capture) {
+      return [];
+    }
+    capture.es.close();
+    delete globalWindow.__allstarrSseCapture;
+    return capture.events;
+  });
+
   return events;
 }

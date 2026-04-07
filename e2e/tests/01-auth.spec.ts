@@ -4,25 +4,21 @@ import {
   TEST_USER,
   ensureAuthenticated,
   fillInput,
+  submitAccountForm,
   waitForHydration,
 } from "../helpers/auth";
 
 test.describe("Auth", () => {
-  test("register new account", async ({ page, appUrl }) => {
-    await page.goto(`${appUrl}/register`);
+  test("create initial admin account during setup", async ({ page, appUrl }) => {
+    await page.goto(`${appUrl}/setup`);
     await waitForHydration(page);
 
     await fillInput(page.getByLabel("Name"), TEST_USER.name);
     await fillInput(page.getByLabel("Email"), TEST_USER.email);
     await fillInput(page.getByLabel("Password"), TEST_USER.password);
-    await page.getByRole("button", { name: /create account/i }).click();
+    await submitAccountForm(page);
 
-    await page.waitForURL(
-      (url) =>
-        !url.pathname.includes("/register") && !url.pathname.includes("/login"),
-      { timeout: 15_000 },
-    );
-    expect(page.url()).not.toContain("/register");
+    expect(page.url()).not.toContain("/setup");
   });
 
   test("login with valid credentials", async ({ page, appUrl }) => {

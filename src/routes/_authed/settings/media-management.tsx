@@ -898,8 +898,11 @@ function MediaManagementPage() {
 								</div>
 
 								<div className="space-y-2">
-									<Label>Standard Book Format</Label>
+									<Label htmlFor="book-ebook-file-format">
+										Standard Book Format
+									</Label>
 									<Input
+										id="book-ebook-file-format"
 										value={state.book.ebookBookFile}
 										onChange={(e) =>
 											updateBookField("ebookBookFile", e.target.value)
@@ -965,8 +968,11 @@ function MediaManagementPage() {
 							</CardHeader>
 							<CardContent className="space-y-6">
 								<div className="space-y-2">
-									<Label>Standard Book Format</Label>
+									<Label htmlFor="book-audiobook-file-format">
+										Standard Book Format
+									</Label>
 									<Input
+										id="book-audiobook-file-format"
 										value={state.book.audiobookBookFile}
 										onChange={(e) =>
 											updateBookField("audiobookBookFile", e.target.value)

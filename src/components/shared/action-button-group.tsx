@@ -36,6 +36,7 @@ export default function ActionButtonGroup({
 							className="rounded-none first:rounded-l-md"
 							onClick={onRefreshMetadata}
 							disabled={isRefreshing}
+							aria-label="Update metadata"
 						>
 							{isRefreshing ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
@@ -54,6 +55,7 @@ export default function ActionButtonGroup({
 							size="icon"
 							className="rounded-none"
 							onClick={onEdit}
+							aria-label="Edit"
 						>
 							<Pencil className="h-4 w-4" />
 						</Button>
@@ -68,6 +70,7 @@ export default function ActionButtonGroup({
 							size="icon"
 							className={`rounded-none ${externalUrl ? "" : "last:rounded-r-md"}`}
 							onClick={onDelete}
+							aria-label="Delete"
 						>
 							<Trash2 className="h-4 w-4 text-destructive" />
 						</Button>
@@ -85,6 +88,7 @@ export default function ActionButtonGroup({
 								asChild
 							>
 								<a href={externalUrl} target="_blank" rel="noreferrer">
+									<span className="sr-only">{externalLabel}</span>
 									<ExternalLink className="h-4 w-4" />
 								</a>
 							</Button>

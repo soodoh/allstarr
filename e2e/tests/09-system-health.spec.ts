@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
@@ -9,9 +10,24 @@ import {
 import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
+function isFfprobeInstalled(): boolean {
+  try {
+    execFileSync("ffprobe", ["-version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 test.describe("System Health", () => {
-  test.beforeEach(async ({ page, appUrl }) => {
+  test.beforeEach(async ({ page, appUrl, db }) => {
     await ensureAuthenticated(page, appUrl);
+
+    db.delete(schema.syncedIndexers).run();
+    db.delete(schema.indexers).run();
+    db.delete(schema.downloadClients).run();
+    db.delete(schema.downloadProfiles).run();
+    db.delete(schema.unmappedFiles).run();
   });
 
   test("healthy status when fully configured", async ({
@@ -182,12 +198,15 @@ test.describe("System Health", () => {
       apiKey: "test-key",
     });
 
-    // ffprobe is not installed in test environments, so the warning should appear
     await navigateTo(page, appUrl, "/system/status");
 
-    await expect(page.getByText(/ffmpeg is not installed/i)).toBeVisible({
-      timeout: 10_000,
-    });
+    if (isFfprobeInstalled()) {
+      await expect(page.getByText(/ffmpeg is not installed/i)).not.toBeVisible();
+    } else {
+      await expect(page.getByText(/ffmpeg is not installed/i)).toBeVisible({
+        timeout: 10_000,
+      });
+    }
   });
 
   test("warning when root folder path does not exist", async ({
@@ -279,8 +298,11 @@ test.describe("System Health", () => {
       "Rescan Folders",
       "Refresh Downloads",
       "RSS Sync",
+      "Search for Missing",
       "Check Health",
-      "Refresh Metadata",
+      "Refresh Hardcover Metadata",
+      "Refresh TMDB Metadata",
+      "Refresh Series Metadata",
       "Housekeeping",
       "Backup Database",
     ];

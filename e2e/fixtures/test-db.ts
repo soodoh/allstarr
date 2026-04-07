@@ -1,8 +1,14 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { copyFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  copyFileSync,
+  unlinkSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+} from "node:fs";
+import { join, dirname } from "node:path";
 import * as schema from "../../src/db/schema";
 
 const STATE_FILE = join(import.meta.dirname, "..", ".test-state.json");
@@ -32,6 +38,7 @@ export function createTestDb(suiteId: string): TestDbHandle {
     "data",
     `test-${suiteId}-${Date.now()}.db`,
   );
+  mkdirSync(dirname(dbPath), { recursive: true });
   copyFileSync(templateDbPath, dbPath);
 
   const sqlite = new Database(dbPath);

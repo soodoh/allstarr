@@ -606,7 +606,9 @@ test.describe("Settings and Configuration", () => {
       await pagesInput.fill("100");
 
       // Save
-      await page.getByRole("button", { name: "Save Profile" }).click();
+      await page
+        .getByRole("button", { name: "Save Hardcover Settings" })
+        .click();
 
       // Reload and verify persistence
       await page.reload();
@@ -643,10 +645,14 @@ test.describe("Settings and Configuration", () => {
       await skipReleaseDateSwitch.click();
 
       // Save
-      await page.getByRole("button", { name: "Save Profile" }).click();
+      await page
+        .getByRole("button", { name: "Save Hardcover Settings" })
+        .click();
 
       // Verify toast or page did not error
-      await expect(page.getByText("Metadata Profile")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Metadata Settings" }),
+      ).toBeVisible();
     });
   });
 
@@ -724,7 +730,7 @@ test.describe("Settings and Configuration", () => {
 
       // Audiobook section should include PartNumber token
       await expect(
-        page.getByText("{PartNumber}", { exact: false }),
+        page.getByText("{PartNumber}", { exact: false }).first(),
       ).toBeVisible();
 
       // Save settings

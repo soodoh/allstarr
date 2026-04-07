@@ -178,8 +178,23 @@ export async function refreshDownloads(): Promise<TaskResult> {
 			if (action === "import" && enableCompletedHandling) {
 				try {
 					await importCompletedDownload(td.id);
-					// Remove completed download from client after successful import
-					if (client.removeCompletedDownloads) {
+					const refreshed = db
+						.select({ state: trackedDownloads.state })
+						.from(trackedDownloads)
+						.where(eq(trackedDownloads.id, td.id))
+						.get();
+
+					if (refreshed?.state === "failed") {
+						stats.failed += 1;
+						await handleFailedDownload(td.id, provider, config);
+						continue;
+					}
+
+					// Remove completed download from client only after a successful import
+					if (
+						refreshed?.state === "imported" &&
+						client.removeCompletedDownloads
+					) {
 						await removeFromClient(provider, config, td.downloadId);
 					}
 				} catch (error) {
