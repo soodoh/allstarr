@@ -93,6 +93,22 @@ async function removeFromClient(
 	}
 }
 
+async function runFailedDownloadHandler(
+	trackedDownloadId: number,
+	provider: DownloadClientProvider,
+	config: ConnectionConfig,
+): Promise<void> {
+	try {
+		await handleFailedDownload(trackedDownloadId, provider, config);
+	} catch (handlerError) {
+		logError(
+			"download-manager",
+			`Failed download handler error: ${handlerError instanceof Error ? handlerError.message : "Unknown error"}`,
+			handlerError,
+		);
+	}
+}
+
 export async function refreshDownloads(): Promise<TaskResult> {
 	const tracked = db
 		.select()
@@ -178,25 +194,6 @@ export async function refreshDownloads(): Promise<TaskResult> {
 			if (action === "import" && enableCompletedHandling) {
 				try {
 					await importCompletedDownload(td.id);
-					const refreshed = db
-						.select({ state: trackedDownloads.state })
-						.from(trackedDownloads)
-						.where(eq(trackedDownloads.id, td.id))
-						.get();
-
-					if (refreshed?.state === "failed") {
-						stats.failed += 1;
-						await handleFailedDownload(td.id, provider, config);
-						continue;
-					}
-
-					// Remove completed download from client only after a successful import
-					if (
-						refreshed?.state === "imported" &&
-						client.removeCompletedDownloads
-					) {
-						await removeFromClient(provider, config, td.downloadId);
-					}
 				} catch (error) {
 					logError(
 						"download-manager",
@@ -204,15 +201,27 @@ export async function refreshDownloads(): Promise<TaskResult> {
 						error,
 					);
 					stats.failed += 1;
-					try {
-						await handleFailedDownload(td.id, provider, config);
-					} catch (handlerError) {
-						logError(
-							"download-manager",
-							`Failed download handler error: ${handlerError instanceof Error ? handlerError.message : "Unknown error"}`,
-							handlerError,
-						);
-					}
+					await runFailedDownloadHandler(td.id, provider, config);
+					continue;
+				}
+
+				const refreshed = db
+					.select({ state: trackedDownloads.state })
+					.from(trackedDownloads)
+					.where(eq(trackedDownloads.id, td.id))
+					.get();
+
+				if (refreshed?.state === "failed") {
+					stats.failed += 1;
+					await runFailedDownloadHandler(td.id, provider, config);
+					continue;
+				}
+
+				if (
+					refreshed?.state === "imported" &&
+					client.removeCompletedDownloads
+				) {
+					await removeFromClient(provider, config, td.downloadId);
 				}
 			}
 		}
