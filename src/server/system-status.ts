@@ -145,7 +145,7 @@ function runHealthChecks(): HealthCheck[] {
 	return checks;
 }
 
-function getDiskSpace(): DiskSpaceEntry[] {
+export function getDiskSpace(): DiskSpaceEntry[] {
 	const folderPaths = getRootFolderPaths();
 	return folderPaths.map((folderPath) => {
 		let freeSpace = 0;
