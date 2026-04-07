@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Attach main to validated commit
+        run: git checkout -B main "${{ github.event.workflow_run.head_sha }}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -41,7 +47,7 @@ jobs:
           if [[ -n "$(git status --porcelain)" ]]; then
             git add .
             git commit -m "chore: release"
-            git push
+            git push origin HEAD:main
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "No changes to commit"
@@ -52,6 +58,7 @@ jobs:
         if: steps.commit.outputs.changed == 'true'
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          gh release create "v${VERSION}" --generate-notes
+          RELEASE_SHA=$(git rev-parse HEAD)
+          gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
