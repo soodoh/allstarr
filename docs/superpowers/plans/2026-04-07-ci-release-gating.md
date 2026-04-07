@@ -515,6 +515,7 @@ Create a first job named `context` that emits:
 - `major`
 - `minor`
 - `publish_mode`
+- `publish_floating_tags`
 
 Use this shell logic:
 
@@ -530,6 +531,7 @@ Use this shell logic:
       major: ${{ steps.resolve.outputs.major }}
       minor: ${{ steps.resolve.outputs.minor }}
       publish_mode: ${{ steps.resolve.outputs.publish_mode }}
+      publish_floating_tags: ${{ steps.resolve.outputs.publish_floating_tags }}
     steps:
       - name: Resolve publish context
         id: resolve
@@ -540,13 +542,19 @@ Use this shell logic:
             TAG="${{ github.event.release.tag_name }}"
             VERSION="${TAG#v}"
             echo "publish_mode=release" >> "$GITHUB_OUTPUT"
+            echo "publish_floating_tags=true" >> "$GITHUB_OUTPUT"
           else
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
-            if gh release view "$TAG" >/dev/null 2>&1; then
+            if [[ "${{ github.actor }}" == "github-actions[bot]" ]]; then
               echo "publish_mode=skip" >> "$GITHUB_OUTPUT"
+              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
+            elif gh release view "$TAG" >/dev/null 2>&1; then
+              echo "publish_mode=skip" >> "$GITHUB_OUTPUT"
+              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
             else
               echo "publish_mode=manual-tag" >> "$GITHUB_OUTPUT"
+              echo "publish_floating_tags=false" >> "$GITHUB_OUTPUT"
             fi
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -621,9 +629,9 @@ if: |
   )
 ```
 
-- [ ] **Step 5: Publish from the resolved tag with explicit semver tags**
+- [ ] **Step 5: Publish from the resolved tag with release-only floating tags**
 
-In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata:
+In the `publish` job, check out the resolved tag and use the context outputs for Docker metadata. Always publish the immutable `${version}` tag, and only publish floating tags (`major.minor`, `major`, `latest`) when `publish_floating_tags == 'true'`:
 
 ```yaml
   publish:
@@ -672,9 +680,9 @@ In the `publish` job, check out the resolved tag and use the context outputs for
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
             type=raw,value=${{ needs.context.outputs.version }}
-            type=raw,value=${{ needs.context.outputs.minor }}
-            type=raw,value=${{ needs.context.outputs.major }}
-            type=raw,value=latest
+            type=raw,value=${{ needs.context.outputs.minor }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=${{ needs.context.outputs.major }},enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
+            type=raw,value=latest,enable=${{ needs.context.outputs.publish_floating_tags == 'true' }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -694,7 +702,9 @@ Confirm the YAML now expresses these behaviors:
 
 - `release.published` publishes immediately without rerunning Playwright
 - direct manual `v*` tag pushes run lint, typecheck, unit, build, and Docker verify before publish
-- a tag that already has a GitHub Release sets `publish_mode=skip`, so the tag push path does not duplicate the release-backed publish
+- bot-created tag pushes from the automated release workflow set `publish_mode=skip`, so the tag push path cannot race the later `release.published` event
+- a tag that already has a GitHub Release also sets `publish_mode=skip`, so duplicate publish is avoided even for out-of-band release creation
+- manual tag publishes only push the immutable `${version}` image tag, while formal releases also update floating tags
 - no plain `main` push can publish Docker images anymore
 
 - [ ] **Step 7: Commit the Docker publish workflow changes**
