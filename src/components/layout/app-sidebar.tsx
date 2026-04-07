@@ -56,13 +56,13 @@ type NavGroup = {
 const navGroups: NavGroup[] = [
 	{
 		title: "Library",
-		to: "/library/unmapped-files",
+		to: "/unmapped-files",
 		icon: FolderOpen,
-		matchPrefixes: ["/library"],
+		matchPrefixes: ["/unmapped-files"],
 		children: [
 			{
 				title: "Unmapped Files",
-				to: "/library/unmapped-files",
+				to: "/unmapped-files",
 				icon: FileQuestion,
 			},
 		],
