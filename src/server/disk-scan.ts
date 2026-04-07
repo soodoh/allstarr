@@ -9,7 +9,9 @@ import {
 	booksAuthors,
 	downloadProfiles,
 	history,
+	unmappedFiles,
 } from "src/db/schema";
+import { extractHints } from "src/server/hint-extractor";
 import { matchFormat } from "src/server/indexers/format-parser";
 import { probeAudioFile, probeEbookFile } from "src/server/media-probe";
 
@@ -32,6 +34,13 @@ const SUPPORTED_EXTENSIONS = new Set([
 	".mp3",
 	".m4b",
 	".flac",
+]);
+
+const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".ts"]);
+
+const ALL_SUPPORTED_EXTENSIONS = new Set([
+	...SUPPORTED_EXTENSIONS,
+	...VIDEO_EXTENSIONS,
 ]);
 
 export type ScanStats = {
@@ -168,6 +177,167 @@ function countUnmatchedInDir(authorPath: string): number {
 		// Skip unreadable directories
 	}
 	return count;
+}
+
+type UnmappedFileInfo = {
+	absolutePath: string;
+	size: number;
+	format: string;
+};
+
+function collectAllFiles(
+	dirPath: string,
+	extensions: Set<string>,
+): UnmappedFileInfo[] {
+	const results: UnmappedFileInfo[] = [];
+
+	function walkDir(currentPath: string): void {
+		let entries: fs.Dirent[];
+		try {
+			entries = fs.readdirSync(currentPath, { withFileTypes: true });
+		} catch {
+			return;
+		}
+
+		for (const entry of entries) {
+			const fullPath = path.join(currentPath, entry.name);
+			if (entry.isDirectory()) {
+				walkDir(fullPath);
+			} else if (entry.isFile()) {
+				const ext = path.extname(entry.name).toLowerCase();
+				if (extensions.has(ext)) {
+					try {
+						const stat = fs.statSync(fullPath);
+						results.push({
+							absolutePath: fullPath,
+							size: stat.size,
+							format: ext.slice(1),
+						});
+					} catch {
+						// Skip unreadable files
+					}
+				}
+			}
+		}
+	}
+
+	walkDir(dirPath);
+	return results;
+}
+
+function getContentTypeForRootFolder(rootFolderPath: string): string | null {
+	const profiles = db
+		.select({ contentType: downloadProfiles.contentType })
+		.from(downloadProfiles)
+		.where(eq(downloadProfiles.rootFolderPath, rootFolderPath))
+		.all();
+
+	if (profiles.length === 0) return null;
+	return profiles[0].contentType;
+}
+
+function syncUnmappedFiles(
+	rootFolderPath: string,
+	discoveredFiles: Map<string, DiscoveredFile>,
+	contentType: string,
+): void {
+	const extensions =
+		contentType === "movie" || contentType === "tv"
+			? VIDEO_EXTENSIONS
+			: SUPPORTED_EXTENSIONS;
+
+	const allFiles = collectAllFiles(rootFolderPath, extensions);
+
+	// Filter out files matched in pass 1
+	const unmapped = allFiles.filter((f) => !discoveredFiles.has(f.absolutePath));
+
+	// Also filter out files already tracked in content file tables
+	const existingBookPaths = new Set(
+		db
+			.select({ path: bookFiles.path })
+			.from(bookFiles)
+			.where(like(bookFiles.path, `${rootFolderPath}%`))
+			.all()
+			.map((r) => r.path),
+	);
+
+	const trulyUnmapped = unmapped.filter(
+		(f) => !existingBookPaths.has(f.absolutePath),
+	);
+
+	// Get existing unmapped file paths for this root folder
+	const existingUnmapped = new Map(
+		db
+			.select({ id: unmappedFiles.id, path: unmappedFiles.path })
+			.from(unmappedFiles)
+			.where(eq(unmappedFiles.rootFolderPath, rootFolderPath))
+			.all()
+			.map((r) => [r.path, r.id] as const),
+	);
+
+	const discoveredPaths = new Set(trulyUnmapped.map((f) => f.absolutePath));
+
+	// Upsert unmapped files
+	for (const file of trulyUnmapped) {
+		let hints = extractHints(file.absolutePath, contentType);
+		// Try EPUB metadata extraction if filename parsing didn't work
+		if (!hints && file.format === "epub") {
+			const meta = probeEbookFile(file.absolutePath);
+			if (meta?.language) {
+				hints = { source: "metadata" };
+			}
+		}
+
+		const quality = matchFormat({
+			title: path.basename(file.absolutePath),
+			size: file.size,
+			indexerFlags: null,
+		});
+
+		if (existingUnmapped.has(file.absolutePath)) {
+			db.update(unmappedFiles)
+				.set({
+					size: file.size,
+					format: file.format,
+					hints,
+					quality: {
+						quality: { id: quality.id, name: quality.name },
+						revision: { version: 1, real: 0 },
+					},
+				})
+				.where(eq(unmappedFiles.path, file.absolutePath))
+				.run();
+		} else {
+			db.insert(unmappedFiles)
+				.values({
+					path: file.absolutePath,
+					size: file.size,
+					rootFolderPath,
+					contentType,
+					format: file.format,
+					hints,
+					quality: {
+						quality: { id: quality.id, name: quality.name },
+						revision: { version: 1, real: 0 },
+					},
+				})
+				.run();
+		}
+	}
+
+	// Remove unmapped files that no longer exist on disk
+	for (const [existingPath, existingId] of existingUnmapped) {
+		if (!discoveredPaths.has(existingPath)) {
+			db.delete(unmappedFiles).where(eq(unmappedFiles.id, existingId)).run();
+		}
+	}
+
+	// Remove any unmapped files that were matched in pass 1
+	for (const [matchedPath] of discoveredFiles) {
+		if (existingUnmapped.has(matchedPath)) {
+			db.delete(unmappedFiles).where(eq(unmappedFiles.path, matchedPath)).run();
+		}
+	}
 }
 
 function scanAuthorDirectory(
@@ -363,12 +533,41 @@ export async function rescanRootFolder(
 		return stats;
 	}
 
+	// Determine content type and profile for this root folder
+	const contentType = getContentTypeForRootFolder(rootFolderPath);
+
+	// Look up the profile ID for setting downloadProfileId on matched files
+	const profile = db
+		.select({ id: downloadProfiles.id })
+		.from(downloadProfiles)
+		.where(eq(downloadProfiles.rootFolderPath, rootFolderPath))
+		.limit(1)
+		.get();
+
 	// Walk directories and discover files
 	const authorLookup = buildAuthorLookup();
 	const discoveredFiles = walkDirectories(rootFolderPath, authorLookup, stats);
 
 	// Sync discovered files with DB
 	syncBookFiles(rootFolderPath, discoveredFiles, stats);
+
+	// Set downloadProfileId on newly added files that don't have one
+	if (profile) {
+		db.update(bookFiles)
+			.set({ downloadProfileId: profile.id })
+			.where(
+				and(
+					like(bookFiles.path, `${rootFolderPath}%`),
+					sql`${bookFiles.downloadProfileId} IS NULL`,
+				),
+			)
+			.run();
+	}
+
+	// Pass 2: Collect unmapped files
+	if (contentType) {
+		syncUnmappedFiles(rootFolderPath, discoveredFiles, contentType);
+	}
 
 	// Probe metadata for files that don't have it yet
 	const filesNeedingMeta = db
