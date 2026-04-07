@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { getAuth } from "src/lib/auth";
+import { isServerRuntime } from "src/lib/runtime";
 
 export async function getSessionFromRequest(request: Request) {
 	const auth = await getAuth();
@@ -21,7 +22,7 @@ export async function requireAuth() {
 	if (!session) {
 		throw new Error("Unauthorized");
 	}
-	if (import.meta.env.SSR) {
+	if (isServerRuntime) {
 		// Lazy import to break dependency cycle and keep scheduler code
 		// out of the client bundle.
 		const { ensureSchedulerStarted } = await import("./scheduler");

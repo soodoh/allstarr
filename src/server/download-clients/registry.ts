@@ -1,9 +1,10 @@
+import { isServerRuntime } from "src/lib/runtime";
 import type { DownloadClientProvider, ImplementationType } from "./types";
 
 export default async function getProvider(
 	implementation: string,
 ): Promise<DownloadClientProvider> {
-	if (!import.meta.env.SSR) {
+	if (!isServerRuntime) {
 		throw new Error(
 			"Download client providers are only available on the server",
 		);
