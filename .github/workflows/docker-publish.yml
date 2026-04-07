@@ -292,6 +292,22 @@ jobs:
             echo "source_ref=$IMAGE:$VERSION"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Resolve image labels
+        id: image-labels
+        run: |
+          set -euo pipefail
+
+          revision="$(git rev-parse HEAD)"
+
+          {
+            echo "labels<<EOF"
+            echo "org.opencontainers.image.source=https://github.com/${{ github.repository }}"
+            echo "org.opencontainers.image.revision=$revision"
+            echo "org.opencontainers.image.version=${{ needs.context.outputs.version }}"
+            echo "org.opencontainers.image.ref.name=${{ needs.context.outputs.tag }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         if: ${{ steps.publish-actions.outputs.build_needed == 'true' }}
         uses: docker/build-push-action@v6
@@ -300,6 +316,7 @@ jobs:
           file: Dockerfile
           push: true
           tags: ${{ steps.publish-actions.outputs.build_tags }}
+          labels: ${{ steps.image-labels.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
