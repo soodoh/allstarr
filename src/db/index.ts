@@ -1,15 +1,42 @@
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import type { Database as BunSqliteDatabase } from "bun:sqlite";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
 import { downloadProfiles } from "./schema";
 
-const sqlite = new Database(process.env.DATABASE_URL || "data/sqlite.db");
-sqlite.run(`PRAGMA journal_mode = ${process.env.SQLITE_JOURNAL_MODE || "WAL"}`);
-sqlite.run("PRAGMA foreign_keys = ON");
+type AppDatabase = BunSQLiteDatabase<typeof schema>;
 
-// When an author is deleted, FK SET NULL nullifies books_authors.author_id.
-// Delete those orphaned rows instead of keeping them with NULL author_id.
-sqlite.run(`
+function unsupportedBrowserAccess(moduleName: string): never {
+	throw new Error(`${moduleName} is unavailable in the browser bundle`);
+}
+
+function createUnsupportedProxy<T>(moduleName: string): T {
+	return new Proxy({} as T, {
+		get() {
+			return () => unsupportedBrowserAccess(moduleName);
+		},
+	});
+}
+
+async function initializeDb(): Promise<{
+	db: AppDatabase;
+	sqlite: BunSqliteDatabase;
+}> {
+	const [{ Database }, { drizzle }] = await Promise.all([
+		import("bun:sqlite"),
+		import("drizzle-orm/bun-sqlite"),
+	]);
+
+	const sqlite = new Database(
+		process.env.DATABASE_URL || "data/sqlite.db",
+	) as BunSqliteDatabase;
+	sqlite.run(
+		`PRAGMA journal_mode = ${process.env.SQLITE_JOURNAL_MODE || "WAL"}`,
+	);
+	sqlite.run("PRAGMA foreign_keys = ON");
+
+	// When an author is deleted, FK SET NULL nullifies books_authors.author_id.
+	// Delete those orphaned rows instead of keeping them with NULL author_id.
+	sqlite.run(`
   CREATE TRIGGER IF NOT EXISTS trg_books_authors_cleanup
   AFTER UPDATE OF author_id ON books_authors
   WHEN NEW.author_id IS NULL AND OLD.author_id IS NOT NULL
@@ -18,9 +45,9 @@ sqlite.run(`
   END;
 `);
 
-// After a books_authors row is deleted, check if the book has any remaining
-// local authors. If not, delete the orphaned book (cascades to editions, etc.)
-sqlite.run(`
+	// After a books_authors row is deleted, check if the book has any remaining
+	// local authors. If not, delete the orphaned book (cascades to editions, etc.)
+	sqlite.run(`
   CREATE TRIGGER IF NOT EXISTS trg_books_orphan_cleanup
   AFTER DELETE ON books_authors
   BEGIN
@@ -32,9 +59,9 @@ sqlite.run(`
   END;
 `);
 
-// After a series_book_links row is deleted, remove the series if it has no
-// remaining book links.
-sqlite.run(`
+	// After a series_book_links row is deleted, remove the series if it has no
+	// remaining book links.
+	sqlite.run(`
   CREATE TRIGGER IF NOT EXISTS trg_series_orphan_cleanup
   AFTER DELETE ON series_book_links
   BEGIN
@@ -45,9 +72,9 @@ sqlite.run(`
   END;
 `);
 
-// When FK SET NULL makes both book_id and author_id NULL on a history row,
-// the entry has no useful context — delete it.
-sqlite.run(`
+	// When FK SET NULL makes both book_id and author_id NULL on a history row,
+	// the entry has no useful context — delete it.
+	sqlite.run(`
   CREATE TRIGGER IF NOT EXISTS trg_history_orphan_cleanup
   AFTER UPDATE ON history
   WHEN NEW.book_id IS NULL AND NEW.author_id IS NULL
@@ -56,29 +83,28 @@ sqlite.run(`
   END;
 `);
 
-export const db = drizzle({ client: sqlite, schema });
+	const db = drizzle({ client: sqlite, schema });
 
-// Promote existing users with no role to admin (pre-roles migration).
-// Guard: only run if the role column exists (i.e., migration has been applied).
-const hasRoleCol =
-	(
-		sqlite
-			.query(
-				"SELECT COUNT(*) as n FROM pragma_table_info('user') WHERE name = 'role'",
-			)
-			.get() as { n: number }
-	).n > 0;
-if (hasRoleCol) {
-	sqlite.run(`UPDATE user SET role = 'admin' WHERE role IS NULL;`);
-}
+	// Promote existing users with no role to admin (pre-roles migration).
+	// Guard: only run if the role column exists (i.e., migration has been applied).
+	const hasRoleCol =
+		(
+			sqlite
+				.query(
+					"SELECT COUNT(*) as n FROM pragma_table_info('user') WHERE name = 'role'",
+				)
+				.get() as { n: number }
+		).n > 0;
+	if (hasRoleCol) {
+		sqlite.run(`UPDATE user SET role = 'admin' WHERE role IS NULL;`);
+	}
 
-// Seed default auth settings if not present
-sqlite.run(`
+	// Seed default auth settings if not present
+	sqlite.run(`
   INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
 `);
 
-if (import.meta.env.SSR) {
-	void (async () => {
+	try {
 		const fs = await import("node:fs");
 		const profiles = db
 			.select({ rootFolderPath: downloadProfiles.rootFolderPath })
@@ -90,9 +116,20 @@ if (import.meta.env.SSR) {
 				fs.mkdirSync(rootFolderPath, { recursive: true });
 			}
 		}
-	})().catch((error) => {
+	} catch (error) {
 		console.warn(
 			`[db] Failed to ensure root folders exist: ${error instanceof Error ? error.message : String(error)}`,
 		);
-	});
+	}
+
+	return { db, sqlite };
 }
+
+const runtime = import.meta.env.SSR
+	? await initializeDb()
+	: {
+			db: createUnsupportedProxy<AppDatabase>("Database"),
+			sqlite: createUnsupportedProxy<BunSqliteDatabase>("bun:sqlite"),
+		};
+
+export const db = runtime.db;

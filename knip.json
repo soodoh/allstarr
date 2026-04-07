@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "ignore": [
-    "src/lib/bun-sqlite-browser-shim.ts",
     "e2e/global-setup.ts",
     "e2e/global-teardown.ts",
     "e2e/fixtures/fake-servers/**"

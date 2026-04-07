@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { desc, eq, max } from "drizzle-orm";
 import { db } from "src/db";
 import { account, session, user } from "src/db/schema";
-import { auth } from "src/lib/auth";
+import { getAuth } from "src/lib/auth";
 import {
 	createUserSchema,
 	deleteUserSchema,
@@ -89,6 +89,7 @@ export const createUserFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createUserSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const auth = await getAuth();
 
 		const result = await auth.api.createUser({
 			body: {
@@ -106,6 +107,7 @@ export const deleteUserFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteUserSchema.parse(d))
 	.handler(async ({ data }) => {
 		const session_ = await requireAdmin();
+		const auth = await getAuth();
 
 		if (data.userId === session_.user.id) {
 			throw new Error("Cannot delete your own account");
