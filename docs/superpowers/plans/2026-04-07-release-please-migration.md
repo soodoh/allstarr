@@ -389,14 +389,72 @@ git commit -m "ci: replace custom release flow with release-please"
 
 - [ ] **Step 1: Add the Docker publish job to release.yml**
 
-Append this job after `release-please`:
+First, extend the `release-please` job so it resolves whether the validated commit corresponds to a publishable release even on workflow reruns. After the `Derive semver tags` step, add a release-resolution step that:
+
+- uses the fresh `release-please` outputs when `release_created == 'true'`
+- otherwise reads `package.json` version from the checked-out validated SHA, derives `v${version}`, and queries the GitHub release/tag for that version
+- only marks the release as publishable when that existing release points at the current validated commit
+
+Expose these job outputs in place of the transient-only release outputs:
+
+```yaml
+    outputs:
+      release_ready: ${{ steps.release-context.outputs.release_ready }}
+      tag_name: ${{ steps.release-context.outputs.tag_name }}
+      version: ${{ steps.release-context.outputs.version }}
+      major: ${{ steps.release-context.outputs.major }}
+      minor: ${{ steps.release-context.outputs.minor }}
+```
+
+Use a shell step like:
+
+```yaml
+      - name: Resolve release context
+        id: release-context
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          RELEASE_TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          CURRENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$RELEASE_CREATED" == "true" ]]; then
+            version="$RELEASE_VERSION"
+            tag_name="$RELEASE_TAG_NAME"
+            release_ready=true
+          else
+            version="$(node -p "require('./package.json').version")"
+            tag_name="v$version"
+            release_ready=false
+
+            release_json="$(gh release view "$tag_name" --json tagName,targetCommitish 2>/dev/null || true)"
+            if [[ -n "$release_json" ]]; then
+              target_commitish="$(printf '%s' "$release_json" | node -e "const data = JSON.parse(require('fs').readFileSync(0, 'utf8')); process.stdout.write(data.targetCommitish || '')")"
+              if [[ "$target_commitish" == "$CURRENT_SHA" ]]; then
+                release_ready=true
+              fi
+            fi
+          fi
+
+          {
+            echo "release_ready=$release_ready"
+            echo "tag_name=$tag_name"
+            echo "version=$version"
+            echo "major=$(echo "$version" | cut -d. -f1)"
+            echo "minor=$(echo "$version" | cut -d. -f1-2)"
+          } >> "$GITHUB_OUTPUT"
+```
+
+Then append the Docker publish job after `release-please`:
 
 ```yaml
   docker-publish:
     name: Publish Docker Image
     runs-on: ubuntu-latest
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_ready == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -462,11 +520,12 @@ Delete:
 
 Review the resulting `release.yml` and confirm:
 
-- Docker publish depends on `release_created == 'true'`
+- Docker publish depends on `release_ready == 'true'`
 - it checks out the created tag, not `main`
 - it always publishes exact version plus floating tags for formal releases
 - there is no manual-tag fallback logic anywhere
 - the release workflow remains gated behind successful `CI` on `main` pushes rather than running independently on every push
+- rerunning the workflow after a successful release but failed Docker publish still finds the existing release for the validated release commit and republishes the image
 
 - [ ] **Step 4: Validate the updated release workflow YAML**
 
