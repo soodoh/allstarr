@@ -1,18 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "src/components/ui/card";
+import { formatBytes } from "src/lib/format";
 import {
 	dashboardContentStatsQuery,
 	dashboardStorageQuery,
 } from "src/lib/queries";
 import { systemStatusQuery } from "src/lib/queries/system-status";
-
-function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(1024));
-	return `${(bytes / 1024 ** i).toFixed(i > 2 ? 1 : 0)} ${units[i]}`;
-}
 
 export default function SummaryRow() {
 	const { data: contentStats } = useSuspenseQuery(dashboardContentStatsQuery());
