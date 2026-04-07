@@ -120,6 +120,12 @@ export const queryKeys = {
 	// ─── Dashboard ──────────────────────────────────────────────────────────
 	dashboard: {
 		all: ["dashboard"] as const,
+		contentStats: () => [...queryKeys.dashboard.all, "contentStats"] as const,
+		qualityBreakdown: () =>
+			[...queryKeys.dashboard.all, "qualityBreakdown"] as const,
+		storage: () => [...queryKeys.dashboard.all, "storage"] as const,
+		recentActivity: () =>
+			[...queryKeys.dashboard.all, "recentActivity"] as const,
 	},
 
 	// ─── Settings ────────────────────────────────────────────────────────────
