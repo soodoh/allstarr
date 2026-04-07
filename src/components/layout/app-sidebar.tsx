@@ -5,6 +5,7 @@ import {
 	BookOpen,
 	Calendar,
 	Download,
+	FileQuestion,
 	Film,
 	FolderOpen,
 	History,
@@ -34,6 +35,7 @@ import {
 } from "src/components/ui/sidebar";
 import { useUserRole } from "src/hooks/use-role";
 import { settingsNavItems, systemNavItems } from "src/lib/nav-config";
+import { unmappedFilesCountQuery } from "src/lib/queries";
 import { queueListQuery } from "src/lib/queries/queue";
 
 type NavChild = {
@@ -52,6 +54,19 @@ type NavGroup = {
 };
 
 const navGroups: NavGroup[] = [
+	{
+		title: "Library",
+		to: "/library/unmapped-files",
+		icon: FolderOpen,
+		matchPrefixes: ["/library"],
+		children: [
+			{
+				title: "Unmapped Files",
+				to: "/library/unmapped-files",
+				icon: FileQuestion,
+			},
+		],
+	},
 	{
 		title: "Books",
 		to: "/books",
@@ -138,6 +153,10 @@ export default function AppSidebar(): JSX.Element {
 				]
 			: navGroups;
 	const activeGroup = getActiveGroup(currentPath, visibleGroups);
+	const { data: unmappedCount } = useQuery({
+		...unmappedFilesCountQuery(),
+		select: (data) => data,
+	});
 	const { data: queueCount } = useQuery({
 		...queueListQuery(),
 		select: (data) => data.items.length,
@@ -178,6 +197,13 @@ export default function AppSidebar(): JSX.Element {
 											<Link to={group.to}>
 												<group.icon className="h-4 w-4" />
 												<span>{group.title}</span>
+												{group.title === "Library" &&
+													unmappedCount !== undefined &&
+													unmappedCount > 0 && (
+														<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground">
+															{unmappedCount}
+														</span>
+													)}
 												{group.title === "Activity" &&
 													queueCount !== undefined &&
 													queueCount > 0 && (
