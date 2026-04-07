@@ -126,8 +126,13 @@ export default function UnmappedFilesTable(): JSX.Element {
 	);
 
 	const allFileIds = groups.flatMap((g) => g.files.map((f) => f.id));
+	const selectedFiles = groups
+		.flatMap((g) => g.files)
+		.filter((file) => selectedIds.has(file.id));
 	const allSelected =
 		allFileIds.length > 0 && allFileIds.every((id) => selectedIds.has(id));
+	const allSelectedIgnored =
+		selectedFiles.length > 0 && selectedFiles.every((file) => file.ignored);
 
 	// ─── Handlers ─────────────────────────────────────────────────────────
 
@@ -408,10 +413,16 @@ export default function UnmappedFilesTable(): JSX.Element {
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => handleIgnore([...selectedIds], true)}
+								onClick={() =>
+									handleIgnore([...selectedIds], !allSelectedIgnored)
+								}
 							>
-								<EyeOff className="mr-1 h-4 w-4" />
-								Ignore Selected
+								{allSelectedIgnored ? (
+									<Eye className="mr-1 h-4 w-4" />
+								) : (
+									<EyeOff className="mr-1 h-4 w-4" />
+								)}
+								{allSelectedIgnored ? "Unignore Selected" : "Ignore Selected"}
 							</Button>
 							<Button
 								variant="destructive"

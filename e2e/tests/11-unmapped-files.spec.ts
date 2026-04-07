@@ -307,4 +307,90 @@ test.describe("Unmapped Files", () => {
       await expect.poll(() => existsSync(file.path)).toBe(false);
     }
   });
+
+  test("bulk ignore and restore selected unmapped files", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    const firstFile = seedUnmappedEbook(db, tempDir, "bulk-ignore-1.epub");
+    const secondFile = seedUnmappedEbook(db, tempDir, "bulk-ignore-2.epub");
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(
+      page.getByText(firstFile.filename, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toBeVisible();
+
+    const checkboxes = page.getByRole("checkbox");
+    await checkboxes.nth(1).click();
+    await checkboxes.nth(2).click();
+
+    await expect(page.getByText("2 files selected")).toBeVisible();
+    await page.getByRole("button", { name: "Ignore Selected" }).click();
+
+    await expect(page.getByText(firstFile.filename, { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    for (const file of [firstFile, secondFile]) {
+      await expect
+        .poll(() =>
+          db
+            .select({ ignored: schema.unmappedFiles.ignored })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.id, file.id))
+            .get()?.ignored ?? null,
+        )
+        .toBe(true);
+    }
+
+    await page.getByRole("button", { name: "Show Ignored" }).click();
+    await expect(
+      page.getByText(firstFile.filename, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toBeVisible();
+
+    const ignoredCheckboxes = page.getByRole("checkbox");
+    await ignoredCheckboxes.nth(1).click();
+    await ignoredCheckboxes.nth(2).click();
+    await expect(page.getByText("2 files selected")).toBeVisible();
+    await page.getByRole("button", { name: "Unignore Selected" }).click();
+
+    for (const file of [firstFile, secondFile]) {
+      await expect
+        .poll(() =>
+          db
+            .select({ ignored: schema.unmappedFiles.ignored })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.id, file.id))
+            .get()?.ignored ?? null,
+        )
+        .toBe(false);
+    }
+
+    await page.getByRole("button", { name: "Showing Ignored" }).click();
+    await expect(
+      page.getByText(firstFile.filename, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toBeVisible();
+  });
 });
