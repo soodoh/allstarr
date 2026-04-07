@@ -138,7 +138,7 @@ export async function refreshDownloads(): Promise<TaskResult> {
 			continue;
 		}
 
-		const provider = getProvider(client.implementation);
+		const provider = await getProvider(client.implementation);
 		const config: ConnectionConfig = {
 			implementation:
 				client.implementation as ConnectionConfig["implementation"],

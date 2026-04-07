@@ -77,22 +77,20 @@ sqlite.run(`
   INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
 `);
 
-async function ensureRootFoldersExist(): Promise<void> {
-	const fs = await import("node:fs");
-	const profiles = db
-		.select({ rootFolderPath: downloadProfiles.rootFolderPath })
-		.from(downloadProfiles)
-		.all();
-
-	for (const { rootFolderPath } of profiles) {
-		if (rootFolderPath) {
-			fs.mkdirSync(rootFolderPath, { recursive: true });
-		}
-	}
-}
-
 if (import.meta.env.SSR) {
-	void ensureRootFoldersExist().catch((error) => {
+	void (async () => {
+		const fs = await import("node:fs");
+		const profiles = db
+			.select({ rootFolderPath: downloadProfiles.rootFolderPath })
+			.from(downloadProfiles)
+			.all();
+
+		for (const { rootFolderPath } of profiles) {
+			if (rootFolderPath) {
+				fs.mkdirSync(rootFolderPath, { recursive: true });
+			}
+		}
+	})().catch((error) => {
 		console.warn(
 			`[db] Failed to ensure root folders exist: ${error instanceof Error ? error.message : String(error)}`,
 		);

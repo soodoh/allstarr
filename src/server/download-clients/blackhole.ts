@@ -16,13 +16,20 @@ function getWatchFolder(config: ConnectionConfig): string {
 	return watchFolder.trim();
 }
 
+async function loadBlackholeNode() {
+	if (!import.meta.env.SSR) {
+		throw new Error("Blackhole provider is only available on the server");
+	}
+	return import("./blackhole-node");
+}
+
 const blackholeProvider: DownloadClientProvider = {
 	async testConnection(config: ConnectionConfig): Promise<TestResult> {
 		try {
-			const fs = await import("node:fs");
+			const { assertWritableFolder } = await loadBlackholeNode();
 			const folder = getWatchFolder(config);
 
-			fs.accessSync(folder, fs.constants.W_OK);
+			assertWritableFolder(folder);
 
 			return {
 				success: true,
@@ -49,32 +56,25 @@ const blackholeProvider: DownloadClientProvider = {
 		config: ConnectionConfig,
 		download: DownloadRequest,
 	): Promise<string> {
-		const fs = await import("node:fs");
-		const path = await import("node:path");
+		const { writeDownloadFile } = await loadBlackholeNode();
 		const folder = getWatchFolder(config);
 
 		const timestamp = Date.now();
 		if (download.torrentData) {
 			const filename = `allstarr-${timestamp}.torrent`;
-			const filePath = path.join(folder, filename);
-			fs.writeFileSync(filePath, download.torrentData);
-			return filePath;
+			return writeDownloadFile(folder, filename, download.torrentData);
 		}
 
 		if (download.nzbData) {
 			const filename = `allstarr-${timestamp}.nzb`;
-			const filePath = path.join(folder, filename);
-			fs.writeFileSync(filePath, download.nzbData);
-			return filePath;
+			return writeDownloadFile(folder, filename, download.nzbData);
 		}
 
 		if (download.url) {
 			// Write a URL file for torrent/nzb URLs
 			const ext = download.url.endsWith(".nzb") ? ".nzb.url" : ".torrent.url";
 			const filename = `allstarr-${timestamp}${ext}`;
-			const filePath = path.join(folder, filename);
-			fs.writeFileSync(filePath, download.url, "utf8");
-			return filePath;
+			return writeDownloadFile(folder, filename, download.url, "utf8");
 		}
 
 		throw new Error("No URL or file data provided for Blackhole download");
@@ -85,45 +85,27 @@ const blackholeProvider: DownloadClientProvider = {
 		id: string,
 		_deleteFiles: boolean,
 	): Promise<void> {
-		const fs = await import("node:fs");
-		const path = await import("node:path");
+		const { removeDownloadFile } = await loadBlackholeNode();
 		const folder = getWatchFolder(config);
-		const filePath = path.join(folder, id);
-		try {
-			fs.unlinkSync(filePath);
-		} catch {
-			// File may have already been picked up by the download client
-		}
+		removeDownloadFile(folder, id);
 	},
 
 	async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
-		const fs = await import("node:fs");
-		const path = await import("node:path");
+		const { listDownloadFiles } = await loadBlackholeNode();
 		const folder = getWatchFolder(config);
 
-		try {
-			const files = fs.readdirSync(folder);
-			return files
-				.filter((f) => f.endsWith(".torrent") || f.endsWith(".nzb"))
-				.map((f) => {
-					const filePath = path.join(folder, f);
-					const stat = fs.statSync(filePath);
-					return {
-						id: f,
-						name: f,
-						status: "queued" as const,
-						size: stat.size,
-						downloaded: stat.size,
-						uploadSpeed: 0,
-						downloadSpeed: 0,
-						category: null,
-						outputPath: null,
-						isCompleted: false,
-					};
-				});
-		} catch {
-			return [];
-		}
+		return listDownloadFiles(folder).map((file) => ({
+			id: file.id,
+			name: file.name,
+			status: "queued" as const,
+			size: file.size,
+			downloaded: file.size,
+			uploadSpeed: 0,
+			downloadSpeed: 0,
+			category: null,
+			outputPath: null,
+			isCompleted: false,
+		}));
 	},
 };
 

@@ -79,7 +79,7 @@ export const testDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => testDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		const provider = getProvider(data.implementation);
+		const provider = await getProvider(data.implementation);
 		const config: ConnectionConfig = {
 			implementation: data.implementation,
 			host: data.host,
