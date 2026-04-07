@@ -23,6 +23,7 @@ import {
 import { searchForMovie } from "./auto-search";
 import type { CommandHandler } from "./commands";
 import { submitCommand } from "./commands";
+import { logError } from "./logger";
 import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type { TmdbCollectionDetail, TmdbMovieDetail } from "./tmdb/types";
@@ -212,7 +213,7 @@ const addMovieHandler: CommandHandler = async (
 	if (data.searchOnAdd && data.monitorOption !== "none") {
 		updateProgress("Searching for available releases...");
 		void searchForMovie(movie.id).catch((error) =>
-			console.error("Search after add failed:", error),
+			logError("movies", "Search after add failed", error),
 		);
 	}
 

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { activeAdhocCommands } from "src/db/schema";
 import { eventBus } from "./event-bus";
+import { logError } from "./logger";
 import { requireAuth } from "./middleware";
 import { isTaskRunning } from "./scheduler/state";
 
@@ -86,7 +87,7 @@ async function doWork(
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
-		console.error(`[command] ${commandType} #${commandId} failed:`, error);
+		logError("command", `${commandType} #${commandId} failed`, error);
 		eventBus.emit({
 			type: "commandFailed",
 			commandId,
@@ -124,10 +125,7 @@ export function submitCommand(opts: SubmitCommandOptions): {
 
 	// Fire and forget — intentionally not awaited
 	void doWork(row.id, commandType, handler, body).catch((error) =>
-		console.error(
-			`[command] Uncaught error in ${commandType} #${row.id}:`,
-			error,
-		),
+		logError("command", `Uncaught error in ${commandType} #${row.id}`, error),
 	);
 
 	return { commandId: row.id };

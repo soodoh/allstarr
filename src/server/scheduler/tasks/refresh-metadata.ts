@@ -8,6 +8,7 @@ import {
 	editions,
 } from "src/db/schema";
 import { refreshAuthorInternal, refreshBookInternal } from "src/server/import";
+import { logError } from "src/server/logger";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
 
@@ -56,8 +57,9 @@ async function refreshAuthors(
 				booksRefreshedViaAuthor.add(entry.bookId);
 			}
 		} catch (error) {
-			console.error(
-				`[refresh-metadata] Failed to refresh author "${author.name}" (id=${author.id}):`,
+			logError(
+				"refresh-metadata",
+				`Failed to refresh author "${author.name}" (id=${author.id})`,
 				error,
 			);
 			stats.errors += 1;
@@ -93,8 +95,9 @@ async function refreshStandaloneBooks(
 			stats.editionsAdded += result.editionsAdded;
 			stats.refreshed += 1;
 		} catch (error) {
-			console.error(
-				`[refresh-metadata] Failed to refresh book "${book.title}" (id=${book.id}):`,
+			logError(
+				"refresh-metadata",
+				`Failed to refresh book "${book.title}" (id=${book.id})`,
 				error,
 			);
 			stats.errors += 1;

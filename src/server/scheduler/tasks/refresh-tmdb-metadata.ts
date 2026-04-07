@@ -7,6 +7,7 @@ import {
 	movies,
 	shows,
 } from "src/db/schema";
+import { logError } from "src/server/logger";
 import { refreshMovieInternal } from "src/server/movies";
 import { refreshShowInternal } from "src/server/shows";
 import type { TaskResult } from "../registry";
@@ -73,8 +74,9 @@ registerTask({
 				await refreshMovieInternal(movie.id);
 				moviesRefreshed += 1;
 			} catch (error) {
-				console.error(
-					`[refresh-tmdb-metadata] Failed to refresh movie "${movie.title}" (id=${movie.id}):`,
+				logError(
+					"refresh-tmdb-metadata",
+					`Failed to refresh movie "${movie.title}" (id=${movie.id})`,
 					error,
 				);
 				movieErrors += 1;
@@ -95,8 +97,9 @@ registerTask({
 				showsRefreshed += 1;
 				totalNewEpisodes += result.newEpisodes;
 			} catch (error) {
-				console.error(
-					`[refresh-tmdb-metadata] Failed to refresh show "${show.title}" (id=${show.id}):`,
+				logError(
+					"refresh-tmdb-metadata",
+					`Failed to refresh show "${show.title}" (id=${show.id})`,
 					error,
 				);
 				showErrors += 1;

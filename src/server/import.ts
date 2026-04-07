@@ -28,6 +28,7 @@ import {
 	fetchBookComplete,
 } from "./hardcover/import-queries";
 import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
+import { logError } from "./logger";
 import type { MetadataProfile } from "./metadata-profile";
 import { getMetadataProfile } from "./metadata-profile";
 import { requireAdmin } from "./middleware";
@@ -879,7 +880,7 @@ const importAuthorHandler: CommandHandler = async (
 	if (data.searchOnAdd && data.monitorOption !== "none") {
 		updateProgress("Searching for available releases...");
 		void searchForAuthorBooks(result.authorId).catch((error) =>
-			console.error("Search after import failed:", error),
+			logError("import", "Search after import failed", error),
 		);
 	}
 
@@ -1003,7 +1004,7 @@ const importBookHandler: CommandHandler = async (
 
 		if (data.searchOnAdd) {
 			void searchForBook(alreadyImported.id).catch((error) =>
-				console.error("Search after import failed:", error),
+				logError("import", "Search after import failed", error),
 			);
 		}
 
@@ -1039,7 +1040,7 @@ const importBookHandler: CommandHandler = async (
 				}
 
 				void refreshSeriesInternal(link.seriesId).catch((error) =>
-					console.error("Series refresh after book add failed:", error),
+					logError("import", "Series refresh after book add failed", error),
 				);
 			}
 		}
@@ -1200,7 +1201,7 @@ const importBookHandler: CommandHandler = async (
 
 	if (data.searchOnAdd) {
 		void searchForBook(txResult.bookId).catch((error) =>
-			console.error("Search after import failed:", error),
+			logError("import", "Search after import failed", error),
 		);
 	}
 
@@ -1236,7 +1237,7 @@ const importBookHandler: CommandHandler = async (
 			}
 
 			void refreshSeriesInternal(link.seriesId).catch((error) =>
-				console.error("Series refresh after book add failed:", error),
+				logError("import", "Series refresh after book add failed", error),
 			);
 		}
 	}

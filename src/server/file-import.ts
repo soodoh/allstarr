@@ -20,6 +20,7 @@ import {
 import { eventBus } from "./event-bus";
 import { mapBookFiles, mapTvFiles } from "./import-mapping";
 import { matchFormat } from "./indexers/format-parser";
+import { logError, logInfo, logWarn } from "./logger";
 import { probeAudioFile, probeEbookFile } from "./media-probe";
 import getMediaSetting from "./settings-reader";
 
@@ -197,8 +198,10 @@ function importFile(
 		}
 		return { bookFileId: null, destPath };
 	} catch (error) {
-		console.error(
-			`[file-import] Failed to import ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+		logError(
+			"file-import",
+			`Failed to import ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+			error,
 		);
 		return null;
 	}
@@ -272,7 +275,7 @@ function checkFreeSpace(
 			return `Insufficient free space: ${Math.round(freeSpaceMB)}MB available, ${minimumFreeSpace}MB required`;
 		}
 	} catch {
-		console.warn("[file-import] Could not check free space, proceeding anyway");
+		logWarn("file-import", "Could not check free space, proceeding anyway");
 	}
 	return null;
 }
@@ -325,8 +328,10 @@ function importRenamedFile(
 		}
 		return { bookFileId: null, destPath };
 	} catch (error) {
-		console.error(
-			`[file-import] Failed to import ${path.basename(filePath)}: ${error instanceof Error ? error.message : "Unknown error"}`,
+		logError(
+			"file-import",
+			`Failed to import ${path.basename(filePath)}: ${error instanceof Error ? error.message : "Unknown error"}`,
+			error,
 		);
 		return null;
 	}
@@ -446,7 +451,7 @@ function markFailed(id: number, message: string): void {
 		.set({ state: "failed", message, updatedAt: new Date() })
 		.where(eq(trackedDownloads.id, id))
 		.run();
-	console.warn(`[file-import] Failed: ${message}`);
+	logWarn("file-import", `Failed: ${message}`);
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -600,8 +605,10 @@ function importEpisodeFile(
 
 		return { destPath, fileId: inserted.id };
 	} catch (error) {
-		console.error(
-			`[file-import] Failed to import episode file ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+		logError(
+			"file-import",
+			`Failed to import episode file ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+			error,
 		);
 		return null;
 	}
@@ -738,8 +745,9 @@ async function importEpisodePackDownload(
 		.where(eq(trackedDownloads.id, td.id))
 		.run();
 
-	console.log(
-		`[file-import] Imported ${importedCount} episode(s) from pack for "${show.title}"`,
+	logInfo(
+		"file-import",
+		`Imported ${importedCount} episode(s) from pack for "${show.title}"`,
 	);
 }
 
@@ -909,8 +917,9 @@ async function importBookPackDownload(
 		bookTitle: `${author.name} (pack: ${importedCount} books)`,
 	});
 
-	console.log(
-		`[file-import] Imported ${importedCount} book(s) from pack for author "${author.name}"`,
+	logInfo(
+		"file-import",
+		`Imported ${importedCount} book(s) from pack for author "${author.name}"`,
 	);
 }
 
@@ -1087,8 +1096,9 @@ export async function importCompletedDownload(
 			}
 			db.delete(bookFiles).where(eq(bookFiles.id, oldFile.id)).run();
 		}
-		console.log(
-			`[file-import] Cleaned up ${existingFiles.length} old file(s) for "${bookTitle}"`,
+		logInfo(
+			"file-import",
+			`Cleaned up ${existingFiles.length} old file(s) for "${bookTitle}"`,
 		);
 	}
 
@@ -1113,7 +1123,8 @@ export async function importCompletedDownload(
 
 	eventBus.emit({ type: "importCompleted", bookId: td.bookId, bookTitle });
 
-	console.log(
-		`[file-import] Imported ${importedCount} files for "${bookTitle}" to ${destDir}`,
+	logInfo(
+		"file-import",
+		`Imported ${importedCount} files for "${bookTitle}" to ${destDir}`,
 	);
 }

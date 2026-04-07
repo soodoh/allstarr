@@ -173,7 +173,7 @@ function cleanReleaseTitle(title: string): string {
 	return cleaned;
 }
 
-export type BookInfo = { title: string; authorName: string | null };
+type BookInfo = { title: string; authorName: string | null };
 
 /**
  * Check whether a release title is relevant to the expected book.

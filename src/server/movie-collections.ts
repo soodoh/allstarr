@@ -16,6 +16,7 @@ import {
 	updateMovieCollectionSchema,
 } from "src/lib/tmdb-validators";
 import { searchForMovie } from "./auto-search";
+import { logError } from "./logger";
 import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type { TmdbCollectionDetail, TmdbMovieDetail } from "./tmdb/types";
@@ -270,7 +271,7 @@ export const addMissingCollectionMoviesFn = createServerFn({ method: "POST" })
 
 			if (data.searchOnAdd && data.monitorOption !== "none") {
 				void searchForMovie(movie.id).catch((error) =>
-					console.error("Search after bulk add failed:", error),
+					logError("movie-collections", "Search after bulk add failed", error),
 				);
 			}
 

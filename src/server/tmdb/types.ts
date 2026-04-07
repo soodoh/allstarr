@@ -1,6 +1,3 @@
-// Search results
-export type TmdbSearchResult = TmdbMovieResult | TmdbTvResult;
-
 export type TmdbMovieResult = {
 	media_type: "movie";
 	id: number;

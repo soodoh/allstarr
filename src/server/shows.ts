@@ -26,6 +26,7 @@ import {
 import { searchForShow } from "./auto-search";
 import type { CommandHandler } from "./commands";
 import { submitCommand } from "./commands";
+import { logError } from "./logger";
 import { requireAdmin, requireAuth } from "./middleware";
 import { tmdbFetch } from "./tmdb/client";
 import type {
@@ -644,7 +645,7 @@ const addShowHandler: CommandHandler = async (
 	) {
 		updateProgress("Searching for available releases...");
 		void searchForShow(show.id, data.searchCutoffUnmet).catch((error) =>
-			console.error("Search after add failed:", error),
+			logError("shows", "Search after add failed", error),
 		);
 	}
 

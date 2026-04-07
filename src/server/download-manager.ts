@@ -10,6 +10,7 @@ import type {
 import { eventBus } from "./event-bus";
 import handleFailedDownload from "./failed-download-handler";
 import { importCompletedDownload } from "./file-import";
+import { logError, logWarn } from "./logger";
 import { fetchQueueItems } from "./queue";
 import type { TaskResult } from "./scheduler/registry";
 import getMediaSetting from "./settings-reader";
@@ -85,8 +86,9 @@ async function removeFromClient(
 	try {
 		await provider.removeDownload(config, downloadId, false);
 	} catch (error) {
-		console.warn(
-			`[download-manager] Failed to remove completed download from client: ${error instanceof Error ? error.message : "Unknown error"}`,
+		logWarn(
+			"download-manager",
+			`Failed to remove completed download from client: ${error instanceof Error ? error.message : "Unknown error"}`,
 		);
 	}
 }
@@ -158,8 +160,9 @@ export async function refreshDownloads(): Promise<TaskResult> {
 		try {
 			clientItems = await provider.getDownloads(config);
 		} catch (error) {
-			console.warn(
-				`[download-manager] Failed to fetch downloads from ${client.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
+			logWarn(
+				"download-manager",
+				`Failed to fetch downloads from ${client.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 			continue;
 		}
@@ -180,15 +183,19 @@ export async function refreshDownloads(): Promise<TaskResult> {
 						await removeFromClient(provider, config, td.downloadId);
 					}
 				} catch (error) {
-					console.error(
-						`[download-manager] Import failed for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
+					logError(
+						"download-manager",
+						`Import failed for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
+						error,
 					);
 					stats.failed += 1;
 					try {
 						await handleFailedDownload(td.id, provider, config);
 					} catch (handlerError) {
-						console.error(
-							`[download-manager] Failed download handler error: ${handlerError instanceof Error ? handlerError.message : "Unknown error"}`,
+						logError(
+							"download-manager",
+							`Failed download handler error: ${handlerError instanceof Error ? handlerError.message : "Unknown error"}`,
+							handlerError,
 						);
 					}
 				}

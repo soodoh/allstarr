@@ -3,7 +3,7 @@ export type TaskResult = {
 	message: string;
 };
 
-export type TaskDefinition = {
+type TaskDefinition = {
 	id: string;
 	name: string;
 	description: string;
