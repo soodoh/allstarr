@@ -1,5 +1,3 @@
-"use client";
-
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type { ComponentProps, JSX } from "react";
 

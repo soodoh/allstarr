@@ -1,5 +1,3 @@
-"use client";
-
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import type { ComponentProps, JSX } from "react";
 
