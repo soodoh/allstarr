@@ -1,8 +1,14 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { createServerFn } from "@tanstack/react-start";
+import { count, eq } from "drizzle-orm";
 import { db } from "src/db";
-import { downloadClients, indexers, syncedIndexers } from "src/db/schema";
+import {
+	downloadClients,
+	indexers,
+	syncedIndexers,
+	unmappedFiles,
+} from "src/db/schema";
 import { getRootFolderPaths } from "src/server/disk-scan";
 import { requireAuth } from "./middleware";
 
@@ -117,6 +123,22 @@ function runHealthChecks(): HealthCheck[] {
 			message:
 				"FFmpeg is not installed. Audio and video metadata extraction will be unavailable. Install ffmpeg for full audio support.",
 			wikiUrl: null,
+		});
+	}
+
+	// Check for unmapped files
+	const unmappedCount = db
+		.select({ count: count() })
+		.from(unmappedFiles)
+		.where(eq(unmappedFiles.ignored, false))
+		.get();
+	const unmappedTotal = unmappedCount?.count ?? 0;
+	if (unmappedTotal > 0) {
+		checks.push({
+			source: "UnmappedFilesCheck",
+			type: "warning",
+			message: `${unmappedTotal} unmapped ${unmappedTotal === 1 ? "file" : "files"} found in your root folders. Review and map or ignore them.`,
+			wikiUrl: "/unmapped-files",
 		});
 	}
 
