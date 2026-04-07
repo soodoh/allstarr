@@ -4,7 +4,7 @@
 
 **Goal:** Replace the custom Changesets-based release flow with `release-please`, enforce Conventional Commit PR titles, and move Docker publishing into the release workflow while dropping manual tag handling.
 
-**Architecture:** Keep the existing CI workflow as the main validation gate, add a dedicated PR-title workflow for squash-merge compatibility, and replace the current release-plus-docker orchestration with a single `release-please` workflow triggered by pushes to `main`. Release metadata, tag creation, GitHub releases, and Docker publishing should flow from `release-please` outputs instead of custom shell scripting or tag-push coordination.
+**Architecture:** Keep the existing CI workflow as the main validation gate, add a dedicated PR-title workflow for squash-merge compatibility, and replace the current release-plus-docker orchestration with a single `release-please` workflow triggered only after successful CI completion for `main` pushes. Release metadata, tag creation, GitHub releases, and Docker publishing should flow from `release-please` outputs instead of custom shell scripting or tag-push coordination.
 
 **Tech Stack:** GitHub Actions, `googleapis/release-please-action`, `amannn/action-semantic-pull-request`, Docker Buildx, GHCR, Bun
 
@@ -17,7 +17,7 @@
 - Create: `/Users/pauldiloreto/Projects/allstarr/.github/workflows/pr-title.yml`
   Dedicated pull request title validation workflow enforcing Conventional Commit syntax.
 - Modify: `/Users/pauldiloreto/Projects/allstarr/.github/workflows/release.yml`
-  Replace the custom `workflow_run`/script release flow with a `push`-to-`main` `release-please` workflow that publishes Docker only when a release is created.
+  Replace the custom `workflow_run`/script release flow with a `release-please` workflow that stays gated behind successful `CI` on `main` pushes and publishes Docker only when a release is created.
 - Delete: `/Users/pauldiloreto/Projects/allstarr/.github/workflows/docker-publish.yml`
   Remove the now-obsolete standalone Docker publish workflow and all manual-tag logic.
 - Modify: `/Users/pauldiloreto/Projects/allstarr/package.json`
@@ -283,13 +283,15 @@ git commit -m "ci: configure release-please"
 
 - [ ] **Step 1: Replace the workflow trigger and structure**
 
-Rewrite `.github/workflows/release.yml` to trigger on pushes to `main`:
+Rewrite `.github/workflows/release.yml` to trigger on successful `CI` completion for `main`:
 
 ```yaml
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches:
       - main
 ```
@@ -302,6 +304,12 @@ concurrency:
   cancel-in-progress: false
 ```
 
+Keep the release job gated so it only runs after successful `CI` for a push event:
+
+```yaml
+if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+```
+
 - [ ] **Step 2: Add the release-please job**
 
 Replace the current custom release job with:
@@ -311,6 +319,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     permissions:
       contents: write
       pull-requests: write
@@ -321,6 +330,12 @@ jobs:
       major: ${{ steps.semver.outputs.major }}
       minor: ${{ steps.semver.outputs.minor }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+
       - name: Run release-please
         id: release
         uses: googleapis/release-please-action@v4
@@ -451,6 +466,7 @@ Review the resulting `release.yml` and confirm:
 - it checks out the created tag, not `main`
 - it always publishes exact version plus floating tags for formal releases
 - there is no manual-tag fallback logic anywhere
+- the release workflow remains gated behind successful `CI` on `main` pushes rather than running independently on every push
 
 - [ ] **Step 4: Validate the updated release workflow YAML**
 
