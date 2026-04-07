@@ -86,7 +86,7 @@ async function fetchClientItems(
 	warnings: string[],
 ): Promise<void> {
 	try {
-		const provider = getProvider(client.implementation);
+		const provider = await getProvider(client.implementation);
 		const config = toConnectionConfig(client);
 
 		const downloads = await provider.getDownloads(config);
@@ -181,7 +181,7 @@ export const removeFromQueueFn = createServerFn({ method: "POST" })
 		}
 
 		if (data.removeFromClient) {
-			const provider = getProvider(client.implementation);
+			const provider = await getProvider(client.implementation);
 			const config = toConnectionConfig(client);
 			await provider.removeDownload(config, data.downloadItemId, true);
 		}
@@ -215,7 +215,7 @@ export const pauseDownloadFn = createServerFn({ method: "POST" })
 		if (!client) {
 			throw new Error("Download client not found");
 		}
-		const provider = getProvider(client.implementation);
+		const provider = await getProvider(client.implementation);
 		if (!provider.pauseDownload) {
 			throw new Error("Client does not support pausing");
 		}
@@ -236,7 +236,7 @@ export const resumeDownloadFn = createServerFn({ method: "POST" })
 		if (!client) {
 			throw new Error("Download client not found");
 		}
-		const provider = getProvider(client.implementation);
+		const provider = await getProvider(client.implementation);
 		if (!provider.resumeDownload) {
 			throw new Error("Client does not support resuming");
 		}
@@ -257,7 +257,7 @@ export const setDownloadPriorityFn = createServerFn({ method: "POST" })
 		if (!client) {
 			throw new Error("Download client not found");
 		}
-		const provider = getProvider(client.implementation);
+		const provider = await getProvider(client.implementation);
 		if (!provider.setPriority) {
 			throw new Error("Client does not support priority changes");
 		}

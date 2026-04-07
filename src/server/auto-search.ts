@@ -1114,7 +1114,7 @@ async function grabReleaseForBookPack(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = getProvider(client.implementation);
+	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -1690,7 +1690,7 @@ async function grabReleaseForEpisodePack(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = getProvider(client.implementation);
+	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -2689,7 +2689,7 @@ async function grabRelease(
 	const combinedTag =
 		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
 
-	const provider = getProvider(client.implementation);
+	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -2817,7 +2817,7 @@ async function grabReleaseForMovie(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = getProvider(client.implementation);
+	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -2893,7 +2893,7 @@ async function grabReleaseForEpisode(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = getProvider(client.implementation);
+	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,

@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, like, or } from "drizzle-orm";
 import { db } from "src/db";
@@ -12,11 +10,6 @@ import {
 	unmappedFiles,
 } from "src/db/schema";
 import { eventBus } from "src/server/event-bus";
-import {
-	probeAudioFile,
-	probeEbookFile,
-	probeVideoFile,
-} from "src/server/media-probe";
 import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
 
@@ -142,6 +135,7 @@ export const deleteUnmappedFilesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteUnmappedFilesSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const fs = await import("node:fs");
 
 		for (const id of data.ids) {
 			const file = db
@@ -182,6 +176,10 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => mapUnmappedFileSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const path = await import("node:path");
+		const { probeAudioFile, probeEbookFile, probeVideoFile } = await import(
+			"src/server/media-probe"
+		);
 
 		// Validate profile exists
 		const profile = db
