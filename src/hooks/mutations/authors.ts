@@ -1,31 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "src/lib/query-keys";
-import type {
-	createAuthorSchema,
-	updateAuthorSchema,
-} from "src/lib/validators";
-import {
-	createAuthorFn,
-	deleteAuthorFn,
-	updateAuthorFn,
-} from "src/server/authors";
+import type { updateAuthorSchema } from "src/lib/validators";
+import { deleteAuthorFn, updateAuthorFn } from "src/server/authors";
 import type { z } from "zod";
-
-export function useCreateAuthor() {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: (data: z.infer<typeof createAuthorSchema>) =>
-			createAuthorFn({ data }),
-		onSuccess: () => {
-			toast.success("Author added");
-			queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
-		},
-		onError: () => toast.error("Failed to add author"),
-	});
-}
 
 export function useUpdateAuthor() {
 	const queryClient = useQueryClient();

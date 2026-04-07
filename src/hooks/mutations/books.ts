@@ -1,11 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "src/lib/query-keys";
-import type { createBookSchema } from "src/lib/validators";
 import {
 	bulkMonitorBookProfileFn,
 	bulkUnmonitorBookProfileFn,
-	createBookFn,
 	deleteBookFn,
 	deleteEditionFn,
 	monitorBookProfileFn,
@@ -13,26 +11,7 @@ import {
 	setEditionForProfileFn,
 	unmonitorBookProfileFn,
 	updateBookFn,
-	updateEditionFn,
 } from "src/server/books";
-import { monitorBookFn } from "src/server/import";
-import type { z } from "zod";
-
-export function useCreateBook() {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: (data: z.infer<typeof createBookSchema>) =>
-			createBookFn({ data }),
-		onSuccess: () => {
-			toast.success("Book added");
-			queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
-		},
-		onError: () => toast.error("Failed to add book"),
-	});
-}
 
 export function useDeleteBook() {
 	const queryClient = useQueryClient();
@@ -112,18 +91,6 @@ export function useSetEditionForProfile() {
 	});
 }
 
-export function useUpdateEdition() {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: (data: { id: number }) => updateEditionFn({ data }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
-		},
-		onError: () => toast.error("Failed to update edition"),
-	});
-}
-
 export function useDeleteEdition() {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -134,19 +101,6 @@ export function useDeleteEdition() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
 		},
 		onError: () => toast.error("Failed to delete edition"),
-	});
-}
-
-export function useToggleBookMonitor() {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: (data: { bookId: number; monitor: boolean }) =>
-			monitorBookFn({ data: { bookId: data.bookId } }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.authors.all });
-		},
-		onError: () => toast.error("Failed to update book monitoring"),
 	});
 }
 

@@ -81,8 +81,3 @@ export const removeMovieImportExclusionFn = createServerFn({ method: "POST" })
 			.run();
 		return { success: true };
 	});
-
-// ─── Backward Compatibility ─────────────────────────────────────────────
-// Keep old names as aliases for any callers not yet updated
-export const getImportListExclusionsFn = getBookImportExclusionsFn;
-export const removeImportListExclusionFn = removeBookImportExclusionFn;

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import detectReleaseType from "./release-type-parser";
 import { ReleaseType } from "./types";
 

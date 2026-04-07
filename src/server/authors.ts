@@ -14,7 +14,7 @@ import {
 	seriesBookLinks,
 	seriesDownloadProfiles,
 } from "src/db/schema";
-import { createAuthorSchema, updateAuthorSchema } from "src/lib/validators";
+import { updateAuthorSchema } from "src/lib/validators";
 import { fetchSeriesComplete } from "./hardcover/import-queries";
 import { requireAdmin, requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
@@ -484,31 +484,6 @@ export const getAuthorFn = createServerFn({ method: "GET" })
 			series: authorSeries,
 			availableLanguages,
 		};
-	});
-
-export const createAuthorFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => createAuthorSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const { downloadProfileIds, ...authorData } = data;
-		const author = db.insert(authors).values(authorData).returning().get();
-
-		// Insert join table rows
-		for (const profileId of downloadProfileIds) {
-			db.insert(authorDownloadProfiles)
-				.values({ authorId: author.id, downloadProfileId: profileId })
-				.run();
-		}
-
-		db.insert(history)
-			.values({
-				eventType: "authorAdded",
-				authorId: author.id,
-				data: { name: author.name },
-			})
-			.run();
-
-		return author;
 	});
 
 export const updateAuthorFn = createServerFn({ method: "POST" })

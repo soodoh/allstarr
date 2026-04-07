@@ -429,10 +429,6 @@ const refreshBookSchema = z.object({
 	bookId: z.number().int().positive(),
 });
 
-const monitorBookSchema = z.object({
-	bookId: z.number().int().positive(),
-});
-
 // ---------- Import Author (internal) ----------
 
 /**
@@ -2265,66 +2261,4 @@ export const refreshBookMetadataFn = createServerFn({ method: "POST" })
 			batchTaskId: "refresh-hardcover-metadata",
 			handler: refreshBookHandler,
 		});
-	});
-
-// ---------- Monitor Book ----------
-
-export const monitorBookFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => monitorBookSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-
-		// Fetch book from Hardcover to sync booksAuthors if needed
-		const localBook = db
-			.select({
-				foreignBookId: books.foreignBookId,
-			})
-			.from(books)
-			.where(eq(books.id, data.bookId))
-			.get();
-
-		// Check if booksAuthors entries exist for this book
-		const existingAuthors = db
-			.select({ id: booksAuthors.id })
-			.from(booksAuthors)
-			.where(eq(booksAuthors.bookId, data.bookId))
-			.get();
-
-		if (localBook?.foreignBookId && !existingAuthors) {
-			const result = await fetchBookComplete(Number(localBook.foreignBookId));
-
-			if (result) {
-				// Find the primary author entry from booksAuthors or use first contributor
-				const primaryContrib = result.book.contributions.find(
-					(c) => c.contribution === null,
-				);
-				if (primaryContrib) {
-					const localAuthor = db
-						.select({ id: authors.id })
-						.from(authors)
-						.where(eq(authors.foreignAuthorId, String(primaryContrib.authorId)))
-						.get();
-
-					db.transaction((tx) => {
-						insertBookAuthors(
-							tx,
-							data.bookId,
-							result.book.contributions,
-							primaryContrib.authorId,
-							localAuthor?.id ?? 0,
-						);
-					});
-				}
-			}
-		}
-
-		db.insert(history)
-			.values({
-				eventType: "bookUpdated",
-				bookId: data.bookId,
-				data: { action: "monitored" },
-			})
-			.run();
-
-		return { bookId: data.bookId };
 	});

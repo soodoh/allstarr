@@ -5,7 +5,6 @@ import { and, desc, eq, exists, inArray, like, or, sql } from "drizzle-orm";
 import { db } from "src/db";
 import {
 	authorDownloadProfiles,
-	authors,
 	bookFiles,
 	bookImportListExclusions,
 	books,
@@ -21,14 +20,12 @@ import { pickBestEdition, pickBestEditionForProfile } from "src/lib/editions";
 import {
 	bulkMonitorBookProfileSchema,
 	bulkUnmonitorBookProfileSchema,
-	createBookSchema,
 	createEditionSchema,
 	deleteBookSchema,
 	monitorBookProfileSchema,
 	setEditionForProfileSchema,
 	unmonitorBookProfileSchema,
 	updateBookSchema,
-	updateEditionSchema,
 } from "src/lib/validators";
 import { requireAdmin, requireAuth } from "./middleware";
 
@@ -995,47 +992,6 @@ export const getBookFn = createServerFn({ method: "GET" })
 		};
 	});
 
-export const createBookFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => createBookSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const { authorId, ...bookData } = data;
-		const book = db.insert(books).values(bookData).returning().get();
-
-		// Create primary booksAuthors entry
-		const author = db
-			.select({
-				name: authors.name,
-				foreignAuthorId: authors.foreignAuthorId,
-			})
-			.from(authors)
-			.where(eq(authors.id, authorId))
-			.get();
-
-		if (author) {
-			db.insert(booksAuthors)
-				.values({
-					bookId: book.id,
-					authorId,
-					foreignAuthorId: author.foreignAuthorId ?? `local-${authorId}`,
-					authorName: author.name,
-					isPrimary: true,
-				})
-				.run();
-		}
-
-		db.insert(history)
-			.values({
-				eventType: "bookAdded",
-				bookId: book.id,
-				authorId,
-				data: { title: book.title },
-			})
-			.run();
-
-		return book;
-	});
-
 export const updateBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateBookSchema.parse(d))
 	.handler(async ({ data }) => {
@@ -1395,19 +1351,6 @@ export const createEditionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		await requireAdmin();
 		return db.insert(editions).values(data).returning().get();
-	});
-
-export const updateEditionFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => updateEditionSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const { id, ...values } = data;
-		return db
-			.update(editions)
-			.set(values)
-			.where(eq(editions.id, id))
-			.returning()
-			.get();
 	});
 
 export const checkBooksExistFn = createServerFn({ method: "GET" })
