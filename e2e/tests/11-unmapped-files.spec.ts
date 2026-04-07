@@ -248,4 +248,63 @@ test.describe("Unmapped Files", () => {
 
     await expect.poll(() => existsSync(file.path)).toBe(false);
   });
+
+  test("bulk delete selected unmapped files", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    const firstFile = seedUnmappedEbook(db, tempDir, "bulk-delete-1.epub");
+    const secondFile = seedUnmappedEbook(db, tempDir, "bulk-delete-2.epub");
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(
+      page.getByText(firstFile.filename, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toBeVisible();
+
+    const checkboxes = page.getByRole("checkbox");
+    await checkboxes.nth(1).click();
+    await checkboxes.nth(2).click();
+
+    await expect(page.getByText("2 files selected")).toBeVisible();
+    await page.getByRole("button", { name: "Delete Selected" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Delete files" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Confirm" }).click();
+
+    await expect(page.getByText(firstFile.filename, { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    for (const file of [firstFile, secondFile]) {
+      await expect
+        .poll(() =>
+          db
+            .select({ id: schema.unmappedFiles.id })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.id, file.id))
+            .get() ?? null,
+        )
+        .toBeNull();
+
+      await expect.poll(() => existsSync(file.path)).toBe(false);
+    }
+  });
 });
