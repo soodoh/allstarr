@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { test, expect } from "../fixtures/app";
@@ -206,5 +206,46 @@ test.describe("Unmapped Files", () => {
         eventType: "bookFileAdded",
         bookId: book.id,
       });
+  });
+
+  test("delete an unmapped file from disk", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    const file = seedUnmappedEbook(db, tempDir, "delete-me.epub");
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
+
+    await page.getByTitle("Delete file").click();
+    await expect(
+      page.getByRole("heading", { name: "Delete files" }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Confirm" }).click();
+
+    await expect(page.getByText(file.filename, { exact: true })).toHaveCount(0);
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    await expect
+      .poll(() =>
+        db
+          .select({ id: schema.unmappedFiles.id })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.id, file.id))
+          .get() ?? null,
+      )
+      .toBeNull();
+
+    await expect.poll(() => existsSync(file.path)).toBe(false);
   });
 });
