@@ -1,5 +1,6 @@
 import type { Database as BunSqliteDatabase } from "bun:sqlite";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { isServerRuntime } from "src/lib/runtime";
 import * as schema from "./schema";
 import { downloadProfiles } from "./schema";
 
@@ -125,7 +126,7 @@ async function initializeDb(): Promise<{
 	return { db, sqlite };
 }
 
-const runtime = import.meta.env.SSR
+const runtime = isServerRuntime
 	? await initializeDb()
 	: {
 			db: createUnsupportedProxy<AppDatabase>("Database"),
