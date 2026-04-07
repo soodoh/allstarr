@@ -116,17 +116,19 @@ function LoginPage() {
 									</span>
 								</div>
 								<div className="flex w-full flex-col gap-2">
-									{oidcProviders.map((provider) => (
-										<Button
-											key={provider.providerId}
-											type="button"
-											variant="outline"
-											className="w-full"
-											onClick={() => handleOidcSignIn(provider.providerId)}
-										>
-											Sign in with {provider.displayName}
-										</Button>
-									))}
+									{oidcProviders.map(
+										(provider: (typeof oidcProviders)[number]) => (
+											<Button
+												key={provider.providerId}
+												type="button"
+												variant="outline"
+												className="w-full"
+												onClick={() => handleOidcSignIn(provider.providerId)}
+											>
+												Sign in with {provider.displayName}
+											</Button>
+										),
+									)}
 								</div>
 							</>
 						)}

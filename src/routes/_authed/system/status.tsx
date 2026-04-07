@@ -16,7 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "src/components/ui/card";
-import type { DiskSpaceEntry, HealthCheck } from "src/lib/queries";
+import type { SystemStatus } from "src/lib/queries";
 import { systemStatusQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/system/status")({
@@ -51,7 +51,7 @@ function formatUptime(seconds: number): string {
 	return parts.join(" ");
 }
 
-function HealthSection({ checks }: { checks: HealthCheck[] }) {
+function HealthSection({ checks }: { checks: SystemStatus["health"] }) {
 	if (checks.length === 0) {
 		return (
 			<Card>
@@ -109,7 +109,7 @@ function HealthSection({ checks }: { checks: HealthCheck[] }) {
 	);
 }
 
-function DiskSpaceSection({ disks }: { disks: DiskSpaceEntry[] }) {
+function DiskSpaceSection({ disks }: { disks: SystemStatus["diskSpace"] }) {
 	if (disks.length === 0) {
 		return (
 			<Card>

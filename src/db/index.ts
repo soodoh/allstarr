@@ -4,22 +4,33 @@ import { isServerRuntime } from "src/lib/runtime";
 import * as schema from "./schema";
 import { downloadProfiles } from "./schema";
 
-type AppDatabase = BunSQLiteDatabase<typeof schema>;
+export type AppDatabase = BunSQLiteDatabase<typeof schema>;
+
+type InitializedAppDatabase = AppDatabase & {
+	$client: BunSqliteDatabase;
+};
 
 function unsupportedBrowserAccess(moduleName: string): never {
 	throw new Error(`${moduleName} is unavailable in the browser bundle`);
 }
 
-function createUnsupportedProxy<T>(moduleName: string): T {
-	return new Proxy({} as T, {
-		get() {
-			return () => unsupportedBrowserAccess(moduleName);
+function createUnsupportedProxy<T extends object>(moduleName: string): T {
+	const unsupportedCallable = () => unsupportedBrowserAccess(moduleName);
+	return new Proxy(unsupportedCallable, {
+		apply() {
+			return unsupportedBrowserAccess(moduleName);
 		},
-	});
+		construct() {
+			return unsupportedBrowserAccess(moduleName);
+		},
+		get() {
+			return createUnsupportedProxy<object>(moduleName);
+		},
+	}) as unknown as T;
 }
 
 async function initializeDb(): Promise<{
-	db: AppDatabase;
+	db: InitializedAppDatabase;
 	sqlite: BunSqliteDatabase;
 }> {
 	const [{ Database }, { drizzle }] = await Promise.all([
@@ -126,7 +137,10 @@ async function initializeDb(): Promise<{
 	return { db, sqlite };
 }
 
-const runtime = isServerRuntime
+const runtime: {
+	db: AppDatabase;
+	sqlite: BunSqliteDatabase;
+} = isServerRuntime
 	? await initializeDb()
 	: {
 			db: createUnsupportedProxy<AppDatabase>("Database"),
@@ -134,3 +148,4 @@ const runtime = isServerRuntime
 		};
 
 export const db = runtime.db;
+export const sqlite = runtime.sqlite;

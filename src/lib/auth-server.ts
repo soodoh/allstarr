@@ -1,11 +1,13 @@
-import type { Database as BunSqliteDatabase } from "bun:sqlite";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
+import { defaultRoles, userAc } from "better-auth/plugins/admin/access";
 import { and, eq } from "drizzle-orm";
-import { db } from "src/db";
+import { db, sqlite } from "src/db";
 import { oidcProviders } from "src/db/schema";
 import { getSettingValue } from "src/server/settings-store";
+
+type DefaultRole = "viewer" | "requester";
 
 function loadOidcProviders() {
 	const rows = db
@@ -23,8 +25,8 @@ function loadOidcProviders() {
 	}));
 }
 
-function getDefaultRole(): string {
-	const role = getSettingValue("auth.defaultRole", "requester");
+function getDefaultRole(): DefaultRole {
+	const role = getSettingValue<string>("auth.defaultRole", "requester");
 	if (role === "viewer" || role === "requester") {
 		return role;
 	}
@@ -59,6 +61,11 @@ function getRequestUrl(ctx: unknown): string {
 }
 
 const oidcConfig = loadOidcProviders();
+const adminPluginRoles = {
+	...defaultRoles,
+	viewer: userAc,
+	requester: userAc,
+} as const;
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, {
@@ -70,6 +77,7 @@ export const auth = betterAuth({
 	plugins: [
 		admin({
 			defaultRole: "requester",
+			roles: adminPluginRoles,
 		}),
 		...(oidcConfig.length > 0 ? [genericOAuth({ config: oidcConfig })] : []),
 	],
@@ -81,7 +89,6 @@ export const auth = betterAuth({
 				// it by returning an explicit role value which takes precedence.
 				before: async (userData, ctx) => {
 					// Count existing users via raw SQL to avoid importing the user schema.
-					const sqlite = db.$client as BunSqliteDatabase;
 					const { count } = sqlite
 						.prepare("SELECT COUNT(*) as count FROM user")
 						.get() as { count: number };
