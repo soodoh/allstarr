@@ -56,7 +56,7 @@ type NavGroup = {
 const navGroups: NavGroup[] = [
 	{
 		title: "Library",
-		to: "/unmapped-files",
+		to: "/",
 		icon: FolderOpen,
 		matchPrefixes: ["/unmapped-files"],
 		children: [
