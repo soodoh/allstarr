@@ -13,15 +13,10 @@ import type { z } from "zod";
 import { requireAdmin } from "./middleware";
 import { getSettingValue, upsertSettingValue } from "./settings-store";
 
-type ManagedUserRole = z.infer<typeof setUserRoleSchema>["role"];
 type DefaultUserRole = z.infer<typeof updateDefaultRoleSchema>["role"];
 
 function isDefaultUserRole(role: string): role is DefaultUserRole {
 	return role === "viewer" || role === "requester";
-}
-
-function getBetterAuthCreateRole(role: ManagedUserRole): "admin" | undefined {
-	return role === "admin" ? "admin" : undefined;
 }
 
 export const listUsersFn = createServerFn({ method: "GET" }).handler(
@@ -108,16 +103,9 @@ export const createUserFn = createServerFn({ method: "POST" })
 				name: data.name,
 				email: data.email,
 				password: data.password,
-				role: getBetterAuthCreateRole(data.role),
+				role: data.role,
 			},
 		});
-
-		if (data.role !== "admin") {
-			db.update(user)
-				.set({ role: data.role })
-				.where(eq(user.id, result.user.id))
-				.run();
-		}
 
 		return result;
 	});
