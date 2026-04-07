@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpen, Film, Search, Tv } from "lucide-react";
 import type { ComponentType, JSX } from "react";
 import { Card, CardContent } from "src/components/ui/card";
+import { formatBytes, formatRelativeTime } from "src/lib/format";
 import type { QualityBreakdownItem, RecentActivityItem } from "src/lib/queries";
 
 type ContentTypeConfig = {
@@ -28,7 +29,7 @@ const CONTENT_CONFIGS: ContentTypeConfig[] = [
 		gradientTo: "to-indigo-600",
 		listPath: "/books",
 		searchPath: "/books/add",
-		statLabels: ["Total", "Monitored", "Authors"],
+		statLabels: ["Total", "On Disk", "Authors"],
 	},
 	{
 		key: "shows",
@@ -65,24 +66,6 @@ const QUALITY_COLORS = [
 	"bg-cyan-500",
 ];
 
-function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(1024));
-	return `${(bytes / 1024 ** i).toFixed(i > 2 ? 1 : 0)} ${units[i]}`;
-}
-
-function formatRelativeTime(timestamp: number): string {
-	const now = Date.now();
-	const diff = now - timestamp;
-	const minutes = Math.floor(diff / 60000);
-	if (minutes < 60) return `${minutes}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
-}
-
 type ContentTypeCardProps = {
 	config: ContentTypeConfig;
 	stats: {
@@ -97,7 +80,7 @@ type ContentTypeCardProps = {
 	recentItems: RecentActivityItem[];
 };
 
-function ContentTypeCardInner({
+function ContentTypeCard({
 	config,
 	stats,
 	qualityBreakdown,
@@ -110,7 +93,7 @@ function ContentTypeCardInner({
 
 	const statValues =
 		config.key === "books"
-			? [stats.total, stats.monitored, stats.extra.value]
+			? [stats.total, stats.fileCount, stats.extra.value]
 			: config.key === "shows"
 				? [stats.total, stats.extra.value, stats.fileCount]
 				: [stats.total, stats.fileCount, stats.extra.value];
@@ -266,4 +249,4 @@ function ContentTypeCardInner({
 }
 
 export { CONTENT_CONFIGS };
-export default ContentTypeCardInner;
+export default ContentTypeCard;

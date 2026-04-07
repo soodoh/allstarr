@@ -215,6 +215,7 @@ export const getDashboardRecentActivityFn = createServerFn({
 			eventType: history.eventType,
 			bookTitle: books.title,
 			movieTitle: movies.title,
+			showTitle: shows.title,
 			date: history.date,
 			bookId: history.bookId,
 			movieId: history.movieId,
@@ -224,6 +225,7 @@ export const getDashboardRecentActivityFn = createServerFn({
 		.from(history)
 		.leftJoin(books, eq(history.bookId, books.id))
 		.leftJoin(movies, eq(history.movieId, movies.id))
+		.leftJoin(shows, eq(history.showId, shows.id))
 		.orderBy(desc(history.date))
 		.limit(5)
 		.all();
@@ -236,7 +238,7 @@ export const getDashboardRecentActivityFn = createServerFn({
 			itemName = item.movieTitle;
 		} else if (item.showId || item.episodeId) {
 			contentType = "TV Shows";
-			itemName = null; // show/episode name would need extra join
+			itemName = item.showTitle;
 		}
 		return {
 			id: item.id,

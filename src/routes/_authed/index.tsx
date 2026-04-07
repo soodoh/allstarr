@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import ActivityFeed from "src/components/dashboard/activity-feed";
-import ContentTypeCardInner, {
+import ContentTypeCard, {
 	CONTENT_CONFIGS,
 } from "src/components/dashboard/content-type-card";
 import SummaryRow from "src/components/dashboard/summary-row";
@@ -63,7 +63,7 @@ function DashboardPage() {
 								(a) => a.contentType === config.title,
 							);
 							return (
-								<ContentTypeCardInner
+								<ContentTypeCard
 									key={config.key}
 									config={config}
 									stats={stats}
