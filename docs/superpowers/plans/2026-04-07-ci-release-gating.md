@@ -105,12 +105,12 @@ Update the `scripts` section in `package.json` to add a dedicated TypeScript che
 "prepare": "lefthook install",
 ```
 
-- [ ] **Step 3: Run the new script locally**
+- [ ] **Step 4: Run the new script locally**
 
 Run: `bun run typecheck`
-Expected: TypeScript exits successfully with no emitted files and no type errors.
+Expected: the command runs under standalone TypeScript and reports the current repo type errors instead of failing immediately on missing Bun/environment typing.
 
-- [ ] **Step 4: Commit the script/config change**
+- [ ] **Step 5: Commit the script/config change**
 
 ```bash
 git add package.json tsconfig.json
