@@ -24,6 +24,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "src/components/ui/select";
+import MappingDialog from "src/components/unmapped-files/mapping-dialog";
 import type { UnmappedFileHints } from "src/db/schema/unmapped-files";
 import { unmappedFilesListQuery } from "src/lib/queries";
 import { queryKeys } from "src/lib/query-keys";
@@ -99,8 +100,12 @@ export default function UnmappedFilesTable(): JSX.Element {
 	// Selection
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-	// Mapping placeholder state (dialog comes in Task 8)
+	// Mapping state
 	const [mappingFileIds, setMappingFileIds] = useState<number[] | null>(null);
+	const [mappingContentType, setMappingContentType] = useState("");
+	const [mappingHints, setMappingHints] = useState<UnmappedFileHints | null>(
+		null,
+	);
 
 	// Delete confirmation
 	const [deleteConfirmIds, setDeleteConfirmIds] = useState<number[] | null>(

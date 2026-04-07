@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, eq, like } from "drizzle-orm";
+import { and, count, eq, like, or } from "drizzle-orm";
 import { db } from "src/db";
 import {
 	bookFiles,
@@ -413,4 +413,116 @@ export const rescanRootFolderFn = createServerFn({ method: "POST" })
 
 		eventBus.emit({ type: "unmappedFilesUpdated" });
 		return stats;
+	});
+
+// ─── searchLibraryFn ──────────────────────────────────────────────────────
+
+const searchLibrarySchema = z.object({
+	query: z.string().min(2).max(120),
+	contentType: z.string(),
+});
+
+export const searchLibraryFn = createServerFn({ method: "GET" })
+	.inputValidator((d: unknown) => searchLibrarySchema.parse(d))
+	.handler(async ({ data }) => {
+		await requireAuth();
+
+		const library: Array<{
+			id: number;
+			title: string;
+			subtitle: string;
+			entityType: "book" | "movie" | "episode";
+		}> = [];
+
+		const searchPattern = `%${data.query}%`;
+
+		if (data.contentType === "ebook" || data.contentType === "audiobook") {
+			const { books, booksAuthors } = await import("src/db/schema");
+			const bookResults = db
+				.select({
+					id: books.id,
+					title: books.title,
+					releaseYear: books.releaseYear,
+					authorName: booksAuthors.authorName,
+				})
+				.from(books)
+				.leftJoin(
+					booksAuthors,
+					and(
+						eq(booksAuthors.bookId, books.id),
+						eq(booksAuthors.isPrimary, true),
+					),
+				)
+				.where(like(books.title, searchPattern))
+				.limit(10)
+				.all();
+
+			for (const book of bookResults) {
+				library.push({
+					id: book.id,
+					title: book.title,
+					subtitle: [book.authorName, book.releaseYear]
+						.filter(Boolean)
+						.join(" · "),
+					entityType: "book",
+				});
+			}
+		} else if (data.contentType === "movie") {
+			const { movies } = await import("src/db/schema");
+			const movieResults = db
+				.select({ id: movies.id, title: movies.title, year: movies.year })
+				.from(movies)
+				.where(like(movies.title, searchPattern))
+				.limit(10)
+				.all();
+
+			for (const movie of movieResults) {
+				library.push({
+					id: movie.id,
+					title: movie.title,
+					subtitle: movie.year ? String(movie.year) : "",
+					entityType: "movie",
+				});
+			}
+		} else if (data.contentType === "tv") {
+			const { episodes, seasons, shows } = await import("src/db/schema");
+			const episodeResults = db
+				.select({
+					id: episodes.id,
+					title: episodes.title,
+					seasonNumber: seasons.seasonNumber,
+					episodeNumber: episodes.episodeNumber,
+					showTitle: shows.title,
+				})
+				.from(episodes)
+				.innerJoin(seasons, eq(seasons.id, episodes.seasonId))
+				.innerJoin(shows, eq(shows.id, episodes.showId))
+				.where(
+					or(
+						like(episodes.title, searchPattern),
+						like(shows.title, searchPattern),
+					),
+				)
+				.limit(10)
+				.all();
+
+			for (const ep of episodeResults) {
+				library.push({
+					id: ep.id,
+					title: ep.showTitle,
+					subtitle: `S${String(ep.seasonNumber).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")} - ${ep.title}`,
+					entityType: "episode",
+				});
+			}
+		}
+
+		return {
+			library,
+			external: [] as Array<{
+				foreignId: string;
+				title: string;
+				subtitle: string;
+				entityType: "book" | "movie" | "episode";
+			}>,
+		};
 	});
