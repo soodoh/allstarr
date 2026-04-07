@@ -462,6 +462,10 @@ test.describe("Search and Grab", () => {
     const tracked = db.select().from(schema.trackedDownloads).all();
     expect(tracked.length).toBeGreaterThanOrEqual(1);
     const last = tracked.at(-1);
+    expect(last).toBeDefined();
+    if (!last) {
+      throw new Error("Expected a tracked download row");
+    }
     expect(last.downloadClientId).toBe(overrideClient.id);
   });
 });

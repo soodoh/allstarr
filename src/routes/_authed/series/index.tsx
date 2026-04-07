@@ -21,7 +21,9 @@ import AdditionalAuthors from "src/components/bookshelf/books/additional-authors
 import UnmonitorDialog from "src/components/bookshelf/books/unmonitor-dialog";
 import BookPreviewModal from "src/components/bookshelf/hardcover/book-preview-modal";
 import ColumnSettingsPopover from "src/components/shared/column-settings-popover";
-import EditProfilesDialog from "src/components/shared/edit-series-profiles-dialog";
+import EditProfilesDialog, {
+	type DownloadProfileInfo,
+} from "src/components/shared/edit-series-profiles-dialog";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
 import PageHeader from "src/components/shared/page-header";
@@ -151,8 +153,6 @@ type SeriesEntry = {
 	books: Array<{ bookId: number; position: string | null }>;
 	downloadProfileIds: number[];
 };
-
-type DownloadProfileInfo = { id: number; name: string; icon: string };
 
 // ---------- Merged series entry types ----------
 
@@ -414,11 +414,9 @@ function SeriesPage() {
 
 	const bookProfiles: DownloadProfileInfo[] = useMemo(
 		() =>
-			downloadProfiles
-				.filter(
-					(p) => p.contentType === "ebook" || p.contentType === "audiobook",
-				)
-				.map((p) => ({ id: p.id, name: p.name, icon: p.icon })),
+			downloadProfiles.filter(
+				(p) => p.contentType === "ebook" || p.contentType === "audiobook",
+			),
 		[downloadProfiles],
 	);
 
@@ -653,7 +651,7 @@ function SeriesPage() {
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => refreshSeries.mutate()}
+						onClick={() => refreshSeries.mutate({})}
 						disabled={refreshSeries.isPending}
 					>
 						{refreshSeries.isPending ? (

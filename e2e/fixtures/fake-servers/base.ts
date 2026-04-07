@@ -7,13 +7,13 @@ export type HandlerResult = {
   body: string;
 } | null;
 
-export type FakeServerOptions<TState> = {
+export type FakeServerOptions<TState extends object> = {
   port: number;
   defaultState: () => TState;
   handler: (req: IncomingMessage, body: string, state: TState) => HandlerResult;
 };
 
-export type FakeServer<_TState> = {
+export type FakeServer<_TState extends object> = {
   server: Server;
   url: string;
   reset: () => void;
@@ -30,7 +30,7 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-export function createFakeServer<TState>(
+export function createFakeServer<TState extends object>(
   opts: FakeServerOptions<TState>,
 ): FakeServer<TState> {
   let state = opts.defaultState();

@@ -117,14 +117,15 @@ function AddBookForm({
 				searchOnAdd,
 			},
 		});
-		importBook.mutate({
+		const importPayload = {
 			foreignBookId: Number(book.id),
 			downloadProfileIds,
 			monitorOption,
 			monitorNewBooks,
 			searchOnAdd,
 			monitorSeries,
-		});
+		};
+		importBook.mutate(importPayload);
 		onSuccess();
 	};
 
