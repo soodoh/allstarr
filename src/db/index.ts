@@ -4,7 +4,9 @@ import { isServerRuntime } from "src/lib/runtime";
 import * as schema from "./schema";
 import { downloadProfiles } from "./schema";
 
-export type AppDatabase = BunSQLiteDatabase<typeof schema> & {
+export type AppDatabase = BunSQLiteDatabase<typeof schema>;
+
+type InitializedAppDatabase = AppDatabase & {
 	$client: BunSqliteDatabase;
 };
 
@@ -28,7 +30,7 @@ function createUnsupportedProxy<T extends object>(moduleName: string): T {
 }
 
 async function initializeDb(): Promise<{
-	db: AppDatabase;
+	db: InitializedAppDatabase;
 	sqlite: BunSqliteDatabase;
 }> {
 	const [{ Database }, { drizzle }] = await Promise.all([
@@ -135,7 +137,10 @@ async function initializeDb(): Promise<{
 	return { db, sqlite };
 }
 
-const runtime = isServerRuntime
+const runtime: {
+	db: AppDatabase;
+	sqlite: BunSqliteDatabase;
+} = isServerRuntime
 	? await initializeDb()
 	: {
 			db: createUnsupportedProxy<AppDatabase>("Database"),
