@@ -37,12 +37,6 @@ function PopoverContent({
 	);
 }
 
-function PopoverAnchor({
-	...props
-}: ComponentProps<typeof PopoverPrimitive.Anchor>): JSX.Element {
-	return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
-}
-
 function PopoverHeader({
 	className,
 	...props
@@ -69,25 +63,4 @@ function PopoverTitle({
 	);
 }
 
-function PopoverDescription({
-	className,
-	...props
-}: ComponentProps<"p">): JSX.Element {
-	return (
-		<p
-			data-slot="popover-description"
-			className={cn("text-muted-foreground", className)}
-			{...props}
-		/>
-	);
-}
-
-export {
-	Popover,
-	PopoverAnchor,
-	PopoverContent,
-	PopoverDescription,
-	PopoverHeader,
-	PopoverTitle,
-	PopoverTrigger,
-};
+export { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger };
