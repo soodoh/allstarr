@@ -45,7 +45,10 @@
 | `src/server/auto-search.ts` | Modify | Fix indexer release object construction to satisfy shared type |
 | `src/server/indexers.ts` | Modify | Fix indexer release object construction to satisfy shared type |
 | `src/server/indexers/http.ts` | Modify | Import or declare missing search-result type used by HTTP client |
+| `src/lib/admin-route.ts` | Modify | Provide the shared admin-route typing boundary for settings routes |
+| `src/lib/auth-server.ts` | Modify | Align Better Auth role registration with repo-managed roles |
 | `src/server/users.ts` | Modify | Align role typing with Better Auth role constraints |
+| `src/server/users.test.ts` | Create | Cover non-admin user creation role handling |
 | `src/server/download-manager.test.ts` | Modify | Align test expectations with current inferred types |
 | `.github/workflows/ci.yml` | Modify | Expand CI into separate validation jobs |
 | `.github/workflows/release.yml` | Modify | Keep release gated on successful CI and pin release work to the validated commit |
@@ -237,10 +240,12 @@ git commit -m "fix: resolve standalone ui type drift"
 - Modify: `src/routes/_authed/settings/custom-formats.tsx`
 - Modify: `src/routes/_authed/settings/users.tsx`
 - Modify: `src/lib/admin-route.ts`
+- Modify: `src/lib/auth-server.ts`
 - Modify: `src/server/auto-search.ts`
 - Modify: `src/server/indexers.ts`
 - Modify: `src/server/indexers/http.ts`
 - Modify: `src/server/users.ts`
+- Create: `src/server/users.test.ts`
 
 - [ ] **Step 1: Reproduce the remaining route/admin and indexer failures**
 
@@ -262,7 +267,7 @@ Fix the indexer release construction at the source. If the missing `ProwlarrSear
 
 - [ ] **Step 4: Fix the remaining user-role typing mismatch**
 
-Update `src/server/users.ts` so the role values passed into Better Auth APIs match the actual allowed role types used in this repository.
+Update the Better Auth integration and `src/server/users.ts` so the role values passed into create-user APIs match the actual allowed role types used in this repository, and add a focused regression test for non-admin user creation if the fix changes runtime behavior.
 
 - [ ] **Step 5: Re-run the typecheck command**
 
@@ -277,7 +282,7 @@ Expected: `bun run typecheck` succeeds with no emitted files and no type errors.
 - [ ] **Step 6: Commit the route/admin and indexer fixes**
 
 ```bash
-git add src/routes/_authed/settings/index.tsx src/routes/_authed/settings/general.tsx src/routes/_authed/settings/formats.tsx src/routes/_authed/settings/download-clients.tsx src/routes/_authed/settings/import-lists.tsx src/routes/_authed/settings/indexers.tsx src/routes/_authed/settings/media-management.tsx src/routes/_authed/settings/metadata.tsx src/routes/_authed/settings/profiles.tsx src/routes/_authed/settings/custom-formats.tsx src/routes/_authed/settings/users.tsx src/lib/admin-route.ts src/server/auto-search.ts src/server/indexers.ts src/server/indexers/http.ts src/server/users.ts
+git add src/routes/_authed/settings/index.tsx src/routes/_authed/settings/general.tsx src/routes/_authed/settings/formats.tsx src/routes/_authed/settings/download-clients.tsx src/routes/_authed/settings/import-lists.tsx src/routes/_authed/settings/indexers.tsx src/routes/_authed/settings/media-management.tsx src/routes/_authed/settings/metadata.tsx src/routes/_authed/settings/profiles.tsx src/routes/_authed/settings/custom-formats.tsx src/routes/_authed/settings/users.tsx src/lib/admin-route.ts src/lib/auth-server.ts src/server/auto-search.ts src/server/indexers.ts src/server/indexers/http.ts src/server/users.ts src/server/users.test.ts
 git commit -m "fix: make standalone typecheck pass"
 ```
 
