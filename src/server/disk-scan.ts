@@ -8,7 +8,9 @@ import {
 	books,
 	booksAuthors,
 	downloadProfiles,
+	episodeFiles,
 	history,
+	movieFiles,
 	unmappedFiles,
 } from "src/db/schema";
 import { extractHints } from "src/server/hint-extractor";
@@ -252,17 +254,34 @@ function syncUnmappedFiles(
 	const unmapped = allFiles.filter((f) => !discoveredFiles.has(f.absolutePath));
 
 	// Also filter out files already tracked in content file tables
-	const existingBookPaths = new Set(
-		db
-			.select({ path: bookFiles.path })
-			.from(bookFiles)
-			.where(like(bookFiles.path, `${rootFolderPath}%`))
-			.all()
-			.map((r) => r.path),
-	);
+	const existingTrackedPaths = new Set<string>();
+
+	for (const row of db
+		.select({ path: bookFiles.path })
+		.from(bookFiles)
+		.where(like(bookFiles.path, `${rootFolderPath}%`))
+		.all()) {
+		existingTrackedPaths.add(row.path);
+	}
+
+	for (const row of db
+		.select({ path: movieFiles.path })
+		.from(movieFiles)
+		.where(like(movieFiles.path, `${rootFolderPath}%`))
+		.all()) {
+		existingTrackedPaths.add(row.path);
+	}
+
+	for (const row of db
+		.select({ path: episodeFiles.path })
+		.from(episodeFiles)
+		.where(like(episodeFiles.path, `${rootFolderPath}%`))
+		.all()) {
+		existingTrackedPaths.add(row.path);
+	}
 
 	const trulyUnmapped = unmapped.filter(
-		(f) => !existingBookPaths.has(f.absolutePath),
+		(f) => !existingTrackedPaths.has(f.absolutePath),
 	);
 
 	// Get existing unmapped file paths for this root folder

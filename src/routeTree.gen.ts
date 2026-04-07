@@ -46,6 +46,7 @@ import { Route as AuthedMoviesCollectionsRouteImport } from './routes/_authed/mo
 import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
 import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
+import { Route as AuthedLibraryUnmappedFilesRouteImport } from './routes/_authed/library/unmapped-files'
 import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
 import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
 import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
@@ -246,6 +247,12 @@ const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
   path: '/movies/$movieId',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedLibraryUnmappedFilesRoute =
+  AuthedLibraryUnmappedFilesRouteImport.update({
+    id: '/library/unmapped-files',
+    path: '/library/unmapped-files',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
   id: '/books/add',
   path: '/books/add',
@@ -314,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
+  '/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -363,6 +371,7 @@ export interface FileRoutesByTo {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
+  '/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -414,6 +423,7 @@ export interface FileRoutesById {
   '/_authed/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/_authed/books/$bookId': typeof AuthedBooksBookIdRoute
   '/_authed/books/add': typeof AuthedBooksAddRoute
+  '/_authed/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
   '/_authed/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
+    | '/library/unmapped-files'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
+    | '/library/unmapped-files'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -564,6 +576,7 @@ export interface FileRouteTypes {
     | '/_authed/authors/$authorId'
     | '/_authed/books/$bookId'
     | '/_authed/books/add'
+    | '/_authed/library/unmapped-files'
     | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
     | '/_authed/movies/calendar'
@@ -879,6 +892,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/library/unmapped-files': {
+      id: '/_authed/library/unmapped-files'
+      path: '/library/unmapped-files'
+      fullPath: '/library/unmapped-files'
+      preLoaderRoute: typeof AuthedLibraryUnmappedFilesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/books/add': {
       id: '/_authed/books/add'
       path: '/books/add'
@@ -966,6 +986,7 @@ interface AuthedRouteChildren {
   AuthedAuthorsAuthorIdRoute: typeof AuthedAuthorsAuthorIdRoute
   AuthedBooksBookIdRoute: typeof AuthedBooksBookIdRoute
   AuthedBooksAddRoute: typeof AuthedBooksAddRoute
+  AuthedLibraryUnmappedFilesRoute: typeof AuthedLibraryUnmappedFilesRoute
   AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
   AuthedMoviesCalendarRoute: typeof AuthedMoviesCalendarRoute
@@ -1004,6 +1025,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAuthorsAuthorIdRoute: AuthedAuthorsAuthorIdRoute,
   AuthedBooksBookIdRoute: AuthedBooksBookIdRoute,
   AuthedBooksAddRoute: AuthedBooksAddRoute,
+  AuthedLibraryUnmappedFilesRoute: AuthedLibraryUnmappedFilesRoute,
   AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
   AuthedMoviesCalendarRoute: AuthedMoviesCalendarRoute,

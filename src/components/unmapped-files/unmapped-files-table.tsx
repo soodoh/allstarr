@@ -337,7 +337,13 @@ export default function UnmappedFilesTable(): JSX.Element {
 												variant="ghost"
 												size="icon-sm"
 												title="Map to library entry"
-												onClick={() => setMappingFileIds([file.id])}
+												onClick={() => {
+													setMappingFileIds([file.id]);
+													setMappingContentType(file.contentType);
+													setMappingHints(
+														file.hints as UnmappedFileHints | null,
+													);
+												}}
 											>
 												<Link2 className="h-4 w-4" />
 											</Button>
@@ -382,7 +388,19 @@ export default function UnmappedFilesTable(): JSX.Element {
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => setMappingFileIds([...selectedIds])}
+								onClick={() => {
+									const ids = [...selectedIds];
+									const firstFile = groups
+										.flatMap((g) => g.files)
+										.find((f) => ids.includes(f.id));
+									if (firstFile) {
+										setMappingFileIds(ids);
+										setMappingContentType(firstFile.contentType);
+										setMappingHints(
+											firstFile.hints as UnmappedFileHints | null,
+										);
+									}
+								}}
 							>
 								<Link2 className="mr-1 h-4 w-4" />
 								Map Selected
@@ -408,11 +426,17 @@ export default function UnmappedFilesTable(): JSX.Element {
 				</div>
 			)}
 
-			{/* Mapping dialog placeholder (Task 8) */}
+			{/* Mapping dialog */}
 			{mappingFileIds && (
-				<div className="hidden">
-					{/* TODO: MappingDialog component (Task 8) */}
-				</div>
+				<MappingDialog
+					fileIds={mappingFileIds}
+					contentType={mappingContentType}
+					hints={mappingHints}
+					onClose={() => {
+						setMappingFileIds(null);
+						setSelectedIds(new Set());
+					}}
+				/>
 			)}
 
 			{/* Delete confirmation */}
