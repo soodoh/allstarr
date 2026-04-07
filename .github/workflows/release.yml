@@ -38,27 +38,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Version packages
-        run: bun run changeset version
-
-      - name: Commit and push changes
-        id: commit
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git add .
-            git commit -m "chore: release"
-            git push origin HEAD:main
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to commit"
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create GitHub Release
-        if: steps.commit.outputs.changed == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          RELEASE_SHA=$(git rev-parse HEAD)
-          gh release create "v${VERSION}" --generate-notes --target "$RELEASE_SHA"
+      - name: Release from validated commit
+        run: ./scripts/release-from-validated-commit.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
