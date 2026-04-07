@@ -35,6 +35,7 @@ type ImportBookData = {
 		| "none";
 	monitorNewBooks?: "all" | "none" | "new";
 	searchOnAdd?: boolean;
+	monitorSeries?: boolean;
 };
 
 export function useImportHardcoverAuthor() {
