@@ -1,6 +1,7 @@
 export * from "./authors";
 export * from "./blocklist";
 export * from "./books";
+export * from "./dashboard";
 export * from "./download-clients";
 export * from "./download-profiles";
 export * from "./filesystem";
