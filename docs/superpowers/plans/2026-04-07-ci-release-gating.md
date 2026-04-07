@@ -177,6 +177,11 @@ git commit -m "fix: align bun runtime types with standalone typecheck"
 - Modify: `src/routes/_authed/series/index.tsx`
 - Modify: `src/routes/login.tsx`
 - Modify: `src/server/download-manager.test.ts`
+- Modify: `e2e/fixtures/fake-servers/base.ts`
+- Modify: `e2e/global-setup.ts`
+- Modify: `e2e/tests/04-search-grab.spec.ts`
+- Modify: `e2e/tests/07-download-lifecycle.spec.ts`
+- Modify: `e2e/tests/08-disk-scan.spec.ts`
 
 - [ ] **Step 1: Reproduce the UI/shared-type cluster**
 
@@ -186,7 +191,7 @@ Run:
 bun run typecheck
 ```
 
-Expected failures include missing exported query types, stale payload property names, nullable profile icon mismatches, route API signature drift, and the implicit `any` in `src/routes/login.tsx`.
+Expected failures include missing exported query types, stale payload property names, nullable profile icon mismatches, route API signature drift, the implicit `any` in `src/routes/login.tsx`, and newly surfaced `e2e` type drift around generic fake-server state, narrowed port literals, possibly undefined array access, and profile `items` seed data shapes.
 
 - [ ] **Step 2: Fix shared type exports instead of patching consumers ad hoc**
 
@@ -194,7 +199,7 @@ Update `src/lib/queries/index.ts` to export the query result types currently con
 
 - [ ] **Step 3: Fix remaining UI/type-drift mismatches**
 
-Resolve the book preview import payload shape, the nullable icon mismatch, the duplicated `DownloadProfileInfo` drift, the series page call-site mismatch, the login implicit `any`, and the test typing issue in `src/server/download-manager.test.ts`.
+Resolve the book preview import payload shape, the nullable icon mismatch, the duplicated `DownloadProfileInfo` drift, the series page call-site mismatch, the login implicit `any`, the test typing issue in `src/server/download-manager.test.ts`, and the `e2e` type drift in the fake-server base helper, global setup port handling, nullable array access, and seeded profile `items` shapes.
 
 - [ ] **Step 4: Re-run the typecheck command**
 
@@ -209,7 +214,7 @@ Expected: the UI/shared-type cluster is gone. Remaining failures should be conce
 - [ ] **Step 5: Commit the shared-type fixes**
 
 ```bash
-git add src/lib/queries/index.ts src/components/dashboard/content-type-card.tsx src/routes/_authed/system/status.tsx src/components/bookshelf/hardcover/book-preview-modal.tsx src/components/shared/edit-series-profiles-dialog.tsx src/routes/_authed/authors/\$authorId.tsx src/routes/_authed/series/index.tsx src/routes/login.tsx src/server/download-manager.test.ts
+git add src/lib/queries/index.ts src/components/dashboard/content-type-card.tsx src/routes/_authed/system/status.tsx src/components/bookshelf/hardcover/book-preview-modal.tsx src/components/shared/edit-series-profiles-dialog.tsx src/routes/_authed/authors/\$authorId.tsx src/routes/_authed/series/index.tsx src/routes/login.tsx src/server/download-manager.test.ts e2e/fixtures/fake-servers/base.ts e2e/global-setup.ts e2e/tests/04-search-grab.spec.ts e2e/tests/07-download-lifecycle.spec.ts e2e/tests/08-disk-scan.spec.ts
 git commit -m "fix: resolve standalone ui type drift"
 ```
 
