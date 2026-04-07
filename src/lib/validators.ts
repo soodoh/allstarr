@@ -184,23 +184,6 @@ export const metadataProfileSchema = z.object({
 	minimumPages: z.number().int().min(0).default(0),
 });
 
-// Authors
-export const createAuthorSchema = z.object({
-	name: z.string().min(1, "Name is required"),
-	sortName: z.string().min(1),
-	slug: z.string().nullable(),
-	bio: z.string().nullable(),
-	bornYear: z.number().nullable(),
-	deathYear: z.number().nullable(),
-	status: z.string().default("continuing"),
-	downloadProfileIds: z.array(z.number()).default([]),
-	foreignAuthorId: z.string().nullable(),
-	images: z
-		.array(z.object({ url: z.string(), coverType: z.string() }))
-		.default([]),
-	tags: z.array(z.number()).default([]),
-});
-
 export const updateAuthorSchema = z.object({
 	id: z.number(),
 	downloadProfileIds: z.array(z.number()).optional(),
@@ -226,24 +209,6 @@ export const addImportListExclusionSchema = z.object({
 
 export const removeImportListExclusionSchema = z.object({
 	id: z.number(),
-});
-
-// Books
-export const createBookSchema = z.object({
-	title: z.string().min(1, "Title is required"),
-	slug: z.string().nullable(),
-	authorId: z.number(),
-	description: z.string().nullable(),
-	releaseDate: z.string().nullable(),
-	releaseYear: z.number().nullable(),
-	foreignBookId: z.string().nullable(),
-	images: z
-		.array(z.object({ url: z.string(), coverType: z.string() }))
-		.default([]),
-	rating: z.number().nullable(),
-	ratingsCount: z.number().nullable(),
-	usersCount: z.number().nullable(),
-	tags: z.array(z.number()).default([]),
 });
 
 // Editions
@@ -272,10 +237,6 @@ export const createEditionSchema = z.object({
 			}),
 		)
 		.default([]),
-});
-
-export const updateEditionSchema = createEditionSchema.partial().extend({
-	id: z.number(),
 });
 
 export const monitorBookProfileSchema = z.object({

@@ -11,7 +11,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "src/components/ui/dialog";
-import { Label } from "src/components/ui/label";
+import Label from "src/components/ui/label";
 import Switch from "src/components/ui/switch";
 import { useUpdateBook } from "src/hooks/mutations";
 

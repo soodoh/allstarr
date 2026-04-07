@@ -16,7 +16,7 @@ import EmptyState from "src/components/shared/empty-state";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
-import { Input } from "src/components/ui/input";
+import Input from "src/components/ui/input";
 import {
 	Select,
 	SelectContent,

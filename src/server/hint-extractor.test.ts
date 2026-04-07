@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { extractHints } from "./hint-extractor";
 
 describe("extractHints", () => {

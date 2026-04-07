@@ -3,7 +3,7 @@ import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
-export function Label({
+function Label({
 	className,
 	...props
 }: ComponentProps<typeof LabelPrimitive.Root>): JSX.Element {

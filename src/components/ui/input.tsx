@@ -2,7 +2,7 @@ import type { ComponentProps, JSX } from "react";
 
 import { cn } from "src/lib/utils";
 
-export function Input({
+function Input({
 	className,
 	type,
 	...props
