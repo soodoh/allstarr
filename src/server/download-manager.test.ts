@@ -20,6 +20,25 @@ type Condition =
 	| { type: "eq"; column: { name: string }; value: unknown }
 	| { type: "inArray"; column: { name: string }; values: unknown[] };
 
+type FakeTrackedDownloadRow = {
+	id: number;
+	downloadClientId: number;
+	downloadId: string;
+	bookId: number | null;
+	authorId: number | null;
+	downloadProfileId: number | null;
+	showId: number | null;
+	episodeId: number | null;
+	movieId: number | null;
+	releaseTitle: string;
+	protocol: string;
+	state: string;
+	outputPath: string | null;
+	message: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+};
+
 function matches(row: Record<string, unknown>, condition?: Condition) {
 	if (!condition) {
 		return true;
@@ -109,7 +128,7 @@ afterEach(() => {
 
 describe("refreshDownloads", () => {
 	it("runs failed-download handling once when handler throws after a state-based import failure", async () => {
-		const trackedRows = [
+		const trackedRows: FakeTrackedDownloadRow[] = [
 			{
 				id: 1,
 				downloadClientId: 7,

@@ -12,11 +12,10 @@ import {
 } from "src/components/ui/dialog";
 import { useUpdateSeries } from "src/hooks/mutations/series";
 
-type DownloadProfileInfo = {
+export type DownloadProfileInfo = {
 	id: number;
 	name: string;
-	contentType: string;
-	icon: string | null;
+	icon: string;
 };
 
 export default function EditSeriesProfilesDialog({
