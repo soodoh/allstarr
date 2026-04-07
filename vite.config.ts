@@ -7,6 +7,24 @@ import { nitro } from "nitro/vite";
 import path from "node:path";
 
 const shimPath = path.resolve("src/lib/bun-sqlite-browser-shim.ts");
+const ignoredNitroWarningCodes = new Set([
+  "EVAL",
+  "CIRCULAR_DEPENDENCY",
+  "THIS_IS_UNDEFINED",
+  "EMPTY_BUNDLE",
+]);
+
+function shouldIgnoreRollupWarning(warning: {
+  code?: string;
+  id?: string;
+  message: string;
+}): boolean {
+  return (
+    warning.code === "MODULE_LEVEL_DIRECTIVE" &&
+    warning.id?.includes("node_modules") === true &&
+    warning.message.includes('"use client"')
+  );
+}
 
 function getVendorChunk(id: string): string | undefined {
   if (!id.includes("node_modules")) {
@@ -81,8 +99,29 @@ function getVendorChunk(id: string): string | undefined {
 export default defineConfig({
   build: {
     rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        if (shouldIgnoreRollupWarning(warning)) {
+          return;
+        }
+
+        defaultHandler(warning);
+      },
       output: {
         manualChunks: getVendorChunk,
+      },
+    },
+  },
+  nitro: {
+    rollupConfig: {
+      onwarn(warning, defaultHandler) {
+        if (
+          ignoredNitroWarningCodes.has(warning.code || "") ||
+          shouldIgnoreRollupWarning(warning)
+        ) {
+          return;
+        }
+
+        defaultHandler(warning);
       },
     },
   },
