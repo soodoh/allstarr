@@ -1,0 +1,16 @@
+.git
+.github
+.claude
+.serena
+.superpowers
+.playwright
+.playwright-mcp
+.tanstack
+.output
+dist
+node_modules
+data
+test-results
+playwright-report
+.env
+e2e/.test-state.json
