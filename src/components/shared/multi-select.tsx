@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "src/components/ui/badge";
 import { cn } from "src/lib/utils";
 
-export type MultiSelectItem<T extends string | number> = {
+type MultiSelectItem<T extends string | number> = {
 	key: T;
 	label: string;
 	secondary?: string;

@@ -44,7 +44,7 @@ function extractYear(releaseDate: string): string | null {
 
 // ── Preview Modal ──────────────────────────────────────────────────────────
 
-export type MoviePreviewModalProps = {
+type MoviePreviewModalProps = {
 	movie: TmdbMovieResult;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;

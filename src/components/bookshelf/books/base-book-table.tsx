@@ -199,7 +199,7 @@ const COLUMN_REGISTRY: Record<ColumnKey, ColumnDef> = {
 	},
 };
 
-export type ColumnConfig = {
+type ColumnConfig = {
 	key: ColumnKey;
 	sortable?: boolean;
 };

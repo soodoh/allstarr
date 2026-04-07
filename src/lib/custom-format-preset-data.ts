@@ -4,7 +4,7 @@ import type { CustomFormatSpecification } from "src/db/schema/custom-formats";
 // Preset types
 // ---------------------------------------------------------------------------
 
-export type PresetCF = {
+type PresetCF = {
 	name: string;
 	category: string;
 	specifications: CustomFormatSpecification[];
@@ -13,7 +13,7 @@ export type PresetCF = {
 	description: string;
 };
 
-export type Preset = {
+type Preset = {
 	name: string;
 	profileName: string; // Maps to download_profiles.name for seeder matching
 	description: string;

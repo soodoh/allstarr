@@ -12,7 +12,7 @@ export type EditionMeta = {
 	videoLength?: number | null; // in minutes
 };
 
-export type EffectiveSizeLimits = {
+type EffectiveSizeLimits = {
 	minSize: number; // MB
 	maxSize: number; // MB (0 = unlimited)
 	preferredSize: number; // MB

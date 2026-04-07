@@ -7,15 +7,6 @@ import {
 } from "src/server/dashboard";
 import { queryKeys } from "../query-keys";
 
-export type {
-	ContentTypeStats,
-	DashboardStorage,
-	QualityBreakdown,
-	QualityBreakdownItem,
-	RecentActivityItem,
-	StorageStat,
-} from "src/server/dashboard";
-
 export const dashboardContentStatsQuery = () =>
 	queryOptions({
 		queryKey: queryKeys.dashboard.contentStats(),

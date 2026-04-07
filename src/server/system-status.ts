@@ -27,7 +27,7 @@ export type SystemAbout = {
 	startTime: string;
 };
 
-export type SystemStatus = {
+type SystemStatus = {
 	health: HealthCheck[];
 	diskSpace: DiskSpaceEntry[];
 	about: SystemAbout;

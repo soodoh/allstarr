@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 export type SortDirection = "asc" | "desc" | undefined;
 
-export type TableState<TData> = {
+type TableState<TData> = {
 	page: number;
 	pageSize: number;
 	sortColumn: string | undefined;

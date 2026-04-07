@@ -3,7 +3,7 @@
  * Complete list from Prowlarr's NewznabStandardCategory.cs.
  */
 
-export type IndexerCategory = {
+type IndexerCategory = {
 	id: number;
 	name: string;
 };

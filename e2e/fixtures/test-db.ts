@@ -7,7 +7,7 @@ import * as schema from "../../src/db/schema";
 
 const STATE_FILE = join(import.meta.dirname, "..", ".test-state.json");
 
-export type TestDbHandle = {
+type TestDbHandle = {
   db: BetterSQLite3Database<typeof schema>;
   dbPath: string;
   close: () => void;
