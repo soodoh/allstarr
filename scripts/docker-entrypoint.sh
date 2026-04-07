@@ -8,11 +8,7 @@ mkdir -p /app/data
 
 # Apply database migrations
 echo "Running database migrations..."
-bun /app/src/db/migrate.ts
-
-# Run database seed (idempotent — skips if data already exists)
-echo "Seeding database..."
-bun /app/src/db/seed.ts
+bun run db:migrate
 
 # Start the application
 echo "Starting Allstarr..."
