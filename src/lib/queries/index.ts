@@ -14,4 +14,5 @@ export * from "./settings";
 export * from "./shows";
 export * from "./system-status";
 export * from "./tasks";
+export * from "./unmapped-files";
 export * from "./user-settings";
