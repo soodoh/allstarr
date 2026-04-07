@@ -1,5 +1,3 @@
-"use client";
-
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import type { ComponentProps, JSX } from "react";
 
