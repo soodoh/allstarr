@@ -19,61 +19,6 @@ import { fetchSeriesComplete } from "./hardcover/import-queries";
 import { requireAdmin, requireAuth } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 
-export const getAuthorsFn = createServerFn({ method: "GET" }).handler(
-	async () => {
-		await requireAuth();
-		const totalReadersExpr = sql<number>`COALESCE((SELECT SUM("books"."users_count") FROM "books_authors" INNER JOIN "books" ON "books"."id" = "books_authors"."book_id" WHERE "books_authors"."author_id" = "authors"."id"), 0)`;
-		const rows = db
-			.select({
-				id: authors.id,
-				name: authors.name,
-				sortName: authors.sortName,
-				slug: authors.slug,
-				bio: authors.bio,
-				bornYear: authors.bornYear,
-				deathYear: authors.deathYear,
-				status: authors.status,
-				isStub: authors.isStub,
-				foreignAuthorId: authors.foreignAuthorId,
-				images: authors.images,
-				tags: authors.tags,
-				metadataUpdatedAt: authors.metadataUpdatedAt,
-				createdAt: authors.createdAt,
-				updatedAt: authors.updatedAt,
-				bookCount: sql<number>`(SELECT COUNT(DISTINCT "books_authors"."book_id") FROM "books_authors" WHERE "books_authors"."author_id" = "authors"."id")`,
-				totalReaders: totalReadersExpr,
-			})
-			.from(authors)
-			.orderBy(desc(totalReadersExpr))
-			.all();
-
-		// Batch-query download profile IDs for all authors
-		const authorIds = rows.map((r) => r.id);
-		const profileLinks =
-			authorIds.length > 0
-				? db
-						.select({
-							authorId: authorDownloadProfiles.authorId,
-							downloadProfileId: authorDownloadProfiles.downloadProfileId,
-						})
-						.from(authorDownloadProfiles)
-						.where(inArray(authorDownloadProfiles.authorId, authorIds))
-						.all()
-				: [];
-
-		const profileMap = new Map<number, number[]>();
-		for (const link of profileLinks) {
-			const arr = profileMap.get(link.authorId) ?? [];
-			arr.push(link.downloadProfileId);
-			profileMap.set(link.authorId, arr);
-		}
-
-		return rows.map((r) =>
-			Object.assign(r, { downloadProfileIds: profileMap.get(r.id) ?? [] }),
-		);
-	},
-);
-
 export const getPaginatedAuthorsFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		(d: { page?: number; pageSize?: number; search?: string }) => d,

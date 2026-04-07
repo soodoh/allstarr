@@ -31,7 +31,7 @@ export type VideoMeta = {
 let probeAvailable: boolean | null = null;
 
 /** Check if ffprobe is available in $PATH. Result is cached for process lifetime. */
-export function isProbeAvailable(): boolean {
+function isProbeAvailable(): boolean {
 	if (probeAvailable !== null) {
 		return probeAvailable;
 	}

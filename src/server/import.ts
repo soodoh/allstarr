@@ -41,7 +41,7 @@ import { refreshSeriesInternal } from "./series";
  * If allowedLanguages is empty, all editions pass.
  * Always preserves the default cover edition (by defaultCoverEditionId) if any edition passes.
  */
-export function filterEditionsByProfile(
+function filterEditionsByProfile(
 	editions: HardcoverRawEdition[],
 	profile: MetadataProfile,
 	languages: string[],

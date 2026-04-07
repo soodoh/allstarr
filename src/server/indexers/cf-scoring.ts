@@ -56,7 +56,7 @@ export function invalidateCFCache(): void {
  * Load custom format scoring config for a profile from DB (cached).
  * Returns array of CF entries with their specs, scores, and contentTypes.
  */
-export function getProfileCFs(profileId: number): ProfileCF[] {
+function getProfileCFs(profileId: number): ProfileCF[] {
 	const cached = profileCFCache.get(profileId);
 	if (cached) {
 		return cached;
@@ -219,7 +219,7 @@ function getRangeTarget(
  * Evaluate ONE specification against release attributes.
  * Returns true if the spec matches (after applying negate).
  */
-export function evaluateCFSpec(
+function evaluateCFSpec(
 	spec: CustomFormatSpecification,
 	attrs: ReleaseAttributes,
 ): boolean {
@@ -268,7 +268,7 @@ export function evaluateCFSpec(
  * AND/OR logic: all required specs must match AND at least one non-required
  * must match (if any non-required specs exist).
  */
-export function evaluateCF(
+function evaluateCF(
 	specs: CustomFormatSpecification[],
 	attrs: ReleaseAttributes,
 ): boolean {

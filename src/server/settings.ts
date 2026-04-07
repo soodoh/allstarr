@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { settings } from "src/db/schema";
 import { metadataProfileSchema, updateSettingSchema } from "src/lib/validators";
@@ -24,18 +23,6 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
 		return map;
 	},
 );
-
-export const getSettingFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { key: string }) => d)
-	.handler(async ({ data }) => {
-		await requireAuth();
-		const row = db
-			.select()
-			.from(settings)
-			.where(eq(settings.key, data.key))
-			.get();
-		return row?.value ?? null;
-	});
 
 export const updateSettingFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateSettingSchema.parse(d))

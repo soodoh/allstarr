@@ -19,21 +19,6 @@ export const getDownloadClientsFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export const getDownloadClientFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { id: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const result = db
-			.select()
-			.from(downloadClients)
-			.where(eq(downloadClients.id, data.id))
-			.get();
-		if (!result) {
-			throw new Error("Download client not found");
-		}
-		return result;
-	});
-
 export const createDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {

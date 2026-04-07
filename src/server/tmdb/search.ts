@@ -5,7 +5,6 @@ import { TMDB_IMAGE_BASE, tmdbFetch } from "./client";
 import type {
 	TmdbMovieResult,
 	TmdbPaginatedResponse,
-	TmdbSearchResult,
 	TmdbTvResult,
 } from "./types";
 
@@ -39,25 +38,6 @@ function buildParams(
 	}
 	return params;
 }
-
-export const searchTmdbFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { query: string; page?: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAuth();
-		const includeAdult = getMediaSetting<boolean>(
-			"metadata.tmdb.includeAdult",
-			false,
-		);
-		const params = buildParams(data.query, includeAdult, data.page);
-		const response = await tmdbFetch<TmdbPaginatedResponse<TmdbSearchResult>>(
-			"/search/multi",
-			params,
-		);
-		return {
-			...response,
-			results: response.results.map((item) => transformImagePaths(item)),
-		};
-	});
 
 export const searchTmdbShowsFn = createServerFn({ method: "GET" })
 	.inputValidator((d: { query: string; page?: number }) => d)

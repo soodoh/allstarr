@@ -20,7 +20,6 @@ import { pickBestEdition, pickBestEditionForProfile } from "src/lib/editions";
 import {
 	bulkMonitorBookProfileSchema,
 	bulkUnmonitorBookProfileSchema,
-	createEditionSchema,
 	deleteBookSchema,
 	monitorBookProfileSchema,
 	setEditionForProfileSchema,
@@ -1345,14 +1344,6 @@ export const setEditionForProfileFn = createServerFn({ method: "POST" })
 		return { editionId };
 	});
 
-// Editions
-export const createEditionFn = createServerFn({ method: "POST" })
-	.inputValidator((d: unknown) => createEditionSchema.parse(d))
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		return db.insert(editions).values(data).returning().get();
-	});
-
 export const checkBooksExistFn = createServerFn({ method: "GET" })
 	.inputValidator((d: { foreignBookIds: string[] }) => d)
 	.handler(async ({ data }) => {
@@ -1397,25 +1388,4 @@ export const reassignBookFilesFn = createServerFn({ method: "POST" })
 			.all();
 
 		return { reassigned: updated.length };
-	});
-
-// Get author's available languages from editions
-export const getAuthorLanguagesFn = createServerFn({ method: "GET" })
-	.inputValidator((d: { authorId: number }) => d)
-	.handler(async ({ data }) => {
-		await requireAuth();
-		return db
-			.selectDistinct({
-				languageCode: editions.languageCode,
-				language: editions.language,
-			})
-			.from(editions)
-			.innerJoin(books, eq(editions.bookId, books.id))
-			.innerJoin(booksAuthors, eq(books.id, booksAuthors.bookId))
-			.where(eq(booksAuthors.authorId, data.authorId))
-			.all()
-			.filter((l) => l.languageCode && l.language) as Array<{
-			languageCode: string;
-			language: string;
-		}>;
 	});

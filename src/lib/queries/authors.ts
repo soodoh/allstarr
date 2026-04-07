@@ -2,17 +2,10 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import {
 	checkAuthorExistsFn,
 	getAuthorFn,
-	getAuthorsFn,
 	getPaginatedAuthorsFn,
 } from "src/server/authors";
 import { getAuthorBooksPaginatedFn } from "src/server/books";
 import { queryKeys } from "../query-keys";
-
-export const authorsListQuery = () =>
-	queryOptions({
-		queryKey: queryKeys.authors.lists(),
-		queryFn: () => getAuthorsFn(),
-	});
 
 export const authorsInfiniteQuery = (search = "") =>
 	infiniteQueryOptions({

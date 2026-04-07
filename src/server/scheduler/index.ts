@@ -18,8 +18,6 @@ import "./tasks/refresh-series-metadata";
 
 // oxlint-enable import/no-unassigned-import
 
-export { clearRunningTasks, isTaskRunning } from "./state";
-
 let started = false;
 const timers = getTimers();
 

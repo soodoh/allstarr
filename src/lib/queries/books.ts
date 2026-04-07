@@ -3,16 +3,9 @@ import {
 	checkBooksExistFn,
 	getBookEditionsPaginatedFn,
 	getBookFn,
-	getBooksFn,
 	getPaginatedBooksFn,
 } from "src/server/books";
 import { queryKeys } from "../query-keys";
-
-export const booksListQuery = () =>
-	queryOptions({
-		queryKey: queryKeys.books.lists(),
-		queryFn: () => getBooksFn(),
-	});
 
 export const booksInfiniteQuery = (
 	search = "",

@@ -1,7 +1,7 @@
 import { TABLE_IDS } from "src/lib/table-column-defaults";
 import { z } from "zod";
 
-export const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
+const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
 
 // Download Profiles
 const downloadProfileBaseSchema = z.object({
@@ -89,7 +89,7 @@ export const cfSpecificationTypes = [
 	"audioDuration",
 ] as const;
 
-export const cfSpecificationSchema = z.object({
+const cfSpecificationSchema = z.object({
 	name: z.string().min(1),
 	type: z.enum(cfSpecificationTypes),
 	value: z.string().optional(),
@@ -113,22 +113,6 @@ export const createCustomFormatSchema = z.object({
 
 export const updateCustomFormatSchema = createCustomFormatSchema.extend({
 	id: z.number(),
-});
-
-export const profileCustomFormatScoreSchema = z.object({
-	profileId: z.number(),
-	customFormatId: z.number(),
-	score: z.number(),
-});
-
-export const bulkSetProfileCFScoresSchema = z.object({
-	profileId: z.number(),
-	scores: z.array(
-		z.object({
-			customFormatId: z.number(),
-			score: z.number(),
-		}),
-	),
 });
 
 export const createDownloadFormatSchema = z.object({
@@ -201,44 +185,11 @@ export const deleteBookSchema = z.object({
 	addImportExclusion: z.boolean().default(false),
 });
 
-export const addImportListExclusionSchema = z.object({
-	foreignBookId: z.string(),
-	title: z.string(),
-	authorName: z.string(),
-});
-
 export const removeImportListExclusionSchema = z.object({
 	id: z.number(),
 });
 
 // Editions
-export const createEditionSchema = z.object({
-	bookId: z.number(),
-	title: z.string().min(1, "Title is required"),
-	isbn10: z.string().nullable(),
-	isbn13: z.string().nullable(),
-	asin: z.string().nullable(),
-	format: z.string().nullable(),
-	pageCount: z.number().nullable(),
-	publisher: z.string().nullable(),
-	releaseDate: z.string().nullable(),
-	language: z.string().nullable(),
-	languageCode: z.string().nullable(),
-	country: z.string().nullable(),
-	usersCount: z.number().nullable(),
-	score: z.number().nullable(),
-	foreignEditionId: z.string().nullable(),
-	contributors: z
-		.array(
-			z.object({
-				authorId: z.string(),
-				name: z.string(),
-				contribution: z.string().nullable(),
-			}),
-		)
-		.default([]),
-});
-
 export const monitorBookProfileSchema = z.object({
 	bookId: z.number(),
 	downloadProfileId: z.number(),
@@ -267,7 +218,7 @@ export const setEditionForProfileSchema = z.object({
 });
 
 // Download Clients
-export const downloadClientImplementationEnum = z.enum([
+const downloadClientImplementationEnum = z.enum([
 	"qBittorrent",
 	"Transmission",
 	"Deluge",
@@ -277,7 +228,7 @@ export const downloadClientImplementationEnum = z.enum([
 	"Blackhole",
 ]);
 
-export const downloadClientProtocolEnum = z.enum(["torrent", "usenet"]);
+const downloadClientProtocolEnum = z.enum(["torrent", "usenet"]);
 
 export const createDownloadClientSchema = z.object({
 	name: z.string().min(1, "Name is required"),
@@ -314,8 +265,8 @@ export const testDownloadClientSchema = z.object({
 });
 
 // Indexers
-export const indexerImplementationEnum = z.enum(["Newznab", "Torznab"]);
-export const indexerProtocolEnum = z.enum(["torrent", "usenet"]);
+const indexerImplementationEnum = z.enum(["Newznab", "Torznab"]);
+const indexerProtocolEnum = z.enum(["torrent", "usenet"]);
 
 export const createIndexerSchema = z.object({
 	name: z.string().min(1, "Name is required"),
@@ -353,17 +304,6 @@ export const updateSyncedIndexerSchema = z.object({
 	requestInterval: z.number().int().min(1000).default(5000),
 	dailyQueryLimit: z.number().int().min(0).default(0),
 	dailyGrabLimit: z.number().int().min(0).default(0),
-});
-
-// Blocklist
-export const addToBlocklistSchema = z.object({
-	bookId: z.number().nullable(),
-	authorId: z.number().nullable(),
-	sourceTitle: z.string().min(1),
-	protocol: z.enum(["torrent", "usenet"]).nullable(),
-	indexer: z.string().nullable(),
-	message: z.string().nullable(),
-	source: z.enum(["automatic", "manual"]).default("manual"),
 });
 
 export const removeFromBlocklistSchema = z.object({
@@ -455,7 +395,7 @@ export const refreshSeriesSchema = z.object({
 
 // ─── User Management ──────────────────────────────────────────────────────────
 
-export const userRoleSchema = z.enum(["admin", "viewer", "requester"]);
+const userRoleSchema = z.enum(["admin", "viewer", "requester"]);
 
 export const setUserRoleSchema = z.object({
 	userId: z.string(),

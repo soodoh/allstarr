@@ -29,7 +29,7 @@ const TMDB_DEFAULT_VALUE = "__default__";
 
 // ── Anime detection & recommendation (ported from episode-group-selector.tsx) ──
 
-export function isAnime(originCountry: string[], genreIds: number[]): boolean {
+function isAnime(originCountry: string[], genreIds: number[]): boolean {
 	return originCountry.includes("JP") && genreIds.includes(16);
 }
 

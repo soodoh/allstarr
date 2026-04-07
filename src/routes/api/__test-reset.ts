@@ -15,7 +15,9 @@ export const Route = createFileRoute("/api/__test-reset")({
 				const { invalidateFormatDefCache } = await import(
 					"src/server/indexers/format-parser"
 				);
-				const { clearRunningTasks } = await import("src/server/scheduler");
+				const { clearRunningTasks } = await import(
+					"src/server/scheduler/state"
+				);
 				invalidateFormatDefCache();
 				clearRunningTasks();
 				return Response.json({ ok: true });
