@@ -6,6 +6,7 @@ import {
 	reportSuccess,
 } from "../indexer-rate-limiter";
 import { logInfo } from "../logger";
+import type { ProwlarrSearchResult } from "./types";
 
 // ─── Newznab feed search (per-indexer, like Readarr) ──────────────────────────
 

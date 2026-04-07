@@ -4,7 +4,7 @@ type AdminBeforeLoadArgs = {
 	context: {
 		session: {
 			user: {
-				role: string;
+				role?: string | null;
 			};
 		};
 	};

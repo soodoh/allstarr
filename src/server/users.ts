@@ -9,8 +9,20 @@ import {
 	setUserRoleSchema,
 	updateDefaultRoleSchema,
 } from "src/lib/validators";
+import type { z } from "zod";
 import { requireAdmin } from "./middleware";
 import { getSettingValue, upsertSettingValue } from "./settings-store";
+
+type ManagedUserRole = z.infer<typeof setUserRoleSchema>["role"];
+type DefaultUserRole = z.infer<typeof updateDefaultRoleSchema>["role"];
+
+function isDefaultUserRole(role: string): role is DefaultUserRole {
+	return role === "viewer" || role === "requester";
+}
+
+function getBetterAuthCreateRole(role: ManagedUserRole): "admin" | undefined {
+	return role === "admin" ? "admin" : undefined;
+}
 
 export const listUsersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
@@ -96,9 +108,16 @@ export const createUserFn = createServerFn({ method: "POST" })
 				name: data.name,
 				email: data.email,
 				password: data.password,
-				role: data.role,
+				role: getBetterAuthCreateRole(data.role),
 			},
 		});
+
+		if (data.role !== "admin") {
+			db.update(user)
+				.set({ role: data.role })
+				.where(eq(user.id, result.user.id))
+				.run();
+		}
 
 		return result;
 	});
@@ -123,12 +142,14 @@ export const deleteUserFn = createServerFn({ method: "POST" })
 export const getDefaultRoleFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAdmin();
-		const defaultRole = getSettingValue("auth.defaultRole", "requester");
+		const defaultRole = getSettingValue<string>(
+			"auth.defaultRole",
+			"requester",
+		);
 		return {
-			defaultRole:
-				defaultRole === "viewer" || defaultRole === "requester"
-					? defaultRole
-					: "requester",
+			defaultRole: isDefaultUserRole(defaultRole)
+				? defaultRole
+				: ("requester" satisfies DefaultUserRole),
 		};
 	},
 );
