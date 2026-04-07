@@ -172,6 +172,7 @@ git commit -m "fix: align bun runtime types with standalone typecheck"
 - Modify: `src/components/dashboard/content-type-card.tsx`
 - Modify: `src/routes/_authed/system/status.tsx`
 - Modify: `src/components/bookshelf/hardcover/book-preview-modal.tsx`
+- Modify: `src/hooks/mutations/import.ts`
 - Modify: `src/components/shared/edit-series-profiles-dialog.tsx`
 - Modify: `src/routes/_authed/authors/$authorId.tsx`
 - Modify: `src/routes/_authed/series/index.tsx`
@@ -214,7 +215,7 @@ Expected: the UI/shared-type cluster is gone. Remaining failures should be conce
 - [ ] **Step 5: Commit the shared-type fixes**
 
 ```bash
-git add src/lib/queries/index.ts src/components/dashboard/content-type-card.tsx src/routes/_authed/system/status.tsx src/components/bookshelf/hardcover/book-preview-modal.tsx src/components/shared/edit-series-profiles-dialog.tsx src/routes/_authed/authors/\$authorId.tsx src/routes/_authed/series/index.tsx src/routes/login.tsx src/server/download-manager.test.ts e2e/fixtures/fake-servers/base.ts e2e/global-setup.ts e2e/tests/04-search-grab.spec.ts e2e/tests/07-download-lifecycle.spec.ts e2e/tests/08-disk-scan.spec.ts
+git add src/lib/queries/index.ts src/components/dashboard/content-type-card.tsx src/routes/_authed/system/status.tsx src/components/bookshelf/hardcover/book-preview-modal.tsx src/hooks/mutations/import.ts src/components/shared/edit-series-profiles-dialog.tsx src/routes/_authed/authors/\$authorId.tsx src/routes/_authed/series/index.tsx src/routes/login.tsx src/server/download-manager.test.ts e2e/fixtures/fake-servers/base.ts e2e/global-setup.ts e2e/tests/04-search-grab.spec.ts e2e/tests/07-download-lifecycle.spec.ts e2e/tests/08-disk-scan.spec.ts
 git commit -m "fix: resolve standalone ui type drift"
 ```
 
