@@ -430,4 +430,49 @@ test.describe("Unmapped Files", () => {
       )
       .toBeNull();
   });
+
+  test("rescan all discovers newly added unmapped files", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    seedDownloadProfile(db, {
+      name: "Unmapped Ebook Profile",
+      rootFolderPath: tempDir,
+      contentType: "ebook",
+    });
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    const incomingDir = join(tempDir, "incoming");
+    mkdirSync(incomingDir, { recursive: true });
+    const filePath = join(incomingDir, "rescan-all-new.epub");
+    writeFileSync(filePath, "dummy epub content");
+
+    await page.getByRole("button", { name: "Rescan All" }).click();
+
+    await expect(
+      page.getByText("rescan-all-new.epub", { exact: true }),
+    ).toBeVisible();
+
+    await expect
+      .poll(() =>
+        db
+          .select({
+            path: schema.unmappedFiles.path,
+            rootFolderPath: schema.unmappedFiles.rootFolderPath,
+          })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.path, filePath))
+          .get() ?? null,
+      )
+      .toEqual({
+        path: filePath,
+        rootFolderPath: tempDir,
+      });
+  });
 });
