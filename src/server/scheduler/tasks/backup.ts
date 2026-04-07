@@ -1,4 +1,4 @@
-import { db } from "src/db";
+import { sqlite } from "src/db";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
 
@@ -26,7 +26,7 @@ registerTask({
 		const backupPath = path.join(backupDir, `allstarr_${timestamp}.db`);
 
 		// Use SQLite VACUUM INTO for a consistent copy
-		db.$client.run(`VACUUM INTO '${backupPath}'`);
+		sqlite.run(`VACUUM INTO '${backupPath}'`);
 
 		// Clean up old backups, keep only MAX_BACKUPS most recent
 		const backups = fs
