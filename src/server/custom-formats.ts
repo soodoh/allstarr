@@ -225,7 +225,7 @@ export const removeProfileCFsFn = createServerFn({ method: "POST" })
 export const addCategoryToProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { profileId: number; category: string }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		// Get all CFs in the given category
 		const cfsInCategory = db

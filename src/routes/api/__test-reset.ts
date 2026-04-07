@@ -2,13 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 
 /**
  * Test-only endpoint that resets server-side caches and state.
- * Only available when SQLITE_JOURNAL_MODE is set (i.e. during E2E tests).
+ * Only available when E2E_TEST_MODE is explicitly enabled.
  */
 export const Route = createFileRoute("/api/__test-reset")({
 	server: {
 		handlers: {
 			POST: async () => {
-				if (!process.env.SQLITE_JOURNAL_MODE) {
+				if (process.env.E2E_TEST_MODE !== "true") {
 					return new Response("Not available", { status: 404 });
 				}
 				// Lazy imports to avoid triggering heavy module compilation on route load

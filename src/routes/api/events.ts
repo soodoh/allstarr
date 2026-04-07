@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { eventBus } from "src/server/event-bus";
+import { getSessionFromRequest } from "src/server/middleware";
 
 export const Route = createFileRoute("/api/events")({
 	server: {
 		handlers: {
-			GET: async () => {
+			GET: async ({ request }: { request: Request }) => {
+				const session = await getSessionFromRequest(request);
+				if (!session) {
+					return new Response("Unauthorized", { status: 401 });
+				}
+
 				let controller: ReadableStreamDefaultController;
 				const stream = new ReadableStream({
 					start(c) {

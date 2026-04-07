@@ -10,11 +10,11 @@ import {
 } from "src/lib/validators";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
-import { requireAdmin, requireAuth } from "./middleware";
+import { requireAdmin } from "./middleware";
 
 export const getDownloadClientsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		return db.select().from(downloadClients).all();
 	},
 );
@@ -22,7 +22,7 @@ export const getDownloadClientsFn = createServerFn({ method: "GET" }).handler(
 export const getDownloadClientFn = createServerFn({ method: "GET" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const result = db
 			.select()
 			.from(downloadClients)

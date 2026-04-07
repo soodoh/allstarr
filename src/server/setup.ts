@@ -9,7 +9,7 @@ import { oidcProviders } from "src/db/schema";
  */
 export const hasUsersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		const sqlite = (db as any).$client as import("bun:sqlite").Database;
+		const sqlite = db.$client as import("bun:sqlite").Database;
 		const row = sqlite.prepare("SELECT 1 FROM user LIMIT 1").get();
 		return { hasUsers: !!row };
 	},

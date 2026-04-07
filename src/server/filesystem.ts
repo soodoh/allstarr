@@ -1,7 +1,7 @@
 import type { Dirent } from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import { browseDirectorySchema } from "src/lib/validators";
-import { requireAdmin, requireAuth } from "./middleware";
+import { requireAdmin } from "./middleware";
 
 type DirectoryEntry = {
 	name: string;
@@ -16,7 +16,7 @@ type BrowseDirectoryResult = {
 
 export const getServerCwdFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		return process.cwd();
 	},
 );

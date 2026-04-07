@@ -17,7 +17,7 @@ import {
 	probeEbookFile,
 	probeVideoFile,
 } from "src/server/media-probe";
-import { requireAuth } from "src/server/middleware";
+import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ const ignoreUnmappedFilesSchema = z.object({
 export const ignoreUnmappedFilesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => ignoreUnmappedFilesSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		for (const id of data.ids) {
 			db.update(unmappedFiles)
@@ -141,7 +141,7 @@ const deleteUnmappedFilesSchema = z.object({
 export const deleteUnmappedFilesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteUnmappedFilesSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		for (const id of data.ids) {
 			const file = db
@@ -181,7 +181,7 @@ const mapUnmappedFileSchema = z.object({
 export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => mapUnmappedFileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		// Validate profile exists
 		const profile = db
@@ -376,7 +376,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 export const rescanAllRootFoldersFn = createServerFn({
 	method: "POST",
 }).handler(async () => {
-	await requireAuth();
+	await requireAdmin();
 
 	// Lazy import to break dependency cycles
 	const { getRootFolderPaths, rescanRootFolder } = await import(
@@ -404,7 +404,7 @@ const rescanRootFolderSchema = z.object({
 export const rescanRootFolderFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => rescanRootFolderSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 
 		// Lazy import to break dependency cycles
 		const { rescanRootFolder } = await import("src/server/disk-scan");

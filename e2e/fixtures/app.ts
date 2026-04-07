@@ -71,6 +71,7 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
             BETTER_AUTH_URL: `http://localhost:${port}`,
             HARDCOVER_TOKEN: "Bearer test-hardcover-token",
             SQLITE_JOURNAL_MODE: "DELETE",
+            E2E_TEST_MODE: "true",
             PORT: String(port),
           },
           cwd: join(import.meta.dirname, "..", ".."),

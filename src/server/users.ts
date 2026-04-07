@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { desc, eq, max } from "drizzle-orm";
 import { db } from "src/db";
-import { account, session, settings, user } from "src/db/schema";
+import { account, session, user } from "src/db/schema";
 import { auth } from "src/lib/auth";
 import {
 	createUserSchema,
@@ -9,11 +9,12 @@ import {
 	setUserRoleSchema,
 	updateDefaultRoleSchema,
 } from "src/lib/validators";
-import { requireAdmin, requireAuth } from "./middleware";
+import { requireAdmin } from "./middleware";
+import { getSettingValue, upsertSettingValue } from "./settings-store";
 
 export const listUsersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 
 		const users = db
 			.select({
@@ -119,24 +120,14 @@ export const deleteUserFn = createServerFn({ method: "POST" })
 
 export const getDefaultRoleFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
-		const row = db
-			.select()
-			.from(settings)
-			.where(eq(settings.key, "auth.defaultRole"))
-			.get();
-
-		let value = "requester";
-		if (row?.value) {
-			try {
-				const parsed =
-					typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-				if (parsed === "viewer" || parsed === "requester") {
-					value = parsed;
-				}
-			} catch {}
-		}
-		return { defaultRole: value };
+		await requireAdmin();
+		const defaultRole = getSettingValue("auth.defaultRole", "requester");
+		return {
+			defaultRole:
+				defaultRole === "viewer" || defaultRole === "requester"
+					? defaultRole
+					: "requester",
+		};
 	},
 );
 
@@ -144,15 +135,6 @@ export const updateDefaultRoleFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateDefaultRoleSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		db.insert(settings)
-			.values({
-				key: "auth.defaultRole",
-				value: JSON.stringify(data.role),
-			})
-			.onConflictDoUpdate({
-				target: settings.key,
-				set: { value: JSON.stringify(data.role) },
-			})
-			.run();
+		upsertSettingValue("auth.defaultRole", data.role);
 		return { success: true };
 	});

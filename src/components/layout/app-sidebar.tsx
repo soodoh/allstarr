@@ -151,7 +151,9 @@ export default function AppSidebar(): JSX.Element {
 						children: [],
 					} satisfies NavGroup,
 				]
-			: navGroups;
+			: navGroups.filter(
+					(group) => role === "admin" || group.title !== "Settings",
+				);
 	const activeGroup = getActiveGroup(currentPath, visibleGroups);
 	const { data: unmappedCount } = useQuery({
 		...unmappedFilesCountQuery(),

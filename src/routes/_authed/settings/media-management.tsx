@@ -27,9 +27,11 @@ import {
 	TabsTrigger,
 } from "src/components/ui/tabs";
 import { useUpdateSettings } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { downloadProfilesListQuery, settingsMapQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/settings/media-management")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(settingsMapQuery()),

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { syncedIndexers } from "src/db/schema";
 import requireApiKey from "src/server/api-key-auth";
+import { summarizeIndexerResource } from "src/server/synced-indexers/logging";
 import type { ReadarrIndexerResource } from "src/server/synced-indexers/mapper";
 import {
 	fromReadarrResource,
@@ -60,13 +61,14 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
 					.get();
 
 				if (!existing) {
-					console.log(`[Sync API] PUT /indexer/${id} → not found`);
+					console.info(`[Sync API] PUT /indexer/${id} → not found`);
 					return Response.json({ message: "Not Found" }, { status: 404 });
 				}
 
 				const body = (await request.json()) as ReadarrIndexerResource;
-				console.log(
-					`[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})\n${JSON.stringify(body, null, 2)}`,
+				console.info(
+					`[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})`,
+					summarizeIndexerResource(body),
 				);
 				const data = fromReadarrResource(body);
 
@@ -93,7 +95,7 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
 					return Response.json({ message: "Invalid ID" }, { status: 400 });
 				}
 
-				console.log(`[Sync API] DELETE /indexer/${id}`);
+				console.info(`[Sync API] DELETE /indexer/${id}`);
 				await db.delete(syncedIndexers).where(eq(syncedIndexers.id, id)).run();
 
 				return new Response(null, { status: 200 });

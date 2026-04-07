@@ -31,11 +31,13 @@ import {
 	useUpdateMetadataProfile,
 	useUpdateSettings,
 } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import validateForm from "src/lib/form-validation";
 import { metadataProfileQuery, settingsMapQuery } from "src/lib/queries";
 import { metadataProfileSchema } from "src/lib/validators";
 
 export const Route = createFileRoute("/_authed/settings/metadata")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(metadataProfileQuery()),

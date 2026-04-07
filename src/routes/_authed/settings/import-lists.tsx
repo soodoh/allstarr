@@ -21,6 +21,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "src/components/ui/tabs";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { queryKeys } from "src/lib/query-keys";
 import {
 	getBookImportExclusionsFn,
@@ -30,6 +31,7 @@ import {
 } from "src/server/import-list-exclusions";
 
 export const Route = createFileRoute("/_authed/settings/import-lists")({
+	beforeLoad: requireAdminBeforeLoad,
 	component: ImportListsPage,
 });
 

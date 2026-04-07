@@ -21,6 +21,7 @@ import {
 	useUpdateIndexer,
 	useUpdateSyncedIndexer,
 } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import {
 	downloadClientsListQuery,
 	indexerStatusesQuery,
@@ -29,6 +30,7 @@ import {
 } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/settings/indexers")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(indexersListQuery()),

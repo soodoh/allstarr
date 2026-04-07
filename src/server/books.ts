@@ -1253,7 +1253,7 @@ export const unmonitorBookProfileFn = createServerFn({ method: "POST" })
 export const bulkMonitorBookProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkMonitorBookProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { bookIds, downloadProfileId } = data;
 
 		const profile = db
@@ -1303,7 +1303,7 @@ export const bulkMonitorBookProfileFn = createServerFn({ method: "POST" })
 export const bulkUnmonitorBookProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkUnmonitorBookProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { bookIds, downloadProfileId, deleteFiles } = data;
 
 		if (bookIds.length === 0) {
@@ -1352,7 +1352,7 @@ export const bulkUnmonitorBookProfileFn = createServerFn({ method: "POST" })
 export const setEditionForProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => setEditionForProfileSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { editionId, downloadProfileId } = data;
 
 		const edition = db
@@ -1393,14 +1393,14 @@ export const setEditionForProfileFn = createServerFn({ method: "POST" })
 export const createEditionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createEditionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db.insert(editions).values(data).returning().get();
 	});
 
 export const updateEditionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateEditionSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const { id, ...values } = data;
 		return db
 			.update(editions)
@@ -1427,7 +1427,7 @@ export const checkBooksExistFn = createServerFn({ method: "GET" })
 export const deleteEditionFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(editions).where(eq(editions.id, data.id)).run();
 		return { success: true };
 	});
@@ -1435,7 +1435,7 @@ export const deleteEditionFn = createServerFn({ method: "POST" })
 export const reassignBookFilesFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { fromBookId: number; toBookId: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		// Verify target book exists
 		const target = db
 			.select({ id: books.id })

@@ -1,11 +1,11 @@
-import * as fs from "node:fs";
 import { db } from "src/db";
 import { downloadClients, indexers, syncedIndexers } from "src/db/schema";
-import { getRootFolderPaths } from "src/server/disk-scan";
+import { getRootFolderPaths } from "src/server/root-folders";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
 
-function runHealthChecks(): number {
+async function runHealthChecks(): Promise<number> {
+	const fs = await import("node:fs");
 	let issues = 0;
 
 	const folderPaths = getRootFolderPaths();
@@ -47,7 +47,7 @@ registerTask({
 	defaultInterval: 25 * 60, // 25 minutes
 	group: "maintenance",
 	handler: async (_updateProgress): Promise<TaskResult> => {
-		const issues = runHealthChecks();
+		const issues = await runHealthChecks();
 		return {
 			success: true,
 			message:
