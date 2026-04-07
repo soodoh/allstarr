@@ -40,6 +40,7 @@
 | `src/routes/_authed/settings/profiles.tsx` | Modify | Align admin route guard typing with current session model |
 | `src/routes/_authed/settings/custom-formats.tsx` | Modify | Align admin route guard typing with current session model |
 | `src/routes/_authed/settings/users.tsx` | Modify | Align admin route guard typing with current session model |
+| `src/lib/admin-route.ts` | Modify | Provide the shared admin-route typing boundary for settings routes |
 | `src/routes/login.tsx` | Modify | Add explicit typing where implicit any breaks standalone TypeScript |
 | `src/server/auto-search.ts` | Modify | Fix indexer release object construction to satisfy shared type |
 | `src/server/indexers.ts` | Modify | Fix indexer release object construction to satisfy shared type |
@@ -235,6 +236,7 @@ git commit -m "fix: resolve standalone ui type drift"
 - Modify: `src/routes/_authed/settings/profiles.tsx`
 - Modify: `src/routes/_authed/settings/custom-formats.tsx`
 - Modify: `src/routes/_authed/settings/users.tsx`
+- Modify: `src/lib/admin-route.ts`
 - Modify: `src/server/auto-search.ts`
 - Modify: `src/server/indexers.ts`
 - Modify: `src/server/indexers/http.ts`
@@ -252,11 +254,11 @@ Expected remaining failures include `AdminBeforeLoadArgs` incompatibilities acro
 
 - [ ] **Step 2: Fix the route/admin type boundary once**
 
-Identify the shared `AdminBeforeLoadArgs` and session-role types that settings routes depend on, then update the shared typing or the route signatures so all settings routes typecheck through the same source of truth.
+Identify the shared `AdminBeforeLoadArgs` and session-role types that settings routes depend on, then update the shared typing boundary or the route signatures so all settings routes typecheck through the same source of truth.
 
 - [ ] **Step 3: Fix the indexer release construction at the source**
 
-Update the shared release-building code in `src/server/auto-search.ts` and `src/server/indexers.ts` so constructed release objects satisfy the current `IndexerRelease` contract instead of relying on partial objects. Import or define the missing `ProwlarrSearchResult` type in `src/server/indexers/http.ts` as needed.
+Fix the indexer release construction at the source. If the missing `ProwlarrSearchResult` type import in `src/server/indexers/http.ts` is the actual root cause, fix it there; otherwise update `src/server/auto-search.ts` and `src/server/indexers.ts` so constructed release objects satisfy the current `IndexerRelease` contract instead of relying on partial objects.
 
 - [ ] **Step 4: Fix the remaining user-role typing mismatch**
 
@@ -275,7 +277,7 @@ Expected: `bun run typecheck` succeeds with no emitted files and no type errors.
 - [ ] **Step 6: Commit the route/admin and indexer fixes**
 
 ```bash
-git add src/routes/_authed/settings/index.tsx src/routes/_authed/settings/general.tsx src/routes/_authed/settings/formats.tsx src/routes/_authed/settings/download-clients.tsx src/routes/_authed/settings/import-lists.tsx src/routes/_authed/settings/indexers.tsx src/routes/_authed/settings/media-management.tsx src/routes/_authed/settings/metadata.tsx src/routes/_authed/settings/profiles.tsx src/routes/_authed/settings/custom-formats.tsx src/routes/_authed/settings/users.tsx src/server/auto-search.ts src/server/indexers.ts src/server/indexers/http.ts src/server/users.ts
+git add src/routes/_authed/settings/index.tsx src/routes/_authed/settings/general.tsx src/routes/_authed/settings/formats.tsx src/routes/_authed/settings/download-clients.tsx src/routes/_authed/settings/import-lists.tsx src/routes/_authed/settings/indexers.tsx src/routes/_authed/settings/media-management.tsx src/routes/_authed/settings/metadata.tsx src/routes/_authed/settings/profiles.tsx src/routes/_authed/settings/custom-formats.tsx src/routes/_authed/settings/users.tsx src/lib/admin-route.ts src/server/auto-search.ts src/server/indexers.ts src/server/indexers/http.ts src/server/users.ts
 git commit -m "fix: make standalone typecheck pass"
 ```
 
