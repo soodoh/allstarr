@@ -8,7 +8,84 @@ import path from "node:path";
 
 const shimPath = path.resolve("src/lib/bun-sqlite-browser-shim.ts");
 
+function getVendorChunk(id: string): string | undefined {
+  if (!id.includes("node_modules")) {
+    return;
+  }
+
+  if (
+    id.includes("/node_modules/react/") ||
+    id.includes("/node_modules/react-dom/") ||
+    id.includes("/node_modules/scheduler/")
+  ) {
+    return "react-vendor";
+  }
+
+  if (
+    id.includes("/node_modules/@radix-ui/") ||
+    id.includes("/node_modules/@floating-ui/") ||
+    id.includes("/node_modules/cmdk/") ||
+    id.includes("/node_modules/sonner/") ||
+    id.includes("/node_modules/next-themes/")
+  ) {
+    return "ui-vendor";
+  }
+
+  if (id.includes("/node_modules/@dnd-kit/")) {
+    return "dnd-vendor";
+  }
+
+  if (id.includes("/node_modules/better-call/")) {
+    return "better-call-vendor";
+  }
+
+  if (id.includes("/node_modules/@better-fetch/")) {
+    return "better-fetch-vendor";
+  }
+
+  if (id.includes("/node_modules/@better-auth/utils/")) {
+    return "better-auth-utils-vendor";
+  }
+
+  if (id.includes("/node_modules/better-auth/dist/client/")) {
+    return "better-auth-client-vendor";
+  }
+
+  if (id.includes("/node_modules/better-auth/dist/plugins/")) {
+    return "better-auth-plugins-vendor";
+  }
+
+  if (
+    id.includes("/node_modules/better-auth/") ||
+    id.includes("/node_modules/@better-auth/")
+  ) {
+    return "better-auth-vendor";
+  }
+
+  if (
+    id.includes("/node_modules/jose/") ||
+    id.includes("/node_modules/@noble/")
+  ) {
+    return "crypto-vendor";
+  }
+
+  if (id.includes("/node_modules/lucide-react/")) {
+    return "icons-vendor";
+  }
+
+  if (id.includes("/node_modules/zod/")) {
+    return "schema-vendor";
+  }
+}
+
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: getVendorChunk,
+      },
+    },
+  },
   ssr: {
     external: ["sharp"],
   },
