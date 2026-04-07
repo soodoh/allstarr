@@ -18,7 +18,6 @@
 | `tsconfig.json` | Modify | Make standalone TypeScript understand Bun globals/modules and repo compiler expectations |
 | `src/db/index.ts` | Modify | Fix Bun SQLite typing and generic proxy typing used by standalone TypeScript |
 | `src/lib/auth-server.ts` | Modify | Align auth/database typing with standalone TypeScript expectations |
-| `src/server/media-probe.ts` | Modify | Fix Bun global typing usage in server media probing |
 | `src/server/system-info.ts` | Modify | Fix Bun global typing and DB client typing in system info |
 | `src/server/setup.ts` | Modify | Fix Bun SQLite typing usage in setup path |
 | `src/server/scheduler/tasks/backup.ts` | Modify | Fix DB client typing under standalone TypeScript |
@@ -124,7 +123,6 @@ git commit -m "chore: add standalone typecheck entrypoint"
 **Files:**
 - Modify: `src/db/index.ts`
 - Modify: `src/lib/auth-server.ts`
-- Modify: `src/server/media-probe.ts`
 - Modify: `src/server/system-info.ts`
 - Modify: `src/server/setup.ts`
 - Modify: `src/server/scheduler/tasks/backup.ts`
@@ -138,7 +136,7 @@ Run:
 bun run typecheck
 ```
 
-Expected initial failures include `bun:sqlite`, `Bun`, and `db.$client` errors in the files listed above.
+Expected initial failures include `bun:sqlite` and `db.$client` errors in the files listed above.
 
 - [ ] **Step 2: Fix the root typing boundary in the DB/auth layer**
 
@@ -146,7 +144,7 @@ Adjust the shared DB typing so standalone TypeScript understands the Bun-backed 
 
 - [ ] **Step 3: Fix Bun global usage in server utilities**
 
-Update the affected server files so references to `Bun`, `bun:sqlite`, and Bun-backed DB clients typecheck cleanly under the standalone compiler.
+Update the affected server files so references to `bun:sqlite` and Bun-backed DB clients typecheck cleanly under the standalone compiler.
 
 - [ ] **Step 4: Re-run the typecheck command**
 
@@ -161,7 +159,7 @@ Expected: the Bun/runtime typing errors disappear. Remaining failures should be 
 - [ ] **Step 5: Commit the Bun/runtime typing fixes**
 
 ```bash
-git add src/db/index.ts src/lib/auth-server.ts src/server/media-probe.ts src/server/system-info.ts src/server/setup.ts src/server/scheduler/tasks/backup.ts src/server/scheduler/tasks/housekeeping.ts
+git add src/db/index.ts src/lib/auth-server.ts src/server/system-info.ts src/server/setup.ts src/server/scheduler/tasks/backup.ts src/server/scheduler/tasks/housekeeping.ts
 git commit -m "fix: align bun runtime types with standalone typecheck"
 ```
 
