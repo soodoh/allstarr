@@ -30,6 +30,7 @@ import {
 	useDuplicateCustomFormat,
 	useUpdateCustomFormat,
 } from "src/hooks/mutations/custom-formats";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import { queryKeys } from "src/lib/query-keys";
 import {
@@ -38,6 +39,7 @@ import {
 } from "src/server/custom-format-import-export";
 
 export const Route = createFileRoute("/_authed/settings/custom-formats")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await context.queryClient.ensureQueryData(customFormatsListQuery());
 	},

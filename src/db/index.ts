@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-import fs from "node:fs";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
 import { downloadProfiles } from "./schema";
@@ -78,13 +77,24 @@ sqlite.run(`
   INSERT OR IGNORE INTO settings (key, value) VALUES ('auth.defaultRole', '"requester"');
 `);
 
-// Ensure root folder directories exist for all download profiles
-const profiles = db
-	.select({ rootFolderPath: downloadProfiles.rootFolderPath })
-	.from(downloadProfiles)
-	.all();
-for (const { rootFolderPath } of profiles) {
-	if (rootFolderPath) {
-		fs.mkdirSync(rootFolderPath, { recursive: true });
+async function ensureRootFoldersExist(): Promise<void> {
+	const fs = await import("node:fs");
+	const profiles = db
+		.select({ rootFolderPath: downloadProfiles.rootFolderPath })
+		.from(downloadProfiles)
+		.all();
+
+	for (const { rootFolderPath } of profiles) {
+		if (rootFolderPath) {
+			fs.mkdirSync(rootFolderPath, { recursive: true });
+		}
 	}
+}
+
+if (import.meta.env.SSR) {
+	void ensureRootFoldersExist().catch((error) => {
+		console.warn(
+			`[db] Failed to ensure root folders exist: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	});
 }

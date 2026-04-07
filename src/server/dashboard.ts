@@ -13,7 +13,6 @@ import {
 	shows,
 } from "src/db/schema";
 import { requireAuth } from "./middleware";
-import { getDiskSpace } from "./system-status";
 
 type ContentTypeStat = {
 	total: number;
@@ -181,7 +180,8 @@ export const getDashboardStorageStatsFn = createServerFn({
 			.from(movieFiles)
 			.get()?.total ?? 0;
 
-	const diskEntries = getDiskSpace();
+	const { getDiskSpace } = await import("./system-info");
+	const diskEntries = await getDiskSpace();
 	const totalCapacity = diskEntries.reduce((sum, e) => sum + e.totalSpace, 0);
 
 	return {

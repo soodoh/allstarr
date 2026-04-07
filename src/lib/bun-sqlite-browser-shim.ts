@@ -1,32 +1,21 @@
-// Browser shim for bun:sqlite — only loaded on client where the DB is never used.
-// Server-side imports use the real bun:sqlite module.
-class Database {
-	run() {
-		return { lastInsertRowid: 0, changes: 0 };
-	}
-	exec() {
-		return { lastInsertRowid: 0, changes: 0 };
-	}
-	query() {
-		return {
-			get: () => ({}),
-			all: () => [],
-			run: () => ({ lastInsertRowid: 0, changes: 0 }),
-			values: () => [],
-		};
-	}
-	prepare() {
-		return {
-			get: () => ({}),
-			all: () => [],
-			run: () => ({ lastInsertRowid: 0, changes: 0 }),
-			values: () => [],
-		};
-	}
-	close() {}
-	transaction() {
-		return () => {};
-	}
+function unsupported(): never {
+	throw new Error("bun:sqlite is unavailable in the browser bundle");
 }
 
-export { Database };
+export class Database {
+	constructor(_path?: string) {
+		unsupported();
+	}
+
+	run(): never {
+		return unsupported();
+	}
+
+	query(): never {
+		return unsupported();
+	}
+
+	prepare(): never {
+		return unsupported();
+	}
+}

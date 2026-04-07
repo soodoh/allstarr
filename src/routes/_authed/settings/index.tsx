@@ -7,9 +7,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "src/components/ui/card";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { settingsNavItems } from "src/lib/nav-config";
 
 export const Route = createFileRoute("/_authed/settings/")({
+	beforeLoad: requireAdminBeforeLoad,
 	component: SettingsPage,
 });
 

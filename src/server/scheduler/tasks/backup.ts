@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { db } from "src/db";
 import type { TaskResult } from "../registry";
 import { registerTask } from "../registry";
@@ -13,6 +11,8 @@ registerTask({
 	defaultInterval: 7 * 24 * 60 * 60, // 7 days
 	group: "maintenance",
 	handler: async (_updateProgress): Promise<TaskResult> => {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
 		const dbPath = process.env.DATABASE_URL || "data/sqlite.db";
 		const backupDir = path.join(path.dirname(dbPath), "backups");
 

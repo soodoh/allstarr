@@ -23,6 +23,7 @@ import {
 	useUpdateDownloadProfile,
 } from "src/hooks/mutations";
 import { useBulkSetProfileCFScores } from "src/hooks/mutations/custom-formats";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import {
 	downloadFormatsListQuery,
 	downloadProfilesListQuery,
@@ -31,6 +32,7 @@ import { customFormatsListQuery } from "src/lib/queries/custom-formats";
 import { getServerCwdFn } from "src/server/filesystem";
 
 export const Route = createFileRoute("/_authed/settings/profiles")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		const results = await Promise.all([
 			context.queryClient.ensureQueryData(downloadProfilesListQuery()),

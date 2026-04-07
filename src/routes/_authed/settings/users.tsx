@@ -39,6 +39,7 @@ import {
 	TableRow,
 } from "src/components/ui/table";
 import { useIsAdmin } from "src/hooks/use-role";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import {
 	createOidcProviderFn,
 	deleteOidcProviderFn,
@@ -56,6 +57,7 @@ import {
 } from "src/server/users";
 
 export const Route = createFileRoute("/_authed/settings/users")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async () => {
 		const [users, defaultRole, oidcProviders, registrationStatus] =
 			await Promise.all([

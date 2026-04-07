@@ -41,7 +41,6 @@ import { BookTableRowsSkeleton } from "src/components/shared/loading-skeleton";
 import MetadataWarning from "src/components/shared/metadata-warning";
 import OptimizedImage from "src/components/shared/optimized-image";
 import PageHeader from "src/components/shared/page-header";
-import ProfileCheckboxGroup from "src/components/shared/profile-checkbox-group";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
 import { Badge } from "src/components/ui/badge";
 import { Button } from "src/components/ui/button";
@@ -54,9 +53,7 @@ import {
 } from "src/components/ui/card";
 import {
 	Dialog,
-	DialogBody,
 	DialogContent,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "src/components/ui/dialog";

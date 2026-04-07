@@ -30,7 +30,7 @@ import {
 import type { HardcoverRawBook, HardcoverRawEdition } from "./hardcover/types";
 import type { MetadataProfile } from "./metadata-profile";
 import { getMetadataProfile } from "./metadata-profile";
-import { requireAdmin, requireAuth } from "./middleware";
+import { requireAdmin } from "./middleware";
 import getProfileLanguages from "./profile-languages";
 import { refreshSeriesInternal } from "./series";
 

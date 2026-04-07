@@ -25,11 +25,13 @@ import {
 	useDeleteDownloadFormat,
 	useUpdateDownloadFormat,
 } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { downloadFormatsListQuery, settingsMapQuery } from "src/lib/queries";
 import { queryKeys } from "src/lib/query-keys";
 import { updateSettingFn } from "src/server/settings";
 
 export const Route = createFileRoute("/_authed/settings/formats")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(downloadFormatsListQuery()),

@@ -371,7 +371,7 @@ export function computeReleaseMetrics(
 
 export const getIndexersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		return db.select().from(indexers).all();
 	},
 );
@@ -379,7 +379,7 @@ export const getIndexersFn = createServerFn({ method: "GET" }).handler(
 export const getIndexerFn = createServerFn({ method: "GET" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		const result = db
 			.select()
 			.from(indexers)
@@ -449,14 +449,14 @@ export const updateIndexerFn = createServerFn({ method: "POST" })
 export const deleteIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		db.delete(indexers).where(eq(indexers.id, data.id)).run();
 		return { success: true };
 	});
 
 export const getSyncedIndexersFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.select()
 			.from(syncedIndexers)
@@ -470,7 +470,7 @@ export const getSyncedIndexersFn = createServerFn({ method: "GET" }).handler(
 export const testIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => testIndexerSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return prowlarrHttp.testNewznab({
 			baseUrl: data.baseUrl,
 			apiPath: data.apiPath,
@@ -483,7 +483,7 @@ export const testIndexerFn = createServerFn({ method: "POST" })
 export const updateSyncedIndexerFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateSyncedIndexerSchema.parse(d))
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		return db
 			.update(syncedIndexers)
 			.set({

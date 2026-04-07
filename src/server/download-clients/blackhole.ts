@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type {
 	ConnectionConfig,
 	DownloadClientProvider,
@@ -21,6 +19,7 @@ function getWatchFolder(config: ConnectionConfig): string {
 const blackholeProvider: DownloadClientProvider = {
 	async testConnection(config: ConnectionConfig): Promise<TestResult> {
 		try {
+			const fs = await import("node:fs");
 			const folder = getWatchFolder(config);
 
 			fs.accessSync(folder, fs.constants.W_OK);
@@ -50,6 +49,8 @@ const blackholeProvider: DownloadClientProvider = {
 		config: ConnectionConfig,
 		download: DownloadRequest,
 	): Promise<string> {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
 		const folder = getWatchFolder(config);
 
 		const timestamp = Date.now();
@@ -84,6 +85,8 @@ const blackholeProvider: DownloadClientProvider = {
 		id: string,
 		_deleteFiles: boolean,
 	): Promise<void> {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
 		const folder = getWatchFolder(config);
 		const filePath = path.join(folder, id);
 		try {
@@ -94,6 +97,8 @@ const blackholeProvider: DownloadClientProvider = {
 	},
 
 	async getDownloads(config: ConnectionConfig): Promise<DownloadItem[]> {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
 		const folder = getWatchFolder(config);
 
 		try {

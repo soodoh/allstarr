@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db } from "src/db";
-import { settings } from "src/db/schema";
 import { metadataProfileSchema } from "src/lib/validators";
+import { getSettingValue } from "./settings-store";
 
 export type MetadataProfile = {
 	skipMissingReleaseDate: boolean;
@@ -24,20 +22,10 @@ const DEFAULT_METADATA_PROFILE: MetadataProfile = {
  * Used by import logic (runs inside transactions).
  */
 export function getMetadataProfile(): MetadataProfile {
-	const row = db
-		.select()
-		.from(settings)
-		.where(eq(settings.key, "metadata.hardcover.profile"))
-		.get();
-	if (!row?.value) {
-		return DEFAULT_METADATA_PROFILE;
-	}
-	try {
-		const raw =
-			typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-		const parsed = metadataProfileSchema.safeParse(raw);
-		return parsed.success ? parsed.data : DEFAULT_METADATA_PROFILE;
-	} catch {
-		return DEFAULT_METADATA_PROFILE;
-	}
+	const raw = getSettingValue<unknown>(
+		"metadata.hardcover.profile",
+		DEFAULT_METADATA_PROFILE,
+	);
+	const parsed = metadataProfileSchema.safeParse(raw);
+	return parsed.success ? parsed.data : DEFAULT_METADATA_PROFILE;
 }

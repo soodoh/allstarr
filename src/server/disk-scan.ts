@@ -16,14 +16,9 @@ import {
 import { extractHints } from "src/server/hint-extractor";
 import { matchFormat } from "src/server/indexers/format-parser";
 import { probeAudioFile, probeEbookFile } from "src/server/media-probe";
+import { getRootFolderPaths } from "src/server/root-folders";
 
-export function getRootFolderPaths(): string[] {
-	const rows = db
-		.select({ rootFolderPath: downloadProfiles.rootFolderPath })
-		.from(downloadProfiles)
-		.all();
-	return [...new Set(rows.map((r) => r.rootFolderPath).filter(Boolean))];
-}
+export { getRootFolderPaths };
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 
@@ -39,11 +34,6 @@ const SUPPORTED_EXTENSIONS = new Set([
 ]);
 
 const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".ts"]);
-
-const ALL_SUPPORTED_EXTENSIONS = new Set([
-	...SUPPORTED_EXTENSIONS,
-	...VIDEO_EXTENSIONS,
-]);
 
 export type ScanStats = {
 	filesAdded: number;

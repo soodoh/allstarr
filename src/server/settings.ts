@@ -5,29 +5,21 @@ import { settings } from "src/db/schema";
 import { metadataProfileSchema, updateSettingSchema } from "src/lib/validators";
 import { getMetadataProfile } from "./metadata-profile";
 import { requireAdmin, requireAuth } from "./middleware";
+import { upsertSettingValue } from "./settings-store";
+import { parseStoredSettingValue } from "./settings-value";
 
 export type { MetadataProfile } from "./metadata-profile";
 
 export const getSettingsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAuth();
+		await requireAdmin();
 		const rows = db.select().from(settings).all();
 		const map: Record<string, string | number | boolean | null> = {};
 		for (const row of rows) {
-			// Values are stored with an extra JSON.stringify wrap (see updateSettingFn).
-			// Drizzle's json-mode column deserializes once on read, so string values
-			// come back as `"\"actual value\""` — parse once more to unwrap.
-			const v = row.value;
-			map[row.key] =
-				typeof v === "string"
-					? (() => {
-							try {
-								return JSON.parse(v);
-							} catch {
-								return v;
-							}
-						})()
-					: v;
+			map[row.key] = parseStoredSettingValue<string | number | boolean | null>(
+				row.value,
+				null,
+			);
 		}
 		return map;
 	},
@@ -49,13 +41,7 @@ export const updateSettingFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => updateSettingSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		db.insert(settings)
-			.values({ key: data.key, value: JSON.stringify(data.value) })
-			.onConflictDoUpdate({
-				target: settings.key,
-				set: { value: JSON.stringify(data.value) },
-			})
-			.run();
+		upsertSettingValue(data.key, data.value);
 		return { success: true };
 	});
 
@@ -63,13 +49,7 @@ export const regenerateApiKeyFn = createServerFn({ method: "POST" }).handler(
 	async () => {
 		await requireAdmin();
 		const newKey = crypto.randomUUID();
-		db.insert(settings)
-			.values({ key: "general.apiKey", value: JSON.stringify(newKey) })
-			.onConflictDoUpdate({
-				target: settings.key,
-				set: { value: JSON.stringify(newKey) },
-			})
-			.run();
+		upsertSettingValue("general.apiKey", newKey);
 		return { apiKey: newKey };
 	},
 );
@@ -87,15 +67,6 @@ export const updateMetadataProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => metadataProfileSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		db.insert(settings)
-			.values({
-				key: "metadata.hardcover.profile",
-				value: JSON.stringify(data),
-			})
-			.onConflictDoUpdate({
-				target: settings.key,
-				set: { value: JSON.stringify(data) },
-			})
-			.run();
+		upsertSettingValue("metadata.hardcover.profile", data);
 		return { success: true };
 	});

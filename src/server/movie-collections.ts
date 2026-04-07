@@ -99,7 +99,7 @@ export const updateMovieCollectionFn = createServerFn({ method: "POST" })
 export const refreshCollectionsFn = createServerFn({
 	method: "POST",
 }).handler(async () => {
-	await requireAuth();
+	await requireAdmin();
 
 	const monitoredCollections = db
 		.select()

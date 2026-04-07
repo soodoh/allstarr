@@ -80,7 +80,12 @@ export const Route = createFileRoute("/api/images/$")({
 					return new Response("Not found", { status: 404 });
 				}
 
-				const absolutePath = await resolveImagePath(imagePath);
+				let absolutePath: string;
+				try {
+					absolutePath = await resolveImagePath(imagePath);
+				} catch {
+					return new Response("Invalid path", { status: 400 });
+				}
 				const filePath = await findImageFile(absolutePath);
 				if (!filePath) {
 					return new Response("Not found", { status: 404 });

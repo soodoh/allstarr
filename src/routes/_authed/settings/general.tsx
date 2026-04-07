@@ -23,9 +23,11 @@ import {
 	SelectValue,
 } from "src/components/ui/select";
 import { useRegenerateApiKey, useUpdateSettings } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { settingsMapQuery } from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/settings/general")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: ({ context }) =>
 		context.queryClient.ensureQueryData(settingsMapQuery()),
 	component: GeneralSettingsPage,

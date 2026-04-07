@@ -27,6 +27,7 @@ import {
 	useUpdateDownloadClient,
 	useUpdateSettings,
 } from "src/hooks/mutations";
+import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { downloadClientsListQuery, settingsMapQuery } from "src/lib/queries";
 
 type ImplementationType =
@@ -39,6 +40,7 @@ type ImplementationType =
 	| "Blackhole";
 
 export const Route = createFileRoute("/_authed/settings/download-clients")({
+	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(downloadClientsListQuery()),

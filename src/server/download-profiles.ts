@@ -408,7 +408,7 @@ export const updateDownloadFormatFn = createServerFn({ method: "POST" })
 export const deleteDownloadFormatFn = createServerFn({ method: "POST" })
 	.inputValidator((d: { id: number }) => d)
 	.handler(async ({ data }) => {
-		await requireAuth();
+		await requireAdmin();
 		// Remove from all download profiles' items arrays (nested group structure)
 		const profiles = db.select().from(downloadProfiles).all();
 		for (const profile of profiles) {

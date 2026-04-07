@@ -3,7 +3,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import { and, eq } from "drizzle-orm";
 import { db } from "src/db";
-import { oidcProviders, settings } from "src/db/schema";
+import { oidcProviders } from "src/db/schema";
+import { getSettingValue } from "src/server/settings-store";
 
 function loadOidcProviders() {
 	const rows = db
@@ -22,17 +23,9 @@ function loadOidcProviders() {
 }
 
 function getDefaultRole(): string {
-	const row = db
-		.select()
-		.from(settings)
-		.where(eq(settings.key, "auth.defaultRole"))
-		.get();
-	if (row?.value) {
-		try {
-			const parsed =
-				typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-			if (parsed === "viewer" || parsed === "requester") return parsed;
-		} catch {}
+	const role = getSettingValue("auth.defaultRole", "requester");
+	if (role === "viewer" || role === "requester") {
+		return role;
 	}
 	return "requester";
 }
@@ -50,6 +43,18 @@ function isProviderTrusted(providerId: string): boolean {
 		)
 		.get();
 	return !!provider;
+}
+
+type RequestLikeContext = {
+	request?: Request;
+};
+
+function getRequestUrl(ctx: unknown): string {
+	if (typeof ctx !== "object" || ctx === null || !("request" in ctx)) {
+		return "";
+	}
+	const request = (ctx as RequestLikeContext).request;
+	return request?.url ?? "";
 }
 
 const oidcConfig = loadOidcProviders();
@@ -75,7 +80,7 @@ export const auth = betterAuth({
 				// it by returning an explicit role value which takes precedence.
 				before: async (userData, ctx) => {
 					// Count existing users via raw SQL to avoid importing the user schema
-					const sqlite = (db as any).$client as import("bun:sqlite").Database;
+					const sqlite = db.$client as import("bun:sqlite").Database;
 					const { count } = sqlite
 						.prepare("SELECT COUNT(*) as count FROM user")
 						.get() as { count: number };
@@ -85,7 +90,7 @@ export const auth = betterAuth({
 						return { data: { ...userData, role: "admin" } };
 					}
 
-					const requestUrl = (ctx as any)?.request?.url || "";
+					const requestUrl = getRequestUrl(ctx);
 
 					// Admin-created users get the provided role or default
 					if (requestUrl.includes("/admin/create-user")) {

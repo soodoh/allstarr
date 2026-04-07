@@ -6,35 +6,40 @@ export const Route = createFileRoute("/api/v1/system/status")({
 		handlers: {
 			GET: async ({ request }: { request: Request }) => {
 				await requireApiKey(request);
+				const { getSystemAbout } = await import("src/server/system-info");
+				const about = await getSystemAbout();
+				const [osName, ...osVersionParts] = about.osInfo.split(" ");
+				const osVersion = osVersionParts.join(" ");
+
 				return Response.json(
 					{
-						version: "1.0.0",
-						buildTime: new Date().toISOString(),
-						isDebug: false,
-						isProduction: true,
+						version: about.version,
+						buildTime: about.startTime,
+						isDebug: process.env.NODE_ENV !== "production",
+						isProduction: process.env.NODE_ENV === "production",
 						isAdmin: true,
 						isUserLoggedIn: true,
-						startupPath: "/",
-						appData: "/data",
-						osName: "linux",
-						osVersion: "",
+						startupPath: process.cwd(),
+						appData: about.databasePath,
+						osName,
+						osVersion,
 						isNetCore: true,
 						isMono: false,
-						isLinux: true,
-						isOsx: false,
-						isWindows: false,
-						isDocker: false,
+						isLinux: osName === "Linux",
+						isOsx: osName === "Darwin",
+						isWindows: osName === "Windows_NT",
+						isDocker: about.isDocker,
 						mode: "console",
 						branch: "main",
 						authentication: "apiKey",
-						sqliteVersion: "3.0.0",
+						sqliteVersion: about.sqliteVersion,
 						migrationVersion: 1,
-						urlBase: "",
-						runtimeVersion: "",
-						runtimeName: "Node",
+						urlBase: process.env.BETTER_AUTH_URL || "",
+						runtimeVersion: about.runtimeVersion,
+						runtimeName: "Bun",
 						appName: "Allstarr",
 						instanceName: "Allstarr",
-						packageVersion: "1.0.0",
+						packageVersion: about.version,
 						packageAuthor: "",
 						packageUpdateMechanism: "builtIn",
 					},
