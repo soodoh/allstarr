@@ -11,7 +11,7 @@ import { unmappedFilesListQuery } from "src/lib/queries";
 import { queryKeys } from "src/lib/query-keys";
 import { rescanAllRootFoldersFn } from "src/server/unmapped-files";
 
-export const Route = createFileRoute("/_authed/library/unmapped-files")({
+export const Route = createFileRoute("/_authed/unmapped-files")({
 	loader: ({ context }) =>
 		context.queryClient.ensureQueryData(unmappedFilesListQuery()),
 	component: UnmappedFilesPage,

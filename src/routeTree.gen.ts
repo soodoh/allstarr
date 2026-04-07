@@ -16,6 +16,7 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as Api_testResetRouteImport } from './routes/api/__test-reset'
+import { Route as AuthedUnmappedFilesRouteImport } from './routes/_authed/unmapped-files'
 import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
 import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
@@ -46,7 +47,6 @@ import { Route as AuthedMoviesCollectionsRouteImport } from './routes/_authed/mo
 import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
 import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
 import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
-import { Route as AuthedLibraryUnmappedFilesRouteImport } from './routes/_authed/library/unmapped-files'
 import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
 import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
 import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
@@ -92,6 +92,11 @@ const Api_testResetRoute = Api_testResetRouteImport.update({
   id: '/api/__test-reset',
   path: '/api',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedUnmappedFilesRoute = AuthedUnmappedFilesRouteImport.update({
+  id: '/unmapped-files',
+  path: '/unmapped-files',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedTvIndexRoute = AuthedTvIndexRouteImport.update({
   id: '/tv/',
@@ -247,12 +252,6 @@ const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
   path: '/movies/$movieId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedLibraryUnmappedFilesRoute =
-  AuthedLibraryUnmappedFilesRouteImport.update({
-    id: '/library/unmapped-files',
-    path: '/library/unmapped-files',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
   id: '/books/add',
   path: '/books/add',
@@ -314,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
+  '/unmapped-files': typeof AuthedUnmappedFilesRoute
   '/api': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -321,7 +321,6 @@ export interface FileRoutesByFullPath {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
-  '/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -363,6 +362,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
+  '/unmapped-files': typeof AuthedUnmappedFilesRoute
   '/api': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
@@ -371,7 +371,6 @@ export interface FileRoutesByTo {
   '/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/books/$bookId': typeof AuthedBooksBookIdRoute
   '/books/add': typeof AuthedBooksAddRoute
-  '/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/movies/add': typeof AuthedMoviesAddRoute
   '/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -415,6 +414,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
+  '/_authed/unmapped-files': typeof AuthedUnmappedFilesRoute
   '/api/__test-reset': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/_authed/': typeof AuthedIndexRoute
@@ -423,7 +423,6 @@ export interface FileRoutesById {
   '/_authed/authors/$authorId': typeof AuthedAuthorsAuthorIdRoute
   '/_authed/books/$bookId': typeof AuthedBooksBookIdRoute
   '/_authed/books/add': typeof AuthedBooksAddRoute
-  '/_authed/library/unmapped-files': typeof AuthedLibraryUnmappedFilesRoute
   '/_authed/movies/$movieId': typeof AuthedMoviesMovieIdRoute
   '/_authed/movies/add': typeof AuthedMoviesAddRoute
   '/_authed/movies/calendar': typeof AuthedMoviesCalendarRoute
@@ -468,6 +467,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/setup'
+    | '/unmapped-files'
     | '/api'
     | '/api/events'
     | '/activity/blocklist'
@@ -475,7 +475,6 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
-    | '/library/unmapped-files'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -517,6 +516,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/setup'
+    | '/unmapped-files'
     | '/api'
     | '/api/events'
     | '/'
@@ -525,7 +525,6 @@ export interface FileRouteTypes {
     | '/authors/$authorId'
     | '/books/$bookId'
     | '/books/add'
-    | '/library/unmapped-files'
     | '/movies/$movieId'
     | '/movies/add'
     | '/movies/calendar'
@@ -568,6 +567,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/setup'
+    | '/_authed/unmapped-files'
     | '/api/__test-reset'
     | '/api/events'
     | '/_authed/'
@@ -576,7 +576,6 @@ export interface FileRouteTypes {
     | '/_authed/authors/$authorId'
     | '/_authed/books/$bookId'
     | '/_authed/books/add'
-    | '/_authed/library/unmapped-files'
     | '/_authed/movies/$movieId'
     | '/_authed/movies/add'
     | '/_authed/movies/calendar'
@@ -681,6 +680,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api'
       preLoaderRoute: typeof Api_testResetRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/unmapped-files': {
+      id: '/_authed/unmapped-files'
+      path: '/unmapped-files'
+      fullPath: '/unmapped-files'
+      preLoaderRoute: typeof AuthedUnmappedFilesRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/tv/': {
       id: '/_authed/tv/'
@@ -892,13 +898,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/library/unmapped-files': {
-      id: '/_authed/library/unmapped-files'
-      path: '/library/unmapped-files'
-      fullPath: '/library/unmapped-files'
-      preLoaderRoute: typeof AuthedLibraryUnmappedFilesRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/books/add': {
       id: '/_authed/books/add'
       path: '/books/add'
@@ -980,13 +979,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
+  AuthedUnmappedFilesRoute: typeof AuthedUnmappedFilesRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedActivityBlocklistRoute: typeof AuthedActivityBlocklistRoute
   AuthedActivityHistoryRoute: typeof AuthedActivityHistoryRoute
   AuthedAuthorsAuthorIdRoute: typeof AuthedAuthorsAuthorIdRoute
   AuthedBooksBookIdRoute: typeof AuthedBooksBookIdRoute
   AuthedBooksAddRoute: typeof AuthedBooksAddRoute
-  AuthedLibraryUnmappedFilesRoute: typeof AuthedLibraryUnmappedFilesRoute
   AuthedMoviesMovieIdRoute: typeof AuthedMoviesMovieIdRoute
   AuthedMoviesAddRoute: typeof AuthedMoviesAddRoute
   AuthedMoviesCalendarRoute: typeof AuthedMoviesCalendarRoute
@@ -1019,13 +1018,13 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedUnmappedFilesRoute: AuthedUnmappedFilesRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedActivityBlocklistRoute: AuthedActivityBlocklistRoute,
   AuthedActivityHistoryRoute: AuthedActivityHistoryRoute,
   AuthedAuthorsAuthorIdRoute: AuthedAuthorsAuthorIdRoute,
   AuthedBooksBookIdRoute: AuthedBooksBookIdRoute,
   AuthedBooksAddRoute: AuthedBooksAddRoute,
-  AuthedLibraryUnmappedFilesRoute: AuthedLibraryUnmappedFilesRoute,
   AuthedMoviesMovieIdRoute: AuthedMoviesMovieIdRoute,
   AuthedMoviesAddRoute: AuthedMoviesAddRoute,
   AuthedMoviesCalendarRoute: AuthedMoviesCalendarRoute,
