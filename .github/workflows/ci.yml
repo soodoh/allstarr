@@ -7,10 +7,19 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate using the merge ref
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
 
 jobs:
   lint:
@@ -19,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -35,6 +46,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -51,6 +64,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -67,6 +82,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -83,6 +100,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -105,6 +124,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
