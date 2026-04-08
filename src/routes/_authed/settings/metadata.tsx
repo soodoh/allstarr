@@ -1,6 +1,6 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LanguageSingleSelect from "src/components/shared/language-single-select";
 import PageHeader from "src/components/shared/page-header";
 import { Button } from "src/components/ui/button";
@@ -39,10 +39,7 @@ import { metadataProfileSchema } from "src/lib/validators";
 export const Route = createFileRoute("/_authed/settings/metadata")({
 	beforeLoad: requireAdminBeforeLoad,
 	loader: async ({ context }) => {
-		await Promise.all([
-			context.queryClient.ensureQueryData(metadataProfileQuery()),
-			context.queryClient.ensureQueryData(settingsMapQuery()),
-		]);
+		await context.queryClient.ensureQueryData(metadataProfileQuery());
 	},
 	component: MetadataSettingsPage,
 });
@@ -71,7 +68,8 @@ const REGION_OPTIONS = [
 
 function MetadataSettingsPage() {
 	const { data: profile } = useSuspenseQuery(metadataProfileQuery());
-	const { data: settingsMap } = useSuspenseQuery(settingsMapQuery());
+	const settingsQuery = useQuery(settingsMapQuery());
+	const settingsMap = settingsQuery.data ?? {};
 	const updateProfile = useUpdateMetadataProfile();
 	const updateSettings = useUpdateSettings();
 
@@ -94,15 +92,27 @@ function MetadataSettingsPage() {
 	);
 
 	// ── TMDB tab state ─────────────────────────────────────────────────────────
-	const [tmdbLanguage, setTmdbLanguage] = useState(
-		(settingsMap["metadata.tmdb.language"] as string | undefined) ?? "en",
-	);
-	const [tmdbIncludeAdult, setTmdbIncludeAdult] = useState(
-		(settingsMap["metadata.tmdb.includeAdult"] as boolean | undefined) ?? false,
-	);
-	const [tmdbRegion, setTmdbRegion] = useState(
-		(settingsMap["metadata.tmdb.region"] as string | undefined) || "__none",
-	);
+	const [tmdbLanguage, setTmdbLanguage] = useState("en");
+	const [tmdbIncludeAdult, setTmdbIncludeAdult] = useState(false);
+	const [tmdbRegion, setTmdbRegion] = useState("__none");
+	const [tmdbDirty, setTmdbDirty] = useState(false);
+
+	useEffect(() => {
+		if (settingsQuery.status !== "success" || tmdbDirty) {
+			return;
+		}
+
+		setTmdbLanguage(
+			(settingsMap["metadata.tmdb.language"] as string | undefined) ?? "en",
+		);
+		setTmdbIncludeAdult(
+			(settingsMap["metadata.tmdb.includeAdult"] as boolean | undefined) ??
+				false,
+		);
+		setTmdbRegion(
+			(settingsMap["metadata.tmdb.region"] as string | undefined) || "__none",
+		);
+	}, [settingsMap, settingsQuery.status, tmdbDirty]);
 
 	// ── Save handlers ──────────────────────────────────────────────────────────
 	const handleSaveHardcover = () => {
@@ -137,6 +147,7 @@ function MetadataSettingsPage() {
 
 	const isHardcoverSaving = updateProfile.isPending;
 	const isTmdbSaving = updateSettings.isPending;
+	const tmdbReady = settingsQuery.status === "success";
 
 	return (
 		<div>
@@ -278,7 +289,10 @@ function MetadataSettingsPage() {
 									<div className="w-56">
 										<LanguageSingleSelect
 											value={tmdbLanguage}
-											onChange={setTmdbLanguage}
+											onChange={(value) => {
+												setTmdbDirty(true);
+												setTmdbLanguage(value);
+											}}
 										/>
 									</div>
 								</div>
@@ -288,7 +302,13 @@ function MetadataSettingsPage() {
 									<p className="text-sm text-muted-foreground">
 										Filter results to a specific country/region.
 									</p>
-									<Select value={tmdbRegion} onValueChange={setTmdbRegion}>
+									<Select
+										value={tmdbRegion}
+										onValueChange={(value) => {
+											setTmdbDirty(true);
+											setTmdbRegion(value);
+										}}
+									>
 										<SelectTrigger id="tmdb-region" className="w-56">
 											<SelectValue />
 										</SelectTrigger>
@@ -311,13 +331,19 @@ function MetadataSettingsPage() {
 									</div>
 									<Switch
 										checked={tmdbIncludeAdult}
-										onCheckedChange={setTmdbIncludeAdult}
+										onCheckedChange={(checked) => {
+											setTmdbDirty(true);
+											setTmdbIncludeAdult(checked);
+										}}
 									/>
 								</div>
 							</CardContent>
 						</Card>
 
-						<Button onClick={handleSaveTmdb} disabled={isTmdbSaving}>
+						<Button
+							onClick={handleSaveTmdb}
+							disabled={isTmdbSaving || !tmdbReady}
+						>
 							{isTmdbSaving ? "Saving..." : "Save TMDB Settings"}
 						</Button>
 					</TabsContent>
