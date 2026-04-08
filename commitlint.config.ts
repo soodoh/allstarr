@@ -4,7 +4,7 @@ import type { UserConfig } from "@commitlint/types";
 const Configuration: UserConfig = {
   extends: ["@commitlint/config-conventional"],
   rules: {
-    "scope-empty": [RuleConfigSeverity.Error, "always"],
+    "scope-empty": [RuleConfigSeverity.Error, "never"],
   },
 };
 
