@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createAppServerSpawnConfig } from "./app-runtime";
 
@@ -14,7 +15,7 @@ describe("createAppServerSpawnConfig", () => {
 		expect(config.command).toBe("bun");
 		expect(config.args).toEqual([".output/server/index.mjs"]);
 		expect(config.url).toBe("http://localhost:19102");
-		expect(config.cwd.endsWith("allstarr")).toBe(true);
+		expect(config.cwd).toBe(join(import.meta.dirname, "..", ".."));
 		expect(config.env.DATABASE_URL).toBe("/tmp/allstarr-worker-2.db");
 		expect(config.env.HARDCOVER_GRAPHQL_URL).toBe(
 			"http://localhost:19009/v1/graphql",
