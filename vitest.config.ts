@@ -4,6 +4,8 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export const nodeTestInclude = [
 	"src/**/*.test.ts",
 	"src/**/*.spec.ts",
+	"src/server/**/*.test.tsx",
+	"src/server/**/*.spec.tsx",
 	"e2e/fixtures/**/*.test.ts",
 	"e2e/fixtures/**/*.spec.ts",
 ];
@@ -11,8 +13,10 @@ export const nodeTestInclude = [
 export const frontendTestInclude = [
 	"src/**/*.test.tsx",
 	"src/**/*.spec.tsx",
-	"src/{components,hooks,lib,routes}/**/*.test.ts",
-	"src/{components,hooks,lib,routes}/**/*.spec.ts",
+	"src/components/**/*.test.ts",
+	"src/components/**/*.spec.ts",
+	"src/hooks/**/*.test.ts",
+	"src/hooks/**/*.spec.ts",
 ];
 
 export const frontendTestExclude = [
@@ -20,7 +24,14 @@ export const frontendTestExclude = [
 	"src/server/**/*.spec.tsx",
 ];
 
-export const testInclude = [...nodeTestInclude, ...frontendTestInclude];
+export const testInclude = [
+	"src/**/*.test.ts",
+	"src/**/*.spec.ts",
+	"src/**/*.test.tsx",
+	"src/**/*.spec.tsx",
+	"e2e/fixtures/**/*.test.ts",
+	"e2e/fixtures/**/*.spec.ts",
+];
 
 export const fullRepoCoverageInclude = [
 	"src/**/*.{ts,tsx}",
@@ -43,8 +54,10 @@ export default defineConfig({
 				test: {
 					include: nodeTestInclude,
 					exclude: [
-						"src/{components,hooks,lib,routes}/**/*.test.ts",
-						"src/{components,hooks,lib,routes}/**/*.spec.ts",
+						"src/components/**/*.test.ts",
+						"src/components/**/*.spec.ts",
+						"src/hooks/**/*.test.ts",
+						"src/hooks/**/*.spec.ts",
 					],
 				},
 			},
