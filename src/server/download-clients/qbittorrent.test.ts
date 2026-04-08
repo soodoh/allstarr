@@ -744,6 +744,13 @@ describe("qbittorrent provider", () => {
 			await expect(
 				qbittorrentProvider.removeDownload(config, "abc123", true),
 			).rejects.toThrow("Failed to remove torrent: HTTP 500");
+			if (
+				!qbittorrentProvider.pauseDownload ||
+				!qbittorrentProvider.resumeDownload ||
+				!qbittorrentProvider.setPriority
+			) {
+				throw new Error("qBittorrent provider missing optional methods");
+			}
 			await expect(
 				qbittorrentProvider.pauseDownload(config, "abc123"),
 			).rejects.toThrow("Failed to pause torrent: HTTP 500");

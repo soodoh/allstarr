@@ -1032,6 +1032,13 @@ describe("sabnzbd provider", () => {
 				settings: null,
 			};
 
+			if (
+				!sabnzbdProvider.pauseDownload ||
+				!sabnzbdProvider.resumeDownload ||
+				!sabnzbdProvider.setPriority
+			) {
+				throw new Error("SABnzbd provider missing optional methods");
+			}
 			await expect(
 				sabnzbdProvider.pauseDownload(config, "nzo-abc"),
 			).rejects.toThrow("SABnzbd pause error: HTTP 500");
