@@ -17,6 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage:all": "vitest run --coverage",
+    "test:coverage:server-core": "vitest run --config vitest.server-core.config.ts --coverage",
     "test:e2e:install": "bunx playwright install chromium",
     "test:e2e": "bun run build && bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts"
   },
@@ -69,6 +71,7 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.5",
     "vite-tsconfig-paths": "^6.1.1",
+    "@vitest/coverage-v8": "4.1.2",
     "vitest": "^4.1.2"
   }
 }
