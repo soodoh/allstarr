@@ -11,6 +11,11 @@ vi.mock("../logger", () => ({
 	logInfo: vi.fn(),
 }));
 
+import {
+	recordQuery,
+	reportRateLimited,
+	reportSuccess,
+} from "../indexer-rate-limiter";
 import { searchNewznab, testNewznab } from "./http";
 
 afterEach(() => {
@@ -173,11 +178,20 @@ describe("newznab HTTP client", () => {
 	});
 
 	it("retries on 429 with Retry-After before succeeding", async () => {
+		vi.useFakeTimers();
+
 		let requestCount = 0;
+		let resolveFirstRequest = () => {};
+		const firstRequestSeen = new Promise<void>((resolve) => {
+			resolveFirstRequest = resolve;
+		});
 		const server = await startHttpTestServer(async (request, response) => {
 			requestCount += 1;
 			expect(request.pathname).toBe("/api");
 			expect(request.searchParams.get("t")).toBe("search");
+			if (requestCount === 1) {
+				resolveFirstRequest();
+			}
 
 			if (requestCount === 1) {
 				response.statusCode = 429;
@@ -210,7 +224,21 @@ describe("newznab HTTP client", () => {
 				},
 				"retry release",
 				[7020],
+				undefined,
+				{ indexerType: "manual", indexerId: 42 },
 			);
+
+			await firstRequestSeen;
+			await vi.advanceTimersByTimeAsync(0);
+			expect(server.requests).toHaveLength(1);
+
+			await vi.advanceTimersByTimeAsync(999);
+			expect(server.requests).toHaveLength(1);
+			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledTimes(1);
+			expect(vi.mocked(reportSuccess)).not.toHaveBeenCalled();
+			expect(vi.mocked(recordQuery)).toHaveBeenCalledTimes(1);
+
+			await vi.advanceTimersByTimeAsync(1);
 
 			await expect(resultPromise).resolves.toEqual([
 				expect.objectContaining({
@@ -220,6 +248,13 @@ describe("newznab HTTP client", () => {
 				}),
 			]);
 			expect(server.requests).toHaveLength(2);
+			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledWith(
+				"manual",
+				42,
+				1000,
+			);
+			expect(vi.mocked(reportSuccess)).toHaveBeenCalledWith("manual", 42);
+			expect(vi.mocked(recordQuery)).toHaveBeenCalledTimes(1);
 		} finally {
 			await server.stop();
 		}
