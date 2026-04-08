@@ -55,6 +55,15 @@ async function submitAccountForm(page: Page): Promise<void> {
   );
 }
 
+async function settleAuthenticatedSession(
+	page: Page,
+	baseUrl: string,
+): Promise<void> {
+	await page.goto(`${baseUrl}/`);
+	await page.waitForLoadState("load");
+	await waitForHydration(page);
+}
+
 export async function ensureAuthenticated(
   page: Page,
   baseUrl: string,
@@ -83,6 +92,7 @@ export async function ensureAuthenticated(
           !url.pathname.includes("/register"),
         { timeout: 10_000 },
       );
+      await settleAuthenticatedSession(page, baseUrl);
       return;
     } catch {
       // Login failed — register instead
@@ -97,6 +107,7 @@ export async function ensureAuthenticated(
   await fillInput(page.getByLabel("Email"), TEST_USER.email);
   await fillInput(page.getByLabel("Password"), TEST_USER.password);
   await submitAccountForm(page);
+  await settleAuthenticatedSession(page, baseUrl);
 }
 
 export { fillInput, submitAccountForm, waitForHydration };
