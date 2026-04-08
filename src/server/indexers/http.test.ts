@@ -181,17 +181,15 @@ describe("newznab HTTP client", () => {
 		vi.useFakeTimers();
 
 		let requestCount = 0;
-		let resolveFirstRequest = () => {};
-		const firstRequestSeen = new Promise<void>((resolve) => {
-			resolveFirstRequest = resolve;
+		const reportRateLimitedSeen = new Promise<void>((resolve) => {
+			vi.mocked(reportRateLimited).mockImplementation(() => {
+				resolve();
+			});
 		});
 		const server = await startHttpTestServer(async (request, response) => {
 			requestCount += 1;
 			expect(request.pathname).toBe("/api");
 			expect(request.searchParams.get("t")).toBe("search");
-			if (requestCount === 1) {
-				resolveFirstRequest();
-			}
 
 			if (requestCount === 1) {
 				response.statusCode = 429;
@@ -228,8 +226,7 @@ describe("newznab HTTP client", () => {
 				{ indexerType: "manual", indexerId: 42 },
 			);
 
-			await firstRequestSeen;
-			await vi.advanceTimersByTimeAsync(0);
+			await reportRateLimitedSeen;
 			expect(server.requests).toHaveLength(1);
 
 			await vi.advanceTimersByTimeAsync(999);
