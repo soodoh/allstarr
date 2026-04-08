@@ -1,14 +1,21 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export const testInclude = [
+export const nodeTestInclude = [
 	"src/**/*.test.ts",
 	"src/**/*.spec.ts",
-	"src/**/*.test.tsx",
-	"src/**/*.spec.tsx",
 	"e2e/fixtures/**/*.test.ts",
 	"e2e/fixtures/**/*.spec.ts",
 ];
+
+export const frontendTestInclude = [
+	"src/hooks/**/*.test.ts",
+	"src/hooks/**/*.spec.ts",
+	"src/components/**/*.test.tsx",
+	"src/components/**/*.spec.tsx",
+];
+
+export const testInclude = [...nodeTestInclude, ...frontendTestInclude];
 
 export const fullRepoCoverageInclude = [
 	"src/**/*.{ts,tsx}",
@@ -24,7 +31,28 @@ export const coverageExclude = [
 export default defineConfig({
 	plugins: [tsconfigPaths()],
 	test: {
-		include: testInclude,
+		setupFiles: ["src/test/setup.ts"],
+		projects: [
+			{
+				extends: true,
+				test: {
+					include: nodeTestInclude,
+					exclude: [
+						"src/hooks/**/*.test.ts",
+						"src/hooks/**/*.spec.ts",
+						"src/components/**/*.test.tsx",
+						"src/components/**/*.spec.tsx",
+					],
+				},
+			},
+			{
+				extends: true,
+				test: {
+					include: frontendTestInclude,
+					environment: "jsdom",
+				},
+			},
+		],
 		coverage: {
 			provider: "v8",
 			all: true,
