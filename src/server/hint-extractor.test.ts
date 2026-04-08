@@ -132,5 +132,34 @@ describe("extractHints", () => {
 			const result = extractHints("/library/books/abc123.epub", "ebook");
 			expect(result).toBeNull();
 		});
+
+		test("returns null for short paths with no usable filename hint", () => {
+			const result = extractHints("/a.epub", "ebook");
+			expect(result).toBeNull();
+		});
+	});
+
+	describe("path edge cases", () => {
+		test("does not invent an author when the ebook path has only a title directory", () => {
+			const result = extractHints("/The Shining (1977)/book.epub", "ebook");
+			expect(result).toEqual({
+				title: "The Shining",
+				year: 1977,
+				source: "path",
+			});
+		});
+
+		test("returns null for tv season directories without a show name", () => {
+			const result = extractHints("/Season 01/episode.mkv", "tv");
+			expect(result).toBeNull();
+		});
+
+		test("returns null for movie paths that do not match a title-year directory", () => {
+			const result = extractHints(
+				"/media/movies/Dune Part Two/movie.mkv",
+				"movie",
+			);
+			expect(result).toBeNull();
+		});
 	});
 });
