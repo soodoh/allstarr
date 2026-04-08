@@ -11,7 +11,7 @@ serverCoreConfig.test.coverage = {
 	include: [...serverCoreCoverageAllowlist],
 	exclude: [...coverageExclude, "src/db/schema/**"],
 	reporter: ["text", "json-summary"],
-	reportsDirectory: "coverage/server-core",
+	reportsDirectory: "coverage-server-core",
 	thresholds: {
 		statements: 95,
 		branches: 95,
