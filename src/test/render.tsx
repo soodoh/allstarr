@@ -6,6 +6,7 @@ import {
 	renderHook as rtlRenderHook,
 } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { TooltipProvider } from "src/components/ui/tooltip";
 
 function createTestQueryClient(): QueryClient {
 	return new QueryClient({
@@ -27,7 +28,9 @@ function TestProviders({ children }: PropsWithChildren): ReactElement {
 	const [queryClient] = useState(createTestQueryClient);
 
 	return (
-		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+		<QueryClientProvider client={queryClient}>
+			<TooltipProvider>{children}</TooltipProvider>
+		</QueryClientProvider>
 	);
 }
 
