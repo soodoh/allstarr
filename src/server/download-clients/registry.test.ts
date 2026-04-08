@@ -1,17 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DownloadClientProvider } from "./types";
 
+const DOWNLOAD_CLIENT_IMPLEMENTATIONS = [
+	["qBittorrent", "./qbittorrent"],
+	["Transmission", "./transmission"],
+	["Deluge", "./deluge"],
+	["rTorrent", "./rtorrent"],
+	["SABnzbd", "./sabnzbd"],
+	["NZBGet", "./nzbget"],
+	["Blackhole", "./blackhole"],
+] as const;
+
 afterEach(() => {
 	vi.resetModules();
 	vi.restoreAllMocks();
 	vi.doUnmock("src/lib/runtime");
-	vi.doUnmock("./qbittorrent");
-	vi.doUnmock("./transmission");
-	vi.doUnmock("./deluge");
-	vi.doUnmock("./rtorrent");
-	vi.doUnmock("./sabnzbd");
-	vi.doUnmock("./nzbget");
-	vi.doUnmock("./blackhole");
+	for (const [, modulePath] of DOWNLOAD_CLIENT_IMPLEMENTATIONS) {
+		vi.doUnmock(modulePath);
+	}
 });
 
 describe("getProvider", () => {
@@ -47,15 +53,9 @@ describe("getProvider", () => {
 		await expect(getProvider("Blackhole")).resolves.toBe(provider);
 	});
 
-	it.each([
-		["qBittorrent", "./qbittorrent"],
-		["Transmission", "./transmission"],
-		["Deluge", "./deluge"],
-		["rTorrent", "./rtorrent"],
-		["SABnzbd", "./sabnzbd"],
-		["NZBGet", "./nzbget"],
-		["Blackhole", "./blackhole"],
-	] as const)("loads %s on the server", async (implementation, modulePath) => {
+	it.each(
+		DOWNLOAD_CLIENT_IMPLEMENTATIONS,
+	)("loads %s on the server", async (implementation, modulePath) => {
 		const provider = {
 			addDownload: vi.fn(),
 			getDownloads: vi.fn(),
