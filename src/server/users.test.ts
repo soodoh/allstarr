@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type FakeRow = Record<string, unknown>;
 
@@ -36,17 +36,39 @@ function createFakeUsersDb(selectResults: Array<Array<FakeRow>> = []) {
 function mockUsersRuntime() {
 	vi.doMock("@tanstack/react-start", () => ({
 		createServerFn: ({ method }: { method?: "GET" | "POST" } = {}) => {
+			let inputValidator:
+				| ((data: unknown) => unknown)
+				| { parse: (data: unknown) => unknown }
+				| undefined;
+
+			function validateInput(data: unknown) {
+				if (!inputValidator) {
+					return data;
+				}
+
+				if (typeof inputValidator === "function") {
+					return inputValidator(data);
+				}
+
+				return inputValidator.parse(data);
+			}
+
 			const builder: {
 				inputValidator: (validator: unknown) => typeof builder;
 				middleware: (middlewares: unknown) => typeof builder;
-				handler: (fn: (opts: { data: unknown }) => unknown) => typeof fn;
+				handler: (fn: (opts: { data: unknown }) => unknown) => unknown;
 			} = {
-				inputValidator: () => builder,
+				inputValidator: (validator) => {
+					inputValidator = validator as
+						| ((data: unknown) => unknown)
+						| { parse: (data: unknown) => unknown };
+					return builder;
+				},
 				middleware: () => builder,
 				handler: (fn) =>
 					Object.assign(
 						async (opts: { data?: unknown } = {}) =>
-							fn({ data: opts.data as unknown }),
+							fn({ data: validateInput(opts.data) }),
 						{
 							method: method ?? "GET",
 						},
@@ -57,6 +79,10 @@ function mockUsersRuntime() {
 		},
 	}));
 }
+
+beforeEach(() => {
+	mockUsersRuntime();
+});
 
 afterEach(() => {
 	vi.resetModules();
@@ -73,7 +99,6 @@ describe("createUserFn", () => {
 		});
 		const db = createFakeUsersDb();
 
-		mockUsersRuntime();
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
 			eq: vi.fn((column, value) => ({ column, value })),
@@ -176,6 +201,14 @@ describe("listUsersFn", () => {
 					userId: "user-1",
 					providerId: "google",
 				},
+				{
+					userId: "user-2",
+					providerId: "google",
+				},
+				{
+					userId: "user-2",
+					providerId: "credential",
+				},
 			],
 		]);
 
@@ -240,7 +273,7 @@ describe("listUsersFn", () => {
 				image: "https://example.com/bob.png",
 				createdAt: new Date("2026-04-02T10:00:00.000Z"),
 				lastLogin: null,
-				authMethod: "credential",
+				authMethod: "google",
 			},
 		]);
 	});
@@ -250,7 +283,6 @@ describe("setUserRoleFn", () => {
 	it("rejects changing your own role", async () => {
 		const db = createFakeUsersDb();
 
-		mockUsersRuntime();
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
 			eq: vi.fn((column, value) => ({ column, value })),
@@ -302,6 +334,67 @@ describe("setUserRoleFn", () => {
 		).rejects.toThrow("Cannot change your own role");
 		expect(db.update).not.toHaveBeenCalled();
 	});
+
+	it("updates another user's role through Drizzle and returns success", async () => {
+		const db = createFakeUsersDb();
+
+		vi.doMock("drizzle-orm", () => ({
+			desc: vi.fn(),
+			eq: vi.fn((column, value) => ({ column, value })),
+			max: vi.fn(),
+		}));
+		vi.doMock("src/db", () => ({
+			db,
+		}));
+		vi.doMock("src/db/schema", () => ({
+			account: {
+				userId: { name: "userId" },
+				providerId: { name: "providerId" },
+			},
+			session: {
+				userId: { name: "userId" },
+				createdAt: { name: "createdAt" },
+			},
+			user: {
+				id: { name: "id" },
+				name: { name: "name" },
+				email: { name: "email" },
+				role: { name: "role" },
+				image: { name: "image" },
+				createdAt: { name: "createdAt" },
+			},
+		}));
+		vi.doMock("src/lib/auth", () => ({
+			getAuth: vi.fn(),
+		}));
+		vi.doMock("./middleware", () => ({
+			requireAdmin: vi.fn().mockResolvedValue({
+				user: { id: "admin-1", role: "admin" },
+			}),
+		}));
+		vi.doMock("./settings-store", () => ({
+			getSettingValue: vi.fn(),
+			upsertSettingValue: vi.fn(),
+		}));
+
+		const { setUserRoleFn } = await import("./users");
+
+		await expect(
+			setUserRoleFn({
+				data: {
+					userId: "user-2",
+					role: "requester",
+				},
+			}),
+		).resolves.toEqual({ success: true });
+		expect(db.update).toHaveBeenCalledTimes(1);
+		expect(db.updateSet).toHaveBeenCalledWith({ role: "requester" });
+		expect(db.updateWhere).toHaveBeenCalledWith({
+			column: { name: "id" },
+			value: "user-2",
+		});
+		expect(db.updateRun).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("default role flows", () => {
@@ -310,7 +403,6 @@ describe("default role flows", () => {
 		const upsertSettingValue = vi.fn();
 		const db = createFakeUsersDb();
 
-		mockUsersRuntime();
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
 			eq: vi.fn((column, value) => ({ column, value })),
@@ -375,7 +467,6 @@ describe("deleteUserFn", () => {
 		const removeUser = vi.fn();
 		const db = createFakeUsersDb();
 
-		mockUsersRuntime();
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
 			eq: vi.fn((column, value) => ({ column, value })),
@@ -435,7 +526,6 @@ describe("deleteUserFn", () => {
 		const removeUser = vi.fn();
 		const db = createFakeUsersDb();
 
-		mockUsersRuntime();
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
 			eq: vi.fn((column, value) => ({ column, value })),
