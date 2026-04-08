@@ -1,6 +1,49 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type FakeRow = Record<string, unknown>;
+type FakeTable = {
+	tableName: "account" | "session" | "user";
+};
+type FakeColumn = {
+	name: string;
+	tableName: "account" | "session" | "user";
+};
+
+function createFakeSchema() {
+	function column(tableName: FakeColumn["tableName"], name: string) {
+		return { tableName, name };
+	}
+
+	return {
+		account: {
+			tableName: "account" as const,
+			userId: column("account", "userId"),
+			providerId: column("account", "providerId"),
+		},
+		session: {
+			tableName: "session" as const,
+			userId: column("session", "userId"),
+			createdAt: column("session", "createdAt"),
+		},
+		user: {
+			tableName: "user" as const,
+			id: column("user", "id"),
+			name: column("user", "name"),
+			email: column("user", "email"),
+			role: column("user", "role"),
+			image: column("user", "image"),
+			createdAt: column("user", "createdAt"),
+		},
+	};
+}
+
+function createDrizzleOrmMock() {
+	return {
+		desc: vi.fn((column: FakeColumn) => ({ column, direction: "desc" })),
+		eq: vi.fn((column, value) => ({ column, value })),
+		max: vi.fn(),
+	};
+}
 
 function createFakeUsersDb({
 	userRows = [],
@@ -11,18 +54,20 @@ function createFakeUsersDb({
 	sessionRows?: Array<FakeRow>;
 	accountRows?: Array<FakeRow>;
 } = {}) {
-	function pickRows(shape?: Record<string, { name: string }>) {
-		if (shape && "lastLogin" in shape) {
-			return sessionRows;
+	function pickRows(table?: FakeTable) {
+		switch (table?.tableName) {
+			case "account":
+				return accountRows;
+			case "session":
+				return sessionRows;
+			case "user":
+			default:
+				return userRows;
 		}
-		if (shape && "providerId" in shape) {
-			return accountRows;
-		}
-		return userRows;
 	}
 
 	const select = vi.fn((shape?: Record<string, { name: string }>) => {
-		const rows = pickRows(shape);
+		let rows = pickRows();
 
 		function projectRow(row: FakeRow) {
 			if (!shape) {
@@ -37,15 +82,46 @@ function createFakeUsersDb({
 			);
 		}
 
+		function compareValues(left: unknown, right: unknown) {
+			if (left instanceof Date && right instanceof Date) {
+				return right.getTime() - left.getTime();
+			}
+
+			if (typeof left === "number" && typeof right === "number") {
+				return right - left;
+			}
+
+			if (typeof left === "string" && typeof right === "string") {
+				return right.localeCompare(left);
+			}
+
+			if (left === right) {
+				return 0;
+			}
+
+			return 0;
+		}
+
 		const chain = {
-			orderBy: vi.fn(() => chain),
+			orderBy: vi.fn((order?: { column?: FakeColumn; direction?: string }) => {
+				if (order?.direction === "desc" && order.column?.name) {
+					rows = [...rows].sort((left, right) =>
+						compareValues(left[order.column.name], right[order.column.name]),
+					);
+				}
+
+				return chain;
+			}),
 			groupBy: vi.fn(() => chain),
 			all: vi.fn(() => rows.map((row) => projectRow(row))),
 			get: vi.fn(() => projectRow(rows[0] ?? {})),
 		};
 
 		return {
-			from: vi.fn(() => chain),
+			from: vi.fn((table?: FakeTable) => {
+				rows = pickRows(table);
+				return chain;
+			}),
 		};
 	});
 
@@ -129,32 +205,11 @@ describe("createUserFn", () => {
 		});
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn().mockResolvedValue({
 				api: {
@@ -200,12 +255,12 @@ describe("listUsersFn", () => {
 		const db = createFakeUsersDb({
 			userRows: [
 				{
-					id: "user-1",
-					name: "Alice",
-					email: "alice@example.com",
+					id: "user-3",
+					name: "Charlie",
+					email: "charlie@example.com",
 					role: "viewer",
 					image: null,
-					createdAt: new Date("2026-04-01T10:00:00.000Z"),
+					createdAt: new Date("2026-04-03T10:00:00.000Z"),
 				},
 				{
 					id: "user-2",
@@ -216,12 +271,12 @@ describe("listUsersFn", () => {
 					createdAt: new Date("2026-04-02T10:00:00.000Z"),
 				},
 				{
-					id: "user-3",
-					name: "Charlie",
-					email: "charlie@example.com",
+					id: "user-1",
+					name: "Alice",
+					email: "alice@example.com",
 					role: "viewer",
 					image: null,
-					createdAt: new Date("2026-04-03T10:00:00.000Z"),
+					createdAt: new Date("2026-04-01T10:00:00.000Z"),
 				},
 			],
 			sessionRows: [
@@ -250,32 +305,11 @@ describe("listUsersFn", () => {
 			],
 		});
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn(),
 		}));
@@ -294,14 +328,14 @@ describe("listUsersFn", () => {
 
 		expect(users).toEqual([
 			{
-				id: "user-1",
-				name: "Alice",
-				email: "alice@example.com",
+				id: "user-3",
+				name: "Charlie",
+				email: "charlie@example.com",
 				role: "viewer",
 				image: null,
-				createdAt: new Date("2026-04-01T10:00:00.000Z"),
-				lastLogin: new Date("2026-04-07T09:30:00.000Z"),
-				authMethod: "google",
+				createdAt: new Date("2026-04-03T10:00:00.000Z"),
+				lastLogin: null,
+				authMethod: "credential",
 			},
 			{
 				id: "user-2",
@@ -314,14 +348,14 @@ describe("listUsersFn", () => {
 				authMethod: "google",
 			},
 			{
-				id: "user-3",
-				name: "Charlie",
-				email: "charlie@example.com",
+				id: "user-1",
+				name: "Alice",
+				email: "alice@example.com",
 				role: "viewer",
 				image: null,
-				createdAt: new Date("2026-04-03T10:00:00.000Z"),
-				lastLogin: null,
-				authMethod: "credential",
+				createdAt: new Date("2026-04-01T10:00:00.000Z"),
+				lastLogin: new Date("2026-04-07T09:30:00.000Z"),
+				authMethod: "google",
 			},
 		]);
 	});
@@ -331,32 +365,11 @@ describe("setUserRoleFn", () => {
 	it("rejects changing your own role", async () => {
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn(),
 		}));
@@ -386,32 +399,11 @@ describe("setUserRoleFn", () => {
 	it("updates another user's role through Drizzle and returns success", async () => {
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn(),
 		}));
@@ -438,7 +430,7 @@ describe("setUserRoleFn", () => {
 		expect(db.update).toHaveBeenCalledTimes(1);
 		expect(db.updateSet).toHaveBeenCalledWith({ role: "requester" });
 		expect(db.updateWhere).toHaveBeenCalledWith({
-			column: { name: "id" },
+			column: { name: "id", tableName: "user" },
 			value: "user-2",
 		});
 		expect(db.updateRun).toHaveBeenCalledTimes(1);
@@ -451,32 +443,11 @@ describe("default role flows", () => {
 		const upsertSettingValue = vi.fn();
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn(),
 		}));
@@ -513,32 +484,11 @@ describe("default role flows", () => {
 		const getSettingValue = vi.fn().mockReturnValue("viewer");
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn(),
 		}));
@@ -565,32 +515,11 @@ describe("deleteUserFn", () => {
 		const removeUser = vi.fn();
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn().mockResolvedValue({
 				api: {
@@ -624,32 +553,11 @@ describe("deleteUserFn", () => {
 		const removeUser = vi.fn();
 		const db = createFakeUsersDb();
 
-		vi.doMock("drizzle-orm", () => ({
-			desc: vi.fn(),
-			eq: vi.fn((column, value) => ({ column, value })),
-			max: vi.fn(),
-		}));
+		vi.doMock("drizzle-orm", createDrizzleOrmMock);
 		vi.doMock("src/db", () => ({
 			db,
 		}));
-		vi.doMock("src/db/schema", () => ({
-			account: {
-				userId: { name: "userId" },
-				providerId: { name: "providerId" },
-			},
-			session: {
-				userId: { name: "userId" },
-				createdAt: { name: "createdAt" },
-			},
-			user: {
-				id: { name: "id" },
-				name: { name: "name" },
-				email: { name: "email" },
-				role: { name: "role" },
-				image: { name: "image" },
-				createdAt: { name: "createdAt" },
-			},
-		}));
+		vi.doMock("src/db/schema", createFakeSchema);
 		vi.doMock("src/lib/auth", () => ({
 			getAuth: vi.fn().mockResolvedValue({
 				api: {
