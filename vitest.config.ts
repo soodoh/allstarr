@@ -9,10 +9,15 @@ export const nodeTestInclude = [
 ];
 
 export const frontendTestInclude = [
-	"src/hooks/**/*.test.ts",
-	"src/hooks/**/*.spec.ts",
-	"src/components/**/*.test.tsx",
-	"src/components/**/*.spec.tsx",
+	"src/**/*.test.tsx",
+	"src/**/*.spec.tsx",
+	"src/{components,hooks,lib,routes}/**/*.test.ts",
+	"src/{components,hooks,lib,routes}/**/*.spec.ts",
+];
+
+export const frontendTestExclude = [
+	"src/server/**/*.test.tsx",
+	"src/server/**/*.spec.tsx",
 ];
 
 export const testInclude = [...nodeTestInclude, ...frontendTestInclude];
@@ -38,10 +43,8 @@ export default defineConfig({
 				test: {
 					include: nodeTestInclude,
 					exclude: [
-						"src/hooks/**/*.test.ts",
-						"src/hooks/**/*.spec.ts",
-						"src/components/**/*.test.tsx",
-						"src/components/**/*.spec.tsx",
+						"src/{components,hooks,lib,routes}/**/*.test.ts",
+						"src/{components,hooks,lib,routes}/**/*.spec.ts",
 					],
 				},
 			},
@@ -49,6 +52,7 @@ export default defineConfig({
 				extends: true,
 				test: {
 					include: frontendTestInclude,
+					exclude: frontendTestExclude,
 					environment: "jsdom",
 				},
 			},

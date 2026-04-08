@@ -11,7 +11,12 @@ function createTestQueryClient(): QueryClient {
 	return new QueryClient({
 		defaultOptions: {
 			queries: {
-				staleTime: 30_000,
+				retry: false,
+				gcTime: Number.POSITIVE_INFINITY,
+			},
+			mutations: {
+				retry: false,
+				gcTime: Number.POSITIVE_INFINITY,
 			},
 		},
 	});
@@ -30,17 +35,17 @@ export function renderWithProviders(
 	options?: Omit<RenderOptions, "wrapper">,
 ) {
 	return render(ui, {
-		wrapper: TestProviders,
 		...options,
+		wrapper: TestProviders,
 	});
 }
 
 export function renderHook<Result, Props>(
 	callback: (initialProps: Props) => Result,
-	options?: RenderHookOptions<Props>,
+	options?: Omit<RenderHookOptions<Props>, "wrapper">,
 ) {
 	return rtlRenderHook(callback, {
-		wrapper: TestProviders,
 		...options,
+		wrapper: TestProviders,
 	});
 }
