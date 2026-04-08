@@ -171,4 +171,81 @@ describe("newznab HTTP client", () => {
 			await server.stop();
 		}
 	});
+
+	it("retries on 429 with Retry-After before succeeding", async () => {
+		let requestCount = 0;
+		const server = await startHttpTestServer(async (request, response) => {
+			requestCount += 1;
+			expect(request.pathname).toBe("/api");
+			expect(request.searchParams.get("t")).toBe("search");
+
+			if (requestCount === 1) {
+				response.statusCode = 429;
+				response.statusMessage = "Too Many Requests";
+				response.setHeader("Retry-After", "1");
+				response.end("retry later");
+				return;
+			}
+
+			response.statusCode = 200;
+			response.setHeader("Content-Type", "application/xml");
+			response.end(`<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <item>
+    <title>Retry release</title>
+    <guid isPermaLink="true">guid-retry</guid>
+    <enclosure url="http://example.com/retry.torrent" length="1024" type="application/x-bittorrent" />
+  </item>
+</channel>
+</rss>`);
+		});
+
+		try {
+			const resultPromise = searchNewznab(
+				{
+					baseUrl: server.baseUrl,
+					apiPath: "/api",
+					apiKey: "test-newznab-api-key",
+				},
+				"retry release",
+				[7020],
+			);
+
+			await expect(resultPromise).resolves.toEqual([
+				expect.objectContaining({
+					guid: "guid-retry",
+					title: "Retry release",
+					downloadUrl: "http://example.com/retry.torrent",
+				}),
+			]);
+			expect(server.requests).toHaveLength(2);
+		} finally {
+			await server.stop();
+		}
+	});
+
+	it("returns a failure payload when caps responds with a non-ok status", async () => {
+		const server = await startHttpTestServer(async (_request, response) => {
+			response.statusCode = 503;
+			response.statusMessage = "Service Unavailable";
+			response.end("unavailable");
+		});
+
+		try {
+			const result = await testNewznab({
+				baseUrl: server.baseUrl,
+				apiPath: "/api",
+				apiKey: "test-newznab-api-key",
+			});
+
+			expect(result).toEqual({
+				success: false,
+				message: "Indexer returned HTTP 503: Service Unavailable",
+				version: null,
+			});
+		} finally {
+			await server.stop();
+		}
+	});
 });
