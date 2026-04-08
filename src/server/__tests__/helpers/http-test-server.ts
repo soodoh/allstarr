@@ -44,6 +44,7 @@ export async function startHttpTestServer(
 			await handler(request, res, requests);
 		})().catch((error) => {
 			res.statusCode = 500;
+			res.setHeader("Content-Type", "text/plain");
 			res.end(error instanceof Error ? error.message : String(error));
 		});
 	});
