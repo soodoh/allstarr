@@ -10,14 +10,6 @@ const TEMPLATE_DB_PATH = join(
 );
 
 async function globalTeardown(): Promise<void> {
-  const servers = (globalThis as Record<string, unknown>).__fakeServers as
-    | Record<string, { stop: () => Promise<void> }>
-    | undefined;
-
-  if (servers) {
-    await Promise.all(Object.values(servers).map((s) => s.stop()));
-  }
-
   if (existsSync(STATE_FILE)) {
     unlinkSync(STATE_FILE);
   }

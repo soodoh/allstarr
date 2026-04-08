@@ -8,7 +8,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { createAppServerSpawnConfig } from "./app-runtime";
-import { createTestDb, getTestState } from "./test-db";
+import {
+	ALL_REQUIRED_SERVICES,
+	createFakeServerManager,
+	type FakeServerManager,
+	type ServiceName,
+} from "./fake-servers/manager";
+import { createTestDb } from "./test-db";
 import type * as schema from "../../src/db/schema";
 
 type AppServer = {
@@ -19,12 +25,14 @@ type AppServer = {
 
 type WorkerFixtures = {
   appServer: AppServer;
+  serviceManager: FakeServerManager;
+  requiredServices: ServiceName[];
 };
 
 type AppFixtures = {
   appUrl: string;
   db: BetterSQLite3Database<typeof schema>;
-  fakeServers: Record<string, string>;
+  fakeServers: Partial<Record<ServiceName, string>>;
   tempDir: string;
   /** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
   checkpoint: () => void;
@@ -53,67 +61,76 @@ function noop(): void {
 }
 
 export const test = base.extend<AppFixtures, WorkerFixtures>({
-  appServer: [
-    async ({}, use, workerInfo) => {
-      const dbHandle = createTestDb(`worker-${workerInfo.workerIndex}`);
-      const state = getTestState();
+	requiredServices: [ALL_REQUIRED_SERVICES, { option: true, scope: "worker" }],
 
-      const spawnConfig = createAppServerSpawnConfig({
-        workerIndex: workerInfo.workerIndex,
-        dbPath: dbHandle.dbPath,
-        servers: state.servers,
-      });
+	serviceManager: [
+		async ({ requiredServices }, use) => {
+			const manager = createFakeServerManager(requiredServices);
+			await manager.start();
+			await use(manager);
+			await manager.stop();
+		},
+		{ scope: "worker" },
+	],
 
-      const proc = spawn(spawnConfig.command, spawnConfig.args, {
-        env: spawnConfig.env,
-        cwd: spawnConfig.cwd,
-        stdio: "pipe",
-      });
+	appServer: [
+		async ({ serviceManager }, use, workerInfo) => {
+			const dbHandle = createTestDb(`worker-${workerInfo.workerIndex}`);
+			const hardcoverBase =
+				serviceManager.getUrls().HARDCOVER ?? "http://127.0.0.1:9";
 
-      await waitForServer(spawnConfig.url, 60_000);
-      await use({ url: spawnConfig.url, dbHandle, proc });
-      proc.kill();
-      dbHandle.cleanup();
-    },
-    { scope: "worker", timeout: 120_000 },
-  ],
+			const spawnConfig = createAppServerSpawnConfig({
+				workerIndex: workerInfo.workerIndex,
+				dbPath: dbHandle.dbPath,
+				servers: {
+					HARDCOVER: hardcoverBase,
+				},
+			});
 
-  appUrl: async ({ appServer }, use) => {
-    await use(appServer.url);
-  },
+			const proc = spawn(spawnConfig.command, spawnConfig.args, {
+				env: spawnConfig.env,
+				cwd: spawnConfig.cwd,
+				stdio: "pipe",
+			});
 
-  db: async ({ appServer }, use) => {
-    await use(appServer.dbHandle.db);
-  },
+			await waitForServer(spawnConfig.url, 60_000);
+			await use({ url: spawnConfig.url, dbHandle, proc });
+			proc.kill();
+			dbHandle.cleanup();
+		},
+		{ scope: "worker", timeout: 120_000 },
+	],
 
-  fakeServers: async ({}, use) => {
-    await use(getTestState().servers);
-  },
+	appUrl: async ({ appServer }, use) => {
+		await use(appServer.url);
+	},
 
-  checkpoint: async ({ appServer }, use) => {
-    await use(() => appServer.dbHandle.checkpoint());
-  },
+	db: async ({ appServer }, use) => {
+		await use(appServer.dbHandle.db);
+	},
 
-  tempDir: async ({}, use) => {
-    const dir = mkdtempSync(join(tmpdir(), "allstarr-e2e-"));
-    await use(dir);
-    rmSync(dir, { recursive: true, force: true });
-  },
+	fakeServers: async ({ serviceManager }, use) => {
+		await use(serviceManager.getUrls());
+	},
+
+	checkpoint: async ({ appServer }, use) => {
+		await use(() => appServer.dbHandle.checkpoint());
+	},
+
+	tempDir: async ({}, use) => {
+		const dir = mkdtempSync(join(tmpdir(), "allstarr-e2e-"));
+		await use(dir);
+		rmSync(dir, { recursive: true, force: true });
+	},
 });
 
 // Reset fake servers and app caches before each test
-test.beforeEach(async ({ appServer }) => {
-  // Reset server-side caches (format definitions, etc.)
-  await fetch(`${appServer.url}/api/__test-reset`, {
-    method: "POST",
-  }).catch(noop);
+test.beforeEach(async ({ appServer, serviceManager }) => {
+	await fetch(`${appServer.url}/api/__test-reset`, {
+		method: "POST",
+	}).catch(noop);
 
-  const state = getTestState();
-  await Promise.all(
-    Object.values(state.servers).map((url) =>
-      fetch(`${url}/__reset`, { method: "POST" }).catch(noop),
-    ),
-  );
+	await serviceManager.reset();
 });
 
 export { expect } from "@playwright/test";

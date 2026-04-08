@@ -24,7 +24,6 @@ type TestDbHandle = {
 
 export function getTestState(): {
   templateDbPath: string;
-  servers: Record<string, string>;
 } {
   return JSON.parse(readFileSync(STATE_FILE, "utf8"));
 }
