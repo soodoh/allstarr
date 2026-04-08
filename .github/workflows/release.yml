@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     permissions:
+      actions: write
       contents: write
+      issues: write
       pull-requests: write
     outputs:
       release_ready: ${{ steps.release-context.outputs.release_ready }}
@@ -38,6 +40,58 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Dispatch release PR validation
+        if: ${{ steps.release.outputs.release_created != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
+          PRS_JSON: ${{ steps.release.outputs.prs }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          pr_branch=""
+          pr_number="$(printf '%s' "${PR_JSON:-}" | jq -r '.number // empty' 2>/dev/null || true)"
+          if [[ -z "$pr_number" ]]; then
+            pr_number="$(printf '%s' "${PRS_JSON:-}" | jq -r '.[0].number // empty' 2>/dev/null || true)"
+          fi
+
+          if [[ -z "$pr_number" ]]; then
+            release_pr_row="$(gh pr list \
+              --repo "$REPOSITORY" \
+              --state open \
+              --base main \
+              --json number,headRefName \
+              --jq '.[] | select(.headRefName | startswith("release-please--")) | [.number, .headRefName] | @tsv' | head -n1)"
+
+            if [[ -n "$release_pr_row" ]]; then
+              IFS=$'\t' read -r pr_number pr_branch <<< "$release_pr_row"
+            fi
+          fi
+
+          if [[ -z "$pr_number" ]]; then
+            echo "No open release PR found for validation dispatch"
+            exit 0
+          fi
+
+          if [[ -z "$pr_branch" ]]; then
+            pr_branch="$(gh pr view "$pr_number" --json headRefName --jq '.headRefName')"
+          fi
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$REPOSITORY/actions/workflows/pr-title.yml/dispatches" \
+            -f ref="$pr_branch" \
+            -f inputs[pr_number]="$pr_number"
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$REPOSITORY/actions/workflows/ci.yml/dispatches" \
+            -f ref="$pr_branch" \
+            -f inputs[pr_number]="$pr_number"
 
       - name: Derive semver tags
         id: semver
