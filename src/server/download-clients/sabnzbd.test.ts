@@ -43,6 +43,34 @@ describe("sabnzbd provider", () => {
 		}
 	});
 
+	it("rejects raw NZB uploads without a URL", async () => {
+		const config: ConnectionConfig = {
+			implementation: "SABnzbd",
+			host: "127.0.0.1",
+			port: 8080,
+			useSsl: false,
+			urlBase: null,
+			username: null,
+			password: null,
+			apiKey: "test-sabnzbd-api-key",
+			category: null,
+			tag: null,
+			settings: null,
+		};
+		const download: DownloadRequest = {
+			url: null,
+			torrentData: null,
+			nzbData: Buffer.from("raw-nzb-data"),
+			category: "books",
+			tag: null,
+			savePath: null,
+		};
+
+		await expect(sabnzbdProvider.addDownload(config, download)).rejects.toThrow(
+			"SABnzbd provider requires a URL",
+		);
+	});
+
 	it("adds a download and parses queue plus history items", async () => {
 		const server = await startHttpTestServer(async (request, response) => {
 			if (request.pathname !== "/api") {
@@ -164,6 +192,58 @@ describe("sabnzbd provider", () => {
 					isCompleted: true,
 				},
 			]);
+		} finally {
+			await server.stop();
+		}
+	});
+
+	it("surfaces add-download HTTP failures", async () => {
+		const server = await startHttpTestServer(async (request, response) => {
+			if (request.pathname !== "/api") {
+				response.statusCode = 404;
+				response.end("not found");
+				return;
+			}
+
+			const mode = new URLSearchParams(request.search).get("mode");
+			if (mode === "addurl") {
+				response.statusCode = 500;
+				response.end("boom");
+				return;
+			}
+
+			response.statusCode = 200;
+			response.setHeader("Content-Type", "application/json");
+			response.end(JSON.stringify({ status: true }));
+		});
+
+		try {
+			const config: ConnectionConfig = {
+				implementation: "SABnzbd",
+				host: "127.0.0.1",
+				port: Number(server.baseUrl.split(":").pop()),
+				useSsl: false,
+				urlBase: null,
+				username: null,
+				password: null,
+				apiKey: "test-sabnzbd-api-key",
+				category: null,
+				tag: null,
+				settings: null,
+			};
+			const download: DownloadRequest = {
+				url: "https://example.com/release.nzb",
+				torrentData: null,
+				nzbData: null,
+				category: "books",
+				tag: null,
+				savePath: null,
+			};
+
+			await expect(
+				sabnzbdProvider.addDownload(config, download),
+			).rejects.toThrow("SABnzbd add error: HTTP 500");
+			expect(server.requests).toHaveLength(1);
 		} finally {
 			await server.stop();
 		}
