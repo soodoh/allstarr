@@ -2,16 +2,46 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type FakeRow = Record<string, unknown>;
 
-function createFakeUsersDb(selectResults: Array<Array<FakeRow>> = []) {
-	let selectCallIndex = 0;
+function createFakeUsersDb({
+	userRows = [],
+	sessionRows = [],
+	accountRows = [],
+}: {
+	userRows?: Array<FakeRow>;
+	sessionRows?: Array<FakeRow>;
+	accountRows?: Array<FakeRow>;
+} = {}) {
+	function pickRows(shape?: Record<string, { name: string }>) {
+		if (shape && "lastLogin" in shape) {
+			return sessionRows;
+		}
+		if (shape && "providerId" in shape) {
+			return accountRows;
+		}
+		return userRows;
+	}
 
-	const select = vi.fn(() => {
-		const rows = selectResults[selectCallIndex++] ?? [];
+	const select = vi.fn((shape?: Record<string, { name: string }>) => {
+		const rows = pickRows(shape);
+
+		function projectRow(row: FakeRow) {
+			if (!shape) {
+				return row;
+			}
+
+			return Object.fromEntries(
+				Object.entries(shape).map(([key, value]) => [
+					key,
+					row[value?.name ?? key],
+				]),
+			);
+		}
+
 		const chain = {
 			orderBy: vi.fn(() => chain),
 			groupBy: vi.fn(() => chain),
-			all: vi.fn(() => rows),
-			get: vi.fn(() => rows[0]),
+			all: vi.fn(() => rows.map((row) => projectRow(row))),
+			get: vi.fn(() => projectRow(rows[0] ?? {})),
 		};
 
 		return {
@@ -167,8 +197,8 @@ describe("createUserFn", () => {
 
 describe("listUsersFn", () => {
 	it("hydrates authMethod and lastLogin for each user", async () => {
-		const db = createFakeUsersDb([
-			[
+		const db = createFakeUsersDb({
+			userRows: [
 				{
 					id: "user-1",
 					name: "Alice",
@@ -194,13 +224,13 @@ describe("listUsersFn", () => {
 					createdAt: new Date("2026-04-03T10:00:00.000Z"),
 				},
 			],
-			[
+			sessionRows: [
 				{
 					userId: "user-1",
 					lastLogin: new Date("2026-04-07T09:30:00.000Z"),
 				},
 			],
-			[
+			accountRows: [
 				{
 					userId: "user-1",
 					providerId: "credential",
@@ -218,7 +248,7 @@ describe("listUsersFn", () => {
 					providerId: "credential",
 				},
 			],
-		]);
+		});
 
 		vi.doMock("drizzle-orm", () => ({
 			desc: vi.fn(),
