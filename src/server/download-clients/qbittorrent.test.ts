@@ -58,6 +58,41 @@ describe("qbittorrent provider", () => {
 		}
 	});
 
+	it("reports invalid credentials when login fails", async () => {
+		const server = await startHttpTestServer(async (request, response) => {
+			expect(request.pathname).toBe("/api/v2/auth/login");
+			expect(request.method).toBe("POST");
+			response.statusCode = 200;
+			response.setHeader("Content-Type", "text/plain");
+			response.end("Fails.");
+		});
+
+		try {
+			const result = await qbittorrentProvider.testConnection({
+				implementation: "qBittorrent",
+				host: "127.0.0.1",
+				port: Number(server.baseUrl.split(":").pop()),
+				useSsl: false,
+				urlBase: null,
+				username: "admin",
+				password: "wrong-password",
+				apiKey: null,
+				category: null,
+				tag: null,
+				settings: null,
+			});
+
+			expect(result).toEqual({
+				success: false,
+				message: "Invalid username or password",
+				version: null,
+			});
+			expect(server.requests).toHaveLength(1);
+		} finally {
+			await server.stop();
+		}
+	});
+
 	it("sends download metadata and reads torrent listings", async () => {
 		const server = await startHttpTestServer(async (request, response) => {
 			if (request.pathname === "/api/v2/auth/login") {
