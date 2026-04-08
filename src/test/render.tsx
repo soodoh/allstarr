@@ -13,6 +13,7 @@ function createTestQueryClient(): QueryClient {
 			queries: {
 				retry: false,
 				gcTime: Number.POSITIVE_INFINITY,
+				staleTime: 30_000,
 			},
 			mutations: {
 				retry: false,
