@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import PORTS from "../ports";
+import { createAppServerSpawnConfig } from "./app-runtime";
 import { createTestDb, getTestState } from "./test-db";
 import type * as schema from "../../src/db/schema";
 
@@ -55,32 +55,23 @@ function noop(): void {
 export const test = base.extend<AppFixtures, WorkerFixtures>({
   appServer: [
     async ({}, use, workerInfo) => {
-      const port = PORTS.APP_BASE + workerInfo.workerIndex;
       const dbHandle = createTestDb(`worker-${workerInfo.workerIndex}`);
       const state = getTestState();
 
-      const proc = spawn(
-        "bun",
-        ["--bun", "vite", "dev", "--port", String(port)],
-        {
-          env: {
-            ...process.env,
-            DATABASE_URL: dbHandle.dbPath,
-            HARDCOVER_GRAPHQL_URL: `${state.servers.HARDCOVER}/v1/graphql`,
-            BETTER_AUTH_SECRET: "test-secret-for-e2e",
-            BETTER_AUTH_URL: `http://localhost:${port}`,
-            HARDCOVER_TOKEN: "Bearer test-hardcover-token",
-            SQLITE_JOURNAL_MODE: "DELETE",
-            E2E_TEST_MODE: "true",
-            PORT: String(port),
-          },
-          cwd: join(import.meta.dirname, "..", ".."),
-          stdio: "pipe",
-        },
-      );
+      const spawnConfig = createAppServerSpawnConfig({
+        workerIndex: workerInfo.workerIndex,
+        dbPath: dbHandle.dbPath,
+        servers: state.servers,
+      });
 
-      await waitForServer(`http://localhost:${port}`, 60_000);
-      await use({ url: `http://localhost:${port}`, dbHandle, proc });
+      const proc = spawn(spawnConfig.command, spawnConfig.args, {
+        env: spawnConfig.env,
+        cwd: spawnConfig.cwd,
+        stdio: "pipe",
+      });
+
+      await waitForServer(spawnConfig.url, 60_000);
+      await use({ url: spawnConfig.url, dbHandle, proc });
       proc.kill();
       dbHandle.cleanup();
     },
