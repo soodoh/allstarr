@@ -65,7 +65,6 @@ function createFakeUsersDb({
 				return accountRows;
 			case "session":
 				return sessionRows;
-			case "user":
 			default:
 				return userRows;
 		}

@@ -8,7 +8,10 @@ vi.mock("../download-clients/http", async () => {
 
 	return {
 		...actual,
-		fetchWithTimeout: vi.fn((...args) => actual.fetchWithTimeout(...args)),
+		fetchWithTimeout: vi.fn(
+			(...args: Parameters<typeof actual.fetchWithTimeout>) =>
+				actual.fetchWithTimeout(...args),
+		),
 	};
 });
 
