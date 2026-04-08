@@ -45,6 +45,14 @@ describe("useViewMode", () => {
 		expect(result.current[0]).toBe("grid");
 	});
 
+	it("falls back to table for pages without an explicit default", () => {
+		useQuery.mockReturnValue({ data: undefined });
+
+		const { result } = renderHook(() => useViewMode("author-books"));
+
+		expect(result.current[0]).toBe("table");
+	});
+
 	it("uses saved settings when present and persists updates", () => {
 		useQuery.mockReturnValue({ data: { viewMode: "grid" } });
 
