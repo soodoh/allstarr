@@ -185,6 +185,14 @@ describe("listUsersFn", () => {
 					image: "https://example.com/bob.png",
 					createdAt: new Date("2026-04-02T10:00:00.000Z"),
 				},
+				{
+					id: "user-3",
+					name: "Charlie",
+					email: "charlie@example.com",
+					role: "viewer",
+					image: null,
+					createdAt: new Date("2026-04-03T10:00:00.000Z"),
+				},
 			],
 			[
 				{
@@ -274,6 +282,16 @@ describe("listUsersFn", () => {
 				createdAt: new Date("2026-04-02T10:00:00.000Z"),
 				lastLogin: null,
 				authMethod: "google",
+			},
+			{
+				id: "user-3",
+				name: "Charlie",
+				email: "charlie@example.com",
+				role: "viewer",
+				image: null,
+				createdAt: new Date("2026-04-03T10:00:00.000Z"),
+				lastLogin: null,
+				authMethod: "credential",
 			},
 		]);
 	});
@@ -459,6 +477,56 @@ describe("default role flows", () => {
 			"auth.defaultRole",
 			"viewer",
 		);
+	});
+
+	it("returns a configured valid default role unchanged", async () => {
+		const getSettingValue = vi.fn().mockReturnValue("viewer");
+		const db = createFakeUsersDb();
+
+		vi.doMock("drizzle-orm", () => ({
+			desc: vi.fn(),
+			eq: vi.fn((column, value) => ({ column, value })),
+			max: vi.fn(),
+		}));
+		vi.doMock("src/db", () => ({
+			db,
+		}));
+		vi.doMock("src/db/schema", () => ({
+			account: {
+				userId: { name: "userId" },
+				providerId: { name: "providerId" },
+			},
+			session: {
+				userId: { name: "userId" },
+				createdAt: { name: "createdAt" },
+			},
+			user: {
+				id: { name: "id" },
+				name: { name: "name" },
+				email: { name: "email" },
+				role: { name: "role" },
+				image: { name: "image" },
+				createdAt: { name: "createdAt" },
+			},
+		}));
+		vi.doMock("src/lib/auth", () => ({
+			getAuth: vi.fn(),
+		}));
+		vi.doMock("./middleware", () => ({
+			requireAdmin: vi.fn().mockResolvedValue({
+				user: { id: "admin-1", role: "admin" },
+			}),
+		}));
+		vi.doMock("./settings-store", () => ({
+			getSettingValue,
+			upsertSettingValue: vi.fn(),
+		}));
+
+		const { getDefaultRoleFn } = await import("./users");
+
+		await expect(getDefaultRoleFn()).resolves.toEqual({
+			defaultRole: "viewer",
+		});
 	});
 });
 
