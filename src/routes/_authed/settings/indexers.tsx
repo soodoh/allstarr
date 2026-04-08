@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import type { IndexerFormValues } from "src/components/settings/indexers/indexer-form";
@@ -34,9 +34,7 @@ export const Route = createFileRoute("/_authed/settings/indexers")({
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(indexersListQuery()),
-			context.queryClient.ensureQueryData(syncedIndexersListQuery()),
 			context.queryClient.ensureQueryData(downloadClientsListQuery()),
-			context.queryClient.ensureQueryData(indexerStatusesQuery()),
 		]);
 	},
 	component: IndexersPage,
@@ -60,11 +58,11 @@ type AddStep =
 
 function IndexersPage() {
 	const { data: indexersList } = useSuspenseQuery(indexersListQuery());
-	const { data: syncedList } = useSuspenseQuery(syncedIndexersListQuery());
 	const { data: downloadClientsList } = useSuspenseQuery(
 		downloadClientsListQuery(),
 	);
-	const { data: indexerStatuses } = useSuspenseQuery(indexerStatusesQuery());
+	const { data: syncedList = [] } = useQuery(syncedIndexersListQuery());
+	const { data: indexerStatuses = [] } = useQuery(indexerStatusesQuery());
 
 	const createIndexer = useCreateIndexer();
 	const updateIndexer = useUpdateIndexer();

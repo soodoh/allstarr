@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import DownloadProfileForm from "src/components/settings/download-profiles/download-profile-form";
@@ -36,11 +36,10 @@ export const Route = createFileRoute("/_authed/settings/profiles")({
 	loader: async ({ context }) => {
 		const results = await Promise.all([
 			context.queryClient.ensureQueryData(downloadProfilesListQuery()),
-			context.queryClient.ensureQueryData(downloadFormatsListQuery()),
 			context.queryClient.ensureQueryData(customFormatsListQuery()),
 			getServerCwdFn(),
 		]);
-		return { serverCwd: results[3] };
+		return { serverCwd: results[2] };
 	},
 	component: ProfilesPage,
 });
@@ -64,7 +63,9 @@ type TabValue = "all" | "movie" | "tv" | "ebook" | "audiobook";
 function ProfilesPage() {
 	const { serverCwd } = Route.useLoaderData();
 	const { data: profiles } = useSuspenseQuery(downloadProfilesListQuery());
-	const { data: definitions } = useSuspenseQuery(downloadFormatsListQuery());
+	const formatsQuery = useQuery(downloadFormatsListQuery());
+	const definitions = formatsQuery.data ?? [];
+	const definitionsReady = formatsQuery.status === "success";
 
 	const createProfile = useCreateDownloadProfile();
 	const updateProfile = useUpdateDownloadProfile();
@@ -140,7 +141,11 @@ function ProfilesPage() {
 				description="Configure format preferences per author"
 				actions={
 					<Button
+						disabled={!definitionsReady}
 						onClick={() => {
+							if (!definitionsReady) {
+								return;
+							}
 							setEditingProfile(undefined);
 							setProfileDialogOpen(true);
 						}}
@@ -166,6 +171,9 @@ function ProfilesPage() {
 						profiles={filteredProfiles}
 						definitions={definitions}
 						onEdit={(profile) => {
+							if (!definitionsReady) {
+								return;
+							}
 							const found = profiles.find((p) => p.id === profile.id);
 							if (found) handleEditProfile(found);
 						}}
