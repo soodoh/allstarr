@@ -1,8 +1,4 @@
-import {
-	createServer,
-	type IncomingMessage,
-	type ServerResponse,
-} from "node:http";
+import { startHttpTestServer } from "src/server/__tests__/helpers/http-test-server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../indexer-rate-limiter", () => ({
@@ -17,73 +13,6 @@ vi.mock("../logger", () => ({
 
 import { searchNewznab, testNewznab } from "./http";
 
-type CapturedRequest = {
-	method: string;
-	pathname: string;
-	searchParams: URLSearchParams;
-	body: string;
-};
-
-async function readBody(req: IncomingMessage): Promise<string> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of req) {
-		chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-	}
-	return Buffer.concat(chunks).toString("utf8");
-}
-
-async function startServer(
-	handler: (
-		request: CapturedRequest,
-		response: ServerResponse,
-		requests: CapturedRequest[],
-	) => Promise<void> | void,
-) {
-	const requests: CapturedRequest[] = [];
-	const server = createServer((req, res) => {
-		void (async () => {
-			const url = new URL(req.url ?? "/", "http://127.0.0.1");
-			const request: CapturedRequest = {
-				method: req.method ?? "GET",
-				pathname: url.pathname,
-				searchParams: url.searchParams,
-				body: await readBody(req),
-			};
-			requests.push(request);
-			await handler(request, res, requests);
-		})().catch((error) => {
-			res.statusCode = 500;
-			res.setHeader("Content-Type", "text/plain");
-			res.end(error instanceof Error ? error.message : String(error));
-		});
-	});
-
-	await new Promise<void>((resolve) => {
-		server.listen(0, "127.0.0.1", resolve);
-	});
-
-	const address = server.address();
-	if (!address || typeof address === "string") {
-		throw new Error("Expected the test server to listen on a port");
-	}
-
-	return {
-		baseUrl: `http://127.0.0.1:${address.port}`,
-		requests,
-		async stop() {
-			await new Promise<void>((resolve, reject) => {
-				server.close((error) => {
-					if (error) {
-						reject(error);
-						return;
-					}
-					resolve();
-				});
-			});
-		},
-	};
-}
-
 afterEach(() => {
 	vi.resetModules();
 	vi.restoreAllMocks();
@@ -92,7 +21,7 @@ afterEach(() => {
 
 describe("newznab HTTP client", () => {
 	it("walks the tiered search order and normalizes release data", async () => {
-		const server = await startServer(async (request, response) => {
+		const server = await startHttpTestServer(async (request, response) => {
 			if (request.pathname !== "/api") {
 				response.statusCode = 404;
 				response.end("not found");
@@ -190,7 +119,7 @@ describe("newznab HTTP client", () => {
 	});
 
 	it("skips searching when no categories are configured", async () => {
-		const server = await startServer(async (_request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/xml");
 			response.end(`<?xml version="1.0"?><rss><channel></channel></rss>`);
@@ -215,7 +144,7 @@ describe("newznab HTTP client", () => {
 	});
 
 	it("reads the indexer version from caps", async () => {
-		const server = await startServer(async (request, response) => {
+		const server = await startHttpTestServer(async (request, response) => {
 			expect(request.pathname).toBe("/api");
 			expect(request.searchParams.get("t")).toBe("caps");
 			expect(request.searchParams.get("apikey")).toBe("test-newznab-api-key");
