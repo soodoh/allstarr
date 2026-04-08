@@ -159,9 +159,10 @@ function createFakeUsersDb({
 
 		const chain = {
 			orderBy: vi.fn((order?: { column?: FakeColumn; direction?: string }) => {
-				if (order?.direction === "desc" && order.column?.name) {
+				const orderColumn = order?.column;
+				if (order?.direction === "desc" && orderColumn?.name) {
 					rows = [...rows].sort((left, right) =>
-						compareValues(left[order.column.name], right[order.column.name]),
+						compareValues(left[orderColumn.name], right[orderColumn.name]),
 					);
 				}
 
