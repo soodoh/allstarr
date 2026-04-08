@@ -8,6 +8,11 @@ type FakeColumn = {
 	name: string;
 	tableName: "account" | "session" | "user";
 };
+type FakeAggregate = {
+	kind: "max";
+	column: FakeColumn;
+};
+type FakeSelectShape = Record<string, FakeColumn | FakeAggregate>;
 
 function createFakeSchema() {
 	function column(tableName: FakeColumn["tableName"], name: string) {
@@ -41,7 +46,7 @@ function createDrizzleOrmMock() {
 	return {
 		desc: vi.fn((column: FakeColumn) => ({ column, direction: "desc" })),
 		eq: vi.fn((column, value) => ({ column, value })),
-		max: vi.fn(),
+		max: vi.fn((column: FakeColumn) => ({ kind: "max", column })),
 	};
 }
 
@@ -66,8 +71,10 @@ function createFakeUsersDb({
 		}
 	}
 
-	const select = vi.fn((shape?: Record<string, { name: string }>) => {
+	const select = vi.fn((shape?: FakeSelectShape) => {
 		let rows = pickRows();
+		let currentTable: FakeTable | undefined;
+		let groupByColumn: FakeColumn | undefined;
 
 		function projectRow(row: FakeRow) {
 			if (!shape) {
@@ -75,11 +82,59 @@ function createFakeUsersDb({
 			}
 
 			return Object.fromEntries(
-				Object.entries(shape).map(([key, value]) => [
-					key,
-					row[value?.name ?? key],
-				]),
+				Object.entries(shape).map(([key, value]) => {
+					if ("kind" in value) {
+						return [key, row[value.column.name]];
+					}
+
+					return [key, row[value.name]];
+				}),
 			);
+		}
+
+		function aggregateRows() {
+			if (currentTable?.tableName !== "session" || !groupByColumn || !shape) {
+				return rows.map((row) => projectRow(row));
+			}
+
+			const grouped = new Map<unknown, FakeRow>();
+
+			for (const row of rows) {
+				const groupKey = row[groupByColumn.name];
+				const projected = Object.fromEntries(
+					Object.entries(shape).map(([key, value]) => {
+						if ("kind" in value) {
+							return [key, row[value.column.name]];
+						}
+
+						return [key, row[value.name]];
+					}),
+				);
+				const existing = grouped.get(groupKey);
+
+				if (!existing) {
+					grouped.set(groupKey, projected);
+					continue;
+				}
+
+				for (const [key, value] of Object.entries(shape)) {
+					if (!("kind" in value) || value.kind !== "max") {
+						continue;
+					}
+
+					const nextValue = projected[key];
+					const currentValue = existing[key];
+					if (
+						nextValue instanceof Date &&
+						(!(currentValue instanceof Date) ||
+							nextValue.getTime() > currentValue.getTime())
+					) {
+						existing[key] = nextValue;
+					}
+				}
+			}
+
+			return [...grouped.values()];
 		}
 
 		function compareValues(left: unknown, right: unknown) {
@@ -112,13 +167,17 @@ function createFakeUsersDb({
 
 				return chain;
 			}),
-			groupBy: vi.fn(() => chain),
-			all: vi.fn(() => rows.map((row) => projectRow(row))),
+			groupBy: vi.fn((column?: FakeColumn) => {
+				groupByColumn = column;
+				return chain;
+			}),
+			all: vi.fn(() => aggregateRows()),
 			get: vi.fn(() => projectRow(rows[0] ?? {})),
 		};
 
 		return {
 			from: vi.fn((table?: FakeTable) => {
+				currentTable = table;
 				rows = pickRows(table);
 				return chain;
 			}),
@@ -255,12 +314,12 @@ describe("listUsersFn", () => {
 		const db = createFakeUsersDb({
 			userRows: [
 				{
-					id: "user-3",
-					name: "Charlie",
-					email: "charlie@example.com",
+					id: "user-1",
+					name: "Alice",
+					email: "alice@example.com",
 					role: "viewer",
 					image: null,
-					createdAt: new Date("2026-04-03T10:00:00.000Z"),
+					createdAt: new Date("2026-04-01T10:00:00.000Z"),
 				},
 				{
 					id: "user-2",
@@ -271,18 +330,22 @@ describe("listUsersFn", () => {
 					createdAt: new Date("2026-04-02T10:00:00.000Z"),
 				},
 				{
-					id: "user-1",
-					name: "Alice",
-					email: "alice@example.com",
+					id: "user-3",
+					name: "Charlie",
+					email: "charlie@example.com",
 					role: "viewer",
 					image: null,
-					createdAt: new Date("2026-04-01T10:00:00.000Z"),
+					createdAt: new Date("2026-04-03T10:00:00.000Z"),
 				},
 			],
 			sessionRows: [
 				{
 					userId: "user-1",
-					lastLogin: new Date("2026-04-07T09:30:00.000Z"),
+					createdAt: new Date("2026-04-05T09:30:00.000Z"),
+				},
+				{
+					userId: "user-1",
+					createdAt: new Date("2026-04-07T09:30:00.000Z"),
 				},
 			],
 			accountRows: [
