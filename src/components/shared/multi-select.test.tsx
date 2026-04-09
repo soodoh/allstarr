@@ -1,3 +1,4 @@
+import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import {
@@ -50,6 +51,48 @@ describe("MultiSelect", () => {
 		expect(getByText("Alpha")).toBeInTheDocument();
 	});
 
+	it("opens from typing, supports ArrowUp, and ignores enter when nothing matches", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		const { getByPlaceholderText, getByText } = renderWithProviders(
+			<MultiSelect
+				emptyMessage="Nothing found."
+				items={[
+					{ key: "alpha", label: "Alpha" },
+					{ key: "beta", label: "Beta", secondary: "Target" },
+				]}
+				onChange={onChange}
+				value={[]}
+			/>,
+		);
+
+		const input = getByPlaceholderText("Type to search...");
+		await user.type(input, "zzz");
+		await user.keyboard("{ArrowUp}{Enter}");
+
+		expect(getByText("Nothing found.")).toBeInTheDocument();
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("opens when the input changes while it is still closed", () => {
+		const { getByPlaceholderText, getByText } = renderWithProviders(
+			<MultiSelect
+				emptyMessage="Nothing found."
+				items={[
+					{ key: "alpha", label: "Alpha" },
+					{ key: "beta", label: "Beta", secondary: "Target" },
+				]}
+				value={[]}
+			/>,
+		);
+
+		const input = getByPlaceholderText("Type to search...");
+		fireEvent.change(input, { target: { value: "zzz" } });
+
+		expect(getByText("Nothing found.")).toBeInTheDocument();
+	});
+
 	it("filters by search text and shows the empty message when nothing matches", async () => {
 		const user = userEvent.setup();
 
@@ -90,6 +133,26 @@ describe("MultiSelect", () => {
 		await user.keyboard("{Enter}");
 
 		expect(onChange).toHaveBeenCalledWith(["gamma"]);
+	});
+
+	it("filters items without secondary text", async () => {
+		const user = userEvent.setup();
+
+		const { getByPlaceholderText, getByText } = renderWithProviders(
+			<MultiSelect
+				emptyMessage="Nothing found."
+				items={[
+					{ key: "alpha", label: "Alpha" },
+					{ key: "beta", label: "Beta", secondary: "Target" },
+				]}
+				value={[]}
+			/>,
+		);
+
+		const input = getByPlaceholderText("Type to search...");
+		await user.type(input, "zzz");
+
+		expect(getByText("Nothing found.")).toBeInTheDocument();
 	});
 
 	it("falls back to the raw key when no display map is provided", () => {
@@ -140,6 +203,59 @@ describe("MultiSelect", () => {
 		);
 
 		expect(container.querySelector("button.ml-0\\.5")).toBeNull();
+	});
+
+	it("emits remove events only when the minimum selection count allows it", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		const { container, rerender } = renderWithProviders(
+			<MultiSelect
+				items={[{ key: "alpha", label: "Alpha" }]}
+				minItems={0}
+				onChange={onChange}
+				value={["alpha"]}
+			/>,
+		);
+
+		await user.click(
+			container.querySelector("button.ml-0\\.5") as HTMLButtonElement,
+		);
+		expect(onChange).toHaveBeenCalledWith([]);
+
+		rerender(
+			<MultiSelect
+				items={[{ key: "alpha", label: "Alpha" }]}
+				minItems={1}
+				onChange={onChange}
+				value={["alpha"]}
+			/>,
+		);
+
+		expect(container.querySelector("button.ml-0\\.5")).toBeNull();
+	});
+
+	it("uses the mouse handlers when a visible option is selected", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		const { getByPlaceholderText, getByRole } = renderWithProviders(
+			<MultiSelect
+				items={[
+					{ key: "alpha", label: "Alpha" },
+					{ key: "beta", label: "Beta", secondary: "Target" },
+				]}
+				onChange={onChange}
+				value={[]}
+			/>,
+		);
+
+		const input = getByPlaceholderText("Type to search...");
+		await user.click(input);
+		await user.hover(getByRole("button", { name: "BetaTarget" }));
+		await user.click(getByRole("button", { name: "BetaTarget" }));
+
+		expect(onChange).toHaveBeenCalledWith(["beta"]);
 	});
 
 	it("closes on escape and outside clicks", async () => {

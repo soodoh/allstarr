@@ -4,8 +4,29 @@ import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("src/components/ui/dialog", () => ({
-	Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
-		open ? <div data-testid="dialog-root">{children}</div> : null,
+	Dialog: ({
+		children,
+		open,
+		onOpenChange,
+	}: {
+		children: ReactNode;
+		open: boolean;
+		onOpenChange?: (open: boolean) => void;
+	}) => (
+		<div>
+			{open ? <div data-testid="dialog-root">{children}</div> : null}
+			<button
+				type="button"
+				data-testid="dialog-open"
+				onClick={() => onOpenChange?.(true)}
+			/>
+			<button
+				type="button"
+				data-testid="dialog-close"
+				onClick={() => onOpenChange?.(false)}
+			/>
+		</div>
+	),
 	DialogBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 	DialogContent: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
@@ -108,6 +129,30 @@ describe("UnmonitorDialog", () => {
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 		expect(onConfirm).toHaveBeenLastCalledWith(false);
+	});
+
+	it("passes open changes through without clearing the file toggle", async () => {
+		const user = userEvent.setup();
+		const onOpenChange = vi.fn();
+
+		const { getByLabelText, getByTestId } = renderWithProviders(
+			<UnmonitorDialog
+				fileCount={2}
+				isPending={false}
+				itemTitle="Dune"
+				itemType="book"
+				onConfirm={vi.fn()}
+				onOpenChange={onOpenChange}
+				open
+				profileName="Standard"
+			/>,
+		);
+
+		await user.click(getByLabelText("delete-files"));
+		await user.click(getByTestId("dialog-open"));
+
+		expect(onOpenChange).toHaveBeenCalledWith(true);
+		expect(getByLabelText("delete-files")).toBeChecked();
 	});
 
 	it("disables confirmation while pending", () => {

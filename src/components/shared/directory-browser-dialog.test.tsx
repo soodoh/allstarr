@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -14,8 +15,29 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 });
 
 vi.mock("src/components/ui/dialog", () => ({
-	Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
-		open ? <div>{children}</div> : null,
+	Dialog: ({
+		children,
+		open,
+		onOpenChange,
+	}: {
+		children: ReactNode;
+		open: boolean;
+		onOpenChange?: (open: boolean) => void;
+	}) => (
+		<div>
+			{open ? children : null}
+			<button
+				type="button"
+				data-testid="dialog-open"
+				onClick={() => onOpenChange?.(true)}
+			/>
+			<button
+				type="button"
+				data-testid="dialog-close"
+				onClick={() => onOpenChange?.(false)}
+			/>
+		</div>
+	),
 	DialogBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 	DialogContent: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
@@ -61,6 +83,19 @@ describe("DirectoryBrowserDialog", () => {
 	afterEach(() => {
 		mockedUseQuery.mockReset();
 	});
+
+	function TestHarness({ initialPath }: { initialPath?: string }) {
+		const [open, setOpen] = useState(true);
+
+		return (
+			<DirectoryBrowserDialog
+				initialPath={initialPath}
+				onOpenChange={setOpen}
+				onSelect={vi.fn()}
+				open={open}
+			/>
+		);
+	}
 
 	it("disables fetching while closed", () => {
 		mockedUseQuery.mockReturnValue({
@@ -256,8 +291,62 @@ describe("DirectoryBrowserDialog", () => {
 		expect(getByText("No subdirectories found")).toBeInTheDocument();
 		expect(getByRole("button", { name: "Cancel" })).toBeInTheDocument();
 
+		await user.click(getByRole("button", { name: ".." }));
+		expect(mockedUseQuery).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				queryKey: ["browse-directory", "/media", true],
+			}),
+		);
+
 		await user.click(getByRole("button", { name: "Cancel" }));
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it("resets the requested path when the dialog reopens", async () => {
+		const user = userEvent.setup();
+
+		mockedUseQuery.mockImplementation((options) => {
+			const [, path] = options.queryKey as [string, string, boolean];
+
+			if (path === "/mnt/media") {
+				return {
+					data: {
+						current: undefined,
+						directories: [{ name: "media", path: "/media" }],
+						parent: undefined,
+					},
+					error: null,
+					isLoading: false,
+				} as ReturnType<typeof useQuery>;
+			}
+
+			return {
+				data: {
+					current: "/media/library",
+					directories: [],
+					parent: "/",
+				},
+				error: null,
+				isLoading: false,
+			} as ReturnType<typeof useQuery>;
+		});
+
+		const { getByRole, getByTestId, getByText } = renderWithProviders(
+			<TestHarness initialPath="/mnt/media" />,
+		);
+
+		await user.click(getByRole("button", { name: "media" }));
+		expect(getByText("/media/library")).toBeInTheDocument();
+
+		await user.click(getByTestId("dialog-close"));
+		await user.click(getByTestId("dialog-open"));
+
+		expect(mockedUseQuery).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				queryKey: ["browse-directory", "/mnt/media", true],
+			}),
+		);
+		expect(getByText("/mnt/media")).toBeInTheDocument();
 	});
 });
