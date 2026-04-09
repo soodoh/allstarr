@@ -120,8 +120,23 @@ vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
 }));
 
 vi.mock("src/components/shared/metadata-warning", () => ({
-	default: ({ itemTitle, type }: { itemTitle: string; type: string }) => (
-		<div data-testid={`metadata-warning-${type}`}>{itemTitle}</div>
+	default: ({
+		itemTitle,
+		onDeleted,
+		type,
+	}: {
+		itemTitle: string;
+		onDeleted?: () => void;
+		type: string;
+	}) => (
+		<div data-testid={`metadata-warning-${type}`}>
+			<span>{itemTitle}</span>
+			{onDeleted ? (
+				<button aria-label={`delete-${type}`} onClick={onDeleted} type="button">
+					delete
+				</button>
+			) : null}
+		</div>
 	),
 }));
 
@@ -493,6 +508,234 @@ const hardcoverSeries = [
 	},
 ];
 
+const warningSeriesPayload = {
+	...seriesData,
+	books: [
+		{
+			...seriesData.books[0],
+			metadataSourceMissingSince: new Date("2024-01-02"),
+			languageCodes: ["en"],
+		},
+		{
+			...seriesData.books[1],
+			languageCodes: ["en"],
+			metadataSourceMissingSince: null,
+			missingEditionsCount: 2,
+		},
+	],
+	series: [
+		{
+			...seriesData.series[0],
+			books: [
+				{ bookId: 101, position: "1" },
+				{ bookId: 102, position: "2" },
+			],
+		},
+	],
+} as unknown as typeof seriesData;
+
+const dedupeSeriesPayload = {
+	...seriesData,
+	books: [
+		{
+			...seriesData.books[0],
+			languageCodes: ["en"],
+		},
+		{
+			...seriesData.books[1],
+			languageCodes: ["en"],
+			metadataSourceMissingSince: null,
+			missingEditionsCount: 0,
+		},
+	],
+	series: [
+		{
+			...seriesData.series[0],
+			books: [
+				{ bookId: 101, position: "1" },
+				{ bookId: 102, position: "4" },
+			],
+		},
+	],
+} as unknown as typeof seriesData;
+
+const dedupeHardcoverPayload = [
+	{
+		books: [
+			{
+				authorName: "Shadow Author",
+				coverUrl: "beta-shadow-cover",
+				editions: [
+					{
+						asin: "BETA-SHADOW-ASIN",
+						coverUrl: "beta-shadow-cover",
+						format: "Hardcover",
+						isDefaultCover: true,
+						isbn10: "BETA-SHADOW-10",
+						isbn13: "BETA-SHADOW-13",
+						languageCode: "en",
+						pageCount: 300,
+						releaseDate: "2024-02-01",
+						score: 60,
+						title: "Beta Shadow",
+					},
+				],
+				foreignBookId: 3030,
+				position: "4",
+				rating: 3.2,
+				releaseDate: "2024-02-01",
+				releaseYear: 2024,
+				slug: "beta-shadow",
+				title: "Beta Shadow",
+				usersCount: 999,
+			},
+			{
+				authorName: "Low Users",
+				coverUrl: "gamma-low-cover",
+				editions: [
+					{
+						asin: "GAMMA-LOW-ASIN",
+						coverUrl: "gamma-low-cover",
+						format: "Paperback",
+						isDefaultCover: true,
+						isbn10: "GAMMA-LOW-10",
+						isbn13: "GAMMA-LOW-13",
+						languageCode: "en",
+						pageCount: 210,
+						releaseDate: "2024-03-01",
+						score: 42,
+						title: "Gamma Low",
+					},
+				],
+				foreignBookId: 4040,
+				position: "5",
+				rating: 3.5,
+				releaseDate: "2024-03-01",
+				releaseYear: 2024,
+				slug: "gamma-low",
+				title: "Gamma Low",
+				usersCount: 35,
+			},
+			{
+				authorName: "High Users",
+				coverUrl: "gamma-high-cover",
+				editions: [
+					{
+						asin: "GAMMA-HIGH-ASIN",
+						coverUrl: "gamma-high-cover",
+						format: "Paperback",
+						isDefaultCover: true,
+						isbn10: "GAMMA-HIGH-10",
+						isbn13: "GAMMA-HIGH-13",
+						languageCode: "en",
+						pageCount: 220,
+						releaseDate: "2024-03-01",
+						score: 95,
+						title: "Gamma High",
+					},
+				],
+				foreignBookId: 5050,
+				position: "5",
+				rating: 4.8,
+				releaseDate: "2024-03-01",
+				releaseYear: 2024,
+				slug: "gamma-high",
+				title: "Gamma High",
+				usersCount: 450,
+			},
+			{
+				authorName: "No IDs",
+				coverUrl: "missing-ids-cover",
+				editions: [
+					{
+						coverUrl: "missing-ids-cover",
+						format: "Paperback",
+						isDefaultCover: true,
+						languageCode: "en",
+						pageCount: 180,
+						releaseDate: "2024-04-01",
+						score: 12,
+						title: "Missing IDs",
+					},
+				],
+				foreignBookId: 6060,
+				position: "6",
+				rating: 1.8,
+				releaseDate: "2024-04-01",
+				releaseYear: 2024,
+				slug: "missing-ids",
+				title: "Missing IDs",
+				usersCount: 80,
+			},
+			{
+				authorName: "No Release Date",
+				coverUrl: "missing-release-cover",
+				editions: [
+					{
+						asin: "MISSING-RELEASE-ASIN",
+						coverUrl: "missing-release-cover",
+						format: "Paperback",
+						isDefaultCover: true,
+						isbn10: "MISSING-RELEASE-10",
+						isbn13: null,
+						languageCode: "en",
+						pageCount: 190,
+						releaseDate: null,
+						score: 15,
+						title: "Missing Release Date",
+					},
+				],
+				foreignBookId: 7070,
+				position: "7",
+				rating: 2.1,
+				releaseDate: null,
+				releaseYear: 2024,
+				slug: "missing-release",
+				title: "Missing Release Date",
+				usersCount: 90,
+			},
+		],
+		foreignSeriesId: 777,
+	},
+] as const;
+
+const noMonitoredBooksPayload = {
+	availableLanguages: [{ language: "English", languageCode: "en" }],
+	books: [
+		{
+			...seriesData.books[1],
+			authorForeignId: "author-filtered",
+			authorName: "Filtered Author",
+			downloadProfileIds: [],
+			foreignBookId: "9010",
+			id: 901,
+			languageCodes: ["fr"],
+			metadataSourceMissingSince: null,
+			missingEditionsCount: 0,
+			releaseDate: null,
+			releaseYear: 2024,
+			slug: "filtered-alpha",
+			title: "Filtered Alpha",
+			usersCount: 10,
+			bookAuthors: [],
+			editions: [],
+			images: [],
+		},
+	],
+	series: [
+		{
+			bookCount: 1,
+			books: [{ bookId: 901, position: "1" }],
+			downloadProfileIds: [],
+			foreignSeriesId: null,
+			id: 9,
+			isCompleted: false,
+			monitored: false,
+			title: "Filtered Series",
+		},
+	],
+} as unknown as typeof seriesData;
+
 function installQueryMocks({
 	seriesPayload = seriesData,
 	downloadProfilesPayload = downloadProfiles,
@@ -717,5 +960,89 @@ describe("series route", () => {
 		});
 
 		expect(getByText("No series match “zzz”.")).toBeInTheDocument();
+	});
+
+	it("shows metadata warnings, clears search, and invalidates after deleting a warning", async () => {
+		vi.useFakeTimers();
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+
+		installQueryMocks({
+			seriesPayload: warningSeriesPayload,
+		});
+
+		const {
+			getByLabelText,
+			getByPlaceholderText,
+			getByText,
+			getByTestId,
+			queryByText,
+		} = renderWithProviders(<Component />);
+
+		fireEvent.click(getByText("Chronicles"));
+		expect(getByTestId("metadata-warning-book")).toHaveTextContent("Alpha");
+		expect(getByTestId("metadata-warning-book-editions")).toHaveTextContent(
+			"Beta",
+		);
+
+		fireEvent.change(getByPlaceholderText("Filter by series name..."), {
+			target: { value: "zzz" },
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		expect(getByText("No series match “zzz”.")).toBeInTheDocument();
+
+		fireEvent.click(getByLabelText("Clear search"));
+		expect(queryByText("No series match “zzz”.")).toBeNull();
+		expect(getByTestId("metadata-warning-book")).toBeInTheDocument();
+
+		fireEvent.click(getByLabelText("delete-book"));
+		expect(seriesRouteMocks.invalidate).toHaveBeenCalledTimes(1);
+	});
+
+	it("dedupes duplicate Hardcover entries and skips incomplete external editions", async () => {
+		const user = userEvent.setup();
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+
+		installQueryMocks({
+			seriesPayload: dedupeSeriesPayload,
+			hardcoverPayload: dedupeHardcoverPayload as unknown as unknown[],
+			metadataProfile: {
+				skipMissingIsbnAsin: true,
+				skipMissingReleaseDate: true,
+			},
+		});
+
+		const { getAllByText, getByText, queryByText } = renderWithProviders(
+			<Component />,
+		);
+
+		await user.click(getByText("Chronicles"));
+
+		expect(getAllByText("Beta").length).toBeGreaterThan(0);
+		expect(queryByText("Beta Shadow")).toBeNull();
+		expect(queryByText("Gamma Low")).toBeNull();
+		expect(getAllByText("Gamma High").length).toBeGreaterThan(0);
+		expect(queryByText("Missing IDs")).toBeNull();
+		expect(queryByText("Missing Release Date")).toBeNull();
+	});
+
+	it("shows the no monitored books state when every entry is filtered out", () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+
+		installQueryMocks({
+			seriesPayload: noMonitoredBooksPayload,
+			hardcoverPayload: [],
+		});
+
+		const { queryByText, getByText } = renderWithProviders(<Component />);
+
+		expect(
+			getByText("No series with monitored books found."),
+		).toBeInTheDocument();
+		expect(queryByText("Language")).toBeNull();
 	});
 });
