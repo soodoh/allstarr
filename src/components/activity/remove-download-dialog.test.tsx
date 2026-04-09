@@ -4,19 +4,32 @@ import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const removeDownloadDialogMocks = vi.hoisted(() => ({
+	isPending: false,
 	mutate: vi.fn(),
 }));
 
 vi.mock("src/hooks/mutations", () => ({
 	useRemoveFromQueue: () => ({
-		isPending: false,
+		isPending: removeDownloadDialogMocks.isPending,
 		mutate: removeDownloadDialogMocks.mutate,
 	}),
 }));
 
 vi.mock("src/components/ui/dialog", () => ({
-	Dialog: ({ children, open }: PropsWithChildren<{ open: boolean }>) => (
-		<div data-open={String(open)}>{children}</div>
+	Dialog: ({
+		children,
+		onOpenChange,
+		open,
+	}: PropsWithChildren<{
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+	}>) => (
+		<div data-open={String(open)}>
+			<button onClick={() => onOpenChange(true)} type="button">
+				Keep dialog open
+			</button>
+			{children}
+		</div>
 	),
 	DialogBody: ({ children }: PropsWithChildren) => <div>{children}</div>,
 	DialogContent: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -50,6 +63,7 @@ import RemoveDownloadDialog from "./remove-download-dialog";
 describe("RemoveDownloadDialog", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
+		removeDownloadDialogMocks.isPending = false;
 	});
 
 	const item = {
@@ -108,6 +122,20 @@ describe("RemoveDownloadDialog", () => {
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
+	it("does not reset checkbox state when the dialog stays open", async () => {
+		const user = userEvent.setup();
+		const { getByLabelText, getByRole } = renderWithProviders(
+			<RemoveDownloadDialog item={item as never} onOpenChange={vi.fn()} />,
+		);
+
+		await user.click(getByLabelText("Remove from download client"));
+		await user.click(getByLabelText("Add release to blocklist"));
+		await user.click(getByRole("button", { name: "Keep dialog open" }));
+
+		expect(getByLabelText("Remove from download client")).not.toBeChecked();
+		expect(getByLabelText("Add release to blocklist")).toBeChecked();
+	});
+
 	it("does nothing when remove is clicked without an item", async () => {
 		const user = userEvent.setup();
 		const { getByRole } = renderWithProviders(
@@ -117,5 +145,15 @@ describe("RemoveDownloadDialog", () => {
 		await user.click(getByRole("button", { name: "Remove" }));
 
 		expect(removeDownloadDialogMocks.mutate).not.toHaveBeenCalled();
+	});
+
+	it("shows a pending label while removal is in progress", () => {
+		removeDownloadDialogMocks.isPending = true;
+
+		const { getByRole } = renderWithProviders(
+			<RemoveDownloadDialog item={item as never} onOpenChange={vi.fn()} />,
+		);
+
+		expect(getByRole("button", { name: "Removing..." })).toBeDisabled();
 	});
 });

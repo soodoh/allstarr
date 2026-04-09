@@ -146,4 +146,73 @@ describe("QueueItemRow", () => {
 		expect(getByText("Done")).toBeInTheDocument();
 		expect(getByText("1 KB")).toBeInTheDocument();
 	});
+
+	it("formats short, empty, and hour-based download ETAs", () => {
+		const shortEtaItem = {
+			id: "dl-6",
+			name: "Short ETA",
+			authorName: null,
+			status: "downloading",
+			progress: 5,
+			downloadSpeed: 128,
+			uploadSpeed: 0,
+			downloaded: 128,
+			size: 1024,
+			estimatedTimeLeft: 45,
+			outputPath: null,
+			downloadClientName: "Client",
+			protocol: "usenet",
+		};
+		const emptyEtaItem = {
+			...shortEtaItem,
+			id: "dl-7",
+			name: "Empty ETA",
+			estimatedTimeLeft: 0,
+		};
+		const longEtaItem = {
+			...shortEtaItem,
+			id: "dl-8",
+			name: "Long ETA",
+			estimatedTimeLeft: 3660,
+		};
+
+		const shortView = renderWithProviders(
+			<QueueItemRow {...handlers} item={shortEtaItem as never} />,
+		);
+		const emptyView = renderWithProviders(
+			<QueueItemRow {...handlers} item={emptyEtaItem as never} />,
+		);
+		const longView = renderWithProviders(
+			<QueueItemRow {...handlers} item={longEtaItem as never} />,
+		);
+
+		expect(shortView.getByText("ETA: 45s")).toBeInTheDocument();
+		expect(emptyView.getByText("ETA: —")).toBeInTheDocument();
+		expect(longView.getByText("ETA: 1h 1m")).toBeInTheDocument();
+	});
+
+	it("shows the failed output path when one is available", () => {
+		const failedItem = {
+			id: "dl-9",
+			name: "Failed import",
+			authorName: null,
+			status: "failed",
+			progress: 0,
+			downloadSpeed: 0,
+			uploadSpeed: 0,
+			downloaded: 0,
+			size: 2048,
+			estimatedTimeLeft: null,
+			outputPath: "/downloads/failed/import.nzb",
+			downloadClientName: "Client",
+			protocol: "usenet",
+		};
+
+		const { getByText, queryByText } = renderWithProviders(
+			<QueueItemRow {...handlers} item={failedItem as never} />,
+		);
+
+		expect(getByText("/downloads/failed/import.nzb")).toBeInTheDocument();
+		expect(queryByText("Download failed")).not.toBeInTheDocument();
+	});
 });
