@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookEditDialogMocks = vi.hoisted(() => ({
 	updateBook: {
@@ -81,7 +81,6 @@ describe("BookEditDialog", () => {
 	});
 
 	it("saves the selected auto-switch setting and closes on success", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		const onSuccess = vi.fn();
 		bookEditDialogMocks.updateBook.mutate.mockImplementation(
@@ -90,7 +89,7 @@ describe("BookEditDialog", () => {
 			},
 		);
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<BookEditDialog
 				bookId={4}
 				bookTitle="The Example"
@@ -101,8 +100,8 @@ describe("BookEditDialog", () => {
 			/>,
 		);
 
-		await user.click(getByRole("switch"));
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("switch").click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(bookEditDialogMocks.updateBook.mutate).toHaveBeenCalledWith(
 			{
@@ -116,9 +115,8 @@ describe("BookEditDialog", () => {
 	});
 
 	it("resets the switch when reopened with new settings", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
-		const { getByRole, rerender } = renderWithProviders(
+		const { rerender } = await renderWithProviders(
 			<BookEditDialog
 				bookId={9}
 				bookTitle="Reset Me"
@@ -129,10 +127,10 @@ describe("BookEditDialog", () => {
 			/>,
 		);
 
-		await user.click(getByRole("switch"));
-		expect(getByRole("switch")).toBeChecked();
+		await page.getByRole("switch").click();
+		await expect.element(page.getByRole("switch")).toBeChecked();
 
-		rerender(
+		await rerender(
 			<BookEditDialog
 				bookId={9}
 				bookTitle="Reset Me"
@@ -142,7 +140,7 @@ describe("BookEditDialog", () => {
 				open={false}
 			/>,
 		);
-		rerender(
+		await rerender(
 			<BookEditDialog
 				bookId={9}
 				bookTitle="Reset Me"
@@ -153,6 +151,6 @@ describe("BookEditDialog", () => {
 			/>,
 		);
 
-		expect(getByRole("switch")).toBeChecked();
+		await expect.element(page.getByRole("switch")).toBeChecked();
 	});
 });

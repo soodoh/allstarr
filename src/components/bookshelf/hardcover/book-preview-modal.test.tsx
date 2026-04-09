@@ -1,4 +1,3 @@
-import userEvent from "@testing-library/user-event";
 import { createContext, type ReactNode, useContext } from "react";
 import type {
 	BookLanguage,
@@ -7,6 +6,7 @@ import type {
 } from "src/server/search";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookPreviewModalMocks = vi.hoisted(() => ({
 	authorExists: undefined as { id: string } | undefined,
@@ -309,7 +309,6 @@ describe("BookPreviewModal", () => {
 	});
 
 	it("renders book details and submits the add-author flow", async () => {
-		const user = userEvent.setup();
 		bookPreviewModalMocks.bookDetail = hardcoverBook;
 		bookPreviewModalMocks.languages = [
 			{ code: "en", name: "English", readers: 200 },
@@ -337,7 +336,7 @@ describe("BookPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { container, getByText, queryByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<BookPreviewModal
 				addDefaults={{
 					downloadProfileIds: [12],
@@ -352,24 +351,28 @@ describe("BookPreviewModal", () => {
 		);
 
 		expect(container).toHaveTextContent("Dune");
-		expect(getByText("Jane Doe")).toBeInTheDocument();
-		expect(getByText("2002-03-04")).toBeInTheDocument();
-		expect(getByText("Saga")).toBeInTheDocument();
-		expect(getByText("English, French")).toBeInTheDocument();
-		expect(getByText("Hardcover description.")).toBeInTheDocument();
+		await expect.element(page.getByText("Jane Doe")).toBeInTheDocument();
+		await expect.element(page.getByText("2002-03-04")).toBeInTheDocument();
+		await expect.element(page.getByText("Saga")).toBeInTheDocument();
+		await expect.element(page.getByText("English, French")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Hardcover description."))
+			.toBeInTheDocument();
 		expect(
 			container.querySelector('a[href="https://hardcover.app/books/dune"]'),
 		).not.toBeNull();
 
-		await user.click(getByText("Add Author & Monitor Book"));
-		expect(getByText("Monitor series (Saga)")).toBeInTheDocument();
-		expect(queryByText("Movie:idle")).toBeNull();
+		await page.getByText("Add Author & Monitor Book").click();
+		await expect
+			.element(page.getByText("Monitor series (Saga)"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Movie:idle")).not.toBeInTheDocument();
 
-		await user.click(getByText("EPUB:idle"));
-		await user.click(getByText("Monitor series (Saga)"));
-		expect(getByText("EPUB:selected")).toBeInTheDocument();
+		await page.getByText("EPUB:idle").click();
+		await page.getByText("Monitor series (Saga)").click();
+		await expect.element(page.getByText("EPUB:selected")).toBeInTheDocument();
 
-		await user.click(getByText("Confirm"));
+		await page.getByText("Confirm").click();
 
 		expect(bookPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
 			addDefaults: {
@@ -392,17 +395,18 @@ describe("BookPreviewModal", () => {
 	});
 
 	it("navigates to the local book when the preview is already in the library", async () => {
-		const user = userEvent.setup();
 		bookPreviewModalMocks.bookDetail = hardcoverBook;
 		bookPreviewModalMocks.booksExist = [{ id: 55 }];
 
 		const onOpenChange = vi.fn();
-		const { getByText } = renderWithProviders(
+		await renderWithProviders(
 			<BookPreviewModal book={previewBook} onOpenChange={onOpenChange} open />,
 		);
 
-		expect(getByText("View on Bookshelf")).toBeInTheDocument();
-		await user.click(getByText("View on Bookshelf"));
+		await expect
+			.element(page.getByText("View on Bookshelf"))
+			.toBeInTheDocument();
+		await page.getByText("View on Bookshelf").click();
 		expect(bookPreviewModalMocks.navigate).toHaveBeenCalledWith({
 			params: { bookId: "55" },
 			to: "/books/$bookId",
@@ -410,28 +414,27 @@ describe("BookPreviewModal", () => {
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
-	it("renders fallback hardcover data when the Hardcover detail query is empty", () => {
+	it("renders fallback hardcover data when the Hardcover detail query is empty", async () => {
 		bookPreviewModalMocks.authorExists = { id: "10" };
 		bookPreviewModalMocks.bookDetail = undefined;
 		bookPreviewModalMocks.languages = undefined;
 
-		const { container, getByText, queryByText, queryByLabelText } =
-			renderWithProviders(
-				<BookPreviewModal book={previewBook} onOpenChange={vi.fn()} open />,
-			);
+		const { container } = await renderWithProviders(
+			<BookPreviewModal book={previewBook} onOpenChange={vi.fn()} open />,
+		);
 
-		expect(getByText("Frank Herbert")).toBeInTheDocument();
-		expect(getByText("2001")).toBeInTheDocument();
-		expect(getByText("Search result overview.")).toBeInTheDocument();
-		expect(queryByText("Saga")).toBeNull();
-		expect(queryByLabelText("Open on Hardcover")).not.toBeNull();
+		await expect.element(page.getByText("Frank Herbert")).toBeInTheDocument();
+		await expect.element(page.getByText("2001")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Search result overview."))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Saga")).not.toBeInTheDocument();
 		expect(
 			container.querySelector('a[href="https://hardcover.app/books/dune"]'),
 		).not.toBeNull();
 	});
 
 	it("hides add controls for existing authors and cancels the inline form", async () => {
-		const user = userEvent.setup();
 		bookPreviewModalMocks.bookDetail = {
 			...hardcoverBook,
 			series: [],
@@ -448,7 +451,7 @@ describe("BookPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<BookPreviewModal
 				addDefaults={{
 					downloadProfileIds: [11],
@@ -462,17 +465,24 @@ describe("BookPreviewModal", () => {
 			/>,
 		);
 
-		await user.click(getByText("Add Author & Monitor Book"));
-		expect(getByText("Monitor Book")).toBeInTheDocument();
-		expect(queryByText("Monitor series (Saga)")).toBeNull();
+		await page.getByText("Add Author & Monitor Book").click();
+		await expect
+			.element(page.getByText("Monitor Book", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Monitor series (Saga)"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByText("Cancel"));
-		expect(queryByText("Monitor Book")).toBeNull();
-		expect(getByText("Add Author & Monitor Book")).toBeInTheDocument();
+		await page.getByText("Cancel").click();
+		await expect
+			.element(page.getByText("Monitor Book", { exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Add Author & Monitor Book"))
+			.toBeInTheDocument();
 	});
 
 	it("lets the add form select none for monitoring and submit the payload", async () => {
-		const user = userEvent.setup();
 		bookPreviewModalMocks.bookDetail = {
 			...hardcoverBook,
 			series: [],
@@ -488,7 +498,7 @@ describe("BookPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { getAllByRole, getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<BookPreviewModal
 				addDefaults={{
 					downloadProfileIds: [],
@@ -502,9 +512,9 @@ describe("BookPreviewModal", () => {
 			/>,
 		);
 
-		await user.click(getByText("Add Author & Monitor Book"));
-		await user.click(getAllByRole("button", { name: "None" })[0]);
-		await user.click(getByText("Confirm"));
+		await page.getByText("Add Author & Monitor Book").click();
+		await page.getByRole("button", { name: "None" }).first().click();
+		await page.getByText("Confirm").click();
 
 		expect(bookPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
 			addDefaults: {
@@ -524,6 +534,8 @@ describe("BookPreviewModal", () => {
 			searchOnAdd: false,
 		});
 		expect(onOpenChange).toHaveBeenCalledWith(false);
-		expect(queryByText("Monitor series (Saga)")).toBeNull();
+		await expect
+			.element(page.getByText("Monitor series (Saga)"))
+			.not.toBeInTheDocument();
 	});
 });

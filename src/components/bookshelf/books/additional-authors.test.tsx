@@ -1,6 +1,6 @@
-import { fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
@@ -76,16 +76,16 @@ const authors: BookAuthorEntry[] = [
 ];
 
 describe("AdditionalAuthors", () => {
-	it("returns null for empty author lists", () => {
-		const { container } = renderWithProviders(
+	it("returns null for empty author lists", async () => {
+		const { container } = await renderWithProviders(
 			<AdditionalAuthors bookAuthors={[]} />,
 		);
 
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("sorts authors, links local authors, and opens a preview for foreign authors", () => {
-		const { container, getByText, getByTestId } = renderWithProviders(
+	it("sorts authors, links local authors, and opens a preview for foreign authors", async () => {
+		const { container } = await renderWithProviders(
 			<AdditionalAuthors bookAuthors={authors.slice(0, 3)} maxVisible={5} />,
 		);
 
@@ -95,19 +95,19 @@ describe("AdditionalAuthors", () => {
 		expect(container.querySelector('a[href="/authors/1"]')).not.toBeNull();
 		expect(container.querySelector('a[href="/authors/2"]')).not.toBeNull();
 
-		fireEvent.click(getByText("Preview Writer"));
-		expect(getByTestId("author-preview-modal")).toHaveTextContent(
-			"Preview Writer",
-		);
+		await page.getByText("Preview Writer").click();
+		await expect
+			.element(page.getByTestId("author-preview-modal"))
+			.toHaveTextContent("Preview Writer");
 
-		fireEvent.click(getByText("close-preview"));
-		expect(
-			container.querySelector('[data-testid="author-preview-modal"]'),
-		).toBeNull();
+		await page.getByText("close-preview").click();
+		await expect
+			.element(page.getByTestId("author-preview-modal"))
+			.not.toBeInTheDocument();
 	});
 
-	it("truncates long author lists and can expand or keep the current author as plain text", () => {
-		const { container, getByText, queryByRole } = renderWithProviders(
+	it("truncates long author lists and can expand or keep the current author as plain text", async () => {
+		const { container } = await renderWithProviders(
 			<AdditionalAuthors
 				bookAuthors={authors}
 				currentAuthorId={1}
@@ -116,15 +116,17 @@ describe("AdditionalAuthors", () => {
 			/>,
 		);
 
-		expect(queryByRole("link", { name: "Primary Author" })).toBeNull();
+		await expect
+			.element(page.getByRole("link", { name: "Primary Author" }))
+			.not.toBeInTheDocument();
 		expect(container.textContent).toContain(
 			"Primary Author, Alpha Writer, and 2 more",
 		);
 
-		fireEvent.click(getByText(", and 2 more"));
+		await page.getByText(", and 2 more").click();
 		expect(container.textContent).toContain(
 			"Primary Author, Alpha Writer, Preview Writer, Zeta Author",
 		);
-		expect(getByText("(show less)")).toBeInTheDocument();
+		await expect.element(page.getByText("(show less)")).toBeInTheDocument();
 	});
 });

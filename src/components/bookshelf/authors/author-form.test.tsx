@@ -1,7 +1,7 @@
-import { fireEvent, screen } from "@testing-library/react";
 import { createContext, type ReactNode, useContext } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authorFormMocks = vi.hoisted(() => ({
 	profileCheckboxGroup: vi.fn(),
@@ -132,10 +132,10 @@ describe("AuthorForm", () => {
 		authorFormMocks.profileCheckboxGroup.mockClear();
 	});
 
-	it("submits selected profiles and monitoring mode", () => {
+	it("submits selected profiles and monitoring mode", async () => {
 		const onSubmit = vi.fn();
 
-		renderWithProviders(
+		const { container } = await renderWithProviders(
 			<AuthorForm
 				downloadProfiles={[
 					{ id: 1, name: "Books", icon: "book" },
@@ -157,13 +157,9 @@ describe("AuthorForm", () => {
 			selectedIds: [1],
 		});
 
-		fireEvent.click(screen.getByRole("button", { name: "Audio" }));
-		fireEvent.click(screen.getByRole("button", { name: "None" }));
-		const form = screen.getByRole("button", { name: "Save" }).closest("form");
-		if (!form) {
-			throw new Error("author form not found");
-		}
-		fireEvent.submit(form);
+		await page.getByRole("button", { name: "Audio" }).click();
+		await page.getByRole("button", { name: "None" }).click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(onSubmit).toHaveBeenCalledWith({
 			downloadProfileIds: [1, 2],
@@ -171,10 +167,10 @@ describe("AuthorForm", () => {
 		});
 	});
 
-	it("supports deselecting a profile and rendering cancel/loading states", () => {
+	it("supports deselecting a profile and rendering cancel/loading states", async () => {
 		const onCancel = vi.fn();
 
-		renderWithProviders(
+		await renderWithProviders(
 			<AuthorForm
 				downloadProfiles={[{ id: 5, name: "Profile", icon: "book" }]}
 				initialValues={{
@@ -188,11 +184,13 @@ describe("AuthorForm", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Profile" }));
-		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Profile" }).click();
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
-		expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Saving..." }))
+			.toBeDisabled();
 		expect(authorFormMocks.profileCheckboxGroup).toHaveBeenLastCalledWith({
 			profiles: [{ id: 5, name: "Profile", icon: "book" }],
 			selectedIds: [],

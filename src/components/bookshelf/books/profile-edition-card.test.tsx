@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/shared/optimized-image", () => ({
 	default: ({
@@ -67,11 +67,10 @@ const edition = {
 
 describe("ProfileEditionCard", () => {
 	it("renders monitored edition details and triggers change and unmonitor actions", async () => {
-		const user = userEvent.setup();
 		const onChooseEdition = vi.fn();
 		const onUnmonitor = vi.fn();
 
-		const { getByAltText, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<ProfileEditionCard
 				bookCoverUrl="https://covers.example/fallback.jpg"
 				edition={edition}
@@ -81,31 +80,31 @@ describe("ProfileEditionCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("Monitoring the Test Suite")).toHaveAttribute(
-			"src",
-			"https://covers.example/edition.jpg",
-		);
-		expect(getByText("Signal Press")).toBeInTheDocument();
-		expect(getByText("Audiobook")).toBeInTheDocument();
-		expect(getByText("2h 5m")).toBeInTheDocument();
-		expect(getByText("English")).toBeInTheDocument();
-		expect(getByText("ISBN: 9781234567897")).toBeInTheDocument();
-		expect(getByText("ASIN: B000123")).toBeInTheDocument();
-		expect(getByText("4,200 readers")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("Monitoring the Test Suite"))
+			.toHaveAttribute("src", "https://covers.example/edition.jpg");
+		await expect.element(page.getByText("Signal Press")).toBeInTheDocument();
+		await expect.element(page.getByText("Audiobook")).toBeInTheDocument();
+		await expect.element(page.getByText("2h 5m")).toBeInTheDocument();
+		await expect.element(page.getByText("English")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("ISBN: 9781234567897"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("ASIN: B000123")).toBeInTheDocument();
+		await expect.element(page.getByText("4,200 readers")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Change" }));
-		await user.click(getByRole("button", { name: "Unmonitor" }));
+		await page.getByRole("button", { name: "Change" }).click();
+		await page.getByRole("button", { name: "Unmonitor" }).click();
 
 		expect(onChooseEdition).toHaveBeenCalledTimes(1);
 		expect(onUnmonitor).toHaveBeenCalledTimes(1);
 	});
 
 	it("renders the unmonitored placeholder and uses the book cover fallback", async () => {
-		const user = userEvent.setup();
 		const onChooseEdition = vi.fn();
 		const onUnmonitor = vi.fn();
 
-		const { getByRole, queryByAltText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<ProfileEditionCard
 				bookCoverUrl="https://covers.example/fallback.jpg"
 				edition={null}
@@ -115,17 +114,23 @@ describe("ProfileEditionCard", () => {
 			/>,
 		);
 
-		expect(queryByAltText("Monitoring the Test Suite")).toBeNull();
-		expect(getByRole("button", { name: "Choose Edition" })).toBeInTheDocument();
-		expect(queryByText("Unmonitor")).toBeNull();
-		expect(queryByText("No edition selected")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("Monitoring the Test Suite"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Choose Edition" }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Unmonitor")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No edition selected"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Choose Edition" }));
+		await page.getByRole("button", { name: "Choose Edition" }).click();
 		expect(onChooseEdition).toHaveBeenCalledTimes(1);
 		expect(onUnmonitor).not.toHaveBeenCalled();
 	});
 
-	it("formats short audio durations without hours", () => {
+	it("formats short audio durations without hours", async () => {
 		const shortEdition = {
 			...edition,
 			audioLength: 45,
@@ -133,7 +138,7 @@ describe("ProfileEditionCard", () => {
 			usersCount: 0,
 		};
 
-		const { getByAltText, getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<ProfileEditionCard
 				bookCoverUrl="https://covers.example/fallback.jpg"
 				edition={shortEdition}
@@ -143,11 +148,10 @@ describe("ProfileEditionCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("Monitoring the Test Suite")).toHaveAttribute(
-			"src",
-			"https://covers.example/fallback.jpg",
-		);
-		expect(getByText("45m")).toBeInTheDocument();
-		expect(queryByText("readers")).toBeNull();
+		await expect
+			.element(page.getByAltText("Monitoring the Test Suite"))
+			.toHaveAttribute("src", "https://covers.example/fallback.jpg");
+		await expect.element(page.getByText("45m")).toBeInTheDocument();
+		await expect.element(page.getByText("readers")).not.toBeInTheDocument();
 	});
 });

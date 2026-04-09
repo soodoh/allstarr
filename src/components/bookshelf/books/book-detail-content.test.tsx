@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("lucide-react", () => ({
 	ChevronDown: ({ className }: { className?: string }) => (
@@ -47,6 +47,8 @@ vi.mock("src/components/ui/popover", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...classes: (string | undefined | null | false)[]) =>
+		classes.filter(Boolean).join(" "),
 	getCoverUrl: (images: Array<{ coverType: string; url: string }>) =>
 		images[0]?.url ?? null,
 }));
@@ -84,36 +86,38 @@ const baseBook = {
 
 describe("BookDetailContent", () => {
 	it("renders the detailed metadata, preferred cover image, languages, and custom children", async () => {
-		const user = userEvent.setup();
-		const { getByAltText, getByRole, getByText, getByTestId } =
-			renderWithProviders(
-				<BookDetailContent book={baseBook}>
-					<div>Injected child content</div>
-				</BookDetailContent>,
-			);
-
-		expect(getByAltText("The Testing Book cover")).toHaveAttribute(
-			"src",
-			"https://covers.example/from-images.jpg",
+		await renderWithProviders(
+			<BookDetailContent book={baseBook}>
+				<div>Injected child content</div>
+			</BookDetailContent>,
 		);
-		expect(getByText("Visible Author")).toBeInTheDocument();
-		expect(getByText("2024-01-15")).toBeInTheDocument();
-		expect(getByText("Main Saga #2")).toBeInTheDocument();
-		expect(getByText("4.2/5")).toBeInTheDocument();
-		expect(getByText("(1,200 votes)")).toBeInTheDocument();
-		expect(getByText("5,500")).toBeInTheDocument();
-		expect(getByRole("link", { name: "View on Hardcover" })).toHaveAttribute(
-			"href",
-			"https://hardcover.app/books/1",
-		);
-		expect(getByText("Injected child content")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: /English and 1 other/i }));
-		expect(getByTestId("popover-content")).toHaveTextContent("English");
-		expect(getByTestId("popover-content")).toHaveTextContent("Spanish");
+		await expect
+			.element(page.getByAltText("The Testing Book cover"))
+			.toHaveAttribute("src", "https://covers.example/from-images.jpg");
+		await expect.element(page.getByText("Visible Author")).toBeInTheDocument();
+		await expect.element(page.getByText("2024-01-15")).toBeInTheDocument();
+		await expect.element(page.getByText("Main Saga #2")).toBeInTheDocument();
+		await expect.element(page.getByText("4.2/5")).toBeInTheDocument();
+		await expect.element(page.getByText("(1,200 votes)")).toBeInTheDocument();
+		await expect.element(page.getByText("5,500")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "View on Hardcover" }))
+			.toHaveAttribute("href", "https://hardcover.app/books/1");
+		await expect
+			.element(page.getByText("Injected child content"))
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: /English and 1 other/i }).click();
+		await expect
+			.element(page.getByTestId("popover-content"))
+			.toHaveTextContent("English");
+		await expect
+			.element(page.getByTestId("popover-content"))
+			.toHaveTextContent("Spanish");
 	});
 
-	it("falls back to the coverUrl, singular vote label, and hides optional sections when data is absent", () => {
+	it("falls back to the coverUrl, singular vote label, and hides optional sections when data is absent", async () => {
 		const sparseBook = {
 			...baseBook,
 			author: null,
@@ -129,19 +133,23 @@ describe("BookDetailContent", () => {
 			series: null,
 		};
 
-		const { getByAltText, getByRole, queryByRole, queryByText } =
-			renderWithProviders(<BookDetailContent book={sparseBook} />);
+		await renderWithProviders(<BookDetailContent book={sparseBook} />);
 
-		expect(getByAltText("The Testing Book cover")).toHaveAttribute(
-			"src",
-			"https://covers.example/original.jpg",
-		);
-		expect(getByRole("button", { name: "English" })).toBeInTheDocument();
-		expect(queryByRole("link", { name: "View on Hardcover" })).toBeNull();
-		expect(queryByText("Description")).toBeNull();
-		expect(queryByText("Readers:")).toBeNull();
-		expect(queryByText("Series:")).toBeNull();
-		expect(queryByText("Release Date:")).toBeNull();
-		expect(queryByText("(1 vote)")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("The Testing Book cover"))
+			.toHaveAttribute("src", "https://covers.example/original.jpg");
+		await expect
+			.element(page.getByRole("button", { name: "English" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "View on Hardcover" }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("Description")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Readers:")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Series:")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Release Date:"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("(1 vote)")).toBeInTheDocument();
 	});
 });

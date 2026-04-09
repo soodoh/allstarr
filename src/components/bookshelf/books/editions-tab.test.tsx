@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const editionsTabMocks = vi.hoisted(() => ({
 	setEditionForProfile: {
@@ -120,8 +119,8 @@ describe("EditionsTab", () => {
 		editionsTabMocks.unmonitorBookProfile.mutate.mockReset();
 	});
 
-	it("shows the empty state when no profiles are assigned", () => {
-		const { getByText } = renderWithProviders(
+	it("shows the empty state when no profiles are assigned", async () => {
+		await renderWithProviders(
 			<EditionsTab
 				authorDownloadProfiles={[]}
 				bookCoverUrl={null}
@@ -132,20 +131,19 @@ describe("EditionsTab", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No download profiles assigned to this author."),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No download profiles assigned to this author."))
+			.toBeInTheDocument();
 	});
 
 	it("sorts monitored profiles first and opens the edition picker", async () => {
-		const user = userEvent.setup();
 		editionsTabMocks.setEditionForProfile.mutate.mockImplementation(
 			(_payload: unknown, options?: { onSuccess?: () => void }) => {
 				options?.onSuccess?.();
 			},
 		);
 
-		const { getByTestId, queryByTestId, container } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<EditionsTab
 				authorDownloadProfiles={[
 					{
@@ -195,21 +193,25 @@ describe("EditionsTab", () => {
 		expect(cards[0]).toHaveTextContent("Monitored");
 		expect(cards[1]).toHaveTextContent("Unmonitored");
 
-		await user.click(
-			within(cards[1] as HTMLElement).getByRole("button", {
-				name: "Choose Edition",
-			}),
-		);
-		expect(getByTestId("edition-selection-modal")).toHaveTextContent(
-			"Unmonitored",
-		);
-		expect(getByTestId("edition-selection-modal")).toHaveTextContent("none");
+		const unmonitoredCard = cards[1] as HTMLElement;
+		const chooseBtn = unmonitoredCard.querySelector(
+			'button[type="button"]',
+		) as HTMLButtonElement;
+		await chooseBtn.click();
 
-		await user.click(
-			within(getByTestId("edition-selection-modal")).getByRole("button", {
-				name: "Confirm edition",
-			}),
-		);
+		await expect
+			.element(page.getByTestId("edition-selection-modal"))
+			.toHaveTextContent("Unmonitored");
+		await expect
+			.element(page.getByTestId("edition-selection-modal"))
+			.toHaveTextContent("none");
+
+		const modal = await page.getByTestId("edition-selection-modal").element();
+		const confirmBtn = modal.querySelector(
+			'button[type="button"]',
+		) as HTMLButtonElement;
+		await confirmBtn.click();
+
 		expect(editionsTabMocks.setEditionForProfile.mutate).toHaveBeenCalledWith(
 			{
 				editionId: 99,
@@ -217,18 +219,19 @@ describe("EditionsTab", () => {
 			},
 			expect.any(Object),
 		);
-		expect(queryByTestId("edition-selection-modal")).toBeNull();
+		await expect
+			.element(page.getByTestId("edition-selection-modal"))
+			.not.toBeInTheDocument();
 	});
 
 	it("opens the unmonitor dialog and submits the selected option", async () => {
-		const user = userEvent.setup();
 		editionsTabMocks.unmonitorBookProfile.mutate.mockImplementation(
 			(_payload: unknown, options?: { onSuccess?: () => void }) => {
 				options?.onSuccess?.();
 			},
 		);
 
-		const { getByRole, getByTestId, queryByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<EditionsTab
 				authorDownloadProfiles={[
 					{
@@ -265,10 +268,12 @@ describe("EditionsTab", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Unmonitor" }));
-		expect(getByTestId("unmonitor-dialog")).toHaveTextContent("Audio");
+		await page.getByRole("button", { name: "Unmonitor" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("Audio");
 
-		await user.click(getByRole("button", { name: "Confirm unmonitor" }));
+		await page.getByRole("button", { name: "Confirm unmonitor" }).click();
 		expect(editionsTabMocks.unmonitorBookProfile.mutate).toHaveBeenCalledWith(
 			{
 				bookId: 55,
@@ -277,6 +282,8 @@ describe("EditionsTab", () => {
 			},
 			expect.any(Object),
 		);
-		expect(queryByTestId("unmonitor-dialog")).toBeNull();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
 	});
 });

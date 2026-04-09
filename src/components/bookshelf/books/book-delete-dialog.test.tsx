@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookDeleteDialogMocks = vi.hoisted(() => ({
 	deleteBook: {
@@ -92,7 +92,6 @@ describe("BookDeleteDialog", () => {
 	});
 
 	it("submits the selected delete options and closes on success", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		const onSuccess = vi.fn();
 		bookDeleteDialogMocks.deleteBook.mutate.mockImplementation(
@@ -101,7 +100,7 @@ describe("BookDeleteDialog", () => {
 			},
 		);
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<BookDeleteDialog
 				bookId={77}
 				bookTitle="The Long Road"
@@ -113,11 +112,11 @@ describe("BookDeleteDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("Delete 2 book files from disk"));
-		await user.click(
-			getByLabelText("Prevent re-addition during author refresh"),
-		);
-		await user.click(getByRole("button", { name: "Delete" }));
+		await page.getByLabelText("Delete 2 book files from disk").click();
+		await page
+			.getByLabelText("Prevent re-addition during author refresh")
+			.click();
+		await page.getByRole("button", { name: "Delete" }).click();
 
 		expect(bookDeleteDialogMocks.deleteBook.mutate).toHaveBeenCalledWith(
 			{
@@ -132,9 +131,8 @@ describe("BookDeleteDialog", () => {
 	});
 
 	it("resets its checkbox state when reopened and omits the exclusion option without a foreign book id", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
-		const { getByLabelText, queryByLabelText, rerender } = renderWithProviders(
+		const { rerender } = await renderWithProviders(
 			<BookDeleteDialog
 				bookId={12}
 				bookTitle="Standalone"
@@ -146,13 +144,15 @@ describe("BookDeleteDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("Delete 1 book file from disk"));
-		expect(getByLabelText("Delete 1 book file from disk")).toBeChecked();
-		expect(
-			queryByLabelText("Prevent re-addition during author refresh"),
-		).toBeNull();
+		await page.getByLabelText("Delete 1 book file from disk").click();
+		await expect
+			.element(page.getByLabelText("Delete 1 book file from disk"))
+			.toBeChecked();
+		await expect
+			.element(page.getByLabelText("Prevent re-addition during author refresh"))
+			.not.toBeInTheDocument();
 
-		rerender(
+		await rerender(
 			<BookDeleteDialog
 				bookId={12}
 				bookTitle="Standalone"
@@ -163,7 +163,7 @@ describe("BookDeleteDialog", () => {
 				open={false}
 			/>,
 		);
-		rerender(
+		await rerender(
 			<BookDeleteDialog
 				bookId={12}
 				bookTitle="Standalone"
@@ -175,6 +175,8 @@ describe("BookDeleteDialog", () => {
 			/>,
 		);
 
-		expect(getByLabelText("Delete 1 book file from disk")).not.toBeChecked();
+		await expect
+			.element(page.getByLabelText("Delete 1 book file from disk"))
+			.not.toBeChecked();
 	});
 });

@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/ui/tooltip", () => ({
 	Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -62,8 +62,8 @@ describe("ReleaseTable", () => {
 		vi.clearAllMocks();
 	});
 
-	it("shows loading and empty states", () => {
-		const { getAllByTestId, getByText, rerender } = renderWithProviders(
+	it("shows loading and empty states", async () => {
+		const { rerender } = await renderWithProviders(
 			<ReleaseTable
 				grabbingGuid={undefined}
 				loading
@@ -73,9 +73,9 @@ describe("ReleaseTable", () => {
 			/>,
 		);
 
-		expect(getAllByTestId("skeleton")).toHaveLength(7);
+		expect(await page.getByTestId("skeleton").all()).toHaveLength(7);
 
-		rerender(
+		await rerender(
 			<ReleaseTable
 				grabbingGuid={undefined}
 				onGrab={vi.fn()}
@@ -84,11 +84,12 @@ describe("ReleaseTable", () => {
 			/>,
 		);
 
-		expect(getByText("No releases found.")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No releases found."))
+			.toBeInTheDocument();
 	});
 
 	it("renders release rows, sorts them, and exposes the grab/status branches", async () => {
-		const user = userEvent.setup();
 		const onGrab = vi.fn();
 		const releases = [
 			{
@@ -128,7 +129,7 @@ describe("ReleaseTable", () => {
 			},
 		];
 
-		const { container, getByText, getByTitle } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<ReleaseTable
 				grabbingGuid={undefined}
 				onGrab={onGrab}
@@ -141,31 +142,33 @@ describe("ReleaseTable", () => {
 			/>,
 		);
 
-		expect(getByText("Zulu")).toBeInTheDocument();
-		expect(getByText("Alpha")).toBeInTheDocument();
-		expect(getByText("Beta")).toBeInTheDocument();
-		expect(getByText("Gamma")).toBeInTheDocument();
-		expect(getByText("Ebook")).toBeInTheDocument();
-		expect(getByText("Audio")).toBeInTheDocument();
-		expect(getByText("Too small")).toBeInTheDocument();
-		expect(getByText("Downloading")).toBeInTheDocument();
-		expect(getByText("Already on disk")).toBeInTheDocument();
-		expect(getByTitle("Previously sent to client")).toBeInTheDocument();
-		expect(getByTitle("Grab release")).toBeInTheDocument();
+		await expect.element(page.getByText("Zulu")).toBeInTheDocument();
+		await expect.element(page.getByText("Alpha")).toBeInTheDocument();
+		await expect.element(page.getByText("Beta")).toBeInTheDocument();
+		await expect.element(page.getByText("Gamma")).toBeInTheDocument();
+		await expect.element(page.getByText("Ebook")).toBeInTheDocument();
+		await expect.element(page.getByText("Audio")).toBeInTheDocument();
+		await expect.element(page.getByText("Too small")).toBeInTheDocument();
+		await expect.element(page.getByText("Downloading")).toBeInTheDocument();
+		await expect.element(page.getByText("Already on disk")).toBeInTheDocument();
+		await expect
+			.element(page.getByTitle("Previously sent to client"))
+			.toBeInTheDocument();
+		await expect.element(page.getByTitle("Grab release")).toBeInTheDocument();
 
-		await user.click(getByTitle("Grab release"));
+		await page.getByTitle("Grab release").click();
 		expect(onGrab).toHaveBeenCalledWith(
 			expect.objectContaining({ guid: "zulu-guid" }),
 		);
 
-		await user.click(getByText("Title"));
+		await page.getByText("Title").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Alpha",
 		);
 	});
 
-	it("shows a disabled grab control while a release is already being grabbed", () => {
-		const { getByRole } = renderWithProviders(
+	it("shows a disabled grab control while a release is already being grabbed", async () => {
+		await renderWithProviders(
 			<ReleaseTable
 				grabbingGuid="zulu-guid"
 				onGrab={vi.fn()}
@@ -174,6 +177,6 @@ describe("ReleaseTable", () => {
 			/>,
 		);
 
-		expect(getByRole("button")).toBeDisabled();
+		await expect.element(page.getByRole("button")).toBeDisabled();
 	});
 });

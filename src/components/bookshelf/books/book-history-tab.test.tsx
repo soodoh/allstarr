@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookHistoryTabMocks = vi.hoisted(() => ({
 	historyListQuery: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock("src/components/shared/table-pagination", () => ({
 	default: ({
 		onPageChange,
 		onPageSizeChange,
-		page,
+		page: currentPage,
 		pageSize,
 		totalItems,
 		totalPages,
@@ -56,9 +56,9 @@ vi.mock("src/components/shared/table-pagination", () => ({
 	}) => (
 		<div data-testid="pagination">
 			<div>
-				page:{page} size:{pageSize} total:{totalItems} pages:{totalPages}
+				page:{currentPage} size:{pageSize} total:{totalItems} pages:{totalPages}
 			</div>
-			<button onClick={() => onPageChange(page + 1)} type="button">
+			<button onClick={() => onPageChange(currentPage + 1)} type="button">
 				Next page
 			</button>
 			<button onClick={() => onPageSizeChange(10)} type="button">
@@ -95,14 +95,16 @@ describe("BookHistoryTab", () => {
 		bookHistoryTabMocks.useQuery.mockReset();
 	});
 
-	it("shows a loading state while fetching history", () => {
+	it("shows a loading state while fetching history", async () => {
 		bookHistoryTabMocks.useQuery.mockReturnValue({
 			isLoading: true,
 		});
 
-		const { getByText } = renderWithProviders(<BookHistoryTab bookId={7} />);
+		await renderWithProviders(<BookHistoryTab bookId={7} />);
 
-		expect(getByText("Loading history...")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Loading history..."))
+			.toBeInTheDocument();
 		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenCalledWith({
 			bookId: 7,
 			limit: 25,
@@ -110,7 +112,7 @@ describe("BookHistoryTab", () => {
 		});
 	});
 
-	it("renders events and refreshes the query params when pagination changes", () => {
+	it("renders events and refreshes the query params when pagination changes", async () => {
 		bookHistoryTabMocks.useQuery.mockReturnValue({
 			data: {
 				items: [
@@ -149,29 +151,30 @@ describe("BookHistoryTab", () => {
 			isLoading: false,
 		});
 
-		const { getByRole, getByText, getByTestId } = renderWithProviders(
-			<BookHistoryTab bookId={7} />,
-		);
+		await renderWithProviders(<BookHistoryTab bookId={7} />);
 
-		expect(getByText("Grabbed")).toHaveAttribute("data-variant", "outline");
-		expect(getByText("Book Updated")).toHaveAttribute(
-			"data-variant",
-			"secondary",
-		);
-		expect(
-			getByText("Client: qBittorrent · Protocol: torrent · 1 KB"),
-		).toBeInTheDocument();
-		expect(getByText("title: The Archive, updated: true")).toBeInTheDocument();
-		expect(getByTestId("pagination")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Grabbed"))
+			.toHaveAttribute("data-variant", "outline");
+		await expect
+			.element(page.getByText("Book Updated"))
+			.toHaveAttribute("data-variant", "secondary");
+		await expect
+			.element(page.getByText("Client: qBittorrent · Protocol: torrent · 1 KB"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("title: The Archive, updated: true"))
+			.toBeInTheDocument();
+		await expect.element(page.getByTestId("pagination")).toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Next page" }));
+		await page.getByRole("button", { name: "Next page" }).click();
 		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			bookId: 7,
 			limit: 25,
 			page: 2,
 		});
 
-		fireEvent.click(getByRole("button", { name: "Page size 10" }));
+		await page.getByRole("button", { name: "Page size 10" }).click();
 		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			bookId: 7,
 			limit: 10,

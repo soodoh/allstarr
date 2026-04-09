@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authorTableMocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -142,8 +142,8 @@ describe("AuthorTable", () => {
 		authorTableMocks.useTableColumns.mockReturnValue({ visibleColumns });
 	});
 
-	it("sorts rows, renders links and covers, and navigates from row clicks", () => {
-		const { container, getByRole, getByText } = renderWithProviders(
+	it("sorts rows, renders links and covers, and navigates from row clicks", async () => {
+		const { container } = await renderWithProviders(
 			<AuthorTable authors={authors} />,
 		);
 
@@ -159,18 +159,18 @@ describe("AuthorTable", () => {
 			container.querySelector('img[alt="Barbara Liskov"]'),
 		).not.toHaveAttribute("src");
 		expect(container.querySelector('a[href="/authors/1"]')).not.toBeNull();
-		expect(getByText("Custom Label")).toBeInTheDocument();
+		await expect.element(page.getByText("Custom Label")).toBeInTheDocument();
 
-		fireEvent.click(getByRole("link", { name: "Ada Lovelace" }));
+		await page.getByRole("link", { name: "Ada Lovelace" }).click();
 		expect(authorTableMocks.navigate).not.toHaveBeenCalled();
 
-		fireEvent.click(rows[1] as HTMLTableRowElement);
+		await (rows[1] as HTMLTableRowElement).click();
 		expect(authorTableMocks.navigate).toHaveBeenCalledWith({
 			params: { authorId: "1" },
 			to: "/authors/$authorId",
 		});
 
-		fireEvent.click(getByText("Books"));
+		await page.getByText("Books").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Barbara Liskov",
 		);
@@ -181,7 +181,7 @@ describe("AuthorTable", () => {
 			"Ada Lovelace",
 		);
 
-		fireEvent.click(getByText("Books"));
+		await page.getByText("Books").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Ada Lovelace",
 		);
