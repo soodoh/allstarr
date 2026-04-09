@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, renderHook } from "@vitest/browser/utils";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useState } from "react";
 import { TooltipProvider } from "src/components/ui/tooltip";
+import { render, renderHook } from "vitest-browser-react";
 
 function createTestQueryClient(): QueryClient {
 	return new QueryClient({

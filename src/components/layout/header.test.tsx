@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
+import { render } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const headerMocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -59,29 +59,26 @@ describe("Header", () => {
 	});
 
 	it("toggles the sidebar from the menu button", async () => {
-		const user = userEvent.setup();
-
 		render(<Header />);
 
-		const [toggleButton] = screen.getAllByRole("button");
+		// Wait for buttons to be present in the DOM
+		await expect.element(page.getByRole("button").first()).toBeInTheDocument();
+		const buttons = await page.getByRole("button").all();
 
-		await user.click(toggleButton);
+		await buttons[0].click();
 
 		expect(headerMocks.toggleSidebar).toHaveBeenCalledTimes(1);
 	});
 
 	it("signs out, shows a toast, and navigates to the login page", async () => {
-		const user = userEvent.setup();
 		headerMocks.signOut.mockResolvedValueOnce(undefined);
 
 		render(<Header />);
 
-		await user.click(screen.getByRole("button", { name: "Sign Out" }));
+		await page.getByRole("button", { name: "Sign Out" }).click();
 
-		await waitFor(() => {
-			expect(headerMocks.signOut).toHaveBeenCalledTimes(1);
-			expect(headerMocks.toastSuccess).toHaveBeenCalledWith("Signed out");
-			expect(headerMocks.navigate).toHaveBeenCalledWith({ to: "/login" });
-		});
+		await expect.poll(() => headerMocks.signOut).toHaveBeenCalledTimes(1);
+		expect(headerMocks.toastSuccess).toHaveBeenCalledWith("Signed out");
+		expect(headerMocks.navigate).toHaveBeenCalledWith({ to: "/login" });
 	});
 });
