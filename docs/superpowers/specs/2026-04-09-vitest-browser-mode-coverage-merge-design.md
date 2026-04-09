@@ -165,15 +165,24 @@ Build command: `INSTRUMENT_COVERAGE=true bun run build`
 
 This produces `.output/server/index.mjs` with Istanbul instrumentation. When Bun runs it, `global.__coverage__` accumulates coverage data at runtime.
 
-#### Step 2: Coverage Extraction Endpoint
+#### Step 2: Coverage Written on Process Exit
 
-Add a test-only API endpoint (gated behind existing `E2E_TEST_MODE` env var):
+When the instrumented server shuts down (receives `SIGTERM` from Playwright fixture's `proc.kill()`), it writes `global.__coverage__` to a local JSON file:
 
 ```ts
-// GET /api/__test-coverage
-// Returns global.__coverage__ as JSON
-// Only available when E2E_TEST_MODE=true
+// Conditionally added to server entry when INSTRUMENT_COVERAGE is set
+if (process.env.INSTRUMENT_COVERAGE) {
+  process.on('SIGTERM', () => {
+    const coverage = globalThis.__coverage__;
+    if (coverage) {
+      writeFileSync('coverage/e2e/raw/server-istanbul.json', JSON.stringify(coverage));
+    }
+    process.exit(0);
+  });
+}
 ```
+
+The merge script picks up this file from the same `coverage/e2e/raw/` directory alongside client-side coverage. No API endpoints needed.
 
 #### Step 3: Playwright Coverage Collection
 
@@ -181,9 +190,7 @@ Add a test-only API endpoint (gated behind existing `E2E_TEST_MODE` env var):
 - `page.coverage.startJSCoverage()` in test fixture setup
 - `page.coverage.stopJSCoverage()` in `afterEach`, fed to monocart
 
-**Server-side coverage** — collected in Playwright global teardown:
-- `GET /api/__test-coverage` from the running server
-- Write Istanbul data to `coverage/e2e/raw/`
+**Server-side coverage** — written to `coverage/e2e/raw/server-istanbul.json` on server shutdown (automatic via Step 2)
 
 **Playwright config gains monocart-reporter:**
 
