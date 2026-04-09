@@ -53,9 +53,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@commitlint/types": "^20.5.0",
@@ -67,15 +64,18 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/browser": "^4.1.4",
     "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.31.10",
     "lefthook": "^2.1.5",
-    "jsdom": "^27.0.1",
+    "monocart-coverage-reports": "^2.12.9",
+    "monocart-reporter": "^2.10.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.5",
+    "vite-plugin-istanbul": "^8.0.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "@vitest/coverage-v8": "4.1.2",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "vitest-monocart-coverage": "^4.0.2"
   }
 }
