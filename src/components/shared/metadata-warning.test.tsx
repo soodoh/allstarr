@@ -153,6 +153,31 @@ describe("MetadataWarning", () => {
 		expect(onDeleted).toHaveBeenCalledTimes(1);
 	});
 
+	it("renders the large edition warning without a reassign action", () => {
+		const { getByLabelText, getByText, queryByRole } = renderWithProviders(
+			<MetadataWarning
+				fileCount={1}
+				itemId={11}
+				itemTitle="Dune Hardcover"
+				missingSince={new Date("2025-01-01")}
+				size="lg"
+				type="edition"
+			/>,
+		);
+
+		expect(getByLabelText('Metadata warning for "Dune Hardcover"')).toHaveClass(
+			"h-9",
+			"w-9",
+		);
+		expect(
+			getByText("This edition is no longer available on Hardcover"),
+		).toBeInTheDocument();
+		expect(getByText("Since Dec 31, 2024")).toBeInTheDocument();
+		expect(
+			queryByRole("button", { name: "Reassign 1 File(s)" }),
+		).not.toBeInTheDocument();
+	});
+
 	it("passes pending state through to the confirm action", async () => {
 		const user = userEvent.setup();
 		deleteBookState.isPending = true;

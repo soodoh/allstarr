@@ -111,7 +111,7 @@ describe("UnmonitorDialog", () => {
 	});
 
 	it("disables confirmation while pending", () => {
-		const { getByRole } = renderWithProviders(
+		const { container, getByRole } = renderWithProviders(
 			<UnmonitorDialog
 				fileCount={1}
 				isPending
@@ -124,6 +124,7 @@ describe("UnmonitorDialog", () => {
 			/>,
 		);
 
+		expect(container.querySelector(".animate-spin")).not.toBeNull();
 		expect(getByRole("button", { name: "Confirm" })).toBeDisabled();
 	});
 });

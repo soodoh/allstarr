@@ -111,6 +111,48 @@ describe("DirectoryBrowserDialog", () => {
 		expect(errorView.getByText("No access")).toBeInTheDocument();
 	});
 
+	it("renders the fallback error message for non-Error failures", () => {
+		mockedUseQuery.mockReturnValue({
+			data: undefined,
+			error: "permission denied",
+			isLoading: false,
+		} as ReturnType<typeof useQuery>);
+
+		const { getByText } = renderWithProviders(
+			<DirectoryBrowserDialog onOpenChange={vi.fn()} onSelect={vi.fn()} open />,
+		);
+
+		expect(getByText("Failed to read directory")).toBeInTheDocument();
+	});
+
+	it("starts from a custom initial path", () => {
+		mockedUseQuery.mockReturnValue({
+			data: {
+				current: "/mnt/media",
+				directories: [],
+				parent: null,
+			},
+			error: null,
+			isLoading: false,
+		} as ReturnType<typeof useQuery>);
+
+		const { getByText } = renderWithProviders(
+			<DirectoryBrowserDialog
+				initialPath="/mnt/media"
+				onOpenChange={vi.fn()}
+				onSelect={vi.fn()}
+				open
+			/>,
+		);
+
+		expect(mockedUseQuery).toHaveBeenCalledWith(
+			expect.objectContaining({
+				queryKey: ["browse-directory", "/mnt/media", true],
+			}),
+		);
+		expect(getByText("/mnt/media")).toBeInTheDocument();
+	});
+
 	it("navigates directories, toggles hidden folders, and selects the displayed path", async () => {
 		const user = userEvent.setup();
 		const onSelect = vi.fn();

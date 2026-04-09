@@ -70,6 +70,36 @@ describe("MultiSelect", () => {
 		expect(getByText("Nothing found.")).toBeInTheDocument();
 	});
 
+	it("matches secondary text when selecting from the filtered list", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		const { getByPlaceholderText } = renderWithProviders(
+			<MultiSelect
+				items={[
+					{ key: "alpha", label: "Alpha", secondary: "A" },
+					{ key: "gamma", label: "Gamma", secondary: "Target" },
+				]}
+				onChange={onChange}
+				value={[]}
+			/>,
+		);
+
+		const input = getByPlaceholderText("Type to search...");
+		await user.type(input, "target");
+		await user.keyboard("{Enter}");
+
+		expect(onChange).toHaveBeenCalledWith(["gamma"]);
+	});
+
+	it("falls back to the raw key when no display map is provided", () => {
+		const { getByText } = renderWithProviders(
+			<MultiSelect items={[{ key: 42, label: "Forty Two" }]} value={[42]} />,
+		);
+
+		expect(getByText("42")).toBeInTheDocument();
+	});
+
 	it("removes selected items and respects the minimum selection count", async () => {
 		const user = userEvent.setup();
 		const onChange = vi.fn();
