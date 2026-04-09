@@ -10,8 +10,12 @@ vi.mock("lucide-react", () => ({
 }));
 
 vi.mock("src/components/bookshelf/books/additional-authors", () => ({
-	default: ({ bookAuthors }: { bookAuthors: Array<{ name: string }> }) => (
-		<span>{bookAuthors.map((author) => author.name).join(", ")}</span>
+	default: ({
+		bookAuthors,
+	}: {
+		bookAuthors: Array<{ authorName: string }>;
+	}) => (
+		<span>{bookAuthors.map((author) => author.authorName).join(", ")}</span>
 	),
 }));
 
@@ -56,7 +60,14 @@ const baseBook = {
 		{ code: "en", name: "English" },
 		{ code: "es", name: "Spanish" },
 	],
-	bookAuthors: [{ id: 1, name: "Visible Author" }],
+	bookAuthors: [
+		{
+			authorId: 7,
+			authorName: "Visible Author",
+			foreignAuthorId: "visible-author",
+			isPrimary: true,
+		},
+	],
 	coverUrl: "https://covers.example/original.jpg",
 	hardcoverUrl: "https://hardcover.app/books/1",
 	images: [
