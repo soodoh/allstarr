@@ -1,0 +1,182 @@
+import { fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "src/test/render";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const bookHistoryTabMocks = vi.hoisted(() => ({
+	historyListQuery: vi.fn(),
+	useQuery: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+
+	return {
+		...actual,
+		useQuery: (...args: Parameters<typeof actual.useQuery>) =>
+			bookHistoryTabMocks.useQuery(...args),
+	};
+});
+
+vi.mock("src/lib/queries", () => ({
+	historyListQuery: (params: unknown) => {
+		bookHistoryTabMocks.historyListQuery(params);
+		return {
+			queryFn: vi.fn(),
+			queryKey: ["history", "list", params],
+		};
+	},
+}));
+
+vi.mock("src/components/shared/table-pagination", () => ({
+	default: ({
+		onPageChange,
+		onPageSizeChange,
+		page,
+		pageSize,
+		totalItems,
+		totalPages,
+	}: {
+		onPageChange: (page: number) => void;
+		onPageSizeChange: (size: number) => void;
+		page: number;
+		pageSize: number;
+		totalItems: number;
+		totalPages: number;
+	}) => (
+		<div data-testid="pagination">
+			<div>
+				page:{page} size:{pageSize} total:{totalItems} pages:{totalPages}
+			</div>
+			<button onClick={() => onPageChange(page + 1)} type="button">
+				Next page
+			</button>
+			<button onClick={() => onPageSizeChange(10)} type="button">
+				Page size 10
+			</button>
+		</div>
+	),
+}));
+
+vi.mock("src/components/ui/badge", () => ({
+	Badge: ({
+		children,
+		variant,
+	}: {
+		children: React.ReactNode;
+		variant: string;
+	}) => <span data-variant={variant}>{children}</span>,
+}));
+
+vi.mock("src/components/ui/table", () => ({
+	Table: ({ children }: { children: React.ReactNode }) => (
+		<table>{children}</table>
+	),
+	TableBody: ({ children }: { children: React.ReactNode }) => (
+		<tbody>{children}</tbody>
+	),
+	TableCell: ({ children }: { children: React.ReactNode }) => (
+		<td>{children}</td>
+	),
+	TableHead: ({ children }: { children: React.ReactNode }) => (
+		<th>{children}</th>
+	),
+	TableHeader: ({ children }: { children: React.ReactNode }) => (
+		<thead>{children}</thead>
+	),
+	TableRow: ({ children }: { children: React.ReactNode }) => (
+		<tr>{children}</tr>
+	),
+}));
+
+import BookHistoryTab from "./book-history-tab";
+
+describe("BookHistoryTab", () => {
+	afterEach(() => {
+		bookHistoryTabMocks.historyListQuery.mockReset();
+		bookHistoryTabMocks.useQuery.mockReset();
+	});
+
+	it("shows a loading state while fetching history", () => {
+		bookHistoryTabMocks.useQuery.mockReturnValue({
+			isLoading: true,
+		});
+
+		const { getByText } = renderWithProviders(<BookHistoryTab bookId={7} />);
+
+		expect(getByText("Loading history...")).toBeInTheDocument();
+		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenCalledWith({
+			bookId: 7,
+			limit: 25,
+			page: 1,
+		});
+	});
+
+	it("renders events and refreshes the query params when pagination changes", () => {
+		bookHistoryTabMocks.useQuery.mockReturnValue({
+			data: {
+				items: [
+					{
+						authorId: null,
+						authorName: null,
+						bookId: 7,
+						bookTitle: "The Archive",
+						data: {
+							downloadClientName: "qBittorrent",
+							protocol: "torrent",
+							size: 1024,
+						},
+						date: new Date("2025-03-01T12:00:00Z"),
+						eventType: "bookGrabbed",
+						id: 1,
+					},
+					{
+						authorId: null,
+						authorName: null,
+						bookId: 7,
+						bookTitle: "The Archive",
+						data: {
+							title: "The Archive",
+							updated: true,
+						},
+						date: new Date("2025-03-02T12:00:00Z"),
+						eventType: "bookUpdated",
+						id: 2,
+					},
+				],
+				page: 1,
+				total: 2,
+				totalPages: 4,
+			},
+			isLoading: false,
+		});
+
+		const { getByRole, getByText } = renderWithProviders(
+			<BookHistoryTab bookId={7} />,
+		);
+
+		expect(getByText("Grabbed")).toHaveAttribute("data-variant", "outline");
+		expect(getByText("Book Updated")).toHaveAttribute(
+			"data-variant",
+			"secondary",
+		);
+		expect(
+			getByText("Client: qBittorrent · Protocol: torrent · 1 KB"),
+		).toBeInTheDocument();
+		expect(getByText("title: The Archive, updated: true")).toBeInTheDocument();
+		expect(getByText("pagination")).toBeInTheDocument();
+
+		fireEvent.click(getByRole("button", { name: "Next page" }));
+		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenLastCalledWith({
+			bookId: 7,
+			limit: 25,
+			page: 2,
+		});
+
+		fireEvent.click(getByRole("button", { name: "Page size 10" }));
+		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenLastCalledWith({
+			bookId: 7,
+			limit: 10,
+			page: 1,
+		});
+	});
+});
