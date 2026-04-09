@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const downloadClientFormMocks = vi.hoisted(() => ({
 	testDownloadClientFn: vi.fn(),
@@ -122,26 +122,26 @@ describe("DownloadClientForm", () => {
 	}
 
 	it("validates required fields before submitting", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		mockMutation();
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadClientForm onCancel={vi.fn()} onSubmit={onSubmit} />,
 		);
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(getByText("Name is required")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Name is required"))
+			.toBeInTheDocument();
 	});
 
 	it("hides host fields for Blackhole, tests the connection payload, and submits the watch-folder config", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		mockMutation();
 
-		const { getByLabelText, getByRole, queryByLabelText } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadClientForm
 				initialValues={{
 					implementation: "Blackhole",
@@ -154,14 +154,20 @@ describe("DownloadClientForm", () => {
 			/>,
 		);
 
-		expect(queryByLabelText("Host")).not.toBeInTheDocument();
-		expect(queryByLabelText("Port")).not.toBeInTheDocument();
-		expect(queryByLabelText("SSL")).not.toBeInTheDocument();
-		expect(queryByLabelText("Category")).not.toBeInTheDocument();
-		expect(queryByLabelText("Tag (optional)")).not.toBeInTheDocument();
-		expect(getByLabelText("Watch Folder")).toHaveValue("/data/watch");
+		await expect.element(page.getByLabelText("Host")).not.toBeInTheDocument();
+		await expect.element(page.getByLabelText("Port")).not.toBeInTheDocument();
+		await expect.element(page.getByLabelText("SSL")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Category"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Tag (optional)"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Watch Folder"))
+			.toHaveValue("/data/watch");
 
-		await user.click(getByRole("button", { name: "Test Connection" }));
+		await page.getByRole("button", { name: "Test Connection" }).click();
 
 		expect(downloadClientFormMocks.testDownloadClientFn).toHaveBeenCalledWith({
 			data: {
@@ -179,7 +185,7 @@ describe("DownloadClientForm", () => {
 			},
 		});
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(onSubmit).toHaveBeenCalledWith({
 			apiKey: "",
@@ -201,10 +207,10 @@ describe("DownloadClientForm", () => {
 		});
 	});
 
-	it("respects the loading state and custom cancel label", () => {
+	it("respects the loading state and custom cancel label", async () => {
 		mockMutation();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadClientForm
 				cancelLabel="Back"
 				loading
@@ -213,7 +219,11 @@ describe("DownloadClientForm", () => {
 			/>,
 		);
 
-		expect(getByRole("button", { name: "Saving..." })).toBeDisabled();
-		expect(getByRole("button", { name: "Back" })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Saving..." }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Back" }))
+			.toBeInTheDocument();
 	});
 });

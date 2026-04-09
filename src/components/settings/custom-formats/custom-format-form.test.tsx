@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 import type { Spec } from "./specification-builder";
 
 const customFormatFormMocks = vi.hoisted(() => ({
@@ -57,7 +57,6 @@ describe("CustomFormatForm", () => {
 	});
 
 	it("submits the validated payload with the edited fields", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 		const onSubmit = vi.fn();
 
@@ -77,7 +76,7 @@ describe("CustomFormatForm", () => {
 			value: "foo",
 		} satisfies Spec;
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<CustomFormatForm
 				initialValues={{
 					category: "Unwanted",
@@ -100,17 +99,17 @@ describe("CustomFormatForm", () => {
 			}),
 		);
 
-		await user.click(getByRole("button", { name: "Add Spec" }));
-		await user.click(getByLabelText("Movie"));
-		await user.click(getByLabelText("Include in Renaming"));
-		await user.clear(getByLabelText("Name"));
-		await user.type(getByLabelText("Name"), "Updated Movie Block");
-		await user.clear(getByLabelText("Default Score"));
-		await user.type(getByLabelText("Default Score"), "1700");
-		await user.clear(getByLabelText("Description"));
-		await user.type(getByLabelText("Description"), "Matched release groups");
+		await page.getByRole("button", { name: "Add Spec" }).click();
+		await page.getByLabelText("Movie").click();
+		await page.getByLabelText("Include in Renaming").click();
+		await page.getByLabelText("Name").clear();
+		await page.getByLabelText("Name").fill("Updated Movie Block");
+		await page.getByLabelText("Default Score").clear();
+		await page.getByLabelText("Default Score").fill("1700");
+		await page.getByLabelText("Description").clear();
+		await page.getByLabelText("Description").fill("Matched release groups");
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(customFormatFormMocks.validateForm).toHaveBeenCalledWith(
 			expect.anything(),
@@ -147,7 +146,6 @@ describe("CustomFormatForm", () => {
 	});
 
 	it("shows validation errors and server errors without submitting", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 		const onSubmit = vi.fn();
 
@@ -157,7 +155,7 @@ describe("CustomFormatForm", () => {
 			success: false,
 		});
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<CustomFormatForm
 				onCancel={onCancel}
 				onSubmit={onSubmit}
@@ -165,22 +163,28 @@ describe("CustomFormatForm", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
-		expect(getByText("Name is required")).toBeInTheDocument();
-		expect(getByText("Backend rejected the format")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Name is required"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Backend rejected the format"))
+			.toBeInTheDocument();
 		expect(onSubmit).not.toHaveBeenCalled();
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});
 
-	it("disables submit while loading", () => {
-		const { getByRole } = renderWithProviders(
+	it("disables submit while loading", async () => {
+		await renderWithProviders(
 			<CustomFormatForm loading onCancel={vi.fn()} onSubmit={vi.fn()} />,
 		);
 
-		expect(getByRole("button", { name: "Saving..." })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Saving..." }))
+			.toBeDisabled();
 	});
 });

@@ -1,7 +1,6 @@
-import { fireEvent, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const cfScoreSectionMocks = vi.hoisted(() => ({
 	addCategory: {
@@ -133,7 +132,6 @@ describe("CFScoreSection", () => {
 	});
 
 	it("supports local score editing, format adds, and category adds for a new profile", async () => {
-		const user = userEvent.setup();
 		const onMinScoreChange = vi.fn();
 		const onUpgradeUntilScoreChange = vi.fn();
 		const onLocalScoresChange = vi.fn();
@@ -148,69 +146,81 @@ describe("CFScoreSection", () => {
 			}),
 		);
 
-		const { getByLabelText, getByPlaceholderText, getByRole, getByText } =
-			renderWithProviders(
-				<CFScoreSection
-					contentType="movie"
-					localScores={[{ customFormatId: 1, score: 125 }]}
-					minCustomFormatScore={100}
-					onLocalScoresChange={onLocalScoresChange}
-					onMinScoreChange={onMinScoreChange}
-					onUpgradeUntilScoreChange={onUpgradeUntilScoreChange}
-					upgradeUntilCustomFormatScore={200}
-				/>,
-			);
+		await renderWithProviders(
+			<CFScoreSection
+				contentType="movie"
+				localScores={[{ customFormatId: 1, score: 125 }]}
+				minCustomFormatScore={100}
+				onLocalScoresChange={onLocalScoresChange}
+				onMinScoreChange={onMinScoreChange}
+				onUpgradeUntilScoreChange={onUpgradeUntilScoreChange}
+				upgradeUntilCustomFormatScore={200}
+			/>,
+		);
 
-		const row = getByText("Movie Title Match").closest("tr");
-		expect(row).not.toBeNull();
-		if (!row) {
-			throw new Error("Expected a score row");
-		}
+		// Get the row containing "Movie Title Match" and interact with elements in it
+		const rowEl = (await page.getByText("Movie Title Match").element()).closest(
+			"tr",
+		);
+		expect(rowEl).not.toBeNull();
+		if (!rowEl) throw new Error("Expected a score row");
 
-		const rowScope = within(row);
-		const scoreInput = rowScope.getByRole("spinbutton");
-		fireEvent.change(scoreInput, { target: { value: "130" } });
+		const scoreInput = rowEl.querySelector(
+			'input[type="number"]',
+		) as HTMLInputElement;
+		await userEvent.clear(scoreInput);
+		await userEvent.fill(scoreInput, "130");
 
 		expect(onLocalScoresChange).toHaveBeenCalledWith([
 			{ customFormatId: 1, score: 130 },
 		]);
 
-		await user.click(
-			rowScope.getByRole("button", { name: "Reset to default score" }),
-		);
+		const resetBtn = rowEl.querySelector(
+			'button[title="Reset to default score"]',
+		) as HTMLButtonElement;
+		await resetBtn.click();
 		expect(onLocalScoresChange).toHaveBeenLastCalledWith([
 			{ customFormatId: 1, score: 100 },
 		]);
 
-		await user.click(rowScope.getByRole("button", { name: "Remove" }));
+		const removeBtn = rowEl.querySelector(
+			'button[title="Remove"]',
+		) as HTMLButtonElement;
+		await removeBtn.click();
 		expect(onLocalScoresChange).toHaveBeenLastCalledWith([]);
 
-		fireEvent.change(getByLabelText("Minimum Custom Format Score"), {
-			target: { value: "250" },
-		});
-		fireEvent.change(getByLabelText("Upgrade Until Score"), {
-			target: { value: "500" },
-		});
+		await page.getByLabelText("Minimum Custom Format Score").clear();
+		await page.getByLabelText("Minimum Custom Format Score").fill("250");
+
+		await page.getByLabelText("Upgrade Until Score").clear();
+		await page.getByLabelText("Upgrade Until Score").fill("500");
 
 		expect(onMinScoreChange).toHaveBeenCalledWith(250);
 		expect(onUpgradeUntilScoreChange).toHaveBeenCalledWith(500);
 
-		const addFormatInput = getByPlaceholderText("Add a custom format...");
-		await user.type(addFormatInput, "Source");
-		const sourceBoostOption = getByText("Movie Source Boost").closest("button");
+		await page.getByPlaceholder("Add a custom format...").fill("Source");
+
+		const sourceBoostOption = (
+			await page.getByText("Movie Source Boost").element()
+		).closest("button");
 		expect(sourceBoostOption).not.toBeNull();
-		if (!sourceBoostOption) {
-			throw new Error("Expected source boost option to render");
-		}
-		await user.click(sourceBoostOption);
+		if (!sourceBoostOption) throw new Error("Expected source boost option");
+		await userEvent.click(sourceBoostOption);
 
 		expect(onLocalScoresChange).toHaveBeenLastCalledWith([
 			{ customFormatId: 1, score: 125 },
 			{ customFormatId: 2, score: 50 },
 		]);
 
-		await user.click(getByRole("button", { name: "Add Category" }));
-		await user.click(getByRole("button", { name: "Resolution" }));
+		// Close the search dropdown first (it re-opens after addItem focuses the input)
+		await userEvent.keyboard("{Escape}");
+		await page.getByRole("button", { name: "Add Category" }).click();
+		const resolutionOption = (
+			await page.getByText("Resolution").element()
+		).closest("button");
+		expect(resolutionOption).not.toBeNull();
+		if (!resolutionOption) throw new Error("Expected resolution option");
+		await userEvent.click(resolutionOption);
 
 		expect(onLocalScoresChange).toHaveBeenLastCalledWith([
 			{ customFormatId: 1, score: 125 },
@@ -219,7 +229,6 @@ describe("CFScoreSection", () => {
 	});
 
 	it("mutates server-backed profiles and applies preset thresholds", async () => {
-		const user = userEvent.setup();
 		const onMinScoreChange = vi.fn();
 		const onUpgradeUntilScoreChange = vi.fn();
 
@@ -243,7 +252,7 @@ describe("CFScoreSection", () => {
 			}),
 		);
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<CFScoreSection
 				contentType="movie"
 				minCustomFormatScore={100}
@@ -254,8 +263,8 @@ describe("CFScoreSection", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Add Category" }));
-		await user.click(getByRole("button", { name: "Resolution" }));
+		await page.getByRole("button", { name: "Add Category" }).click();
+		await page.getByRole("button", { name: "Resolution" }).click();
 
 		expect(cfScoreSectionMocks.addCategory.mutate).toHaveBeenCalledWith(
 			{ profileId: 42, category: "Resolution" },
@@ -263,28 +272,31 @@ describe("CFScoreSection", () => {
 		);
 		expect(cfScoreSectionMocks.profileQueryRefetch).toHaveBeenCalled();
 
-		const row = getByText("Movie Title Match").closest("tr");
-		expect(row).not.toBeNull();
-		if (!row) {
-			throw new Error("Expected a score row");
-		}
-		const rowScope = within(row);
-		const rowScoreInput = rowScope.getByRole("spinbutton");
-		fireEvent.change(rowScoreInput, { target: { value: "140" } });
+		const rowEl = (await page.getByText("Movie Title Match").element()).closest(
+			"tr",
+		);
+		expect(rowEl).not.toBeNull();
+		if (!rowEl) throw new Error("Expected a score row");
+
+		const rowScoreInput = rowEl.querySelector(
+			'input[type="number"]',
+		) as HTMLInputElement;
+		await userEvent.clear(rowScoreInput);
+		await userEvent.fill(rowScoreInput, "140");
 
 		expect(cfScoreSectionMocks.setScore.mutate).toHaveBeenCalledWith(
 			{ profileId: 42, customFormatId: 1, score: 140 },
 			expect.objectContaining({ onSuccess: expect.any(Function) }),
 		);
 
-		await user.click(getByRole("button", { name: "Remove All" }));
+		await page.getByRole("button", { name: "Remove All" }).click();
 
 		expect(cfScoreSectionMocks.removeCFs.mutate).toHaveBeenCalledWith(
 			{ profileId: 42, customFormatIds: [1] },
 			expect.objectContaining({ onSuccess: expect.any(Function) }),
 		);
 
-		await user.click(getByRole("button", { name: "Apply Preset" }));
+		await page.getByRole("button", { name: "Apply Preset" }).click();
 
 		expect(onMinScoreChange).toHaveBeenCalledWith(222);
 		expect(onUpgradeUntilScoreChange).toHaveBeenCalledWith(333);

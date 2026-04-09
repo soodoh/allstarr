@@ -1,8 +1,8 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const syncedIndexerDialogMocks = vi.hoisted(() => ({
 	categoryMultiSelect: vi.fn(),
@@ -64,8 +64,8 @@ describe("SyncedIndexerEditDialog", () => {
 		syncedIndexerDialogMocks.categoryMultiSelect.mockReset();
 	});
 
-	it("does not render when no synced indexer is selected", () => {
-		const { queryByTestId } = renderWithProviders(
+	it("does not render when no synced indexer is selected", async () => {
+		await renderWithProviders(
 			<SyncedIndexerEditDialog
 				indexer={null}
 				onOpenChange={vi.fn()}
@@ -73,36 +73,58 @@ describe("SyncedIndexerEditDialog", () => {
 			/>,
 		);
 
-		expect(queryByTestId("dialog-root")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("dialog-root"))
+			.not.toBeInTheDocument();
 	});
 
 	it("hydrates the dialog and saves converted rate-limit values", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		const onSave = vi.fn();
 
-		const { getByDisplayValue, getByLabelText, getByRole } =
-			renderWithProviders(
-				<SyncedIndexerEditDialog
-					downloadClients={[
-						{ id: 11, name: "Usenet Client", protocol: "usenet" },
-						{ id: 12, name: "Torrent Client", protocol: "torrent" },
-					]}
-					indexer={syncedIndexer}
-					onOpenChange={onOpenChange}
-					onSave={onSave}
-				/>,
-			);
+		await renderWithProviders(
+			<SyncedIndexerEditDialog
+				downloadClients={[
+					{ id: 11, name: "Usenet Client", protocol: "usenet" },
+					{ id: 12, name: "Torrent Client", protocol: "torrent" },
+				]}
+				indexer={syncedIndexer}
+				onOpenChange={onOpenChange}
+				onSave={onSave}
+			/>,
+		);
 
-		expect(
-			getByRole("heading", { name: "Edit Synced Indexer" }),
-		).toBeInTheDocument();
-		expect(getByDisplayValue("Synced Indexer")).toBeInTheDocument();
-		expect(getByDisplayValue("https://synced.example.com")).toBeInTheDocument();
-		expect(getByDisplayValue("Newznab")).toBeInTheDocument();
-		expect(getByDisplayValue("usenet")).toBeInTheDocument();
-		expect(getByDisplayValue("13")).toBeInTheDocument();
-		expect(getByRole("combobox")).toHaveTextContent("Usenet Client");
+		await expect
+			.element(page.getByRole("heading", { name: "Edit Synced Indexer" }))
+			.toBeInTheDocument();
+		// Disabled fields use Label without htmlFor, so verify via input values
+		const nameInput = (await page.getByText("Name").element())
+			.closest(".space-y-2")
+			?.querySelector("input") as HTMLInputElement;
+		expect(nameInput.value).toBe("Synced Indexer");
+
+		const baseUrlInput = (await page.getByText("Base URL").element())
+			.closest(".space-y-2")
+			?.querySelector("input") as HTMLInputElement;
+		expect(baseUrlInput.value).toBe("https://synced.example.com");
+
+		const implInput = (await page.getByText("Implementation").element())
+			.closest(".space-y-2")
+			?.querySelector("input") as HTMLInputElement;
+		expect(implInput.value).toBe("Newznab");
+
+		const protocolInput = (await page.getByText("Protocol").element())
+			.closest(".space-y-2")
+			?.querySelector("input") as HTMLInputElement;
+		expect(protocolInput.value).toBe("usenet");
+
+		const priorityInput = (await page.getByText("Priority").element())
+			.closest(".space-y-2")
+			?.querySelector("input") as HTMLInputElement;
+		expect(priorityInput.value).toBe("13");
+		await expect
+			.element(page.getByRole("combobox"))
+			.toHaveTextContent("Usenet Client");
 		expect(syncedIndexerDialogMocks.categoryMultiSelect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				disabled: true,
@@ -110,25 +132,24 @@ describe("SyncedIndexerEditDialog", () => {
 			}),
 		);
 
-		await user.clear(getByLabelText("Tag (optional)"));
-		await user.type(getByLabelText("Tag (optional)"), "anime");
-		await user.clear(getByLabelText("Request Interval (s)"));
-		await user.type(getByLabelText("Request Interval (s)"), "9");
-		await user.clear(getByLabelText("Daily Query Limit"));
-		await user.type(getByLabelText("Daily Query Limit"), "15");
-		await user.clear(getByLabelText("Daily Grab Limit"));
-		await user.type(getByLabelText("Daily Grab Limit"), "6");
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByLabelText("Tag (optional)").clear();
+		await page.getByLabelText("Tag (optional)").fill("anime");
+		await page.getByLabelText("Request Interval (s)").clear();
+		await page.getByLabelText("Request Interval (s)").fill("9");
+		await page.getByLabelText("Daily Query Limit").clear();
+		await page.getByLabelText("Daily Query Limit").fill("15");
+		await page.getByLabelText("Daily Grab Limit").clear();
+		await page.getByLabelText("Daily Grab Limit").fill("6");
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(onSave).toHaveBeenCalledWith(42, 11, "anime", 9_000, 15, 6);
 		expect(onOpenChange).not.toHaveBeenCalled();
 	});
 
 	it("cancels through the footer action", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<SyncedIndexerEditDialog
 				indexer={syncedIndexer}
 				onOpenChange={onOpenChange}
@@ -136,7 +157,7 @@ describe("SyncedIndexerEditDialog", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
