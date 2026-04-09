@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Sheet,
@@ -11,8 +11,8 @@ import {
 } from "./sheet";
 
 describe("Sheet", () => {
-	it("renders content in a portal with the default right-side layout", () => {
-		renderWithProviders(
+	it("renders content in a portal with the default right-side layout", async () => {
+		await renderWithProviders(
 			<Sheet open>
 				<SheetContent className="custom-content">
 					<SheetHeader className="custom-header">
@@ -56,8 +56,8 @@ describe("Sheet", () => {
 		["left", "inset-y-0", "left-0", "h-full", "w-3/4", "border-r"],
 		["top", "inset-x-0", "top-0", "h-auto", "border-b"],
 		["bottom", "inset-x-0", "bottom-0", "h-auto", "border-t"],
-	])("applies the %s side layout classes", (side, ...expectedClasses) => {
-		renderWithProviders(
+	])("applies the %s side layout classes", async (side, ...expectedClasses) => {
+		await renderWithProviders(
 			<Sheet open>
 				<SheetContent
 					side={side as "top" | "right" | "bottom" | "left"}
@@ -77,10 +77,9 @@ describe("Sheet", () => {
 	});
 
 	it("forwards close requests when the close button is visible", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
-		renderWithProviders(
+		await renderWithProviders(
 			<Sheet open onOpenChange={onOpenChange}>
 				<SheetContent>
 					<p>Sheet body</p>
@@ -92,7 +91,7 @@ describe("Sheet", () => {
 			'[data-slot="sheet-content"] button',
 		);
 		expect(closeButton).toBeInTheDocument();
-		await user.click(closeButton as HTMLElement);
+		await page.getByRole("button").click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});

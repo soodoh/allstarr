@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import { Avatar, AvatarFallback } from "./avatar";
 
@@ -8,8 +9,8 @@ describe("Avatar", () => {
 		["default", "size-8"],
 		["sm", "data-[size=sm]:size-6"],
 		["lg", "data-[size=lg]:size-10"],
-	] as const)("renders the %s size branch", (size, className) => {
-		const { container } = renderWithProviders(<Avatar size={size} />);
+	] as const)("renders the %s size branch", async (size, className) => {
+		const { container } = await renderWithProviders(<Avatar size={size} />);
 
 		expect(container.querySelector('[data-slot="avatar"]')).toHaveAttribute(
 			"data-size",
@@ -22,8 +23,8 @@ describe("Avatar", () => {
 		);
 	});
 
-	it("renders the fallback slot and size-aware text class", () => {
-		const { container, getByText } = renderWithProviders(
+	it("renders the fallback slot and size-aware text class", async () => {
+		const { container } = await renderWithProviders(
 			<Avatar size="sm">
 				<AvatarFallback className="custom-fallback">PD</AvatarFallback>
 			</Avatar>,
@@ -37,6 +38,8 @@ describe("Avatar", () => {
 			"group-data-[size=sm]/avatar:text-xs",
 			"custom-fallback",
 		);
-		expect(getByText("PD")).toHaveAttribute("data-slot", "avatar-fallback");
+		await expect
+			.element(page.getByText("PD"))
+			.toHaveAttribute("data-slot", "avatar-fallback");
 	});
 });

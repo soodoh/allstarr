@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Accordion,
@@ -10,8 +10,8 @@ import {
 } from "./accordion";
 
 describe("Accordion", () => {
-	it("renders slots and the content wrapper", () => {
-		const { container, getByText } = renderWithProviders(
+	it("renders slots and the content wrapper", async () => {
+		const { container } = await renderWithProviders(
 			<Accordion type="single" defaultValue="one" collapsible>
 				<AccordionItem className="custom-item" value="one">
 					<AccordionTrigger className="custom-trigger">First</AccordionTrigger>
@@ -31,16 +31,14 @@ describe("Accordion", () => {
 		expect(
 			container.querySelector('[data-slot="accordion-trigger"]'),
 		).toHaveClass("custom-trigger");
-		expect(getByText("First body")).toBeInTheDocument();
+		await expect.element(page.getByText("First body")).toBeInTheDocument();
 		expect(
 			container.querySelector('[data-slot="accordion-content"] > div'),
 		).toHaveClass("custom-content");
 	});
 
 	it("toggles the open state on the trigger and content", async () => {
-		const user = userEvent.setup();
-
-		const { getByRole, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<Accordion type="single" defaultValue="one" collapsible>
 				<AccordionItem value="one">
 					<AccordionTrigger>First</AccordionTrigger>
@@ -51,14 +49,14 @@ describe("Accordion", () => {
 			</Accordion>,
 		);
 
-		const trigger = getByRole("button", { name: "First" });
+		const trigger = page.getByRole("button", { name: "First" });
 
-		expect(trigger).toHaveAttribute("data-state", "open");
-		expect(queryByText("First body")).toBeInTheDocument();
+		await expect.element(trigger).toHaveAttribute("data-state", "open");
+		await expect.element(page.getByText("First body")).toBeInTheDocument();
 
-		await user.click(trigger);
+		await trigger.click();
 
-		expect(trigger).toHaveAttribute("data-state", "closed");
-		expect(queryByText("First body")).not.toBeInTheDocument();
+		await expect.element(trigger).toHaveAttribute("data-state", "closed");
+		await expect.element(page.getByText("First body")).not.toBeInTheDocument();
 	});
 });

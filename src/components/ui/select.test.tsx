@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Select,
@@ -65,8 +65,8 @@ describe("Select", () => {
 		HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
 	});
 
-	it("renders the trigger data slot and size variant", () => {
-		const { container } = renderWithProviders(
+	it("renders the trigger data slot and size variant", async () => {
+		const { container } = await renderWithProviders(
 			<Select>
 				<SelectTrigger size="sm">
 					<SelectValue placeholder="Choose one" />
@@ -80,15 +80,16 @@ describe("Select", () => {
 	});
 
 	it("renders content in a portal and updates the selected item", async () => {
-		const user = userEvent.setup();
 		const onValueChange = vi.fn();
 
-		const { container, findByRole, getByRole } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<SelectFixture onValueChange={onValueChange} />,
 		);
 
-		await user.click(getByRole("combobox"));
-		const alphaOption = await findByRole("option", { name: "Alpha" });
+		await page.getByRole("combobox").click();
+		await expect
+			.element(page.getByRole("option", { name: "Alpha" }))
+			.toBeInTheDocument();
 
 		expect(container.querySelector('[data-slot="select-content"]')).toBeNull();
 		expect(
@@ -109,10 +110,10 @@ describe("Select", () => {
 			),
 		).toHaveTextContent("Beta");
 
-		await user.click(alphaOption);
+		await page.getByRole("option", { name: "Alpha" }).click();
 
 		expect(onValueChange).toHaveBeenCalledWith("alpha");
-		expect(getByRole("combobox")).toHaveTextContent("Alpha");
+		await expect.element(page.getByRole("combobox")).toHaveTextContent("Alpha");
 		expect(
 			document.body.querySelector('[data-slot="select-content"]'),
 		).toBeNull();

@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Dialog,
@@ -14,8 +14,8 @@ import {
 } from "./dialog";
 
 describe("Dialog", () => {
-	it("renders content in a portal and applies public slots and classes", () => {
-		renderWithProviders(
+	it("renders content in a portal and applies public slots and classes", async () => {
+		await renderWithProviders(
 			<Dialog open>
 				<DialogTrigger asChild>
 					<button type="button">Open dialog</button>
@@ -59,10 +59,9 @@ describe("Dialog", () => {
 	});
 
 	it("renders the default close button and forwards close requests", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
-		renderWithProviders(
+		await renderWithProviders(
 			<Dialog open onOpenChange={onOpenChange}>
 				<DialogContent>
 					<p>Dialog body</p>
@@ -74,16 +73,15 @@ describe("Dialog", () => {
 			'[data-slot="dialog-close"]',
 		);
 		expect(closeButton).toBeInTheDocument();
-		await user.click(closeButton as HTMLElement);
+		await page.getByRole("button").click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
 	it("renders the footer close affordance when enabled", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
-		renderWithProviders(
+		await renderWithProviders(
 			<Dialog open onOpenChange={onOpenChange}>
 				<DialogContent showCloseButton={false}>
 					<DialogFooter showCloseButton>
@@ -97,7 +95,7 @@ describe("Dialog", () => {
 			'[data-slot="dialog-footer"] button',
 		);
 		expect(footerCloseButton).toHaveTextContent("Close");
-		await user.click(footerCloseButton as HTMLElement);
+		await page.getByRole("button", { name: "Close" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});

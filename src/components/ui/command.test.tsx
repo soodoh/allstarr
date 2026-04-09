@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Command,
@@ -22,8 +22,8 @@ describe("Command", () => {
 		HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
 	});
 
-	it("renders the shell and input wrapper data slots", () => {
-		const { container } = renderWithProviders(
+	it("renders the shell and input wrapper data slots", async () => {
+		const { container } = await renderWithProviders(
 			<Command className="custom-command">
 				<CommandInput placeholder="Search commands" />
 				<CommandList>
@@ -55,9 +55,7 @@ describe("Command", () => {
 	});
 
 	it("renders the empty state helper when nothing matches", async () => {
-		const user = userEvent.setup();
-
-		const { getByPlaceholderText, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<Command>
 				<CommandInput placeholder="Search commands" />
 				<CommandList>
@@ -69,19 +67,17 @@ describe("Command", () => {
 			</Command>,
 		);
 
-		await user.type(getByPlaceholderText("Search commands"), "zzz");
+		await page.getByPlaceholder("Search commands").fill("zzz");
 
-		expect(getByText("No results.")).toHaveAttribute(
-			"data-slot",
-			"command-empty",
-		);
+		await expect
+			.element(page.getByText("No results."))
+			.toHaveAttribute("data-slot", "command-empty");
 	});
 
 	it("marks an item as selected when it is chosen", async () => {
-		const user = userEvent.setup();
 		const onSelect = vi.fn();
 
-		const { getByPlaceholderText, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<Command>
 				<CommandInput placeholder="Search commands" />
 				<CommandList>
@@ -95,12 +91,13 @@ describe("Command", () => {
 			</Command>,
 		);
 
-		await user.click(getByPlaceholderText("Search commands"));
-		await user.click(getByText("Refresh"));
+		await page.getByPlaceholder("Search commands").click();
+		await page.getByText("Refresh").click();
 
-		expect(
-			getByText("Refresh").closest('[data-slot="command-item"]'),
-		).toHaveAttribute("data-selected", "true");
+		const refreshItem = page
+			.getByText("Refresh")
+			.locator('xpath=ancestor-or-self::*[@data-slot="command-item"]');
+		await expect.element(refreshItem).toHaveAttribute("data-selected", "true");
 		expect(onSelect).toHaveBeenCalledWith("refresh");
 	});
 });
