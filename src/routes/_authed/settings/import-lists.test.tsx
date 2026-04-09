@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type JSX, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -210,7 +210,7 @@ vi.mock("src/server/import-list-exclusions", () => ({
 
 import { Route } from "./import-lists";
 
-const RouteComponent = Route as unknown as { component: () => JSX.Element };
+const RouteComponent = Route as unknown as { component: () => ReactNode };
 
 describe("import lists route", () => {
 	beforeEach(() => {
