@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
@@ -37,8 +38,8 @@ vi.mock("src/components/shared/optimized-image", () => ({
 import AuthorCard from "./author-card";
 
 describe("AuthorCard", () => {
-	it("prefers the poster image and renders the singular book label", () => {
-		const { container, getByAltText, getByText } = renderWithProviders(
+	it("prefers the poster image and renders the singular book label", async () => {
+		const { container } = await renderWithProviders(
 			<AuthorCard
 				author={{
 					bookCount: 1,
@@ -52,21 +53,19 @@ describe("AuthorCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("Octavia Butler photo")).toHaveAttribute(
-			"src",
-			"/poster.jpg",
-		);
-		expect(getByAltText("Octavia Butler photo")).toHaveAttribute(
-			"data-type",
-			"author",
-		);
-		expect(getByText("Octavia Butler")).toBeInTheDocument();
-		expect(getByText("1 book")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("Octavia Butler photo"))
+			.toHaveAttribute("src", "/poster.jpg");
+		await expect
+			.element(page.getByAltText("Octavia Butler photo"))
+			.toHaveAttribute("data-type", "author");
+		await expect.element(page.getByText("Octavia Butler")).toBeInTheDocument();
+		await expect.element(page.getByText("1 book")).toBeInTheDocument();
 		expect(container.querySelector('a[href="/authors/14"]')).not.toBeNull();
 	});
 
-	it("falls back to the first image and pluralizes the book count", () => {
-		const { getByAltText, getByText } = renderWithProviders(
+	it("falls back to the first image and pluralizes the book count", async () => {
+		await renderWithProviders(
 			<AuthorCard
 				author={{
 					bookCount: 5,
@@ -77,15 +76,14 @@ describe("AuthorCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("N. K. Jemisin photo")).toHaveAttribute(
-			"src",
-			"/banner.jpg",
-		);
-		expect(getByText("5 books")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("N. K. Jemisin photo"))
+			.toHaveAttribute("src", "/banner.jpg");
+		await expect.element(page.getByText("5 books")).toBeInTheDocument();
 	});
 
-	it("renders without an image src when no author images are available", () => {
-		const { getByAltText } = renderWithProviders(
+	it("renders without an image src when no author images are available", async () => {
+		await renderWithProviders(
 			<AuthorCard
 				author={{
 					bookCount: 0,
@@ -96,6 +94,8 @@ describe("AuthorCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("Unknown photo")).not.toHaveAttribute("src");
+		await expect
+			.element(page.getByAltText("Unknown photo"))
+			.not.toHaveAttribute("src");
 	});
 });

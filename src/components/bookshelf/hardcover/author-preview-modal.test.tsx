@@ -1,4 +1,3 @@
-import userEvent from "@testing-library/user-event";
 import { createContext, type ReactNode, useContext } from "react";
 import type {
 	HardcoverAuthorDetail,
@@ -6,6 +5,7 @@ import type {
 } from "src/server/search";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authorPreviewModalMocks = vi.hoisted(() => ({
 	existingAuthor: undefined as { id: string } | undefined,
@@ -48,7 +48,13 @@ vi.mock("@tanstack/react-router", () => ({
 		params?: Record<string, string>;
 		to: string;
 	}) => (
-		<a href={to.replace("$authorId", params?.authorId ?? "")} onClick={onClick}>
+		<a
+			href={to.replace("$authorId", params?.authorId ?? "")}
+			onClick={(e) => {
+				e.preventDefault();
+				onClick?.(e);
+			}}
+		>
 			{children}
 		</a>
 	),
@@ -278,7 +284,6 @@ describe("AuthorPreviewModal", () => {
 	});
 
 	it("renders author details and submits the add-to-bookshelf flow", async () => {
-		const user = userEvent.setup();
 		authorPreviewModalMocks.fullAuthor = fullAuthor;
 		authorPreviewModalMocks.profiles = [
 			{
@@ -302,7 +307,7 @@ describe("AuthorPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { container, getByText, queryByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<AuthorPreviewModal
 				addDefaults={{
 					downloadProfileIds: [2],
@@ -317,9 +322,11 @@ describe("AuthorPreviewModal", () => {
 		);
 
 		expect(container).toHaveTextContent("Isaac Asimov");
-		expect(getByText("1920–2010")).toBeInTheDocument();
-		expect(getByText("42 books")).toBeInTheDocument();
-		expect(getByText("A prolific science fiction author.")).toBeInTheDocument();
+		await expect.element(page.getByText("1920–2010")).toBeInTheDocument();
+		await expect.element(page.getByText("42 books")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("A prolific science fiction author."))
+			.toBeInTheDocument();
 		expect(
 			container.querySelector('img[alt="Isaac Asimov photo"]'),
 		).not.toBeNull();
@@ -329,13 +336,13 @@ describe("AuthorPreviewModal", () => {
 			),
 		).not.toBeNull();
 
-		await user.click(getByText("Add to Bookshelf"));
-		expect(queryByText("Movie:idle")).toBeNull();
+		await page.getByText("Add to Bookshelf").click();
+		await expect.element(page.getByText("Movie:idle")).not.toBeInTheDocument();
 
-		await user.click(getByText("EPUB:idle"));
-		expect(getByText("EPUB:selected")).toBeInTheDocument();
+		await page.getByText("EPUB:idle").click();
+		await expect.element(page.getByText("EPUB:selected")).toBeInTheDocument();
 
-		await user.click(getByText("Confirm"));
+		await page.getByText("Confirm").click();
 
 		expect(authorPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
 			addDefaults: {
@@ -356,7 +363,7 @@ describe("AuthorPreviewModal", () => {
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
-	it("shows loading skeletons while the author query is pending", () => {
+	it("shows loading skeletons while the author query is pending", async () => {
 		authorPreviewModalMocks.query.mockImplementation(
 			(options: { queryKey?: unknown[] }) => {
 				const queryKey = options.queryKey ?? [];
@@ -373,19 +380,20 @@ describe("AuthorPreviewModal", () => {
 			},
 		);
 
-		const { container, getByText, queryByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<AuthorPreviewModal author={previewAuthor} onOpenChange={vi.fn()} open />,
 		);
 
 		expect(
 			container.querySelectorAll("[data-skeleton]").length,
 		).toBeGreaterThan(0);
-		expect(getByText("Add to Bookshelf")).toBeDisabled();
-		expect(queryByText("Search result biography.")).toBeNull();
+		await expect.element(page.getByText("Add to Bookshelf")).toBeDisabled();
+		await expect
+			.element(page.getByText("Search result biography."))
+			.not.toBeInTheDocument();
 	});
 
 	it("hides the bio when absent and lets the add form cancel cleanly", async () => {
-		const user = userEvent.setup();
 		const authorWithoutHardcoverLink = {
 			...previewAuthor,
 			hardcoverUrl: null,
@@ -406,7 +414,7 @@ describe("AuthorPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { getByText, queryByLabelText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<AuthorPreviewModal
 				addDefaults={{
 					downloadProfileIds: [],
@@ -420,20 +428,25 @@ describe("AuthorPreviewModal", () => {
 			/>,
 		);
 
-		expect(queryByText("A prolific science fiction author.")).toBeNull();
-		expect(queryByText(/books$/)).toBeNull();
-		expect(queryByLabelText("Open on Hardcover")).toBeNull();
+		await expect
+			.element(page.getByText("A prolific science fiction author."))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText(/books$/)).not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Open on Hardcover"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByText("Add to Bookshelf"));
-		await user.click(getByText("Cancel"));
+		await page.getByText("Add to Bookshelf").click();
+		await page.getByText("Cancel").click();
 
-		expect(queryByText("Add to Bookshelf")).toBeInTheDocument();
-		expect(queryByText("Monitor")).toBeNull();
+		await expect
+			.element(page.getByText("Add to Bookshelf"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Monitor")).not.toBeInTheDocument();
 		expect(onOpenChange).not.toHaveBeenCalled();
 	});
 
 	it("switches monitor modes to none and submits the hidden profile state", async () => {
-		const user = userEvent.setup();
 		authorPreviewModalMocks.fullAuthor = fullAuthor;
 		authorPreviewModalMocks.profiles = [
 			{
@@ -445,7 +458,7 @@ describe("AuthorPreviewModal", () => {
 		];
 
 		const onOpenChange = vi.fn();
-		const { getAllByRole, getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<AuthorPreviewModal
 				addDefaults={{
 					downloadProfileIds: [],
@@ -459,9 +472,9 @@ describe("AuthorPreviewModal", () => {
 			/>,
 		);
 
-		await user.click(getByText("Add to Bookshelf"));
-		await user.click(getAllByRole("button", { name: "None" })[0]);
-		await user.click(getByText("Confirm"));
+		await page.getByText("Add to Bookshelf").click();
+		await page.getByRole("button", { name: "None" }).first().click();
+		await page.getByText("Confirm").click();
 
 		expect(authorPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
 			addDefaults: {
@@ -480,16 +493,17 @@ describe("AuthorPreviewModal", () => {
 			searchOnAdd: false,
 		});
 		expect(onOpenChange).toHaveBeenCalledWith(false);
-		expect(queryByText("Monitor")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Monitor", { exact: true }))
+			.toBeInTheDocument();
 	});
 
 	it("shows the bookshelf link when the author already exists", async () => {
-		const user = userEvent.setup();
 		authorPreviewModalMocks.fullAuthor = fullAuthor;
 		authorPreviewModalMocks.existingAuthor = { id: "101" };
 
 		const onOpenChange = vi.fn();
-		const { container, getByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<AuthorPreviewModal
 				author={previewAuthor}
 				onOpenChange={onOpenChange}
@@ -504,7 +518,7 @@ describe("AuthorPreviewModal", () => {
 			),
 		).not.toBeNull();
 
-		await user.click(getByText("View on bookshelf"));
+		await page.getByText("View on bookshelf").click();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 });

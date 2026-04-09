@@ -1,6 +1,6 @@
-import { fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookCardMocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -29,8 +29,8 @@ describe("BookCard", () => {
 		bookCardMocks.navigate.mockReset();
 	});
 
-	it("sorts authors, truncates overflow names, renders metadata, and navigates on click", () => {
-		const { getByAltText, getByText, getByRole } = renderWithProviders(
+	it("sorts authors, truncates overflow names, renders metadata, and navigates on click", async () => {
+		await renderWithProviders(
 			<BookCard
 				book={{
 					bookAuthors: [
@@ -67,23 +67,29 @@ describe("BookCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("The Book cover")).toHaveAttribute("src", "/cover.jpg");
-		expect(getByAltText("The Book cover")).toHaveAttribute("data-type", "book");
-		expect(getByText("The Book")).toBeInTheDocument();
-		expect(
-			getByText("Primary Writer, Alpha Writer, Beta Writer, and 1 more"),
-		).toBeInTheDocument();
-		expect(getByText("2024-06-01")).toBeInTheDocument();
+		await expect
+			.element(page.getByAltText("The Book cover"))
+			.toHaveAttribute("src", "/cover.jpg");
+		await expect
+			.element(page.getByAltText("The Book cover"))
+			.toHaveAttribute("data-type", "book");
+		await expect.element(page.getByText("The Book")).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText("Primary Writer, Alpha Writer, Beta Writer, and 1 more"),
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByText("2024-06-01")).toBeInTheDocument();
 
-		fireEvent.click(getByRole("button"));
+		await page.getByRole("button").click();
 		expect(bookCardMocks.navigate).toHaveBeenCalledWith({
 			params: { bookId: "42" },
 			to: "/books/$bookId",
 		});
 	});
 
-	it("falls back to unknown author text and omits the release date when absent", () => {
-		const { getByAltText, getByText, queryByText } = renderWithProviders(
+	it("falls back to unknown author text and omits the release date when absent", async () => {
+		await renderWithProviders(
 			<BookCard
 				book={{
 					bookAuthors: [],
@@ -95,8 +101,10 @@ describe("BookCard", () => {
 			/>,
 		);
 
-		expect(getByAltText("Mystery cover")).not.toHaveAttribute("src");
-		expect(getByText("Unknown author")).toBeInTheDocument();
-		expect(queryByText("2024-06-01")).toBeNull();
+		await expect
+			.element(page.getByAltText("Mystery cover"))
+			.not.toHaveAttribute("src");
+		await expect.element(page.getByText("Unknown author")).toBeInTheDocument();
+		await expect.element(page.getByText("2024-06-01")).not.toBeInTheDocument();
 	});
 });

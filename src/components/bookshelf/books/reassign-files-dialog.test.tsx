@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const reassignFilesDialogMocks = vi.hoisted(() => ({
 	allBooks: [
@@ -120,7 +120,6 @@ describe("ReassignFilesDialog", () => {
 	});
 
 	it("filters out the source book, searches targets, and reassigns on success", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		const onSuccess = vi.fn();
 		reassignFilesDialogMocks.reassign.mutate.mockImplementation(
@@ -129,25 +128,27 @@ describe("ReassignFilesDialog", () => {
 			},
 		);
 
-		const { getByPlaceholderText, getByRole, queryByText } =
-			renderWithProviders(
-				<ReassignFilesDialog
-					fileCount={2}
-					fromBookId={1}
-					fromBookTitle="Origin Book"
-					onOpenChange={onOpenChange}
-					onSuccess={onSuccess}
-					open
-				/>,
-			);
+		await renderWithProviders(
+			<ReassignFilesDialog
+				fileCount={2}
+				fromBookId={1}
+				fromBookTitle="Origin Book"
+				onOpenChange={onOpenChange}
+				onSuccess={onSuccess}
+				open
+			/>,
+		);
 
-		expect(queryByText("Origin Book")).toBeNull();
+		// Origin Book should not appear as a selectable book button (filtered out)
+		await expect
+			.element(page.getByRole("button", { name: /Origin Book/i }))
+			.not.toBeInTheDocument();
 
-		await user.type(getByPlaceholderText("Search books..."), "target");
-		expect(queryByText("Second Book")).toBeNull();
+		await page.getByPlaceholder("Search books...").fill("target");
+		await expect.element(page.getByText("Second Book")).not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: /Target Book/i }));
-		await user.click(getByRole("button", { name: "Reassign" }));
+		await page.getByRole("button", { name: /Target Book/i }).click();
+		await page.getByRole("button", { name: "Reassign" }).click();
 
 		expect(reassignFilesDialogMocks.reassign.mutate).toHaveBeenCalledWith(
 			{ fromBookId: 1, toBookId: 3 },
@@ -157,13 +158,13 @@ describe("ReassignFilesDialog", () => {
 		expect(onSuccess).toHaveBeenCalledTimes(1);
 	});
 
-	it("shows the loading and empty states and keeps reassign disabled without a selection", () => {
+	it("shows the loading and empty states and keeps reassign disabled without a selection", async () => {
 		reassignFilesDialogMocks.useQuery.mockReturnValueOnce({
 			data: undefined,
 			isLoading: true,
 		});
 
-		const loadingView = renderWithProviders(
+		const { unmount } = await renderWithProviders(
 			<ReassignFilesDialog
 				fileCount={1}
 				fromBookId={1}
@@ -173,15 +174,15 @@ describe("ReassignFilesDialog", () => {
 			/>,
 		);
 
-		expect(loadingView.getByText("Loading")).toBeInTheDocument();
-		loadingView.unmount();
+		await expect.element(page.getByText("Loading")).toBeInTheDocument();
+		unmount();
 
 		reassignFilesDialogMocks.useQuery.mockReturnValueOnce({
 			data: [{ authorName: "Alpha", id: 1, title: "Origin Book" }],
 			isLoading: false,
 		});
 
-		const emptyView = renderWithProviders(
+		await renderWithProviders(
 			<ReassignFilesDialog
 				fileCount={1}
 				fromBookId={1}
@@ -191,32 +192,32 @@ describe("ReassignFilesDialog", () => {
 			/>,
 		);
 
-		expect(emptyView.getByText("No books found.")).toBeInTheDocument();
-		expect(emptyView.getByRole("button", { name: "Reassign" })).toBeDisabled();
+		await expect.element(page.getByText("No books found.")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Reassign" }))
+			.toBeDisabled();
 	});
 
 	it("resets search and selection when the dialog closes", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
-		const { getByPlaceholderText, getByRole, queryByText, rerender } =
-			renderWithProviders(
-				<ReassignFilesDialog
-					fileCount={3}
-					fromBookId={1}
-					fromBookTitle="Origin Book"
-					onOpenChange={onOpenChange}
-					open
-				/>,
-			);
+		const { rerender } = await renderWithProviders(
+			<ReassignFilesDialog
+				fileCount={3}
+				fromBookId={1}
+				fromBookTitle="Origin Book"
+				onOpenChange={onOpenChange}
+				open
+			/>,
+		);
 
-		await user.type(getByPlaceholderText("Search books..."), "target");
-		await user.click(getByRole("button", { name: /Target Book/i }));
-		expect(queryByText("Selected:")).toBeInTheDocument();
+		await page.getByPlaceholder("Search books...").fill("target");
+		await page.getByRole("button", { name: /Target Book/i }).click();
+		await expect.element(page.getByText("Selected:")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Close dialog" }));
+		await page.getByRole("button", { name: "Close dialog" }).click();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 
-		rerender(
+		await rerender(
 			<ReassignFilesDialog
 				fileCount={3}
 				fromBookId={1}
@@ -225,7 +226,7 @@ describe("ReassignFilesDialog", () => {
 				open={false}
 			/>,
 		);
-		rerender(
+		await rerender(
 			<ReassignFilesDialog
 				fileCount={3}
 				fromBookId={1}
@@ -235,7 +236,9 @@ describe("ReassignFilesDialog", () => {
 			/>,
 		);
 
-		expect(getByPlaceholderText("Search books...")).toHaveValue("");
-		expect(queryByText("Selected:")).toBeNull();
+		await expect
+			.element(page.getByPlaceholder("Search books..."))
+			.toHaveValue("");
+		await expect.element(page.getByText("Selected:")).not.toBeInTheDocument();
 	});
 });

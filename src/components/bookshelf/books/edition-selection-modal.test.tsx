@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const editionSelectionModalMocks = vi.hoisted(() => ({
 	fetchNextPage: vi.fn(),
@@ -247,7 +247,7 @@ describe("EditionSelectionModal", () => {
 		vi.stubGlobal("IntersectionObserver", MockIntersectionObserver as never);
 	});
 
-	it("shows the loading state while the query is pending", () => {
+	it("shows the loading state while the query is pending", async () => {
 		editionSelectionModalMocks.useInfiniteQuery.mockReturnValueOnce({
 			data: undefined,
 			fetchNextPage: editionSelectionModalMocks.fetchNextPage,
@@ -256,7 +256,7 @@ describe("EditionSelectionModal", () => {
 			isLoading: true,
 		});
 
-		const { getByRole, queryByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<EditionSelectionModal
 				bookCoverUrl="/cover.jpg"
 				bookId={77}
@@ -269,16 +269,21 @@ describe("EditionSelectionModal", () => {
 			/>,
 		);
 
-		expect(queryByTestId("base-book-table")).toBeNull();
-		expect(getByRole("button", { name: "Confirm" })).toBeDisabled();
-		expect(getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("base-book-table"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Confirm" }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Cancel" }))
+			.toBeInTheDocument();
 	});
 
 	it("filters, sorts, selects, and confirms an edition", async () => {
-		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();
-		const { getByRole, getByText, queryByText, rerender } = renderWithProviders(
+		const { rerender } = await renderWithProviders(
 			<EditionSelectionModal
 				bookCoverUrl="/cover.jpg"
 				bookId={77}
@@ -291,22 +296,28 @@ describe("EditionSelectionModal", () => {
 			/>,
 		);
 
-		expect(getByText("Matching edition selected")).toBeInTheDocument();
-		expect(queryByText("Filtered edition")).toBeNull();
+		await expect
+			.element(page.getByText("Matching edition selected"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Filtered edition"))
+			.not.toBeInTheDocument();
 		expect(
 			editionSelectionModalMocks.bookEditionsInfiniteQuery,
 		).toHaveBeenCalledWith(77, "readers", "desc");
 
-		await user.click(getByRole("button", { name: "Sort title" }));
-		await user.click(getByRole("button", { name: "Sort title" }));
+		await page.getByRole("button", { name: "Sort title" }).click();
+		await page.getByRole("button", { name: "Sort title" }).click();
 		expect(
 			editionSelectionModalMocks.bookEditionsInfiniteQuery,
 		).toHaveBeenLastCalledWith(77, "title", "desc");
 
-		await user.click(getByRole("button", { name: "format filter on" }));
-		expect(getByText("Filtered edition")).toBeInTheDocument();
+		await page.getByRole("button", { name: "format filter on" }).click();
+		await expect
+			.element(page.getByText("Filtered edition"))
+			.toBeInTheDocument();
 
-		rerender(
+		await rerender(
 			<EditionSelectionModal
 				bookCoverUrl="/cover.jpg"
 				bookId={77}
@@ -318,25 +329,28 @@ describe("EditionSelectionModal", () => {
 				profile={{ contentType: "ebook", id: 1, name: "EPUB" }}
 			/>,
 		);
-		expect(getByText("Filtered edition selected")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Filtered edition selected"))
+			.toBeInTheDocument();
 
-		await user.click(getByText("Matching edition"));
-		expect(getByText("Matching edition selected")).toBeInTheDocument();
+		await page.getByText("Matching edition").click();
+		await expect
+			.element(page.getByText("Matching edition selected"))
+			.toBeInTheDocument();
 
 		editionSelectionModalMocks.intersectionObserver?.trigger(true);
 		expect(editionSelectionModalMocks.fetchNextPage).toHaveBeenCalledTimes(1);
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(onConfirm).toHaveBeenCalledWith(1);
 		expect(onOpenChange).not.toHaveBeenCalled();
 	});
 
 	it("cancels without confirming", async () => {
-		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<EditionSelectionModal
 				bookCoverUrl={null}
 				bookId={77}
@@ -349,7 +363,7 @@ describe("EditionSelectionModal", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 		expect(onConfirm).not.toHaveBeenCalled();
 	});

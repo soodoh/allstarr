@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const searchReleasesTabMocks = vi.hoisted(() => ({
 	grabRelease: {
@@ -43,7 +43,14 @@ vi.mock("@tanstack/react-router", () => ({
 		onClick?: () => void;
 		to: string;
 	}>) => (
-		<a className={className} href={to} onClick={onClick}>
+		<a
+			className={className}
+			href={to}
+			onClick={(e) => {
+				e.preventDefault();
+				onClick?.();
+			}}
+		>
 			{children}
 		</a>
 	),
@@ -143,11 +150,10 @@ describe("SearchReleasesTab", () => {
 	});
 
 	it("shows the no-indexers message and navigates to settings", async () => {
-		const user = userEvent.setup();
 		const onNavigateAway = vi.fn();
 		searchReleasesTabMocks.useQuery.mockReturnValue({ data: null });
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<SearchReleasesTab
 				book={{ authorName: "Leigh Bardugo", id: 7, title: "Ninth House" }}
 				enabled
@@ -156,13 +162,14 @@ describe("SearchReleasesTab", () => {
 			/>,
 		);
 
-		expect(getByText("No indexers configured or enabled.")).toBeInTheDocument();
-		await user.click(getByRole("link", { name: "Settings" }));
+		await expect
+			.element(page.getByText("No indexers configured or enabled."))
+			.toBeInTheDocument();
+		await page.getByRole("link", { name: "Settings" }).click();
 		expect(onNavigateAway).toHaveBeenCalled();
 	});
 
 	it("auto-searches when enabled, supports manual search, and grabs releases", async () => {
-		const user = userEvent.setup();
 		const invalidateQueries = vi.fn();
 		searchReleasesTabMocks.useQueryClient.mockReturnValue({
 			invalidateQueries,
@@ -187,7 +194,7 @@ describe("SearchReleasesTab", () => {
 			data: { grabbedGuids: [], queueTitles: [], existingQualityIds: [] },
 		});
 
-		const { getByRole, getByTestId, rerender } = renderWithProviders(
+		const { rerender } = await renderWithProviders(
 			<SearchReleasesTab
 				book={{ authorName: "Frank Herbert", id: 12, title: "Dune" }}
 				enabled
@@ -200,14 +207,14 @@ describe("SearchReleasesTab", () => {
 			categories: null,
 			query: "Frank Herbert Dune",
 		});
-		expect(getByTestId("search-toolbar")).toHaveTextContent(
-			"default:Frank Herbert Dune",
-		);
-		expect(getByTestId("release-table")).toHaveTextContent(
-			"releases:Release One,Release Two",
-		);
+		await expect
+			.element(page.getByTestId("search-toolbar"))
+			.toHaveTextContent("default:Frank Herbert Dune");
+		await expect
+			.element(page.getByTestId("release-table"))
+			.toHaveTextContent("releases:Release One,Release Two");
 
-		await user.click(getByRole("button", { name: "Trigger search" }));
+		await page.getByRole("button", { name: "Trigger search" }).click();
 		expect(
 			searchReleasesTabMocks.searchIndexers.mutate,
 		).toHaveBeenLastCalledWith({
@@ -216,7 +223,7 @@ describe("SearchReleasesTab", () => {
 			query: "Manual Query",
 		});
 
-		await user.click(getByRole("button", { name: "Grab first" }));
+		await page.getByRole("button", { name: "Grab first" }).click();
 		expect(searchReleasesTabMocks.grabRelease.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				bookId: 12,
@@ -230,14 +237,14 @@ describe("SearchReleasesTab", () => {
 		);
 		expect(invalidateQueries).toHaveBeenCalled();
 
-		rerender(
+		await rerender(
 			<SearchReleasesTab
 				book={{ authorName: "Frank Herbert", id: 12, title: "Dune" }}
 				enabled={false}
 				hasIndexers
 			/>,
 		);
-		rerender(
+		await rerender(
 			<SearchReleasesTab
 				book={{ authorName: "Frank Herbert", id: 12, title: "Dune" }}
 				enabled

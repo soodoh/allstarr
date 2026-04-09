@@ -1,7 +1,7 @@
-import { fireEvent, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookTableMocks = vi.hoisted(() => ({
 	baseBookTableProps: null as {
@@ -168,9 +168,9 @@ describe("BookTable", () => {
 		bookTableMocks.useTableColumns.mockReturnValue({ visibleColumns });
 	});
 
-	it("maps rows, filters author-linked profiles, and navigates on row clicks", () => {
+	it("maps rows, filters author-linked profiles, and navigates on row clicks", async () => {
 		const onToggleProfile = vi.fn();
-		const { getByRole, getByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<BookTable
 				books={books}
 				downloadProfiles={[
@@ -206,27 +206,40 @@ describe("BookTable", () => {
 			title: "No Filters",
 		});
 
-		expect(getByTestId("leading-10")).toHaveTextContent("4K");
-		expect(getByTestId("leading-10")).toHaveTextContent("HD");
-		expect(getByTestId("leading-10")).not.toHaveTextContent("SD");
-		expect(getByTestId("leading-11")).toHaveTextContent("4K");
-		expect(getByTestId("leading-11")).toHaveTextContent("HD");
-		expect(getByTestId("leading-11")).toHaveTextContent("SD");
+		await expect
+			.element(page.getByTestId("leading-10"))
+			.toHaveTextContent("4K");
+		await expect
+			.element(page.getByTestId("leading-10"))
+			.toHaveTextContent("HD");
+		await expect
+			.element(page.getByTestId("leading-10"))
+			.not.toHaveTextContent("SD");
+		await expect
+			.element(page.getByTestId("leading-11"))
+			.toHaveTextContent("4K");
+		await expect
+			.element(page.getByTestId("leading-11"))
+			.toHaveTextContent("HD");
+		await expect
+			.element(page.getByTestId("leading-11"))
+			.toHaveTextContent("SD");
 
-		fireEvent.click(
-			within(getByTestId("leading-10")).getByRole("button", { name: "4K" }),
-		);
+		// Click the 4K button within leading-10
+		const leading10 = await page.getByTestId("leading-10").element();
+		const btn4K = leading10.querySelector("button") as HTMLButtonElement;
+		await btn4K.click();
 		expect(onToggleProfile).toHaveBeenCalledWith(10, 8);
 
-		fireEvent.click(getByRole("button", { name: "Open Specimen" }));
+		await page.getByRole("button", { name: "Open Specimen" }).click();
 		expect(bookTableMocks.navigate).toHaveBeenCalledWith({
 			params: { bookId: "10" },
 			to: "/books/$bookId",
 		});
 	});
 
-	it("omits leading profile controls when no profile toggles are provided", () => {
-		renderWithProviders(<BookTable books={books} />);
+	it("omits leading profile controls when no profile toggles are provided", async () => {
+		await renderWithProviders(<BookTable books={books} />);
 
 		expect(
 			bookTableMocks.baseBookTableProps?.renderLeadingCell,
