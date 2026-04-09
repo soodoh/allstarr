@@ -28,15 +28,21 @@ const authorDetailRouteMocks = vi.hoisted(() => ({
 	})),
 	bulkMonitorBook: {
 		isPending: false,
-		mutate: vi.fn(),
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
 	},
 	bulkUnmonitorBook: {
 		isPending: false,
-		mutate: vi.fn(),
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
 	},
 	deleteAuthor: {
 		isPending: false,
-		mutate: vi.fn(),
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
 	},
 	downloadProfiles: [] as Array<Record<string, unknown>>,
 	downloadProfilesListQuery: vi.fn(() => ({
@@ -47,17 +53,37 @@ const authorDetailRouteMocks = vi.hoisted(() => ({
 	metadataProfileQuery: vi.fn(() => ({
 		queryKey: ["metadata-profile"],
 	})),
+	monitorBookProfile: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
 	navigate: vi.fn(),
 	notFound: vi.fn(() => new Error("not-found")),
 	params: {
 		authorId: "7",
+	},
+	refreshAuthorMetadata: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
 	},
 	setObserverCallback: undefined as
 		| ((entries: IntersectionObserverEntry[]) => void)
 		| undefined,
 	updateAuthor: {
 		isPending: false,
-		mutate: vi.fn(),
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
+	unmonitorBookProfile: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
 	},
 	useInfiniteQuery: vi.fn(),
 	useQuery: vi.fn(),
@@ -251,7 +277,30 @@ vi.mock("src/components/bookshelf/books/base-book-table", () => ({
 }));
 
 vi.mock("src/components/shared/confirm-dialog", () => ({
-	default: () => <div data-testid="confirm-dialog" />,
+	default: ({
+		loading,
+		onConfirm,
+		onOpenChange,
+		open,
+		title,
+	}: {
+		loading?: boolean;
+		onConfirm: () => void;
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+		title: string;
+	}) =>
+		open ? (
+			<div data-testid="confirm-dialog">
+				<span>{title}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel
+				</button>
+				<button type="button" onClick={onConfirm} disabled={loading}>
+					confirm
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
@@ -264,8 +313,31 @@ vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
 }));
 
 vi.mock("src/components/shared/action-button-group", () => ({
-	default: ({ externalLabel }: { externalLabel?: string }) => (
-		<div data-testid="action-button-group">{externalLabel}</div>
+	default: ({
+		externalLabel,
+		isRefreshing,
+		onDelete,
+		onEdit,
+		onRefreshMetadata,
+	}: {
+		externalLabel?: string;
+		isRefreshing: boolean;
+		onDelete: () => void;
+		onEdit: () => void;
+		onRefreshMetadata: () => void;
+	}) => (
+		<div data-testid="action-button-group">
+			<span>{externalLabel}</span>
+			<button type="button" onClick={onRefreshMetadata} disabled={isRefreshing}>
+				refresh
+			</button>
+			<button type="button" onClick={onEdit}>
+				edit
+			</button>
+			<button type="button" onClick={onDelete}>
+				delete
+			</button>
+		</div>
 	),
 }));
 
@@ -343,7 +415,36 @@ vi.mock("src/components/shared/profile-toggle-icons", () => ({
 }));
 
 vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
-	default: () => <div data-testid="edit-series-profiles-dialog" />,
+	default: ({
+		loading,
+		onCancel,
+		onSubmit,
+	}: {
+		loading?: boolean;
+		onCancel: () => void;
+		onSubmit: (values: {
+			downloadProfileIds: number[];
+			monitorNewBooks: "all" | "none" | "new";
+		}) => void;
+	}) => (
+		<div data-testid="edit-series-profiles-dialog">
+			<button
+				type="button"
+				disabled={loading}
+				onClick={() =>
+					onSubmit({
+						downloadProfileIds: [11],
+						monitorNewBooks: "new",
+					})
+				}
+			>
+				save
+			</button>
+			<button type="button" onClick={onCancel}>
+				cancel
+			</button>
+		</div>
+	),
 }));
 
 vi.mock("src/components/ui/button", () => ({
@@ -471,18 +572,9 @@ vi.mock("src/hooks/mutations", () => ({
 	useBulkMonitorBookProfile: () => authorDetailRouteMocks.bulkMonitorBook,
 	useBulkUnmonitorBookProfile: () => authorDetailRouteMocks.bulkUnmonitorBook,
 	useDeleteAuthor: () => authorDetailRouteMocks.deleteAuthor,
-	useMonitorBookProfile: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
-	useRefreshAuthorMetadata: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
-	useUnmonitorBookProfile: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
+	useMonitorBookProfile: () => authorDetailRouteMocks.monitorBookProfile,
+	useRefreshAuthorMetadata: () => authorDetailRouteMocks.refreshAuthorMetadata,
+	useUnmonitorBookProfile: () => authorDetailRouteMocks.unmonitorBookProfile,
 	useUpdateAuthor: () => authorDetailRouteMocks.updateAuthor,
 }));
 
@@ -544,10 +636,13 @@ describe("AuthorDetailRoute", () => {
 		authorDetailRouteMocks.downloadProfilesListQuery.mockClear();
 		authorDetailRouteMocks.invalidate.mockReset();
 		authorDetailRouteMocks.metadataProfileQuery.mockClear();
+		authorDetailRouteMocks.monitorBookProfile.mutate.mockReset();
 		authorDetailRouteMocks.navigate.mockReset();
 		authorDetailRouteMocks.notFound.mockClear();
 		authorDetailRouteMocks.params.authorId = "7";
+		authorDetailRouteMocks.refreshAuthorMetadata.mutate.mockReset();
 		authorDetailRouteMocks.updateAuthor.mutate.mockReset();
+		authorDetailRouteMocks.unmonitorBookProfile.mutate.mockReset();
 		authorDetailRouteMocks.useInfiniteQuery.mockReset();
 		authorDetailRouteMocks.useInfiniteQuery.mockImplementation(
 			() =>

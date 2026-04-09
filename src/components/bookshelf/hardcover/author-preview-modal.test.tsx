@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import type {
 	HardcoverAuthorDetail,
 	HardcoverSearchItem,
@@ -20,6 +20,11 @@ const authorPreviewModalMocks = vi.hoisted(() => ({
 	query: vi.fn(),
 	upsertSettings: { mutate: vi.fn() },
 }));
+
+const selectContext = createContext<{
+	onValueChange?: (value: string) => void;
+	value?: string;
+} | null>(null);
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@tanstack/react-query")>();
@@ -124,9 +129,12 @@ vi.mock("src/components/ui/dialog", () => ({
 	Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
 		open ? <div data-testid="dialog-root">{children}</div> : null,
 	DialogBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-	DialogContent: ({ children }: { children: ReactNode }) => (
-		<div>{children}</div>
-	),
+	DialogContent: ({
+		children,
+	}: {
+		children: ReactNode;
+		onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+	}) => <div>{children}</div>,
 	DialogHeader: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
@@ -144,9 +152,28 @@ vi.mock("src/components/ui/label", () => ({
 }));
 
 vi.mock("src/components/ui/select", () => ({
-	Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	Select: ({
+		children,
+		onValueChange,
+		value,
+	}: {
+		children: ReactNode;
+		onValueChange?: (value: string) => void;
+		value?: string;
+	}) => (
+		<selectContext.Provider value={{ onValueChange, value }}>
+			<div data-value={value}>{children}</div>
+		</selectContext.Provider>
+	),
 	SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-	SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	SelectItem: ({ children, value }: { children: ReactNode; value: string }) => {
+		const ctx = useContext(selectContext);
+		return (
+			<button onClick={() => ctx?.onValueChange?.(value)} type="button">
+				{children}
+			</button>
+		);
+	},
 	SelectTrigger: ({ children }: { children?: ReactNode }) => (
 		<div>{children}</div>
 	),
@@ -327,6 +354,133 @@ describe("AuthorPreviewModal", () => {
 			searchOnAdd: true,
 		});
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it("shows loading skeletons while the author query is pending", () => {
+		authorPreviewModalMocks.query.mockImplementation(
+			(options: { queryKey?: unknown[] }) => {
+				const queryKey = options.queryKey ?? [];
+				if (queryKey[0] === "hardcover" && queryKey[1] === "author") {
+					return {
+						data: undefined,
+						isLoading: true,
+					};
+				}
+				return {
+					data: undefined,
+					isLoading: false,
+				};
+			},
+		);
+
+		const { container, getByText, queryByText } = renderWithProviders(
+			<AuthorPreviewModal author={previewAuthor} onOpenChange={vi.fn()} open />,
+		);
+
+		expect(
+			container.querySelectorAll("[data-skeleton]").length,
+		).toBeGreaterThan(0);
+		expect(getByText("Add to Bookshelf")).toBeDisabled();
+		expect(queryByText("Search result biography.")).toBeNull();
+	});
+
+	it("hides the bio when absent and lets the add form cancel cleanly", async () => {
+		const user = userEvent.setup();
+		const authorWithoutHardcoverLink = {
+			...previewAuthor,
+			hardcoverUrl: null,
+		};
+		authorPreviewModalMocks.fullAuthor = {
+			...fullAuthor,
+			bio: null,
+			booksCount: null,
+			hardcoverUrl: null,
+		};
+		authorPreviewModalMocks.profiles = [
+			{
+				contentType: "ebook",
+				icon: "book-open",
+				id: 1,
+				name: "EPUB",
+			},
+		];
+
+		const onOpenChange = vi.fn();
+		const { getByText, queryByLabelText, queryByText } = renderWithProviders(
+			<AuthorPreviewModal
+				addDefaults={{
+					downloadProfileIds: [],
+					monitorNewBooks: "all",
+					monitorOption: "future",
+					searchOnAdd: false,
+				}}
+				author={authorWithoutHardcoverLink}
+				onOpenChange={onOpenChange}
+				open
+			/>,
+		);
+
+		expect(queryByText("A prolific science fiction author.")).toBeNull();
+		expect(queryByText(/books$/)).toBeNull();
+		expect(queryByLabelText("Open on Hardcover")).toBeNull();
+
+		await user.click(getByText("Add to Bookshelf"));
+		await user.click(getByText("Cancel"));
+
+		expect(queryByText("Add to Bookshelf")).toBeInTheDocument();
+		expect(queryByText("Monitor")).toBeNull();
+		expect(onOpenChange).not.toHaveBeenCalled();
+	});
+
+	it("switches monitor modes to none and submits the hidden profile state", async () => {
+		const user = userEvent.setup();
+		authorPreviewModalMocks.fullAuthor = fullAuthor;
+		authorPreviewModalMocks.profiles = [
+			{
+				contentType: "ebook",
+				icon: "book-open",
+				id: 1,
+				name: "EPUB",
+			},
+		];
+
+		const onOpenChange = vi.fn();
+		const { getAllByRole, getByText, queryByText } = renderWithProviders(
+			<AuthorPreviewModal
+				addDefaults={{
+					downloadProfileIds: [],
+					monitorNewBooks: "new",
+					monitorOption: "future",
+					searchOnAdd: false,
+				}}
+				author={previewAuthor}
+				onOpenChange={onOpenChange}
+				open
+			/>,
+		);
+
+		await user.click(getByText("Add to Bookshelf"));
+		await user.click(getAllByRole("button", { name: "None" })[0]);
+		await user.click(getByText("Confirm"));
+
+		expect(authorPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
+			addDefaults: {
+				downloadProfileIds: [],
+				monitorNewBooks: "none",
+				monitorOption: "none",
+				searchOnAdd: false,
+			},
+			tableId: "books",
+		});
+		expect(authorPreviewModalMocks.importAuthor.mutate).toHaveBeenCalledWith({
+			downloadProfileIds: [],
+			foreignAuthorId: 101,
+			monitorNewBooks: "none",
+			monitorOption: "none",
+			searchOnAdd: false,
+		});
+		expect(onOpenChange).toHaveBeenCalledWith(false);
+		expect(queryByText("Monitor")).toBeInTheDocument();
 	});
 
 	it("shows the bookshelf link when the author already exists", async () => {

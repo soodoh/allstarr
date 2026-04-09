@@ -1,4 +1,4 @@
-import { within } from "@testing-library/react";
+import { waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	Children,
@@ -580,5 +580,137 @@ describe("users route", () => {
 		);
 
 		expect(usersRouteMocks.invalidate).toHaveBeenCalled();
+	});
+
+	it("surfaces toast errors for failed admin actions", async () => {
+		const user = userEvent.setup();
+		usersRouteMocks.isAdmin = true;
+		usersRouteMocks.updateDefaultRoleFn.mockRejectedValueOnce(
+			new Error("default role failed"),
+		);
+		usersRouteMocks.setUserRoleFn.mockRejectedValueOnce(
+			new Error("role update failed"),
+		);
+		usersRouteMocks.deleteUserFn.mockRejectedValueOnce(
+			new Error("delete user failed"),
+		);
+		usersRouteMocks.createUserFn.mockRejectedValueOnce(
+			new Error("create user failed"),
+		);
+		usersRouteMocks.updateOidcProviderFn.mockRejectedValue(
+			new Error("provider update failed"),
+		);
+		usersRouteMocks.deleteOidcProviderFn.mockRejectedValueOnce(
+			new Error("provider delete failed"),
+		);
+
+		const view = renderRoute(
+			createLoaderData({
+				oidcProviders: [
+					{
+						clientId: "client-1",
+						clientSecret: "secret-1",
+						createdAt: new Date("2025-01-03T00:00:00Z"),
+						displayName: "Authentik",
+						discoveryUrl:
+							"https://auth.example.com/.well-known/openid-configuration",
+						enabled: true,
+						id: "provider-1",
+						providerId: "authentik",
+						scopes: ["openid", "profile"],
+						trusted: false,
+					},
+				],
+			}),
+		);
+
+		const registrationCard = view
+			.getByRole("heading", {
+				name: "Registration",
+			})
+			.closest("section") as HTMLElement;
+		await user.click(
+			within(registrationCard).getByRole("button", { name: "Requester" }),
+		);
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"Failed to update default role",
+			),
+		);
+
+		const userRow = view.getByText("Alice").closest("tr") as HTMLElement;
+		await user.click(within(userRow).getByRole("button", { name: "Admin" }));
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"role update failed",
+			),
+		);
+
+		await user.click(within(userRow).getByRole("button", { name: "Trash" }));
+		await user.click(view.getByRole("button", { name: "Confirm" }));
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"delete user failed",
+			),
+		);
+		await user.click(view.getByRole("button", { name: "Cancel" }));
+
+		await user.click(view.getByRole("button", { name: /Add User/ }));
+		const createUserDialog = view
+			.getByRole("heading", { name: "Create User" })
+			.closest("div") as HTMLElement;
+		await user.type(
+			within(createUserDialog).getByPlaceholderText("User name"),
+			"New User",
+		);
+		await user.type(
+			within(createUserDialog).getByPlaceholderText("user@example.com"),
+			"new@example.com",
+		);
+		await user.type(
+			within(createUserDialog).getByPlaceholderText("Minimum 8 characters"),
+			"supersecret",
+		);
+		await user.click(
+			within(createUserDialog).getByRole("button", { name: "Create User" }),
+		);
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"create user failed",
+			),
+		);
+
+		const providerRow = view
+			.getByText("Authentik")
+			.closest("tr") as HTMLElement;
+		const providerCheckboxes = within(providerRow).getAllByRole("checkbox");
+		await user.click(providerCheckboxes[0]);
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"Failed to update provider",
+			),
+		);
+
+		await user.click(providerCheckboxes[1]);
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"Failed to update provider",
+			),
+		);
+
+		await user.click(
+			within(providerRow).getByRole("button", { name: "Trash" }),
+		);
+		const confirmButtons = view.getAllByRole("button", { name: "Confirm" });
+		const latestConfirmButton = confirmButtons.at(-1);
+		if (!latestConfirmButton) {
+			throw new Error("confirm button not found");
+		}
+		await user.click(latestConfirmButton);
+		await waitFor(() =>
+			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
+				"Failed to delete provider",
+			),
+		);
 	});
 });

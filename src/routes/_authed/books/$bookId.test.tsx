@@ -15,17 +15,41 @@ const bookDetailRouteMocks = vi.hoisted(() => ({
 	hasEnabledIndexersQuery: vi.fn(() => ({
 		queryKey: ["indexers", "enabled"],
 	})),
+	monitorBookProfile: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
 	invalidate: vi.fn(),
 	navigate: vi.fn(),
 	notFound: vi.fn(() => new Error("not-found")),
 	params: {
 		bookId: "9",
 	},
+	refreshBookMetadata: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
+	reassignBookFiles: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
 	useQuery: vi.fn(),
 	useSuspenseQuery: vi.fn(),
 	userSettingsQuery: vi.fn((tableId: string) => ({
 		queryKey: ["user-settings", tableId],
 	})),
+	unmonitorBookProfile: {
+		isPending: false,
+		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
+			options?.onSuccess?.(),
+		),
+	},
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
@@ -79,13 +103,65 @@ vi.mock("src/components/bookshelf/books/additional-authors", () => ({
 }));
 
 vi.mock("src/components/bookshelf/books/book-delete-dialog", () => ({
-	default: ({ open }: { open: boolean }) =>
-		open ? <div data-testid="book-delete-dialog" /> : null,
+	default: ({
+		bookTitle,
+		onOpenChange,
+		onSuccess,
+		open,
+	}: {
+		bookTitle: string;
+		onOpenChange: (open: boolean) => void;
+		onSuccess: () => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="book-delete-dialog">
+				<span>{bookTitle}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						onOpenChange(false);
+						onSuccess();
+					}}
+				>
+					confirm
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/bookshelf/books/book-edit-dialog", () => ({
-	default: ({ open }: { open: boolean }) =>
-		open ? <div data-testid="book-edit-dialog" /> : null,
+	default: ({
+		bookTitle,
+		onOpenChange,
+		onSuccess,
+		open,
+	}: {
+		bookTitle: string;
+		onOpenChange: (open: boolean) => void;
+		onSuccess: () => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="book-edit-dialog">
+				<span>{bookTitle}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						onOpenChange(false);
+						onSuccess();
+					}}
+				>
+					save
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/bookshelf/books/book-files-tab", () => ({
@@ -111,8 +187,34 @@ vi.mock("src/components/bookshelf/books/editions-tab", () => ({
 }));
 
 vi.mock("src/components/bookshelf/books/reassign-files-dialog", () => ({
-	default: ({ open }: { open: boolean }) =>
-		open ? <div data-testid="reassign-files-dialog" /> : null,
+	default: ({
+		fromBookTitle,
+		onOpenChange,
+		onSuccess,
+		open,
+	}: {
+		fromBookTitle: string;
+		onOpenChange: (open: boolean) => void;
+		onSuccess?: () => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="reassign-files-dialog">
+				<span>{fromBookTitle}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						onOpenChange(false);
+						onSuccess?.();
+					}}
+				>
+					reassign
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/bookshelf/books/search-releases-tab", () => ({
@@ -132,10 +234,26 @@ vi.mock("src/components/bookshelf/books/search-releases-tab", () => ({
 }));
 
 vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
-	default: ({ open, profileName }: { open: boolean; profileName: string }) =>
+	default: ({
+		open,
+		onConfirm,
+		onOpenChange,
+		profileName,
+	}: {
+		onConfirm: (deleteFiles: boolean) => void;
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+		profileName: string;
+	}) =>
 		open ? (
 			<div data-testid="unmonitor-dialog">
 				<span>{profileName}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel
+				</button>
+				<button type="button" onClick={() => onConfirm(true)}>
+					confirm
+				</button>
 			</div>
 		) : null,
 }));
@@ -143,18 +261,20 @@ vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
 vi.mock("src/components/shared/action-button-group", () => ({
 	default: ({
 		externalLabel,
+		isRefreshing,
 		onDelete,
 		onEdit,
 		onRefreshMetadata,
 	}: {
 		externalLabel?: string;
+		isRefreshing: boolean;
 		onDelete: () => void;
 		onEdit: () => void;
 		onRefreshMetadata: () => void;
 	}) => (
 		<div data-testid="action-button-group">
 			<span>{externalLabel}</span>
-			<button type="button" onClick={onRefreshMetadata}>
+			<button type="button" onClick={onRefreshMetadata} disabled={isRefreshing}>
 				refresh
 			</button>
 			<button type="button" onClick={onEdit}>
@@ -168,9 +288,29 @@ vi.mock("src/components/shared/action-button-group", () => ({
 }));
 
 vi.mock("src/components/shared/metadata-warning", () => ({
-	default: ({ itemTitle, type }: { itemTitle: string; type: string }) => (
+	default: ({
+		itemTitle,
+		onDeleted,
+		onReassignFiles,
+		type,
+	}: {
+		itemTitle: string;
+		onDeleted?: () => void;
+		onReassignFiles?: () => void;
+		type: string;
+	}) => (
 		<div data-testid="metadata-warning">
 			{type}:{itemTitle}
+			{onDeleted ? (
+				<button type="button" onClick={onDeleted}>
+					delete
+				</button>
+			) : null}
+			{onReassignFiles ? (
+				<button type="button" onClick={onReassignFiles}>
+					reassign
+				</button>
+			) : null}
 		</div>
 	),
 }));
@@ -282,18 +422,9 @@ vi.mock("src/components/ui/tabs", async () => {
 });
 
 vi.mock("src/hooks/mutations", () => ({
-	useMonitorBookProfile: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
-	useRefreshBookMetadata: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
-	useUnmonitorBookProfile: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
+	useMonitorBookProfile: () => bookDetailRouteMocks.monitorBookProfile,
+	useRefreshBookMetadata: () => bookDetailRouteMocks.refreshBookMetadata,
+	useUnmonitorBookProfile: () => bookDetailRouteMocks.unmonitorBookProfile,
 }));
 
 vi.mock("src/lib/queries", () => ({

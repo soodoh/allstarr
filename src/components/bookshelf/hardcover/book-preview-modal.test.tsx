@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import type {
 	BookLanguage,
 	HardcoverBookDetail,
@@ -13,7 +13,7 @@ const bookPreviewModalMocks = vi.hoisted(() => ({
 	bookDetail: undefined as HardcoverBookDetail | undefined,
 	booksExist: [] as Array<{ id: number }>,
 	importBook: { mutate: vi.fn() },
-	languages: [] as BookLanguage[],
+	languages: undefined as BookLanguage[] | undefined,
 	navigate: vi.fn(),
 	profiles: [] as Array<{
 		contentType: string;
@@ -24,6 +24,11 @@ const bookPreviewModalMocks = vi.hoisted(() => ({
 	query: vi.fn(),
 	upsertSettings: { mutate: vi.fn() },
 }));
+
+const selectContext = createContext<{
+	onValueChange?: (value: string) => void;
+	value?: string;
+} | null>(null);
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@tanstack/react-query")>();
@@ -146,9 +151,12 @@ vi.mock("src/components/ui/dialog", () => ({
 	Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
 		open ? <div data-testid="dialog-root">{children}</div> : null,
 	DialogBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-	DialogContent: ({ children }: { children: ReactNode }) => (
-		<div>{children}</div>
-	),
+	DialogContent: ({
+		children,
+	}: {
+		children: ReactNode;
+		onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+	}) => <div>{children}</div>,
 	DialogHeader: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
@@ -166,9 +174,28 @@ vi.mock("src/components/ui/label", () => ({
 }));
 
 vi.mock("src/components/ui/select", () => ({
-	Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	Select: ({
+		children,
+		onValueChange,
+		value,
+	}: {
+		children: ReactNode;
+		onValueChange?: (value: string) => void;
+		value?: string;
+	}) => (
+		<selectContext.Provider value={{ onValueChange, value }}>
+			<div data-value={value}>{children}</div>
+		</selectContext.Provider>
+	),
 	SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-	SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	SelectItem: ({ children, value }: { children: ReactNode; value: string }) => {
+		const ctx = useContext(selectContext);
+		return (
+			<button onClick={() => ctx?.onValueChange?.(value)} type="button">
+				{children}
+			</button>
+		);
+	},
 	SelectTrigger: ({ children }: { children?: ReactNode }) => (
 		<div>{children}</div>
 	),
@@ -381,5 +408,122 @@ describe("BookPreviewModal", () => {
 			to: "/books/$bookId",
 		});
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it("renders fallback hardcover data when the Hardcover detail query is empty", () => {
+		bookPreviewModalMocks.authorExists = { id: "10" };
+		bookPreviewModalMocks.bookDetail = undefined;
+		bookPreviewModalMocks.languages = undefined;
+
+		const { container, getByText, queryByText, queryByLabelText } =
+			renderWithProviders(
+				<BookPreviewModal book={previewBook} onOpenChange={vi.fn()} open />,
+			);
+
+		expect(getByText("Frank Herbert")).toBeInTheDocument();
+		expect(getByText("2001")).toBeInTheDocument();
+		expect(getByText("Search result overview.")).toBeInTheDocument();
+		expect(queryByText("Saga")).toBeNull();
+		expect(queryByLabelText("Open on Hardcover")).not.toBeNull();
+		expect(
+			container.querySelector('a[href="https://hardcover.app/books/dune"]'),
+		).not.toBeNull();
+	});
+
+	it("hides add controls for existing authors and cancels the inline form", async () => {
+		const user = userEvent.setup();
+		bookPreviewModalMocks.bookDetail = {
+			...hardcoverBook,
+			series: [],
+			contributors: [{ id: "10", name: "Jane Doe" }],
+		};
+		bookPreviewModalMocks.authorExists = { id: "10" };
+		bookPreviewModalMocks.profiles = [
+			{
+				contentType: "ebook",
+				icon: "book-open",
+				id: 11,
+				name: "EPUB",
+			},
+		];
+
+		const onOpenChange = vi.fn();
+		const { getByText, queryByText } = renderWithProviders(
+			<BookPreviewModal
+				addDefaults={{
+					downloadProfileIds: [11],
+					monitorNewBooks: "all",
+					monitorOption: "existing",
+					searchOnAdd: true,
+				}}
+				book={previewBook}
+				onOpenChange={onOpenChange}
+				open
+			/>,
+		);
+
+		await user.click(getByText("Add Author & Monitor Book"));
+		expect(getByText("Monitor Book")).toBeInTheDocument();
+		expect(queryByText("Monitor series (Saga)")).toBeNull();
+
+		await user.click(getByText("Cancel"));
+		expect(queryByText("Monitor Book")).toBeNull();
+		expect(getByText("Add Author & Monitor Book")).toBeInTheDocument();
+	});
+
+	it("lets the add form select none for monitoring and submit the payload", async () => {
+		const user = userEvent.setup();
+		bookPreviewModalMocks.bookDetail = {
+			...hardcoverBook,
+			series: [],
+		};
+		bookPreviewModalMocks.authorExists = undefined;
+		bookPreviewModalMocks.profiles = [
+			{
+				contentType: "ebook",
+				icon: "book-open",
+				id: 11,
+				name: "EPUB",
+			},
+		];
+
+		const onOpenChange = vi.fn();
+		const { getAllByRole, getByText, queryByText } = renderWithProviders(
+			<BookPreviewModal
+				addDefaults={{
+					downloadProfileIds: [],
+					monitorNewBooks: "new",
+					monitorOption: "future",
+					searchOnAdd: false,
+				}}
+				book={previewBook}
+				onOpenChange={onOpenChange}
+				open
+			/>,
+		);
+
+		await user.click(getByText("Add Author & Monitor Book"));
+		await user.click(getAllByRole("button", { name: "None" })[0]);
+		await user.click(getByText("Confirm"));
+
+		expect(bookPreviewModalMocks.upsertSettings.mutate).toHaveBeenCalledWith({
+			addDefaults: {
+				downloadProfileIds: [],
+				monitorNewBooks: "none",
+				monitorOption: "none",
+				searchOnAdd: false,
+			},
+			tableId: "books",
+		});
+		expect(bookPreviewModalMocks.importBook.mutate).toHaveBeenCalledWith({
+			downloadProfileIds: [],
+			foreignBookId: 9001,
+			monitorNewBooks: "none",
+			monitorOption: "none",
+			monitorSeries: false,
+			searchOnAdd: false,
+		});
+		expect(onOpenChange).toHaveBeenCalledWith(false);
+		expect(queryByText("Monitor series (Saga)")).toBeNull();
 	});
 });
