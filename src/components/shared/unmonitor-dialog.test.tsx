@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/ui/dialog", () => ({
 	Dialog: ({
@@ -82,8 +82,8 @@ vi.mock("src/components/ui/label", () => ({
 import UnmonitorDialog from "./unmonitor-dialog";
 
 describe("UnmonitorDialog", () => {
-	it("renders the base confirmation text without delete controls when there are no files", () => {
-		const { getByText, queryByRole } = renderWithProviders(
+	it("renders the base confirmation text without delete controls when there are no files", async () => {
+		renderWithProviders(
 			<UnmonitorDialog
 				fileCount={0}
 				isPending={false}
@@ -96,17 +96,20 @@ describe("UnmonitorDialog", () => {
 			/>,
 		);
 
-		expect(getByText("Unmonitor Standard?")).toBeInTheDocument();
-		expect(getByText(/This will stop searching for book/i)).toBeInTheDocument();
-		expect(queryByRole("checkbox")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Unmonitor Standard?"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText(/This will stop searching for book/i))
+			.toBeInTheDocument();
+		await expect.element(page.getByRole("checkbox")).not.toBeInTheDocument();
 	});
 
 	it("toggles delete files and resets the value when canceled", async () => {
-		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		renderWithProviders(
 			<UnmonitorDialog
 				fileCount={2}
 				isPending={false}
@@ -119,23 +122,22 @@ describe("UnmonitorDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("delete-files"));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByLabelText("delete-files").click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onConfirm).toHaveBeenCalledWith(true);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 		expect(onConfirm).toHaveBeenLastCalledWith(false);
 	});
 
 	it("passes open changes through without clearing the file toggle", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
-		const { getByLabelText, getByTestId } = renderWithProviders(
+		renderWithProviders(
 			<UnmonitorDialog
 				fileCount={2}
 				isPending={false}
@@ -148,15 +150,15 @@ describe("UnmonitorDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("delete-files"));
-		await user.click(getByTestId("dialog-open"));
+		await page.getByLabelText("delete-files").click();
+		await page.getByTestId("dialog-open").click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(true);
-		expect(getByLabelText("delete-files")).toBeChecked();
+		await expect.element(page.getByLabelText("delete-files")).toBeChecked();
 	});
 
-	it("disables confirmation while pending", () => {
-		const { container, getByRole } = renderWithProviders(
+	it("disables confirmation while pending", async () => {
+		const { container } = await renderWithProviders(
 			<UnmonitorDialog
 				fileCount={1}
 				isPending
@@ -170,6 +172,8 @@ describe("UnmonitorDialog", () => {
 		);
 
 		expect(container.querySelector(".animate-spin")).not.toBeNull();
-		expect(getByRole("button", { name: "Confirm" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Confirm" }))
+			.toBeDisabled();
 	});
 });

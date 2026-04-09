@@ -1,12 +1,12 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import ProfileCheckboxGroup from "./profile-checkbox-group";
 
 describe("ProfileCheckboxGroup", () => {
-	it("renders the empty state when no profiles are available", () => {
-		const { getByText, queryByRole } = renderWithProviders(
+	it("renders the empty state when no profiles are available", async () => {
+		renderWithProviders(
 			<ProfileCheckboxGroup
 				onToggle={vi.fn()}
 				profiles={[]}
@@ -14,16 +14,19 @@ describe("ProfileCheckboxGroup", () => {
 			/>,
 		);
 
-		expect(getByText("Download Profiles")).toBeInTheDocument();
-		expect(getByText("No download profiles available.")).toBeInTheDocument();
-		expect(queryByRole("checkbox")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Download Profiles", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No download profiles available."))
+			.toBeInTheDocument();
+		await expect.element(page.getByRole("checkbox")).not.toBeInTheDocument();
 	});
 
 	it("renders profiles, selected extras, and toggles by id", async () => {
-		const user = userEvent.setup();
 		const onToggle = vi.fn();
 
-		const { getByRole, getByText, queryByText } = renderWithProviders(
+		renderWithProviders(
 			<ProfileCheckboxGroup
 				onToggle={onToggle}
 				profiles={[
@@ -35,12 +38,16 @@ describe("ProfileCheckboxGroup", () => {
 			/>,
 		);
 
-		expect(getByText("HD")).toBeInTheDocument();
-		expect(getByText("Audio")).toBeInTheDocument();
-		expect(queryByText("Extra settings for 1")).not.toBeInTheDocument();
-		expect(getByText("Extra settings for 2")).toBeInTheDocument();
+		await expect.element(page.getByText("HD")).toBeInTheDocument();
+		await expect.element(page.getByText("Audio")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Extra settings for 1"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Extra settings for 2"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("checkbox", { name: /HD/i }));
+		await page.getByRole("checkbox", { name: /HD/i }).click();
 
 		expect(onToggle).toHaveBeenCalledWith(1);
 	});
