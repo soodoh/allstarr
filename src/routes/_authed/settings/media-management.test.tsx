@@ -621,4 +621,103 @@ describe("media-management route", () => {
 			]),
 		);
 	});
+
+	it("renders default values when settings are sparse", () => {
+		mediaManagementRouteMocks.settingsMap = {};
+		mediaManagementRouteMocks.profiles = [];
+
+		const route = Route as unknown as {
+			component: () => JSX.Element;
+		};
+		const Component = route.component;
+		const view = renderWithProviders(<Component />);
+
+		expect(
+			view.getByDisplayValue("{Author Name} - {Book Title}"),
+		).toBeDisabled();
+		expect(view.getByDisplayValue("100")).toBeInTheDocument();
+		expect(view.queryByDisplayValue(".jpg,.opf")).not.toBeInTheDocument();
+		expect(view.queryByDisplayValue("0644")).not.toBeInTheDocument();
+		expect(
+			view.getByText(
+				"No book root folders configured. Add a root folder path in your book download profiles.",
+			),
+		).toBeInTheDocument();
+
+		fireEvent.click(view.getByRole("button", { name: "TV Shows" }));
+		expect(
+			view.getByDisplayValue(
+				"{Show Title} - S{Season:00}E{Episode:00} - {Episode Title}",
+			),
+		).toBeInTheDocument();
+		fireEvent.click(view.getByRole("button", { name: "Movies" }));
+		expect(view.getAllByDisplayValue("{Movie Title} ({Year})")).toHaveLength(2);
+	});
+
+	it("saves tv settings and groups tv root folders", async () => {
+		const user = userEvent.setup();
+		mediaManagementRouteMocks.settingsMap = createSettings({
+			"naming.tv.standardEpisode": "Standard TV",
+			"naming.tv.dailyEpisode": "Daily TV",
+			"naming.tv.animeEpisode": "Anime TV",
+			"naming.tv.seasonFolder": "Season TV",
+			"naming.tv.showFolder": "Show TV",
+		});
+		mediaManagementRouteMocks.profiles = [
+			{
+				contentType: "tv",
+				name: "Series A",
+				rootFolderPath: "/library/tv",
+			},
+			{
+				contentType: "tv",
+				name: "Series B",
+				rootFolderPath: "/library/tv",
+			},
+			{
+				contentType: "movie",
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+			},
+		];
+
+		const route = Route as unknown as {
+			component: () => JSX.Element;
+		};
+		const Component = route.component;
+		const view = renderWithProviders(<Component />);
+
+		await user.click(view.getByRole("button", { name: "TV Shows" }));
+		expect(view.getByText("/library/tv")).toBeInTheDocument();
+		expect(view.getByText("Series A, Series B")).toBeInTheDocument();
+
+		fireEvent.change(view.getByDisplayValue("Standard TV"), {
+			target: { value: "Standard TV Updated" },
+		});
+		await user.click(view.getByRole("button", { name: "Do Not Prefer" }));
+		await user.click(view.getByRole("button", { name: "Release Date" }));
+		fireEvent.change(view.getByDisplayValue("100"), {
+			target: { value: "250" },
+		});
+
+		await user.click(view.getByRole("button", { name: "Save Settings" }));
+
+		expect(
+			mediaManagementRouteMocks.updateSettings.mutate,
+		).toHaveBeenCalledWith(
+			expect.arrayContaining([
+				{ key: "naming.tv.standardEpisode", value: "Standard TV Updated" },
+				{ key: "naming.tv.dailyEpisode", value: "Daily TV" },
+				{ key: "naming.tv.animeEpisode", value: "Anime TV" },
+				{ key: "naming.tv.seasonFolder", value: "Season TV" },
+				{ key: "naming.tv.showFolder", value: "Show TV" },
+				{
+					key: "mediaManagement.tv.propersAndRepacks",
+					value: "doNotPrefer",
+				},
+				{ key: "mediaManagement.tv.changeFileDate", value: "releaseDate" },
+				{ key: "mediaManagement.tv.minimumFreeSpace", value: "250" },
+			]),
+		);
+	});
 });
