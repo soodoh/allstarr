@@ -207,7 +207,7 @@ describe("api route handlers", () => {
 			runtimeVersion: "1.2.3",
 			sqliteVersion: "3.45.0",
 			startupPath: process.cwd(),
-			urlBase: "",
+			urlBase: process.env.BETTER_AUTH_URL || "",
 			version: "0.1.0",
 		});
 	});

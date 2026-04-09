@@ -42,6 +42,18 @@ export const coverageExclude = [
 	"**/*.test.*",
 	"**/*.spec.*",
 	"src/routeTree.gen.ts",
+	"src/db/index.ts",
+	"src/db/schema/**",
+	"e2e/fixtures/**",
+	"**/types.ts",
+	"src/lib/auth-client.ts",
+	"src/lib/query-client.ts",
+	"src/lib/auth.ts",
+	"src/lib/queries/index.ts",
+	"src/hooks/mutations/index.ts",
+	"src/lib/custom-format-preset-data.ts",
+	"src/lib/tmdb-validators.ts",
+	"src/test/**",
 ];
 
 export default defineConfig({
