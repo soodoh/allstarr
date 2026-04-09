@@ -1,0 +1,339 @@
+import { fireEvent, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { renderWithProviders } from "src/test/render";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const addBooksRouteMocks = vi.hoisted(() => ({
+	searchHardcoverFn: vi.fn(
+		async ({
+			data,
+		}: {
+			data: { limit: number; query: string; type: string };
+		}) => ({
+			query: data.query,
+			results: [
+				{
+					coverUrl: null,
+					description: "A spice-fueled epic.",
+					id: 1,
+					releaseYear: 1965,
+					slug: "dune",
+					subtitle: "Book one",
+					title: "Dune",
+					type: "book",
+				},
+				{
+					coverUrl: null,
+					description: "Writer of Dune.",
+					id: 2,
+					releaseYear: 1920,
+					slug: "frank-herbert",
+					subtitle: "Science fiction author",
+					title: "Frank Herbert",
+					type: "author",
+				},
+			],
+		}),
+	),
+	settingsQuery: vi.fn((tableId: string) => ({
+		queryFn: async () => ({ addDefaults: { monitored: true } }),
+		queryKey: ["user-settings", tableId],
+	})),
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+	createFileRoute: () => (config: unknown) => config,
+}));
+
+vi.mock("lucide-react", () => ({
+	Search: ({ className }: { className?: string }) => (
+		<span className={className}>Search</span>
+	),
+}));
+
+vi.mock("src/components/bookshelf/hardcover/author-preview-modal", () => ({
+	default: ({
+		author,
+		open,
+		onOpenChange,
+	}: {
+		author: { title: string };
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="author-preview-modal">
+				<span>{author.title}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					close
+				</button>
+			</div>
+		) : null,
+}));
+
+vi.mock("src/components/bookshelf/hardcover/book-preview-modal", () => ({
+	default: ({
+		book,
+		open,
+		onOpenChange,
+	}: {
+		book: { title: string };
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="book-preview-modal">
+				<span>{book.title}</span>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					close
+				</button>
+			</div>
+		) : null,
+}));
+
+vi.mock("src/components/shared/empty-state", () => ({
+	default: ({ description, title }: { description: string; title: string }) => (
+		<div data-testid="empty-state">
+			<span data-testid="empty-state-title">{title}</span>
+			<span data-testid="empty-state-description">{description}</span>
+		</div>
+	),
+}));
+
+vi.mock("src/components/shared/optimized-image", () => ({
+	default: ({ alt }: { alt: string }) => <img alt={alt} />,
+}));
+
+vi.mock("src/components/shared/page-header", () => ({
+	default: ({
+		description,
+		title,
+	}: {
+		description?: ReactNode;
+		title: string;
+	}) => (
+		<div data-testid="page-header">
+			<span data-testid="page-header-title">{title}</span>
+			{description ? <span>{description}</span> : null}
+		</div>
+	),
+}));
+
+vi.mock("src/components/ui/badge", () => ({
+	Badge: ({ children, variant }: { children: ReactNode; variant?: string }) => (
+		<span data-variant={variant}>{children}</span>
+	),
+}));
+
+vi.mock("src/components/ui/button", () => ({
+	Button: ({
+		children,
+		onClick,
+		type,
+	}: {
+		children: ReactNode;
+		onClick?: () => void;
+		type?: "button" | "submit";
+	}) => (
+		<button
+			data-type={type ?? "button"}
+			onClick={onClick}
+			type={type ?? "button"}
+		>
+			{children}
+		</button>
+	),
+}));
+
+vi.mock("src/components/ui/card", () => ({
+	Card: ({
+		children,
+		className,
+		onClick,
+	}: {
+		children: ReactNode;
+		className?: string;
+		onClick?: () => void;
+	}) => (
+		<div className={className} data-onclick={String(Boolean(onClick))}>
+			{children}
+		</div>
+	),
+	CardContent: ({
+		children,
+		className,
+	}: {
+		children: ReactNode;
+		className?: string;
+	}) => <div className={className}>{children}</div>,
+	CardDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+	CardHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	CardTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+}));
+
+vi.mock("src/components/ui/input", () => ({
+	default: ({
+		onChange,
+		placeholder,
+		value,
+	}: {
+		onChange?: (event: { target: { value: string } }) => void;
+		placeholder?: string;
+		value?: string;
+	}) => (
+		<input
+			aria-label="Search query"
+			onChange={onChange}
+			placeholder={placeholder}
+			value={value}
+		/>
+	),
+}));
+
+vi.mock("src/components/ui/tabs", async () => {
+	const React = await import("react");
+	const TabsContext = React.createContext<{
+		onValueChange?: (value: string) => void;
+		value: string;
+	}>({ value: "all" });
+
+	return {
+		Tabs: ({
+			children,
+			onValueChange,
+			value,
+		}: {
+			children: ReactNode;
+			onValueChange?: (value: string) => void;
+			value: string;
+		}) => (
+			<TabsContext.Provider value={{ onValueChange, value }}>
+				<div>{children}</div>
+			</TabsContext.Provider>
+		),
+		TabsList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+		TabsTrigger: ({
+			children,
+			value,
+		}: {
+			children: ReactNode;
+			value: string;
+		}) => {
+			const context = React.useContext(TabsContext);
+			return (
+				<button onClick={() => context.onValueChange?.(value)} type="button">
+					{children}
+				</button>
+			);
+		},
+	};
+});
+
+vi.mock("src/lib/queries/user-settings", () => ({
+	userSettingsQuery: (tableId: string) =>
+		addBooksRouteMocks.settingsQuery(tableId),
+}));
+
+vi.mock("src/server/search", () => ({
+	searchHardcoverFn: (
+		...args: Parameters<typeof addBooksRouteMocks.searchHardcoverFn>
+	) => addBooksRouteMocks.searchHardcoverFn(...args),
+}));
+
+import { Route } from "./add";
+
+describe("AddBooksRoute", () => {
+	beforeEach(() => {
+		addBooksRouteMocks.searchHardcoverFn.mockClear();
+		addBooksRouteMocks.settingsQuery.mockClear();
+	});
+
+	it("wires the loader to the books settings query", async () => {
+		const ensureQueryData = vi.fn();
+		const routeConfig = Route as unknown as {
+			loader: (input: {
+				context: {
+					queryClient: {
+						ensureQueryData: typeof ensureQueryData;
+					};
+				};
+			}) => Promise<unknown>;
+		};
+
+		await routeConfig.loader({
+			context: {
+				queryClient: {
+					ensureQueryData,
+				},
+			},
+		});
+
+		expect(addBooksRouteMocks.settingsQuery).toHaveBeenCalledWith("books");
+		expect(ensureQueryData).toHaveBeenCalledWith(
+			expect.objectContaining({
+				queryKey: ["user-settings", "books"],
+			}),
+		);
+	});
+
+	it("validates short searches and renders Hardcover search results", async () => {
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+		const Component = routeConfig.component;
+
+		const {
+			findByTestId,
+			findByText,
+			getByLabelText,
+			getByRole,
+			getByTestId,
+			getByText,
+		} = renderWithProviders(<Component />);
+
+		expect(getByTestId("page-header-title")).toHaveTextContent(
+			"Add to Bookshelf",
+		);
+		expect(getByTestId("empty-state-title")).toHaveTextContent("Search to add");
+
+		fireEvent.change(getByLabelText("Search query"), {
+			target: { value: "a" },
+		});
+		const searchForm = getByLabelText("Search query").closest("form");
+		if (!searchForm) {
+			throw new Error("expected search form");
+		}
+		fireEvent.submit(searchForm);
+		expect(getByText("Enter at least 2 characters.")).toBeInTheDocument();
+
+		fireEvent.click(getByRole("button", { name: "Books" }));
+		expect(getByLabelText("Search query")).toHaveAttribute(
+			"placeholder",
+			"Search only books",
+		);
+
+		fireEvent.change(getByLabelText("Search query"), {
+			target: { value: " dune " },
+		});
+		fireEvent.submit(searchForm);
+
+		await waitFor(() => {
+			expect(addBooksRouteMocks.searchHardcoverFn).toHaveBeenCalledWith({
+				data: {
+					limit: 20,
+					query: "dune",
+					type: "books",
+				},
+			});
+		});
+
+		await findByText(/Showing 2 results for/);
+		fireEvent.click(getByText("Dune"));
+		expect(await findByTestId("book-preview-modal")).toHaveTextContent("Dune");
+
+		fireEvent.click(getByText("Frank Herbert"));
+		expect(await findByTestId("author-preview-modal")).toHaveTextContent(
+			"Frank Herbert",
+		);
+	});
+});
