@@ -10,13 +10,15 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
-    "prepare": "lefthook install",
+    "prepare": "bun scripts/prepare-hooks.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage:all": "vitest run --coverage",
+    "test:coverage:server-core": "vitest run --config vitest.server-core.config.ts --coverage",
     "test:e2e:install": "bunx playwright install chromium",
     "test:e2e": "bun run build && bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts"
   },
@@ -51,6 +53,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@commitlint/types": "^20.5.0",
@@ -65,10 +70,12 @@
     "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.31.10",
     "lefthook": "^2.1.5",
+    "jsdom": "^27.0.1",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.5",
     "vite-tsconfig-paths": "^6.1.1",
+    "@vitest/coverage-v8": "4.1.2",
     "vitest": "^4.1.2"
   }
 }

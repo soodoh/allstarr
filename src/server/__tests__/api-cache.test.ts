@@ -113,6 +113,47 @@ describe("createApiFetcher — cache", () => {
 		expect(fetcher.size).toBe(0);
 	});
 
+	it("keeps live entries during a sweep", async () => {
+		const fetcher = makeFetcher({ ttlMs: 1000 });
+
+		await fetcher.fetch("a", () => Promise.resolve("val-a"));
+		await vi.advanceTimersByTimeAsync(500);
+		await fetcher.fetch("b", () => Promise.resolve("val-b"));
+
+		await vi.advanceTimersByTimeAsync(500);
+
+		expect(fetcher.size).toBe(1);
+		const refetchB = vi.fn().mockResolvedValue("val-b-new");
+		await fetcher.fetch("b", refetchB);
+		expect(refetchB).not.toHaveBeenCalled();
+	});
+
+	it("lazily evicts expired entries before the next sweep", async () => {
+		const fetcher = makeFetcher({ ttlMs: 1000 });
+		const fetchFn = vi
+			.fn()
+			.mockResolvedValueOnce("old")
+			.mockResolvedValueOnce("new");
+
+		await fetcher.fetch("key", fetchFn);
+		vi.setSystemTime(new Date(Date.now() + 1001));
+
+		const result = await fetcher.fetch("key", fetchFn);
+
+		expect(result).toBe("new");
+		expect(fetchFn).toHaveBeenCalledTimes(2);
+	});
+
+	it("handles a zero-entry cache limit", async () => {
+		const fetcher = makeFetcher({ maxEntries: 0 });
+		const fetchFn = vi.fn().mockResolvedValue("value");
+
+		await fetcher.fetch("key", fetchFn);
+
+		expect(fetchFn).toHaveBeenCalledTimes(1);
+		expect(fetcher.size).toBe(1);
+	});
+
 	it("clear() empties the cache", async () => {
 		const fetcher = makeFetcher();
 		await fetcher.fetch("a", () => Promise.resolve("val"));

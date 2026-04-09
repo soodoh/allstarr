@@ -62,6 +62,7 @@ vi.mock("src/components/ui/switch", () => ({
 		onCheckedChange: (checked: boolean) => void;
 	}) => (
 		<input
+			aria-checked={checked ? "true" : "false"}
 			checked={checked}
 			id={id}
 			onChange={(event) => onCheckedChange(event.target.checked)}

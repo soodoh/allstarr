@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,7 +7,7 @@ vi.mock("src/components/ui/tabs", () => ({
 		children,
 		value,
 	}: {
-		children: React.ReactNode;
+		children: ReactNode;
 		value: string;
 	}) => <section data-value={value}>{children}</section>,
 }));
