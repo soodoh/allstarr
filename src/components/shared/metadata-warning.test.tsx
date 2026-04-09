@@ -125,6 +125,23 @@ describe("MetadataWarning", () => {
 		expect(onDeleted).toHaveBeenCalledTimes(1);
 	});
 
+	it("stops propagation on the trigger button", async () => {
+		const user = userEvent.setup();
+
+		const { getByLabelText } = renderWithProviders(
+			<MetadataWarning
+				itemId={7}
+				itemTitle="Dune"
+				missingSince={new Date("2025-01-01")}
+				type="book"
+			/>,
+		);
+
+		await user.click(getByLabelText('Metadata warning for "Dune"'));
+
+		expect(getByLabelText('Metadata warning for "Dune"')).toBeInTheDocument();
+	});
+
 	it("deletes an edition through the edition mutation", async () => {
 		const user = userEvent.setup();
 		const onDeleted = vi.fn();
