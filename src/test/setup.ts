@@ -1,15 +1,2 @@
-import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
-
-class MockResizeObserver {
-	disconnect() {}
-	observe() {}
-	unobserve() {}
-}
-
-globalThis.ResizeObserver = MockResizeObserver as typeof ResizeObserver;
-
-afterEach(() => {
-	cleanup();
-});
+// Browser mode runs in a real browser — no jsdom matchers or ResizeObserver mocks needed.
+// This file is intentionally minimal. Add browser-mode-specific setup here if needed.
