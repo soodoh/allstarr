@@ -214,7 +214,33 @@ vi.mock("src/components/NotFound", () => ({
 }));
 
 vi.mock("src/components/bookshelf/authors/author-form", () => ({
-	default: () => <div data-testid="author-form" />,
+	default: ({
+		onCancel,
+		onSubmit,
+	}: {
+		onCancel: () => void;
+		onSubmit: (values: {
+			downloadProfileIds: number[];
+			monitorNewBooks: "all" | "none" | "new";
+		}) => void;
+	}) => (
+		<div data-testid="author-form">
+			<button
+				type="button"
+				onClick={() =>
+					onSubmit({
+						downloadProfileIds: [11],
+						monitorNewBooks: "new",
+					})
+				}
+			>
+				save
+			</button>
+			<button type="button" onClick={onCancel}>
+				cancel
+			</button>
+		</div>
+	),
 }));
 
 vi.mock("src/components/bookshelf/books/additional-authors", () => ({
@@ -304,10 +330,26 @@ vi.mock("src/components/shared/confirm-dialog", () => ({
 }));
 
 vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
-	default: ({ open, profileName }: { open: boolean; profileName: string }) =>
+	default: ({
+		onConfirm,
+		onOpenChange,
+		open,
+		profileName,
+	}: {
+		onConfirm: (deleteFiles: boolean) => void;
+		onOpenChange: (open: boolean) => void;
+		open: boolean;
+		profileName: string;
+	}) =>
 		open ? (
 			<div data-testid="unmonitor-dialog">
 				<span>{profileName}</span>
+				<button type="button" onClick={() => onConfirm(true)}>
+					confirm-unmonitor
+				</button>
+				<button type="button" onClick={() => onOpenChange(false)}>
+					cancel-unmonitor
+				</button>
 			</div>
 		) : null,
 }));
@@ -613,6 +655,16 @@ vi.mock("src/lib/queries", () => ({
 		authorDetailRouteMocks.authorDetailQuery(id),
 	downloadProfilesListQuery: () =>
 		authorDetailRouteMocks.downloadProfilesListQuery(),
+	hardcoverSeriesCompleteQuery: (
+		foreignSeriesIds: number[],
+		excludeForeignAuthorId?: number,
+	) => ({
+		queryKey: [
+			"hardcover-series-complete",
+			foreignSeriesIds,
+			excludeForeignAuthorId,
+		],
+	}),
 	metadataProfileQuery: () => authorDetailRouteMocks.metadataProfileQuery(),
 }));
 
@@ -957,5 +1009,198 @@ describe("AuthorDetailRoute", () => {
 			},
 			expect.any(Object),
 		);
+	});
+
+	it("renders the author chrome and series fallback state", () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [],
+			bookCount: 0,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: null,
+		};
+		authorDetailRouteMocks.downloadProfiles = [];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: true,
+			skipMissingReleaseDate: true,
+		};
+
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		const { getByRole, getByTestId, queryByTestId, queryByText } =
+			renderWithProviders(<routeConfig.component />);
+
+		expect(getByTestId("page-header-title")).toHaveTextContent("Isaac Asimov");
+		expect(queryByTestId("page-header-description")).toBeNull();
+		expect(queryByTestId("profile-toggle-icons")).toBeNull();
+		expect(queryByText("Bio")).toBeNull();
+
+		fireEvent.click(getByRole("button", { name: "Series" }));
+		expect(queryByText("No series found for this author.")).toBeInTheDocument();
+	});
+
+	it("refreshes metadata, edits, deletes, and unmonitors active profiles", () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [
+				{ language: "English", languageCode: "en" },
+				{ language: "French", languageCode: "fr" },
+			],
+			bio: "Prolific science fiction author.",
+			bornYear: 1920,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [
+						{
+							authorId: 7,
+							authorName: "Isaac Asimov",
+							foreignAuthorId: "isaac-asimov",
+							isPrimary: true,
+						},
+					],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [11],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 800,
+					publisher: "Ace",
+					rating: 4.2,
+					ratingsCount: 123,
+					releaseDate: "1950-01-01",
+					releaseYear: 1950,
+					score: 98,
+					series: null,
+					title: "Foundation",
+					usersCount: 10_000,
+					country: "US",
+					audioLength: null,
+				},
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [
+						{
+							authorId: 7,
+							authorName: "Isaac Asimov",
+							foreignAuthorId: "isaac-asimov",
+							isPrimary: true,
+						},
+					],
+					bookId: 2,
+					coverUrl: null,
+					downloadProfileIds: [11],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 2,
+					isbn10: null,
+					isbn13: null,
+					language: "French",
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 256,
+					publisher: "Gnome Press",
+					rating: 4,
+					ratingsCount: 80,
+					releaseDate: "1951-01-01",
+					releaseYear: 1951,
+					score: 95,
+					series: null,
+					title: "I, Robot",
+					usersCount: 8_000,
+					country: "US",
+					audioLength: null,
+				},
+			],
+			bookCount: 2,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [{ url: "/authors/asimov.jpg", coverType: "cover" }],
+			name: "Isaac Asimov",
+			deathYear: 1992,
+			status: "active",
+			series: [],
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{
+				contentType: "ebook",
+				id: 11,
+				language: "en",
+				name: "4K",
+			},
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: false,
+			skipMissingReleaseDate: false,
+		};
+
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		const { getAllByRole, getByRole, getByTestId, queryByTestId } =
+			renderWithProviders(<routeConfig.component />);
+
+		fireEvent.click(getByRole("button", { name: "refresh" }));
+		expect(authorDetailRouteMocks.invalidate).toHaveBeenCalledTimes(1);
+
+		fireEvent.click(getByRole("button", { name: "edit" }));
+		expect(getByTestId("author-form")).toBeInTheDocument();
+		fireEvent.click(getByRole("button", { name: "save" }));
+		expect(authorDetailRouteMocks.updateAuthor.mutate).toHaveBeenCalledWith(
+			{
+				id: 7,
+				downloadProfileIds: [11],
+				monitorNewBooks: "new",
+			},
+			expect.any(Object),
+		);
+		expect(authorDetailRouteMocks.invalidate).toHaveBeenCalledTimes(2);
+
+		fireEvent.click(getByRole("button", { name: "delete" }));
+		expect(getByTestId("confirm-dialog")).toHaveTextContent("Delete Author");
+		fireEvent.click(getByRole("button", { name: "confirm" }));
+		expect(authorDetailRouteMocks.deleteAuthor.mutate).toHaveBeenCalledWith(
+			7,
+			expect.any(Object),
+		);
+		expect(authorDetailRouteMocks.navigate).toHaveBeenCalledWith({
+			to: "/authors",
+		});
+
+		fireEvent.click(getAllByRole("button", { name: "toggle-4K" })[0]);
+		expect(getByTestId("unmonitor-dialog")).toHaveTextContent("4K");
+		fireEvent.click(getByRole("button", { name: "confirm-unmonitor" }));
+		expect(
+			authorDetailRouteMocks.bulkUnmonitorBook.mutate,
+		).toHaveBeenCalledWith(
+			{
+				bookIds: [1, 2],
+				downloadProfileId: 11,
+				deleteFiles: true,
+			},
+			expect.any(Object),
+		);
+		expect(queryByTestId("unmonitor-dialog")).toBeNull();
 	});
 });
