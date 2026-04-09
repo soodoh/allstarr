@@ -198,4 +198,38 @@ describe("AppSidebar", () => {
 			screen.queryByRole("link", { name: "System" }),
 		).not.toBeInTheDocument();
 	});
+
+	it("falls back to the first visible group when the path does not match", () => {
+		Object.assign(appSidebarMocks.state, {
+			pathname: "/totally-unknown",
+			role: "viewer",
+		});
+
+		render(<AppSidebar />);
+
+		const libraryLink = screen.getByRole("link", { name: "Library" });
+
+		expect(libraryLink.parentElement).toHaveAttribute("data-active", "true");
+		expect(
+			screen.queryByRole("link", { name: "Settings" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: "Requests" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("keeps a child active when the path includes a trailing slash", () => {
+		Object.assign(appSidebarMocks.state, {
+			pathname: "/books/",
+			role: "admin",
+		});
+
+		render(<AppSidebar />);
+
+		const bookLinks = screen.getAllByRole("link", { name: "Books" });
+
+		expect(bookLinks).toHaveLength(2);
+		expect(bookLinks[0].parentElement).toHaveAttribute("data-active", "true");
+		expect(bookLinks[1].parentElement).toHaveAttribute("data-active", "true");
+	});
 });

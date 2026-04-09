@@ -101,13 +101,72 @@ describe("SummaryRow", () => {
 			})
 			.mockReturnValueOnce({
 				data: {
-					health: [{ name: "Indexer", type: "warning" }],
+					health: [
+						{ name: "Indexer", type: "warning" },
+						{ name: "Scanner", type: "warning" },
+					],
 				},
 			});
 
 		const { getByText } = renderWithProviders(<SummaryRow />);
 
 		expect(getByText("No root folders configured")).toBeInTheDocument();
+		expect(getByText("2 issues detected")).toBeInTheDocument();
+	});
+
+	it("renders the singular root folder message", () => {
+		summaryRowMocks.useSuspenseQuery
+			.mockReturnValueOnce({
+				data: {
+					books: { total: 1, fileCount: 1 },
+					shows: { total: 0, fileCount: 0 },
+					movies: { total: 0, fileCount: 0 },
+				},
+			})
+			.mockReturnValueOnce({
+				data: {
+					totalUsed: 536_870_912,
+					totalCapacity: 1_073_741_824,
+					rootFolderCount: 1,
+				},
+			})
+			.mockReturnValueOnce({
+				data: {
+					health: [],
+				},
+			});
+
+		const { getByText } = renderWithProviders(<SummaryRow />);
+
+		expect(getByText("of 1 GB across 1 root folder")).toBeInTheDocument();
+		expect(getByText("All systems healthy")).toBeInTheDocument();
+	});
+
+	it("renders the singular issue message", () => {
+		summaryRowMocks.useSuspenseQuery
+			.mockReturnValueOnce({
+				data: {
+					books: { total: 0, fileCount: 0 },
+					shows: { total: 0, fileCount: 0 },
+					movies: { total: 0, fileCount: 0 },
+				},
+			})
+			.mockReturnValueOnce({
+				data: {
+					totalUsed: 0,
+					totalCapacity: 1_073_741_824,
+					rootFolderCount: 1,
+				},
+			})
+			.mockReturnValueOnce({
+				data: {
+					health: [{ name: "Indexer", type: "warning" }],
+				},
+			});
+
+		const { getByText } = renderWithProviders(<SummaryRow />);
+
 		expect(getByText("1 issue detected")).toBeInTheDocument();
+		expect(getByText("of 1 GB across 1 root folder")).toBeInTheDocument();
 	});
 });
