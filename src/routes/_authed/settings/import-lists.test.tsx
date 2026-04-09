@@ -71,12 +71,14 @@ vi.mock("src/components/shared/confirm-dialog", () => ({
 	default: ({
 		description,
 		loading,
+		onOpenChange,
 		onConfirm,
 		open,
 		title,
 	}: {
 		description: string;
 		loading?: boolean;
+		onOpenChange?: (open: boolean) => void;
 		onConfirm?: () => void;
 		open: boolean;
 		title: string;
@@ -88,6 +90,9 @@ vi.mock("src/components/shared/confirm-dialog", () => ({
 				<div data-testid="confirm-loading">{String(Boolean(loading))}</div>
 				<button type="button" onClick={() => onConfirm?.()}>
 					confirm
+				</button>
+				<button type="button" onClick={() => onOpenChange?.(false)}>
+					cancel
 				</button>
 			</div>
 		) : null,
@@ -156,7 +161,7 @@ vi.mock("src/components/ui/tabs", () => ({
 		children: ReactNode;
 		defaultValue: string;
 	}) => {
-		const [value, setValue] = useState(defaultValue);
+		const [value, setValue] = useState(activeTabsValue || defaultValue);
 		activeTabsValue = value;
 		activeTabsSetValue = setValue;
 		return (
@@ -264,6 +269,93 @@ describe("import lists route", () => {
 		);
 		expect(importListsRouteMocks.toast.success).toHaveBeenCalledWith(
 			"Exclusion removed",
+		);
+		expect(
+			importListsRouteMocks.queryClient.invalidateQueries,
+		).toHaveBeenCalledWith({
+			queryKey: ["import-exclusions", "books"],
+		});
+	});
+
+	it("switches to the movies tab and removes a movie exclusion", async () => {
+		importListsRouteMocks.movieItems = [
+			{
+				createdAt: "2025-04-09T00:00:00.000Z",
+				id: 7,
+				title: "Movie Import",
+				year: null,
+			},
+		];
+		activeTabsValue = "movies";
+
+		renderWithProviders(<RouteComponent.component />);
+
+		expect(screen.getByText("Movie Import")).toBeInTheDocument();
+		expect(screen.getByText("—")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+		fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+
+		await waitFor(() =>
+			expect(
+				importListsRouteMocks.removeMovieImportExclusionFn,
+			).toHaveBeenCalledWith({ data: { id: 7 } }),
+		);
+		expect(
+			importListsRouteMocks.queryClient.invalidateQueries,
+		).toHaveBeenCalledWith({
+			queryKey: ["import-exclusions", "movies"],
+		});
+		expect(importListsRouteMocks.toast.success).toHaveBeenCalledWith(
+			"Exclusion removed",
+		);
+	});
+
+	it("closes the confirm dialog without mutating when cancelled", () => {
+		importListsRouteMocks.bookItems = [
+			{
+				authorName: "Author One",
+				createdAt: "2025-04-08T00:00:00.000Z",
+				id: 3,
+				title: "Cancel Me",
+			},
+		];
+
+		renderWithProviders(<RouteComponent.component />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+		expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+
+		expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+		expect(
+			importListsRouteMocks.removeBookImportExclusionFn,
+		).not.toHaveBeenCalled();
+	});
+
+	it("shows an error toast when removing a movie exclusion fails", async () => {
+		importListsRouteMocks.movieItems = [
+			{
+				createdAt: "2025-04-09T00:00:00.000Z",
+				id: 9,
+				title: "Broken Movie",
+				year: 2024,
+			},
+		];
+		activeTabsValue = "movies";
+		importListsRouteMocks.removeMovieImportExclusionFn.mockRejectedValueOnce(
+			new Error("nope"),
+		);
+
+		renderWithProviders(<RouteComponent.component />);
+		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+		fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+
+		await waitFor(() =>
+			expect(importListsRouteMocks.toast.error).toHaveBeenCalledWith(
+				"Failed to remove exclusion",
+			),
 		);
 	});
 });

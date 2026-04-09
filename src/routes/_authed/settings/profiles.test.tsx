@@ -179,22 +179,29 @@ vi.mock(
 	() => ({
 		default: ({
 			initialValues,
+			onCancel,
 			onSubmit,
 			onSubmitWithId,
+			serverError,
 			serverCwd,
 		}: {
 			initialValues?: { id?: number; name?: string };
+			onCancel: () => void;
 			onSubmit: (values: Record<string, unknown>) => void;
 			onSubmitWithId?: (
 				values: Record<string, unknown>,
 				localCFScores: Array<{ customFormatId: number; score: number }>,
 			) => void;
+			serverError?: string;
 			serverCwd: string;
 		}) => (
 			<div data-testid="download-profile-form">
 				<div data-testid="download-profile-form-server-cwd">{serverCwd}</div>
 				<div data-testid="download-profile-form-initial">
 					{initialValues?.name ?? "new"}
+				</div>
+				<div data-testid="download-profile-form-error">
+					{serverError ?? "none"}
 				</div>
 				<button
 					type="button"
@@ -238,6 +245,9 @@ vi.mock(
 					}
 				>
 					submit-with-cfs
+				</button>
+				<button type="button" onClick={onCancel}>
+					cancel
 				</button>
 			</div>
 		),
@@ -411,6 +421,90 @@ describe("profiles route", () => {
 
 		expect(screen.getByRole("button", { name: "Add Profile" })).toBeDisabled();
 		fireEvent.click(screen.getAllByRole("button", { name: "edit" })[0]);
+		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+	});
+
+	it("filters profiles by tab and deletes the selected profile", () => {
+		renderWithProviders(<RouteComponent.component />);
+
+		expect(screen.getByTestId("profile-count")).toHaveTextContent("2");
+
+		fireEvent.click(screen.getByRole("button", { name: "TV" }));
+
+		expect(screen.getByTestId("profile-count")).toHaveTextContent("1");
+		expect(screen.getByText("Series")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "delete" }));
+
+		expect(
+			profilesRouteMocks.deleteDownloadProfile.mutate,
+		).toHaveBeenCalledWith(2);
+	});
+
+	it("creates a profile without custom-format scores and closes the dialog", async () => {
+		renderWithProviders(<RouteComponent.component />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Add Profile" }));
+		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+
+		expect(
+			profilesRouteMocks.createDownloadProfile.mutate,
+		).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: "Created Profile",
+			}),
+			expect.objectContaining({
+				onSuccess: expect.any(Function),
+			}),
+		);
+		expect(profilesRouteMocks.bulkSetCFScores.mutate).not.toHaveBeenCalled();
+		await waitFor(() =>
+			expect(screen.queryByTestId("dialog")).not.toBeInTheDocument(),
+		);
+	});
+
+	it("edits an existing profile and passes server errors through to the form", async () => {
+		profilesRouteMocks.updateDownloadProfile.error = {
+			message: "Profile update failed",
+		};
+
+		renderWithProviders(<RouteComponent.component />);
+
+		fireEvent.click(screen.getAllByRole("button", { name: "edit" })[0]);
+
+		expect(
+			screen.getByTestId("download-profile-form-initial"),
+		).toHaveTextContent("Movies");
+		expect(screen.getByTestId("download-profile-form-error")).toHaveTextContent(
+			"Profile update failed",
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+
+		expect(
+			profilesRouteMocks.updateDownloadProfile.mutate,
+		).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 1,
+				name: "Movies",
+			}),
+			expect.objectContaining({
+				onSuccess: expect.any(Function),
+			}),
+		);
+		await waitFor(() =>
+			expect(screen.queryByTestId("dialog")).not.toBeInTheDocument(),
+		);
+	});
+
+	it("closes the dialog when the form cancel action is used", () => {
+		renderWithProviders(<RouteComponent.component />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Add Profile" }));
+		expect(screen.getByTestId("dialog")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+
 		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
 	});
 });
