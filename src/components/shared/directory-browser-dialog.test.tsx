@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@tanstack/react-query")>();
@@ -97,14 +97,14 @@ describe("DirectoryBrowserDialog", () => {
 		);
 	}
 
-	it("disables fetching while closed", () => {
+	it("disables fetching while closed", async () => {
 		mockedUseQuery.mockReturnValue({
 			data: undefined,
 			error: null,
 			isLoading: false,
 		} as ReturnType<typeof useQuery>);
 
-		renderWithProviders(
+		await renderWithProviders(
 			<DirectoryBrowserDialog
 				onOpenChange={vi.fn()}
 				onSelect={vi.fn()}
@@ -112,15 +112,17 @@ describe("DirectoryBrowserDialog", () => {
 			/>,
 		);
 
-		expect(mockedUseQuery).toHaveBeenCalledWith(
-			expect.objectContaining({
-				enabled: false,
-				queryKey: ["browse-directory", "/", true],
-			}),
-		);
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenCalledWith(
+				expect.objectContaining({
+					enabled: false,
+					queryKey: ["browse-directory", "/", true],
+				}),
+			);
 	});
 
-	it("renders loading and error states", () => {
+	it("renders loading and error states", async () => {
 		mockedUseQuery
 			.mockReturnValueOnce({
 				data: undefined,
@@ -133,34 +135,36 @@ describe("DirectoryBrowserDialog", () => {
 				isLoading: false,
 			} as ReturnType<typeof useQuery>);
 
-		const loadingView = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<DirectoryBrowserDialog onOpenChange={vi.fn()} onSelect={vi.fn()} open />,
 		);
 
-		expect(loadingView.container.querySelector(".animate-spin")).not.toBeNull();
+		expect(container.querySelector(".animate-spin")).not.toBeNull();
 
-		const errorView = renderWithProviders(
+		renderWithProviders(
 			<DirectoryBrowserDialog onOpenChange={vi.fn()} onSelect={vi.fn()} open />,
 		);
 
-		expect(errorView.getByText("No access")).toBeInTheDocument();
+		await expect.element(page.getByText("No access")).toBeInTheDocument();
 	});
 
-	it("renders the fallback error message for non-Error failures", () => {
+	it("renders the fallback error message for non-Error failures", async () => {
 		mockedUseQuery.mockReturnValue({
 			data: undefined,
 			error: "permission denied",
 			isLoading: false,
 		} as ReturnType<typeof useQuery>);
 
-		const { getByText } = renderWithProviders(
+		renderWithProviders(
 			<DirectoryBrowserDialog onOpenChange={vi.fn()} onSelect={vi.fn()} open />,
 		);
 
-		expect(getByText("Failed to read directory")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Failed to read directory"))
+			.toBeInTheDocument();
 	});
 
-	it("starts from a custom initial path", () => {
+	it("starts from a custom initial path", async () => {
 		mockedUseQuery.mockReturnValue({
 			data: {
 				current: "/mnt/media",
@@ -171,7 +175,7 @@ describe("DirectoryBrowserDialog", () => {
 			isLoading: false,
 		} as ReturnType<typeof useQuery>);
 
-		const { getByText } = renderWithProviders(
+		await renderWithProviders(
 			<DirectoryBrowserDialog
 				initialPath="/mnt/media"
 				onOpenChange={vi.fn()}
@@ -180,16 +184,17 @@ describe("DirectoryBrowserDialog", () => {
 			/>,
 		);
 
-		expect(mockedUseQuery).toHaveBeenCalledWith(
-			expect.objectContaining({
-				queryKey: ["browse-directory", "/mnt/media", true],
-			}),
-		);
-		expect(getByText("/mnt/media")).toBeInTheDocument();
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenCalledWith(
+				expect.objectContaining({
+					queryKey: ["browse-directory", "/mnt/media", true],
+				}),
+			);
+		await expect.element(page.getByText("/mnt/media")).toBeInTheDocument();
 	});
 
 	it("navigates directories, toggles hidden folders, and selects the displayed path", async () => {
-		const user = userEvent.setup();
 		const onSelect = vi.fn();
 
 		mockedUseQuery.mockImplementation((options) => {
@@ -234,7 +239,7 @@ describe("DirectoryBrowserDialog", () => {
 			} as ReturnType<typeof useQuery>;
 		});
 
-		const { container, getByRole, getByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<DirectoryBrowserDialog
 				onOpenChange={vi.fn()}
 				onSelect={onSelect}
@@ -242,32 +247,35 @@ describe("DirectoryBrowserDialog", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "media" }));
+		await page.getByRole("button", { name: "media" }).click();
 
-		expect(getByText("/media")).toBeInTheDocument();
-		expect(mockedUseQuery).toHaveBeenLastCalledWith(
-			expect.objectContaining({
-				queryKey: ["browse-directory", "/media", true],
-			}),
-		);
+		await expect.element(page.getByText("/media")).toBeInTheDocument();
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					queryKey: ["browse-directory", "/media", true],
+				}),
+			);
 
-		await user.click(
-			container.querySelectorAll("button")[0] as HTMLButtonElement,
-		);
+		await (
+			container.querySelectorAll("button")[0] as HTMLButtonElement
+		).click();
 
-		expect(mockedUseQuery).toHaveBeenLastCalledWith(
-			expect.objectContaining({
-				queryKey: ["browse-directory", "/media", false],
-			}),
-		);
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					queryKey: ["browse-directory", "/media", false],
+				}),
+			);
 
-		await user.click(getByRole("button", { name: "Select Folder" }));
+		await page.getByRole("button", { name: "Select Folder" }).click();
 
 		expect(onSelect).toHaveBeenCalledWith("/media");
 	});
 
 	it("renders parent navigation, empty state, and cancel action", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 
 		mockedUseQuery.mockReturnValue({
@@ -280,7 +288,7 @@ describe("DirectoryBrowserDialog", () => {
 			isLoading: false,
 		} as ReturnType<typeof useQuery>);
 
-		const { getByRole, getByText } = renderWithProviders(
+		renderWithProviders(
 			<DirectoryBrowserDialog
 				onOpenChange={onOpenChange}
 				onSelect={vi.fn()}
@@ -288,24 +296,28 @@ describe("DirectoryBrowserDialog", () => {
 			/>,
 		);
 
-		expect(getByText("No subdirectories found")).toBeInTheDocument();
-		expect(getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No subdirectories found"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Cancel" }))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: ".." }));
-		expect(mockedUseQuery).toHaveBeenLastCalledWith(
-			expect.objectContaining({
-				queryKey: ["browse-directory", "/media", true],
-			}),
-		);
+		await page.getByRole("button", { name: ".." }).click();
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					queryKey: ["browse-directory", "/media", true],
+				}),
+			);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
 	it("resets the requested path when the dialog reopens", async () => {
-		const user = userEvent.setup();
-
 		mockedUseQuery.mockImplementation((options) => {
 			const [, path] = options.queryKey as [string, string, boolean];
 
@@ -332,21 +344,21 @@ describe("DirectoryBrowserDialog", () => {
 			} as ReturnType<typeof useQuery>;
 		});
 
-		const { getByRole, getByTestId, getByText } = renderWithProviders(
-			<TestHarness initialPath="/mnt/media" />,
-		);
+		renderWithProviders(<TestHarness initialPath="/mnt/media" />);
 
-		await user.click(getByRole("button", { name: "media" }));
-		expect(getByText("/media/library")).toBeInTheDocument();
+		await page.getByRole("button", { name: "media" }).click();
+		await expect.element(page.getByText("/media/library")).toBeInTheDocument();
 
-		await user.click(getByTestId("dialog-close"));
-		await user.click(getByTestId("dialog-open"));
+		await page.getByTestId("dialog-close").click();
+		await page.getByTestId("dialog-open").click();
 
-		expect(mockedUseQuery).toHaveBeenLastCalledWith(
-			expect.objectContaining({
-				queryKey: ["browse-directory", "/mnt/media", true],
-			}),
-		);
-		expect(getByText("/mnt/media")).toBeInTheDocument();
+		await expect
+			.poll(() => mockedUseQuery)
+			.toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					queryKey: ["browse-directory", "/mnt/media", true],
+				}),
+			);
+		await expect.element(page.getByText("/mnt/media")).toBeInTheDocument();
 	});
 });

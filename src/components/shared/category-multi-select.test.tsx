@@ -1,6 +1,7 @@
 import { CATEGORY_MAP, INDEXER_CATEGORIES } from "src/lib/categories";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const { multiSelectSpy } = vi.hoisted(() => ({
 	multiSelectSpy: vi.fn(),
@@ -16,14 +17,16 @@ vi.mock("src/components/shared/multi-select", () => ({
 import CategoryMultiSelect from "./category-multi-select";
 
 describe("CategoryMultiSelect", () => {
-	it("passes the expected category items and defaults to MultiSelect", () => {
+	it("passes the expected category items and defaults to MultiSelect", async () => {
 		const onChange = vi.fn();
 
-		const { getByTestId } = renderWithProviders(
+		renderWithProviders(
 			<CategoryMultiSelect onChange={onChange} value={[1000, 2000]} />,
 		);
 
-		expect(getByTestId("mock-multi-select")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("mock-multi-select"))
+			.toBeInTheDocument();
 		expect(multiSelectSpy).toHaveBeenCalledTimes(1);
 
 		const props = multiSelectSpy.mock.calls[0]?.[0] as {
@@ -50,8 +53,9 @@ describe("CategoryMultiSelect", () => {
 		});
 	});
 
-	it("forwards the disabled state", () => {
-		renderWithProviders(<CategoryMultiSelect disabled value={[]} />);
+	it("forwards the disabled state", async () => {
+		multiSelectSpy.mockClear();
+		await renderWithProviders(<CategoryMultiSelect disabled value={[]} />);
 
 		const props = multiSelectSpy.mock.calls.at(-1)?.[0] as {
 			disabled: boolean;

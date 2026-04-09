@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const { updateSeriesState } = vi.hoisted(() => ({
 	updateSeriesState: {
@@ -58,8 +58,8 @@ describe("EditSeriesProfilesDialog", () => {
 		updateSeriesState.mutate.mockReset();
 	});
 
-	it("does not render when closed", () => {
-		const { queryByText } = renderWithProviders(
+	it("does not render when closed", async () => {
+		renderWithProviders(
 			<EditSeriesProfilesDialog
 				downloadProfileIds={[2]}
 				onOpenChange={vi.fn()}
@@ -70,11 +70,12 @@ describe("EditSeriesProfilesDialog", () => {
 			/>,
 		);
 
-		expect(queryByText("Edit Profiles for Dune Saga")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Edit Profiles for Dune Saga"))
+			.not.toBeInTheDocument();
 	});
 
 	it("toggles selected ids and saves them through the mutation", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		updateSeriesState.mutate.mockImplementation(
 			(
@@ -83,7 +84,7 @@ describe("EditSeriesProfilesDialog", () => {
 			) => options?.onSuccess?.(),
 		);
 
-		const { getByRole, getByText } = renderWithProviders(
+		renderWithProviders(
 			<EditSeriesProfilesDialog
 				downloadProfileIds={[2]}
 				onOpenChange={onOpenChange}
@@ -97,11 +98,11 @@ describe("EditSeriesProfilesDialog", () => {
 			/>,
 		);
 
-		expect(getByText("Selected: 2")).toBeInTheDocument();
+		await expect.element(page.getByText("Selected: 2")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Toggle profile 1" }));
-		await user.click(getByRole("button", { name: "Toggle profile 2" }));
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Toggle profile 1" }).click();
+		await page.getByRole("button", { name: "Toggle profile 2" }).click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(updateSeriesState.mutate).toHaveBeenCalledWith(
 			{ downloadProfileIds: [1], id: 7 },
@@ -111,11 +112,10 @@ describe("EditSeriesProfilesDialog", () => {
 	});
 
 	it("disables save while the mutation is pending and still allows cancel", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		updateSeriesState.isPending = true;
 
-		const { getByRole } = renderWithProviders(
+		renderWithProviders(
 			<EditSeriesProfilesDialog
 				downloadProfileIds={[2]}
 				onOpenChange={onOpenChange}
@@ -126,9 +126,11 @@ describe("EditSeriesProfilesDialog", () => {
 			/>,
 		);
 
-		expect(getByRole("button", { name: "Save" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Save" }))
+			.toBeDisabled();
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});

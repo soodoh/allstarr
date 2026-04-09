@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/ui/select", () => ({
 	Select: ({
@@ -32,8 +32,8 @@ vi.mock("src/components/ui/select", () => ({
 import TablePagination from "./table-pagination";
 
 describe("TablePagination", () => {
-	it("renders nothing when there are no items", () => {
-		const { container } = renderWithProviders(
+	it("renders nothing when there are no items", async () => {
+		const { container } = await renderWithProviders(
 			<TablePagination
 				onPageChange={vi.fn()}
 				onPageSizeChange={vi.fn()}
@@ -48,10 +48,9 @@ describe("TablePagination", () => {
 	});
 
 	it("renders the current range and basic page controls", async () => {
-		const user = userEvent.setup();
 		const onPageChange = vi.fn();
 
-		const { getByRole, getByText } = renderWithProviders(
+		renderWithProviders(
 			<TablePagination
 				onPageChange={onPageChange}
 				onPageSizeChange={vi.fn()}
@@ -62,17 +61,22 @@ describe("TablePagination", () => {
 			/>,
 		);
 
-		expect(getByText("Showing 26–50 of 60")).toBeInTheDocument();
-		expect(getByRole("button", { name: "Previous page" })).toBeEnabled();
-		expect(getByRole("button", { name: "Next page" })).toBeEnabled();
-		expect(getByRole("button", { name: "Page 2" })).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
+		await expect
+			.element(page.getByText("Showing 26–50 of 60"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Previous page" }))
+			.toBeEnabled();
+		await expect
+			.element(page.getByRole("button", { name: "Next page" }))
+			.toBeEnabled();
+		await expect
+			.element(page.getByRole("button", { name: "Page 2" }))
+			.toHaveAttribute("aria-current", "page");
 
-		await user.click(getByRole("button", { name: "Previous page" }));
-		await user.click(getByRole("button", { name: "Page 3" }));
-		await user.click(getByRole("button", { name: "Next page" }));
+		await page.getByRole("button", { name: "Previous page" }).click();
+		await page.getByRole("button", { name: "Page 3" }).click();
+		await page.getByRole("button", { name: "Next page" }).click();
 
 		expect(onPageChange).toHaveBeenNthCalledWith(1, 1);
 		expect(onPageChange).toHaveBeenNthCalledWith(2, 3);
@@ -80,10 +84,9 @@ describe("TablePagination", () => {
 	});
 
 	it("disables edge navigation and changes page size", async () => {
-		const user = userEvent.setup();
 		const onPageSizeChange = vi.fn();
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		renderWithProviders(
 			<TablePagination
 				onPageChange={vi.fn()}
 				onPageSizeChange={onPageSizeChange}
@@ -94,15 +97,17 @@ describe("TablePagination", () => {
 			/>,
 		);
 
-		expect(getByRole("button", { name: "Previous page" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Previous page" }))
+			.toBeDisabled();
 
-		await user.selectOptions(getByLabelText("Rows per page"), "50");
+		await page.getByLabelText("Rows per page").selectOptions("50");
 
 		expect(onPageSizeChange).toHaveBeenCalledWith(50);
 	});
 
-	it("renders gap markers for larger page counts", () => {
-		const { getAllByText, getByRole } = renderWithProviders(
+	it("renders gap markers for larger page counts", async () => {
+		renderWithProviders(
 			<TablePagination
 				onPageChange={vi.fn()}
 				onPageSizeChange={vi.fn()}
@@ -113,14 +118,22 @@ describe("TablePagination", () => {
 			/>,
 		);
 
-		expect(getAllByText("…")).toHaveLength(2);
-		expect(getByRole("button", { name: "Page 1" })).toBeInTheDocument();
-		expect(getByRole("button", { name: "Page 4" })).toBeInTheDocument();
-		expect(getByRole("button", { name: "Page 5" })).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
-		expect(getByRole("button", { name: "Page 6" })).toBeInTheDocument();
-		expect(getByRole("button", { name: "Page 10" })).toBeInTheDocument();
+		await expect.element(page.getByText("…").first()).toBeInTheDocument();
+		expect(await page.getByText("…").all()).toHaveLength(2);
+		await expect
+			.element(page.getByRole("button", { name: "Page 1", exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Page 4", exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Page 5", exact: true }))
+			.toHaveAttribute("aria-current", "page");
+		await expect
+			.element(page.getByRole("button", { name: "Page 6", exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Page 10", exact: true }))
+			.toBeInTheDocument();
 	});
 });

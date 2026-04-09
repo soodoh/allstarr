@@ -1,15 +1,15 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import SortableTableHead from "./sortable-table-head";
 
-function renderSortableHead(props?: {
+async function renderSortableHead(props?: {
 	sortColumn?: string;
 	sortDirection?: "asc" | "desc";
 }) {
 	const onSort = vi.fn();
-	const view = renderWithProviders(
+	const view = await renderWithProviders(
 		<table>
 			<thead>
 				<tr>
@@ -31,10 +31,9 @@ function renderSortableHead(props?: {
 
 describe("SortableTableHead", () => {
 	it("renders the inactive sort affordance and calls onSort", async () => {
-		const user = userEvent.setup();
-		const { container, getByText, onSort } = renderSortableHead();
+		const { container, onSort } = await renderSortableHead();
 
-		expect(getByText("Title")).toBeInTheDocument();
+		await expect.element(page.getByText("Title")).toBeInTheDocument();
 		expect(container.querySelector('[data-slot="table-head"]')).toHaveClass(
 			"cursor-pointer",
 			"select-none",
@@ -43,13 +42,13 @@ describe("SortableTableHead", () => {
 			"text-muted-foreground/60",
 		);
 
-		await user.click(getByText("Title"));
+		await page.getByText("Title").click();
 
 		expect(onSort).toHaveBeenCalledWith("title");
 	});
 
-	it("renders the ascending icon styling for the active column", () => {
-		const { container } = renderSortableHead({
+	it("renders the ascending icon styling for the active column", async () => {
+		const { container } = await renderSortableHead({
 			sortColumn: "title",
 			sortDirection: "asc",
 		});
@@ -57,8 +56,8 @@ describe("SortableTableHead", () => {
 		expect(container.querySelector("svg")).toHaveClass("text-foreground");
 	});
 
-	it("renders the descending icon styling for the active column", () => {
-		const { container } = renderSortableHead({
+	it("renders the descending icon styling for the active column", async () => {
+		const { container } = await renderSortableHead({
 			sortColumn: "title",
 			sortDirection: "desc",
 		});

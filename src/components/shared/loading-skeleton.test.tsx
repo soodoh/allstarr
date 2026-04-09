@@ -22,8 +22,8 @@ describe("loading skeleton helpers", () => {
 });
 
 describe("TableSkeleton", () => {
-	it("renders the expected placeholder blocks", () => {
-		const { container } = renderWithProviders(<TableSkeleton />);
+	it("renders the expected placeholder blocks", async () => {
+		const { container } = await renderWithProviders(<TableSkeleton />);
 
 		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
 			9,
@@ -32,8 +32,8 @@ describe("TableSkeleton", () => {
 });
 
 describe("SystemStatusSkeleton", () => {
-	it("renders the expected cards and placeholders", () => {
-		const { container } = renderWithProviders(<SystemStatusSkeleton />);
+	it("renders the expected cards and placeholders", async () => {
+		const { container } = await renderWithProviders(<SystemStatusSkeleton />);
 
 		expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(3);
 		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
@@ -43,8 +43,8 @@ describe("SystemStatusSkeleton", () => {
 });
 
 describe("AuthorTableRowsSkeleton", () => {
-	it("renders the default number of placeholder rows", () => {
-		const { container } = renderWithProviders(
+	it("renders the default number of placeholder rows", async () => {
+		const { container } = await renderWithProviders(
 			<table>
 				<tbody>
 					<AuthorTableRowsSkeleton />
@@ -60,8 +60,8 @@ describe("AuthorTableRowsSkeleton", () => {
 });
 
 describe("AuthorCardsSkeleton", () => {
-	it("renders the requested number of placeholder cards", () => {
-		const { container } = renderWithProviders(
+	it("renders the requested number of placeholder cards", async () => {
+		const { container } = await renderWithProviders(
 			<AuthorCardsSkeleton count={3} />,
 		);
 
@@ -73,8 +73,8 @@ describe("AuthorCardsSkeleton", () => {
 });
 
 describe("BookTableRowsSkeleton", () => {
-	it("renders leading cells and custom column counts", () => {
-		const { container } = renderWithProviders(
+	it("renders leading cells and custom column counts", async () => {
+		const { container } = await renderWithProviders(
 			<table>
 				<tbody>
 					<BookTableRowsSkeleton columns={3} hasLeadingCell rows={2} />
@@ -91,8 +91,10 @@ describe("BookTableRowsSkeleton", () => {
 });
 
 describe("BookCardsSkeleton", () => {
-	it("renders the requested number of book card placeholders", () => {
-		const { container } = renderWithProviders(<BookCardsSkeleton count={4} />);
+	it("renders the requested number of book card placeholders", async () => {
+		const { container } = await renderWithProviders(
+			<BookCardsSkeleton count={4} />,
+		);
 
 		expect(container.children).toHaveLength(4);
 		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
@@ -102,8 +104,8 @@ describe("BookCardsSkeleton", () => {
 });
 
 describe("BookDetailSkeleton", () => {
-	it("renders the detail page placeholder layout", () => {
-		const { container } = renderWithProviders(<BookDetailSkeleton />);
+	it("renders the detail page placeholder layout", async () => {
+		const { container } = await renderWithProviders(<BookDetailSkeleton />);
 
 		expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(3);
 		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(

@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const { dndContextSpy, resetMutate, tableColumnsState, upsertMutate } =
 	vi.hoisted(() => ({
@@ -140,25 +140,22 @@ describe("ColumnSettingsPopover", () => {
 		];
 	});
 
-	it("renders locked and toggleable columns", () => {
-		const { getAllByRole, getByText } = renderWithProviders(
-			<ColumnSettingsPopover tableId="books" />,
-		);
+	it("renders locked and toggleable columns", async () => {
+		renderWithProviders(<ColumnSettingsPopover tableId="books" />);
 
-		expect(getByText("Columns")).toBeInTheDocument();
-		expect(getByText("Always")).toBeInTheDocument();
-		expect(getAllByRole("switch")).toHaveLength(2);
+		await expect.element(page.getByText("Columns")).toBeInTheDocument();
+		await expect.element(page.getByText("Always")).toBeInTheDocument();
+		expect(await page.getByRole("switch").all()).toHaveLength(2);
 	});
 
 	it("persists hidden column toggles for visible and hidden columns", async () => {
-		const user = userEvent.setup();
-		const { getAllByRole } = renderWithProviders(
-			<ColumnSettingsPopover tableId="books" />,
-		);
+		await renderWithProviders(<ColumnSettingsPopover tableId="books" />);
 
-		const switches = getAllByRole("switch");
-		await user.click(switches[0]);
-		await user.click(switches[1]);
+		// Wait for the component to be rendered before collecting all switches
+		await expect.element(page.getByText("Columns")).toBeInTheDocument();
+		const switches = await page.getByRole("switch").all();
+		await switches[0].click();
+		await switches[1].click();
 
 		expect(upsertMutate).toHaveBeenNthCalledWith(1, {
 			columnOrder: ["title", "author", "series"],
@@ -172,8 +169,8 @@ describe("ColumnSettingsPopover", () => {
 		});
 	});
 
-	it("persists reordering and ignores no-op drag events", () => {
-		renderWithProviders(<ColumnSettingsPopover tableId="books" />);
+	it("persists reordering and ignores no-op drag events", async () => {
+		await renderWithProviders(<ColumnSettingsPopover tableId="books" />);
 
 		const props = dndContextSpy.mock.calls.at(-1)?.[0] as {
 			onDragEnd: (event: {
@@ -204,12 +201,9 @@ describe("ColumnSettingsPopover", () => {
 	});
 
 	it("resets column settings", async () => {
-		const user = userEvent.setup();
-		const { getByRole } = renderWithProviders(
-			<ColumnSettingsPopover tableId="books" />,
-		);
+		renderWithProviders(<ColumnSettingsPopover tableId="books" />);
 
-		await user.click(getByRole("button", { name: "Reset to defaults" }));
+		await page.getByRole("button", { name: "Reset to defaults" }).click();
 
 		expect(resetMutate).toHaveBeenCalledWith({ tableId: "books" });
 	});

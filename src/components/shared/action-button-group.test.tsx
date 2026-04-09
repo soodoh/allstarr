@@ -1,17 +1,16 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import ActionButtonGroup from "./action-button-group";
 
 describe("ActionButtonGroup", () => {
 	it("invokes the refresh, edit, and delete callbacks", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();
 		const onRefreshMetadata = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		renderWithProviders(
 			<ActionButtonGroup
 				isRefreshing={false}
 				onDelete={onDelete}
@@ -20,17 +19,17 @@ describe("ActionButtonGroup", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Update metadata" }));
-		await user.click(getByRole("button", { name: "Edit" }));
-		await user.click(getByRole("button", { name: "Delete" }));
+		await page.getByRole("button", { name: "Update metadata" }).click();
+		await page.getByRole("button", { name: "Edit" }).click();
+		await page.getByRole("button", { name: "Delete" }).click();
 
 		expect(onRefreshMetadata).toHaveBeenCalledTimes(1);
 		expect(onEdit).toHaveBeenCalledTimes(1);
 		expect(onDelete).toHaveBeenCalledTimes(1);
 	});
 
-	it("disables refresh and swaps in the loading icon while refreshing", () => {
-		const { container, getByRole } = renderWithProviders(
+	it("disables refresh and swaps in the loading icon while refreshing", async () => {
+		const { container } = await renderWithProviders(
 			<ActionButtonGroup
 				isRefreshing
 				onDelete={vi.fn()}
@@ -39,12 +38,14 @@ describe("ActionButtonGroup", () => {
 			/>,
 		);
 
-		expect(getByRole("button", { name: "Update metadata" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Update metadata" }))
+			.toBeDisabled();
 		expect(container.querySelector(".animate-spin")).not.toBeNull();
 	});
 
-	it("renders the external link action only when a url is provided", () => {
-		const { getByRole, rerender, queryByRole } = renderWithProviders(
+	it("renders the external link action only when a url is provided", async () => {
+		const { rerender } = await renderWithProviders(
 			<ActionButtonGroup
 				externalLabel="Open in external service"
 				externalUrl={null}
@@ -55,9 +56,9 @@ describe("ActionButtonGroup", () => {
 			/>,
 		);
 
-		expect(
-			queryByRole("link", { name: "Open in external service" }),
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Open in external service" }))
+			.not.toBeInTheDocument();
 
 		rerender(
 			<ActionButtonGroup
@@ -70,8 +71,8 @@ describe("ActionButtonGroup", () => {
 			/>,
 		);
 
-		expect(
-			getByRole("link", { name: "Open in external service" }),
-		).toHaveAttribute("href", "https://example.com/item");
+		await expect
+			.element(page.getByRole("link", { name: "Open in external service" }))
+			.toHaveAttribute("href", "https://example.com/item");
 	});
 });

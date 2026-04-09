@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const { deleteBookState, deleteEditionState } = vi.hoisted(() => ({
 	deleteBookState: {
@@ -64,8 +64,8 @@ describe("MetadataWarning", () => {
 		deleteEditionState.mutate.mockReset();
 	});
 
-	it("renders the book-editions warning without action buttons", () => {
-		const { getByText, queryByRole } = renderWithProviders(
+	it("renders the book-editions warning without action buttons", async () => {
+		renderWithProviders(
 			<MetadataWarning
 				itemId={7}
 				itemTitle="Dune"
@@ -75,19 +75,22 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		expect(getByText("Missing from Hardcover")).toBeInTheDocument();
-		expect(
-			getByText(
-				"3 edition(s) of this book are no longer available on Hardcover",
-			),
-		).toBeInTheDocument();
-		expect(
-			queryByRole("button", { name: "Delete Book" }),
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Missing from Hardcover"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"3 edition(s) of this book are no longer available on Hardcover",
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Delete Book" }))
+			.not.toBeInTheDocument();
 	});
 
 	it("reassigns files and deletes a book through the book mutation", async () => {
-		const user = userEvent.setup();
 		const onDeleted = vi.fn();
 		const onReassignFiles = vi.fn();
 		deleteBookState.mutate.mockImplementation(
@@ -101,7 +104,7 @@ describe("MetadataWarning", () => {
 			) => options?.onSuccess?.(),
 		);
 
-		const { getByRole } = renderWithProviders(
+		renderWithProviders(
 			<MetadataWarning
 				fileCount={2}
 				itemId={7}
@@ -113,9 +116,9 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Reassign 2 File(s)" }));
-		await user.click(getByRole("button", { name: "Delete Book" }));
-		await user.click(getByRole("button", { name: "Confirm delete" }));
+		await page.getByRole("button", { name: "Reassign 2 File(s)" }).click();
+		await page.getByRole("button", { name: "Delete Book" }).click();
+		await page.getByRole("button", { name: "Confirm delete" }).click();
 
 		expect(onReassignFiles).toHaveBeenCalledTimes(1);
 		expect(deleteBookState.mutate).toHaveBeenCalledWith(
@@ -126,9 +129,7 @@ describe("MetadataWarning", () => {
 	});
 
 	it("stops propagation on the trigger button", async () => {
-		const user = userEvent.setup();
-
-		const { getByLabelText } = renderWithProviders(
+		renderWithProviders(
 			<MetadataWarning
 				itemId={7}
 				itemTitle="Dune"
@@ -137,20 +138,21 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText('Metadata warning for "Dune"'));
+		await page.getByLabelText('Metadata warning for "Dune"').click();
 
-		expect(getByLabelText('Metadata warning for "Dune"')).toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText('Metadata warning for "Dune"'))
+			.toBeInTheDocument();
 	});
 
 	it("deletes an edition through the edition mutation", async () => {
-		const user = userEvent.setup();
 		const onDeleted = vi.fn();
 		deleteEditionState.mutate.mockImplementation(
 			(_id: number, options?: { onSuccess?: () => void }) =>
 				options?.onSuccess?.(),
 		);
 
-		const { getByRole } = renderWithProviders(
+		renderWithProviders(
 			<MetadataWarning
 				itemId={11}
 				itemTitle="Dune Hardcover"
@@ -160,8 +162,8 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Delete Edition" }));
-		await user.click(getByRole("button", { name: "Confirm delete" }));
+		await page.getByRole("button", { name: "Delete Edition" }).click();
+		await page.getByRole("button", { name: "Confirm delete" }).click();
 
 		expect(deleteEditionState.mutate).toHaveBeenCalledWith(
 			11,
@@ -170,8 +172,8 @@ describe("MetadataWarning", () => {
 		expect(onDeleted).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the large edition warning without a reassign action", () => {
-		const { getByLabelText, getByText, queryByRole } = renderWithProviders(
+	it("renders the large edition warning without a reassign action", async () => {
+		renderWithProviders(
 			<MetadataWarning
 				fileCount={1}
 				itemId={11}
@@ -182,24 +184,26 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		expect(getByLabelText('Metadata warning for "Dune Hardcover"')).toHaveClass(
-			"h-9",
-			"w-9",
-		);
-		expect(
-			getByText("This edition is no longer available on Hardcover"),
-		).toBeInTheDocument();
-		expect(getByText("Since Dec 31, 2024")).toBeInTheDocument();
-		expect(
-			queryByRole("button", { name: "Reassign 1 File(s)" }),
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText('Metadata warning for "Dune Hardcover"'))
+			.toHaveClass("h-9", "w-9");
+		await expect
+			.element(
+				page.getByText("This edition is no longer available on Hardcover"),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Since Dec 31, 2024"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Reassign 1 File(s)" }))
+			.not.toBeInTheDocument();
 	});
 
 	it("passes pending state through to the confirm action", async () => {
-		const user = userEvent.setup();
 		deleteBookState.isPending = true;
 
-		const { getByRole } = renderWithProviders(
+		renderWithProviders(
 			<MetadataWarning
 				itemId={7}
 				itemTitle="Dune"
@@ -208,8 +212,10 @@ describe("MetadataWarning", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Delete Book" }));
+		await page.getByRole("button", { name: "Delete Book" }).click();
 
-		expect(getByRole("button", { name: "Confirm delete" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Confirm delete" }))
+			.toBeDisabled();
 	});
 });
