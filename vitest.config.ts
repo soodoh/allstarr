@@ -78,17 +78,28 @@ export default defineConfig({
 				test: {
 					include: frontendTestInclude,
 					exclude: frontendTestExclude,
-					environment: "jsdom",
+					browser: {
+						enabled: true,
+						provider: "playwright",
+						instances: [{ browser: "chromium" }],
+					},
 				},
 			},
 		],
 		coverage: {
-			provider: "v8",
+			provider: "custom",
+			customProviderModule: "vitest-monocart-coverage/browser",
 			all: true,
 			include: fullRepoCoverageInclude,
 			exclude: coverageExclude,
-			reporter: ["text", "json-summary", "html"],
-			reportsDirectory: "coverage",
+			reports: ["v8", "console-summary", "html", "raw"],
+			outputDir: "coverage/unit",
+			thresholds: {
+				statements: 90,
+				branches: 85,
+				functions: 90,
+				lines: 90,
+			},
 		} as any,
 	},
 });
