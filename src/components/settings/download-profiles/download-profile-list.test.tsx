@@ -1,9 +1,8 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { CATEGORY_MAP } from "src/lib/categories";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/shared/confirm-dialog", () => ({
 	default: ({
@@ -65,8 +64,8 @@ const profile = {
 };
 
 describe("DownloadProfileList", () => {
-	it("shows the empty state when there are no profiles", () => {
-		const { getByText } = renderWithProviders(
+	it("shows the empty state when there are no profiles", async () => {
+		await renderWithProviders(
 			<DownloadProfileList
 				definitions={definitions}
 				onDelete={vi.fn()}
@@ -75,16 +74,19 @@ describe("DownloadProfileList", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No download profiles found. Create one to get started."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"No download profiles found. Create one to get started.",
+				),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("renders profile rows and wires edit/delete actions", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadProfileList
 				definitions={definitions}
 				onDelete={onDelete}
@@ -93,35 +95,35 @@ describe("DownloadProfileList", () => {
 			/>,
 		);
 
-		const row = getByText("Library Profile").closest("tr");
+		const row = (await page.getByText("Library Profile").element()).closest(
+			"tr",
+		);
 		expect(row).not.toBeNull();
-		const rowScope = within(row as HTMLTableRowElement);
 
-		expect(rowScope.getByText("TV")).toBeInTheDocument();
-		expect(rowScope.getByText("—")).toBeInTheDocument();
-		expect(rowScope.getByText("Until PDF")).toBeInTheDocument();
-		expect(rowScope.getByText("EPUB")).toBeInTheDocument();
-		expect(rowScope.getByText("PDF")).toBeInTheDocument();
-		expect(rowScope.getByText("MOBI")).toBeInTheDocument();
-		expect(
-			rowScope.getByText(CATEGORY_MAP.get(1000) ?? "1000"),
-		).toBeInTheDocument();
-		expect(
-			rowScope.getByText(CATEGORY_MAP.get(2000) ?? "2000"),
-		).toBeInTheDocument();
+		expect(row?.textContent).toContain("TV");
+		expect(row?.textContent).toContain("—");
+		expect(row?.textContent).toContain("Until PDF");
+		expect(row?.textContent).toContain("EPUB");
+		expect(row?.textContent).toContain("PDF");
+		expect(row?.textContent).toContain("MOBI");
+		expect(row?.textContent).toContain(CATEGORY_MAP.get(1000) ?? "1000");
+		expect(row?.textContent).toContain(CATEGORY_MAP.get(2000) ?? "2000");
 
-		await user.click(rowScope.getAllByRole("button")[0]);
+		const rowButtons = row?.querySelectorAll("[role='button'], button");
+		await (rowButtons?.[0] as HTMLElement).click();
 		expect(onEdit).toHaveBeenCalledWith(profile);
 
-		await user.click(rowScope.getAllByRole("button")[1]);
-		expect(getByText("Delete Profile")).toBeInTheDocument();
-		expect(
-			getByText(
-				'Are you sure you want to delete "Library Profile"? This action cannot be undone.',
-			),
-		).toBeInTheDocument();
+		await (rowButtons?.[1] as HTMLElement).click();
+		await expect.element(page.getByText("Delete Profile")).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					'Are you sure you want to delete "Library Profile"? This action cannot be undone.',
+				),
+			)
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(profile.id);
 	});

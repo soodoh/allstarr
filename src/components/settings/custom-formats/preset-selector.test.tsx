@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const presetSelectorMocks = vi.hoisted(() => ({
 	applyPresetFn: vi.fn(),
@@ -104,34 +104,39 @@ describe("PresetSelector", () => {
 	});
 
 	it("loads presets, confirms the selection, and invalidates cached data", async () => {
-		const user = userEvent.setup();
 		const onApplied = vi.fn();
 		presetSelectorMocks.applyPresetFn.mockResolvedValue({ success: true });
 		presetSelectorMocks.getPresetsFn.mockReturnValue(presets);
 
-		const { findByRole, getByRole, getByText, queryByRole } =
-			renderWithProviders(
-				<PresetSelector
-					contentType="movie"
-					onApplied={onApplied}
-					profileId={7}
-				/>,
-			);
+		await renderWithProviders(
+			<PresetSelector
+				contentType="movie"
+				onApplied={onApplied}
+				profileId={7}
+			/>,
+		);
 
-		await user.click(getByRole("button", { name: "Apply Preset" }));
+		await page.getByRole("button", { name: "Apply Preset" }).click();
 
-		expect(
-			await findByRole("heading", { name: "Apply Custom Format Preset" }),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("heading", { name: "Apply Custom Format Preset" }),
+			)
+			.toBeInTheDocument();
 		expect(presetSelectorMocks.getPresetsFn).toHaveBeenCalledWith({
 			data: { contentType: "movie" },
 		});
-		expect(getByText("Trash Guides Compact")).toBeInTheDocument();
-		expect(getByText("Movie HD: +1000")).toBeInTheDocument();
-		expect(getByText("Movie CAM: -500")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Trash Guides Compact"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Movie HD: +1000")).toBeInTheDocument();
+		await expect.element(page.getByText("Movie CAM: -500")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Apply" }));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page
+			.getByTestId("dialog-root")
+			.getByRole("button", { name: "Apply" })
+			.click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(presetSelectorMocks.applyPresetFn).toHaveBeenCalledWith({
 			data: { profileId: 7, presetName: "Trash Guides Compact" },
@@ -149,24 +154,32 @@ describe("PresetSelector", () => {
 			minCustomFormatScore: 1_500,
 			upgradeUntilCustomFormatScore: 3_000,
 		});
-		expect(
-			queryByRole("heading", { name: "Apply Custom Format Preset" }),
-		).not.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("heading", { name: "Apply Custom Format Preset" }),
+			)
+			.not.toBeInTheDocument();
 	});
 
 	it("surfaces apply failures as an error toast", async () => {
-		const user = userEvent.setup();
 		presetSelectorMocks.applyPresetFn.mockRejectedValue(new Error("boom"));
 		presetSelectorMocks.getPresetsFn.mockReturnValue(presets);
 
-		const { findByRole, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<PresetSelector contentType="movie" profileId={7} />,
 		);
 
-		await user.click(getByRole("button", { name: "Apply Preset" }));
-		await findByRole("button", { name: "Apply" });
-		await user.click(getByRole("button", { name: "Apply" }));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Apply Preset" }).click();
+		await expect
+			.element(
+				page.getByTestId("dialog-root").getByRole("button", { name: "Apply" }),
+			)
+			.toBeInTheDocument();
+		await page
+			.getByTestId("dialog-root")
+			.getByRole("button", { name: "Apply" })
+			.click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(presetSelectorMocks.toast.error).toHaveBeenCalledWith(
 			"Failed to apply preset: boom",

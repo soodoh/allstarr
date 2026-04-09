@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const downloadProfileFormMocks = vi.hoisted(() => ({
 	categoryMultiSelect: vi.fn(),
@@ -222,7 +222,6 @@ describe("DownloadProfileForm", () => {
 	});
 
 	it("submits new profiles with local custom format scores and filtered qualities", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		const onSubmitWithId = vi.fn();
 
@@ -243,17 +242,16 @@ describe("DownloadProfileForm", () => {
 			success: true,
 		});
 
-		const { getByLabelText, getByRole, getByText, queryByText } =
-			renderWithProviders(
-				<DownloadProfileForm
-					downloadFormats={mixedFormats}
-					onCancel={vi.fn()}
-					onSubmit={onSubmit}
-					onSubmitWithId={onSubmitWithId}
-					serverCwd="/srv"
-					serverError="Unable to save profile"
-				/>,
-			);
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={mixedFormats}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				onSubmitWithId={onSubmitWithId}
+				serverCwd="/srv"
+				serverError="Unable to save profile"
+			/>,
+		);
 
 		expect(downloadProfileFormMocks.cfScoreSection).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -266,10 +264,10 @@ describe("DownloadProfileForm", () => {
 			}),
 		);
 
-		await user.type(getByLabelText("Name"), "New Profile");
-		await user.type(getByLabelText("Root Folder"), "/library/books");
-		await user.click(getByRole("button", { name: "Seed CF scores" }));
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByLabelText("Name").fill("New Profile");
+		await page.getByLabelText("Root Folder").fill("/library/books");
+		await page.getByRole("button", { name: "Seed CF scores" }).click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(downloadProfileFormMocks.validateForm).toHaveBeenCalledTimes(1);
 		expect(downloadProfileFormMocks.validateForm.mock.calls[0]?.[1]).toEqual(
@@ -287,12 +285,15 @@ describe("DownloadProfileForm", () => {
 			[{ customFormatId: 88, score: 11 }],
 		);
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(getByText("Unable to save profile")).toBeInTheDocument();
-		expect(queryByText("Root folder already exists")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Unable to save profile"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Root folder already exists"))
+			.not.toBeInTheDocument();
 	});
 
 	it("prompts to move files when the root folder changes and submits after moving", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 
 		downloadProfileFormMocks.validateForm.mockReturnValue({
@@ -319,30 +320,29 @@ describe("DownloadProfileForm", () => {
 			movedCount: 1,
 		});
 
-		const { findByText, getByLabelText, getByRole, getByText } =
-			renderWithProviders(
-				<DownloadProfileForm
-					downloadFormats={ebookFormats}
-					initialValues={{
-						categories: [1000],
-						contentType: "ebook",
-						cutoff: 0,
-						icon: "book",
-						id: 7,
-						items: [[1, 999], [2], []],
-						language: "en",
-						minCustomFormatScore: 5,
-						name: "Existing Profile",
-						rootFolderPath: "/library/old",
-						upgradeAllowed: false,
-						upgradeUntilCustomFormatScore: 7,
-					}}
-					onCancel={vi.fn()}
-					onSubmit={onSubmit}
-					serverCwd="/srv"
-					serverError="Root folder already exists"
-				/>,
-			);
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [1000],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 7,
+					items: [[1, 999], [2], []],
+					language: "en",
+					minCustomFormatScore: 5,
+					name: "Existing Profile",
+					rootFolderPath: "/library/old",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 7,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+				serverError="Root folder already exists"
+			/>,
+		);
 
 		expect(downloadProfileFormMocks.tierGroupList).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -350,20 +350,21 @@ describe("DownloadProfileForm", () => {
 			}),
 		);
 
-		await user.clear(getByLabelText("Root Folder"));
-		await user.type(getByLabelText("Root Folder"), "/library/new");
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByLabelText("Root Folder").fill("/library/new");
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(downloadProfileFormMocks.countProfileFilesFn).toHaveBeenCalledWith({
 			data: { profileId: 7 },
 		});
-		expect(getByText("Root folder already exists")).toBeInTheDocument();
-		expect(await findByText("Move Files?")).toBeInTheDocument();
-		expect(
-			getByText((_, node) => node?.textContent === "1 file will be moved."),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Root folder already exists"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Move Files?")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("1 file will be moved."))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Move Files" }));
+		await page.getByRole("button", { name: "Move Files" }).click();
 
 		expect(downloadProfileFormMocks.moveProfileFilesFn).toHaveBeenCalledWith({
 			data: {

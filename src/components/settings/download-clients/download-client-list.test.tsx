@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/shared/confirm-dialog", () => ({
 	default: ({
@@ -104,18 +103,21 @@ const baseClient = {
 };
 
 describe("DownloadClientList", () => {
-	it("renders an empty state when no clients are configured", () => {
-		const { getByText } = renderWithProviders(
+	it("renders an empty state when no clients are configured", async () => {
+		await renderWithProviders(
 			<DownloadClientList clients={[]} onDelete={vi.fn()} onEdit={vi.fn()} />,
 		);
 
-		expect(
-			getByText("No download clients configured. Add one to get started."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"No download clients configured. Add one to get started.",
+				),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("renders configured clients and confirms deletes through the dialog", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();
 		const clients = [
@@ -133,7 +135,7 @@ describe("DownloadClientList", () => {
 			},
 		];
 
-		const { getAllByText, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadClientList
 				clients={clients as never}
 				onDelete={onDelete}
@@ -141,34 +143,46 @@ describe("DownloadClientList", () => {
 			/>,
 		);
 
-		expect(getByText("localhost:8080")).toBeInTheDocument();
-		expect(getByText("usenet.local:8081")).toBeInTheDocument();
-		expect(getByText("Enabled")).toBeInTheDocument();
-		expect(getByText("Disabled")).toBeInTheDocument();
+		await expect.element(page.getByText("localhost:8080")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("usenet.local:8081"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Enabled")).toBeInTheDocument();
+		await expect.element(page.getByText("Disabled")).toBeInTheDocument();
 
-		const firstRow = getAllByText("qBittorrent")[0].closest("tr");
-		const secondRow = getAllByText("SABnzbd")[0].closest("tr");
+		// Get rows by finding the text and traversing to the table row
+		const qBitText = await page
+			.getByRole("cell", { name: "qBittorrent" })
+			.first()
+			.element();
+		const firstRow = qBitText.closest("tr") as HTMLTableRowElement;
+		const sabnzbdText = await page
+			.getByRole("cell", { name: "SABnzbd" })
+			.first()
+			.element();
+		const secondRow = sabnzbdText.closest("tr") as HTMLTableRowElement;
 
 		expect(firstRow).not.toBeNull();
 		expect(secondRow).not.toBeNull();
-		if (!firstRow || !secondRow) {
-			throw new Error("Expected table rows to exist");
-		}
 
-		await user.click(within(firstRow).getAllByRole("button")[0]);
+		const firstRowButtons = firstRow.querySelectorAll("button");
+		await firstRowButtons[0].click();
 		expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
 
-		await user.click(within(secondRow).getAllByRole("button")[1]);
-		expect(
-			getByRole("heading", { name: "Delete Download Client" }),
-		).toBeInTheDocument();
-		expect(
-			getByText(
-				'Are you sure you want to delete "SABnzbd"? This action cannot be undone.',
-			),
-		).toBeInTheDocument();
+		const secondRowButtons = secondRow.querySelectorAll("button");
+		await secondRowButtons[1].click();
+		await expect
+			.element(page.getByRole("heading", { name: "Delete Download Client" }))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					'Are you sure you want to delete "SABnzbd"? This action cannot be undone.',
+				),
+			)
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(2);
 	});
