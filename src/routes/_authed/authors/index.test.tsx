@@ -193,17 +193,17 @@ vi.mock("src/components/ui/input", () => ({
 }));
 
 vi.mock("src/hooks/use-view-mode", () => ({
-	default: (...args: unknown[]) => authorsRouteMocks.useViewMode(...args),
+	default: (tableId: string) => authorsRouteMocks.useViewMode(tableId),
 }));
 
 vi.mock("src/lib/queries", () => ({
-	authorsInfiniteQuery: (...args: unknown[]) =>
-		authorsRouteMocks.authorsInfiniteQuery(...args),
+	authorsInfiniteQuery: (search?: string) =>
+		authorsRouteMocks.authorsInfiniteQuery(search),
 }));
 
 vi.mock("src/lib/queries/user-settings", () => ({
-	userSettingsQuery: (...args: unknown[]) =>
-		authorsRouteMocks.userSettingsQuery(...args),
+	userSettingsQuery: (tableId: string) =>
+		authorsRouteMocks.userSettingsQuery(tableId),
 }));
 
 import { Route } from "./index";
@@ -241,6 +241,7 @@ describe("AuthorsRoute", () => {
 		class MockIntersectionObserver implements IntersectionObserver {
 			root = null;
 			rootMargin = "200px";
+			scrollMargin = "0px";
 			thresholds = [];
 
 			constructor(callback: (entries: IntersectionObserverEntry[]) => void) {
@@ -254,7 +255,7 @@ describe("AuthorsRoute", () => {
 		}
 
 		globalThis.IntersectionObserver =
-			MockIntersectionObserver as typeof IntersectionObserver;
+			MockIntersectionObserver as unknown as typeof IntersectionObserver;
 	});
 
 	it("wires the loader and renders the empty state for an empty bookshelf", async () => {
@@ -281,7 +282,9 @@ describe("AuthorsRoute", () => {
 			},
 		});
 
-		expect(authorsRouteMocks.authorsInfiniteQuery).toHaveBeenCalledWith();
+		expect(authorsRouteMocks.authorsInfiniteQuery).toHaveBeenCalledWith(
+			undefined,
+		);
 		expect(prefetchInfiniteQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				queryKey: ["authors", "infinite", ""],
