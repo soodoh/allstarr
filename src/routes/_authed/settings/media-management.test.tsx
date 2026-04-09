@@ -554,4 +554,71 @@ describe("media-management route", () => {
 			]),
 		);
 	});
+
+	it("shows audiobook validation errors and saves the free-space toggle", async () => {
+		const user = userEvent.setup();
+		mediaManagementRouteMocks.settingsMap = createSettings({
+			"naming.book.audio.bookFile":
+				"{Author Name} - {Book Title} without parts",
+			"naming.book.ebook.bookFile": "{Author Name} - {Book Title}",
+		});
+		mediaManagementRouteMocks.profiles = [
+			{
+				contentType: "ebook",
+				name: "eBooks",
+				rootFolderPath: "/library/books",
+			},
+			{
+				contentType: "audiobook",
+				name: "AudioBooks",
+				rootFolderPath: "/library/books",
+			},
+			{
+				contentType: "movie",
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+			},
+		];
+
+		const route = Route as unknown as {
+			component: () => JSX.Element;
+		};
+		const Component = route.component;
+		const view = renderWithProviders(<Component />);
+
+		expect(
+			view.getByText(
+				"Template must include at least one of {PartNumber}, {PartNumber:00}, or {PartCount}",
+			),
+		).toBeInTheDocument();
+		expect(view.queryByDisplayValue("100")).not.toBeInTheDocument();
+
+		await user.click(view.getByRole("button", { name: "Movies" }));
+		expect(view.getByDisplayValue("100")).toBeInTheDocument();
+
+		const skipFreeSpaceLabel = view.getByText("Skip Free Space Check");
+		const skipFreeSpaceSwitch = skipFreeSpaceLabel
+			.closest("div")
+			?.parentElement?.querySelector(
+				'input[type="checkbox"]',
+			) as HTMLInputElement;
+		await user.click(skipFreeSpaceSwitch);
+		expect(view.queryByDisplayValue("100")).not.toBeInTheDocument();
+
+		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		expect(
+			mediaManagementRouteMocks.updateSettings.mutate,
+		).toHaveBeenCalledWith(
+			expect.arrayContaining([
+				{
+					key: "mediaManagement.movie.skipFreeSpaceCheck",
+					value: "true",
+				},
+				{
+					key: "mediaManagement.movie.minimumFreeSpace",
+					value: "100",
+				},
+			]),
+		);
+	});
 });
