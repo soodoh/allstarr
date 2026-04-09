@@ -1,32 +1,25 @@
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("src/components/ui/tooltip", () => ({
-	Tooltip: ({ children }: { children: React.ReactNode }) => (
+	Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	TooltipContent: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
-	TooltipContent: ({ children }: { children: React.ReactNode }) => (
+	TooltipProvider: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
-	TooltipProvider: ({ children }: { children: React.ReactNode }) => (
-		<div>{children}</div>
-	),
-	TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-		<>{children}</>
-	),
+	TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("src/components/ui/popover", () => ({
-	Popover: ({ children }: { children: React.ReactNode }) => (
+	Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	PopoverContent: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
-	PopoverContent: ({ children }: { children: React.ReactNode }) => (
-		<div>{children}</div>
-	),
-	PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
-		<>{children}</>
-	),
+	PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("src/components/ui/skeleton", () => ({
@@ -54,10 +47,8 @@ const defaultRelease = {
 	indexerSource: "synced" as const,
 	leechers: 3,
 	packInfo: null,
-	peers: 3,
 	protocol: "torrent" as const,
 	quality: { color: "green", id: 1, name: "Preferred", weight: 100 },
-	rating: undefined,
 	releaseType: 10,
 	rejections: [],
 	seeders: 10,
@@ -137,7 +128,7 @@ describe("ReleaseTable", () => {
 			},
 		];
 
-		const { getByRole, getByText, getAllByRole } = renderWithProviders(
+		const { container, getByText, getByTitle } = renderWithProviders(
 			<ReleaseTable
 				grabbingGuid={undefined}
 				onGrab={onGrab}
@@ -168,7 +159,9 @@ describe("ReleaseTable", () => {
 		);
 
 		await user.click(getByText("Title"));
-		expect(getAllByRole("rowheader")[0]).toHaveTextContent("Alpha");
+		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+			"Alpha",
+		);
 	});
 
 	it("shows a disabled grab control while a release is already being grabbed", () => {
@@ -176,7 +169,7 @@ describe("ReleaseTable", () => {
 			<ReleaseTable
 				grabbingGuid="zulu-guid"
 				onGrab={vi.fn()}
-				releases={[defaultRelease]}
+				releases={[{ ...defaultRelease, guid: "zulu-guid" } as never]}
 				statusMap={null}
 			/>,
 		);

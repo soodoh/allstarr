@@ -1,4 +1,5 @@
 import { fireEvent } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +26,16 @@ vi.mock("src/lib/queries", () => ({
 			queryKey: ["history", "list", params],
 		};
 	},
+}));
+
+vi.mock("src/components/ui/tabs", () => ({
+	TabsContent: ({
+		children,
+		value,
+	}: {
+		children: ReactNode;
+		value: string;
+	}) => <section data-value={value}>{children}</section>,
 }));
 
 vi.mock("src/components/shared/table-pagination", () => ({
@@ -58,34 +69,22 @@ vi.mock("src/components/shared/table-pagination", () => ({
 }));
 
 vi.mock("src/components/ui/badge", () => ({
-	Badge: ({
-		children,
-		variant,
-	}: {
-		children: React.ReactNode;
-		variant: string;
-	}) => <span data-variant={variant}>{children}</span>,
+	Badge: ({ children, variant }: { children: ReactNode; variant: string }) => (
+		<span data-variant={variant}>{children}</span>
+	),
 }));
 
 vi.mock("src/components/ui/table", () => ({
-	Table: ({ children }: { children: React.ReactNode }) => (
-		<table>{children}</table>
-	),
-	TableBody: ({ children }: { children: React.ReactNode }) => (
+	Table: ({ children }: { children: ReactNode }) => <table>{children}</table>,
+	TableBody: ({ children }: { children: ReactNode }) => (
 		<tbody>{children}</tbody>
 	),
-	TableCell: ({ children }: { children: React.ReactNode }) => (
-		<td>{children}</td>
-	),
-	TableHead: ({ children }: { children: React.ReactNode }) => (
-		<th>{children}</th>
-	),
-	TableHeader: ({ children }: { children: React.ReactNode }) => (
+	TableCell: ({ children }: { children: ReactNode }) => <td>{children}</td>,
+	TableHead: ({ children }: { children: ReactNode }) => <th>{children}</th>,
+	TableHeader: ({ children }: { children: ReactNode }) => (
 		<thead>{children}</thead>
 	),
-	TableRow: ({ children }: { children: React.ReactNode }) => (
-		<tr>{children}</tr>
-	),
+	TableRow: ({ children }: { children: ReactNode }) => <tr>{children}</tr>,
 }));
 
 import BookHistoryTab from "./book-history-tab";
@@ -150,7 +149,7 @@ describe("BookHistoryTab", () => {
 			isLoading: false,
 		});
 
-		const { getByRole, getByText } = renderWithProviders(
+		const { getByRole, getByText, getByTestId } = renderWithProviders(
 			<BookHistoryTab bookId={7} />,
 		);
 
@@ -163,7 +162,7 @@ describe("BookHistoryTab", () => {
 			getByText("Client: qBittorrent · Protocol: torrent · 1 KB"),
 		).toBeInTheDocument();
 		expect(getByText("title: The Archive, updated: true")).toBeInTheDocument();
-		expect(getByText("pagination")).toBeInTheDocument();
+		expect(getByTestId("pagination")).toBeInTheDocument();
 
 		fireEvent.click(getByRole("button", { name: "Next page" }));
 		expect(bookHistoryTabMocks.historyListQuery).toHaveBeenLastCalledWith({

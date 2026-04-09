@@ -59,7 +59,7 @@ export default function OptimizedImage({
 					height={height}
 					layout="constrained"
 					loading={priority ? "eager" : undefined}
-					fetchpriority={priority ? "high" : undefined}
+					fetchPriority={priority ? "high" : undefined}
 					className={cn("h-full w-full object-cover", imageClassName)}
 					onError={() => setImageFailed(true)}
 				/>

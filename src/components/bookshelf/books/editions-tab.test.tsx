@@ -1,5 +1,6 @@
+import { within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PropsWithChildren } from "react";
+import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -24,7 +25,7 @@ vi.mock("src/components/ui/tabs", () => ({
 		children,
 		value,
 	}: {
-		children: React.ReactNode;
+		children: ReactNode;
 		value: string;
 	}) => <section data-value={value}>{children}</section>,
 }));
@@ -138,18 +139,29 @@ describe("EditionsTab", () => {
 
 	it("sorts monitored profiles first and opens the edition picker", async () => {
 		const user = userEvent.setup();
-		const onSuccess = vi.fn();
 		editionsTabMocks.setEditionForProfile.mutate.mockImplementation(
 			(_payload: unknown, options?: { onSuccess?: () => void }) => {
 				options?.onSuccess?.();
 			},
 		);
 
-		const { getByRole, getByTestId, queryByTestId } = renderWithProviders(
+		const { getByTestId, queryByTestId, container } = renderWithProviders(
 			<EditionsTab
 				authorDownloadProfiles={[
-					{ contentType: "ebook", icon: "book", id: 2, name: "Unmonitored" },
-					{ contentType: "ebook", icon: "book", id: 1, name: "Monitored" },
+					{
+						contentType: "ebook",
+						icon: "book",
+						id: 2,
+						language: "en",
+						name: "Unmonitored",
+					},
+					{
+						contentType: "ebook",
+						icon: "book",
+						id: 1,
+						language: "en",
+						name: "Monitored",
+					},
 				]}
 				bookCoverUrl="/cover.jpg"
 				bookId={44}
@@ -177,19 +189,27 @@ describe("EditionsTab", () => {
 			/>,
 		);
 
-		expect(
-			getByTestId("profile-1").compareDocumentPosition(
-				getByTestId("profile-2"),
-			) & Node.DOCUMENT_POSITION_FOLLOWING,
-		).toBeTruthy();
+		const cards = Array.from(
+			container.querySelectorAll('[data-testid^="profile-"]'),
+		);
+		expect(cards[0]).toHaveTextContent("Monitored");
+		expect(cards[1]).toHaveTextContent("Unmonitored");
 
-		await user.click(getByRole("button", { name: "Choose Edition" }));
+		await user.click(
+			within(cards[1] as HTMLElement).getByRole("button", {
+				name: "Choose Edition",
+			}),
+		);
 		expect(getByTestId("edition-selection-modal")).toHaveTextContent(
 			"Unmonitored",
 		);
 		expect(getByTestId("edition-selection-modal")).toHaveTextContent("none");
 
-		await user.click(getByRole("button", { name: "Confirm edition" }));
+		await user.click(
+			within(getByTestId("edition-selection-modal")).getByRole("button", {
+				name: "Confirm edition",
+			}),
+		);
 		expect(editionsTabMocks.setEditionForProfile.mutate).toHaveBeenCalledWith(
 			{
 				editionId: 99,
@@ -198,7 +218,6 @@ describe("EditionsTab", () => {
 			expect.any(Object),
 		);
 		expect(queryByTestId("edition-selection-modal")).toBeNull();
-		expect(onSuccess).not.toHaveBeenCalled();
 	});
 
 	it("opens the unmonitor dialog and submits the selected option", async () => {
@@ -216,6 +235,7 @@ describe("EditionsTab", () => {
 						contentType: "audiobook",
 						icon: "headphones",
 						id: 3,
+						language: "en",
 						name: "Audio",
 					},
 				]}

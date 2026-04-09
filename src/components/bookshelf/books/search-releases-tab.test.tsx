@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -61,6 +61,13 @@ vi.mock("src/hooks/mutations", () => ({
 	useSearchIndexers: () => searchReleasesTabMocks.searchIndexers,
 }));
 
+vi.mock("src/lib/queries", () => ({
+	bookReleaseStatusQuery: (bookId: number) => ({
+		queryKey: ["book-release-status", bookId],
+		queryFn: vi.fn(),
+	}),
+}));
+
 vi.mock("src/components/bookshelf/books/search-toolbar", () => ({
 	default: ({
 		defaultQuery,
@@ -115,7 +122,7 @@ vi.mock("src/components/ui/tabs", () => ({
 		children,
 		value,
 	}: {
-		children: React.ReactNode;
+		children: ReactNode;
 		value: string;
 	}) => <section data-value={value}>{children}</section>,
 }));
@@ -166,10 +173,9 @@ describe("SearchReleasesTab", () => {
 				{ guid: "release-2", title: "Release Two" },
 			],
 		};
-		searchReleasesTabMocks.searchIndexers.mutate.mockClear();
 		searchReleasesTabMocks.grabRelease.mutate.mockImplementation(
 			(
-				payload: unknown,
+				_payload: unknown,
 				options?: {
 					onSuccess?: (result: { downloadClientName: string }) => void;
 				},
