@@ -90,4 +90,33 @@ describe("ContentTypeCard", () => {
 		expect(getByText("Heat")).toBeInTheDocument();
 		expect(getByText("Unknown")).toBeInTheDocument();
 	});
+
+	it("renders the shows stat ordering without optional sections", () => {
+		const { getByRole, getByText, queryByText } = renderWithProviders(
+			<ContentTypeCard
+				config={CONTENT_CONFIGS[1]}
+				stats={{
+					total: 7,
+					monitored: 6,
+					fileCount: 9,
+					extra: { label: "Episodes", value: 4 },
+				}}
+				qualityBreakdown={[]}
+				recentItems={[]}
+				storageBytes={0}
+				storageTotalBytes={0}
+			/>,
+		);
+
+		expect(getByRole("link", { name: "View all →" })).toHaveAttribute(
+			"href",
+			"/tv",
+		);
+		expect(queryByText("Quality Breakdown")).not.toBeInTheDocument();
+		expect(queryByText("Storage")).not.toBeInTheDocument();
+		expect(queryByText("Recently Added")).not.toBeInTheDocument();
+		expect(getByText("7")).toBeInTheDocument();
+		expect(getByText("4")).toBeInTheDocument();
+		expect(getByText("9")).toBeInTheDocument();
+	});
 });
