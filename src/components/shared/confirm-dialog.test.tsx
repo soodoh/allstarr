@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/ui/dialog", () => ({
 	Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
@@ -24,8 +24,8 @@ vi.mock("src/components/ui/dialog", () => ({
 import ConfirmDialog from "./confirm-dialog";
 
 describe("ConfirmDialog", () => {
-	it("does not render content when closed", () => {
-		const { queryByTestId } = renderWithProviders(
+	it("does not render content when closed", async () => {
+		renderWithProviders(
 			<ConfirmDialog
 				description="Delete this item permanently."
 				onConfirm={vi.fn()}
@@ -35,15 +35,16 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 
-		expect(queryByTestId("dialog-root")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("dialog-root"))
+			.not.toBeInTheDocument();
 	});
 
 	it("renders content and wires cancel and confirm actions", async () => {
-		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();
 
-		const { getByRole, getByText } = renderWithProviders(
+		renderWithProviders(
 			<ConfirmDialog
 				description="Delete this item permanently."
 				onConfirm={onConfirm}
@@ -54,18 +55,20 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 
-		expect(getByText("Delete item")).toBeInTheDocument();
-		expect(getByText("Delete this item permanently.")).toBeInTheDocument();
+		await expect.element(page.getByText("Delete item")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Delete this item permanently."))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Cancel" }));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 
-	it("shows the loading state and disables confirmation while busy", () => {
-		const { getByRole } = renderWithProviders(
+	it("shows the loading state and disables confirmation while busy", async () => {
+		renderWithProviders(
 			<ConfirmDialog
 				description="Delete this item permanently."
 				loading
@@ -76,6 +79,8 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 
-		expect(getByRole("button", { name: "Deleting..." })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Deleting..." }))
+			.toBeDisabled();
 	});
 });

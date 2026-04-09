@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { playwright } from "@vitest/browser-playwright";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export const nodeTestInclude = [
@@ -75,12 +76,31 @@ export default defineConfig({
 			},
 			{
 				extends: true,
+				optimizeDeps: {
+					include: [
+						"react",
+						"react/jsx-dev-runtime",
+						"react-dom",
+						"react-dom/client",
+						"@tanstack/react-query",
+						"@tanstack/react-router",
+						"vitest-browser-react",
+						"clsx",
+						"tailwind-merge",
+						"class-variance-authority",
+						"lucide-react",
+						"radix-ui",
+						"sonner",
+						"better-auth/client/plugins",
+						"better-auth/react",
+					],
+				},
 				test: {
 					include: frontendTestInclude,
 					exclude: frontendTestExclude,
 					browser: {
 						enabled: true,
-						provider: "playwright",
+						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},
 				},
