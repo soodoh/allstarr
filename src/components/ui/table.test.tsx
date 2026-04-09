@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Table,
@@ -11,8 +12,8 @@ import {
 } from "./table";
 
 describe("Table", () => {
-	it("renders the wrapper and core table slots", () => {
-		const { container, getByText } = renderWithProviders(
+	it("renders the wrapper and core table slots", async () => {
+		const { container } = await renderWithProviders(
 			<Table className="custom-table">
 				<TableHeader className="custom-header">
 					<TableRow className="custom-header-row">
@@ -61,7 +62,7 @@ describe("Table", () => {
 			"align-middle",
 			"custom-cell",
 		);
-		expect(getByText("Title")).toBeInTheDocument();
-		expect(getByText("Row")).toBeInTheDocument();
+		await expect.element(page.getByText("Title")).toBeInTheDocument();
+		await expect.element(page.getByText("Row")).toBeInTheDocument();
 	});
 });

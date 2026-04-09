@@ -9,8 +9,8 @@ import {
 } from "./dropdown-menu";
 
 describe("DropdownMenu", () => {
-	it("renders trigger and content in a portal", () => {
-		renderWithProviders(
+	it("renders trigger and content in a portal", async () => {
+		await renderWithProviders(
 			<DropdownMenu open>
 				<DropdownMenuTrigger asChild>
 					<button type="button">Open menu</button>
@@ -32,8 +32,8 @@ describe("DropdownMenu", () => {
 		).toHaveTextContent("Item");
 	});
 
-	it("marks items with inset and destructive variant metadata", () => {
-		renderWithProviders(
+	it("marks items with inset and destructive variant metadata", async () => {
+		await renderWithProviders(
 			<DropdownMenu open>
 				<DropdownMenuTrigger asChild>
 					<button type="button">Open menu</button>

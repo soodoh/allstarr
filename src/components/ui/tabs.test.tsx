@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
 describe("Tabs", () => {
-	it("renders the default horizontal stack with public slots", () => {
-		renderWithProviders(
+	it("renders the default horizontal stack with public slots", async () => {
+		await renderWithProviders(
 			<Tabs defaultValue="account">
 				<TabsList className="custom-list">
 					<TabsTrigger value="account">Account</TabsTrigger>
@@ -42,8 +42,8 @@ describe("Tabs", () => {
 		).toHaveClass("custom-content", "flex-1", "outline-none");
 	});
 
-	it("applies vertical orientation and line variant classes", () => {
-		renderWithProviders(
+	it("applies vertical orientation and line variant classes", async () => {
+		await renderWithProviders(
 			<Tabs orientation="vertical" defaultValue="security">
 				<TabsList variant="line">
 					<TabsTrigger value="account">Account</TabsTrigger>

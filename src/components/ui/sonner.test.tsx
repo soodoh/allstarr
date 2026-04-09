@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ToasterProps } from "sonner";
+import { render } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const sonnerMocks = {
 	receivedProps: undefined as ToasterProps | undefined,
@@ -30,12 +31,12 @@ describe("Toaster", () => {
 		sonnerMocks.theme = undefined;
 	});
 
-	it("forwards the resolved theme, icons, and styles to Sonner", () => {
+	it("forwards the resolved theme, icons, and styles to Sonner", async () => {
 		sonnerMocks.theme = undefined;
 
-		render(<Toaster />);
+		await render(<Toaster />);
 
-		expect(screen.getByTestId("sonner-mock")).toBeInTheDocument();
+		await expect.element(page.getByTestId("sonner-mock")).toBeInTheDocument();
 		expect(sonnerMocks.receivedProps).toMatchObject({
 			position: "bottom-left",
 			theme: "system",

@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import Slider from "./slider";
 
 describe("Slider", () => {
-	it("renders the public slots and falls back to min and max when no values are provided", () => {
-		const { container } = renderWithProviders(
+	it("renders the public slots and falls back to min and max when no values are provided", async () => {
+		const { container } = await renderWithProviders(
 			<Slider aria-label="Range" min={10} max={90} />,
 		);
 
@@ -21,8 +21,8 @@ describe("Slider", () => {
 		).toHaveLength(2);
 	});
 
-	it("uses defaultValue to determine the thumb count", () => {
-		const { container } = renderWithProviders(
+	it("uses defaultValue to determine the thumb count", async () => {
+		const { container } = await renderWithProviders(
 			<Slider
 				aria-label="Range"
 				defaultValue={[10, 50, 90]}
@@ -36,8 +36,8 @@ describe("Slider", () => {
 		).toHaveLength(3);
 	});
 
-	it("marks disabled thumbs and respects controlled value length", () => {
-		const { container } = renderWithProviders(
+	it("marks disabled thumbs and respects controlled value length", async () => {
+		const { container } = await renderWithProviders(
 			<Slider
 				aria-label="Range"
 				disabledThumbs={new Set([0])}

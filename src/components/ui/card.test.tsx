@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	Card,
@@ -11,8 +12,8 @@ import {
 } from "./card";
 
 describe("Card", () => {
-	it("renders the card slots and merges custom classes", () => {
-		const { container, getByText } = renderWithProviders(
+	it("renders the card slots and merges custom classes", async () => {
+		const { container } = await renderWithProviders(
 			<Card className="custom-card">
 				<CardHeader className="custom-header">
 					<div data-slot="card-action">Action</div>
@@ -53,10 +54,12 @@ describe("Card", () => {
 			"items-center",
 			"custom-footer",
 		);
-		expect(getByText("Action")).toHaveAttribute("data-slot", "card-action");
-		expect(getByText("Title")).toBeInTheDocument();
-		expect(getByText("Description")).toBeInTheDocument();
-		expect(getByText("Content")).toBeInTheDocument();
-		expect(getByText("Footer")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Action"))
+			.toHaveAttribute("data-slot", "card-action");
+		await expect.element(page.getByText("Title")).toBeInTheDocument();
+		await expect.element(page.getByText("Description")).toBeInTheDocument();
+		await expect.element(page.getByText("Content")).toBeInTheDocument();
+		await expect.element(page.getByText("Footer")).toBeInTheDocument();
 	});
 });

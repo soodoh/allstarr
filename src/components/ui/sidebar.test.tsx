@@ -1,6 +1,6 @@
-import { fireEvent } from "@testing-library/react";
 import { renderHook, renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const sidebarMocks = vi.hoisted(() => ({
 	cookieSet: vi.fn(),
@@ -110,39 +110,47 @@ describe("Sidebar primitives", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("throws when useSidebar is used outside the provider", () => {
-		expect(() => renderHook(() => useSidebar())).toThrow(
+	it("throws when useSidebar is used outside the provider", async () => {
+		await expect(renderHook(() => useSidebar())).rejects.toThrow(
 			"useSidebar must be used within a SidebarProvider.",
 		);
 	});
 
-	it("toggles desktop state from the keyboard shortcut and persists the cookie", () => {
-		const { getByTestId } = renderWithProviders(
+	it("toggles desktop state from the keyboard shortcut and persists the cookie", async () => {
+		await renderWithProviders(
 			<SidebarProvider>
 				<SidebarProbe />
 			</SidebarProvider>,
 		);
 
-		expect(getByTestId("sidebar-state")).toHaveTextContent("expanded");
-		expect(getByTestId("sidebar-open")).toHaveTextContent("true");
-		expect(getByTestId("sidebar-mobile")).toHaveTextContent("false");
+		await expect
+			.element(page.getByTestId("sidebar-state"))
+			.toHaveTextContent("expanded");
+		await expect
+			.element(page.getByTestId("sidebar-open"))
+			.toHaveTextContent("true");
+		await expect
+			.element(page.getByTestId("sidebar-mobile"))
+			.toHaveTextContent("false");
 
-		fireEvent.keyDown(window, {
-			ctrlKey: true,
-			key: "x",
-			preventDefault: vi.fn(),
-		});
+		document.dispatchEvent(
+			new KeyboardEvent("keydown", { ctrlKey: true, key: "x", bubbles: true }),
+		);
 
-		expect(getByTestId("sidebar-state")).toHaveTextContent("expanded");
+		await expect
+			.element(page.getByTestId("sidebar-state"))
+			.toHaveTextContent("expanded");
 
-		fireEvent.keyDown(window, {
-			ctrlKey: true,
-			key: "b",
-			preventDefault: vi.fn(),
-		});
+		document.dispatchEvent(
+			new KeyboardEvent("keydown", { ctrlKey: true, key: "b", bubbles: true }),
+		);
 
-		expect(getByTestId("sidebar-state")).toHaveTextContent("collapsed");
-		expect(getByTestId("sidebar-open")).toHaveTextContent("false");
+		await expect
+			.element(page.getByTestId("sidebar-state"))
+			.toHaveTextContent("collapsed");
+		await expect
+			.element(page.getByTestId("sidebar-open"))
+			.toHaveTextContent("false");
 		expect(sidebarMocks.cookieSet).toHaveBeenCalledWith(
 			expect.objectContaining({
 				name: "sidebar_state",
@@ -152,36 +160,42 @@ describe("Sidebar primitives", () => {
 		);
 	});
 
-	it("uses the controlled open handler instead of mutating internal desktop state", () => {
+	it("uses the controlled open handler instead of mutating internal desktop state", async () => {
 		const onOpenChange = vi.fn();
-		const { getByRole, getByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<SidebarProvider onOpenChange={onOpenChange} open={false}>
 				<SidebarProbe />
 			</SidebarProvider>,
 		);
 
-		fireEvent.click(getByRole("button", { name: "Toggle" }));
+		await page.getByRole("button", { name: "Toggle" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(true);
-		expect(getByTestId("sidebar-state")).toHaveTextContent("collapsed");
+		await expect
+			.element(page.getByTestId("sidebar-state"))
+			.toHaveTextContent("collapsed");
 	});
 
-	it("accepts direct boolean setOpen values", () => {
-		const { getByRole, getByTestId } = renderWithProviders(
+	it("accepts direct boolean setOpen values", async () => {
+		await renderWithProviders(
 			<SidebarProvider>
 				<SidebarProbe />
 			</SidebarProvider>,
 		);
 
-		fireEvent.click(getByRole("button", { name: "Close" }));
+		await page.getByRole("button", { name: "Close" }).click();
 
-		expect(getByTestId("sidebar-open")).toHaveTextContent("false");
-		expect(getByTestId("sidebar-state")).toHaveTextContent("collapsed");
+		await expect
+			.element(page.getByTestId("sidebar-open"))
+			.toHaveTextContent("false");
+		await expect
+			.element(page.getByTestId("sidebar-state"))
+			.toHaveTextContent("collapsed");
 	});
 
-	it("renders the mobile sheet variant and toggles openMobile state", () => {
+	it("renders the mobile sheet variant and toggles openMobile state", async () => {
 		sidebarMocks.isMobile = true;
-		const { getByRole, getByTestId, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<SidebarProvider>
 				<SidebarProbe />
 				<Sidebar side="right">
@@ -190,19 +204,33 @@ describe("Sidebar primitives", () => {
 			</SidebarProvider>,
 		);
 
-		expect(getByTestId("sheet-root")).toHaveAttribute("data-open", "false");
-		fireEvent.click(getByRole("button", { name: "Toggle" }));
-		expect(getByTestId("sheet-root")).toHaveAttribute("data-open", "true");
-		expect(getByTestId("sidebar-mobile-open")).toHaveTextContent("true");
-		expect(getByTestId("sheet-content")).toHaveAttribute("data-mobile", "true");
-		expect(getByTestId("sheet-content")).toHaveAttribute("data-side", "right");
-		expect(getByText("Header")).toBeInTheDocument();
-		expect(getByText("Sidebar")).toBeInTheDocument();
-		expect(getByText("Displays the mobile sidebar.")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("sheet-root"))
+			.toHaveAttribute("data-open", "false");
+		await page.getByRole("button", { name: "Toggle" }).click();
+		await expect
+			.element(page.getByTestId("sheet-root"))
+			.toHaveAttribute("data-open", "true");
+		await expect
+			.element(page.getByTestId("sidebar-mobile-open"))
+			.toHaveTextContent("true");
+		await expect
+			.element(page.getByTestId("sheet-content"))
+			.toHaveAttribute("data-mobile", "true");
+		await expect
+			.element(page.getByTestId("sheet-content"))
+			.toHaveAttribute("data-side", "right");
+		await expect.element(page.getByText("Header")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("sheet-title"))
+			.toHaveTextContent("Sidebar");
+		await expect
+			.element(page.getByTestId("sheet-description"))
+			.toHaveTextContent("Displays the mobile sidebar.");
 	});
 
-	it("renders the desktop structural slots for icon-collapsed floating sidebars", () => {
-		const { container } = renderWithProviders(
+	it("renders the desktop structural slots for icon-collapsed floating sidebars", async () => {
+		const { container } = await renderWithProviders(
 			<SidebarProvider defaultOpen={false}>
 				<Sidebar side="right" variant="floating">
 					<SidebarContent>Body</SidebarContent>
@@ -225,8 +253,8 @@ describe("Sidebar primitives", () => {
 		).toHaveTextContent("Body");
 	});
 
-	it("renders left-side inset desktop sidebars while expanded", () => {
-		const { container } = renderWithProviders(
+	it("renders left-side inset desktop sidebars while expanded", async () => {
+		const { container } = await renderWithProviders(
 			<SidebarProvider defaultOpen>
 				<Sidebar side="left" variant="inset" collapsible="icon">
 					<SidebarContent>Inset body</SidebarContent>
@@ -245,8 +273,8 @@ describe("Sidebar primitives", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders the default desktop sidebar variant branch", () => {
-		const { container } = renderWithProviders(
+	it("renders the default desktop sidebar variant branch", async () => {
+		const { container } = await renderWithProviders(
 			<SidebarProvider defaultOpen={false}>
 				<Sidebar collapsible="icon">
 					<SidebarContent>Default body</SidebarContent>
@@ -263,8 +291,8 @@ describe("Sidebar primitives", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders the non-collapsible variant and the menu helper primitives", () => {
-		const { container, getByRole, getByTestId } = renderWithProviders(
+	it("renders the non-collapsible variant and the menu helper primitives", async () => {
+		const { container } = await renderWithProviders(
 			<SidebarProvider defaultOpen={false}>
 				<Sidebar collapsible="none">
 					<SidebarGroup>
@@ -292,18 +320,15 @@ describe("Sidebar primitives", () => {
 		expect(container.querySelector('[data-slot="sidebar"]')).toHaveTextContent(
 			"Library",
 		);
-		expect(getByRole("button", { name: "Library" })).toHaveAttribute(
-			"data-active",
-			"true",
-		);
-		expect(getByRole("button", { name: "Library" })).toHaveAttribute(
-			"data-size",
-			"lg",
-		);
-		expect(getByTestId("tooltip-content")).toHaveAttribute(
-			"data-hidden",
-			"false",
-		);
+		await expect
+			.element(page.getByRole("button", { name: "Library" }))
+			.toHaveAttribute("data-active", "true");
+		await expect
+			.element(page.getByRole("button", { name: "Library" }))
+			.toHaveAttribute("data-size", "lg");
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveAttribute("data-hidden", "false");
 		expect(
 			container.querySelector('[data-slot="sidebar-menu-sub"]'),
 		).toBeInTheDocument();
@@ -315,18 +340,20 @@ describe("Sidebar primitives", () => {
 		).toHaveAttribute("data-active", "true");
 	});
 
-	it("returns the plain button when no tooltip is provided", () => {
-		const { queryByTestId } = renderWithProviders(
+	it("returns the plain button when no tooltip is provided", async () => {
+		await renderWithProviders(
 			<SidebarProvider>
 				<SidebarMenuButton>Plain</SidebarMenuButton>
 			</SidebarProvider>,
 		);
 
-		expect(queryByTestId("tooltip-content")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.not.toBeInTheDocument();
 	});
 
-	it("accepts tooltip props objects and hides them when expanded", () => {
-		const { getByTestId } = renderWithProviders(
+	it("accepts tooltip props objects and hides them when expanded", async () => {
+		await renderWithProviders(
 			<SidebarProvider>
 				<SidebarMenuButton
 					tooltip={{ children: "More info", className: "custom-tooltip" }}
@@ -336,16 +363,19 @@ describe("Sidebar primitives", () => {
 			</SidebarProvider>,
 		);
 
-		expect(getByTestId("tooltip-content")).toHaveTextContent("More info");
-		expect(getByTestId("tooltip-content")).toHaveClass("custom-tooltip");
-		expect(getByTestId("tooltip-content")).toHaveAttribute(
-			"data-hidden",
-			"true",
-		);
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveTextContent("More info");
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveClass("custom-tooltip");
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveAttribute("data-hidden", "true");
 	});
 
-	it("supports asChild menu buttons and sub-buttons with outline and md variants", () => {
-		const { getByRole, getByTestId } = renderWithProviders(
+	it("supports asChild menu buttons and sub-buttons with outline and md variants", async () => {
+		const { container } = await renderWithProviders(
 			<SidebarProvider defaultOpen={false}>
 				<SidebarMenu>
 					<SidebarMenuItem>
@@ -368,26 +398,22 @@ describe("Sidebar primitives", () => {
 			</SidebarProvider>,
 		);
 
-		expect(getByRole("link", { name: "Docs" })).toHaveAttribute(
-			"data-slot",
-			"sidebar-menu-button",
+		const docsLink = container.querySelector(
+			'[data-slot="sidebar-menu-button"]',
 		);
-		expect(getByRole("link", { name: "Docs" })).toHaveAttribute(
-			"data-size",
-			"default",
+		const childLink = container.querySelector(
+			'[data-slot="sidebar-menu-sub-button"]',
 		);
-		expect(getByRole("link", { name: "Child docs" })).toHaveAttribute(
-			"data-slot",
-			"sidebar-menu-sub-button",
-		);
-		expect(getByRole("link", { name: "Child docs" })).toHaveAttribute(
-			"data-size",
-			"md",
-		);
-		expect(getByTestId("tooltip-content")).toHaveTextContent("Docs tip");
-		expect(getByTestId("tooltip-content")).toHaveAttribute(
-			"data-hidden",
-			"false",
-		);
+
+		expect(docsLink).toHaveAttribute("data-slot", "sidebar-menu-button");
+		expect(docsLink).toHaveAttribute("data-size", "default");
+		expect(childLink).toHaveAttribute("data-slot", "sidebar-menu-sub-button");
+		expect(childLink).toHaveAttribute("data-size", "md");
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveTextContent("Docs tip");
+		await expect
+			.element(page.getByTestId("tooltip-content"))
+			.toHaveAttribute("data-hidden", "false");
 	});
 });

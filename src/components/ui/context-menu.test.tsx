@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import {
 	ContextMenu,
@@ -11,9 +11,7 @@ import {
 
 describe("ContextMenu", () => {
 	it("renders slots and portal content", async () => {
-		const user = userEvent.setup();
-
-		const { findByText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
 					<button type="button">Open menu</button>
@@ -24,18 +22,14 @@ describe("ContextMenu", () => {
 			</ContextMenu>,
 		);
 
-		expect(getByRole("button", { name: "Open menu" })).toHaveAttribute(
-			"data-slot",
-			"context-menu-trigger",
-		);
+		await expect
+			.element(page.getByRole("button", { name: "Open menu" }))
+			.toHaveAttribute("data-slot", "context-menu-trigger");
 
-		await user.pointer([
-			{
-				target: getByRole("button", { name: "Open menu" }),
-				keys: "[MouseRight]",
-			},
-		]);
-		await findByText("Default item");
+		await page
+			.getByRole("button", { name: "Open menu" })
+			.click({ button: "right" });
+		await expect.element(page.getByText("Default item")).toBeInTheDocument();
 
 		expect(
 			document.body.querySelector('[data-slot="context-menu-content"]'),
@@ -46,9 +40,7 @@ describe("ContextMenu", () => {
 	});
 
 	it("marks inset and destructive items", async () => {
-		const user = userEvent.setup();
-
-		const { getByRole, findAllByRole } = renderWithProviders(
+		await renderWithProviders(
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
 					<button type="button">Open menu</button>
@@ -60,13 +52,12 @@ describe("ContextMenu", () => {
 			</ContextMenu>,
 		);
 
-		await user.pointer([
-			{
-				target: getByRole("button", { name: "Open menu" }),
-				keys: "[MouseRight]",
-			},
-		]);
-		await findAllByRole("menuitem");
+		await page
+			.getByRole("button", { name: "Open menu" })
+			.click({ button: "right" });
+		await expect
+			.element(page.getByRole("menuitem").first())
+			.toBeInTheDocument();
 
 		const items = document.body.querySelectorAll(
 			'[data-slot="context-menu-item"]',

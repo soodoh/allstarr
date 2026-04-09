@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import Switch from "./switch";
 
 describe("Switch", () => {
-	it("renders the default switch size and checked state", () => {
-		const { container } = renderWithProviders(<Switch checked />);
+	it("renders the default switch size and checked state", async () => {
+		const { container } = await renderWithProviders(<Switch checked />);
 
 		expect(container.querySelector('[data-slot="switch"]')).toHaveAttribute(
 			"data-size",
@@ -16,8 +16,10 @@ describe("Switch", () => {
 		).not.toBeNull();
 	});
 
-	it("renders the small size variant and forwards disabled props", () => {
-		const { container } = renderWithProviders(<Switch disabled size="sm" />);
+	it("renders the small size variant and forwards disabled props", async () => {
+		const { container } = await renderWithProviders(
+			<Switch disabled size="sm" />,
+		);
 
 		expect(container.querySelector('[data-slot="switch"]')).toHaveAttribute(
 			"data-size",
