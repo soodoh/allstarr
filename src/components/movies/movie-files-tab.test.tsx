@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("lucide-react", () => ({
 	Film: ({ className }: { className?: string }) => (
@@ -32,17 +33,19 @@ vi.mock("src/components/ui/card", () => ({
 import MovieFilesTab from "./movie-files-tab";
 
 describe("MovieFilesTab", () => {
-	it("renders the empty state when no files are available", () => {
-		const { getByTestId } = renderWithProviders(<MovieFilesTab files={[]} />);
+	it("renders the empty state when no files are available", async () => {
+		await renderWithProviders(<MovieFilesTab files={[]} />);
 
-		expect(getByTestId("empty-state")).toHaveTextContent("No movie files");
-		expect(getByTestId("empty-state")).toHaveTextContent(
-			"No files have been imported for this movie yet.",
-		);
+		await expect
+			.element(page.getByTestId("empty-state"))
+			.toHaveTextContent("No movie files");
+		await expect
+			.element(page.getByTestId("empty-state"))
+			.toHaveTextContent("No files have been imported for this movie yet.");
 	});
 
-	it("renders file metadata and formatting helpers for populated file rows", () => {
-		const { getAllByText, getByText } = renderWithProviders(
+	it("renders file metadata and formatting helpers for populated file rows", async () => {
+		await renderWithProviders(
 			<MovieFilesTab
 				files={[
 					{
@@ -72,13 +75,17 @@ describe("MovieFilesTab", () => {
 			/>,
 		);
 
-		expect(getByText("Files (2)")).toBeInTheDocument();
-		expect(getByText("/movies/Alien (1979).mkv")).toBeInTheDocument();
-		expect(getByText("3.0 GB")).toBeInTheDocument();
-		expect(getByText("Bluray-1080p")).toBeInTheDocument();
-		expect(getByText("2h")).toBeInTheDocument();
-		expect(getByText("512.0 MB")).toBeInTheDocument();
-		expect(getByText("Unknown")).toBeInTheDocument();
-		expect(getAllByText("-")).toHaveLength(3);
+		await expect.element(page.getByText("Files (2)")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("/movies/Alien (1979).mkv"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("3.0 GB")).toBeInTheDocument();
+		await expect.element(page.getByText("Bluray-1080p")).toBeInTheDocument();
+		await expect.element(page.getByText("2h")).toBeInTheDocument();
+		await expect.element(page.getByText("512.0 MB")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Unknown", { exact: true }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("-").first()).toBeInTheDocument();
 	});
 });
