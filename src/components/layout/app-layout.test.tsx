@@ -1,6 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
+import { render } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const layoutMocks = vi.hoisted(() => ({
 	appSidebar: vi.fn(),
@@ -44,23 +45,22 @@ describe("AppLayout", () => {
 		vi.clearAllMocks();
 	});
 
-	it("wraps the page with tooltip and sidebar providers", () => {
-		render(
+	it("wraps the page with tooltip and sidebar providers", async () => {
+		await render(
 			<AppLayout>
 				<div>Library content</div>
 			</AppLayout>,
 		);
 
-		const tooltipProvider = screen.getByTestId("tooltip-provider");
-		const sidebarProvider =
-			within(tooltipProvider).getByTestId("sidebar-provider");
-		const main = screen.getByRole("main");
-
-		expect(sidebarProvider).toContainElement(screen.getByTestId("app-sidebar"));
-		expect(sidebarProvider).toContainElement(
-			screen.getByTestId("layout-header"),
-		);
-		expect(within(main).getByText("Library content")).toBeInTheDocument();
+		const tooltipProvider = page.getByTestId("tooltip-provider");
+		await expect.element(tooltipProvider).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("sidebar-provider"))
+			.toBeInTheDocument();
+		await expect.element(page.getByRole("main")).toBeInTheDocument();
+		await expect.element(page.getByTestId("app-sidebar")).toBeInTheDocument();
+		await expect.element(page.getByTestId("layout-header")).toBeInTheDocument();
+		await expect.element(page.getByText("Library content")).toBeInTheDocument();
 		expect(layoutMocks.tooltipProvider).toHaveBeenCalledTimes(1);
 		expect(layoutMocks.sidebarProvider).toHaveBeenCalledTimes(1);
 		expect(layoutMocks.appSidebar).toHaveBeenCalledTimes(1);
