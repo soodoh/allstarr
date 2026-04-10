@@ -16,7 +16,10 @@ data/
 .claude/plans/
 .superpowers/
 
-# E2E test artifacts
+# Test artifacts
 e2e/.test-state.json
 test-results/
 playwright-report/
+coverage-report/
+.vitest-attachments/
+**/__screenshots__/
