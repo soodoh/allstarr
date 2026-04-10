@@ -1,6 +1,7 @@
 import type { ComponentType, JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const miscRouteMocks = vi.hoisted(() => ({
 	historyListQuery: vi.fn(() => ({
@@ -172,24 +173,27 @@ import { Route as SystemRoute } from "./system/index";
 import { Route as AddShowRoute } from "./tv/add";
 
 describe("misc authed routes", () => {
-	it("renders the requests page shell", () => {
+	it("renders the requests page shell", async () => {
 		const routeConfig = RequestsRoute as unknown as {
 			component: () => JSX.Element;
 		};
-		const { container, getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Requests");
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"Request books, movies, and more.",
-		);
-		expect(getByTestId("empty-state-title")).toHaveTextContent("Coming Soon");
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"The requests feature is under development. Check back later!",
-		);
-		expect(getByText("Coming Soon")).toBeInTheDocument();
-		expect(container.querySelector("svg.lucide-book-open")).not.toBeNull();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Requests");
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("Request books, movies, and more.");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Coming Soon");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent(
+				"The requests feature is under development. Check back later!",
+			);
+		expect(document.querySelector("svg.lucide-book-open")).not.toBeNull();
 	});
 
 	it("wires the movie add loader and page composition", async () => {
@@ -220,14 +224,18 @@ describe("misc authed routes", () => {
 			}),
 		);
 
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByTestId("link-/movies")).toHaveTextContent("Back to Movies");
-		expect(getByTestId("page-header-title")).toHaveTextContent("Add Movie");
-		expect(getByText("Search TMDB")).toBeInTheDocument();
-		expect(getByTestId("tmdb-movie-search")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("link-/movies"))
+			.toHaveTextContent("Back to Movies");
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Add Movie");
+		await expect.element(page.getByText("Search TMDB")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("tmdb-movie-search"))
+			.toBeInTheDocument();
 	});
 
 	it("wires the tv add loader and page composition", async () => {
@@ -258,46 +266,51 @@ describe("misc authed routes", () => {
 			}),
 		);
 
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByTestId("link-/tv")).toHaveTextContent("Back to TV Shows");
-		expect(getByTestId("page-header-title")).toHaveTextContent("Add TV Show");
-		expect(getByText("Search TMDB")).toBeInTheDocument();
-		expect(getByTestId("tmdb-show-search")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("link-/tv"))
+			.toHaveTextContent("Back to TV Shows");
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Add TV Show");
+		await expect.element(page.getByText("Search TMDB")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("tmdb-show-search"))
+			.toBeInTheDocument();
 	});
 
-	it("renders the system page cards from nav config", () => {
+	it("renders the system page cards from nav config", async () => {
 		const routeConfig = SystemRoute as unknown as {
 			component: () => JSX.Element;
 		};
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("System");
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"Monitor activity and manage system-level features.",
-		);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("System");
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("Monitor activity and manage system-level features.");
 
 		for (const item of miscRouteMocks.systemNavItems) {
-			expect(getByTestId(`link-${item.to}`)).toHaveTextContent(item.title);
-			expect(getByText(item.description)).toBeInTheDocument();
+			await expect
+				.element(page.getByTestId(`link-${item.to}`))
+				.toHaveTextContent(item.title);
+			await expect
+				.element(page.getByText(item.description))
+				.toBeInTheDocument();
 		}
 
-		expect(getByTestId("system-icon-status")).toHaveAttribute(
-			"data-classname",
-			"h-6 w-6 text-primary",
-		);
-		expect(getByTestId("system-icon-tasks")).toHaveAttribute(
-			"data-classname",
-			"h-6 w-6 text-primary",
-		);
-		expect(getByTestId("system-icon-events")).toHaveAttribute(
-			"data-classname",
-			"h-6 w-6 text-primary",
-		);
+		await expect
+			.element(page.getByTestId("system-icon-status"))
+			.toHaveAttribute("data-classname", "h-6 w-6 text-primary");
+		await expect
+			.element(page.getByTestId("system-icon-tasks"))
+			.toHaveAttribute("data-classname", "h-6 w-6 text-primary");
+		await expect
+			.element(page.getByTestId("system-icon-events"))
+			.toHaveAttribute("data-classname", "h-6 w-6 text-primary");
 	});
 
 	it("wires the system events loader and page shell", async () => {
@@ -329,14 +342,17 @@ describe("misc authed routes", () => {
 			}),
 		);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(pendingView.getByText("TableSkeleton")).toBeInTheDocument();
+		const PendingComponent = routeConfig.pendingComponent;
+		await renderWithProviders(<PendingComponent />);
+		await expect.element(page.getByText("TableSkeleton")).toBeInTheDocument();
 
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
-		expect(getByTestId("page-header-title")).toHaveTextContent("Events");
-		expect(getByText(/View a log of all events/)).toBeInTheDocument();
-		expect(getByTestId("history-tab")).toBeInTheDocument();
+		await renderWithProviders(routeConfig.component());
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Events");
+		await expect
+			.element(page.getByText(/View a log of all events/))
+			.toBeInTheDocument();
+		await expect.element(page.getByTestId("history-tab")).toBeInTheDocument();
 	});
 });

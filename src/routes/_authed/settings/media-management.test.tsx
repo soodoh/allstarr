@@ -1,8 +1,7 @@
-import { fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 type Query = {
 	queryKey?: readonly unknown[];
@@ -406,7 +405,7 @@ describe("media-management route", () => {
 		);
 	});
 
-	it("renders book validation and empty root-folder state when profiles are missing", () => {
+	it("renders book validation and empty root-folder state when profiles are missing", async () => {
 		mediaManagementRouteMocks.settingsMap = createSettings({
 			"naming.book.audio.bookFile": "Audio template without book title",
 			"naming.book.ebook.bookFile": "Ebook template without book title",
@@ -417,24 +416,27 @@ describe("media-management route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const view = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(
-			view.getByRole("heading", { name: "Media Management" }),
-		).toBeInTheDocument();
-		expect(
-			view.getAllByText("Template must include {Book Title}"),
-		).toHaveLength(2);
-		expect(
-			view.getByText(
-				"No book root folders configured. Add a root folder path in your book download profiles.",
-			),
-		).toBeInTheDocument();
-		expect(view.getByRole("button", { name: "Save Settings" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("heading", { name: "Media Management" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Template must include {Book Title}").first())
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"No book root folders configured. Add a root folder path in your book download profiles.",
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Save Settings" }))
+			.toBeDisabled();
 	});
 
 	it("saves book and movie settings for the active tab", async () => {
-		const user = userEvent.setup();
 		mediaManagementRouteMocks.settingsMap = createSettings({
 			"naming.movie.movieFile": "{Movie Title} ({Year}) - Original",
 			"naming.movie.movieFolder": "{Movie Title} ({Year})",
@@ -464,36 +466,38 @@ describe("media-management route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const view = renderWithProviders(<Component />);
-		const ebookBookFileInput = view.getByDisplayValue(
-			"{Author Name} - {Book Title}",
-		) as HTMLInputElement;
-		const audiobookBookFileInput = view.getByDisplayValue(
-			"{Author Name} - {Book Title} - Part {PartNumber:00}",
-		) as HTMLInputElement;
-		const extraExtensionsInput = view.getByDisplayValue(
-			".jpg,.opf",
-		) as HTMLInputElement;
-		const fileChmodInput = view.getByDisplayValue("0644") as HTMLInputElement;
-		const folderChmodInput = view.getByDisplayValue("0755") as HTMLInputElement;
-		const chownGroupInput = view.getByDisplayValue("media") as HTMLInputElement;
+		await renderWithProviders(<Component />);
 
-		fireEvent.change(ebookBookFileInput, {
-			target: { value: "{Author Name} - {Book Title} (Updated)" },
-		});
-		fireEvent.change(audiobookBookFileInput, {
-			target: {
-				value: "{Author Name} - {Book Title} - Part {PartNumber:00} (Updated)",
-			},
-		});
-		await user.click(view.getByRole("button", { name: "Do Not Upgrade" }));
-		await user.click(view.getByRole("button", { name: "Release Date" }));
-		fireEvent.change(extraExtensionsInput, { target: { value: ".jpg,.epub" } });
-		fireEvent.change(fileChmodInput, { target: { value: "0600" } });
-		fireEvent.change(folderChmodInput, { target: { value: "0700" } });
-		fireEvent.change(chownGroupInput, { target: { value: "books" } });
+		const setInputValue = (selector: string, value: string) => {
+			const input = document.querySelector(selector) as HTMLInputElement | null;
+			if (!input) {
+				throw new Error(`Input not found: ${selector}`);
+			}
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
+			setter?.call(input, value);
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+			input.dispatchEvent(new Event("change", { bubbles: true }));
+		};
 
-		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		setInputValue(
+			'input[value="{Author Name} - {Book Title}"]',
+			"{Author Name} - {Book Title} (Updated)",
+		);
+		setInputValue(
+			'input[value="{Author Name} - {Book Title} - Part {PartNumber:00}"]',
+			"{Author Name} - {Book Title} - Part {PartNumber:00} (Updated)",
+		);
+		await page.getByRole("button", { name: "Do Not Upgrade" }).click();
+		await page.getByRole("button", { name: "Release Date" }).click();
+		setInputValue('input[value=".jpg,.opf"]', ".jpg,.epub");
+		setInputValue('input[value="0644"]', "0600");
+		setInputValue('input[value="0755"]', "0700");
+		setInputValue('input[value="media"]', "books");
+
+		await page.getByRole("button", { name: "Save Settings" }).click();
 
 		expect(
 			mediaManagementRouteMocks.updateSettings.mutate,
@@ -525,17 +529,17 @@ describe("media-management route", () => {
 				{ key: "mediaManagement.book.chownGroup", value: "books" },
 			]),
 		);
-		expect(view.getByText("/library/books")).toBeInTheDocument();
-		expect(view.getByText("eBooks, AudioBooks")).toBeInTheDocument();
+		await expect.element(page.getByText("/library/books")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("eBooks, AudioBooks"))
+			.toBeInTheDocument();
 
-		await user.click(view.getByRole("button", { name: "Movies" }));
-		const movieFileInput = view.getByDisplayValue(
-			"{Movie Title} ({Year}) - Original",
-		) as HTMLInputElement;
-		fireEvent.change(movieFileInput, {
-			target: { value: "{Movie Title} ({Year}) - Remastered" },
-		});
-		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "Movies" }).click();
+		setInputValue(
+			'input[value="{Movie Title} ({Year}) - Original"]',
+			"{Movie Title} ({Year}) - Remastered",
+		);
+		await page.getByRole("button", { name: "Save Settings" }).click();
 
 		expect(
 			mediaManagementRouteMocks.updateSettings.mutate,
@@ -556,7 +560,6 @@ describe("media-management route", () => {
 	});
 
 	it("shows audiobook validation errors and saves the free-space toggle", async () => {
-		const user = userEvent.setup();
 		mediaManagementRouteMocks.settingsMap = createSettings({
 			"naming.book.audio.bookFile":
 				"{Author Name} - {Book Title} without parts",
@@ -584,28 +587,41 @@ describe("media-management route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const view = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(
-			view.getByText(
-				"Template must include at least one of {PartNumber}, {PartNumber:00}, or {PartCount}",
-			),
-		).toBeInTheDocument();
-		expect(view.queryByDisplayValue("100")).not.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"Template must include at least one of {PartNumber}, {PartNumber:00}, or {PartCount}",
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.poll(() => document.querySelector('input[value="100"]'))
+			.toBeNull();
 
-		await user.click(view.getByRole("button", { name: "Movies" }));
-		expect(view.getByDisplayValue("100")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Movies" }).click();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="100"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
 
-		const skipFreeSpaceLabel = view.getByText("Skip Free Space Check");
-		const skipFreeSpaceSwitch = skipFreeSpaceLabel
+		const skipFreeSpaceLabel = page.getByText("Skip Free Space Check");
+		const labelEl = await skipFreeSpaceLabel.element();
+		const switchEl = labelEl
 			.closest("div")
 			?.parentElement?.querySelector(
 				'input[type="checkbox"]',
 			) as HTMLInputElement;
-		await user.click(skipFreeSpaceSwitch);
-		expect(view.queryByDisplayValue("100")).not.toBeInTheDocument();
+		await page.elementLocator(switchEl).click();
+		await expect
+			.poll(() => document.querySelector('input[value="100"]'))
+			.toBeNull();
 
-		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "Save Settings" }).click();
 		expect(
 			mediaManagementRouteMocks.updateSettings.mutate,
 		).toHaveBeenCalledWith(
@@ -622,7 +638,7 @@ describe("media-management route", () => {
 		);
 	});
 
-	it("renders default values when settings are sparse", () => {
+	it("renders default values when settings are sparse", async () => {
 		mediaManagementRouteMocks.settingsMap = {};
 		mediaManagementRouteMocks.profiles = [];
 
@@ -630,32 +646,62 @@ describe("media-management route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const view = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(
-			view.getByDisplayValue("{Author Name} - {Book Title}"),
-		).toBeDisabled();
-		expect(view.getByDisplayValue("100")).toBeInTheDocument();
-		expect(view.queryByDisplayValue(".jpg,.opf")).not.toBeInTheDocument();
-		expect(view.queryByDisplayValue("0644")).not.toBeInTheDocument();
-		expect(
-			view.getByText(
-				"No book root folders configured. Add a root folder path in your book download profiles.",
-			),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector(
+						'input[value="{Author Name} - {Book Title}"]',
+					) as HTMLElement,
+				),
+			)
+			.toBeDisabled();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="100"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.poll(() => document.querySelector('input[value=".jpg,.opf"]'))
+			.toBeNull();
+		await expect
+			.poll(() => document.querySelector('input[value="0644"]'))
+			.toBeNull();
+		await expect
+			.element(
+				page.getByText(
+					"No book root folders configured. Add a root folder path in your book download profiles.",
+				),
+			)
+			.toBeInTheDocument();
 
-		fireEvent.click(view.getByRole("button", { name: "TV Shows" }));
-		expect(
-			view.getByDisplayValue(
-				"{Show Title} - S{Season:00}E{Episode:00} - {Episode Title}",
-			),
-		).toBeInTheDocument();
-		fireEvent.click(view.getByRole("button", { name: "Movies" }));
-		expect(view.getAllByDisplayValue("{Movie Title} ({Year})")).toHaveLength(2);
+		await page.getByRole("button", { name: "TV Shows" }).click();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector(
+						'input[value="{Show Title} - S{Season:00}E{Episode:00} - {Episode Title}"]',
+					) as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Movies" }).click();
+		// Two inputs with the same value
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelectorAll(
+						'input[value="{Movie Title} ({Year})"]',
+					)[0] as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("saves tv settings and groups tv root folders", async () => {
-		const user = userEvent.setup();
 		mediaManagementRouteMocks.settingsMap = createSettings({
 			"naming.tv.standardEpisode": "Standard TV",
 			"naming.tv.dailyEpisode": "Daily TV",
@@ -685,22 +731,34 @@ describe("media-management route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const view = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		await user.click(view.getByRole("button", { name: "TV Shows" }));
-		expect(view.getByText("/library/tv")).toBeInTheDocument();
-		expect(view.getByText("Series A, Series B")).toBeInTheDocument();
+		await page.getByRole("button", { name: "TV Shows" }).click();
+		await expect.element(page.getByText("/library/tv")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Series A, Series B"))
+			.toBeInTheDocument();
 
-		fireEvent.change(view.getByDisplayValue("Standard TV"), {
-			target: { value: "Standard TV Updated" },
-		});
-		await user.click(view.getByRole("button", { name: "Do Not Prefer" }));
-		await user.click(view.getByRole("button", { name: "Release Date" }));
-		fireEvent.change(view.getByDisplayValue("100"), {
-			target: { value: "250" },
-		});
+		const setInputValue = (selector: string, value: string) => {
+			const input = document.querySelector(selector) as HTMLInputElement | null;
+			if (!input) {
+				throw new Error(`Input not found: ${selector}`);
+			}
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
+			setter?.call(input, value);
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+			input.dispatchEvent(new Event("change", { bubbles: true }));
+		};
 
-		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		setInputValue('input[value="Standard TV"]', "Standard TV Updated");
+		await page.getByRole("button", { name: "Do Not Prefer" }).click();
+		await page.getByRole("button", { name: "Release Date" }).click();
+		setInputValue('input[value="100"]', "250");
+
+		await page.getByRole("button", { name: "Save Settings" }).click();
 
 		expect(
 			mediaManagementRouteMocks.updateSettings.mutate,

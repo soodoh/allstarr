@@ -1,7 +1,7 @@
-import { fireEvent, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const addBooksRouteMocks = vi.hoisted(() => ({
 	searchHardcoverFn: vi.fn(
@@ -282,58 +282,62 @@ describe("AddBooksRoute", () => {
 		};
 		const Component = routeConfig.component;
 
-		const {
-			findByTestId,
-			findByText,
-			getByLabelText,
-			getByRole,
-			getByTestId,
-			getByText,
-		} = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent(
-			"Add to Bookshelf",
-		);
-		expect(getByTestId("empty-state-title")).toHaveTextContent("Search to add");
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Add to Bookshelf");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Search to add");
 
-		fireEvent.change(getByLabelText("Search query"), {
-			target: { value: "a" },
-		});
-		const searchForm = getByLabelText("Search query").closest("form");
+		await page.getByLabelText("Search query").fill("a");
+		const searchInput = document.querySelector(
+			'[aria-label="Search query"]',
+		) as HTMLInputElement;
+		const searchForm = searchInput.closest("form");
 		if (!searchForm) {
 			throw new Error("expected search form");
 		}
-		fireEvent.submit(searchForm);
-		expect(getByText("Enter at least 2 characters.")).toBeInTheDocument();
+		searchForm.dispatchEvent(
+			new Event("submit", { bubbles: true, cancelable: true }),
+		);
+		await expect
+			.element(page.getByText("Enter at least 2 characters."))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Books" }));
-		expect(getByLabelText("Search query")).toHaveAttribute(
-			"placeholder",
-			"Search only books",
+		await page.getByRole("button", { name: "Books" }).click();
+		await expect
+			.element(page.getByLabelText("Search query"))
+			.toHaveAttribute("placeholder", "Search only books");
+
+		await page.getByLabelText("Search query").fill(" dune ");
+		searchForm.dispatchEvent(
+			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 
-		fireEvent.change(getByLabelText("Search query"), {
-			target: { value: " dune " },
-		});
-		fireEvent.submit(searchForm);
-
-		await waitFor(() => {
-			expect(addBooksRouteMocks.searchHardcoverFn).toHaveBeenCalledWith({
+		await expect
+			.poll(() => addBooksRouteMocks.searchHardcoverFn)
+			.toHaveBeenCalledWith({
 				data: {
 					limit: 20,
 					query: "dune",
 					type: "books",
 				},
 			});
-		});
 
-		await findByText(/Showing 2 results for/);
-		fireEvent.click(getByText("Dune"));
-		expect(await findByTestId("book-preview-modal")).toHaveTextContent("Dune");
+		await expect
+			.element(page.getByText(/Showing 2 results for/))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByText("Frank Herbert"));
-		expect(await findByTestId("author-preview-modal")).toHaveTextContent(
-			"Frank Herbert",
-		);
+		await page.getByRole("heading", { name: "Dune" }).click();
+		await expect
+			.element(page.getByTestId("book-preview-modal"))
+			.toHaveTextContent("Dune");
+
+		await page.getByRole("heading", { name: "Frank Herbert" }).click();
+		await expect
+			.element(page.getByTestId("author-preview-modal"))
+			.toHaveTextContent("Frank Herbert");
 	});
 });

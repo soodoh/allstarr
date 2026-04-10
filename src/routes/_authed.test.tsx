@@ -1,6 +1,7 @@
 import { type JSX, type ReactNode, useContext } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authedRouteMocks = vi.hoisted(() => ({
 	getAuthSessionFn: vi.fn(),
@@ -129,15 +130,17 @@ describe("authed route", () => {
 		).resolves.toEqual({ session });
 	});
 
-	it("renders the authed layout with the SSE context value", () => {
+	it("renders the authed layout with the SSE context value", async () => {
 		const route = Route as unknown as {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
 
-		const { getByTestId } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("app-layout")).toBeInTheDocument();
-		expect(getByTestId("outlet-probe")).toHaveTextContent("true");
+		await expect.element(page.getByTestId("app-layout")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("outlet-probe"))
+			.toHaveTextContent("true");
 	});
 });

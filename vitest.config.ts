@@ -82,8 +82,10 @@ export default defineConfig({
 						"react/jsx-dev-runtime",
 						"react-dom",
 						"react-dom/client",
+						"react-dom/server",
 						"@tanstack/react-query",
 						"@tanstack/react-router",
+						"@testing-library/dom",
 						"vitest-browser-react",
 						"clsx",
 						"tailwind-merge",
@@ -100,6 +102,7 @@ export default defineConfig({
 					exclude: frontendTestExclude,
 					browser: {
 						enabled: true,
+            headless: true,
 						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},

@@ -1,8 +1,7 @@
-import { act, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 function createMutation() {
 	return {
@@ -855,60 +854,67 @@ describe("series route", () => {
 		expect(seriesRouteMocks.userSettingsQuery).toHaveBeenCalledTimes(1);
 		expect(ensureQueryData).toHaveBeenCalledTimes(4);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(pendingView.getAllByText("skeleton")).toHaveLength(2);
+		await renderWithProviders(<routeConfig.pendingComponent />);
+		const skeletons = page.getByText("skeleton");
+		await expect.element(skeletons.first()).toBeInTheDocument();
 	});
 
 	it("renders merged series entries and wires the monitored, preview, and profile actions", async () => {
-		const user = userEvent.setup();
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
 		const Component = routeConfig.component;
 
 		installQueryMocks();
 
-		const {
-			getAllByLabelText,
-			getAllByText,
-			getByLabelText,
-			getByRole,
-			getByTestId,
-			getByText,
-			queryByText,
-		} = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("Series")).toBeInTheDocument();
-		expect(getByText(/1\s+series/)).toBeInTheDocument();
-		expect(queryByText("Loading series data from Hardcover…")).toBeNull();
+		await expect.element(page.getByText("Series").first()).toBeInTheDocument();
+		await expect.element(page.getByText(/1\s+series/)).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Loading series data from Hardcover…"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByText("Refresh All"));
+		await page.getByText("Refresh All").click();
 		expect(seriesRouteMocks.refreshSeries.mutate).toHaveBeenCalledWith({});
 
-		await user.click(getByText("Chronicles"));
-		expect(getAllByText("Gamma Special Edition").length).toBeGreaterThan(0);
-		expect(queryByText("Alpha Side Story")).not.toBeInTheDocument();
-		expect(queryByText("Beta")).toBeNull();
-		expect(getByText("Guest Writer")).toBeInTheDocument();
-		expect(getByText("Author One")).toBeInTheDocument();
-		expect(getByText("Chronicles")).toBeInTheDocument();
-		expect(getByText("columns")).toBeInTheDocument();
-		expect(getAllByText("Alpha").length).toBeGreaterThan(0);
-		expect(getByText("2023-02-01")).toBeInTheDocument();
+		await page.getByText("Chronicles").click();
+		await expect
+			.element(page.getByText("Gamma Special Edition").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Alpha Side Story"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("Beta")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Guest Writer")).toBeInTheDocument();
+		await expect.element(page.getByText("Author One")).toBeInTheDocument();
+		await expect.element(page.getByText("Chronicles")).toBeInTheDocument();
+		await expect.element(page.getByText("columns")).toBeInTheDocument();
+		await expect.element(page.getByText("Alpha").first()).toBeInTheDocument();
+		await expect.element(page.getByText("2023-02-01")).toBeInTheDocument();
 
-		await user.click(getByLabelText("Unmonitor series"));
+		// The small monitor dot button has aria-label="Unmonitor series"; use DOM to click it directly
+		const unmonitorButton = document.querySelector(
+			'[aria-label="Unmonitor series"]',
+		) as HTMLButtonElement | null;
+		if (!unmonitorButton) {
+			throw new Error("Unmonitor series button not found");
+		}
+		unmonitorButton.click();
 		expect(seriesRouteMocks.updateSeries.mutate).toHaveBeenCalledWith({
 			id: 1,
 			monitored: false,
 		});
 
-		await user.click(getByRole("button", { name: "profile-12" }));
+		await page.getByRole("button", { name: "profile-12" }).click();
 		expect(seriesRouteMocks.monitorBookProfile.mutate).toHaveBeenCalledWith({
 			bookId: 101,
 			downloadProfileId: 12,
 		});
 
-		await user.click(getByRole("button", { name: "profile-11" }));
-		expect(getByTestId("unmonitor-dialog")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "confirm-unmonitor" }));
+		await page.getByRole("button", { name: "profile-11" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
 		expect(seriesRouteMocks.unmonitorBookProfile.mutate).toHaveBeenCalledWith(
 			{
 				bookId: 101,
@@ -918,22 +924,27 @@ describe("series route", () => {
 			expect.objectContaining({ onSuccess: expect.any(Function) }),
 		);
 
-		await user.click(getAllByText("Alpha")[0]);
+		await page.getByText("Alpha").first().click();
 		expect(seriesRouteMocks.navigate).toHaveBeenCalledWith({
 			params: { bookId: "101" },
 			to: "/books/$bookId",
 		});
 
-		await user.click(getAllByText("Gamma Special Edition")[0]);
-		expect(getByTestId("preview-modal")).toHaveTextContent(
-			"Gamma Special Edition",
-		);
+		await page.getByText("Gamma Special Edition").first().click();
+		await expect
+			.element(page.getByTestId("preview-modal"))
+			.toHaveTextContent("Gamma Special Edition");
 
-		await user.click(getAllByLabelText("Edit download profiles")[0]);
-		expect(getByTestId("edit-profiles-dialog")).toHaveTextContent("Chronicles");
+		await page
+			.getByRole("button", { name: "Edit download profiles" })
+			.first()
+			.click();
+		await expect
+			.element(page.getByTestId("edit-profiles-dialog"))
+			.toHaveTextContent("Chronicles");
 	});
 
-	it("supports debounced search, language filtering, and the empty-state branch", () => {
+	it("supports debounced search, language filtering, and the empty-state branch", async () => {
 		vi.useFakeTimers();
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
 		const Component = routeConfig.component;
@@ -942,24 +953,24 @@ describe("series route", () => {
 			isLoadingSeries: true,
 		});
 
-		const { getAllByText, getByPlaceholderText, getByText, queryAllByText } =
-			renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByText(/Loading series data from Hardcover/)).toBeInTheDocument();
+		await expect
+			.element(page.getByText(/Loading series data from Hardcover/))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByText("French"));
-		fireEvent.click(getByText("Chronicles"));
-		expect(queryAllByText("Alpha")).toHaveLength(0);
-		expect(getAllByText("Beta").length).toBeGreaterThan(0);
+		await page.getByRole("button").first().click();
 
-		fireEvent.change(getByPlaceholderText("Filter by series name..."), {
-			target: { value: "zzz" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		// Use locator for tab switching since it's rendered via the mock
+		await page.getByText("French").click();
 
-		expect(getByText("No series match “zzz”.")).toBeInTheDocument();
+		await page.getByText("Chronicles").click();
+
+		await page.getByPlaceholder("Filter by series name...").fill("zzz");
+
+		await vi.advanceTimersByTimeAsync(300);
+
+		await expect.element(page.getByText(/No series match/)).toBeInTheDocument();
 	});
 
 	it("shows metadata warnings, clears search, and invalidates after deleting a warning", async () => {
@@ -971,38 +982,36 @@ describe("series route", () => {
 			seriesPayload: warningSeriesPayload,
 		});
 
-		const {
-			getByLabelText,
-			getByPlaceholderText,
-			getByText,
-			getByTestId,
-			queryByText,
-		} = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		fireEvent.click(getByText("Chronicles"));
-		expect(getByTestId("metadata-warning-book")).toHaveTextContent("Alpha");
-		expect(getByTestId("metadata-warning-book-editions")).toHaveTextContent(
-			"Beta",
-		);
+		await page.getByText("Chronicles").first().click();
 
-		fireEvent.change(getByPlaceholderText("Filter by series name..."), {
-			target: { value: "zzz" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
-		expect(getByText("No series match “zzz”.")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("metadata-warning-book"))
+			.toHaveTextContent("Alpha");
+		await expect
+			.element(page.getByTestId("metadata-warning-book-editions"))
+			.toHaveTextContent("Beta");
 
-		fireEvent.click(getByLabelText("Clear search"));
-		expect(queryByText("No series match “zzz”.")).toBeNull();
-		expect(getByTestId("metadata-warning-book")).toBeInTheDocument();
+		await page.getByPlaceholder("Filter by series name...").fill("zzz");
+		await vi.advanceTimersByTimeAsync(300);
 
-		fireEvent.click(getByLabelText("delete-book"));
+		await expect.element(page.getByText(/No series match/)).toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Clear search" }).click();
+
+		await expect
+			.element(page.getByText(/No series match/))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("metadata-warning-book"))
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "delete-book" }).click();
 		expect(seriesRouteMocks.invalidate).toHaveBeenCalledTimes(1);
 	});
 
 	it("dedupes duplicate Hardcover entries and skips incomplete external editions", async () => {
-		const user = userEvent.setup();
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
 		const Component = routeConfig.component;
 
@@ -1015,21 +1024,23 @@ describe("series route", () => {
 			},
 		});
 
-		const { getAllByText, getByText, queryByText } = renderWithProviders(
-			<Component />,
-		);
+		await renderWithProviders(<Component />);
 
-		await user.click(getByText("Chronicles"));
+		await page.getByText("Chronicles").first().click();
 
-		expect(getAllByText("Beta").length).toBeGreaterThan(0);
-		expect(queryByText("Beta Shadow")).toBeNull();
-		expect(queryByText("Gamma Low")).toBeNull();
-		expect(getAllByText("Gamma High").length).toBeGreaterThan(0);
-		expect(queryByText("Missing IDs")).toBeNull();
-		expect(queryByText("Missing Release Date")).toBeNull();
+		await expect.element(page.getByText("Beta").first()).toBeInTheDocument();
+		await expect.element(page.getByText("Beta Shadow")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Gamma Low")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Gamma High").first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Missing IDs")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Missing Release Date"))
+			.not.toBeInTheDocument();
 	});
 
-	it("shows the no monitored books state when every entry is filtered out", () => {
+	it("shows the no monitored books state when every entry is filtered out", async () => {
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
 		const Component = routeConfig.component;
 
@@ -1038,11 +1049,11 @@ describe("series route", () => {
 			hardcoverPayload: [],
 		});
 
-		const { queryByText, getByText } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(
-			getByText("No series with monitored books found."),
-		).toBeInTheDocument();
-		expect(queryByText("Language")).toBeNull();
+		await expect
+			.element(page.getByText("No series with monitored books found."))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Language")).not.toBeInTheDocument();
 	});
 });

@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const activityRouteMocks = vi.hoisted(() => ({
 	blocklistListQuery: vi.fn(() => ({
@@ -58,16 +59,18 @@ import { Route as HistoryRoute } from "./history";
 import { Route as QueueRoute } from "./index";
 
 describe("activity routes", () => {
-	it("renders the queue page with the SSE connection state", () => {
+	it("renders the queue page with the SSE connection state", async () => {
 		const routeConfig = QueueRoute as unknown as {
 			component: () => JSX.Element;
 		};
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByText("Queue:Active and pending downloads")).toBeInTheDocument();
-		expect(getByTestId("queue-tab")).toHaveAttribute("data-connected", "true");
+		await expect
+			.element(page.getByText("Queue:Active and pending downloads"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("queue-tab"))
+			.toHaveAttribute("data-connected", "true");
 	});
 
 	it("wires the blocklist loader, pending component, and page shell", async () => {
@@ -98,16 +101,19 @@ describe("activity routes", () => {
 			}),
 		);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(pendingView.getByTestId("table-skeleton")).toBeInTheDocument();
+		const PendingComponent = routeConfig.pendingComponent;
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.element(page.getByTestId("table-skeleton"))
+			.toBeInTheDocument();
 
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
-		expect(
-			getByText("Blocklist:Releases blocked from automatic download"),
-		).toBeInTheDocument();
-		expect(getByTestId("blocklist-tab")).toBeInTheDocument();
+		await renderWithProviders(routeConfig.component());
+		await expect
+			.element(
+				page.getByText("Blocklist:Releases blocked from automatic download"),
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByTestId("blocklist-tab")).toBeInTheDocument();
 	});
 
 	it("wires the history loader, pending component, and page shell", async () => {
@@ -138,15 +144,16 @@ describe("activity routes", () => {
 			}),
 		);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(pendingView.getByTestId("table-skeleton")).toBeInTheDocument();
+		const PendingComponent = routeConfig.pendingComponent;
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.element(page.getByTestId("table-skeleton"))
+			.toBeInTheDocument();
 
-		const { getByTestId, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
-		expect(
-			getByText("History:Activity log for your library"),
-		).toBeInTheDocument();
-		expect(getByTestId("history-tab")).toBeInTheDocument();
+		await renderWithProviders(routeConfig.component());
+		await expect
+			.element(page.getByText("History:Activity log for your library"))
+			.toBeInTheDocument();
+		await expect.element(page.getByTestId("history-tab")).toBeInTheDocument();
 	});
 });

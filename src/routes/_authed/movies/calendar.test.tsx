@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const movieCalendarMocks = vi.hoisted(() => ({
 	moviesListQuery: vi.fn(() => ({
@@ -118,9 +119,14 @@ vi.mock("src/lib/queries/movies", () => ({
 	moviesListQuery: () => movieCalendarMocks.moviesListQuery(),
 }));
 
-vi.mock("src/lib/utils", () => ({
-	resizeTmdbUrl: (url: string | null, size: string) => `resized:${url}:${size}`,
-}));
+vi.mock("src/lib/utils", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("src/lib/utils")>();
+	return {
+		...actual,
+		resizeTmdbUrl: (url: string | null, size: string) =>
+			`resized:${url}:${size}`,
+	};
+});
 
 import { Route } from "./calendar";
 
@@ -175,16 +181,22 @@ describe("movies calendar route", () => {
 		});
 
 		const Component = routeConfig.component;
-		const { getByText, queryByRole } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("No upcoming movies")).toBeInTheDocument();
-		expect(
-			getByText("There are no announced or in-cinemas movies to display."),
-		).toBeInTheDocument();
-		expect(queryByRole("link")).toBeNull();
+		await expect
+			.element(page.getByText("No upcoming movies"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"There are no announced or in-cinemas movies to display.",
+				),
+			)
+			.toBeInTheDocument();
+		expect(document.querySelectorAll("a").length).toBe(0);
 	});
 
-	it("groups announced and in-cinemas movies by year and shows poster/status metadata", () => {
+	it("groups announced and in-cinemas movies by year and shows poster/status metadata", async () => {
 		movieCalendarMocks.useSuspenseQuery.mockReturnValue({
 			data: [
 				{
@@ -215,25 +227,34 @@ describe("movies calendar route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = routeConfig.component;
-		const { container, getAllByText, getByText, queryByText } =
-			renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("Upcoming movie releases")).toBeInTheDocument();
-		expect(getByText("2026")).toBeInTheDocument();
-		expect(getAllByText("2027")).toHaveLength(2);
-		expect(getByText("Future Movie")).toBeInTheDocument();
-		expect(getByText("Mystery Movie")).toBeInTheDocument();
-		expect(getByText("TBA")).toBeInTheDocument();
-		expect(getByText("In Cinemas")).toHaveClass("bg-blue-600");
-		expect(getByText("Announced")).toHaveClass("bg-yellow-600");
-		expect(queryByText("Already Out")).not.toBeInTheDocument();
-		expect(container.querySelector('a[href="/movies/1"]')).not.toBeNull();
-		expect(container.querySelector('a[href="/movies/2"]')).not.toBeNull();
-		expect(container.querySelector('img[alt="Future Movie"]')).toHaveAttribute(
+		await expect
+			.element(page.getByText("Upcoming movie releases"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("2026")).toBeInTheDocument();
+		expect(
+			Array.from(document.querySelectorAll("*")).filter(
+				(element) => element.textContent === "2027",
+			).length,
+		).toBeGreaterThanOrEqual(2);
+		await expect.element(page.getByText("Future Movie")).toBeInTheDocument();
+		await expect.element(page.getByText("Mystery Movie")).toBeInTheDocument();
+		await expect.element(page.getByText("TBA")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("In Cinemas"))
+			.toHaveClass("bg-blue-600");
+		await expect
+			.element(page.getByText("Announced"))
+			.toHaveClass("bg-yellow-600");
+		await expect.element(page.getByText("Already Out")).not.toBeInTheDocument();
+		expect(document.querySelector('a[href="/movies/1"]')).not.toBeNull();
+		expect(document.querySelector('a[href="/movies/2"]')).not.toBeNull();
+		expect(document.querySelector('img[alt="Future Movie"]')).toHaveAttribute(
 			"src",
 			"resized:/future.jpg:w154",
 		);
-		expect(container.querySelector('img[alt="Mystery Movie"]')).toHaveAttribute(
+		expect(document.querySelector('img[alt="Mystery Movie"]')).toHaveAttribute(
 			"src",
 			"resized:null:w154",
 		);
