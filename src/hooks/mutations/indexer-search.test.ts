@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -41,11 +40,9 @@ describe("mutations/indexer-search", () => {
 			warnings: ["missing release date", "low confidence"],
 		});
 
-		const { result } = renderHook(() => useSearchIndexers(7));
+		const { result } = await renderHook(() => useSearchIndexers(7));
 
-		await act(async () => {
-			await result.current.mutateAsync({ query: "Dune" } as never);
-		});
+		await result.current.mutateAsync({ query: "Dune" } as never);
 
 		expect(searchIndexersFn).toHaveBeenCalledWith({
 			data: { query: "Dune" },
@@ -57,13 +54,11 @@ describe("mutations/indexer-search", () => {
 	it("shows the search error toast when indexer search fails", async () => {
 		searchIndexersFn.mockRejectedValue(new Error("search exploded"));
 
-		const { result } = renderHook(() => useSearchIndexers());
+		const { result } = await renderHook(() => useSearchIndexers());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({ query: "Dune" } as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({ query: "Dune" } as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("search exploded");
 	});
@@ -71,13 +66,11 @@ describe("mutations/indexer-search", () => {
 	it("shows the grab release fallback error toast", async () => {
 		grabReleaseFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useGrabRelease());
+		const { result } = await renderHook(() => useGrabRelease());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({ releaseId: 22 } as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({ releaseId: 22 } as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to grab release");
 	});

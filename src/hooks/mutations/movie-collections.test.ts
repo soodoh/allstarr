@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -68,15 +67,13 @@ describe("mutations/movie-collections", () => {
 	it("wires collection updates and invalidates the collection cache", async () => {
 		updateMovieCollectionFn.mockResolvedValue({ success: true });
 
-		const { result } = renderHook(() => useUpdateMovieCollection());
+		const { result } = await renderHook(() => useUpdateMovieCollection());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				id: 5,
-				downloadProfileIds: [1, 2],
-				minimumAvailability: "released",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			id: 5,
+			downloadProfileIds: [1, 2],
+			minimumAvailability: "released",
+		} as never);
 
 		expect(updateMovieCollectionFn).toHaveBeenCalledWith({
 			data: {
@@ -94,11 +91,9 @@ describe("mutations/movie-collections", () => {
 	it("shows the collection update error toast", async () => {
 		updateMovieCollectionFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useUpdateMovieCollection());
+		const { result } = await renderHook(() => useUpdateMovieCollection());
 
-		await act(async () => {
-			await result.current.mutateAsync({ id: 5 } as never).catch(() => {});
-		});
+		await result.current.mutateAsync({ id: 5 } as never).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update collection");
 	});
@@ -106,11 +101,9 @@ describe("mutations/movie-collections", () => {
 	it("announces refreshes that add movies and invalidates dependent caches", async () => {
 		refreshCollectionsFn.mockResolvedValue({ added: 2 });
 
-		const { result } = renderHook(() => useRefreshCollections());
+		const { result } = await renderHook(() => useRefreshCollections());
 
-		await act(async () => {
-			await result.current.mutateAsync(undefined);
-		});
+		await result.current.mutateAsync(undefined);
 
 		expect(refreshCollectionsFn).toHaveBeenCalledWith();
 		expect(success).toHaveBeenCalledWith(
@@ -127,11 +120,9 @@ describe("mutations/movie-collections", () => {
 	it("announces refreshes that add no movies", async () => {
 		refreshCollectionsFn.mockResolvedValue({ added: 0 });
 
-		const { result } = renderHook(() => useRefreshCollections());
+		const { result } = await renderHook(() => useRefreshCollections());
 
-		await act(async () => {
-			await result.current.mutateAsync(undefined);
-		});
+		await result.current.mutateAsync(undefined);
 
 		expect(success).toHaveBeenCalledWith(
 			"Collections refreshed, no new movies",
@@ -141,11 +132,9 @@ describe("mutations/movie-collections", () => {
 	it("shows the refresh collections error toast", async () => {
 		refreshCollectionsFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useRefreshCollections());
+		const { result } = await renderHook(() => useRefreshCollections());
 
-		await act(async () => {
-			await result.current.mutateAsync(undefined).catch(() => {});
-		});
+		await result.current.mutateAsync(undefined).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh collections");
 	});
@@ -153,16 +142,14 @@ describe("mutations/movie-collections", () => {
 	it("announces added missing movies and invalidates all dependent caches", async () => {
 		addMissingCollectionMoviesFn.mockResolvedValue({ added: 1 });
 
-		const { result } = renderHook(() => useAddMissingCollectionMovies());
+		const { result } = await renderHook(() => useAddMissingCollectionMovies());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				collectionId: 9,
-				downloadProfileIds: [1],
-				minimumAvailability: "released",
-				monitorOption: "movieAndCollection",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			collectionId: 9,
+			downloadProfileIds: [1],
+			minimumAvailability: "released",
+			monitorOption: "movieAndCollection",
+		} as never);
 
 		expect(addMissingCollectionMoviesFn).toHaveBeenCalledWith({
 			data: {
@@ -187,16 +174,14 @@ describe("mutations/movie-collections", () => {
 	it("announces when there are no missing movies to add", async () => {
 		addMissingCollectionMoviesFn.mockResolvedValue({ added: 0 });
 
-		const { result } = renderHook(() => useAddMissingCollectionMovies());
+		const { result } = await renderHook(() => useAddMissingCollectionMovies());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				collectionId: 9,
-				downloadProfileIds: [],
-				minimumAvailability: "released",
-				monitorOption: "none",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			collectionId: 9,
+			downloadProfileIds: [],
+			minimumAvailability: "released",
+			monitorOption: "none",
+		} as never);
 
 		expect(success).toHaveBeenCalledWith("No new movies to add");
 	});
@@ -204,18 +189,16 @@ describe("mutations/movie-collections", () => {
 	it("shows the add-missing-movies error toast", async () => {
 		addMissingCollectionMoviesFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useAddMissingCollectionMovies());
+		const { result } = await renderHook(() => useAddMissingCollectionMovies());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					collectionId: 9,
-					downloadProfileIds: [],
-					minimumAvailability: "released",
-					monitorOption: "none",
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				collectionId: 9,
+				downloadProfileIds: [],
+				minimumAvailability: "released",
+				monitorOption: "none",
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to add missing movies");
 	});
@@ -223,14 +206,12 @@ describe("mutations/movie-collections", () => {
 	it("wires import exclusions and invalidates the movie collections cache", async () => {
 		addMovieImportExclusionFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useAddMovieImportExclusion());
+		const { result } = await renderHook(() => useAddMovieImportExclusion());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				tmdbId: 44,
-				title: "Inception",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			tmdbId: 44,
+			title: "Inception",
+		} as never);
 
 		expect(addMovieImportExclusionFn).toHaveBeenCalledWith({
 			data: { tmdbId: 44, title: "Inception" },
@@ -244,16 +225,14 @@ describe("mutations/movie-collections", () => {
 	it("shows the import exclusion error toast", async () => {
 		addMovieImportExclusionFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useAddMovieImportExclusion());
+		const { result } = await renderHook(() => useAddMovieImportExclusion());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					tmdbId: 44,
-					title: "Inception",
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				tmdbId: 44,
+				title: "Inception",
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to exclude movie");
 	});

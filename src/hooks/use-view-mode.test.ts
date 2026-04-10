@@ -37,26 +37,26 @@ describe("useViewMode", () => {
 		useQuery.mockReset();
 	});
 
-	it("falls back to the page default when settings are absent", () => {
+	it("falls back to the page default when settings are absent", async () => {
 		useQuery.mockReturnValue({ data: undefined });
 
-		const { result } = renderHook(() => useViewMode("movies"));
+		const { result } = await renderHook(() => useViewMode("movies"));
 
 		expect(result.current[0]).toBe("grid");
 	});
 
-	it("falls back to table for pages without an explicit default", () => {
+	it("falls back to table for pages without an explicit default", async () => {
 		useQuery.mockReturnValue({ data: undefined });
 
-		const { result } = renderHook(() => useViewMode("author-books"));
+		const { result } = await renderHook(() => useViewMode("author-books"));
 
 		expect(result.current[0]).toBe("table");
 	});
 
-	it("uses saved settings when present and persists updates", () => {
+	it("uses saved settings when present and persists updates", async () => {
 		useQuery.mockReturnValue({ data: { viewMode: "grid" } });
 
-		const { result } = renderHook(() => useViewMode("authors"));
+		const { result } = await renderHook(() => useViewMode("authors"));
 
 		expect(result.current[0]).toBe("grid");
 

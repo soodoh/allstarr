@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -59,15 +58,13 @@ describe("mutations/import", () => {
 		importHardcoverAuthorFn.mockResolvedValue({ ok: true });
 		loading.mockReturnValue("submit-import-author");
 
-		const { result } = renderHook(() => useImportHardcoverAuthor());
+		const { result } = await renderHook(() => useImportHardcoverAuthor());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileIds: [1, 2],
-				foreignAuthorId: 17,
-				searchOnAdd: true,
-			} as never);
-		});
+		await result.current.mutateAsync({
+			downloadProfileIds: [1, 2],
+			foreignAuthorId: 17,
+			searchOnAdd: true,
+		} as never);
 
 		expect(importHardcoverAuthorFn).toHaveBeenCalledWith({
 			data: {
@@ -86,16 +83,14 @@ describe("mutations/import", () => {
 		importHardcoverAuthorFn.mockRejectedValue("nope");
 		loading.mockReturnValue("submit-import-author");
 
-		const { result } = renderHook(() => useImportHardcoverAuthor());
+		const { result } = await renderHook(() => useImportHardcoverAuthor());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileIds: [1],
-					foreignAuthorId: 17,
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [1],
+				foreignAuthorId: 17,
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to add author.", {
 			id: "submit-import-author",
@@ -106,15 +101,13 @@ describe("mutations/import", () => {
 		importHardcoverBookFn.mockResolvedValue({ ok: true });
 		loading.mockReturnValue("submit-import-book");
 
-		const { result } = renderHook(() => useImportHardcoverBook());
+		const { result } = await renderHook(() => useImportHardcoverBook());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileIds: [9],
-				foreignBookId: 88,
-				monitorSeries: true,
-			} as never);
-		});
+		await result.current.mutateAsync({
+			downloadProfileIds: [9],
+			foreignBookId: 88,
+			monitorSeries: true,
+		} as never);
 
 		expect(importHardcoverBookFn).toHaveBeenCalledWith({
 			data: {
@@ -133,16 +126,14 @@ describe("mutations/import", () => {
 		importHardcoverBookFn.mockRejectedValue(new Error("bad import"));
 		loading.mockReturnValue("submit-import-book");
 
-		const { result } = renderHook(() => useImportHardcoverBook());
+		const { result } = await renderHook(() => useImportHardcoverBook());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileIds: [9],
-					foreignBookId: 88,
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [9],
+				foreignBookId: 88,
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("bad import", {
 			id: "submit-import-book",
@@ -152,11 +143,9 @@ describe("mutations/import", () => {
 	it("wires author metadata refreshes and surfaces server errors", async () => {
 		refreshAuthorMetadataFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRefreshAuthorMetadata());
+		const { result } = await renderHook(() => useRefreshAuthorMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(31);
-		});
+		await result.current.mutateAsync(31);
 
 		expect(refreshAuthorMetadataFn).toHaveBeenCalledWith({
 			data: { authorId: 31 },
@@ -164,9 +153,7 @@ describe("mutations/import", () => {
 
 		refreshAuthorMetadataFn.mockRejectedValue("nope");
 
-		await act(async () => {
-			await result.current.mutateAsync(31).catch(() => {});
-		});
+		await result.current.mutateAsync(31).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh metadata.");
 	});
@@ -174,11 +161,9 @@ describe("mutations/import", () => {
 	it("wires book metadata refreshes and surfaces server errors", async () => {
 		refreshBookMetadataFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRefreshBookMetadata());
+		const { result } = await renderHook(() => useRefreshBookMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(44);
-		});
+		await result.current.mutateAsync(44);
 
 		expect(refreshBookMetadataFn).toHaveBeenCalledWith({
 			data: { bookId: 44 },
@@ -186,9 +171,7 @@ describe("mutations/import", () => {
 
 		refreshBookMetadataFn.mockRejectedValue(new Error("boom"));
 
-		await act(async () => {
-			await result.current.mutateAsync(44).catch(() => {});
-		});
+		await result.current.mutateAsync(44).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("boom");
 	});

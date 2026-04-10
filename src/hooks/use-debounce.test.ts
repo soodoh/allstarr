@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,8 +13,8 @@ describe("useDebounce", () => {
 		vi.useRealTimers();
 	});
 
-	it("returns the initial value immediately and updates after the delay", () => {
-		const { result, rerender } = renderHook(
+	it("returns the initial value immediately and updates after the delay", async () => {
+		const { result, rerender } = await renderHook(
 			({ delay, value }) => useDebounce(value, delay),
 			{
 				initialProps: { delay: 200, value: "first" },
@@ -27,15 +26,13 @@ describe("useDebounce", () => {
 		rerender({ delay: 200, value: "second" });
 		expect(result.current).toBe("first");
 
-		act(() => {
-			vi.advanceTimersByTime(200);
-		});
+		await vi.advanceTimersByTimeAsync(200);
 
 		expect(result.current).toBe("second");
 	});
 
-	it("cancels the previous timer when the value changes again", () => {
-		const { result, rerender } = renderHook(
+	it("cancels the previous timer when the value changes again", async () => {
+		const { result, rerender } = await renderHook(
 			({ delay, value }) => useDebounce(value, delay),
 			{
 				initialProps: { delay: 200, value: "first" },
@@ -44,22 +41,18 @@ describe("useDebounce", () => {
 
 		rerender({ delay: 200, value: "second" });
 
-		act(() => {
-			vi.advanceTimersByTime(150);
-		});
+		await vi.advanceTimersByTimeAsync(150);
 
 		rerender({ delay: 200, value: "third" });
 
-		act(() => {
-			vi.advanceTimersByTime(199);
-		});
+		await vi.advanceTimersByTimeAsync(199);
 
 		expect(result.current).toBe("first");
 
-		act(() => {
-			vi.advanceTimersByTime(1);
-		});
+		await vi.advanceTimersByTimeAsync(1);
 
-		expect(result.current).toBe("third");
+		await vi.waitFor(() => {
+			expect(result.current).toBe("third");
+		});
 	});
 });

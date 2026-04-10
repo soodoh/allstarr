@@ -29,10 +29,10 @@ describe("useTableColumns", () => {
 		useQuery.mockReset();
 	});
 
-	it("uses the table defaults when user settings are absent", () => {
+	it("uses the table defaults when user settings are absent", async () => {
 		useQuery.mockReturnValue({ data: undefined });
 
-		const { result } = renderHook(() => useTableColumns("books"));
+		const { result } = await renderHook(() => useTableColumns("books"));
 
 		expect(result.current.columnOrder).toEqual([
 			"monitored",
@@ -57,7 +57,7 @@ describe("useTableColumns", () => {
 		]);
 	});
 
-	it("resolves saved order, appends new columns, removes stale keys, and keeps locked columns visible", () => {
+	it("resolves saved order, appends new columns, removes stale keys, and keeps locked columns visible", async () => {
 		useQuery.mockReturnValue({
 			data: {
 				columnOrder: ["title", "monitored", "missing-key", "cover"],
@@ -65,7 +65,7 @@ describe("useTableColumns", () => {
 			},
 		});
 
-		const { result } = renderHook(() => useTableColumns("books"));
+		const { result } = await renderHook(() => useTableColumns("books"));
 
 		expect(result.current.columnOrder).toEqual([
 			"title",
@@ -97,7 +97,7 @@ describe("useTableColumns", () => {
 		]);
 	});
 
-	it("falls back to defaults when the saved column order is empty", () => {
+	it("falls back to defaults when the saved column order is empty", async () => {
 		useQuery.mockReturnValue({
 			data: {
 				columnOrder: [],
@@ -105,7 +105,7 @@ describe("useTableColumns", () => {
 			},
 		});
 
-		const { result } = renderHook(() => useTableColumns("movies"));
+		const { result } = await renderHook(() => useTableColumns("movies"));
 
 		expect(result.current.columnOrder).toEqual([
 			"monitored",

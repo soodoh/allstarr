@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,11 +65,9 @@ import {
 type HookRunner = () => { mutateAsync: (variables: any) => Promise<any> };
 
 async function runMutation(useHook: HookRunner, variables: unknown) {
-	const { result } = renderHook(() => useHook());
+	const { result } = await renderHook(() => useHook());
 
-	await act(async () => {
-		await result.current.mutateAsync(variables as never);
-	});
+	await result.current.mutateAsync(variables as never);
 }
 
 describe("mutations/custom-formats", () => {

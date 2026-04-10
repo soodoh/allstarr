@@ -16,7 +16,7 @@ describe("use-role", () => {
 		useRouteContext.mockReset();
 	});
 
-	it("returns the session role when present", () => {
+	it("returns the session role when present", async () => {
 		useRouteContext.mockReturnValue({
 			session: {
 				user: {
@@ -25,25 +25,25 @@ describe("use-role", () => {
 			},
 		});
 
-		const { result } = renderHook(() => useUserRole());
+		const { result } = await renderHook(() => useUserRole());
 
 		expect(result.current).toBe("admin");
 		expect(useRouteContext).toHaveBeenCalledWith({ from: "/_authed" });
 	});
 
-	it("falls back to viewer when the session role is missing", () => {
+	it("falls back to viewer when the session role is missing", async () => {
 		useRouteContext.mockReturnValue({
 			session: {
 				user: {},
 			},
 		});
 
-		const { result } = renderHook(() => useUserRole());
+		const { result } = await renderHook(() => useUserRole());
 
 		expect(result.current).toBe("viewer");
 	});
 
-	it("reports whether the current user is an admin", () => {
+	it("reports whether the current user is an admin", async () => {
 		useRouteContext.mockReturnValue({
 			session: {
 				user: {
@@ -52,7 +52,7 @@ describe("use-role", () => {
 			},
 		});
 
-		const { result, rerender } = renderHook(() => useIsAdmin());
+		const { result, rerender } = await renderHook(() => useIsAdmin());
 
 		expect(result.current).toBe(false);
 
@@ -66,6 +66,8 @@ describe("use-role", () => {
 
 		rerender();
 
-		expect(result.current).toBe(true);
+		await vi.waitFor(() => {
+			expect(result.current).toBe(true);
+		});
 	});
 });

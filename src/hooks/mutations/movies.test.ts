@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,17 +85,15 @@ describe("mutations/movies", () => {
 		addMovieFn.mockResolvedValue({ ok: true });
 		loading.mockReturnValue("submit-add-movie");
 
-		const { result } = renderHook(() => useAddMovie());
+		const { result } = await renderHook(() => useAddMovie());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileIds: [2],
-				minimumAvailability: "released",
-				monitorOption: "movieOnly",
-				searchOnAdd: true,
-				tmdbId: 77,
-			} as never);
-		});
+		await result.current.mutateAsync({
+			downloadProfileIds: [2],
+			minimumAvailability: "released",
+			monitorOption: "movieOnly",
+			searchOnAdd: true,
+			tmdbId: 77,
+		} as never);
 
 		expect(addMovieFn).toHaveBeenCalledWith({
 			data: {
@@ -117,19 +114,17 @@ describe("mutations/movies", () => {
 		addMovieFn.mockRejectedValue("nope");
 		loading.mockReturnValue("submit-add-movie");
 
-		const { result } = renderHook(() => useAddMovie());
+		const { result } = await renderHook(() => useAddMovie());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileIds: [2],
-					minimumAvailability: "released",
-					monitorOption: "movieOnly",
-					searchOnAdd: false,
-					tmdbId: 77,
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [2],
+				minimumAvailability: "released",
+				monitorOption: "movieOnly",
+				searchOnAdd: false,
+				tmdbId: 77,
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to add movie", {
 			id: "submit-add-movie",
@@ -139,15 +134,13 @@ describe("mutations/movies", () => {
 	it("wires movie updates and invalidates the movies cache", async () => {
 		updateMovieFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUpdateMovie());
+		const { result } = await renderHook(() => useUpdateMovie());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				id: 13,
-				downloadProfileIds: [4, 5],
-				minimumAvailability: "released",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			id: 13,
+			downloadProfileIds: [4, 5],
+			minimumAvailability: "released",
+		} as never);
 
 		expect(updateMovieFn).toHaveBeenCalledWith({
 			data: {
@@ -165,16 +158,14 @@ describe("mutations/movies", () => {
 	it("shows the movie update error toast", async () => {
 		updateMovieFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useUpdateMovie());
+		const { result } = await renderHook(() => useUpdateMovie());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					id: 13,
-					downloadProfileIds: [4, 5],
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				id: 13,
+				downloadProfileIds: [4, 5],
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update movie");
 	});
@@ -182,14 +173,12 @@ describe("mutations/movies", () => {
 	it("wires movie deletes and invalidates all dependent caches", async () => {
 		deleteMovieFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useDeleteMovie());
+		const { result } = await renderHook(() => useDeleteMovie());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				id: 22,
-				deleteFiles: false,
-			} as never);
-		});
+		await result.current.mutateAsync({
+			id: 22,
+			deleteFiles: false,
+		} as never);
 
 		expect(deleteMovieFn).toHaveBeenCalledWith({
 			data: { id: 22, deleteFiles: false },
@@ -212,16 +201,14 @@ describe("mutations/movies", () => {
 	it("shows the movie delete error toast", async () => {
 		deleteMovieFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useDeleteMovie());
+		const { result } = await renderHook(() => useDeleteMovie());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					id: 22,
-					deleteFiles: false,
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				id: 22,
+				deleteFiles: false,
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to delete movie");
 	});
@@ -229,11 +216,9 @@ describe("mutations/movies", () => {
 	it("wires movie metadata refreshes and invalidates the movies cache", async () => {
 		refreshMovieMetadataFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRefreshMovieMetadata());
+		const { result } = await renderHook(() => useRefreshMovieMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(99);
-		});
+		await result.current.mutateAsync(99);
 
 		expect(refreshMovieMetadataFn).toHaveBeenCalledWith({
 			data: { movieId: 99 },
@@ -247,11 +232,9 @@ describe("mutations/movies", () => {
 	it("shows the movie metadata refresh error toast", async () => {
 		refreshMovieMetadataFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useRefreshMovieMetadata());
+		const { result } = await renderHook(() => useRefreshMovieMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(99).catch(() => {});
-		});
+		await result.current.mutateAsync(99).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh movie metadata");
 	});
@@ -259,13 +242,11 @@ describe("mutations/movies", () => {
 	it("wires movie monitor mutations and invalidates the movies cache", async () => {
 		monitorMovieProfileFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useMonitorMovieProfile());
+		const { result } = await renderHook(() => useMonitorMovieProfile());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileId: 5,
-				movieId: 88,
-			});
+		await result.current.mutateAsync({
+			downloadProfileId: 5,
+			movieId: 88,
 		});
 
 		expect(monitorMovieProfileFn).toHaveBeenCalledWith({
@@ -279,16 +260,14 @@ describe("mutations/movies", () => {
 	it("shows the movie monitor error toast", async () => {
 		monitorMovieProfileFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useMonitorMovieProfile());
+		const { result } = await renderHook(() => useMonitorMovieProfile());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileId: 5,
-					movieId: 88,
-				})
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileId: 5,
+				movieId: 88,
+			})
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to monitor movie profile");
 	});
@@ -296,13 +275,11 @@ describe("mutations/movies", () => {
 	it("wires movie unmonitor mutations and invalidates the movies cache", async () => {
 		unmonitorMovieProfileFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUnmonitorMovieProfile());
+		const { result } = await renderHook(() => useUnmonitorMovieProfile());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileId: 5,
-				movieId: 88,
-			});
+		await result.current.mutateAsync({
+			downloadProfileId: 5,
+			movieId: 88,
 		});
 
 		expect(unmonitorMovieProfileFn).toHaveBeenCalledWith({
@@ -316,16 +293,14 @@ describe("mutations/movies", () => {
 	it("shows the movie unmonitor error toast", async () => {
 		unmonitorMovieProfileFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useUnmonitorMovieProfile());
+		const { result } = await renderHook(() => useUnmonitorMovieProfile());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileId: 5,
-					movieId: 88,
-				})
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileId: 5,
+				movieId: 88,
+			})
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to unmonitor movie profile");
 	});
