@@ -61,6 +61,8 @@ describe("vitest config", () => {
 		]);
 		expect(nodeProject?.test?.exclude).toEqual([
 			"**/node_modules/**",
+			"**/.worktrees/**",
+			"**/worktrees/**",
 			"**/e2e/tests/**/*.spec.ts",
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
@@ -73,13 +75,23 @@ describe("vitest config", () => {
 			"**/*.browser.spec.ts",
 			"**/*.browser.spec.tsx",
 		]);
+		expect(browserProject?.test?.exclude).toEqual([
+			"**/node_modules/**",
+			"**/.worktrees/**",
+			"**/worktrees/**",
+		]);
 	});
 
-	it("keeps node_modules out of project discovery", () => {
+	it("keeps generated workspaces out of project discovery", () => {
 		const projectConfigs = getProjectConfigs();
 		const nodeExclude = projectConfigs[0]?.test?.exclude;
+		const browserExclude = projectConfigs[1]?.test?.exclude;
 
 		expect(nodeExclude).toContain("**/node_modules/**");
+		expect(nodeExclude).toContain("**/.worktrees/**");
+		expect(nodeExclude).toContain("**/worktrees/**");
+		expect(browserExclude).toContain("**/.worktrees/**");
+		expect(browserExclude).toContain("**/worktrees/**");
 	});
 
 	it("keeps stricter coverage thresholds for server source files", () => {

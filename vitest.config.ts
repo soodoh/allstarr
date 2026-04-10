@@ -134,8 +134,13 @@ const browserTestPatterns = [
 	"**/*.browser.spec.ts",
 	"**/*.browser.spec.tsx",
 ];
-const nodeTestExclude = [
+const sharedProjectExclude = [
 	"**/node_modules/**",
+	"**/.worktrees/**",
+	"**/worktrees/**",
+];
+const nodeTestExclude = [
+	...sharedProjectExclude,
 	"**/e2e/tests/**/*.spec.ts",
 	...browserTestPatterns,
 ];
@@ -216,6 +221,7 @@ export default defineConfig({
 				},
 				test: {
 					include: browserTestPatterns,
+					exclude: sharedProjectExclude,
 					browser: {
 						enabled: true,
 						headless: true,
