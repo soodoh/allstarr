@@ -8,6 +8,7 @@ describe("vitest config", () => {
 		expect(projects).toHaveLength(2);
 		expect(projects?.[0]?.test?.include).toEqual(["**/*.test.ts", "**/*.test.tsx"]);
 		expect(projects?.[0]?.test?.exclude).toEqual([
+			"**/node_modules/**",
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
 		]);
@@ -15,6 +16,13 @@ describe("vitest config", () => {
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
 		]);
+	});
+
+	it("keeps node_modules out of project discovery", () => {
+		const projects = config.test?.projects;
+		const nodeExclude = projects?.[0]?.test?.exclude;
+
+		expect(nodeExclude).toContain("**/node_modules/**");
 	});
 
 	it("keeps stricter coverage thresholds for server source files", () => {
