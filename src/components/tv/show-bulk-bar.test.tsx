@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const showBulkBarMocks = vi.hoisted(() => ({
 	toast: {
@@ -55,20 +55,21 @@ describe("ShowBulkBar", () => {
 		showBulkBarMocks.updateShow.mutateAsync.mockReset();
 	});
 
-	it("disables apply when nothing is selected", () => {
-		const { getByRole } = renderWithProviders(
+	it("disables apply when nothing is selected", async () => {
+		await renderWithProviders(
 			<ShowBulkBar onDone={vi.fn()} profiles={[]} selectedIds={new Set()} />,
 		);
 
-		expect(getByRole("button", { name: "Apply" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Apply" }))
+			.toBeDisabled();
 	});
 
 	it("applies selected profile and series type updates to every selected show", async () => {
-		const user = userEvent.setup();
 		const onDone = vi.fn();
 		showBulkBarMocks.updateShow.mutateAsync.mockResolvedValue(undefined);
 
-		const { getAllByRole, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<ShowBulkBar
 				onDone={onDone}
 				profiles={[
@@ -79,10 +80,10 @@ describe("ShowBulkBar", () => {
 			/>,
 		);
 
-		const selects = getAllByRole("combobox");
-		await user.selectOptions(selects[0] as HTMLSelectElement, "11");
-		await user.selectOptions(selects[1] as HTMLSelectElement, "anime");
-		await user.click(getByRole("button", { name: "Apply" }));
+		const selects = page.getByRole("combobox").all();
+		await userEvent.selectOptions(selects[0], "11");
+		await userEvent.selectOptions(selects[1], "anime");
+		await page.getByRole("button", { name: "Apply" }).click();
 
 		expect(showBulkBarMocks.updateShow.mutateAsync).toHaveBeenNthCalledWith(1, {
 			downloadProfileIds: [11],
@@ -101,12 +102,11 @@ describe("ShowBulkBar", () => {
 	});
 
 	it("shows an error toast when one of the updates fails", async () => {
-		const user = userEvent.setup();
 		showBulkBarMocks.updateShow.mutateAsync.mockRejectedValue(
 			new Error("boom"),
 		);
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<ShowBulkBar
 				onDone={vi.fn()}
 				profiles={[{ id: 11, name: "4K" }]}
@@ -114,11 +114,13 @@ describe("ShowBulkBar", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Apply" }));
+		await page.getByRole("button", { name: "Apply" }).click();
 
 		expect(showBulkBarMocks.toast.error).toHaveBeenCalledWith(
 			"Some updates failed",
 		);
-		expect(getByRole("button", { name: "Apply" })).toBeEnabled();
+		await expect
+			.element(page.getByRole("button", { name: "Apply" }))
+			.toBeEnabled();
 	});
 });

@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const episodeRowMocks = vi.hoisted(() => ({
 	monitorEpisodeProfile: {
@@ -95,34 +95,34 @@ describe("EpisodeRow", () => {
 		episodeRowMocks.unmonitorEpisodeProfile.mutate.mockReset();
 	});
 
-	it("renders fallback text for unaired anime episodes", () => {
-		const { container, getAllByText, getByText, queryByRole } =
-			renderWithProviders(
-				<EpisodeRow
-					downloadProfiles={[]}
-					episode={{
-						absoluteNumber: 12,
-						airDate: null,
-						downloadProfileIds: [],
-						episodeNumber: 3,
-						hasFile: false,
-						id: 99,
-						runtime: null,
-						title: "",
-					}}
-					seriesType="anime"
-				/>,
-			);
+	it("renders fallback text for unaired anime episodes", async () => {
+		const { container } = await renderWithProviders(
+			<EpisodeRow
+				downloadProfiles={[]}
+				episode={{
+					absoluteNumber: 12,
+					airDate: null,
+					downloadProfileIds: [],
+					episodeNumber: 3,
+					hasFile: false,
+					id: 99,
+					runtime: null,
+					title: "",
+				}}
+				seriesType="anime"
+			/>,
+		);
 
-		expect(getByText("E03 (12)")).toBeInTheDocument();
-		expect(getAllByText("TBA")).toHaveLength(2);
-		expect(getByText("-")).toBeInTheDocument();
+		await expect.element(page.getByText("E03 (12)")).toBeInTheDocument();
+		expect(page.getByText("TBA").all()).toHaveLength(2);
+		await expect.element(page.getByText("-")).toBeInTheDocument();
 		expect(container.querySelector(".opacity-60")).not.toBeNull();
-		expect(queryByRole("button", { name: "4K" })).toBeNull();
+		await expect
+			.element(page.getByRole("button", { name: "4K" }))
+			.not.toBeInTheDocument();
 	});
 
 	it("monitors inactive profiles and confirms unmonitoring active ones", async () => {
-		const user = userEvent.setup();
 		const episode = {
 			absoluteNumber: null,
 			airDate: "2024-01-10",
@@ -134,7 +134,7 @@ describe("EpisodeRow", () => {
 			title: "The We We Are",
 		};
 
-		const { getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<EpisodeRow
 				downloadProfiles={[
 					{ icon: "tv", id: 11, name: "4K" },
@@ -145,13 +145,13 @@ describe("EpisodeRow", () => {
 			/>,
 		);
 
-		expect(getByText("42m")).toBeInTheDocument();
-		await user.click(getByText("Force confirm"));
+		await expect.element(page.getByText("42m")).toBeInTheDocument();
+		await page.getByText("Force confirm").click();
 		expect(
 			episodeRowMocks.unmonitorEpisodeProfile.mutate,
 		).not.toHaveBeenCalled();
 
-		await user.click(getByText("HD"));
+		await page.getByText("HD").click();
 		expect(episodeRowMocks.monitorEpisodeProfile.mutate).toHaveBeenCalledWith(
 			{ downloadProfileId: 12, episodeId: 7 },
 			expect.objectContaining({
@@ -165,16 +165,18 @@ describe("EpisodeRow", () => {
 		expect(episodeRowMocks.router.invalidate).toHaveBeenCalledTimes(1);
 
 		episodeRowMocks.unmonitorEpisodeProfile.isPending = true;
-		await user.click(getByText("4K"));
-		expect(getByText("dialog:4K:The We We Are:true:0")).toBeInTheDocument();
+		await page.getByText("4K").click();
+		await expect
+			.element(page.getByText("dialog:4K:The We We Are:true:0"))
+			.toBeInTheDocument();
 
-		await user.click(getByText("Close dialog"));
-		expect(
-			queryByText("dialog:4K:The We We Are:true:0"),
-		).not.toBeInTheDocument();
+		await page.getByText("Close dialog").click();
+		await expect
+			.element(page.getByText("dialog:4K:The We We Are:true:0"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByText("4K"));
-		await user.click(getByText("Confirm delete"));
+		await page.getByText("4K").click();
+		await page.getByText("Confirm delete").click();
 
 		expect(episodeRowMocks.unmonitorEpisodeProfile.mutate).toHaveBeenCalledWith(
 			{

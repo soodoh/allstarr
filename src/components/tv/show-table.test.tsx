@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { MouseEventHandler, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const showTableMocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -152,6 +152,7 @@ vi.mock("src/hooks/use-table-columns", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 	resizeTmdbUrl: (url: string, size: string) => `resized:${url}:${size}`,
 }));
 
@@ -204,9 +205,9 @@ describe("ShowTable", () => {
 		showTableMocks.useTableColumns.mockReturnValue({ visibleColumns });
 	});
 
-	it("renders sortable rows, fallback values, and navigates on row clicks", () => {
+	it("renders sortable rows, fallback values, and navigates on row clicks", async () => {
 		const onToggleProfile = vi.fn();
-		const { container, getByRole, getByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<ShowTable
 				downloadProfiles={[
 					{ icon: "tv", id: 11, name: "4K" },
@@ -220,65 +221,67 @@ describe("ShowTable", () => {
 		const rows = Array.from(container.querySelectorAll("tbody tr"));
 		expect(rows[0]).toHaveTextContent("Andor");
 		expect(rows[1]).toHaveTextContent("Severance");
-		expect(getByText("Continuing")).toHaveClass("bg-green-600");
-		expect(getByText("paused")).toHaveClass("bg-zinc-600");
-		expect(getByText("12/12")).toBeInTheDocument();
-		expect(getByText("22/24")).toBeInTheDocument();
-		expect(getByText("—")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Continuing"))
+			.toHaveClass("bg-green-600");
+		await expect.element(page.getByText("paused")).toHaveClass("bg-zinc-600");
+		await expect.element(page.getByText("12/12")).toBeInTheDocument();
+		await expect.element(page.getByText("22/24")).toBeInTheDocument();
+		await expect.element(page.getByText("—")).toBeInTheDocument();
 		expect(container.querySelector('img[alt="Severance"]')).toHaveAttribute(
 			"src",
 			"resized:/severance.jpg:w185",
 		);
 		expect(container.querySelector('a[href="/tv/series/1"]')).not.toBeNull();
 
-		fireEvent.click(getByText("4K"));
+		await page.getByText("4K").click();
 		expect(onToggleProfile).toHaveBeenCalledWith(1, 11);
 
-		fireEvent.click(getByRole("link", { name: "Severance" }));
+		await page.getByRole("link", { name: "Severance" }).click();
 		expect(showTableMocks.navigate).not.toHaveBeenCalled();
 
-		fireEvent.click(rows[1] as HTMLTableRowElement);
+		await (rows[1] as HTMLTableRowElement).click();
 		expect(showTableMocks.navigate).toHaveBeenCalledWith({
 			params: { showId: "1" },
 			to: "/tv/series/$showId",
 		});
 
-		fireEvent.click(getByText("Year"));
+		await page.getByText("Year").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Severance",
 		);
-		fireEvent.click(getByText("Year"));
+		await page.getByText("Year").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Andor",
 		);
-		expect(getByText("Custom Label")).toBeInTheDocument();
-		fireEvent.click(getByText("Network"));
+		await expect.element(page.getByText("Custom Label")).toBeInTheDocument();
+		await page.getByText("Network").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Andor",
 		);
-		fireEvent.click(getByText("Seasons"));
+		await page.getByText("Seasons").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Andor",
 		);
-		fireEvent.click(getByText("Seasons"));
+		await page.getByText("Seasons").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Severance",
 		);
-		fireEvent.click(getByText("Episodes"));
+		await page.getByText("Episodes").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Andor",
 		);
-		fireEvent.click(getByText("Status"));
+		await page.getByText("Status").click();
 		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
 			"Severance",
 		);
 	});
 
-	it("supports selection mode and header toggles", () => {
+	it("supports selection mode and header toggles", async () => {
 		const onToggleAll = vi.fn();
 		const onToggleSelect = vi.fn();
 		const selectedIds = new Set([1, 2]);
-		const { container, getAllByRole } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<ShowTable
 				onToggleAll={onToggleAll}
 				onToggleSelect={onToggleSelect}
@@ -288,19 +291,19 @@ describe("ShowTable", () => {
 			/>,
 		);
 
-		const checkboxes = getAllByRole("checkbox");
-		expect(checkboxes[0]).toBeChecked();
-		expect(checkboxes[1]).toBeChecked();
+		const checkboxes = page.getByRole("checkbox").all();
+		await expect.element(checkboxes[0]).toBeChecked();
+		await expect.element(checkboxes[1]).toBeChecked();
 
-		fireEvent.click(checkboxes[0] as HTMLInputElement);
+		await checkboxes[0].click();
 		expect(onToggleAll).toHaveBeenCalledTimes(1);
 
-		fireEvent.click(checkboxes[1] as HTMLInputElement);
+		await checkboxes[1].click();
 		expect(onToggleSelect).toHaveBeenCalledWith(2);
 
-		fireEvent.click(
-			container.querySelectorAll("tbody tr")[1] as HTMLTableRowElement,
-		);
+		await (
+			container.querySelectorAll("tbody tr")[1] as HTMLTableRowElement
+		).click();
 		expect(onToggleSelect).toHaveBeenCalledWith(1);
 	});
 });

@@ -1,7 +1,7 @@
-import { act, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const tmdbShowSearchMocks = vi.hoisted(() => ({
 	addShow: {
@@ -302,6 +302,7 @@ vi.mock("src/lib/queries/user-settings", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 	resizeTmdbUrl: (url: string | null, size: string) => `resized:${url}:${size}`,
 }));
 
@@ -358,7 +359,7 @@ describe("TmdbShowSearch", () => {
 		);
 	});
 
-	it("shows search results, opens the preview modal, and adds a show", () => {
+	it("shows search results, opens the preview modal, and adds a show", async () => {
 		tmdbShowSearchMocks.searchStates.set("severance", {
 			data: {
 				query: "severance",
@@ -389,29 +390,28 @@ describe("TmdbShowSearch", () => {
 			},
 		);
 
-		const { getByLabelText, getByRole, getByText, getByTestId } =
-			renderWithProviders(<TmdbShowSearch />);
+		await renderWithProviders(<TmdbShowSearch />);
 
-		expect(getByTestId("empty-state-title")).toHaveTextContent(
-			"Search for a TV show",
-		);
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Search for a TV show");
 
-		fireEvent.change(getByLabelText("Search TV shows"), {
-			target: { value: "severance" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		await page.getByLabelText("Search TV shows").fill("severance");
+		await vi.advanceTimersByTimeAsync(300);
 
-		expect(getByText(/Showing 1 result for/)).toBeInTheDocument();
-		fireEvent.click(getByText("Severance"));
-		expect(getByText("HDTV:selected")).toBeInTheDocument();
-		expect(getByTestId("episode-group-accordion")).toBeInTheDocument();
+		await expect
+			.element(page.getByText(/Showing 1 result for/))
+			.toBeInTheDocument();
+		await page.getByRole("heading", { name: "Severance" }).click();
+		await expect.element(page.getByText("HDTV:selected")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("episode-group-accordion"))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByText("Choose group"));
-		fireEvent.click(getByLabelText("Use Season Folder"));
-		fireEvent.click(getByLabelText("Start search for missing episodes"));
-		fireEvent.click(getByRole("button", { name: "Add Show" }));
+		await page.getByText("Choose group").click();
+		await page.getByLabelText("Use Season Folder").click();
+		await page.getByLabelText("Start search for missing episodes").click();
+		await page.getByRole("button", { name: "Add Show" }).click();
 
 		expect(tmdbShowSearchMocks.upsertUserSettings.mutate).toHaveBeenCalledWith({
 			addDefaults: {
@@ -440,7 +440,7 @@ describe("TmdbShowSearch", () => {
 		);
 	});
 
-	it("shows the existing-library close branch when the show already exists", () => {
+	it("shows the existing-library close branch when the show already exists", async () => {
 		tmdbShowSearchMocks.showExists = true;
 		tmdbShowSearchMocks.searchStates.set("lost", {
 			data: {
@@ -462,42 +462,38 @@ describe("TmdbShowSearch", () => {
 			},
 		});
 
-		const { getByLabelText, getByRole, getByText } = renderWithProviders(
-			<TmdbShowSearch />,
-		);
+		await renderWithProviders(<TmdbShowSearch />);
 
-		fireEvent.change(getByLabelText("Search TV shows"), {
-			target: { value: "lost" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		await page.getByLabelText("Search TV shows").fill("lost");
+		await vi.advanceTimersByTimeAsync(300);
 
-		fireEvent.click(getByText("Lost"));
-		expect(getByText("Already in library")).toBeInTheDocument();
-		expect(getByRole("button", { name: "Close" })).toBeInTheDocument();
+		await page.getByRole("heading", { name: "Lost" }).click();
+		await expect
+			.element(page.getByText("Already in library"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Close" }))
+			.toBeInTheDocument();
 	});
 
-	it("renders the TMDB API key guidance for authorization failures", () => {
+	it("renders the TMDB API key guidance for authorization failures", async () => {
 		tmdbShowSearchMocks.searchStates.set("bad", {
 			error: new Error("TMDB api key unauthorized"),
 			isError: true,
 		});
 
-		const { getByLabelText, getByTestId } = renderWithProviders(
-			<TmdbShowSearch />,
-		);
+		await renderWithProviders(<TmdbShowSearch />);
 
-		fireEvent.change(getByLabelText("Search TV shows"), {
-			target: { value: "bad" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		await page.getByLabelText("Search TV shows").fill("bad");
+		await vi.advanceTimersByTimeAsync(300);
 
-		expect(getByTestId("empty-state-title")).toHaveTextContent("Search failed");
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Configure your TMDB API key in Settings > Metadata to search for TV shows.",
-		);
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Search failed");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent(
+				"Configure your TMDB API key in Settings > Metadata to search for TV shows.",
+			);
 	});
 });

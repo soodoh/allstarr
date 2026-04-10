@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type QueryState = {
 	data?: unknown;
@@ -198,11 +198,11 @@ describe("EpisodeGroupAccordion", () => {
 		episodeGroupAccordionMocks.useQueries.mockClear();
 	});
 
-	it("returns null while the episode group query is unresolved", () => {
+	it("returns null while the episode group query is unresolved", async () => {
 		setQueryState(["tmdb", "episode-groups", 123], { isLoading: true });
 		setQueryState(["tmdb", "show-detail", 123], { data: undefined });
 
-		const { container } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<EpisodeGroupAccordion
 				genreIds={[18]}
 				onChange={vi.fn()}
@@ -215,7 +215,7 @@ describe("EpisodeGroupAccordion", () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("preselects the recommended anime group and renders its detail rows", () => {
+	it("preselects the recommended anime group and renders its detail rows", async () => {
 		setQueryState(["tmdb", "episode-groups", 321], {
 			data: [
 				{
@@ -335,7 +335,7 @@ describe("EpisodeGroupAccordion", () => {
 		});
 
 		const onChange = vi.fn();
-		const { getByTestId, getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<EpisodeGroupAccordion
 				genreIds={[16]}
 				onChange={onChange}
@@ -346,21 +346,20 @@ describe("EpisodeGroupAccordion", () => {
 		);
 
 		expect(onChange).toHaveBeenCalledWith("group-production");
-		expect(getByTestId("accordion")).toHaveAttribute(
-			"data-value",
-			"group-production",
-		);
-		expect(getByTestId("accordion-item-group-production")).toBeInTheDocument();
-		expect(getByText("Recommended")).toBeInTheDocument();
-		expect(getByText("Arc One")).toBeInTheDocument();
-		expect(getByText("E01–E02")).toBeInTheDocument();
-		expect(getByText("2 eps")).toBeInTheDocument();
-		expect(queryByText("TMDB Default")).not.toBeNull();
+		await expect
+			.element(page.getByTestId("accordion"))
+			.toHaveAttribute("data-value", "group-production");
+		await expect
+			.element(page.getByTestId("accordion-item-group-production"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Recommended")).toBeInTheDocument();
+		await expect.element(page.getByText("Arc One")).toBeInTheDocument();
+		await expect.element(page.getByText("E01–E02")).toBeInTheDocument();
+		await expect.element(page.getByText("2 eps").first()).toBeInTheDocument();
+		await expect.element(page.getByText("TMDB Default")).toBeInTheDocument();
 	});
 
 	it("defaults to TMDB Default for non-anime shows and can switch to a group", async () => {
-		const user = userEvent.setup();
-
 		setQueryState(["tmdb", "episode-groups", 456], {
 			data: [
 				{
@@ -514,7 +513,7 @@ describe("EpisodeGroupAccordion", () => {
 		});
 
 		const onChange = vi.fn();
-		const { getByRole, getByTestId, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<EpisodeGroupAccordion
 				genreIds={[18]}
 				onChange={onChange}
@@ -524,35 +523,39 @@ describe("EpisodeGroupAccordion", () => {
 			/>,
 		);
 
-		expect(getByTestId("accordion")).toHaveAttribute(
-			"data-value",
-			"__default__",
-		);
+		await expect
+			.element(page.getByTestId("accordion"))
+			.toHaveAttribute("data-value", "__default__");
 		expect(onChange).not.toHaveBeenCalled();
-		expect(getByText("TMDB Default")).toBeInTheDocument();
-		expect(getByText("2 seasons · 5 eps")).toBeInTheDocument();
-		expect(getByText("Season 1")).toBeInTheDocument();
-		expect(getByText("E01–E02")).toBeInTheDocument();
-		expect(getByText("2 eps")).toBeInTheDocument();
-		expect(getByText("Season 2")).toBeInTheDocument();
-		expect(getByText("E01–E03")).toBeInTheDocument();
-		expect(getByText("3 eps")).toBeInTheDocument();
-		expect(getByText("Recommended")).toBeInTheDocument();
+		await expect.element(page.getByText("TMDB Default")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("2 seasons · 5 eps"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Season 1")).toBeInTheDocument();
+		await expect.element(page.getByText("E01–E02")).toBeInTheDocument();
+		await expect.element(page.getByText("2 eps").first()).toBeInTheDocument();
+		await expect.element(page.getByText("Season 2")).toBeInTheDocument();
+		await expect.element(page.getByText("E01–E03")).toBeInTheDocument();
+		await expect.element(page.getByText("3 eps").first()).toBeInTheDocument();
+		await expect.element(page.getByText("Recommended")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: /Digital/ }));
+		await page.getByRole("button", { name: /Digital/ }).click();
 
 		expect(onChange).toHaveBeenCalledWith("group-digital");
-		expect(getByTestId("accordion")).toHaveAttribute(
-			"data-value",
-			"group-digital",
-		);
-		expect(getByTestId("accordion-item-group-digital")).toBeInTheDocument();
-		expect(getByTestId("accordion-content-group-digital")).toBeInTheDocument();
-		expect(getByText("Digital Arc")).toBeInTheDocument();
-		expect(getByText("E01–E02")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("accordion"))
+			.toHaveAttribute("data-value", "group-digital");
+		await expect
+			.element(page.getByTestId("accordion-item-group-digital"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("accordion-content-group-digital"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Digital Arc")).toBeInTheDocument();
+		await expect.element(page.getByText("E01–E02")).toBeInTheDocument();
 	});
 
-	it("keeps an existing selection expanded in edit flow", () => {
+	it("keeps an existing selection expanded in edit flow", async () => {
 		setQueryState(["tmdb", "episode-groups", 789], {
 			data: [
 				{
@@ -605,7 +608,7 @@ describe("EpisodeGroupAccordion", () => {
 		});
 
 		const onChange = vi.fn();
-		const { getByTestId, getByText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<EpisodeGroupAccordion
 				genreIds={[18]}
 				onChange={onChange}
@@ -616,11 +619,19 @@ describe("EpisodeGroupAccordion", () => {
 		);
 
 		expect(onChange).not.toHaveBeenCalled();
-		expect(getByTestId("accordion")).toHaveAttribute("data-value", "group-tv");
-		expect(getByTestId("accordion-item-group-tv")).toBeInTheDocument();
-		expect(getByTestId("accordion-content-group-tv")).toBeInTheDocument();
-		expect(getByText("TV Arc")).toBeInTheDocument();
-		expect(getByText("E04–E04")).toBeInTheDocument();
-		expect(getByRole("button", { name: /TMDB Default/ })).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("accordion"))
+			.toHaveAttribute("data-value", "group-tv");
+		await expect
+			.element(page.getByTestId("accordion-item-group-tv"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("accordion-content-group-tv"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("TV Arc")).toBeInTheDocument();
+		await expect.element(page.getByText("E04–E04")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: /TMDB Default/ }))
+			.toBeInTheDocument();
 	});
 });
