@@ -76,6 +76,22 @@ export default defineConfig({
 			},
 			{
 				extends: true,
+				resolve: {
+					alias: {
+						"@tanstack/react-start/server": new URL(
+							"./src/test/empty-module.ts",
+							import.meta.url,
+						).pathname,
+						"@tanstack/react-start-server": new URL(
+							"./src/test/empty-module.ts",
+							import.meta.url,
+						).pathname,
+						"@tanstack/start-server-core": new URL(
+							"./src/test/empty-module.ts",
+							import.meta.url,
+						).pathname,
+					},
+				},
 				optimizeDeps: {
 					include: [
 						"react",
@@ -85,7 +101,6 @@ export default defineConfig({
 						"react-dom/server",
 						"@tanstack/react-query",
 						"@tanstack/react-router",
-						"@testing-library/dom",
 						"vitest-browser-react",
 						"clsx",
 						"tailwind-merge",
@@ -95,6 +110,12 @@ export default defineConfig({
 						"sonner",
 						"better-auth/client/plugins",
 						"better-auth/react",
+					],
+					exclude: [
+						"@tanstack/react-start",
+						"@tanstack/react-start/server",
+						"@tanstack/react-start-server",
+						"@tanstack/start-server-core",
 					],
 				},
 				test: {
