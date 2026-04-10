@@ -1,6 +1,7 @@
 // oxlint-disable react-hooks/rules-of-hooks -- Playwright fixture callbacks are not React hooks
 // oxlint-disable no-empty-pattern -- Playwright requires empty destructuring for fixtures without dependencies
 import { test as base } from "@playwright/test";
+import { addCoverageReport } from "monocart-reporter";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -131,6 +132,20 @@ test.beforeEach(async ({ appServer, serviceManager }) => {
 	}).catch(noop);
 
 	await serviceManager.reset();
+});
+
+// Client-side JS coverage collection via CDP
+test.beforeEach(async ({ page }) => {
+	if (process.env.COLLECT_COVERAGE === "true") {
+		await page.coverage.startJSCoverage({ resetOnNavigation: false });
+	}
+});
+
+test.afterEach(async ({ page }, testInfo) => {
+	if (process.env.COLLECT_COVERAGE === "true") {
+		const coverage = await page.coverage.stopJSCoverage();
+		await addCoverageReport(coverage, testInfo);
+	}
 });
 
 export { expect } from "@playwright/test";

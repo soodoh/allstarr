@@ -12,6 +12,22 @@ export default defineConfig({
     screenshot: "only-on-failure",
     viewport: { width: 1280, height: 900 },
   },
+  reporter: [
+    ["list"],
+    ...(process.env.COLLECT_COVERAGE === "true"
+      ? [
+          [
+            "monocart-reporter",
+            {
+              coverage: {
+                reports: ["v8", "raw", "console-summary"],
+                outputDir: "coverage/e2e",
+              },
+            },
+          ] as const,
+        ]
+      : []),
+  ],
   globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",
 });
