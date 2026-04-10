@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 type CoverageMetric = "statements" | "branches" | "functions" | "lines";
 
@@ -164,7 +163,9 @@ export const coverageExclude = [
 ];
 
 export default defineConfig({
-	plugins: [tsconfigPaths()],
+	resolve: {
+		tsconfigPaths: true,
+	},
 	test: {
 		setupFiles: ["src/test/setup.ts"],
 		projects: [
