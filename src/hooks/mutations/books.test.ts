@@ -67,7 +67,9 @@ import {
 	useUpdateBook,
 } from "./books";
 
-type HookRunner = () => { mutateAsync: (variables: any) => Promise<any> };
+type HookRunner = () => {
+	mutateAsync: (variables: unknown) => Promise<unknown>;
+};
 
 async function runMutation(
 	useHook: HookRunner,

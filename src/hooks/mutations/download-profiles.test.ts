@@ -57,7 +57,9 @@ import {
 	useUpdateDownloadProfile,
 } from "./download-profiles";
 
-type HookRunner = () => { mutateAsync: (variables: any) => Promise<any> };
+type HookRunner = () => {
+	mutateAsync: (variables: unknown) => Promise<unknown>;
+};
 
 async function runMutation(
 	useHook: HookRunner,
