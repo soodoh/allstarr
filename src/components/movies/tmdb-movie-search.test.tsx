@@ -1,8 +1,7 @@
-import { act, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const tmdbMovieSearchMocks = vi.hoisted(() => ({
 	addMovie: {
@@ -277,6 +276,8 @@ vi.mock("src/lib/queries/user-settings", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...values: Array<string | false | null | undefined>) =>
+		values.filter(Boolean).join(" "),
 	resizeTmdbUrl: (url: string | null, size: string) => `resized:${url}:${size}`,
 }));
 
@@ -335,11 +336,10 @@ describe("MoviePreviewModal", () => {
 	});
 
 	it("closes immediately for movies that already exist", async () => {
-		const user = userEvent.setup();
 		tmdbMovieSearchMocks.movieExists = true;
 		const onOpenChange = vi.fn();
 
-		const { getByRole, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<MoviePreviewModal
 				addDefaults={tmdbMovieSearchMocks.settings.addDefaults}
 				movie={{
@@ -361,15 +361,16 @@ describe("MoviePreviewModal", () => {
 			/>,
 		);
 
-		expect(queryByText("Add Movie")).toBeNull();
-		expect(getByRole("button", { name: "Close" })).toBeInTheDocument();
+		await expect.element(page.getByText("Add Movie")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Close" }))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Close" }));
+		await page.getByRole("button", { name: "Close" }).click();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
 	it("persists defaults and adds a movie when the modal form is submitted", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		const onAdded = vi.fn();
 		tmdbMovieSearchMocks.addMovie.mutate.mockImplementation(
@@ -383,7 +384,7 @@ describe("MoviePreviewModal", () => {
 			},
 		);
 
-		const { getByLabelText, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MoviePreviewModal
 				addDefaults={tmdbMovieSearchMocks.settings.addDefaults}
 				movie={{
@@ -406,13 +407,10 @@ describe("MoviePreviewModal", () => {
 			/>,
 		);
 
-		await user.click(getByText("HD:selected"));
-		await user.selectOptions(
-			document.querySelector("select") as HTMLSelectElement,
-			"none",
-		);
-		await user.click(getByLabelText("Start search for missing movie"));
-		await user.click(getByRole("button", { name: "Add Movie" }));
+		await page.getByText("HD:selected").click();
+		await userEvent.selectOptions(page.getByRole("combobox").first(), "none");
+		await page.getByLabelText("Start search for missing movie").click();
+		await page.getByRole("button", { name: "Add Movie" }).click();
 
 		expect(tmdbMovieSearchMocks.upsertUserSettings.mutate).toHaveBeenCalledWith(
 			{
@@ -470,26 +468,25 @@ describe("TmdbMovieSearch", () => {
 			},
 		});
 
-		const { getByLabelText, getByTestId, getByText, queryByText } =
-			renderWithProviders(<TmdbMovieSearch />);
+		await renderWithProviders(<TmdbMovieSearch />);
 
-		expect(getByTestId("empty-state-title")).toHaveTextContent(
-			"Search for a movie",
-		);
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Search for a movie");
 
-		fireEvent.change(getByLabelText("Search movies"), {
-			target: { value: "alien" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		await page.getByLabelText("Search movies").fill("alien");
+		await vi.advanceTimersByTimeAsync(300);
 
-		expect(getByText(/Showing 1 result for/)).toBeInTheDocument();
-		expect(queryByText("Search for a movie")).toBeNull();
+		await expect
+			.element(page.getByText(/Showing 1 result for/))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Search for a movie"))
+			.not.toBeInTheDocument();
 
-		fireEvent.click(getByText("Alien"));
-		expect(getByText("Add Movie")).toBeInTheDocument();
-		expect(getByText("HD:selected")).toBeInTheDocument();
+		await page.getByRole("heading", { name: "Alien" }).click();
+		await expect.element(page.getByText("Add Movie")).toBeInTheDocument();
+		await expect.element(page.getByText("HD:selected")).toBeInTheDocument();
 	});
 
 	it("renders the TMDB API key guidance for authorization failures", async () => {
@@ -498,20 +495,18 @@ describe("TmdbMovieSearch", () => {
 			isError: true,
 		});
 
-		const { getByLabelText, getByTestId } = renderWithProviders(
-			<TmdbMovieSearch />,
-		);
+		await renderWithProviders(<TmdbMovieSearch />);
 
-		fireEvent.change(getByLabelText("Search movies"), {
-			target: { value: "bad" },
-		});
-		act(() => {
-			vi.advanceTimersByTime(300);
-		});
+		await page.getByLabelText("Search movies").fill("bad");
+		await vi.advanceTimersByTimeAsync(300);
 
-		expect(getByTestId("empty-state-title")).toHaveTextContent("Search failed");
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Configure your TMDB API key in Settings > Metadata to search for movies.",
-		);
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("Search failed");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent(
+				"Configure your TMDB API key in Settings > Metadata to search for movies.",
+			);
 	});
 });
