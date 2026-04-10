@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const tasksRouteMocks = vi.hoisted(() => ({
 	runTask: {
@@ -216,8 +216,10 @@ describe("system tasks route", () => {
 			}),
 		);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(pendingView.getByTestId("table-skeleton")).toBeInTheDocument();
+		await renderWithProviders(<routeConfig.pendingComponent />);
+		await expect
+			.element(page.getByTestId("table-skeleton"))
+			.toBeInTheDocument();
 	});
 
 	it("renders grouped tasks, formatting branches, and mutation actions", async () => {
@@ -299,65 +301,81 @@ describe("system tasks route", () => {
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 		};
-		const { container, getAllByRole, getAllByText, getByText } =
-			renderWithProviders(routeConfig.component());
+		const { container } = await renderWithProviders(routeConfig.component());
 
-		expect(
-			getByText("Tasks:Scheduled background tasks and their execution status."),
-		).toBeInTheDocument();
-		expect(getByText("Search")).toBeInTheDocument();
-		expect(getByText("Metadata")).toBeInTheDocument();
-		expect(getByText("Media Management")).toBeInTheDocument();
-		expect(getByText("Maintenance")).toBeInTheDocument();
-		expect(getByText("custom")).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"Tasks:Scheduled background tasks and their execution status.",
+				),
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Search")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Metadata" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Media Management"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Maintenance")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "custom" }))
+			.toBeInTheDocument();
 
-		expect(getByText("30s")).toBeInTheDocument();
-		expect(getByText("2 minutes")).toBeInTheDocument();
-		expect(getAllByText("2 hours").length).toBeGreaterThan(0);
-		expect(getByText("2 days")).toBeInTheDocument();
-		expect(getByText("1 hour")).toBeInTheDocument();
+		await expect.element(page.getByText("30s")).toBeInTheDocument();
+		await expect.element(page.getByText("2 minutes")).toBeInTheDocument();
+		await expect.element(page.getByText("2 hours").first()).toBeInTheDocument();
+		await expect
+			.element(page.getByText("2 days", { exact: true }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("1 hour")).toBeInTheDocument();
 
-		expect(getByText("just now")).toBeInTheDocument();
-		expect(getAllByText("Never").length).toBeGreaterThan(1);
-		expect(getAllByText("2 hours ago").length).toBeGreaterThan(0);
-		expect(getByText("2 days ago")).toBeInTheDocument();
-		expect(getAllByText("in < 1 minute").length).toBeGreaterThan(0);
-		expect(getByText("in 2 hours")).toBeInTheDocument();
-		expect(getByText("in 48 hours")).toBeInTheDocument();
-		expect(getByText("in 30 minutes")).toBeInTheDocument();
+		await expect.element(page.getByText("just now")).toBeInTheDocument();
+		await expect.element(page.getByText("Never").first()).toBeInTheDocument();
+		await expect
+			.element(page.getByText("2 hours ago").first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("2 days ago")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("in < 1 minute").first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("in 2 hours")).toBeInTheDocument();
+		await expect.element(page.getByText("in 48 hours")).toBeInTheDocument();
+		await expect.element(page.getByText("in 30 minutes")).toBeInTheDocument();
 
-		expect(getAllByText("500ms").length).toBeGreaterThan(0);
-		expect(getByText("2.5s")).toBeInTheDocument();
-		expect(getByText("1.0s")).toBeInTheDocument();
-		expect(getByText("800ms")).toBeInTheDocument();
+		await expect.element(page.getByText("500ms").first()).toBeInTheDocument();
+		await expect.element(page.getByText("2.5s")).toBeInTheDocument();
+		await expect.element(page.getByText("1.0s")).toBeInTheDocument();
+		await expect.element(page.getByText("800ms")).toBeInTheDocument();
 
-		expect(getByText("Scanning feeds")).toBeInTheDocument();
-		expect(getByText("Finished successfully")).toBeInTheDocument();
-		expect(getByText("Disk full")).toBeInTheDocument();
-		expect(getByText("Custom note")).toBeInTheDocument();
+		await expect.element(page.getByText("Scanning feeds")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Finished successfully"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Disk full")).toBeInTheDocument();
+		await expect.element(page.getByText("Custom note")).toBeInTheDocument();
 
-		expect(getByText("Running")).toBeInTheDocument();
-		expect(getByText("Pending")).toBeInTheDocument();
-		expect(getAllByText("Success").length).toBeGreaterThan(0);
-		expect(getByText("Error")).toBeInTheDocument();
-		expect(getAllByText("Run now").length).toBeGreaterThan(0);
+		await expect.element(page.getByText("Running")).toBeInTheDocument();
+		await expect.element(page.getByText("Pending")).toBeInTheDocument();
+		await expect.element(page.getByText("Success").first()).toBeInTheDocument();
+		await expect.element(page.getByText("Error")).toBeInTheDocument();
+		await expect.element(page.getByText("Run now").first()).toBeInTheDocument();
 		expect(container.querySelector(".opacity-50")).not.toBeNull();
 
-		fireEvent.click(
-			getAllByRole("button", { name: "switch" })[0] as HTMLElement,
-		);
+		const switchButtons = document.querySelectorAll("button[data-checked]");
+		(switchButtons[0] as HTMLElement).click();
 		expect(tasksRouteMocks.toggleEnabled.mutate).toHaveBeenCalledWith({
 			enabled: false,
 			taskId: "task-running",
 		});
 
-		fireEvent.click(
-			container.querySelectorAll(".h-8.w-8.cursor-pointer")[1] as HTMLElement,
-		);
+		(
+			container.querySelectorAll(".h-8.w-8.cursor-pointer")[1] as HTMLElement
+		).click();
 		expect(tasksRouteMocks.runTask.mutate).toHaveBeenCalledWith("task-pending");
 	});
 
-	it("disables run buttons and shows the spinner state while a task mutation is pending", () => {
+	it("disables run buttons and shows the spinner state while a task mutation is pending", async () => {
 		tasksRouteMocks.runTask.isPending = true;
 		tasksRouteMocks.useSuspenseQuery.mockReturnValue({
 			data: [
@@ -381,7 +399,7 @@ describe("system tasks route", () => {
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 		};
-		const { container } = renderWithProviders(routeConfig.component());
+		const { container } = await renderWithProviders(routeConfig.component());
 
 		expect(container.querySelector(".h-8.w-8.cursor-pointer")).toBeDisabled();
 		expect(container.querySelector(".animate-spin")).not.toBeNull();

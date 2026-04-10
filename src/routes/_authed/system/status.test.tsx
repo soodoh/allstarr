@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const systemStatusMocks = vi.hoisted(() => ({
 	systemStatusQuery: vi.fn(() => ({
@@ -121,13 +122,14 @@ describe("system status route", () => {
 			}),
 		);
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(
-			pendingView.getByTestId("system-status-skeleton"),
-		).toBeInTheDocument();
+		const PendingComponent = routeConfig.pendingComponent;
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.element(page.getByTestId("system-status-skeleton"))
+			.toBeInTheDocument();
 	});
 
-	it("renders healthy empty sections and baseline about metadata", () => {
+	it("renders healthy empty sections and baseline about metadata", async () => {
 		systemStatusMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				about: {
@@ -149,32 +151,38 @@ describe("system status route", () => {
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 		};
-		const { getByRole, getByText } = renderWithProviders(
-			routeConfig.component(),
-		);
+		await renderWithProviders(routeConfig.component());
 
-		expect(
-			getByText("Status:Health checks, disk space, and system information."),
-		).toBeInTheDocument();
-		expect(getByText("All systems healthy")).toBeInTheDocument();
-		expect(getByText("No root folders configured.")).toBeInTheDocument();
-		expect(getByText("DB Size")).toBeInTheDocument();
-		expect(getByText("0 B")).toBeInTheDocument();
-		expect(getByText("Docker")).toBeInTheDocument();
-		expect(getByText("No")).toBeInTheDocument();
-		expect(getByText("Uptime")).toBeInTheDocument();
-		expect(getByText("1m")).toBeInTheDocument();
-		expect(getByRole("link", { name: /themoviedb.org/i })).toHaveAttribute(
-			"href",
-			"https://www.themoviedb.org/",
-		);
-		expect(getByRole("link", { name: /hardcover.app/i })).toHaveAttribute(
-			"href",
-			"https://hardcover.app/",
-		);
+		await expect
+			.element(
+				page.getByText(
+					"Status:Health checks, disk space, and system information.",
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("All systems healthy"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No root folders configured."))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("DB Size")).toBeInTheDocument();
+		await expect.element(page.getByText("0 B")).toBeInTheDocument();
+		await expect.element(page.getByText("Docker")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No", { exact: true }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Uptime")).toBeInTheDocument();
+		await expect.element(page.getByText("1m")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: /themoviedb.org/i }))
+			.toHaveAttribute("href", "https://www.themoviedb.org/");
+		await expect
+			.element(page.getByRole("link", { name: /hardcover.app/i }))
+			.toHaveAttribute("href", "https://hardcover.app/");
 	});
 
-	it("renders health errors, disk usage states, and extended about rows", () => {
+	it("renders health errors, disk usage states, and extended about rows", async () => {
 		systemStatusMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				about: {
@@ -230,36 +238,51 @@ describe("system status route", () => {
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 		};
-		const { container, getAllByText, getByRole, getByText } =
-			renderWithProviders(routeConfig.component());
+		await renderWithProviders(routeConfig.component());
 
-		expect(getByText("Database unreachable")).toBeInTheDocument();
-		expect(getByText("Indexer degraded")).toBeInTheDocument();
-		expect(getByText("database")).toHaveAttribute(
-			"data-variant",
-			"destructive",
-		);
-		expect(getByText("indexer")).toHaveAttribute("data-variant", "outline");
-		expect(getByRole("link", { name: "Fix" })).toHaveAttribute(
-			"href",
-			"https://example.com/fix-db",
-		);
+		await expect
+			.element(page.getByText("Database unreachable"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Indexer degraded"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("database", { exact: true }))
+			.toHaveAttribute("data-variant", "destructive");
+		await expect
+			.element(page.getByText("indexer", { exact: true }))
+			.toHaveAttribute("data-variant", "outline");
+		await expect
+			.element(page.getByRole("link", { name: "Fix" }))
+			.toHaveAttribute("href", "https://example.com/fix-db");
 
-		expect(getByText("/critical")).toBeInTheDocument();
-		expect(getByText("/warning")).toBeInTheDocument();
-		expect(getByText("/healthy")).toBeInTheDocument();
-		expect(getByText("/empty")).toBeInTheDocument();
-		expect(getByText("5 B free / 100 B total")).toBeInTheDocument();
-		expect(getByText("20 B free / 100 B total")).toBeInTheDocument();
-		expect(getByText("60 B free / 100 B total")).toBeInTheDocument();
-		expect(getAllByText("0 B free / 0 B total").length).toBeGreaterThan(0);
-		expect(container.querySelector(".bg-destructive")).not.toBeNull();
-		expect(container.querySelector(".bg-yellow-500")).not.toBeNull();
-		expect(container.querySelector(".bg-primary")).not.toBeNull();
+		await expect.element(page.getByText("/critical")).toBeInTheDocument();
+		await expect.element(page.getByText("/warning")).toBeInTheDocument();
+		await expect.element(page.getByText("/healthy")).toBeInTheDocument();
+		await expect.element(page.getByText("/empty")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("5 B free / 100 B total"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("20 B free / 100 B total"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("60 B free / 100 B total"))
+			.toBeInTheDocument();
+		expect(
+			Array.from(document.querySelectorAll("*")).filter(
+				(element) =>
+					element.children.length === 0 &&
+					element.textContent === "0 B free / 0 B total",
+			).length,
+		).toBeGreaterThan(0);
+		expect(document.querySelector(".bg-destructive")).not.toBeNull();
+		expect(document.querySelector(".bg-yellow-500")).not.toBeNull();
+		expect(document.querySelector(".bg-primary")).not.toBeNull();
 
-		expect(getByText("2.0 KB")).toBeInTheDocument();
-		expect(getByText("Yes")).toBeInTheDocument();
-		expect(getByText("1d 1h 1m")).toBeInTheDocument();
-		expect(getByText("0.2.0")).toBeInTheDocument();
+		await expect.element(page.getByText("2.0 KB")).toBeInTheDocument();
+		await expect.element(page.getByText("Yes")).toBeInTheDocument();
+		await expect.element(page.getByText("1d 1h 1m")).toBeInTheDocument();
+		await expect.element(page.getByText("0.2.0")).toBeInTheDocument();
 	});
 });

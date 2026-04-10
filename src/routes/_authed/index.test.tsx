@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const dashboardRouteMocks = vi.hoisted(() => ({
 	contentStatsQuery: vi.fn(() => ({ queryKey: ["dashboard-content-stats"] })),
@@ -147,11 +148,18 @@ describe("dashboard route", () => {
 		expect(dashboardRouteMocks.systemStatusQuery).toHaveBeenCalledTimes(1);
 
 		const Component = route.component;
-		const { getByTestId, getAllByTestId } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Dashboard");
-		expect(getByTestId("summary-row")).toBeInTheDocument();
-		expect(getByTestId("activity-feed")).toBeInTheDocument();
-		expect(getAllByTestId("content-type-card")).toHaveLength(2);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Dashboard");
+		await expect.element(page.getByTestId("summary-row")).toBeInTheDocument();
+		await expect.element(page.getByTestId("activity-feed")).toBeInTheDocument();
+		await expect
+			.poll(
+				() =>
+					document.querySelectorAll('[data-testid="content-type-card"]').length,
+			)
+			.toBe(2);
 	});
 });

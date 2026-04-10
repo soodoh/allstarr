@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authorsRouteMocks = vi.hoisted(() => {
 	let observerCallback:
@@ -311,67 +311,75 @@ describe("AuthorsRoute", () => {
 			isLoading: false,
 		}));
 
-		const { getByTestId } = renderWithProviders(<routeConfig.component />);
-		expect(getByTestId("page-header-title")).toHaveTextContent("Authors");
-		expect(getByTestId("empty-state-title")).toHaveTextContent(
-			"No authors yet",
-		);
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Search Hardcover to add your first author.",
-		);
+		await renderWithProviders(<routeConfig.component />);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Authors");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("No authors yet");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent("Search Hardcover to add your first author.");
 	});
 
-	it("renders grid mode, reacts to search, toggles views, and fetches the next page", () => {
+	it("renders grid mode, reacts to search, toggles views, and fetches the next page", async () => {
 		const routeConfig = Route as unknown as {
 			component: () => ReactNode;
 		};
 
-		const { getAllByTestId, getByTestId, getByText } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 authors on your bookshelf",
-		);
-		expect(getAllByTestId("author-card")).toHaveLength(2);
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 authors on your bookshelf");
+		await expect
+			.poll(
+				() => document.querySelectorAll('[data-testid="author-card"]').length,
+			)
+			.toBe(2);
 		expect(authorsRouteMocks.observe).toHaveBeenCalledTimes(1);
 
-		fireEvent.change(getByTestId("search-input"), {
-			target: { value: "asimov" },
-		});
+		await page.getByTestId("search-input").fill("asimov");
 		expect(authorsRouteMocks.authorsInfiniteQuery).toHaveBeenLastCalledWith(
 			"asimov",
 		);
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 matching authors",
-		);
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 matching authors");
 
-		fireEvent.click(getByText("List"));
+		await page.getByText("List").click();
 		expect(authorsRouteMocks.setViewMode).toHaveBeenCalledWith("table");
 
 		authorsRouteMocks.triggerIntersection({ isIntersecting: true });
 		expect(authorsRouteMocks.fetchNextPage).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders table mode with loading rows and skips fetches while already loading", () => {
+	it("renders table mode with loading rows and skips fetches while already loading", async () => {
 		authorsRouteMocks.viewMode = "table";
 		authorsRouteMocks.isFetchingNextPage = true;
 
 		const routeConfig = Route as unknown as {
 			component: () => ReactNode;
 		};
-		const { getByTestId, queryAllByTestId } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("column-settings-popover")).toHaveTextContent("authors");
-		expect(getByTestId("author-table-items")).toHaveTextContent(
-			"Isaac Asimov,Ursula K. Le Guin",
-		);
-		expect(getByTestId("author-table-rows-skeleton")).toBeInTheDocument();
-		expect(queryAllByTestId("author-card")).toHaveLength(0);
+		await expect
+			.element(page.getByTestId("column-settings-popover"))
+			.toHaveTextContent("authors");
+		await expect
+			.element(page.getByTestId("author-table-items"))
+			.toHaveTextContent("Isaac Asimov,Ursula K. Le Guin");
+		await expect
+			.element(page.getByTestId("author-table-rows-skeleton"))
+			.toBeInTheDocument();
+		await expect
+			.poll(
+				() => document.querySelectorAll('[data-testid="author-card"]').length,
+			)
+			.toBe(0);
 
-		fireEvent.click(getByTestId("search-input"));
+		await page.getByTestId("search-input").click();
 		authorsRouteMocks.triggerIntersection({ isIntersecting: true });
 		expect(authorsRouteMocks.fetchNextPage).not.toHaveBeenCalled();
 	});

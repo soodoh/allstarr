@@ -4,12 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 
 const rootRouteMocks = vi.hoisted(() => ({
 	HeadContent: () => <div data-testid="head-content" />,
+	Link: ({ children }: { children: unknown }) => (
+		<a href="#mock">{children as never}</a>
+	),
 	Outlet: () => <div data-testid="outlet" />,
 	Scripts: () => <div data-testid="scripts" />,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
 	HeadContent: rootRouteMocks.HeadContent,
+	Link: rootRouteMocks.Link,
 	Outlet: rootRouteMocks.Outlet,
 	Scripts: rootRouteMocks.Scripts,
 	createRootRouteWithContext: () => (config: unknown) => config,

@@ -1,7 +1,7 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 function createMutation<TArg = unknown, TResult = unknown>(result?: TResult) {
 	return {
@@ -86,6 +86,10 @@ vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (config: unknown) => config,
 }));
 
+vi.mock("src/lib/admin-route", () => ({
+	requireAdminBeforeLoad: vi.fn(),
+}));
+
 vi.mock("src/components/shared/page-header", () => ({
 	default: ({
 		actions,
@@ -137,12 +141,14 @@ vi.mock("src/components/ui/dialog", () => ({
 vi.mock("src/components/ui/input", () => ({
 	default: ({
 		defaultValue,
+		id,
 		onBlur,
 		onChange,
 		placeholder,
 		value,
 	}: {
 		defaultValue?: string | number;
+		id?: string;
 		onBlur?: (event: { target: { value: string } }) => void;
 		onChange?: (event: { target: { value: string } }) => void;
 		placeholder?: string;
@@ -150,6 +156,7 @@ vi.mock("src/components/ui/input", () => ({
 	}) => (
 		<input
 			defaultValue={defaultValue}
+			id={id}
 			onBlur={onBlur}
 			onChange={onChange}
 			placeholder={placeholder}
@@ -347,33 +354,31 @@ describe("formats route", () => {
 			expect.objectContaining({ queryKey: ["settings", "map"] }),
 		);
 
-		renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(screen.getByText("Bluray")).toBeInTheDocument();
-		expect(screen.getByText("Epub")).toBeInTheDocument();
+		await expect.element(page.getByText("Bluray")).toBeInTheDocument();
+		await expect.element(page.getByText("Epub")).toBeInTheDocument();
 
-		fireEvent.change(screen.getByPlaceholderText("Search formats..."), {
-			target: { value: "ep" },
-		});
-		expect(screen.queryByText("Bluray")).not.toBeInTheDocument();
-		expect(screen.getByText("Epub")).toBeInTheDocument();
+		await page.getByPlaceholder("Search formats...").fill("ep");
+		await expect.element(page.getByText("Bluray")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Epub")).toBeInTheDocument();
 
-		fireEvent.change(screen.getByPlaceholderText("Search formats..."), {
-			target: { value: "" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "Movie" }));
-		expect(screen.getByTestId("download-format-list")).toHaveTextContent(
-			"Bluray",
-		);
-		expect(screen.queryByText("Epub")).not.toBeInTheDocument();
+		await page.getByPlaceholder("Search formats...").clear();
+		await page.getByRole("button", { name: "Movie" }).click();
+		await expect
+			.element(page.getByTestId("download-format-list"))
+			.toHaveTextContent("Bluray");
+		await expect.element(page.getByText("Epub")).not.toBeInTheDocument();
 
-		const movieDefaultInput = screen.getByDisplayValue("130");
-		fireEvent.blur(movieDefaultInput, { target: { value: "131" } });
-		await waitFor(() =>
-			expect(formatsRouteMocks.updateSettingFn).toHaveBeenCalledWith({
+		const movieDefaultLocator = page.getByLabelText("Default Movie Runtime");
+		await userEvent.clear(movieDefaultLocator);
+		await userEvent.type(movieDefaultLocator, "131");
+		await userEvent.tab();
+		await expect
+			.poll(() => formatsRouteMocks.updateSettingFn)
+			.toHaveBeenCalledWith({
 				data: { key: "format.movie.defaultRuntime", value: 131 },
-			}),
-		);
+			});
 		expect(
 			formatsRouteMocks.queryClient.invalidateQueries,
 		).toHaveBeenCalledWith({
@@ -381,14 +386,14 @@ describe("formats route", () => {
 		});
 	});
 
-	it("opens add and edit dialogs with the expected content types", () => {
-		renderWithProviders(<RouteComponent.component />);
+	it("opens add and edit dialogs with the expected content types", async () => {
+		await renderWithProviders(<RouteComponent.component />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Add Format" }));
-		expect(
-			screen.getByTestId("download-format-form-defaults"),
-		).toHaveTextContent("ebook");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "Add Format" }).click();
+		await expect
+			.element(page.getByTestId("download-format-form-defaults"))
+			.toHaveTextContent("ebook");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(formatsRouteMocks.createDownloadFormat.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				title: "Created format",
@@ -397,13 +402,13 @@ describe("formats route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getAllByRole("button", { name: "edit" })[0]);
-		expect(
-			screen.getByTestId("download-format-form-initial"),
-		).toHaveTextContent("Bluray");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "edit" }).first().click();
+		await expect
+			.element(page.getByTestId("download-format-form-initial"))
+			.toHaveTextContent("Bluray");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(formatsRouteMocks.updateDownloadFormat.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				id: 1,
@@ -413,9 +418,9 @@ describe("formats route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getAllByRole("button", { name: "delete" })[0]);
+		await page.getByRole("button", { name: "delete" }).first().click();
 		expect(formatsRouteMocks.deleteDownloadFormat.mutate).toHaveBeenCalledWith(
 			1,
 		);

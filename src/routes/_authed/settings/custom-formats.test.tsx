@@ -1,7 +1,7 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 function createMutation<TArg = unknown, TResult = unknown>(result?: TResult) {
 	return {
@@ -67,6 +67,10 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (config: unknown) => config,
+}));
+
+vi.mock("src/lib/admin-route", () => ({
+	requireAdminBeforeLoad: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -325,36 +329,38 @@ describe("custom formats route", () => {
 			}),
 		);
 
-		renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(screen.getByTestId("custom-format-list-count")).toHaveTextContent(
-			"0",
-		);
-		expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+		await expect
+			.element(page.getByTestId("custom-format-list-count"))
+			.toHaveTextContent("0");
+		await expect
+			.element(page.getByRole("button", { name: "Export" }))
+			.toBeDisabled();
 	});
 
 	it("handles add, edit, duplicate, delete, export, and import flows", async () => {
-		renderWithProviders(<RouteComponent.component />);
+		await renderWithProviders(<RouteComponent.component />);
 
-		expect(screen.getByText("Bad Rip")).toBeInTheDocument();
-		expect(screen.getByText("Quality Audio")).toBeInTheDocument();
+		await expect.element(page.getByText("Bad Rip")).toBeInTheDocument();
+		await expect.element(page.getByText("Quality Audio")).toBeInTheDocument();
 
-		fireEvent.click(screen.getAllByRole("button", { name: "duplicate" })[0]);
+		await page.getByRole("button", { name: "duplicate" }).first().click();
 		expect(
 			customFormatsRouteMocks.duplicateCustomFormat.mutate,
 		).toHaveBeenCalledWith(1);
 
-		fireEvent.click(screen.getAllByRole("button", { name: "delete" })[0]);
+		await page.getByRole("button", { name: "delete" }).first().click();
 		expect(
 			customFormatsRouteMocks.deleteCustomFormat.mutate,
 		).toHaveBeenCalledWith(1);
 
-		fireEvent.click(screen.getByRole("button", { name: "Add Custom Format" }));
-		expect(screen.getByTestId("sheet")).toBeInTheDocument();
-		expect(screen.getByTestId("custom-format-form-values")).toHaveTextContent(
-			"new",
-		);
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "Add Custom Format" }).click();
+		await expect.element(page.getByTestId("sheet")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("custom-format-form-values"))
+			.toHaveTextContent("new");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			customFormatsRouteMocks.createCustomFormat.mutate,
 		).toHaveBeenCalledWith(
@@ -365,13 +371,13 @@ describe("custom formats route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("sheet")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("sheet")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getAllByRole("button", { name: "edit" })[0]);
-		expect(screen.getByTestId("custom-format-form-values")).toHaveTextContent(
-			"Bad Rip",
-		);
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "edit" }).first().click();
+		await expect
+			.element(page.getByTestId("custom-format-form-values"))
+			.toHaveTextContent("Bad Rip");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			customFormatsRouteMocks.updateCustomFormat.mutate,
 		).toHaveBeenCalledWith(
@@ -387,69 +393,65 @@ describe("custom formats route", () => {
 			customFormatsRouteMocks.deleteCustomFormat.mutate,
 		).toHaveBeenCalledTimes(1);
 
-		fireEvent.click(screen.getByRole("button", { name: "Export" }));
-		await waitFor(() =>
-			expect(
-				customFormatsRouteMocks.exportCustomFormatsFn,
-			).toHaveBeenCalledWith({
+		await page.getByRole("button", { name: "Export" }).click();
+		await expect
+			.poll(() => customFormatsRouteMocks.exportCustomFormatsFn)
+			.toHaveBeenCalledWith({
 				data: { customFormatIds: [1, 2] },
-			}),
-		);
+			});
 		expect(customFormatsRouteMocks.toast.success).toHaveBeenCalledWith(
 			"Exported 2 custom format(s)",
 		);
 
-		const fileInput = screen
-			.getByTestId("page-header")
-			.parentElement?.querySelector('input[type="file"]');
+		const fileInput = document
+			.querySelector('[data-testid="page-header"]')
+			?.parentElement?.querySelector('input[type="file"]');
 		expect(fileInput).toBeTruthy();
 
-		await fireEvent.change(fileInput as HTMLInputElement, {
-			target: {
-				files: [
-					{
-						name: "bad.json",
-						text: async () => JSON.stringify({ bad: true }),
-					},
-				],
-			},
+		const badFile = {
+			name: "bad.json",
+			text: async () => JSON.stringify({ bad: true }),
+		} as unknown as File;
+		Object.defineProperty(fileInput as HTMLInputElement, "files", {
+			configurable: true,
+			value: [badFile],
 		});
-		await waitFor(() =>
-			expect(customFormatsRouteMocks.toast.error).toHaveBeenCalledWith(
+		(fileInput as HTMLInputElement).dispatchEvent(
+			new Event("change", { bubbles: true }),
+		);
+		await expect
+			.poll(() => customFormatsRouteMocks.toast.error)
+			.toHaveBeenCalledWith(
 				"Invalid file: expected an array of custom formats",
-			),
-		);
+			);
 
-		await fireEvent.change(fileInput as HTMLInputElement, {
-			target: {
-				files: [
-					{
-						name: "import.json",
-						text: async () =>
-							JSON.stringify({
-								customFormats: [{ id: 9, name: "Imported format" }],
-							}),
-					},
-				],
-			},
+		const importFile = {
+			name: "import.json",
+			text: async () =>
+				JSON.stringify({
+					customFormats: [{ id: 9, name: "Imported format" }],
+				}),
+		} as unknown as File;
+		Object.defineProperty(fileInput as HTMLInputElement, "files", {
+			configurable: true,
+			value: [importFile],
 		});
-
-		await waitFor(() =>
-			expect(screen.getByTestId("dialog")).toBeInTheDocument(),
+		(fileInput as HTMLInputElement).dispatchEvent(
+			new Event("change", { bubbles: true }),
 		);
-		fireEvent.click(screen.getByLabelText("Create copies"));
-		fireEvent.click(screen.getAllByRole("button", { name: "Import" })[1]);
 
-		await waitFor(() =>
-			expect(
-				customFormatsRouteMocks.importCustomFormatsFn,
-			).toHaveBeenCalledWith({
+		await expect.element(page.getByTestId("dialog")).toBeInTheDocument();
+		await page.getByLabelText("Create copies").first().click();
+		await page.getByRole("button", { name: "Import" }).nth(1).click();
+
+		await expect
+			.poll(() => customFormatsRouteMocks.importCustomFormatsFn)
+			.toHaveBeenCalledWith({
 				data: {
 					customFormats: [{ id: 9, name: "Imported format" }],
 					mode: "copy",
 				},
-			}),
-		);
+			});
 		expect(
 			customFormatsRouteMocks.queryClient.invalidateQueries,
 		).toHaveBeenCalledWith({

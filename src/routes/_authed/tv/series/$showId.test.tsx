@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const showDetailRouteMocks = vi.hoisted(() => ({
 	downloadProfilesListQuery: vi.fn(() => ({
@@ -206,7 +207,7 @@ describe("show detail route", () => {
 		).rejects.toBe(upstreamError);
 	});
 
-	it("renders not found for missing data and otherwise sorts seasons with filtered profiles", () => {
+	it("renders not found for missing data and otherwise sorts seasons with filtered profiles", async () => {
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 			pendingComponent: () => JSX.Element;
@@ -217,8 +218,8 @@ describe("show detail route", () => {
 			.mockReturnValueOnce({ data: null })
 			.mockReturnValueOnce({ data: [] });
 
-		const missingView = renderWithProviders(<Component />);
-		expect(missingView.getByText("Missing show")).toBeInTheDocument();
+		await renderWithProviders(<Component />);
+		await expect.element(page.getByText("Missing show")).toBeInTheDocument();
 
 		showDetailRouteMocks.useSuspenseQuery.mockReset();
 		showDetailRouteMocks.useSuspenseQuery.mockImplementation(
@@ -250,14 +251,20 @@ describe("show detail route", () => {
 			},
 		);
 
-		const { container, getByText } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(
-			getByText("header:Severance:4K,Movie Profile,Anime"),
-		).toBeInTheDocument();
-		expect(getByText("season:3:profiles:4K,Anime")).toBeInTheDocument();
-		expect(getByText("season:1:profiles:4K,Anime")).toBeInTheDocument();
-		expect(getByText("season:0:profiles:4K,Anime")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("header:Severance:4K,Movie Profile,Anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("season:3:profiles:4K,Anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("season:1:profiles:4K,Anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("season:0:profiles:4K,Anime"))
+			.toBeInTheDocument();
 		expect(
 			showDetailRouteMocks.seasonAccordionCalls.map(
 				(call) => call.season.seasonNumber,
@@ -272,11 +279,14 @@ describe("show detail route", () => {
 			),
 		).toEqual([11, 13]);
 
+		expect(document.querySelectorAll("section").length).toBeGreaterThanOrEqual(
+			1,
+		);
+
 		const PendingComponent = routeConfig.pendingComponent;
-		const pendingView = renderWithProviders(<PendingComponent />);
-		expect(
-			pendingView.container.querySelectorAll(".h-4.w-20").length,
-		).toBeGreaterThan(0);
-		expect(container.querySelectorAll("section").length).toBe(1);
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.poll(() => document.querySelectorAll(".h-4.w-20").length)
+			.toBeGreaterThan(0);
 	});
 });

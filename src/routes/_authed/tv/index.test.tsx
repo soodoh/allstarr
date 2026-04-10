@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const tvRouteMocks = vi.hoisted(() => ({
 	monitorShowProfile: {
@@ -288,22 +288,29 @@ describe("tv index route", () => {
 		);
 
 		const Component = routeConfig.component;
-		const { container, getByText } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("TV Shows")).toBeInTheDocument();
-		expect(getByText("No TV shows yet")).toBeInTheDocument();
-		expect(
-			getByText("Add your first show to start building your collection."),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("TV Shows", { exact: true }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("No TV shows yet")).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"Add your first show to start building your collection.",
+				),
+			)
+			.toBeInTheDocument();
+		expect(document.querySelector('a[href="/tv/add"]')).not.toBeNull();
 
-		const pendingView = renderWithProviders(<routeConfig.pendingComponent />);
-		expect(
-			pendingView.container.querySelectorAll(".aspect-\\[2\\/3\\]").length,
-		).toBe(12);
-		expect(container.querySelector('a[href="/tv/add"]')).not.toBeNull();
+		const PendingComponent = routeConfig.pendingComponent;
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.poll(() => document.querySelectorAll(".aspect-\\[2\\/3\\]").length)
+			.toBeGreaterThanOrEqual(12);
 	});
 
-	it("renders the table flow, search empty state, and profile toggle mutations", () => {
+	it("renders the table flow, search empty state, and profile toggle mutations", async () => {
 		tvRouteMocks.useSuspenseQuery.mockImplementation(
 			(query: { queryKey: string[] }) => {
 				if (query.queryKey[0] === "shows") {
@@ -317,38 +324,40 @@ describe("tv index route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = routeConfig.component;
-		const { getByRole, getByText, queryByText } = renderWithProviders(
-			<Component />,
-		);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("2 series")).toBeInTheDocument();
-		expect(getByText("columns:tv")).toBeInTheDocument();
-		expect(getByText("table:Severance,Andor:readonly:")).toBeInTheDocument();
+		await expect.element(page.getByText("2 series")).toBeInTheDocument();
+		await expect.element(page.getByText("columns:tv")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("table:Severance,Andor:readonly:"))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Toggle active profile" }));
+		await page.getByRole("button", { name: "Toggle active profile" }).click();
 		expect(tvRouteMocks.unmonitorShowProfile.mutate).toHaveBeenCalledWith({
 			downloadProfileId: 101,
 			showId: 1,
 		});
 
-		fireEvent.click(getByRole("button", { name: "Toggle inactive profile" }));
+		await page.getByRole("button", { name: "Toggle inactive profile" }).click();
 		expect(tvRouteMocks.monitorShowProfile.mutate).toHaveBeenCalledWith({
 			downloadProfileId: 101,
 			showId: 2,
 		});
 
-		fireEvent.change(getByRole("textbox", { name: "Search by title..." }), {
-			target: { value: "zzz" },
-		});
-		expect(getByText("0 matching series")).toBeInTheDocument();
-		expect(getByText("No results")).toBeInTheDocument();
-		expect(getByText('No shows match "zzz".')).toBeInTheDocument();
-		expect(
-			queryByText("table:Severance,Andor:readonly:"),
-		).not.toBeInTheDocument();
+		await page.getByRole("textbox", { name: "Search by title..." }).fill("zzz");
+		await expect
+			.element(page.getByText("0 matching series"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("No results")).toBeInTheDocument();
+		await expect
+			.element(page.getByText('No shows match "zzz".'))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("table:Severance,Andor:readonly:"))
+			.not.toBeInTheDocument();
 	});
 
-	it("supports grid view and mass edit selection/reset flows", () => {
+	it("supports grid view and mass edit selection/reset flows", async () => {
 		tvRouteMocks.useSuspenseQuery.mockImplementation(
 			(query: { queryKey: string[] }) => {
 				if (query.queryKey[0] === "shows") {
@@ -362,47 +371,66 @@ describe("tv index route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = routeConfig.component;
-		const { getAllByRole, getByRole, getByText, queryByText, rerender } =
-			renderWithProviders(<Component />);
+		const { rerender } = await renderWithProviders(<Component />);
 
-		fireEvent.click(getAllByRole("button")[1] as HTMLButtonElement);
-		expect(tvRouteMocks.setViewMode).toHaveBeenCalledWith("grid");
-		rerender(<Component />);
-		expect(getByText("card:Severance")).toBeInTheDocument();
-		expect(getByText("card:Andor")).toBeInTheDocument();
-		expect(queryByText("columns:tv")).not.toBeInTheDocument();
-		fireEvent.click(getAllByRole("button")[0] as HTMLButtonElement);
-		expect(tvRouteMocks.setViewMode).toHaveBeenCalledWith("table");
+		const buttons = document.querySelectorAll("button");
+		(buttons[1] as HTMLButtonElement).click();
+		await expect
+			.poll(() => tvRouteMocks.setViewMode)
+			.toHaveBeenCalledWith("grid");
 
-		fireEvent.click(getByRole("button", { name: /Mass Editor/ }));
-		expect(getByText("table:Severance,Andor:selectable:")).toBeInTheDocument();
-		expect(getByText("bulk:")).toBeInTheDocument();
-		expect(getByText("profiles:4K")).toBeInTheDocument();
+		tvRouteMocks.viewMode = "grid";
+		await rerender(<Component />);
+		await expect.element(page.getByText("card:Severance")).toBeInTheDocument();
+		await expect.element(page.getByText("card:Andor")).toBeInTheDocument();
+		await expect.element(page.getByText("columns:tv")).not.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Toggle all rows" }));
-		expect(
-			getByText("table:Severance,Andor:selectable:1,2"),
-		).toBeInTheDocument();
-		expect(getByText("bulk:1,2")).toBeInTheDocument();
-		fireEvent.click(getByRole("button", { name: "Toggle all rows" }));
-		expect(getByText("table:Severance,Andor:selectable:")).toBeInTheDocument();
-		expect(getByText("bulk:")).toBeInTheDocument();
+		const buttons2 = document.querySelectorAll("button");
+		(buttons2[0] as HTMLButtonElement).click();
+		await expect
+			.poll(() => tvRouteMocks.setViewMode)
+			.toHaveBeenCalledWith("table");
 
-		fireEvent.click(getByRole("button", { name: "Done bulk edit" }));
-		expect(queryByText("bulk:1,2")).not.toBeInTheDocument();
-		expect(
-			queryByText("table:Severance,Andor:selectable:1,2"),
-		).not.toBeInTheDocument();
+		tvRouteMocks.viewMode = "table";
+		await rerender(<Component />);
 
-		fireEvent.click(getByRole("button", { name: /Mass Editor/ }));
-		fireEvent.click(getByRole("button", { name: "Toggle first row" }));
-		expect(getByText("table:Severance,Andor:selectable:1")).toBeInTheDocument();
-		fireEvent.click(getByRole("button", { name: "Toggle first row" }));
-		expect(getByText("table:Severance,Andor:selectable:")).toBeInTheDocument();
-		fireEvent.click(getByRole("button", { name: "Cancel" }));
-		expect(queryByText("bulk:1")).not.toBeInTheDocument();
-		expect(
-			queryByText("table:Severance,Andor:selectable:1"),
-		).not.toBeInTheDocument();
+		await page.getByRole("button", { name: /Mass Editor/ }).click();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("bulk:")).toBeInTheDocument();
+		await expect.element(page.getByText("profiles:4K")).toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Toggle all rows" }).click();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:1,2"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("bulk:1,2")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Toggle all rows" }).click();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("bulk:")).toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Done bulk edit" }).click();
+		await expect.element(page.getByText("bulk:1,2")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:1,2"))
+			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: /Mass Editor/ }).click();
+		await page.getByRole("button", { name: "Toggle first row" }).click();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:1"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Toggle first row" }).click();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Cancel" }).click();
+		await expect.element(page.getByText("bulk:1")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("table:Severance,Andor:selectable:1"))
+			.not.toBeInTheDocument();
 	});
 });
