@@ -42,7 +42,9 @@ describe("QueueItemRow", () => {
 		await expect.element(page.getByText("2 KB / 4 KB")).toBeInTheDocument();
 		await expect.element(page.getByText("ETA: 1m 5s")).toBeInTheDocument();
 		await expect.element(page.getByText("qBittorrent")).toBeInTheDocument();
-		await expect.element(page.getByText("torrent")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("torrent", { exact: true }))
+			.toBeInTheDocument();
 
 		await page.getByTitle("Increase priority").click();
 		await page.getByTitle("Decrease priority").click();
@@ -118,7 +120,9 @@ describe("QueueItemRow", () => {
 			<QueueItemRow {...handlers} item={failedItem as never} />,
 		);
 
-		await expect.element(page.getByText("Failed")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Failed", { exact: true }))
+			.toBeInTheDocument();
 		await expect.element(page.getByText("Download failed")).toBeInTheDocument();
 		await expect.element(page.getByText("1 KB")).toBeInTheDocument();
 	});
