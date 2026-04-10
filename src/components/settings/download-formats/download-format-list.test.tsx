@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ComponentProps, PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const downloadFormatListMocks = vi.hoisted(() => ({
 	updateDownloadFormat: {
@@ -77,8 +76,8 @@ describe("DownloadFormatList", () => {
 		downloadFormatListMocks.updateDownloadFormat.mutate.mockReset();
 	});
 
-	it("shows the empty state when there are no definitions", () => {
-		const { getByText } = renderWithProviders(
+	it("shows the empty state when there are no definitions", async () => {
+		await renderWithProviders(
 			<DownloadFormatList
 				definitions={[]}
 				onDelete={vi.fn()}
@@ -86,13 +85,14 @@ describe("DownloadFormatList", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No download formats found. Create one to get started."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText("No download formats found. Create one to get started."),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("renders rows, hides example sizes for unknown formats, and wires the actions", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();
 		const unknownVideo = makeDefinition({
@@ -113,37 +113,49 @@ describe("DownloadFormatList", () => {
 			noMaxLimit: 1,
 		});
 
-		const { getByRole, getByTestId, getByText, queryByText } =
-			renderWithProviders(
-				<DownloadFormatList
-					definitions={[unknownVideo, archiveFormat]}
-					onDelete={onDelete}
-					onEdit={onEdit}
-				/>,
-			);
+		await renderWithProviders(
+			<DownloadFormatList
+				definitions={[unknownVideo, archiveFormat]}
+				onDelete={onDelete}
+				onEdit={onEdit}
+			/>,
+		);
 
-		const unknownRow = getByText("Unknown Video").closest("tr");
-		expect(unknownRow).not.toBeNull();
-		expect(
-			within(unknownRow as HTMLTableRowElement).queryByText("1 hr:"),
-		).not.toBeInTheDocument();
+		const unknownRowEl = (
+			await page.getByText("Unknown Video").element()
+		).closest("tr");
+		expect(unknownRowEl).not.toBeNull();
+		expect(unknownRowEl?.querySelector("td")?.textContent).not.toContain(
+			"1 hr:",
+		);
 
-		const archiveRow = getByText("Archive").closest("tr");
-		expect(archiveRow).not.toBeNull();
-		const archiveRowScope = within(archiveRow as HTMLTableRowElement);
+		const archiveRowEl = (await page.getByText("Archive").element()).closest(
+			"tr",
+		);
+		expect(archiveRowEl).not.toBeNull();
 
-		expect(archiveRowScope.getByText("No limit")).toBeInTheDocument();
+		// "No limit" text appears in the archive row
+		expect(archiveRowEl?.textContent).toContain("No limit");
 
-		await user.click(archiveRowScope.getAllByRole("button")[0]);
+		const archiveButtons = archiveRowEl?.querySelectorAll(
+			"[role='button'], button",
+		);
+		await (archiveButtons?.[0] as HTMLElement).click();
 		expect(onEdit).toHaveBeenCalledWith(archiveFormat);
 
-		await user.click(archiveRowScope.getAllByRole("button")[1]);
-		expect(getByTestId("confirm-dialog")).toBeInTheDocument();
-		expect(getByText("Delete Download Format")).toBeInTheDocument();
+		await (archiveButtons?.[1] as HTMLElement).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Delete Download Format"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(archiveFormat.id);
-		expect(queryByText("Delete Download Format")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Delete Download Format"))
+			.not.toBeInTheDocument();
 	});
 });

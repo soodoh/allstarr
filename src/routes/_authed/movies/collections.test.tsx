@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const collectionsRouteMocks = vi.hoisted(() => ({
 	baseCollections: [
@@ -517,11 +517,13 @@ describe("collections route", () => {
 		);
 
 		const PendingComponent = routeConfig.pendingComponent;
-		const { getAllByTestId } = renderWithProviders(<PendingComponent />);
-		expect(getAllByTestId("skeleton").length).toBeGreaterThan(0);
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.poll(() => document.querySelectorAll('[data-testid="skeleton"]').length)
+			.toBeGreaterThan(0);
 	});
 
-	it("shows the empty state when no collections exist", () => {
+	it("shows the empty state when no collections exist", async () => {
 		collectionsRouteMocks.collections = [];
 
 		const routeConfig = Route as unknown as {
@@ -529,92 +531,103 @@ describe("collections route", () => {
 		};
 
 		const Component = routeConfig.component;
-		const { getByTestId } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Collections");
-		expect(getByTestId("empty-state-title")).toHaveTextContent(
-			"No collections found",
-		);
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Collections are automatically discovered when you add movies that belong to a TMDB collection.",
-		);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Collections");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("No collections found");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent(
+				"Collections are automatically discovered when you add movies that belong to a TMDB collection.",
+			);
 	});
 
 	it("filters, sorts, refreshes, and opens the collection dialogs", async () => {
-		const user = userEvent.setup();
 		const routeConfig = Route as unknown as {
 			component: () => JSX.Element;
 		};
 
 		const Component = routeConfig.component;
-		const { getAllByTestId, getByRole, getByTestId, getByText, queryByTestId } =
-			renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"3 collections",
-		);
-		expect(
-			getAllByTestId("collection-card").map((card) => card.textContent),
-		).toEqual([
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("3 collections");
+
+		const cards = document.querySelectorAll('[data-testid="collection-card"]');
+		expect(Array.from(cards).map((card) => card.textContent)).toEqual([
 			"Alien Anthology0EditAdd MissingToggle MonitorPreview Missing MovieExclude Existing Movie",
 			"Back to the Future2EditAdd MissingToggle MonitorPreview Missing MovieExclude Existing Movie",
 			"Dune Collection1EditAdd MissingToggle MonitorPreview Missing MovieExclude Existing Movie",
 		]);
 
-		await user.click(getByRole("button", { name: "missing" }));
-		expect(
-			getAllByTestId("collection-card").map(
-				(card) =>
-					card.querySelector("[data-testid='collection-title']")?.textContent,
-			),
-		).toEqual(["Back to the Future", "Dune Collection"]);
+		await page.getByRole("button", { name: "missing", exact: true }).click();
+		await expect
+			.poll(() =>
+				Array.from(
+					document.querySelectorAll('[data-testid="collection-title"]'),
+				).map((el) => el.textContent),
+			)
+			.toEqual(["Back to the Future", "Dune Collection"]);
 
-		await user.selectOptions(getByTestId("sort-select"), "missing");
-		expect(
-			getAllByTestId("collection-card").map(
-				(card) =>
-					card.querySelector("[data-testid='collection-title']")?.textContent,
-			),
-		).toEqual(["Back to the Future", "Dune Collection"]);
+		await userEvent.selectOptions(page.getByTestId("sort-select"), "missing");
+		await expect
+			.poll(() =>
+				Array.from(
+					document.querySelectorAll('[data-testid="collection-title"]'),
+				).map((el) => el.textContent),
+			)
+			.toEqual(["Back to the Future", "Dune Collection"]);
 
-		await user.type(getByTestId("search-input"), "dune");
-		expect(
-			getAllByTestId("collection-card").map(
-				(card) =>
-					card.querySelector("[data-testid='collection-title']")?.textContent,
-			),
-		).toEqual(["Dune Collection"]);
+		await page.getByTestId("search-input").fill("dune");
+		await expect
+			.poll(() =>
+				Array.from(
+					document.querySelectorAll('[data-testid="collection-title"]'),
+				).map((el) => el.textContent),
+			)
+			.toEqual(["Dune Collection"]);
 
-		await user.click(getByRole("button", { name: "Refresh All" }));
-		expect(
-			collectionsRouteMocks.refreshCollections.mutate,
-		).toHaveBeenCalledTimes(1);
+		await page.getByRole("button", { name: "Refresh All" }).click();
+		await expect
+			.poll(() => collectionsRouteMocks.refreshCollections.mutate)
+			.toHaveBeenCalledTimes(1);
 
-		await user.click(getByRole("button", { name: "Edit" }));
-		expect(getByTestId("edit-dialog")).toHaveTextContent("Dune Collection");
-		await user.click(getByText("Close Edit"));
-		expect(queryByTestId("edit-dialog")).toBeNull();
+		await page.getByRole("button", { name: "Edit" }).click();
+		await expect
+			.element(page.getByTestId("edit-dialog"))
+			.toHaveTextContent("Dune Collection");
+		await page.getByText("Close Edit").click();
+		await expect
+			.element(page.getByTestId("edit-dialog"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Add Missing" }));
-		expect(getByTestId("add-missing-dialog")).toHaveTextContent(
-			"Dune Collection",
-		);
-		await user.click(getByText("Close Add Missing"));
+		await page.getByRole("button", { name: "Add Missing" }).click();
+		await expect
+			.element(page.getByTestId("add-missing-dialog"))
+			.toHaveTextContent("Dune Collection");
+		await page.getByText("Close Add Missing").click();
 
-		await user.click(getByRole("button", { name: "Preview Missing Movie" }));
-		expect(getByTestId("movie-preview-modal")).toHaveTextContent(
-			"Dune: Part Two",
-		);
-		await user.click(getByText("Close Preview"));
-		expect(queryByTestId("movie-preview-modal")).toBeNull();
+		await page.getByRole("button", { name: "Preview Missing Movie" }).click();
+		await expect
+			.element(page.getByTestId("movie-preview-modal"))
+			.toHaveTextContent("Dune: Part Two");
+		await page.getByText("Close Preview").click();
+		await expect
+			.element(page.getByTestId("movie-preview-modal"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Toggle Monitor" }));
+		await page.getByRole("button", { name: "Toggle Monitor" }).click();
 		expect(collectionsRouteMocks.updateCollection.mutate).toHaveBeenCalledWith({
 			id: 3,
 			monitored: false,
 		});
 
-		await user.click(getByRole("button", { name: "Exclude Existing Movie" }));
+		await page.getByRole("button", { name: "Exclude Existing Movie" }).click();
 		expect(collectionsRouteMocks.excludeMovie.mutate).toHaveBeenCalledWith({
 			tmdbId: 301,
 			title: "Dune",

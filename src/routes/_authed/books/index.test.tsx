@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const booksRouteMocks = vi.hoisted(() => {
 	let observerCallback:
@@ -416,68 +416,77 @@ describe("BooksRoute", () => {
 			isLoading: false,
 		}));
 
-		const { getByTestId } = renderWithProviders(<routeConfig.component />);
-		expect(getByTestId("page-header-title")).toHaveTextContent("Books");
-		expect(getByTestId("empty-state-title")).toHaveTextContent("No books yet");
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Search Hardcover to add your first book.",
-		);
+		await renderWithProviders(<routeConfig.component />);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Books");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("No books yet");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent("Search Hardcover to add your first book.");
 	});
 
-	it("renders grid mode, reacts to search, toggles views, and fetches more books", () => {
+	it("renders grid mode, reacts to search, toggles views, and fetches more books", async () => {
 		const routeConfig = Route as unknown as {
 			component: () => ReactNode;
 		};
-		const { getAllByTestId, getByTestId, getByText } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 books on your bookshelf",
-		);
-		expect(getAllByTestId("book-card")).toHaveLength(2);
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 books on your bookshelf");
+		await expect
+			.poll(() => document.querySelectorAll('[data-testid="book-card"]').length)
+			.toBe(2);
 		expect(booksRouteMocks.observe).toHaveBeenCalledTimes(1);
 
-		fireEvent.change(getByTestId("search-input"), {
-			target: { value: "dune" },
-		});
+		await page.getByTestId("search-input").fill("dune");
+
 		expect(booksRouteMocks.booksInfiniteQuery).toHaveBeenLastCalledWith(
 			"dune",
 			true,
 			"readers",
 			"desc",
 		);
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 matching books",
-		);
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 matching books");
 
-		fireEvent.click(getByText("List"));
+		await page.getByText("List").click();
 		expect(booksRouteMocks.setViewMode).toHaveBeenCalledWith("table");
 
 		booksRouteMocks.triggerIntersection({ isIntersecting: true });
 		expect(booksRouteMocks.fetchNextPage).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders table mode, handles sorting, and monitors or unmonitors profiles", () => {
+	it("renders table mode, handles sorting, and monitors or unmonitors profiles", async () => {
 		booksRouteMocks.viewMode = "table";
 		booksRouteMocks.isFetchingNextPage = true;
 
 		const routeConfig = Route as unknown as {
 			component: () => ReactNode;
 		};
-		const { getByTestId, getByText } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("column-settings-popover")).toHaveTextContent("books");
-		expect(getByTestId("book-table-sort")).toHaveTextContent("readers:desc");
-		expect(getByTestId("book-table-profiles")).toHaveTextContent("eBook,Audio");
-		expect(getByTestId("book-table-rows-skeleton")).toHaveAttribute(
-			"data-columns",
-			"6",
-		);
+		await expect
+			.element(page.getByTestId("column-settings-popover"))
+			.toHaveTextContent("books");
+		await expect
+			.element(page.getByTestId("book-table-sort"))
+			.toHaveTextContent("readers:desc");
+		await expect
+			.element(page.getByTestId("book-table-profiles"))
+			.toHaveTextContent("eBook,Audio");
+		await expect
+			.element(page.getByTestId("book-table-rows-skeleton"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("book-table-rows-skeleton"))
+			.toHaveAttribute("data-columns", "6");
 
-		fireEvent.click(getByText("sort-readers"));
+		await page.getByText("sort-readers").first().click();
 		expect(booksRouteMocks.booksInfiniteQuery).toHaveBeenLastCalledWith(
 			"",
 			true,
@@ -485,7 +494,7 @@ describe("BooksRoute", () => {
 			"asc",
 		);
 
-		fireEvent.click(getByText("sort-readers-again"));
+		await page.getByText("sort-readers-again").first().click();
 		expect(booksRouteMocks.booksInfiniteQuery).toHaveBeenLastCalledWith(
 			"",
 			true,
@@ -493,21 +502,24 @@ describe("BooksRoute", () => {
 			"desc",
 		);
 
-		fireEvent.click(getByText("monitor-second"));
+		await page.getByText("monitor-second").click();
 		expect(booksRouteMocks.monitorBookProfile.mutate).toHaveBeenCalledWith({
 			bookId: 2,
 			downloadProfileId: 11,
 		});
 
-		fireEvent.click(getByText("unmonitor-first"));
-		expect(getByTestId("unmonitor-dialog")).toHaveAttribute(
-			"data-open",
-			"true",
-		);
-		expect(getByTestId("unmonitor-dialog-title")).toHaveTextContent("Dune");
-		expect(getByTestId("unmonitor-dialog-profile")).toHaveTextContent("eBook");
+		await page.getByText("unmonitor-first").click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveAttribute("data-open", "true");
+		await expect
+			.element(page.getByTestId("unmonitor-dialog-title"))
+			.toHaveTextContent("Dune");
+		await expect
+			.element(page.getByTestId("unmonitor-dialog-profile"))
+			.toHaveTextContent("eBook");
 
-		fireEvent.click(getByText("confirm-unmonitor"));
+		await page.getByText("confirm-unmonitor").click();
 		expect(booksRouteMocks.unmonitorBookProfile.mutate).toHaveBeenCalledWith(
 			{
 				bookId: 1,
@@ -518,9 +530,8 @@ describe("BooksRoute", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(getByTestId("unmonitor-dialog")).toHaveAttribute(
-			"data-open",
-			"false",
-		);
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveAttribute("data-open", "false");
 	});
 });

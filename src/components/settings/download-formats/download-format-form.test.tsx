@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const downloadFormatFormMocks = vi.hoisted(() => ({
 	validateForm: vi.fn(),
@@ -49,7 +49,6 @@ describe("DownloadFormatForm", () => {
 	});
 
 	it("shows video-only fields and submits the validated payload", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 		const onSubmit = vi.fn();
 		downloadFormatFormMocks.validateForm.mockReturnValue({
@@ -58,7 +57,7 @@ describe("DownloadFormatForm", () => {
 			errors: null,
 		} as never);
 
-		const { getAllByRole, getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadFormatForm
 				defaultContentTypes={["ebook"]}
 				initialValues={makeValues()}
@@ -67,19 +66,20 @@ describe("DownloadFormatForm", () => {
 			/>,
 		);
 
-		expect(getByLabelText("Source")).toBeInTheDocument();
-		expect(getByLabelText("Resolution")).toBeInTheDocument();
+		await expect.element(page.getByLabelText("Source")).toBeInTheDocument();
+		await expect.element(page.getByLabelText("Resolution")).toBeInTheDocument();
 
-		const maxLimitInput = getAllByRole("spinbutton")[3];
+		const spinbuttons = await page.getByRole("spinbutton").elements();
+		const maxLimitInput = spinbuttons[3];
 		expect(maxLimitInput).toHaveValue(55);
 		expect(maxLimitInput).toBeDisabled();
 
-		await user.click(getByLabelText("No Limit"));
+		await page.getByLabelText("No Limit").click();
 
 		expect(maxLimitInput).toHaveValue(1000);
 		expect(maxLimitInput).toBeEnabled();
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(downloadFormatFormMocks.validateForm).toHaveBeenCalledTimes(1);
 		expect(
@@ -110,7 +110,6 @@ describe("DownloadFormatForm", () => {
 	});
 
 	it("renders validation errors and blocks submission", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		downloadFormatFormMocks.validateForm.mockReturnValue({
 			success: false,
@@ -118,7 +117,7 @@ describe("DownloadFormatForm", () => {
 			errors: { title: "Title is required" },
 		} as never);
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadFormatForm
 				defaultContentTypes={["ebook"]}
 				onCancel={vi.fn()}
@@ -126,18 +125,19 @@ describe("DownloadFormatForm", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(downloadFormatFormMocks.validateForm).toHaveBeenCalledTimes(1);
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(getByText("Title is required")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Title is required"))
+			.toBeInTheDocument();
 	});
 
 	it("calls onCancel when the dialog is dismissed", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<DownloadFormatForm
 				defaultContentTypes={["ebook"]}
 				onCancel={onCancel}
@@ -145,7 +145,7 @@ describe("DownloadFormatForm", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});

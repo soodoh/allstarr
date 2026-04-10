@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const movieDetailRouteMocks = vi.hoisted(() => ({
 	downloadProfilesListQuery: vi.fn(() => ({
@@ -241,8 +241,10 @@ describe("movie detail route", () => {
 			.mockReturnValueOnce({ data: null })
 			.mockReturnValueOnce({ data: [] });
 
-		const missingView = renderWithProviders(<Component />);
-		expect(missingView.getByText("Missing movie")).toBeInTheDocument();
+		const missingView = await renderWithProviders(<Component />);
+		await expect
+			.element(missingView.getByText("Missing movie"))
+			.toBeInTheDocument();
 
 		movieDetailRouteMocks.useSuspenseQuery.mockReset();
 		movieDetailRouteMocks.useSuspenseQuery.mockImplementation(
@@ -264,23 +266,27 @@ describe("movie detail route", () => {
 			},
 		);
 
-		const { getByRole, getByText, queryByText } = renderWithProviders(
-			<Component />,
-		);
+		await renderWithProviders(<Component />);
 
-		expect(getByText("header:Alien:4K")).toBeInTheDocument();
-		expect(getByText("No overview available.")).toBeInTheDocument();
-		expect(queryByText("files:/movies/alien.mkv")).not.toBeInTheDocument();
+		await expect.element(page.getByText("header:Alien:4K")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No overview available."))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("files:/movies/alien.mkv"))
+			.not.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Files" }));
+		await page.getByRole("button", { name: "Files" }).click();
 
-		expect(getByText("files:/movies/alien.mkv")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("files:/movies/alien.mkv"))
+			.toBeInTheDocument();
 		expect(movieDetailRouteMocks.movieFilesTabCalls[0]).toEqual([
 			{ path: "/movies/alien.mkv" },
 		]);
 
 		const PendingComponent = routeConfig.pendingComponent;
-		const pendingView = renderWithProviders(<PendingComponent />);
+		const pendingView = await renderWithProviders(<PendingComponent />);
 		expect(
 			pendingView.container.querySelectorAll(".h-4.w-20").length,
 		).toBeGreaterThan(0);

@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const indexerListMocks = vi.hoisted(() => ({
 	confirmDialog: vi.fn(),
@@ -205,8 +204,8 @@ describe("IndexerList", () => {
 		indexerListMocks.confirmDialog.mockReset();
 	});
 
-	it("renders the empty state when there are no indexers", () => {
-		const { getByText } = renderWithProviders(
+	it("renders the empty state when there are no indexers", async () => {
+		await renderWithProviders(
 			<IndexerList
 				indexers={[]}
 				onDelete={vi.fn()}
@@ -215,18 +214,19 @@ describe("IndexerList", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No indexers configured. Add one to get started."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText("No indexers configured. Add one to get started."),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("sorts rows alphabetically and wires manual and synced actions", async () => {
-		const user = userEvent.setup();
 		const onEdit = vi.fn();
 		const onDelete = vi.fn();
 		const onViewSynced = vi.fn();
 
-		const { getAllByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerList
 				indexers={[manualBravo, manualAlpha]}
 				onDelete={onDelete}
@@ -236,23 +236,23 @@ describe("IndexerList", () => {
 			/>,
 		);
 
-		const rows = getAllByRole("row");
+		const rows = await page.getByRole("row").elements();
 		expect(rows[1]).toHaveTextContent("Alpha Manual");
 		expect(rows[2]).toHaveTextContent("Bravo Manual");
 		expect(rows[3]).toHaveTextContent("Charlie Synced");
-		expect(getByText("Prowlarr Sync")).toBeInTheDocument();
+		await expect.element(page.getByText("Prowlarr Sync")).toBeInTheDocument();
 
-		await user.click(
-			within(rows[1]).getAllByRole("button")[0] as HTMLButtonElement,
-		);
+		const alphaButtons = rows[1].querySelectorAll("[role='button'], button");
+		await (alphaButtons[0] as HTMLElement).click();
 		expect(onEdit).toHaveBeenCalledWith(manualAlpha);
 
-		await user.click(within(rows[3]).getByRole("button") as HTMLButtonElement);
+		const charlieButtons = rows[3].querySelectorAll("[role='button'], button");
+		await (charlieButtons[0] as HTMLElement).click();
 		expect(onViewSynced).toHaveBeenCalledWith(syncedCharlie);
 	});
 
-	it("renders supported rate-limit status badges", () => {
-		const { getByText } = renderWithProviders(
+	it("renders supported rate-limit status badges", async () => {
+		await renderWithProviders(
 			<IndexerList
 				indexers={[manualAlpha, manualBravo]}
 				onDelete={vi.fn()}
@@ -277,41 +277,47 @@ describe("IndexerList", () => {
 			/>,
 		);
 
-		expect(getByText("Available")).toBeInTheDocument();
-		expect(getByText("Rate limited — 1h 1m")).toBeInTheDocument();
-		expect(getByText("Daily limit (7/10)")).toBeInTheDocument();
-		expect(getByText("Grab limit (2/8)")).toBeInTheDocument();
-		expect(getByText("Pacing")).toBeInTheDocument();
+		await expect.element(page.getByText("Available")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Rate limited — 1h 1m"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Daily limit (7/10)"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Grab limit (2/8)"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Pacing")).toBeInTheDocument();
 	});
 
 	it("opens delete confirmation and deletes the selected manual indexer", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 
-		const { getAllByRole, getByRole, getByTestId, getByText } =
-			renderWithProviders(
-				<IndexerList
-					indexers={[manualAlpha]}
-					onDelete={onDelete}
-					onEdit={vi.fn()}
-					onViewSynced={vi.fn()}
-				/>,
-			);
-
-		await user.click(
-			within(getAllByRole("row")[1]).getAllByRole(
-				"button",
-			)[1] as HTMLButtonElement,
+		await renderWithProviders(
+			<IndexerList
+				indexers={[manualAlpha]}
+				onDelete={onDelete}
+				onEdit={vi.fn()}
+				onViewSynced={vi.fn()}
+			/>,
 		);
 
-		expect(getByTestId("confirm-dialog")).toBeInTheDocument();
-		expect(
-			getByText(
-				'Are you sure you want to delete "Alpha Manual"? This action cannot be undone.',
-			),
-		).toBeInTheDocument();
+		const rows = await page.getByRole("row").elements();
+		const alphaButtons = rows[1].querySelectorAll("[role='button'], button");
+		await (alphaButtons[1] as HTMLElement).click();
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					'Are you sure you want to delete "Alpha Manual"? This action cannot be undone.',
+				),
+			)
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(1);
 	});

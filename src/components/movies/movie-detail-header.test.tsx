@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const movieDetailHeaderMocks = vi.hoisted(() => ({
 	deleteMovie: {
@@ -357,8 +357,7 @@ describe("MovieDetailHeader", () => {
 	});
 
 	it("renders metadata, fallback labels, and refreshes metadata", async () => {
-		const user = userEvent.setup();
-		const { container, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MovieDetailHeader
 				downloadProfiles={[
 					{ contentType: "movie", icon: "film", id: 1, name: "HD" },
@@ -383,17 +382,21 @@ describe("MovieDetailHeader", () => {
 			/>,
 		);
 
-		expect(getByText("Alien")).toBeInTheDocument();
-		expect(getByText("Archived")).toHaveClass("bg-zinc-600");
-		expect(getByText("Unknown")).toBeInTheDocument();
-		expect(getByText("1h 1m")).toBeInTheDocument();
-		expect(getByText("No description available.")).toBeInTheDocument();
-		expect(container.querySelector('a[href="/movies"]')).not.toBeNull();
-		expect(
-			container.querySelector('a[href="https://www.themoviedb.org/movie/77"]'),
-		).not.toBeNull();
+		await expect.element(page.getByText("Alien")).toBeInTheDocument();
+		await expect.element(page.getByText("Archived")).toHaveClass("bg-zinc-600");
+		await expect.element(page.getByText("Unknown")).toBeInTheDocument();
+		await expect.element(page.getByText("1h 1m")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No description available."))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Movies" }))
+			.toHaveAttribute("href", "/movies");
+		await expect
+			.element(page.getByRole("link", { name: "TMDB" }))
+			.toHaveAttribute("href", "https://www.themoviedb.org/movie/77");
 
-		await user.click(getByText("Refresh metadata"));
+		await page.getByRole("button", { name: "Refresh metadata" }).click();
 		expect(movieDetailHeaderMocks.refreshMetadata.mutate).toHaveBeenCalledWith(
 			5,
 			expect.objectContaining({
@@ -404,8 +407,7 @@ describe("MovieDetailHeader", () => {
 	});
 
 	it("edits profiles and saves updated download settings", async () => {
-		const user = userEvent.setup();
-		const { getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MovieDetailHeader
 				downloadProfiles={[
 					{ contentType: "movie", icon: "film", id: 1, name: "HD" },
@@ -430,13 +432,10 @@ describe("MovieDetailHeader", () => {
 			/>,
 		);
 
-		await user.click(getByText("Edit"));
-		await user.selectOptions(
-			document.querySelector("select") as HTMLSelectElement,
-			"inCinemas",
-		);
-		await user.click(getByText("4K:idle"));
-		await user.click(getByText("Save"));
+		await page.getByRole("button", { name: "Edit" }).click();
+		await userEvent.selectOptions(page.getByRole("combobox"), "inCinemas");
+		await page.getByText("4K:idle").click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(movieDetailHeaderMocks.updateMovie.mutate).toHaveBeenCalledWith(
 			{
@@ -451,8 +450,7 @@ describe("MovieDetailHeader", () => {
 	});
 
 	it("unmonitors active profiles and deletes collection movies with exclusions", async () => {
-		const user = userEvent.setup();
-		const { getByLabelText, getByTestId, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MovieDetailHeader
 				downloadProfiles={[
 					{ contentType: "movie", icon: "film", id: 1, name: "HD" },
@@ -476,10 +474,12 @@ describe("MovieDetailHeader", () => {
 			/>,
 		);
 
-		await user.click(getByText("HD:active"));
-		expect(getByTestId("unmonitor-dialog")).toHaveTextContent("HD:The Matrix");
+		await page.getByText("HD:active").click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("HD:The Matrix");
 
-		await user.click(getByText("Confirm unmonitor"));
+		await page.getByRole("button", { name: "Confirm unmonitor" }).click();
 		expect(movieDetailHeaderMocks.unmonitorProfile.mutate).toHaveBeenCalledWith(
 			{ downloadProfileId: 1, movieId: 12 },
 			expect.objectContaining({
@@ -487,11 +487,11 @@ describe("MovieDetailHeader", () => {
 			}),
 		);
 
-		await user.click(getByText("Delete"));
-		await user.click(
-			getByLabelText("Prevent this movie from being re-added by collections"),
-		);
-		await user.click(getByText("Confirm"));
+		await page.getByRole("button", { name: "Delete" }).click();
+		await page
+			.getByLabelText("Prevent this movie from being re-added by collections")
+			.click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(movieDetailHeaderMocks.deleteMovie.mutate).toHaveBeenCalledWith(
 			{

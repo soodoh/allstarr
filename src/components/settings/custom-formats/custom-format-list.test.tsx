@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/shared/confirm-dialog", () => ({
 	default: ({
@@ -112,8 +111,8 @@ const customFormats = [
 ];
 
 describe("CustomFormatList", () => {
-	it("shows the empty state when no formats exist", () => {
-		const { getByText } = renderWithProviders(
+	it("shows the empty state when no formats exist", async () => {
+		await renderWithProviders(
 			<CustomFormatList
 				customFormats={[]}
 				onDelete={vi.fn()}
@@ -122,60 +121,60 @@ describe("CustomFormatList", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No custom formats found. Create one to get started."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText("No custom formats found. Create one to get started."),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("filters, sorts through the list actions, and confirms deletes", async () => {
-		const user = userEvent.setup();
 		const onDelete = vi.fn();
 		const onDuplicate = vi.fn();
 		const onEdit = vi.fn();
 
-		const { getByPlaceholderText, getByRole, getByText, queryByText } =
-			renderWithProviders(
-				<CustomFormatList
-					customFormats={customFormats as never}
-					onDelete={onDelete}
-					onDuplicate={onDuplicate}
-					onEdit={onEdit}
-				/>,
-			);
+		await renderWithProviders(
+			<CustomFormatList
+				customFormats={customFormats as never}
+				onDelete={onDelete}
+				onDuplicate={onDuplicate}
+				onEdit={onEdit}
+			/>,
+		);
 
-		await user.click(getByRole("tab", { name: "Ebook" }));
-		expect(getByText("Ebook Pack")).toBeInTheDocument();
-		expect(queryByText("Movie Codec")).not.toBeInTheDocument();
+		await page.getByRole("tab", { name: "Ebook" }).click();
+		await expect.element(page.getByText("Ebook Pack")).toBeInTheDocument();
+		await expect.element(page.getByText("Movie Codec")).not.toBeInTheDocument();
 
-		await user.click(getByRole("tab", { name: "All" }));
-		await user.type(getByPlaceholderText("Search custom formats..."), "ga");
+		await page.getByRole("tab", { name: "All" }).click();
+		await page.getByPlaceholder("Search custom formats...").fill("ga");
 
-		const row = getByText("Gamma Boost").closest("tr");
-		expect(row).not.toBeNull();
-		if (!row) {
-			throw new Error("Expected Gamma Boost row to render");
-		}
+		const rowEl = (await page.getByText("Gamma Boost").element()).closest("tr");
+		expect(rowEl).not.toBeNull();
+		if (!rowEl) throw new Error("Expected Gamma Boost row to render");
 
-		const rowScope = within(row);
-		await user.click(rowScope.getAllByRole("button")[0]);
-		await user.click(rowScope.getAllByRole("button")[1]);
+		const buttons = rowEl.querySelectorAll("button");
+		await buttons[0].click();
+		await buttons[1].click();
 
 		expect(onEdit).toHaveBeenCalledWith(
 			expect.objectContaining({ id: 3, name: "Gamma Boost" }),
 		);
 		expect(onDuplicate).toHaveBeenCalledWith(3);
 
-		await user.click(rowScope.getAllByRole("button")[2]);
-		expect(
-			getByRole("heading", { name: "Delete Custom Format" }),
-		).toBeInTheDocument();
-		expect(
-			getByText(
-				'Are you sure you want to delete "Gamma Boost"? This action cannot be undone.',
-			),
-		).toBeInTheDocument();
+		await buttons[2].click();
+		await expect
+			.element(page.getByRole("heading", { name: "Delete Custom Format" }))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					'Are you sure you want to delete "Gamma Boost"? This action cannot be undone.',
+				),
+			)
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(3);
 	});

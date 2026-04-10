@@ -1,7 +1,7 @@
-import { fireEvent, waitFor } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 function createMutation() {
 	return {
@@ -166,6 +166,7 @@ const settingsRouteMocks = vi.hoisted(() => ({
 		},
 	],
 	syncedIndexers: [],
+	validateForm: vi.fn(() => ({ success: true, data: {}, errors: null })),
 	updateCustomFormat: createMutation(),
 	updateDownloadClient: createMutation(),
 	updateDownloadFormat: createMutation(),
@@ -678,6 +679,14 @@ vi.mock("src/lib/nav-config", () => ({
 	settingsNavItems: settingsRouteMocks.settingsNavItems,
 }));
 
+vi.mock("src/lib/form-validation", () => ({
+	default: (...args: unknown[]) => settingsRouteMocks.validateForm(...args),
+}));
+
+vi.mock("src/lib/validators", () => ({
+	metadataProfileSchema: {},
+}));
+
 vi.mock("src/lib/queries", () => ({
 	downloadClientsListQuery: settingsRouteMocks.downloadClientsListQuery,
 	downloadFormatsListQuery: settingsRouteMocks.downloadFormatsListQuery,
@@ -845,7 +854,7 @@ describe("settings routes", () => {
 			settingsRouteMocks.downloadProfilesLoaderData as never;
 	});
 
-	it("renders the settings index shell and enforces admin access", () => {
+	it("renders the settings index shell and enforces admin access", async () => {
 		const route = SettingsIndexRoute as unknown as {
 			beforeLoad: (input: {
 				context: { session: { user: { role?: string | null } } };
@@ -859,11 +868,19 @@ describe("settings routes", () => {
 			}),
 		).toThrow("redirect:/");
 
-		const { getByTestId, getByText } = renderRouteComponent(route.component);
-		expect(getByTestId("page-header-title")).toHaveTextContent("Settings");
-		expect(getByText("General")).toBeInTheDocument();
-		expect(getByText("Formats")).toBeInTheDocument();
-		expect(getByText("Download Clients")).toBeInTheDocument();
+		await renderRouteComponent(route.component);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Settings");
+		await expect
+			.element(page.getByRole("heading", { name: "General" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Formats" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Download Clients" }))
+			.toBeInTheDocument();
 	});
 
 	it("wires the general settings loader and key actions", async () => {
@@ -888,24 +905,34 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["settings-map"] }),
 		);
 
-		const { getByRole, getByTestId, getByDisplayValue } = renderRouteComponent(
-			route.component,
-		);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent(
-			"General Settings",
-		);
-		expect(getByDisplayValue("old-api-key")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("General Settings");
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="old-api-key"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "Save Settings" }).click();
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{ key: "general.logLevel", value: "warn" },
 		]);
 
-		fireEvent.click(getByRole("button", { name: "Regenerate API Key" }));
-		fireEvent.click(getByRole("button", { name: "confirm" }));
+		await page.getByRole("button", { name: "Regenerate API Key" }).click();
+		await page.getByRole("button", { name: "confirm" }).click();
 		expect(settingsRouteMocks.regenerateApiKey.mutate).toHaveBeenCalledTimes(1);
-		expect(getByDisplayValue("new-api-key")).toBeInTheDocument();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="new-api-key"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("wires the formats loader and default-setting edit flow", async () => {
@@ -936,26 +963,30 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["settings-map"] }),
 		);
 
-		const { getByLabelText, getByRole, getByTestId } = renderRouteComponent(
-			route.component,
-		);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("download-format-list")).toHaveTextContent("1");
-		expect(getByRole("button", { name: "Add Format" })).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("download-format-list"))
+			.toHaveTextContent("1");
+		await expect
+			.element(page.getByRole("button", { name: "Add Format" }))
+			.toBeInTheDocument();
 
-		fireEvent.change(getByLabelText("Default Movie Runtime"), {
-			target: { value: "155" },
-		});
-		fireEvent.blur(getByLabelText("Default Movie Runtime"));
+		const defaultMovieLocator = page.getByLabelText("Default Movie Runtime");
+		await userEvent.clear(defaultMovieLocator);
+		await userEvent.type(defaultMovieLocator, "155");
+		await userEvent.tab();
 
-		await waitFor(() => {
-			expect(settingsRouteMocks.updateSettingFn).toHaveBeenCalledWith({
+		await expect
+			.poll(() => settingsRouteMocks.updateSettingFn)
+			.toHaveBeenCalledWith({
 				data: { key: "format.movie.defaultRuntime", value: 155 },
 			});
-		});
 
-		fireEvent.click(getByRole("button", { name: "Add Format" }));
-		expect(getByTestId("download-format-form")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Add Format" }).click();
+		await expect
+			.element(page.getByTestId("download-format-form"))
+			.toBeInTheDocument();
 	});
 
 	it("wires the download clients loader and add-client dialog", async () => {
@@ -983,12 +1014,16 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["download-clients"] }),
 		);
 
-		const { getByRole, getByTestId } = renderRouteComponent(route.component);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("download-client-list")).toHaveTextContent("1");
-		expect(getByRole("button", { name: "Save Settings" })).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("download-client-list"))
+			.toHaveTextContent("1");
+		await expect
+			.element(page.getByRole("button", { name: "Save Settings" }))
+			.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "Save Settings" }).click();
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{
 				key: "downloadClient.enableCompletedDownloadHandling",
@@ -998,13 +1033,13 @@ describe("settings routes", () => {
 			{ key: "downloadClient.removeFailed", value: "true" },
 		]);
 
-		fireEvent.click(getByRole("button", { name: "Add Client" }));
-		expect(
-			getByTestId("download-client-implementation-select"),
-		).toBeInTheDocument();
+		await page.getByRole("button", { name: "Add Client" }).click();
+		await expect
+			.element(page.getByTestId("download-client-implementation-select"))
+			.toBeInTheDocument();
 	});
 
-	it("renders import list placeholders for admins", () => {
+	it("renders import list placeholders for admins", async () => {
 		const route = ImportListsRoute as unknown as {
 			beforeLoad: (input: {
 				context: { session: { user: { role?: string | null } } };
@@ -1018,15 +1053,17 @@ describe("settings routes", () => {
 			}),
 		).toThrow("redirect:/");
 
-		const { getAllByTestId, getByTestId } = renderRouteComponent(
-			route.component,
-		);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Import Lists");
-		expect(getAllByTestId("empty-state")).toHaveLength(2);
-		expect(getAllByTestId("empty-state-description")[0]).toHaveTextContent(
-			"Books excluded from import lists will appear here.",
-		);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Import Lists");
+		const emptyStates = page.getByTestId("empty-state");
+		await expect.element(emptyStates.first()).toBeInTheDocument();
+		const emptyDescriptions = page.getByTestId("empty-state-description");
+		await expect
+			.element(emptyDescriptions.first())
+			.toHaveTextContent("Books excluded from import lists will appear here.");
 	});
 
 	it("wires the indexers loader and add-indexer dialog", async () => {
@@ -1054,11 +1091,15 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["indexers"] }),
 		);
 
-		const { getByRole, getByTestId } = renderRouteComponent(route.component);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("indexer-list")).toHaveTextContent("1");
-		fireEvent.click(getByRole("button", { name: "Add Indexer" }));
-		expect(getByTestId("indexer-implementation-select")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("indexer-list"))
+			.toHaveTextContent("1");
+		await page.getByRole("button", { name: "Add Indexer" }).click();
+		await expect
+			.element(page.getByTestId("indexer-implementation-select"))
+			.toBeInTheDocument();
 	});
 
 	it("wires the metadata loader and TMDB save action", async () => {
@@ -1083,12 +1124,18 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["metadata-profile"] }),
 		);
 
-		const { getByRole, getByTestId } = renderRouteComponent(route.component);
+		const routeWithLoader = MetadataRoute as unknown as {
+			component: () => JSX.Element;
+			useLoaderData: () => unknown;
+		};
+		routeWithLoader.useLoaderData = () => undefined;
 
-		expect(getByTestId("page-header-title")).toHaveTextContent(
-			"Metadata Settings",
-		);
-		fireEvent.click(getByRole("button", { name: "Save TMDB Settings" }));
+		await renderRouteComponent(routeWithLoader.component);
+
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Metadata Settings");
+		await page.getByRole("button", { name: "Save TMDB Settings" }).click();
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{ key: "metadata.tmdb.language", value: "en" },
 			{ key: "metadata.tmdb.includeAdult", value: "false" },
@@ -1123,14 +1170,18 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["download-profiles"] }),
 		);
 
-		const { getByRole, getByTestId } = renderRouteComponent(route.component);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("download-profile-list")).toHaveTextContent("1");
-		fireEvent.click(getByRole("button", { name: "Add Profile" }));
-		expect(getByTestId("download-profile-form")).toBeInTheDocument();
-		expect(getByTestId("download-profile-form-server-cwd")).toHaveTextContent(
-			"/srv",
-		);
+		await expect
+			.element(page.getByTestId("download-profile-list"))
+			.toHaveTextContent("1");
+		await page.getByRole("button", { name: "Add Profile" }).click();
+		await expect
+			.element(page.getByTestId("download-profile-form"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("download-profile-form-server-cwd"))
+			.toHaveTextContent("/srv");
 	});
 
 	it("wires the custom formats loader and add-format sheet", async () => {
@@ -1155,10 +1206,14 @@ describe("settings routes", () => {
 			expect.objectContaining({ queryKey: ["custom-formats"] }),
 		);
 
-		const { getByRole, getByTestId } = renderRouteComponent(route.component);
+		await renderRouteComponent(route.component);
 
-		expect(getByTestId("custom-format-list")).toHaveTextContent("1");
-		fireEvent.click(getByRole("button", { name: "Add Custom Format" }));
-		expect(getByTestId("custom-format-form")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("custom-format-list"))
+			.toHaveTextContent("1");
+		await page.getByRole("button", { name: "Add Custom Format" }).click();
+		await expect
+			.element(page.getByTestId("custom-format-form"))
+			.toBeInTheDocument();
 	});
 });

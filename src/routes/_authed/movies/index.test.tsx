@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ComponentType, JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const moviesRouteMocks = vi.hoisted(() => ({
 	downloadProfilesListQuery: vi.fn(() => ({
@@ -359,11 +359,13 @@ describe("movies index route", () => {
 		);
 
 		const PendingComponent = routeConfig.pendingComponent;
-		const pendingView = renderWithProviders(<PendingComponent />);
-		expect(pendingView.getAllByTestId("skeleton").length).toBeGreaterThan(0);
+		await renderWithProviders(<PendingComponent />);
+		await expect
+			.poll(() => document.querySelectorAll('[data-testid="skeleton"]').length)
+			.toBeGreaterThan(0);
 	});
 
-	it("shows the empty state when there are no movies and no search", () => {
+	it("shows the empty state when there are no movies and no search", async () => {
 		moviesRouteMocks.movies = [];
 
 		const routeConfig = Route as unknown as {
@@ -371,19 +373,28 @@ describe("movies index route", () => {
 		};
 
 		const Component = routeConfig.component;
-		const { getByTestId, queryByTestId, queryByPlaceholderText } =
-			renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Movies");
-		expect(getByTestId("empty-state-title")).toHaveTextContent("No movies yet");
-		expect(getByTestId("empty-state-description")).toHaveTextContent(
-			"Add your first movie to start building your collection.",
-		);
-		expect(queryByPlaceholderText("Search by title...")).toBeNull();
-		expect(queryByTestId("movie-table")).toBeNull();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Movies");
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("No movies yet");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent(
+				"Add your first movie to start building your collection.",
+			);
+		await expect
+			.element(page.getByPlaceholder("Search by title..."))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("movie-table"))
+			.not.toBeInTheDocument();
 	});
 
-	it("renders the table path, selection wiring, profile toggles, and mass edit reset", () => {
+	it("renders the table path, selection wiring, profile toggles, and mass edit reset", async () => {
 		moviesRouteMocks.viewMode = "table";
 
 		const routeConfig = Route as unknown as {
@@ -391,67 +402,89 @@ describe("movies index route", () => {
 		};
 
 		const Component = routeConfig.component;
-		const { getByTestId, getByText, queryByTestId } = renderWithProviders(
-			<Component />,
-		);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 movies",
-		);
-		expect(getByTestId("movie-table")).toBeInTheDocument();
-		expect(getByTestId("movie-table-selectable")).toHaveTextContent("false");
-		expect(getByTestId("movie-table-movies")).toHaveTextContent(
-			"Alien,Blade Runner",
-		);
-		expect(getByTestId("movie-table-profiles")).toHaveTextContent(
-			"Movie Profile",
-		);
-		expect(getByTestId("column-settings-popover")).toHaveTextContent("movies");
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 movies");
+		await expect.element(page.getByTestId("movie-table")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("movie-table-selectable"))
+			.toHaveTextContent("false");
+		await expect
+			.element(page.getByTestId("movie-table-movies"))
+			.toHaveTextContent("Alien,Blade Runner");
+		await expect
+			.element(page.getByTestId("movie-table-profiles"))
+			.toHaveTextContent("Movie Profile");
+		await expect
+			.element(page.getByTestId("column-settings-popover"))
+			.toHaveTextContent("movies");
 
-		fireEvent.click(getByText("select-first"));
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("1");
+		await page.getByText("select-first").click();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("1");
 
-		fireEvent.click(getByText("select-first"));
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("0");
+		await page.getByText("select-first").click();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("0");
 
-		fireEvent.click(getByText("toggle-all"));
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("2");
+		await page.getByText("toggle-all").click();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("2");
 
-		fireEvent.click(getByText("toggle-all"));
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("0");
+		await page.getByText("toggle-all").click();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("0");
 
-		fireEvent.click(getByText("select-first"));
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("1");
+		await page.getByText("select-first").click();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("1");
 
-		fireEvent.click(getByText("toggle-active-profile"));
+		await page.getByText("toggle-active-profile").click();
 		expect(moviesRouteMocks.unmonitorMovieProfile.mutate).toHaveBeenCalledWith({
 			downloadProfileId: 7,
 			movieId: 1,
 		});
 
-		fireEvent.click(getByText("toggle-inactive-profile"));
+		await page.getByText("toggle-inactive-profile").click();
 		expect(moviesRouteMocks.monitorMovieProfile.mutate).toHaveBeenCalledWith({
 			downloadProfileId: 7,
 			movieId: 2,
 		});
 
-		fireEvent.click(getByText("Mass Editor"));
-		expect(getByTestId("movie-table-selectable")).toHaveTextContent("true");
-		expect(getByTestId("movie-bulk-bar")).toBeInTheDocument();
-		expect(getByTestId("movie-bulk-bar-selected")).toHaveTextContent(
-			"1 selected",
-		);
-		expect(getByTestId("movie-bulk-bar-profiles")).toHaveTextContent(
-			"Movie Profile",
-		);
+		await page.getByText("Mass Editor").click();
+		await expect
+			.element(page.getByTestId("movie-table-selectable"))
+			.toHaveTextContent("true");
+		await expect
+			.element(page.getByTestId("movie-bulk-bar"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("movie-bulk-bar-selected"))
+			.toHaveTextContent("1 selected");
+		await expect
+			.element(page.getByTestId("movie-bulk-bar-profiles"))
+			.toHaveTextContent("Movie Profile");
 
-		fireEvent.click(getByText("Cancel"));
-		expect(queryByTestId("movie-bulk-bar")).toBeNull();
-		expect(getByTestId("movie-table-selected-count")).toHaveTextContent("0");
-		expect(getByTestId("movie-table-selectable")).toHaveTextContent("false");
+		await page.getByText("Cancel").click();
+		await expect
+			.element(page.getByTestId("movie-bulk-bar"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("movie-table-selected-count"))
+			.toHaveTextContent("0");
+		await expect
+			.element(page.getByTestId("movie-table-selectable"))
+			.toHaveTextContent("false");
 	});
 
-	it("renders the grid path, search filtering, and view toggle wiring", () => {
+	it("renders the grid path, search filtering, and view toggle wiring", async () => {
 		moviesRouteMocks.viewMode = "grid";
 
 		const routeConfig = Route as unknown as {
@@ -459,28 +492,33 @@ describe("movies index route", () => {
 		};
 
 		const Component = routeConfig.component;
-		const { getByPlaceholderText, getByTestId, getByText, queryAllByTestId } =
-			renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"2 movies",
-		);
-		expect(queryAllByTestId("movie-card")).toHaveLength(2);
-		expect(getByText("Alien")).toBeInTheDocument();
-		expect(getByText("Blade Runner")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("2 movies");
+		await expect
+			.poll(
+				() => document.querySelectorAll('[data-testid="movie-card"]').length,
+			)
+			.toBe(2);
+		await expect.element(page.getByText("Alien")).toBeInTheDocument();
+		await expect.element(page.getByText("Blade Runner")).toBeInTheDocument();
 
-		fireEvent.change(getByPlaceholderText("Search by title..."), {
-			target: { value: "alien" },
-		});
+		await page.getByTestId("search-input").fill("alien");
 
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"1 matching movies",
-		);
-		expect(queryAllByTestId("movie-card")).toHaveLength(1);
-		expect(getByText("Alien")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("1 matching movies");
+		await expect
+			.poll(
+				() => document.querySelectorAll('[data-testid="movie-card"]').length,
+			)
+			.toBe(1);
+		await expect.element(page.getByText("Alien")).toBeInTheDocument();
 
-		fireEvent.click(getByText("List"));
-		fireEvent.click(getByText("Grid"));
+		await page.getByText("List").click();
+		await page.getByText("Grid").click();
 		expect(moviesRouteMocks.setViewMode).toHaveBeenCalledWith("table");
 		expect(moviesRouteMocks.setViewMode).toHaveBeenCalledWith("grid");
 	});

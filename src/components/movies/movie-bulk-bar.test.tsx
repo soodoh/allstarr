@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const movieBulkBarMocks = vi.hoisted(() => ({
 	toast: {
@@ -55,20 +55,21 @@ describe("MovieBulkBar", () => {
 		movieBulkBarMocks.updateMovie.mutateAsync.mockReset();
 	});
 
-	it("disables apply when nothing is selected", () => {
-		const { getByRole } = renderWithProviders(
+	it("disables apply when nothing is selected", async () => {
+		await renderWithProviders(
 			<MovieBulkBar onDone={vi.fn()} profiles={[]} selectedIds={new Set()} />,
 		);
 
-		expect(getByRole("button", { name: "Apply" })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Apply" }))
+			.toBeDisabled();
 	});
 
 	it("applies selected profile and availability updates to every selected movie", async () => {
-		const user = userEvent.setup();
 		const onDone = vi.fn();
 		movieBulkBarMocks.updateMovie.mutateAsync.mockResolvedValue(undefined);
 
-		const { getAllByRole, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<MovieBulkBar
 				onDone={onDone}
 				profiles={[
@@ -79,10 +80,10 @@ describe("MovieBulkBar", () => {
 			/>,
 		);
 
-		const selects = getAllByRole("combobox");
-		await user.selectOptions(selects[0] as HTMLSelectElement, "7");
-		await user.selectOptions(selects[1] as HTMLSelectElement, "released");
-		await user.click(getByRole("button", { name: "Apply" }));
+		const selects = page.getByRole("combobox");
+		await userEvent.selectOptions(selects.first(), "7");
+		await userEvent.selectOptions(selects.nth(1), "released");
+		await page.getByRole("button", { name: "Apply" }).click();
 
 		expect(movieBulkBarMocks.updateMovie.mutateAsync).toHaveBeenNthCalledWith(
 			1,
@@ -107,12 +108,11 @@ describe("MovieBulkBar", () => {
 	});
 
 	it("shows an error toast when one of the updates fails", async () => {
-		const user = userEvent.setup();
 		movieBulkBarMocks.updateMovie.mutateAsync.mockRejectedValue(
 			new Error("boom"),
 		);
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<MovieBulkBar
 				onDone={vi.fn()}
 				profiles={[{ id: 7, name: "4K" }]}
@@ -120,11 +120,13 @@ describe("MovieBulkBar", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Apply" }));
+		await page.getByRole("button", { name: "Apply" }).click();
 
 		expect(movieBulkBarMocks.toast.error).toHaveBeenCalledWith(
 			"Some updates failed",
 		);
-		expect(getByRole("button", { name: "Apply" })).toBeEnabled();
+		await expect
+			.element(page.getByRole("button", { name: "Apply" }))
+			.toBeEnabled();
 	});
 });

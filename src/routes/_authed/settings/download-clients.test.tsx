@@ -1,7 +1,7 @@
-import { fireEvent, screen } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 function createMutation<TArg = unknown, TResult = unknown>(result?: TResult) {
 	return {
@@ -63,6 +63,10 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (config: unknown) => config,
+}));
+
+vi.mock("src/lib/admin-route", () => ({
+	requireAdminBeforeLoad: vi.fn(),
 }));
 
 vi.mock("src/components/shared/page-header", () => ({
@@ -320,15 +324,17 @@ describe("download clients route", () => {
 			expect.objectContaining({ queryKey: ["settings", "map"] }),
 		);
 
-		renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(screen.getByTestId("page-header")).toHaveTextContent(
-			"Download Clients",
-		);
-		expect(screen.getByTestId("download-client-list")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header"))
+			.toHaveTextContent("Download Clients");
+		await expect
+			.element(page.getByTestId("download-client-list"))
+			.toBeInTheDocument();
 
-		fireEvent.click(screen.getAllByRole("button", { name: "switch" })[0]);
-		fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "switch" }).first().click();
+		await page.getByRole("button", { name: "Save Settings" }).click();
 
 		expect(
 			downloadClientsRouteMocks.updateSettings.mutate,
@@ -342,17 +348,19 @@ describe("download clients route", () => {
 		]);
 	});
 
-	it("handles add, edit, and delete client flows", () => {
-		renderWithProviders(<RouteComponent.component />);
+	it("handles add, edit, and delete client flows", async () => {
+		await renderWithProviders(<RouteComponent.component />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Add Client" }));
-		expect(screen.getByTestId("implementation-select")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Add Client" }).click();
+		await expect
+			.element(page.getByTestId("implementation-select"))
+			.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "qBittorrent" }));
-		expect(
-			screen.getByTestId("download-client-form-implementation"),
-		).toHaveTextContent("qBittorrent");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "qBittorrent" }).click();
+		await expect
+			.element(page.getByTestId("download-client-form-implementation"))
+			.toHaveTextContent("qBittorrent");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			downloadClientsRouteMocks.createDownloadClient.mutate,
 		).toHaveBeenCalledWith(
@@ -369,13 +377,13 @@ describe("download clients route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "edit" }));
-		expect(
-			screen.getByTestId("download-client-form-implementation"),
-		).toHaveTextContent("qBittorrent");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "edit" }).click();
+		await expect
+			.element(page.getByTestId("download-client-form-implementation"))
+			.toHaveTextContent("qBittorrent");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			downloadClientsRouteMocks.updateDownloadClient.mutate,
 		).toHaveBeenCalledWith(
@@ -388,9 +396,9 @@ describe("download clients route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "delete" }));
+		await page.getByRole("button", { name: "delete" }).click();
 		expect(
 			downloadClientsRouteMocks.deleteDownloadClient.mutate,
 		).toHaveBeenCalledWith(1);

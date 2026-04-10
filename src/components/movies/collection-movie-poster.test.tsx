@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
@@ -81,8 +81,8 @@ vi.mock("src/lib/utils", () => ({
 import CollectionMoviePoster from "./collection-movie-poster";
 
 describe("CollectionMoviePoster", () => {
-	it("links existing movies to their detail page", () => {
-		const { container, getByAltText, getByText } = renderWithProviders(
+	it("links existing movies to their detail page", async () => {
+		const { container } = await renderWithProviders(
 			<CollectionMoviePoster
 				movie={{
 					isExcluded: false,
@@ -97,24 +97,21 @@ describe("CollectionMoviePoster", () => {
 			/>,
 		);
 
-		expect(getByAltText("Alien")).toHaveAttribute(
-			"src",
-			"resized:/alien.jpg:w154",
-		);
-		expect(getByText("Alien")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("img", { name: "Alien" }))
+			.toHaveAttribute("src", "resized:/alien.jpg:w154");
+		await expect.element(page.getByText("Alien")).toBeInTheDocument();
 		expect(container.querySelector('a[href="/movies/12"]')).not.toBeNull();
-		expect(getByText("Alien")).toBeInTheDocument();
 		expect(
 			container.querySelector("[data-testid='tooltip-content']"),
 		).toHaveTextContent("Alien");
 	});
 
 	it("adds missing movies and exposes the exclude action from the context menu", async () => {
-		const user = userEvent.setup();
 		const onAddMovie = vi.fn();
 		const onExclude = vi.fn();
 
-		const { getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<CollectionMoviePoster
 				movie={{
 					isExcluded: false,
@@ -131,21 +128,21 @@ describe("CollectionMoviePoster", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Blade Runner" }));
+		await page.getByRole("button", { name: "Blade Runner" }).click();
 		expect(onAddMovie).toHaveBeenCalledWith(
 			expect.objectContaining({ title: "Blade Runner" }),
 		);
-		await user.click(getByText("Exclude from import"));
+		await page.getByText("Exclude from import").click();
 		expect(onExclude).toHaveBeenCalledWith(
 			expect.objectContaining({ title: "Blade Runner" }),
 		);
-		expect(
-			getByText("Blade Runner — Missing", { exact: false }),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Blade Runner — Missing", { exact: false }))
+			.toBeInTheDocument();
 	});
 
-	it("marks excluded movies and keeps them non-interactive", () => {
-		const { container, getByAltText, getByText } = renderWithProviders(
+	it("marks excluded movies and keeps them non-interactive", async () => {
+		const { container } = await renderWithProviders(
 			<CollectionMoviePoster
 				movie={{
 					isExcluded: true,
@@ -160,11 +157,12 @@ describe("CollectionMoviePoster", () => {
 			/>,
 		);
 
-		expect(getByAltText("Hidden Gem")).toHaveAttribute(
-			"src",
-			"resized:/hidden.jpg:w154",
-		);
-		expect(getByText("Hidden Gem — Excluded from import")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("img", { name: "Hidden Gem" }))
+			.toHaveAttribute("src", "resized:/hidden.jpg:w154");
+		await expect
+			.element(page.getByText("Hidden Gem — Excluded from import"))
+			.toBeInTheDocument();
 		expect(container.querySelector(".grayscale")).not.toBeNull();
 		expect(container.querySelector("button")).toBeNull();
 	});
