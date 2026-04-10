@@ -62,7 +62,9 @@ import {
 	useUpdateCustomFormat,
 } from "./custom-formats";
 
-type HookRunner = () => { mutateAsync: (variables: any) => Promise<any> };
+type HookRunner = () => {
+	mutateAsync: (variables: unknown) => Promise<unknown>;
+};
 
 async function runMutation(useHook: HookRunner, variables: unknown) {
 	const { result } = await renderHook(() => useHook());
