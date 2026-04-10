@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const bookDetailRouteMocks = vi.hoisted(() => ({
 	book: null as null | Record<string, unknown>,
@@ -552,7 +552,7 @@ describe("BookDetailRoute", () => {
 		).rejects.toBe(upstreamError);
 	});
 
-	it("renders the detail shell, shows the unmonitor flow, and toggles the search tab", () => {
+	it("renders the detail shell, shows the unmonitor flow, and toggles the search tab", async () => {
 		bookDetailRouteMocks.book = {
 			autoSwitchEdition: 1,
 			authorDownloadProfileIds: [11, 12],
@@ -613,31 +613,37 @@ describe("BookDetailRoute", () => {
 			component: () => ReactNode;
 		};
 
-		const { getByRole, getByTestId, getByText } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByText("Frank Herbert")).toBeInTheDocument();
-		expect(getByTestId("page-header-title")).toHaveTextContent("Dune");
-		expect(getByRole("button", { name: "toggle-4K" })).toBeInTheDocument();
-		expect(getByRole("button", { name: "toggle-Audio" })).toBeInTheDocument();
-		expect(getByTestId("search-releases-tab")).toHaveAttribute(
-			"data-enabled",
-			"false",
-		);
+		await expect
+			.element(page.getByText("Frank Herbert").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Dune");
+		await expect
+			.element(page.getByRole("button", { name: "toggle-4K" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "toggle-Audio" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("search-releases-tab"))
+			.toHaveAttribute("data-enabled", "false");
 
-		fireEvent.click(getByRole("button", { name: "Search Releases" }));
-		expect(getByTestId("search-releases-tab")).toHaveAttribute(
-			"data-enabled",
-			"true",
-		);
+		await page.getByRole("button", { name: "Search Releases" }).click();
+		await expect
+			.element(page.getByTestId("search-releases-tab"))
+			.toHaveAttribute("data-enabled", "true");
 
-		fireEvent.click(getByRole("button", { name: "toggle-4K" }));
-		expect(getByTestId("unmonitor-dialog")).toHaveTextContent("4K");
+		await page.getByRole("button", { name: "toggle-4K" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
 		expect(bookDetailRouteMocks.navigate).not.toHaveBeenCalled();
 	});
 
-	it("renders metadata warnings when the book is missing upstream metadata", () => {
+	it("renders metadata warnings when the book is missing upstream metadata", async () => {
 		bookDetailRouteMocks.book = {
 			autoSwitchEdition: 0,
 			bookAuthors: [
@@ -681,11 +687,13 @@ describe("BookDetailRoute", () => {
 			component: () => ReactNode;
 		};
 
-		const { getByTestId, queryByTestId } = renderWithProviders(
-			<routeConfig.component />,
-		);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("metadata-warning")).toHaveTextContent("book:Dune");
-		expect(queryByTestId("profile-toggle-icons")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("metadata-warning"))
+			.toHaveTextContent("book:Dune");
+		await expect
+			.element(page.getByTestId("profile-toggle-icons"))
+			.not.toBeInTheDocument();
 	});
 });

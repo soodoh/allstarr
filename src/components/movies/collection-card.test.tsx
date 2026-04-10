@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 vi.mock("src/components/shared/optimized-image", () => ({
 	default: ({
@@ -32,6 +32,8 @@ vi.mock("src/components/ui/button", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...values: Array<string | false | null | undefined>) =>
+		values.filter(Boolean).join(" "),
 	resizeTmdbUrl: (url: string | null, size: string) => `resized:${url}:${size}`,
 }));
 
@@ -94,14 +96,13 @@ const collection = {
 
 describe("CollectionCard", () => {
 	it("renders the collection poster, metadata, and movie callbacks", async () => {
-		const user = userEvent.setup();
 		const onAddMissing = vi.fn();
 		const onAddMovie = vi.fn();
 		const onEdit = vi.fn();
 		const onExcludeMovie = vi.fn();
 		const onToggleMonitor = vi.fn();
 
-		const { container, getAllByRole, getByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<CollectionCard
 				collection={collection}
 				onAddMissing={onAddMissing}
@@ -112,23 +113,27 @@ describe("CollectionCard", () => {
 			/>,
 		);
 
-		expect(getByText("Sci-Fi Classics")).toBeInTheDocument();
-		expect(getByText("2 movies")).toBeInTheDocument();
-		expect(container).toHaveTextContent("2 missing");
-		expect(getByText("A science fiction collection")).toBeInTheDocument();
+		await expect.element(page.getByText("Sci-Fi Classics")).toBeInTheDocument();
+		await expect.element(page.getByText("2 movies")).toBeInTheDocument();
+		await expect.element(page.getByText("2 missing")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("A science fiction collection"))
+			.toBeInTheDocument();
 		expect(
 			container.querySelector('img[alt="Sci-Fi Classics"]'),
 		).toHaveAttribute("src", "resized:/collection.jpg:w185");
 		expect(container.querySelector('img[data-type="movie"]')).not.toBeNull();
-		expect(getByText("poster:Alien")).toBeInTheDocument();
-		expect(getByText("poster:Blade Runner")).toBeInTheDocument();
+		await expect.element(page.getByText("poster:Alien")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("poster:Blade Runner"))
+			.toBeInTheDocument();
 
-		const buttons = getAllByRole("button");
-		await user.click(buttons[0] as HTMLButtonElement);
-		await user.click(buttons[1] as HTMLButtonElement);
-		await user.click(getByText("Add Missing"));
-		await user.click(getByText("Exclude Alien"));
-		await user.click(getByText("Add Blade Runner"));
+		const buttons = page.getByRole("button");
+		await buttons.nth(0).click();
+		await buttons.nth(1).click();
+		await page.getByText("Add Missing").click();
+		await page.getByText("Exclude Alien").click();
+		await page.getByText("Add Blade Runner").click();
 
 		expect(onToggleMonitor).toHaveBeenCalledWith(collection);
 		expect(onEdit).toHaveBeenCalledWith(collection);
@@ -137,8 +142,8 @@ describe("CollectionCard", () => {
 		expect(onAddMovie).toHaveBeenCalledWith(collection.movies[1]);
 	});
 
-	it("hides optional content when the collection is complete and minimal", () => {
-		const { queryByText } = renderWithProviders(
+	it("hides optional content when the collection is complete and minimal", async () => {
+		await renderWithProviders(
 			<CollectionCard
 				collection={{
 					...collection,
@@ -155,9 +160,11 @@ describe("CollectionCard", () => {
 			/>,
 		);
 
-		expect(queryByText("Add Missing")).not.toBeInTheDocument();
-		expect(queryByText("A science fiction collection")).not.toBeInTheDocument();
-		expect(queryByText("1 missing")).not.toBeInTheDocument();
-		expect(queryByText("1 movie")).toBeInTheDocument();
+		await expect.element(page.getByText("Add Missing")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("A science fiction collection"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("1 missing")).not.toBeInTheDocument();
+		await expect.element(page.getByText("1 movie")).toBeInTheDocument();
 	});
 });

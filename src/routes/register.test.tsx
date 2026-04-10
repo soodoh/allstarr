@@ -1,8 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type LoaderData = {
 	registrationDisabled: boolean;
@@ -99,78 +98,72 @@ describe("register route", () => {
 		expect(registerRouteMocks.getRegistrationStatusFn).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the disabled registration state", () => {
-		renderRegisterRoute({ registrationDisabled: true });
+	it("renders the disabled registration state", async () => {
+		await renderRegisterRoute({ registrationDisabled: true });
 
-		expect(screen.getByText("Registration Disabled")).toBeInTheDocument();
-		expect(
-			screen.getByRole("link", { name: "Back to Sign In" }),
-		).toHaveAttribute("href", "/login");
+		await expect
+			.element(page.getByText("Registration Disabled"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Back to Sign In" }))
+			.toHaveAttribute("href", "/login");
 	});
 
 	it("creates an account, shows a success toast, and navigates home", async () => {
-		const user = userEvent.setup();
-
 		registerRouteMocks.signUpEmail.mockResolvedValueOnce({ error: null });
 
-		renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({ registrationDisabled: false });
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "ada@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(screen.getByRole("button", { name: "Create Account" }));
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("ada@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Account" }).click();
 
-		await waitFor(() => {
-			expect(registerRouteMocks.signUpEmail).toHaveBeenCalledWith({
+		await expect
+			.poll(() => registerRouteMocks.signUpEmail)
+			.toHaveBeenCalledWith({
 				email: "ada@example.com",
 				name: "Ada Lovelace",
 				password: "secret123",
 			});
-			expect(registerRouteMocks.toastSuccess).toHaveBeenCalledWith(
-				"Account created! Signing in...",
-			);
-			expect(registerRouteMocks.navigate).toHaveBeenCalledWith({ to: "/" });
-		});
+		await expect
+			.poll(() => registerRouteMocks.toastSuccess)
+			.toHaveBeenCalledWith("Account created! Signing in...");
+		await expect
+			.poll(() => registerRouteMocks.navigate)
+			.toHaveBeenCalledWith({ to: "/" });
 	});
 
 	it("shows the sign-up error returned by the auth client", async () => {
-		const user = userEvent.setup();
-
 		registerRouteMocks.signUpEmail.mockResolvedValueOnce({
 			error: { message: "Email already in use" },
 		});
 
-		renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({ registrationDisabled: false });
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "ada@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(screen.getByRole("button", { name: "Create Account" }));
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("ada@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Account" }).click();
 
-		await waitFor(() => {
-			expect(registerRouteMocks.toastError).toHaveBeenCalledWith(
-				"Email already in use",
-			);
-		});
+		await expect
+			.poll(() => registerRouteMocks.toastError)
+			.toHaveBeenCalledWith("Email already in use");
 		expect(registerRouteMocks.navigate).not.toHaveBeenCalled();
 	});
 
 	it("shows a fallback toast when sign-up throws", async () => {
-		const user = userEvent.setup();
-
 		registerRouteMocks.signUpEmail.mockRejectedValueOnce(new Error("boom"));
 
-		renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({ registrationDisabled: false });
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "ada@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(screen.getByRole("button", { name: "Create Account" }));
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("ada@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Account" }).click();
 
-		await waitFor(() => {
-			expect(registerRouteMocks.toastError).toHaveBeenCalledWith(
-				"Failed to register",
-			);
-		});
+		await expect
+			.poll(() => registerRouteMocks.toastError)
+			.toHaveBeenCalledWith("Failed to register");
 	});
 });

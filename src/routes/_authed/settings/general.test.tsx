@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const generalRouteMocks = vi.hoisted(() => ({
 	navigatorClipboardWriteText: vi.fn(),
@@ -215,27 +215,34 @@ describe("general route", () => {
 	});
 
 	it("defaults the log level, copies the api key, and regenerates successfully", async () => {
-		const user = userEvent.setup();
 		generalRouteMocks.settingsMap = {};
 
-		const view = renderRoute();
+		await renderRoute();
 
-		expect(view.getByRole("button", { name: "info" })).toBeInTheDocument();
-		await user.click(view.getByRole("button", { name: "Copy" }));
+		await expect
+			.element(page.getByRole("button", { name: "info", exact: true }))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Copy" }).click();
 
-		await user.click(view.getByRole("button", { name: /Regenerate API Key/ }));
-		await user.click(view.getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: /Regenerate API Key/ }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(generalRouteMocks.regenerateApiKey.mutate).toHaveBeenCalledTimes(1);
-		expect(view.getByDisplayValue("new-api-key")).toBeInTheDocument();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="new-api-key"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
 
-		await user.click(view.getByRole("button", { name: "Error" }));
-		await user.click(view.getByRole("button", { name: "Save Settings" }));
+		await page.getByRole("button", { name: "Error" }).click();
+		await page.getByRole("button", { name: "Save Settings" }).click();
 		expect(generalRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{ key: "general.logLevel", value: "error" },
 		]);
 	});
 
-	it("keeps the pending controls disabled", () => {
+	it("keeps the pending controls disabled", async () => {
 		generalRouteMocks.settingsMap = {
 			"general.apiKey": "existing-key",
 			"general.logLevel": "warn",
@@ -243,11 +250,23 @@ describe("general route", () => {
 		generalRouteMocks.regenerateApiKey.isPending = true;
 		generalRouteMocks.updateSettings.isPending = true;
 
-		const view = renderRoute();
+		await renderRoute();
 
-		expect(view.getByRole("button", { name: "Saving..." })).toBeDisabled();
-		expect(view.getByRole("button", { name: /Regenerating/ })).toBeDisabled();
-		expect(view.getByDisplayValue("existing-key")).toBeInTheDocument();
-		expect(view.getByRole("button", { name: "warn" })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Saving..." }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: /Regenerating/ }))
+			.toBeDisabled();
+		await expect
+			.element(
+				page.elementLocator(
+					document.querySelector('input[value="existing-key"]') as HTMLElement,
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "warn", exact: true }))
+			.toBeInTheDocument();
 	});
 });

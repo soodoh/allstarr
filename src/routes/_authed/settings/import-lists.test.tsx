@@ -1,7 +1,7 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 let activeTabsValue = "books";
 let activeTabsSetValue: ((value: string) => void) | undefined;
@@ -61,6 +61,10 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (config: unknown) => config,
+}));
+
+vi.mock("src/lib/admin-route", () => ({
+	requireAdminBeforeLoad: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -234,15 +238,15 @@ describe("import lists route", () => {
 		importListsRouteMocks.movieItems = [];
 	});
 
-	it("shows the empty books tab", () => {
-		renderWithProviders(<RouteComponent.component />);
+	it("shows the empty books tab", async () => {
+		await renderWithProviders(<RouteComponent.component />);
 
-		expect(screen.getByTestId("empty-state-title")).toHaveTextContent(
-			"No exclusions",
-		);
-		expect(screen.getByTestId("empty-state-description")).toHaveTextContent(
-			"Books excluded from import lists will appear here.",
-		);
+		await expect
+			.element(page.getByTestId("empty-state-title"))
+			.toHaveTextContent("No exclusions");
+		await expect
+			.element(page.getByTestId("empty-state-description"))
+			.toHaveTextContent("Books excluded from import lists will appear here.");
 	});
 
 	it("renders books and removes a book exclusion through the confirm dialog", async () => {
@@ -255,18 +259,18 @@ describe("import lists route", () => {
 			},
 		];
 
-		renderWithProviders(<RouteComponent.component />);
+		await renderWithProviders(<RouteComponent.component />);
 
-		expect(screen.getByText("Book Import")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-		expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+		await expect.element(page.getByText("Book Import")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Remove" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "confirm" }).click();
 
-		await waitFor(() =>
-			expect(
-				importListsRouteMocks.removeBookImportExclusionFn,
-			).toHaveBeenCalledWith({ data: { id: 1 } }),
-		);
+		await expect
+			.poll(() => importListsRouteMocks.removeBookImportExclusionFn)
+			.toHaveBeenCalledWith({ data: { id: 1 } });
 		expect(importListsRouteMocks.toast.success).toHaveBeenCalledWith(
 			"Exclusion removed",
 		);
@@ -288,19 +292,17 @@ describe("import lists route", () => {
 		];
 		activeTabsValue = "movies";
 
-		renderWithProviders(<RouteComponent.component />);
+		await renderWithProviders(<RouteComponent.component />);
 
-		expect(screen.getByText("Movie Import")).toBeInTheDocument();
-		expect(screen.getByText("—")).toBeInTheDocument();
+		await expect.element(page.getByText("Movie Import")).toBeInTheDocument();
+		await expect.element(page.getByText("—")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-		fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+		await page.getByRole("button", { name: "Remove" }).click();
+		await page.getByRole("button", { name: "confirm" }).click();
 
-		await waitFor(() =>
-			expect(
-				importListsRouteMocks.removeMovieImportExclusionFn,
-			).toHaveBeenCalledWith({ data: { id: 7 } }),
-		);
+		await expect
+			.poll(() => importListsRouteMocks.removeMovieImportExclusionFn)
+			.toHaveBeenCalledWith({ data: { id: 7 } });
 		expect(
 			importListsRouteMocks.queryClient.invalidateQueries,
 		).toHaveBeenCalledWith({
@@ -311,7 +313,7 @@ describe("import lists route", () => {
 		);
 	});
 
-	it("closes the confirm dialog without mutating when cancelled", () => {
+	it("closes the confirm dialog without mutating when cancelled", async () => {
 		importListsRouteMocks.bookItems = [
 			{
 				authorName: "Author One",
@@ -321,14 +323,18 @@ describe("import lists route", () => {
 			},
 		];
 
-		renderWithProviders(<RouteComponent.component />);
+		await renderWithProviders(<RouteComponent.component />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-		expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Remove" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+		await page.getByRole("button", { name: "cancel" }).click();
 
-		expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.not.toBeInTheDocument();
 		expect(
 			importListsRouteMocks.removeBookImportExclusionFn,
 		).not.toHaveBeenCalled();
@@ -348,14 +354,12 @@ describe("import lists route", () => {
 			new Error("nope"),
 		);
 
-		renderWithProviders(<RouteComponent.component />);
-		fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-		fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+		await renderWithProviders(<RouteComponent.component />);
+		await page.getByRole("button", { name: "Remove" }).click();
+		await page.getByRole("button", { name: "confirm" }).click();
 
-		await waitFor(() =>
-			expect(importListsRouteMocks.toast.error).toHaveBeenCalledWith(
-				"Failed to remove exclusion",
-			),
-		);
+		await expect
+			.poll(() => importListsRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Failed to remove exclusion");
 	});
 });

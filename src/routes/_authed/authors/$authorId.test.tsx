@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const authorDetailRouteMocks = vi.hoisted(() => ({
 	author: null as null | Record<string, unknown>,
@@ -859,7 +859,7 @@ describe("AuthorDetailRoute", () => {
 		).rejects.toBe(upstreamError);
 	});
 
-	it("renders the books tab and wires row navigation, sorting, and profile monitoring", () => {
+	it("renders the books tab and wires row navigation, sorting, and profile monitoring", async () => {
 		authorDetailRouteMocks.author = {
 			availableLanguages: [
 				{ language: "English", languageCode: "en" },
@@ -974,34 +974,41 @@ describe("AuthorDetailRoute", () => {
 			component: () => ReactNode;
 		};
 
-		const { getAllByRole, getAllByTestId, getByRole, getByTestId } =
-			renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Isaac Asimov");
-		expect(getByTestId("page-header-description")).toHaveTextContent(
-			"1920-1992",
-		);
-		expect(getByTestId("column-settings-popover")).toHaveTextContent(
-			"author-books",
-		);
-		expect(getByTestId("base-book-table-items")).toBeInTheDocument();
-		expect(getAllByTestId("profile-toggle-icons")[0]).toHaveTextContent("4K");
-		expect(getAllByTestId("profile-toggle-icons-partial")[0]).toHaveTextContent(
-			"11",
-		);
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Isaac Asimov");
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.toHaveTextContent("1920-1992");
+		await expect
+			.element(page.getByTestId("column-settings-popover"))
+			.toHaveTextContent("author-books");
+		await expect
+			.element(page.getByTestId("base-book-table-items"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("profile-toggle-icons").first())
+			.toHaveTextContent("4K");
+		await expect
+			.element(page.getByTestId("profile-toggle-icons-partial").first())
+			.toHaveTextContent("11");
 
-		fireEvent.click(getByRole("button", { name: "sort-title" }));
+		await page.getByRole("button").first().click();
+
+		await page.getByRole("button", { name: "sort-title" }).click();
 		expect(
 			authorDetailRouteMocks.authorBooksInfiniteQuery,
 		).toHaveBeenLastCalledWith(7, "", "en", "title", "asc");
 
-		fireEvent.click(getByRole("button", { name: "Foundation" }));
+		await page.getByRole("button", { name: "Foundation" }).click();
 		expect(authorDetailRouteMocks.navigate).toHaveBeenCalledWith({
 			params: { bookId: "1" },
 			to: "/books/$bookId",
 		});
 
-		fireEvent.click(getAllByRole("button", { name: "toggle-4K" })[0]);
+		await page.getByRole("button", { name: "toggle-4K" }).first().click();
 		expect(authorDetailRouteMocks.bulkMonitorBook.mutate).toHaveBeenCalledWith(
 			{
 				bookIds: [1, 2],
@@ -1011,7 +1018,7 @@ describe("AuthorDetailRoute", () => {
 		);
 	});
 
-	it("renders the author chrome and series fallback state", () => {
+	it("renders the author chrome and series fallback state", async () => {
 		authorDetailRouteMocks.author = {
 			availableLanguages: [{ language: "English", languageCode: "en" }],
 			bio: null,
@@ -1037,19 +1044,26 @@ describe("AuthorDetailRoute", () => {
 			component: () => ReactNode;
 		};
 
-		const { getByRole, getByTestId, queryByTestId, queryByText } =
-			renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent("Isaac Asimov");
-		expect(queryByTestId("page-header-description")).toBeNull();
-		expect(queryByTestId("profile-toggle-icons")).toBeNull();
-		expect(queryByText("Bio")).toBeNull();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Isaac Asimov");
+		await expect
+			.element(page.getByTestId("page-header-description"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("profile-toggle-icons"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("Bio")).not.toBeInTheDocument();
 
-		fireEvent.click(getByRole("button", { name: "Series" }));
-		expect(queryByText("No series found for this author.")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Series" }).click();
+		await expect
+			.element(page.getByText("No series found for this author."))
+			.toBeInTheDocument();
 	});
 
-	it("refreshes metadata, edits, deletes, and unmonitors active profiles", () => {
+	it("refreshes metadata, edits, deletes, and unmonitors active profiles", async () => {
 		authorDetailRouteMocks.author = {
 			availableLanguages: [
 				{ language: "English", languageCode: "en" },
@@ -1158,15 +1172,14 @@ describe("AuthorDetailRoute", () => {
 			component: () => ReactNode;
 		};
 
-		const { getAllByRole, getByRole, getByTestId, queryByTestId } =
-			renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		fireEvent.click(getByRole("button", { name: "refresh" }));
+		await page.getByRole("button", { name: "refresh" }).click();
 		expect(authorDetailRouteMocks.invalidate).toHaveBeenCalledTimes(1);
 
-		fireEvent.click(getByRole("button", { name: "edit" }));
-		expect(getByTestId("author-form")).toBeInTheDocument();
-		fireEvent.click(getByRole("button", { name: "save" }));
+		await page.getByRole("button", { name: "edit" }).click();
+		await expect.element(page.getByTestId("author-form")).toBeInTheDocument();
+		await page.getByRole("button", { name: "save" }).click();
 		expect(authorDetailRouteMocks.updateAuthor.mutate).toHaveBeenCalledWith(
 			{
 				id: 7,
@@ -1177,9 +1190,11 @@ describe("AuthorDetailRoute", () => {
 		);
 		expect(authorDetailRouteMocks.invalidate).toHaveBeenCalledTimes(2);
 
-		fireEvent.click(getByRole("button", { name: "delete" }));
-		expect(getByTestId("confirm-dialog")).toHaveTextContent("Delete Author");
-		fireEvent.click(getByRole("button", { name: "confirm" }));
+		await page.getByRole("button", { name: "delete" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toHaveTextContent("Delete Author");
+		await page.getByRole("button", { name: "confirm" }).click();
 		expect(authorDetailRouteMocks.deleteAuthor.mutate).toHaveBeenCalledWith(
 			7,
 			expect.any(Object),
@@ -1188,9 +1203,11 @@ describe("AuthorDetailRoute", () => {
 			to: "/authors",
 		});
 
-		fireEvent.click(getAllByRole("button", { name: "toggle-4K" })[0]);
-		expect(getByTestId("unmonitor-dialog")).toHaveTextContent("4K");
-		fireEvent.click(getByRole("button", { name: "confirm-unmonitor" }));
+		await page.getByRole("button", { name: "toggle-4K" }).first().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
+		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
 		expect(
 			authorDetailRouteMocks.bulkUnmonitorBook.mutate,
 		).toHaveBeenCalledWith(
@@ -1201,6 +1218,8 @@ describe("AuthorDetailRoute", () => {
 			},
 			expect.any(Object),
 		);
-		expect(queryByTestId("unmonitor-dialog")).toBeNull();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
 	});
 });

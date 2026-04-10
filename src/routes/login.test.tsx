@@ -1,8 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type LoaderData = {
 	oidcProviders: Array<{
@@ -105,84 +104,74 @@ describe("login route", () => {
 	});
 
 	it("signs in with email and navigates home on success", async () => {
-		const user = userEvent.setup();
-
 		loginRouteMocks.signInEmail.mockResolvedValueOnce({ error: null });
 
-		renderLoginRoute({
+		await renderLoginRoute({
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
 
-		await user.type(screen.getByLabelText("Email"), "user@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(screen.getByRole("button", { name: "Sign In" }));
+		await page.getByLabelText("Email").fill("user@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Sign In" }).click();
 
-		await waitFor(() => {
-			expect(loginRouteMocks.signInEmail).toHaveBeenCalledWith({
+		await expect
+			.poll(() => loginRouteMocks.signInEmail)
+			.toHaveBeenCalledWith({
 				email: "user@example.com",
 				password: "secret123",
 			});
-			expect(loginRouteMocks.navigate).toHaveBeenCalledWith({ to: "/" });
-		});
+		await expect
+			.poll(() => loginRouteMocks.navigate)
+			.toHaveBeenCalledWith({
+				to: "/",
+			});
 	});
 
 	it("shows the sign-in error returned by the auth client", async () => {
-		const user = userEvent.setup();
-
 		loginRouteMocks.signInEmail.mockResolvedValueOnce({
 			error: { message: "Bad credentials" },
 		});
 
-		renderLoginRoute({
+		await renderLoginRoute({
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
 
-		await user.type(screen.getByLabelText("Email"), "user@example.com");
-		await user.type(screen.getByLabelText("Password"), "wrong");
-		await user.click(screen.getByRole("button", { name: "Sign In" }));
+		await page.getByLabelText("Email").fill("user@example.com");
+		await page.getByLabelText("Password").fill("wrong");
+		await page.getByRole("button", { name: "Sign In" }).click();
 
-		await waitFor(() => {
-			expect(loginRouteMocks.toastError).toHaveBeenCalledWith(
-				"Bad credentials",
-			);
-		});
+		await expect
+			.poll(() => loginRouteMocks.toastError)
+			.toHaveBeenCalledWith("Bad credentials");
 		expect(loginRouteMocks.navigate).not.toHaveBeenCalled();
 	});
 
 	it("shows a fallback toast when sign-in throws", async () => {
-		const user = userEvent.setup();
-
 		loginRouteMocks.signInEmail.mockRejectedValueOnce(new Error("boom"));
 
-		renderLoginRoute({
+		await renderLoginRoute({
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
 
-		await user.type(screen.getByLabelText("Email"), "user@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(screen.getByRole("button", { name: "Sign In" }));
+		await page.getByLabelText("Email").fill("user@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Sign In" }).click();
 
-		await waitFor(() => {
-			expect(loginRouteMocks.toastError).toHaveBeenCalledWith(
-				"Failed to sign in",
-			);
-		});
+		await expect
+			.poll(() => loginRouteMocks.toastError)
+			.toHaveBeenCalledWith("Failed to sign in");
 	});
 
 	it("starts OIDC sign-in when a provider button is clicked", async () => {
-		const user = userEvent.setup();
-
-		renderLoginRoute({
+		await renderLoginRoute({
 			oidcProviders: [{ displayName: "GitHub", providerId: "github" }],
 			registrationDisabled: false,
 		});
 
-		await user.click(
-			screen.getByRole("button", { name: "Sign in with GitHub" }),
-		);
+		await page.getByRole("button", { name: "Sign in with GitHub" }).click();
 
 		expect(loginRouteMocks.signInOauth2).toHaveBeenCalledWith({
 			callbackURL: "/",
@@ -191,23 +180,17 @@ describe("login route", () => {
 	});
 
 	it("shows a toast when OIDC sign-in fails", async () => {
-		const user = userEvent.setup();
-
 		loginRouteMocks.signInOauth2.mockRejectedValueOnce(new Error("boom"));
 
-		renderLoginRoute({
+		await renderLoginRoute({
 			oidcProviders: [{ displayName: "GitHub", providerId: "github" }],
 			registrationDisabled: false,
 		});
 
-		await user.click(
-			screen.getByRole("button", { name: "Sign in with GitHub" }),
-		);
+		await page.getByRole("button", { name: "Sign in with GitHub" }).click();
 
-		await waitFor(() => {
-			expect(loginRouteMocks.toastError).toHaveBeenCalledWith(
-				"Failed to sign in with provider",
-			);
-		});
+		await expect
+			.poll(() => loginRouteMocks.toastError)
+			.toHaveBeenCalledWith("Failed to sign in with provider");
 	});
 });

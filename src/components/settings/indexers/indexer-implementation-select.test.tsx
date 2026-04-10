@@ -1,19 +1,18 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import IndexerImplementationSelect from "./indexer-implementation-select";
 
 describe("IndexerImplementationSelect", () => {
 	it("selects the Newznab usenet implementation", async () => {
-		const user = userEvent.setup();
 		const onSelect = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerImplementationSelect onCancel={vi.fn()} onSelect={onSelect} />,
 		);
 
-		await user.click(getByRole("button", { name: /Newznab/i }));
+		await page.getByRole("button", { name: /Newznab/i }).click();
 
 		expect(onSelect).toHaveBeenCalledWith({
 			implementation: "Newznab",
@@ -22,14 +21,13 @@ describe("IndexerImplementationSelect", () => {
 	});
 
 	it("selects the Torznab torrent implementation", async () => {
-		const user = userEvent.setup();
 		const onSelect = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerImplementationSelect onCancel={vi.fn()} onSelect={onSelect} />,
 		);
 
-		await user.click(getByRole("button", { name: /Torznab/i }));
+		await page.getByRole("button", { name: /Torznab/i }).click();
 
 		expect(onSelect).toHaveBeenCalledWith({
 			implementation: "Torznab",
@@ -38,14 +36,13 @@ describe("IndexerImplementationSelect", () => {
 	});
 
 	it("cancels from the footer action", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerImplementationSelect onCancel={onCancel} onSelect={vi.fn()} />,
 		);
 
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});

@@ -1,7 +1,7 @@
-import { fireEvent, screen } from "@testing-library/react";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 function createMutation<TArg = unknown, TResult = unknown>(result?: TResult) {
 	return {
@@ -93,6 +93,10 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (config: unknown) => config,
+}));
+
+vi.mock("src/lib/admin-route", () => ({
+	requireAdminBeforeLoad: vi.fn(),
 }));
 
 vi.mock("src/components/shared/page-header", () => ({
@@ -388,22 +392,28 @@ describe("indexers route", () => {
 			expect.objectContaining({ queryKey: ["download-clients", "list"] }),
 		);
 
-		renderWithProviders(<routeConfig.component />);
+		await renderWithProviders(<routeConfig.component />);
 
-		expect(screen.getByTestId("indexer-count")).toHaveTextContent("1");
-		expect(screen.getByTestId("synced-count")).toHaveTextContent("1");
-		expect(screen.getByTestId("status-count")).toHaveTextContent("1");
+		await expect
+			.element(page.getByTestId("indexer-count"))
+			.toHaveTextContent("1");
+		await expect
+			.element(page.getByTestId("synced-count"))
+			.toHaveTextContent("1");
+		await expect
+			.element(page.getByTestId("status-count"))
+			.toHaveTextContent("1");
 
-		fireEvent.click(screen.getByRole("button", { name: "Add Indexer" }));
-		expect(
-			screen.getByTestId("indexer-implementation-select"),
-		).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Torznab" }));
-		expect(screen.getByTestId("indexer-form")).toBeInTheDocument();
-		expect(
-			screen.getByTestId("indexer-form-request-interval"),
-		).toHaveTextContent("0");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "Add Indexer" }).click();
+		await expect
+			.element(page.getByTestId("indexer-implementation-select"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Torznab" }).click();
+		await expect.element(page.getByTestId("indexer-form")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("indexer-form-request-interval"))
+			.toHaveTextContent("0");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(indexersRouteMocks.createIndexer.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				name: "Form Indexer",
@@ -413,19 +423,19 @@ describe("indexers route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "edit" }));
-		expect(screen.getByTestId("indexer-form-implementation")).toHaveTextContent(
-			"Newznab",
-		);
-		expect(screen.getByTestId("indexer-form-categories")).toHaveTextContent(
-			"0",
-		);
-		expect(
-			screen.getByTestId("indexer-form-request-interval"),
-		).toHaveTextContent("5");
-		fireEvent.click(screen.getByRole("button", { name: "submit" }));
+		await page.getByRole("button", { name: "edit" }).click();
+		await expect
+			.element(page.getByTestId("indexer-form-implementation"))
+			.toHaveTextContent("Newznab");
+		await expect
+			.element(page.getByTestId("indexer-form-categories"))
+			.toHaveTextContent("0");
+		await expect
+			.element(page.getByTestId("indexer-form-request-interval"))
+			.toHaveTextContent("5");
+		await page.getByRole("button", { name: "submit" }).click();
 		expect(indexersRouteMocks.updateIndexer.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				id: 1,
@@ -435,11 +445,11 @@ describe("indexers route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+		await expect.element(page.getByTestId("dialog")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "view-synced" }));
-		expect(screen.getByTestId("synced-dialog")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "save" }));
+		await page.getByRole("button", { name: "view-synced" }).click();
+		await expect.element(page.getByTestId("synced-dialog")).toBeInTheDocument();
+		await page.getByRole("button", { name: "save" }).click();
 		expect(indexersRouteMocks.updateSyncedIndexer.mutate).toHaveBeenCalledWith(
 			{
 				dailyGrabLimit: 1,
@@ -453,9 +463,11 @@ describe("indexers route", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(screen.queryByTestId("synced-dialog")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("synced-dialog"))
+			.not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "delete" }));
+		await page.getByRole("button", { name: "delete" }).click();
 		expect(indexersRouteMocks.deleteIndexer.mutate).toHaveBeenCalledWith(1);
 	});
 });

@@ -1,8 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { JSX } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const setupRouteMocks = vi.hoisted(() => ({
 	hasUsersFn: vi.fn(),
@@ -53,7 +52,6 @@ describe("setup route", () => {
 	});
 
 	it("creates the initial admin account and navigates home", async () => {
-		const user = userEvent.setup();
 		const route = Route as unknown as {
 			component: () => JSX.Element;
 		};
@@ -61,30 +59,29 @@ describe("setup route", () => {
 
 		setupRouteMocks.signUpEmail.mockResolvedValueOnce({ error: null });
 
-		renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "admin@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(
-			screen.getByRole("button", { name: "Create Admin Account" }),
-		);
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("admin@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Admin Account" }).click();
 
-		await waitFor(() => {
-			expect(setupRouteMocks.signUpEmail).toHaveBeenCalledWith({
+		await expect
+			.poll(() => setupRouteMocks.signUpEmail)
+			.toHaveBeenCalledWith({
 				email: "admin@example.com",
 				name: "Ada Lovelace",
 				password: "secret123",
 			});
-			expect(setupRouteMocks.toastSuccess).toHaveBeenCalledWith(
-				"Admin account created!",
-			);
-			expect(setupRouteMocks.navigate).toHaveBeenCalledWith({ to: "/" });
-		});
+		await expect
+			.poll(() => setupRouteMocks.toastSuccess)
+			.toHaveBeenCalledWith("Admin account created!");
+		await expect
+			.poll(() => setupRouteMocks.navigate)
+			.toHaveBeenCalledWith({ to: "/" });
 	});
 
 	it("shows the auth client error when setup account creation fails", async () => {
-		const user = userEvent.setup();
 		const route = Route as unknown as {
 			component: () => JSX.Element;
 		};
@@ -94,23 +91,20 @@ describe("setup route", () => {
 			error: { message: "Setup failed" },
 		});
 
-		renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "admin@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(
-			screen.getByRole("button", { name: "Create Admin Account" }),
-		);
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("admin@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Admin Account" }).click();
 
-		await waitFor(() => {
-			expect(setupRouteMocks.toastError).toHaveBeenCalledWith("Setup failed");
-		});
+		await expect
+			.poll(() => setupRouteMocks.toastError)
+			.toHaveBeenCalledWith("Setup failed");
 		expect(setupRouteMocks.navigate).not.toHaveBeenCalled();
 	});
 
 	it("shows a fallback toast when setup throws", async () => {
-		const user = userEvent.setup();
 		const route = Route as unknown as {
 			component: () => JSX.Element;
 		};
@@ -118,19 +112,15 @@ describe("setup route", () => {
 
 		setupRouteMocks.signUpEmail.mockRejectedValueOnce(new Error("boom"));
 
-		renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "admin@example.com");
-		await user.type(screen.getByLabelText("Password"), "secret123");
-		await user.click(
-			screen.getByRole("button", { name: "Create Admin Account" }),
-		);
+		await page.getByLabelText("Name").fill("Ada Lovelace");
+		await page.getByLabelText("Email").fill("admin@example.com");
+		await page.getByLabelText("Password").fill("secret123");
+		await page.getByRole("button", { name: "Create Admin Account" }).click();
 
-		await waitFor(() => {
-			expect(setupRouteMocks.toastError).toHaveBeenCalledWith(
-				"Failed to create account",
-			);
-		});
+		await expect
+			.poll(() => setupRouteMocks.toastError)
+			.toHaveBeenCalledWith("Failed to create account");
 	});
 });

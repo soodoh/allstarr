@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import { createContext, type ReactNode, useContext } from "react";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const selectContext = createContext<{
 	onValueChange?: (value: string) => void;
@@ -139,7 +139,6 @@ const baseSpec = {
 
 describe("SpecificationBuilder", () => {
 	it("renders type-specific inputs and adds a new condition", async () => {
-		const user = userEvent.setup();
 		const onChange = vi.fn();
 		const value = [
 			baseSpec,
@@ -167,23 +166,28 @@ describe("SpecificationBuilder", () => {
 			} satisfies Spec,
 		];
 
-		const { getByRole, getByText, getAllByPlaceholderText } =
-			renderWithProviders(
-				<SpecificationBuilder onChange={onChange} value={value} />,
-			);
+		await renderWithProviders(
+			<SpecificationBuilder onChange={onChange} value={value} />,
+		);
 
-		expect(
-			getByText(
-				"All required conditions AND at least one optional condition must match.",
-			),
-		).toBeInTheDocument();
-		expect(getAllByPlaceholderText("Regex pattern...")).toHaveLength(1);
-		expect(getAllByPlaceholderText("Min")).toHaveLength(1);
-		expect(getAllByPlaceholderText("Max")).toHaveLength(1);
-		expect(getAllByPlaceholderText("Flag value...")).toHaveLength(1);
-		expect(getByRole("button", { name: "WEB-DL" })).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"All required conditions AND at least one optional condition must match.",
+				),
+			)
+			.toBeInTheDocument();
+		expect(await page.getByPlaceholder("Regex pattern...").all()).toHaveLength(
+			1,
+		);
+		expect(await page.getByPlaceholder("Min").all()).toHaveLength(1);
+		expect(await page.getByPlaceholder("Max").all()).toHaveLength(1);
+		expect(await page.getByPlaceholder("Flag value...").all()).toHaveLength(1);
+		await expect
+			.element(page.getByRole("button", { name: "WEB-DL" }))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Add Condition" }));
+		await page.getByRole("button", { name: "Add Condition" }).click();
 
 		expect(onChange).toHaveBeenCalledWith([
 			...value,
@@ -198,10 +202,9 @@ describe("SpecificationBuilder", () => {
 	});
 
 	it("resets value fields when the spec type changes and toggles booleans", async () => {
-		const user = userEvent.setup();
 		const onChange = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<SpecificationBuilder
 				onChange={onChange}
 				value={[
@@ -216,7 +219,7 @@ describe("SpecificationBuilder", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Size" }));
+		await page.getByRole("button", { name: "Size" }).click();
 
 		expect(onChange).toHaveBeenNthCalledWith(1, [
 			expect.objectContaining({

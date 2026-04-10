@@ -1,9 +1,8 @@
 import type { DragEndEvent } from "@dnd-kit/core";
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const tierGroupListMocks = vi.hoisted(() => ({
 	dndContext: vi.fn(),
@@ -81,8 +80,8 @@ describe("TierGroupList", () => {
 		tierGroupListMocks.dndContext.mockClear();
 	});
 
-	it("shows the empty state when no groups exist", () => {
-		const { getByText } = renderWithProviders(
+	it("shows the empty state when no groups exist", async () => {
+		await renderWithProviders(
 			<TierGroupList
 				cutoff={0}
 				downloadFormats={downloadFormats}
@@ -93,16 +92,19 @@ describe("TierGroupList", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No formats added. Use the search above to add formats."),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"No formats added. Use the search above to add formats.",
+				),
+			)
+			.toBeInTheDocument();
 	});
 
 	it("supports splitting, merging, removing, cutoff labeling, and drag reordering", async () => {
-		const user = userEvent.setup();
 		const onChange = vi.fn();
 		const onRemoveFormat = vi.fn();
-		const { container, getByText } = renderWithProviders(
+		const { container } = await renderWithProviders(
 			<TierGroupList
 				cutoff={2}
 				downloadFormats={downloadFormats}
@@ -115,25 +117,25 @@ describe("TierGroupList", () => {
 
 		const rows = container.querySelectorAll("div.rounded-md.border.px-3.py-2");
 		expect(rows).toHaveLength(2);
-		expect(getByText("Cutoff")).toBeInTheDocument();
+		await expect.element(page.getByText("Cutoff")).toBeInTheDocument();
 
-		const firstRowButtons = within(rows[0] as HTMLDivElement).getAllByRole(
-			"button",
+		const firstRowButtons = (rows[0] as HTMLDivElement).querySelectorAll(
+			"[role='button'], button",
 		);
-		const secondRowButtons = within(rows[1] as HTMLDivElement).getAllByRole(
-			"button",
+		const secondRowButtons = (rows[1] as HTMLDivElement).querySelectorAll(
+			"[role='button'], button",
 		);
 
-		await user.click(firstRowButtons[1]);
+		await (firstRowButtons[1] as HTMLElement).click();
 		expect(onRemoveFormat).toHaveBeenCalledWith(1);
 
-		await user.click(firstRowButtons[firstRowButtons.length - 1]);
+		await (firstRowButtons[firstRowButtons.length - 1] as HTMLElement).click();
 		expect(onChange).toHaveBeenLastCalledWith([[1], [2], [3]]);
 
-		await user.click(secondRowButtons[1]);
+		await (secondRowButtons[1] as HTMLElement).click();
 		expect(onChange).toHaveBeenLastCalledWith([[1, 2, 3]]);
 
-		await user.click(secondRowButtons[2]);
+		await (secondRowButtons[2] as HTMLElement).click();
 		expect(onRemoveFormat).toHaveBeenLastCalledWith(3);
 
 		const dndProps = tierGroupListMocks.dndContext.mock.calls.at(-1)?.[0] as {

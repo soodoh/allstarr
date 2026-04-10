@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const addMissingMoviesDialogMocks = vi.hoisted(() => ({
 	allProfiles: [
@@ -163,35 +163,37 @@ describe("AddMissingMoviesDialog", () => {
 		});
 	});
 
-	it("hydrates the default options when the dialog opens", () => {
-		const { getAllByRole, getByLabelText, getByRole, getByText, queryByText } =
-			renderWithProviders(
-				<AddMissingMoviesDialog
-					collection={{
-						id: 1,
-						missingMovies: 2,
-						title: "Dune Collection",
-					}}
-					onOpenChange={vi.fn()}
-					open
-				/>,
-			);
+	it("hydrates the default options when the dialog opens", async () => {
+		await renderWithProviders(
+			<AddMissingMoviesDialog
+				collection={{
+					id: 1,
+					missingMovies: 2,
+					title: "Dune Collection",
+				}}
+				onOpenChange={vi.fn()}
+				open
+			/>,
+		);
 
-		expect(
-			getByRole("heading", { name: "Add Missing Movies" }),
-		).toBeInTheDocument();
-		expect(
-			getByText("Add 2 missing movies to Dune Collection"),
-		).toBeInTheDocument();
-		expect(getByLabelText("4K")).toBeChecked();
-		expect(getByLabelText("HD")).toBeChecked();
-		expect(queryByText("TV Only")).not.toBeInTheDocument();
-		expect(getAllByRole("combobox")[0]).toHaveValue("movieAndCollection");
-		expect(getByLabelText("Start search for missing movies")).not.toBeChecked();
+		await expect
+			.element(page.getByRole("heading", { name: "Add Missing Movies" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Add 2 missing movies to Dune Collection"))
+			.toBeInTheDocument();
+		await expect.element(page.getByLabelText("4K")).toBeChecked();
+		await expect.element(page.getByLabelText("HD")).toBeChecked();
+		await expect.element(page.getByText("TV Only")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("combobox").first())
+			.toHaveValue("movieAndCollection");
+		await expect
+			.element(page.getByLabelText("Start search for missing movies"))
+			.not.toBeChecked();
 	});
 
 	it("requires a profile unless monitoring is disabled, then submits and closes", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		addMissingMoviesDialogMocks.addMissing.mutate.mockImplementation(
 			(_payload: unknown, options?: { onSuccess?: () => void }) => {
@@ -199,7 +201,7 @@ describe("AddMissingMoviesDialog", () => {
 			},
 		);
 
-		const { getAllByRole, getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<AddMissingMoviesDialog
 				collection={{
 					id: 2,
@@ -211,13 +213,15 @@ describe("AddMissingMoviesDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("4K"));
-		await user.click(getByLabelText("HD"));
-		expect(getByRole("button", { name: "Add 1 Movie" })).toBeDisabled();
+		await page.getByLabelText("4K").click();
+		await page.getByLabelText("HD").click();
+		await expect
+			.element(page.getByRole("button", { name: "Add 1 Movie" }))
+			.toBeDisabled();
 
-		await user.selectOptions(getAllByRole("combobox")[0], "none");
-		await user.click(getByLabelText("Start search for missing movies"));
-		await user.click(getByRole("button", { name: "Add 1 Movie" }));
+		await userEvent.selectOptions(page.getByRole("combobox").first(), "none");
+		await page.getByLabelText("Start search for missing movies").click();
+		await page.getByRole("button", { name: "Add 1 Movie" }).click();
 
 		expect(addMissingMoviesDialogMocks.addMissing.mutate).toHaveBeenCalledWith(
 			{

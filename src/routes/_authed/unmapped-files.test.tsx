@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { JSX, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const unmappedFilesRouteMocks = vi.hoisted(() => ({
 	invalidateQueries: vi.fn(),
@@ -132,28 +132,31 @@ describe("unmapped files route", () => {
 		);
 
 		const Pending = route.pendingComponent;
-		const pendingView = renderWithProviders(<Pending />);
-		expect(pendingView.getByTestId("table-skeleton")).toBeInTheDocument();
+		await renderWithProviders(<Pending />);
+		await expect
+			.element(page.getByTestId("table-skeleton"))
+			.toBeInTheDocument();
 	});
 
 	it("rescans all root folders, invalidates the list query, and shows a success toast", async () => {
-		const user = userEvent.setup();
 		const route = Route as unknown as {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const { getByRole, getByTestId } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		expect(getByTestId("page-header-title")).toHaveTextContent(
-			"Unmapped Files",
-		);
-		expect(getByTestId("unmapped-files-table")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("page-header-title"))
+			.toHaveTextContent("Unmapped Files");
+		await expect
+			.element(page.getByTestId("unmapped-files-table"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: /Rescan All/i }));
+		await page.getByRole("button", { name: /Rescan All/i }).click();
 
-		expect(
-			unmappedFilesRouteMocks.rescanAllRootFoldersFn,
-		).toHaveBeenCalledTimes(1);
+		await expect
+			.poll(() => unmappedFilesRouteMocks.rescanAllRootFoldersFn)
+			.toHaveBeenCalledTimes(1);
 		expect(unmappedFilesRouteMocks.invalidateQueries).toHaveBeenCalledWith({
 			queryKey: ["unmappedFiles"],
 		});
@@ -164,7 +167,6 @@ describe("unmapped files route", () => {
 	});
 
 	it("shows an error toast when rescanning fails", async () => {
-		const user = userEvent.setup();
 		unmappedFilesRouteMocks.rescanAllRootFoldersFn.mockRejectedValueOnce(
 			new Error("nope"),
 		);
@@ -173,12 +175,12 @@ describe("unmapped files route", () => {
 			component: () => JSX.Element;
 		};
 		const Component = route.component;
-		const { getByRole } = renderWithProviders(<Component />);
+		await renderWithProviders(<Component />);
 
-		await user.click(getByRole("button", { name: /Rescan All/i }));
+		await page.getByRole("button", { name: /Rescan All/i }).click();
 
-		expect(unmappedFilesRouteMocks.toast.error).toHaveBeenCalledWith(
-			"Rescan failed",
-		);
+		await expect
+			.poll(() => unmappedFilesRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Rescan failed");
 	});
 });

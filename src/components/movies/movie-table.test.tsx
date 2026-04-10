@@ -1,7 +1,7 @@
-import { fireEvent } from "@testing-library/react";
 import type { MouseEventHandler, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const movieTableMocks = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -152,6 +152,8 @@ vi.mock("src/hooks/use-table-columns", () => ({
 }));
 
 vi.mock("src/lib/utils", () => ({
+	cn: (...values: Array<string | false | null | undefined>) =>
+		values.filter(Boolean).join(" "),
 	resizeTmdbUrl: (url: string, size: string) => `resized:${url}:${size}`,
 }));
 
@@ -198,9 +200,9 @@ describe("MovieTable", () => {
 		movieTableMocks.useTableColumns.mockReturnValue({ visibleColumns });
 	});
 
-	it("renders sortable rows, fallback content, and navigates on row clicks", () => {
+	it("renders sortable rows, fallback content, and navigates on row clicks", async () => {
 		const onToggleProfile = vi.fn();
-		const { container, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MovieTable
 				downloadProfiles={[
 					{ icon: "film", id: 7, name: "4K" },
@@ -211,58 +213,61 @@ describe("MovieTable", () => {
 			/>,
 		);
 
-		const rows = Array.from(container.querySelectorAll("tbody tr"));
-		expect(rows[0]).toHaveTextContent("Alien");
-		expect(rows[1]).toHaveTextContent("Blade Runner");
-		expect(getByText("Released")).toHaveClass("bg-green-600");
-		expect(getByText("TBA")).toHaveClass("bg-zinc-600");
-		expect(getByText("—")).toBeInTheDocument();
-		expect(container.querySelector('img[alt="Alien"]')).toHaveAttribute(
-			"src",
-			"resized:/alien.jpg:w185",
-		);
-		expect(container.querySelector('a[href="/movies/1"]')).not.toBeNull();
+		const rows = page.getByRole("row");
+		await expect.element(rows.nth(1)).toHaveTextContent("Alien");
+		await expect.element(rows.nth(2)).toHaveTextContent("Blade Runner");
+		await expect
+			.element(page.getByText("Released"))
+			.toHaveClass("bg-green-600");
+		await expect.element(page.getByText("TBA")).toHaveClass("bg-zinc-600");
+		await expect.element(page.getByText("—")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("img", { name: "Alien" }))
+			.toHaveAttribute("src", "resized:/alien.jpg:w185");
+		await expect
+			.element(page.getByRole("link", { name: "Alien" }))
+			.toHaveAttribute("href", "/movies/1");
 
-		fireEvent.click(getByText("4K"));
+		await page.getByRole("button", { name: "4K" }).click();
 		expect(onToggleProfile).toHaveBeenCalledWith(1, 7);
 
-		fireEvent.click(getByRole("link", { name: "Alien" }));
+		await page.getByRole("link", { name: "Alien" }).click();
 		expect(movieTableMocks.navigate).not.toHaveBeenCalled();
 
-		fireEvent.click(rows[1] as HTMLTableRowElement);
+		await rows.nth(2).click();
 		expect(movieTableMocks.navigate).toHaveBeenCalledWith({
 			params: { movieId: "2" },
 			to: "/movies/$movieId",
 		});
 
-		fireEvent.click(getByText("Year"));
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
-			"Blade Runner",
-		);
-		fireEvent.click(getByText("Year"));
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
-			"Alien",
-		);
-		expect(getByText("Custom Label")).toBeInTheDocument();
-		fireEvent.click(getByText("Studio"));
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
-			"Blade Runner",
-		);
-		fireEvent.click(getByText("Studio"));
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
-			"Alien",
-		);
-		fireEvent.click(getByText("Status"));
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
-			"Blade Runner",
-		);
+		await page.getByText("Year").click();
+		await expect
+			.element(page.getByRole("row").nth(1))
+			.toHaveTextContent("Blade Runner");
+		await page.getByText("Year").click();
+		await expect
+			.element(page.getByRole("row").nth(1))
+			.toHaveTextContent("Alien");
+		await expect.element(page.getByText("Custom Label")).toBeInTheDocument();
+		await page.getByText("Studio").click();
+		await expect
+			.element(page.getByRole("row").nth(1))
+			.toHaveTextContent("Blade Runner");
+		await page.getByText("Studio").click();
+		await expect
+			.element(page.getByRole("row").nth(1))
+			.toHaveTextContent("Alien");
+		await page.getByText("Status").click();
+		await expect
+			.element(page.getByRole("row").nth(1))
+			.toHaveTextContent("Blade Runner");
 	});
 
-	it("supports selection mode and header toggles", () => {
+	it("supports selection mode and header toggles", async () => {
 		const onToggleAll = vi.fn();
 		const onToggleSelect = vi.fn();
 		const selectedIds = new Set([1, 2]);
-		const { container, getAllByRole } = renderWithProviders(
+		await renderWithProviders(
 			<MovieTable
 				movies={movies}
 				onToggleAll={onToggleAll}
@@ -272,19 +277,17 @@ describe("MovieTable", () => {
 			/>,
 		);
 
-		const checkboxes = getAllByRole("checkbox");
-		expect(checkboxes[0]).toBeChecked();
-		expect(checkboxes[1]).toBeChecked();
+		const checkboxes = page.getByRole("checkbox");
+		await expect.element(checkboxes.nth(0)).toBeChecked();
+		await expect.element(checkboxes.nth(1)).toBeChecked();
 
-		fireEvent.click(checkboxes[0] as HTMLInputElement);
+		await checkboxes.nth(0).click();
 		expect(onToggleAll).toHaveBeenCalledTimes(1);
 
-		fireEvent.click(checkboxes[1] as HTMLInputElement);
+		await checkboxes.nth(1).click();
 		expect(onToggleSelect).toHaveBeenCalledWith(1);
 
-		fireEvent.click(
-			container.querySelectorAll("tbody tr")[1] as HTMLTableRowElement,
-		);
+		await page.getByRole("row").nth(2).click();
 		expect(onToggleSelect).toHaveBeenCalledWith(2);
 	});
 });

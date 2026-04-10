@@ -1,5 +1,3 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
 	createContext,
 	type JSX,
@@ -9,6 +7,7 @@ import {
 } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type Query = {
 	queryKey?: readonly unknown[];
@@ -312,21 +311,17 @@ describe("metadata route", () => {
 			success: false,
 		});
 
-		const view = renderRoute();
-		const user = userEvent.setup();
+		await renderRoute();
 
-		await user.click(
-			view.getByRole("button", { name: "Save Hardcover Settings" }),
-		);
+		await page.getByRole("button", { name: "Save Hardcover Settings" }).click();
 
 		expect(metadataRouteMocks.profileMutate.mutate).not.toHaveBeenCalled();
-		expect(
-			view.getByText("Minimum pages must be positive"),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Minimum pages must be positive"))
+			.toBeInTheDocument();
 	});
 
 	it("keeps dirty TMDB edits, hides the sync effect, and saves mapped values", async () => {
-		const user = userEvent.setup();
 		metadataRouteMocks.profile = {
 			minimumPages: 50,
 			minimumPopularity: 25,
@@ -344,32 +339,33 @@ describe("metadata route", () => {
 			success: true,
 		});
 
-		const view = renderRoute();
 		const route = Route as unknown as {
 			component: () => JSX.Element;
+			useLoaderData: () => unknown;
 		};
+		route.useLoaderData = () => undefined;
 
-		await user.click(view.getByRole("button", { name: "TMDB" }));
-		await user.click(view.getByRole("button", { name: "en" }));
-		await user.click(view.getByRole("checkbox"));
+		const { rerender } = await renderWithProviders(<route.component />);
 
-		const tmdbCard = view
-			.getByRole("heading", { name: "Language & Region" })
-			.closest("section") as HTMLElement;
-		await user.click(
-			within(tmdbCard).getByRole("button", { name: "No filter" }),
-		);
+		await page.getByRole("button", { name: "TMDB" }).click();
+		await page.getByRole("button", { name: "en", exact: true }).click();
+		await page.getByRole("checkbox").click();
+
+		// Find "No filter" button within the TMDB card section
+		await page.getByRole("button", { name: "No filter" }).click();
 
 		metadataRouteMocks.settingsMap = {
 			"metadata.tmdb.includeAdult": true,
 			"metadata.tmdb.language": "de",
 			"metadata.tmdb.region": "CA",
 		};
-		view.rerender(<route.component />);
+		await rerender(<route.component />);
 
-		expect(view.getByRole("button", { name: "fr" })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "fr", exact: true }))
+			.toBeInTheDocument();
 
-		await user.click(view.getByRole("button", { name: "Save TMDB Settings" }));
+		await page.getByRole("button", { name: "Save TMDB Settings" }).click();
 
 		expect(metadataRouteMocks.settingsMutate.mutate).toHaveBeenCalledWith([
 			{ key: "metadata.tmdb.language", value: "fr" },

@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const editCollectionDialogMocks = vi.hoisted(() => ({
 	allProfiles: [
@@ -156,34 +156,32 @@ describe("EditCollectionDialog", () => {
 		});
 	});
 
-	it("hydrates the dialog from the selected collection and only shows movie profiles", () => {
-		const { getByLabelText, getByRole, queryByLabelText, queryByText } =
-			renderWithProviders(
-				<EditCollectionDialog
-					collection={{
-						downloadProfileIds: [7],
-						id: 1,
-						minimumAvailability: "inCinemas",
-						monitored: true,
-						title: "Alien Anthology",
-					}}
-					onOpenChange={vi.fn()}
-					open
-				/>,
-			);
+	it("hydrates the dialog from the selected collection and only shows movie profiles", async () => {
+		await renderWithProviders(
+			<EditCollectionDialog
+				collection={{
+					downloadProfileIds: [7],
+					id: 1,
+					minimumAvailability: "inCinemas",
+					monitored: true,
+					title: "Alien Anthology",
+				}}
+				onOpenChange={vi.fn()}
+				open
+			/>,
+		);
 
-		expect(
-			getByRole("heading", { name: "Edit Alien Anthology" }),
-		).toBeInTheDocument();
-		expect(getByLabelText("Monitored")).toBeChecked();
-		expect(getByRole("combobox")).toHaveValue("inCinemas");
-		expect(getByLabelText("4K")).toBeChecked();
-		expect(queryByLabelText("HD")).not.toBeChecked();
-		expect(queryByText("TV Only")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Edit Alien Anthology" }))
+			.toBeInTheDocument();
+		await expect.element(page.getByLabelText("Monitored")).toBeChecked();
+		await expect.element(page.getByRole("combobox")).toHaveValue("inCinemas");
+		await expect.element(page.getByLabelText("4K")).toBeChecked();
+		await expect.element(page.getByLabelText("HD")).not.toBeChecked();
+		await expect.element(page.getByText("TV Only")).not.toBeInTheDocument();
 	});
 
 	it("saves the edited collection and closes on success", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		editCollectionDialogMocks.updateCollection.mutate.mockImplementation(
 			(_payload: unknown, options?: { onSuccess?: () => void }) => {
@@ -191,7 +189,7 @@ describe("EditCollectionDialog", () => {
 			},
 		);
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<EditCollectionDialog
 				collection={{
 					downloadProfileIds: [7, 9],
@@ -205,11 +203,11 @@ describe("EditCollectionDialog", () => {
 			/>,
 		);
 
-		await user.click(getByLabelText("Monitored"));
-		await user.selectOptions(getByRole("combobox"), "announced");
-		await user.click(getByLabelText("4K"));
-		await user.click(getByLabelText("HD"));
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByLabelText("Monitored").click();
+		await userEvent.selectOptions(page.getByRole("combobox"), "announced");
+		await page.getByLabelText("4K").click();
+		await page.getByLabelText("HD").click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(
 			editCollectionDialogMocks.updateCollection.mutate,

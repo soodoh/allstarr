@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const indexerFormMocks = vi.hoisted(() => ({
 	categoryMultiSelect: vi.fn(),
@@ -42,7 +42,6 @@ describe("IndexerForm", () => {
 	});
 
 	it("shows validation errors and does not submit when validation fails", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		const onCancel = vi.fn();
 
@@ -51,7 +50,7 @@ describe("IndexerForm", () => {
 			success: false,
 		});
 
-		const { getByLabelText, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerForm
 				implementation="Newznab"
 				onCancel={onCancel}
@@ -60,8 +59,8 @@ describe("IndexerForm", () => {
 			/>,
 		);
 
-		await user.type(getByLabelText("Name"), "Ignored");
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByLabelText("Name").fill("Ignored");
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(indexerFormMocks.validateForm).toHaveBeenCalledWith(
 			expect.anything(),
@@ -72,13 +71,14 @@ describe("IndexerForm", () => {
 				tag: null,
 			}),
 		);
-		expect(getByText("Name is required")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Name is required"))
+			.toBeInTheDocument();
 		expect(onSubmit).not.toHaveBeenCalled();
 		expect(onCancel).not.toHaveBeenCalled();
 	});
 
 	it("submits the mapped form values and preserves filtered download clients", async () => {
-		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 
 		indexerFormMocks.validateForm.mockReturnValue({
@@ -105,7 +105,7 @@ describe("IndexerForm", () => {
 			tag: "movies",
 		};
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerForm
 				downloadClients={[
 					{ id: 2, name: "Usenet Client", protocol: "usenet" },
@@ -129,35 +129,36 @@ describe("IndexerForm", () => {
 			/>,
 		);
 
-		await user.type(getByLabelText("Name"), "My Indexer");
-		await user.type(getByLabelText("Base URL"), "https://indexer.example.com");
-		await user.type(getByLabelText("API Key"), "secret");
-		await user.clear(getByLabelText("Priority"));
-		await user.type(getByLabelText("Priority"), "11");
-		await user.clear(getByLabelText("Request Interval (s)"));
-		await user.type(getByLabelText("Request Interval (s)"), "7");
-		await user.clear(getByLabelText("Daily Query Limit"));
-		await user.type(getByLabelText("Daily Query Limit"), "34");
-		await user.clear(getByLabelText("Daily Grab Limit"));
-		await user.type(getByLabelText("Daily Grab Limit"), "12");
+		await page.getByLabelText("Name").fill("My Indexer");
+		await page.getByLabelText("Base URL").fill("https://indexer.example.com");
+		await page.getByLabelText("API Key").fill("secret");
+		await page.getByLabelText("Priority").clear();
+		await page.getByLabelText("Priority").fill("11");
+		await page.getByLabelText("Request Interval (s)").clear();
+		await page.getByLabelText("Request Interval (s)").fill("7");
+		await page.getByLabelText("Daily Query Limit").clear();
+		await page.getByLabelText("Daily Query Limit").fill("34");
+		await page.getByLabelText("Daily Grab Limit").clear();
+		await page.getByLabelText("Daily Grab Limit").fill("12");
 
-		expect(getByRole("combobox")).toHaveTextContent("Usenet Client");
+		await expect
+			.element(page.getByRole("combobox"))
+			.toHaveTextContent("Usenet Client");
 		expect(indexerFormMocks.categoryMultiSelect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				value: [1000, 2000],
 			}),
 		);
 
-		await user.click(getByRole("button", { name: "Save" }));
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(onSubmit).toHaveBeenCalledWith(expected);
 	});
 
 	it("cancels using the provided label", async () => {
-		const user = userEvent.setup();
 		const onCancel = vi.fn();
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerForm
 				cancelLabel="Back"
 				implementation="Torznab"
@@ -167,14 +168,12 @@ describe("IndexerForm", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "Back" }));
+		await page.getByRole("button", { name: "Back" }).click();
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});
 
 	it("shows the test connection success state", async () => {
-		const user = userEvent.setup();
-
 		indexerFormMocks.validateForm.mockReturnValue({
 			errors: {},
 			success: true,
@@ -185,43 +184,7 @@ describe("IndexerForm", () => {
 			version: "1.2.3",
 		});
 
-		const { getByLabelText, getByRole, getByText, findByText } =
-			renderWithProviders(
-				<IndexerForm
-					implementation="Newznab"
-					onCancel={vi.fn()}
-					onSubmit={vi.fn()}
-					protocol="usenet"
-				/>,
-			);
-
-		await user.type(getByLabelText("Base URL"), "https://indexer.example.com");
-		await user.type(getByLabelText("API Key"), "secret");
-		await user.click(getByRole("button", { name: "Test Connection" }));
-
-		expect(indexerFormMocks.testIndexerFn).toHaveBeenCalledWith({
-			data: {
-				apiKey: "secret",
-				apiPath: "/api",
-				baseUrl: "https://indexer.example.com",
-			},
-		});
-		expect(await findByText("Connection OK")).toBeInTheDocument();
-		expect(getByText("Version: 1.2.3")).toBeInTheDocument();
-	});
-
-	it("shows the test connection error state", async () => {
-		const user = userEvent.setup();
-
-		indexerFormMocks.validateForm.mockReturnValue({
-			errors: {},
-			success: true,
-		});
-		indexerFormMocks.testIndexerFn.mockRejectedValue(
-			new Error("Connection failed"),
-		);
-
-		const { getByLabelText, getByRole, findByText } = renderWithProviders(
+		await renderWithProviders(
 			<IndexerForm
 				implementation="Newznab"
 				onCancel={vi.fn()}
@@ -230,10 +193,45 @@ describe("IndexerForm", () => {
 			/>,
 		);
 
-		await user.type(getByLabelText("Base URL"), "https://indexer.example.com");
-		await user.type(getByLabelText("API Key"), "secret");
-		await user.click(getByRole("button", { name: "Test Connection" }));
+		await page.getByLabelText("Base URL").fill("https://indexer.example.com");
+		await page.getByLabelText("API Key").fill("secret");
+		await page.getByRole("button", { name: "Test Connection" }).click();
 
-		expect(await findByText("Connection failed")).toBeInTheDocument();
+		expect(indexerFormMocks.testIndexerFn).toHaveBeenCalledWith({
+			data: {
+				apiKey: "secret",
+				apiPath: "/api",
+				baseUrl: "https://indexer.example.com",
+			},
+		});
+		await expect.element(page.getByText("Connection OK")).toBeInTheDocument();
+		await expect.element(page.getByText("Version: 1.2.3")).toBeInTheDocument();
+	});
+
+	it("shows the test connection error state", async () => {
+		indexerFormMocks.validateForm.mockReturnValue({
+			errors: {},
+			success: true,
+		});
+		indexerFormMocks.testIndexerFn.mockRejectedValue(
+			new Error("Connection failed"),
+		);
+
+		await renderWithProviders(
+			<IndexerForm
+				implementation="Newznab"
+				onCancel={vi.fn()}
+				onSubmit={vi.fn()}
+				protocol="usenet"
+			/>,
+		);
+
+		await page.getByLabelText("Base URL").fill("https://indexer.example.com");
+		await page.getByLabelText("API Key").fill("secret");
+		await page.getByRole("button", { name: "Test Connection" }).click();
+
+		await expect
+			.element(page.getByText("Connection failed"))
+			.toBeInTheDocument();
 	});
 });

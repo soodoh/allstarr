@@ -1,6 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 const queueTabMocks = vi.hoisted(() => ({
 	pauseDownloadFn: vi.fn(),
