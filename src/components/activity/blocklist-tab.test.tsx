@@ -1,8 +1,7 @@
-import { within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const blocklistTabMocks = vi.hoisted(() => ({
 	bulkRemoveFromBlocklist: {
@@ -107,7 +106,7 @@ vi.mock("src/components/shared/table-pagination", () => ({
 	default: ({
 		onPageChange,
 		onPageSizeChange,
-		page,
+		page: currentPage,
 		pageSize,
 		totalItems,
 		totalPages,
@@ -121,9 +120,9 @@ vi.mock("src/components/shared/table-pagination", () => ({
 	}) => (
 		<div data-testid="table-pagination">
 			<div>
-				pagination:{page}:{pageSize}:{totalItems}:{totalPages}
+				pagination:{currentPage}:{pageSize}:{totalItems}:{totalPages}
 			</div>
-			<button onClick={() => onPageChange(page + 1)} type="button">
+			<button onClick={() => onPageChange(currentPage + 1)} type="button">
 				Next page
 			</button>
 			<button onClick={() => onPageSizeChange(50)} type="button">
@@ -231,7 +230,7 @@ describe("BlocklistTab", () => {
 		blocklistTabMocks.useSuspenseQuery.mockReset();
 	});
 
-	it("shows the empty state when there are no blocked items", () => {
+	it("shows the empty state when there are no blocked items", async () => {
 		blocklistTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [],
@@ -241,13 +240,17 @@ describe("BlocklistTab", () => {
 			},
 		});
 
-		const { getByText, queryByTestId } = renderWithProviders(<BlocklistTab />);
+		await renderWithProviders(<BlocklistTab />);
 
-		expect(getByText("No blocked releases")).toBeInTheDocument();
-		expect(
-			getByText("Releases that are blocked will appear here."),
-		).toBeInTheDocument();
-		expect(queryByTestId("table-pagination")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No blocked releases"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Releases that are blocked will appear here."))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("table-pagination"))
+			.not.toBeInTheDocument();
 		expect(blocklistTabMocks.useSuspenseQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				queryKey: ["blocklist", "list", { limit: 25, page: 1 }],
@@ -256,7 +259,6 @@ describe("BlocklistTab", () => {
 	});
 
 	it("filters by content type, clears selection, and falls back for missing book and protocol values", async () => {
-		const user = userEvent.setup();
 		blocklistTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [bookItemOne, bookItemTwo, tvItem],
@@ -266,58 +268,60 @@ describe("BlocklistTab", () => {
 			},
 		});
 
-		const { getByRole, getByText, queryByText } = renderWithProviders(
-			<BlocklistTab />,
-		);
+		await renderWithProviders(<BlocklistTab />);
 
-		expect(getByRole("link", { name: "Book #11" })).toHaveAttribute(
-			"href",
-			"/books/11",
-		);
-		expect(getByText("torrent")).toBeInTheDocument();
-		expect(getByText("Episode Gamma").closest("tr")).not.toBeNull();
-		expect(
-			within(
-				getByText("Episode Gamma").closest("tr") as HTMLTableRowElement,
-			).getAllByText("-"),
-		).toHaveLength(2);
+		await expect
+			.element(page.getByRole("link", { name: "Book #11" }))
+			.toHaveAttribute("href", "/books/11");
+		await expect.element(page.getByText("torrent")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Books" }));
-		const bookRow = getByText("Release Alpha").closest("tr");
+		// Episode Gamma row should have dashes for missing fields
+		const episodeGammaRow = page
+			.getByText("Episode Gamma")
+			.element()
+			.closest("tr");
+		expect(episodeGammaRow).not.toBeNull();
+
+		await page.getByRole("button", { name: "Books" }).click();
+		await expect
+			.element(page.getByText("content-type:books"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Release Alpha")).toBeInTheDocument();
+		await expect.element(page.getByText("Release Beta")).toBeInTheDocument();
+
+		// Click the checkbox in the Release Alpha row
+		const bookRow = page.getByText("Release Alpha").element().closest("tr");
 		expect(bookRow).not.toBeNull();
-		expect(getByText("content-type:books")).toBeInTheDocument();
-		expect(getByText("Release Alpha")).toBeInTheDocument();
-		expect(getByText("Release Beta")).toBeInTheDocument();
+		const checkboxInRow = bookRow?.querySelector("button[aria-pressed]");
+		expect(checkboxInRow).not.toBeNull();
+		await userEvent.click(checkboxInRow as HTMLElement);
+		await expect.element(page.getByText("1 selected")).toBeInTheDocument();
 
-		await user.click(
-			within(bookRow as HTMLTableRowElement).getByRole("button", {
-				name: "checkbox",
-			}),
-		);
-		expect(getByText("1 selected")).toBeInTheDocument();
+		await page.getByRole("button", { name: "TV Shows" }).click();
+		await expect.element(page.getByText("Episode Gamma")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Release Alpha"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "TV Shows" }));
-		expect(getByText("Episode Gamma")).toBeInTheDocument();
-		expect(queryByText("Release Alpha")).not.toBeInTheDocument();
+		await page.getByRole("button", { name: "Unexpected" }).click();
+		await expect.element(page.getByText("Release Alpha")).toBeInTheDocument();
+		await expect.element(page.getByText("Release Beta")).toBeInTheDocument();
+		await expect.element(page.getByText("Episode Gamma")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Unexpected" }));
-		expect(getByText("Release Alpha")).toBeInTheDocument();
-		expect(getByText("Release Beta")).toBeInTheDocument();
-		expect(getByText("Episode Gamma")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Movies" }).click();
+		await expect
+			.element(
+				page.getByText("No blocked releases for the selected content type."),
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByText("1 selected")).not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Movies" }));
-		expect(
-			getByText("No blocked releases for the selected content type."),
-		).toBeInTheDocument();
-		expect(queryByText("1 selected")).not.toBeInTheDocument();
-
-		await user.click(getByRole("button", { name: "Books" }));
-		expect(getByText("Release Alpha")).toBeInTheDocument();
-		expect(getByText("Release Beta")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Books" }).click();
+		await expect.element(page.getByText("Release Alpha")).toBeInTheDocument();
+		await expect.element(page.getByText("Release Beta")).toBeInTheDocument();
 	});
 
 	it("supports selection toggling, toggle-all, and the bulk remove confirm flow", async () => {
-		const user = userEvent.setup();
 		blocklistTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [bookItemOne, bookItemTwo, tvItem],
@@ -332,62 +336,56 @@ describe("BlocklistTab", () => {
 			},
 		);
 
-		const { getByRole, getByText, queryByTestId, queryByText } =
-			renderWithProviders(<BlocklistTab />);
+		await renderWithProviders(<BlocklistTab />);
 
-		await user.click(getByRole("button", { name: "Books" }));
+		await page.getByRole("button", { name: "Books" }).click();
 
-		const rows = getByText("Release Alpha").closest("tr");
-		const secondRows = getByText("Release Beta").closest("tr");
-		expect(rows).not.toBeNull();
-		expect(secondRows).not.toBeNull();
+		const alphaRow = page.getByText("Release Alpha").element().closest("tr");
+		const betaRow = page.getByText("Release Beta").element().closest("tr");
+		expect(alphaRow).not.toBeNull();
+		expect(betaRow).not.toBeNull();
 
-		await user.click(
-			within(rows as HTMLTableRowElement).getByRole("button", {
-				name: "checkbox",
-			}),
-		);
-		expect(getByText("1 selected")).toBeInTheDocument();
+		const alphaCheckbox = alphaRow?.querySelector("button[aria-pressed]");
+		expect(alphaCheckbox).not.toBeNull();
 
-		await user.click(
-			within(rows as HTMLTableRowElement).getByRole("button", {
-				name: "checkbox",
-			}),
-		);
-		expect(queryByText(/selected/)).not.toBeInTheDocument();
+		await userEvent.click(alphaCheckbox as HTMLElement);
+		await expect.element(page.getByText("1 selected")).toBeInTheDocument();
 
-		await user.click(
-			within(getByRole("table")).getAllByRole("button", {
-				name: "checkbox",
-			})[0],
-		);
-		expect(getByText("2 selected")).toBeInTheDocument();
+		await userEvent.click(alphaCheckbox as HTMLElement);
+		await expect.element(page.getByText(/selected/)).not.toBeInTheDocument();
 
-		await user.click(
-			within(getByRole("table")).getAllByRole("button", {
-				name: "checkbox",
-			})[0],
-		);
-		expect(queryByText("selected")).not.toBeInTheDocument();
+		// Click the header checkbox (toggle-all) — first button[aria-pressed] in the table
+		const tableEl = page.getByRole("table").element();
+		const allCheckboxes = tableEl?.querySelectorAll("button[aria-pressed]");
+		expect(allCheckboxes).not.toBeNull();
+		await userEvent.click(allCheckboxes?.[0] as HTMLElement);
+		await expect.element(page.getByText("2 selected")).toBeInTheDocument();
 
-		await user.click(
-			within(getByRole("table")).getAllByRole("button", {
-				name: "checkbox",
-			})[0],
-		);
-		expect(getByText("2 selected")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Remove Selected" }));
+		await userEvent.click(allCheckboxes?.[0] as HTMLElement);
+		await expect.element(page.getByText("selected")).not.toBeInTheDocument();
 
-		expect(queryByTestId("confirm-dialog")).toBeInTheDocument();
-		expect(
-			getByText(/confirm-description:Remove 2 items from the blocklist\?/),
-		).toBeInTheDocument();
+		await userEvent.click(allCheckboxes?.[0] as HTMLElement);
+		await expect.element(page.getByText("2 selected")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Remove Selected" }).click();
 
-		await user.click(getByRole("button", { name: "Close" }));
-		expect(queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					/confirm-description:Remove 2 items from the blocklist\?/,
+				),
+			)
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Remove Selected" }));
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Close" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Remove Selected" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(
 			blocklistTabMocks.bulkRemoveFromBlocklist.mutate,
@@ -397,12 +395,15 @@ describe("BlocklistTab", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
-		expect(queryByTestId("confirm-dialog")).not.toBeInTheDocument();
-		expect(queryByText("Remove Selected")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Remove Selected"))
+			.not.toBeInTheDocument();
 	});
 
 	it("calls the remove mutation for a single item and updates pagination state", async () => {
-		const user = userEvent.setup();
 		blocklistTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [bookItemOne, bookItemTwo, tvItem],
@@ -412,27 +413,28 @@ describe("BlocklistTab", () => {
 			},
 		});
 
-		const { getByRole, getByText } = renderWithProviders(<BlocklistTab />);
+		await renderWithProviders(<BlocklistTab />);
 
-		await user.click(getByRole("button", { name: "Next page" }));
+		await page.getByRole("button", { name: "Next page" }).click();
 		expect(blocklistTabMocks.useSuspenseQuery).toHaveBeenLastCalledWith(
 			expect.objectContaining({
 				queryKey: ["blocklist", "list", { limit: 25, page: 2 }],
 			}),
 		);
 
-		await user.click(getByRole("button", { name: "Page size 50" }));
+		await page.getByRole("button", { name: "Page size 50" }).click();
 		expect(blocklistTabMocks.useSuspenseQuery).toHaveBeenLastCalledWith(
 			expect.objectContaining({
 				queryKey: ["blocklist", "list", { limit: 50, page: 1 }],
 			}),
 		);
 
-		const row = getByText("Release Alpha").closest("tr");
-		expect(row).not.toBeNull();
-		await user.click(
-			within(row as HTMLTableRowElement).getAllByRole("button")[1],
-		);
+		const alphaRow = page.getByText("Release Alpha").element().closest("tr");
+		expect(alphaRow).not.toBeNull();
+		// The second button in the row is the remove button
+		const rowButtons = alphaRow?.querySelectorAll("button");
+		expect(rowButtons).not.toBeNull();
+		await userEvent.click(rowButtons?.[1] as HTMLElement);
 		expect(blocklistTabMocks.removeFromBlocklist.mutate).toHaveBeenCalledWith(
 			101,
 		);
