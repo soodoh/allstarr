@@ -59,7 +59,7 @@ jobs:
         run: bun run typecheck
 
   unit:
-    name: Unit Tests
+    name: Unit / Component Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -73,8 +73,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Unit Tests
-        run: bun run test
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Unit / Component Tests with Coverage
+        run: bun run test:coverage
+
+      - name: Upload unit coverage
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/unit/raw/
+          retention-days: 1
 
   coverage-server-core:
     name: Coverage (Server/Core)
@@ -92,7 +103,8 @@ jobs:
         run: bun run test:coverage:server-core
 
   e2e:
-    name: Playwright
+    name: E2E + Merged Coverage
+    needs: [unit]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -106,17 +118,23 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build application
-        run: bun run build
-
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
 
-      - name: End-to-End Tests
-        run: bun run test:e2e
+      - name: Download unit coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/unit/raw/
+
+      - name: E2E Tests with Coverage
+        run: bun run test:e2e:coverage
+
+      - name: Merge Coverage + Check Thresholds
+        run: bun run test:coverage:merged
 
   docker-verify:
     name: Docker Verify
