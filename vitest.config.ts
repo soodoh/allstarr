@@ -4,6 +4,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 const nodeTestInclude = ["**/*.test.ts", "**/*.test.tsx"];
 const browserTestPatterns = ["**/*.browser.test.ts", "**/*.browser.test.tsx"];
+const nodeTestExclude = ["**/node_modules/**", ...browserTestPatterns];
 
 export const coverageExclude = [
 	"**/*.test.*",
@@ -32,7 +33,7 @@ export default defineConfig({
 				extends: true,
 				test: {
 					include: nodeTestInclude,
-					exclude: browserTestPatterns,
+					exclude: nodeTestExclude,
 				},
 			},
 			{
