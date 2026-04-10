@@ -146,6 +146,44 @@ export default defineConfig({
             extension: [".ts", ".tsx"],
             forceBuildInstrument: true,
           }),
+          // Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
+          // so we instrument it here using the same istanbul-lib-instrument that it uses.
+          (() => {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { createInstrumenter } = require("istanbul-lib-instrument") as {
+              createInstrumenter: (opts: Record<string, unknown>) => {
+                instrumentSync(code: string, filename: string): string;
+                lastSourceMap(): unknown;
+              };
+            };
+            return {
+              name: "istanbul-ssr",
+              enforce: "post" as const,
+              transform(code: string, id: string, options?: { ssr?: boolean }) {
+                if (!options?.ssr) return null;
+                if (
+                  id.includes("node_modules") ||
+                  id.includes(".test.") ||
+                  id.includes(".spec.") ||
+                  !/\/src\//.test(id)
+                ) {
+                  return null;
+                }
+                const instrumenter = createInstrumenter({
+                  coverageGlobalScopeFunc: false,
+                  coverageGlobalScope: "globalThis",
+                  preserveComments: true,
+                  produceSourceMap: true,
+                  autoWrap: true,
+                  esModules: true,
+                  compact: false,
+                });
+                const instrumented = instrumenter.instrumentSync(code, id);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return { code: instrumented, map: instrumenter.lastSourceMap() as any };
+              },
+            };
+          })(),
         ]
       : []),
   ],
