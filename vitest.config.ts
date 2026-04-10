@@ -2,42 +2,8 @@ import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export const nodeTestInclude = [
-	"src/**/*.test.ts",
-	"src/**/*.spec.ts",
-	"src/server/**/*.test.tsx",
-	"src/server/**/*.spec.tsx",
-	"e2e/fixtures/**/*.test.ts",
-	"e2e/fixtures/**/*.spec.ts",
-];
-
-export const frontendTestInclude = [
-	"src/**/*.test.tsx",
-	"src/**/*.spec.tsx",
-	"src/components/**/*.test.ts",
-	"src/components/**/*.spec.ts",
-	"src/hooks/**/*.test.ts",
-	"src/hooks/**/*.spec.ts",
-];
-
-export const frontendTestExclude = [
-	"src/server/**/*.test.tsx",
-	"src/server/**/*.spec.tsx",
-];
-
-export const testInclude = [
-	"src/**/*.test.ts",
-	"src/**/*.spec.ts",
-	"src/**/*.test.tsx",
-	"src/**/*.spec.tsx",
-	"e2e/fixtures/**/*.test.ts",
-	"e2e/fixtures/**/*.spec.ts",
-];
-
-export const fullRepoCoverageInclude = [
-	"src/**/*.{ts,tsx}",
-	"e2e/fixtures/**/*.ts",
-];
+const nodeTestInclude = ["**/*.test.ts", "**/*.test.tsx"];
+const browserTestPatterns = ["**/*.browser.test.ts", "**/*.browser.test.tsx"];
 
 export const coverageExclude = [
 	"**/*.test.*",
@@ -66,12 +32,7 @@ export default defineConfig({
 				extends: true,
 				test: {
 					include: nodeTestInclude,
-					exclude: [
-						"src/components/**/*.test.ts",
-						"src/components/**/*.spec.ts",
-						"src/hooks/**/*.test.ts",
-						"src/hooks/**/*.spec.ts",
-					],
+					exclude: browserTestPatterns,
 				},
 			},
 			{
@@ -119,11 +80,10 @@ export default defineConfig({
 					],
 				},
 				test: {
-					include: frontendTestInclude,
-					exclude: frontendTestExclude,
+					include: browserTestPatterns,
 					browser: {
 						enabled: true,
-            headless: true,
+						headless: true,
 						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},
@@ -134,7 +94,7 @@ export default defineConfig({
 			provider: "custom",
 			customProviderModule: "vitest-monocart-coverage/browser",
 			all: true,
-			include: fullRepoCoverageInclude,
+			include: ["src/**/*.{ts,tsx}", "e2e/fixtures/**/*.ts"],
 			exclude: coverageExclude,
 			reports: ["v8", "console-summary", "html", "raw"],
 			outputDir: "coverage/unit",
@@ -143,6 +103,12 @@ export default defineConfig({
 				branches: 85,
 				functions: 90,
 				lines: 90,
+				"src/server/**/*.{ts,tsx}": {
+					statements: 95,
+					branches: 95,
+					functions: 95,
+					lines: 95,
+				},
 			},
 		} as any,
 	},
