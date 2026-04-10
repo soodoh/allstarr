@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,27 +44,27 @@ describe("useIsMobile", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("reads the initial mobile state from innerWidth", () => {
-		const { result } = renderHook(() => useIsMobile());
+	it("reads the initial mobile state from innerWidth", async () => {
+		const { result } = await renderHook(() => useIsMobile());
 
 		expect(result.current).toBe(true);
 	});
 
-	it("updates when the media query listener fires", () => {
-		const { result } = renderHook(() => useIsMobile());
+	it("updates when the media query listener fires", async () => {
+		const { result } = await renderHook(() => useIsMobile());
 
-		act(() => {
-			window.innerWidth = 1024;
-			for (const listener of listeners) {
-				listener({ matches: false } as MediaQueryListEvent);
-			}
+		window.innerWidth = 1024;
+		for (const listener of listeners) {
+			listener({ matches: false } as MediaQueryListEvent);
+		}
+
+		await vi.waitFor(() => {
+			expect(result.current).toBe(false);
 		});
-
-		expect(result.current).toBe(false);
 	});
 
-	it("removes the media query listener on unmount", () => {
-		const { unmount } = renderHook(() => useIsMobile());
+	it("removes the media query listener on unmount", async () => {
+		const { unmount } = await renderHook(() => useIsMobile());
 
 		expect(listeners).toHaveLength(1);
 

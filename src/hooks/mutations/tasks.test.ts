@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -52,11 +51,9 @@ describe("mutations/tasks", () => {
 	it("wires run-task mutations and success handling", async () => {
 		runScheduledTaskFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRunTask());
+		const { result } = await renderHook(() => useRunTask());
 
-		await act(async () => {
-			await result.current.mutateAsync("task-1");
-		});
+		await result.current.mutateAsync("task-1");
 
 		expect(runScheduledTaskFn).toHaveBeenCalledWith({
 			data: { taskId: "task-1" },
@@ -70,11 +67,9 @@ describe("mutations/tasks", () => {
 	it("shows the run-task error toast", async () => {
 		runScheduledTaskFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useRunTask());
+		const { result } = await renderHook(() => useRunTask());
 
-		await act(async () => {
-			await result.current.mutateAsync("task-1").catch(() => {});
-		});
+		await result.current.mutateAsync("task-1").catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("boom");
 	});
@@ -82,13 +77,11 @@ describe("mutations/tasks", () => {
 	it("wires toggle-task mutations and invalidates tasks", async () => {
 		toggleTaskEnabledFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useToggleTaskEnabled());
+		const { result } = await renderHook(() => useToggleTaskEnabled());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				enabled: true,
-				taskId: "task-2",
-			});
+		await result.current.mutateAsync({
+			enabled: true,
+			taskId: "task-2",
 		});
 
 		expect(toggleTaskEnabledFn).toHaveBeenCalledWith({
@@ -102,16 +95,14 @@ describe("mutations/tasks", () => {
 	it("shows the toggle-task error toast", async () => {
 		toggleTaskEnabledFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useToggleTaskEnabled());
+		const { result } = await renderHook(() => useToggleTaskEnabled());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					enabled: true,
-					taskId: "task-2",
-				})
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				enabled: true,
+				taskId: "task-2",
+			})
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update task");
 	});

@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,16 +50,14 @@ async function runMutation(
 	variables: unknown,
 	swallowError = false,
 ) {
-	const { result } = renderHook(() => useHook());
+	const { result } = await renderHook(() => useHook());
 
-	await act(async () => {
-		const promise = result.current.mutateAsync(variables as never);
-		if (swallowError) {
-			await promise.catch(() => {});
-			return;
-		}
-		await promise;
-	});
+	const promise = result.current.mutateAsync(variables as never);
+	if (swallowError) {
+		await promise.catch(() => {});
+		return;
+	}
+	await promise;
 }
 
 describe("mutations/indexers", () => {

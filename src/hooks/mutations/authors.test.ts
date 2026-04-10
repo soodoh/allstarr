@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,11 +46,9 @@ describe("mutations/authors", () => {
 	it("wires update author mutations and success handling", async () => {
 		updateAuthorFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUpdateAuthor());
+		const { result } = await renderHook(() => useUpdateAuthor());
 
-		await act(async () => {
-			await result.current.mutateAsync({ id: 7 } as never);
-		});
+		await result.current.mutateAsync({ id: 7 } as never);
 
 		expect(updateAuthorFn).toHaveBeenCalledWith({ data: { id: 7 } });
 		expect(success).toHaveBeenCalledWith("Author updated");
@@ -69,11 +66,9 @@ describe("mutations/authors", () => {
 	it("shows an error toast when update author fails", async () => {
 		updateAuthorFn.mockRejectedValue(new Error("nope"));
 
-		const { result } = renderHook(() => useUpdateAuthor());
+		const { result } = await renderHook(() => useUpdateAuthor());
 
-		await act(async () => {
-			await result.current.mutateAsync({ id: 7 } as never).catch(() => {});
-		});
+		await result.current.mutateAsync({ id: 7 } as never).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update author");
 		expect(success).not.toHaveBeenCalled();
@@ -82,11 +77,9 @@ describe("mutations/authors", () => {
 	it("wires delete author mutations and success handling", async () => {
 		deleteAuthorFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useDeleteAuthor());
+		const { result } = await renderHook(() => useDeleteAuthor());
 
-		await act(async () => {
-			await result.current.mutateAsync(42);
-		});
+		await result.current.mutateAsync(42);
 
 		expect(deleteAuthorFn).toHaveBeenCalledWith({ data: { id: 42 } });
 		expect(success).toHaveBeenCalledWith("Author deleted");
@@ -107,11 +100,9 @@ describe("mutations/authors", () => {
 	it("shows an error toast when delete author fails", async () => {
 		deleteAuthorFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useDeleteAuthor());
+		const { result } = await renderHook(() => useDeleteAuthor());
 
-		await act(async () => {
-			await result.current.mutateAsync(42).catch(() => {});
-		});
+		await result.current.mutateAsync(42).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to delete author");
 		expect(success).not.toHaveBeenCalled();

@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,11 +46,9 @@ describe("mutations/series", () => {
 	it("wires update series mutations and success handling", async () => {
 		updateSeriesFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUpdateSeries());
+		const { result } = await renderHook(() => useUpdateSeries());
 
-		await act(async () => {
-			await result.current.mutateAsync({ id: 4 } as never);
-		});
+		await result.current.mutateAsync({ id: 4 } as never);
 
 		expect(updateSeriesFn).toHaveBeenCalledWith({ data: { id: 4 } });
 		expect(success).toHaveBeenCalledWith("Series updated");
@@ -66,11 +63,9 @@ describe("mutations/series", () => {
 	it("shows the series update error toast", async () => {
 		updateSeriesFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useUpdateSeries());
+		const { result } = await renderHook(() => useUpdateSeries());
 
-		await act(async () => {
-			await result.current.mutateAsync({ id: 4 } as never).catch(() => {});
-		});
+		await result.current.mutateAsync({ id: 4 } as never).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update series");
 	});
@@ -78,11 +73,9 @@ describe("mutations/series", () => {
 	it("announces when a refresh adds books", async () => {
 		refreshSeriesFn.mockResolvedValue({ booksAdded: 2 });
 
-		const { result } = renderHook(() => useRefreshSeries());
+		const { result } = await renderHook(() => useRefreshSeries());
 
-		await act(async () => {
-			await result.current.mutateAsync({ seriesId: 8 });
-		});
+		await result.current.mutateAsync({ seriesId: 8 });
 
 		expect(refreshSeriesFn).toHaveBeenCalledWith({
 			data: { seriesId: 8 },
@@ -105,11 +98,9 @@ describe("mutations/series", () => {
 	it("announces when a refresh adds no books", async () => {
 		refreshSeriesFn.mockResolvedValue({ booksAdded: 0 });
 
-		const { result } = renderHook(() => useRefreshSeries());
+		const { result } = await renderHook(() => useRefreshSeries());
 
-		await act(async () => {
-			await result.current.mutateAsync(undefined);
-		});
+		await result.current.mutateAsync(undefined);
 
 		expect(success).toHaveBeenCalledWith("Series refreshed, no new books");
 	});
@@ -117,11 +108,9 @@ describe("mutations/series", () => {
 	it("shows the series refresh error toast", async () => {
 		refreshSeriesFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useRefreshSeries());
+		const { result } = await renderHook(() => useRefreshSeries());
 
-		await act(async () => {
-			await result.current.mutateAsync(undefined).catch(() => {});
-		});
+		await result.current.mutateAsync(undefined).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh series");
 	});

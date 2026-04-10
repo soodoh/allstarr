@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -85,20 +84,18 @@ describe("mutations/shows", () => {
 		addShowFn.mockResolvedValue({ ok: true });
 		loading.mockReturnValue("submit-add-show");
 
-		const { result } = renderHook(() => useAddShow());
+		const { result } = await renderHook(() => useAddShow());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileIds: [3],
-				episodeGroupId: null,
-				monitorOption: "none",
-				searchCutoffUnmet: false,
-				searchOnAdd: true,
-				seriesType: "standard",
-				tmdbId: 15,
-				useSeasonFolder: true,
-			} as never);
-		});
+		await result.current.mutateAsync({
+			downloadProfileIds: [3],
+			episodeGroupId: null,
+			monitorOption: "none",
+			searchCutoffUnmet: false,
+			searchOnAdd: true,
+			seriesType: "standard",
+			tmdbId: 15,
+			useSeasonFolder: true,
+		} as never);
 
 		expect(addShowFn).toHaveBeenCalledWith({
 			data: {
@@ -123,22 +120,20 @@ describe("mutations/shows", () => {
 		addShowFn.mockRejectedValue("nope");
 		loading.mockReturnValue("submit-add-show");
 
-		const { result } = renderHook(() => useAddShow());
+		const { result } = await renderHook(() => useAddShow());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileIds: [3],
-					episodeGroupId: null,
-					monitorOption: "none",
-					searchCutoffUnmet: false,
-					searchOnAdd: false,
-					seriesType: "standard",
-					tmdbId: 15,
-					useSeasonFolder: true,
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [3],
+				episodeGroupId: null,
+				monitorOption: "none",
+				searchCutoffUnmet: false,
+				searchOnAdd: false,
+				seriesType: "standard",
+				tmdbId: 15,
+				useSeasonFolder: true,
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to add show", {
 			id: "submit-add-show",
@@ -148,16 +143,14 @@ describe("mutations/shows", () => {
 	it("wires show updates and invalidates the shows cache", async () => {
 		updateShowFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUpdateShow());
+		const { result } = await renderHook(() => useUpdateShow());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				id: 14,
-				downloadProfileIds: [6],
-				episodeGroupId: null,
-				seriesType: "anime",
-			} as never);
-		});
+		await result.current.mutateAsync({
+			id: 14,
+			downloadProfileIds: [6],
+			episodeGroupId: null,
+			seriesType: "anime",
+		} as never);
 
 		expect(updateShowFn).toHaveBeenCalledWith({
 			data: {
@@ -176,16 +169,14 @@ describe("mutations/shows", () => {
 	it("shows the show update error toast", async () => {
 		updateShowFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useUpdateShow());
+		const { result } = await renderHook(() => useUpdateShow());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					id: 14,
-					downloadProfileIds: [6],
-				} as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				id: 14,
+				downloadProfileIds: [6],
+			} as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to update show");
 	});
@@ -193,11 +184,9 @@ describe("mutations/shows", () => {
 	it("wires show deletes and invalidates all dependent caches", async () => {
 		deleteShowFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useDeleteShow());
+		const { result } = await renderHook(() => useDeleteShow());
 
-		await act(async () => {
-			await result.current.mutateAsync({ deleteFiles: false, id: 21 } as never);
-		});
+		await result.current.mutateAsync({ deleteFiles: false, id: 21 } as never);
 
 		expect(deleteShowFn).toHaveBeenCalledWith({
 			data: { deleteFiles: false, id: 21 },
@@ -217,13 +206,11 @@ describe("mutations/shows", () => {
 	it("shows the show delete error toast", async () => {
 		deleteShowFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useDeleteShow());
+		const { result } = await renderHook(() => useDeleteShow());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({ deleteFiles: false, id: 21 } as never)
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({ deleteFiles: false, id: 21 } as never)
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to delete show");
 	});
@@ -231,13 +218,11 @@ describe("mutations/shows", () => {
 	it("wires show monitor mutations and invalidates the shows cache", async () => {
 		monitorShowProfileFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useMonitorShowProfile());
+		const { result } = await renderHook(() => useMonitorShowProfile());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileId: 7,
-				showId: 34,
-			});
+		await result.current.mutateAsync({
+			downloadProfileId: 7,
+			showId: 34,
 		});
 
 		expect(monitorShowProfileFn).toHaveBeenCalledWith({
@@ -251,16 +236,14 @@ describe("mutations/shows", () => {
 	it("shows the show monitor error toast", async () => {
 		monitorShowProfileFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useMonitorShowProfile());
+		const { result } = await renderHook(() => useMonitorShowProfile());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileId: 7,
-					showId: 34,
-				})
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileId: 7,
+				showId: 34,
+			})
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to monitor show profile");
 	});
@@ -268,13 +251,11 @@ describe("mutations/shows", () => {
 	it("wires show unmonitor mutations and invalidates the shows cache", async () => {
 		unmonitorShowProfileFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useUnmonitorShowProfile());
+		const { result } = await renderHook(() => useUnmonitorShowProfile());
 
-		await act(async () => {
-			await result.current.mutateAsync({
-				downloadProfileId: 7,
-				showId: 34,
-			});
+		await result.current.mutateAsync({
+			downloadProfileId: 7,
+			showId: 34,
 		});
 
 		expect(unmonitorShowProfileFn).toHaveBeenCalledWith({
@@ -288,16 +269,14 @@ describe("mutations/shows", () => {
 	it("shows the show unmonitor error toast", async () => {
 		unmonitorShowProfileFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useUnmonitorShowProfile());
+		const { result } = await renderHook(() => useUnmonitorShowProfile());
 
-		await act(async () => {
-			await result.current
-				.mutateAsync({
-					downloadProfileId: 7,
-					showId: 34,
-				})
-				.catch(() => {});
-		});
+		await result.current
+			.mutateAsync({
+				downloadProfileId: 7,
+				showId: 34,
+			})
+			.catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to unmonitor show profile");
 	});
@@ -305,11 +284,9 @@ describe("mutations/shows", () => {
 	it("wires show metadata refreshes and invalidates the shows cache", async () => {
 		refreshShowMetadataFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRefreshShowMetadata());
+		const { result } = await renderHook(() => useRefreshShowMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(66);
-		});
+		await result.current.mutateAsync(66);
 
 		expect(refreshShowMetadataFn).toHaveBeenCalledWith({
 			data: { showId: 66 },
@@ -323,11 +300,9 @@ describe("mutations/shows", () => {
 	it("shows the show metadata refresh error toast", async () => {
 		refreshShowMetadataFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useRefreshShowMetadata());
+		const { result } = await renderHook(() => useRefreshShowMetadata());
 
-		await act(async () => {
-			await result.current.mutateAsync(66).catch(() => {});
-		});
+		await result.current.mutateAsync(66).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh show metadata");
 	});

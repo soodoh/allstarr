@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -56,11 +55,9 @@ describe("mutations/blocklist", () => {
 	it("wires remove-from-blocklist mutations and success handling", async () => {
 		removeFromBlocklistFn.mockResolvedValue({ ok: true });
 
-		const { result } = renderHook(() => useRemoveFromBlocklist());
+		const { result } = await renderHook(() => useRemoveFromBlocklist());
 
-		await act(async () => {
-			await result.current.mutateAsync(11);
-		});
+		await result.current.mutateAsync(11);
 
 		expect(removeFromBlocklistFn).toHaveBeenCalledWith({ data: { id: 11 } });
 		expect(success).toHaveBeenCalledWith("Removed from blocklist");
@@ -72,11 +69,9 @@ describe("mutations/blocklist", () => {
 	it("shows the server error message when remove-from-blocklist fails", async () => {
 		removeFromBlocklistFn.mockRejectedValue(new Error("missing item"));
 
-		const { result } = renderHook(() => useRemoveFromBlocklist());
+		const { result } = await renderHook(() => useRemoveFromBlocklist());
 
-		await act(async () => {
-			await result.current.mutateAsync(11).catch(() => {});
-		});
+		await result.current.mutateAsync(11).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("missing item");
 	});
@@ -84,11 +79,9 @@ describe("mutations/blocklist", () => {
 	it("wires bulk remove mutations and success handling", async () => {
 		bulkRemoveFromBlocklistFn.mockResolvedValue({ removed: 3 });
 
-		const { result } = renderHook(() => useBulkRemoveFromBlocklist());
+		const { result } = await renderHook(() => useBulkRemoveFromBlocklist());
 
-		await act(async () => {
-			await result.current.mutateAsync([1, 2, 3]);
-		});
+		await result.current.mutateAsync([1, 2, 3]);
 
 		expect(bulkRemoveFromBlocklistFn).toHaveBeenCalledWith({
 			data: { ids: [1, 2, 3] },
@@ -102,11 +95,9 @@ describe("mutations/blocklist", () => {
 	it("falls back to the generic bulk blocklist error toast", async () => {
 		bulkRemoveFromBlocklistFn.mockRejectedValue("nope");
 
-		const { result } = renderHook(() => useBulkRemoveFromBlocklist());
+		const { result } = await renderHook(() => useBulkRemoveFromBlocklist());
 
-		await act(async () => {
-			await result.current.mutateAsync([1, 2, 3]).catch(() => {});
-		});
+		await result.current.mutateAsync([1, 2, 3]).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to remove from blocklist");
 	});
