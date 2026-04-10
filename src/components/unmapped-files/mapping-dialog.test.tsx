@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const mappingDialogState = vi.hoisted(() => ({
 	profiles: [] as Array<{
@@ -180,7 +180,6 @@ describe("MappingDialog", () => {
 	});
 
 	it("maps a search result with the hinted search text and selected profile", async () => {
-		const user = userEvent.setup();
 		const onClose = vi.fn();
 
 		mappingDialogState.profiles = [
@@ -200,7 +199,7 @@ describe("MappingDialog", () => {
 			success: true,
 		});
 
-		const { getByLabelText, getByRole, getByText } = renderWithProviders(
+		await renderWithProviders(
 			<MappingDialog
 				contentType="movie"
 				fileIds={[11, 12]}
@@ -209,13 +208,17 @@ describe("MappingDialog", () => {
 			/>,
 		);
 
-		expect(getByRole("heading", { name: "Map 2 files" })).toBeInTheDocument();
-		expect(getByLabelText("Search Library")).toHaveValue("Alien Ridley Scott");
-		expect(getByRole("combobox")).toHaveValue("7");
-		expect(getByText("Alien")).toBeInTheDocument();
-		expect(getByText("1979")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Map 2 files" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Search Library"))
+			.toHaveValue("Alien Ridley Scott");
+		await expect.element(page.getByRole("combobox")).toHaveValue("7");
+		await expect.element(page.getByText("Alien")).toBeInTheDocument();
+		await expect.element(page.getByText("1979")).toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Map Here" }));
+		await page.getByRole("button", { name: "Map Here" }).click();
 
 		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
 			data: {
@@ -236,13 +239,11 @@ describe("MappingDialog", () => {
 	});
 
 	it("shows the profile fallback and no-results state when nothing matches", async () => {
-		const user = userEvent.setup();
-
 		mappingDialogState.profiles = [
 			{ contentType: "movie", id: 9, name: "Movies" },
 		];
 
-		const { getByLabelText, getByText, queryByRole } = renderWithProviders(
+		await renderWithProviders(
 			<MappingDialog
 				contentType="tv"
 				fileIds={[42]}
@@ -251,16 +252,24 @@ describe("MappingDialog", () => {
 			/>,
 		);
 
-		expect(
-			getByText("No tv profiles available. Create one in Settings > Profiles."),
-		).toBeInTheDocument();
-		expect(
-			getByText("Type at least 2 characters to search"),
-		).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"No tv profiles available. Create one in Settings > Profiles.",
+				),
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Type at least 2 characters to search"))
+			.toBeInTheDocument();
 
-		await user.type(getByLabelText("Search Library"), "ab");
+		await userEvent.type(page.getByLabelText("Search Library"), "ab");
 
-		expect(getByText("No results found in your library")).toBeInTheDocument();
-		expect(queryByRole("button", { name: "Map Here" })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No results found in your library"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Map Here" }))
+			.not.toBeInTheDocument();
 	});
 });

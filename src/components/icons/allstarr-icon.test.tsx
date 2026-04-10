@@ -1,11 +1,12 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import AllstarrIcon from "./allstarr-icon";
 
 describe("AllstarrIcon", () => {
-	it("renders the SVG shell with the provided class name", () => {
-		const { container } = renderWithProviders(
+	it("renders the SVG shell with the provided class name", async () => {
+		const { container } = await renderWithProviders(
 			<AllstarrIcon className="custom-icon" />,
 		);
 		const icon = container.querySelector("svg");

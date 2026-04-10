@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const activityFeedMocks = vi.hoisted(() => ({
 	useSuspenseQuery: vi.fn(),
@@ -39,15 +40,15 @@ describe("ActivityFeed", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders nothing when there is no recent activity", () => {
+	it("renders nothing when there is no recent activity", async () => {
 		activityFeedMocks.useSuspenseQuery.mockReturnValue({ data: [] });
 
-		const { container } = renderWithProviders(<ActivityFeed />);
+		const { container } = await renderWithProviders(<ActivityFeed />);
 
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("renders activity rows and falls back for unknown events and items", () => {
+	it("renders activity rows and falls back for unknown events and items", async () => {
 		activityFeedMocks.useSuspenseQuery.mockReturnValue({
 			data: [
 				{
@@ -67,16 +68,17 @@ describe("ActivityFeed", () => {
 			],
 		});
 
-		const { getByRole, getByText } = renderWithProviders(<ActivityFeed />);
+		await renderWithProviders(<ActivityFeed />);
 
-		expect(getByText("Recent Activity")).toBeInTheDocument();
-		expect(getByText("Dune")).toBeInTheDocument();
-		expect(getByText(/was added/)).toBeInTheDocument();
-		expect(getByText("Unknown item")).toBeInTheDocument();
-		expect(getByText(/was mysteryEvent/)).toBeInTheDocument();
-		expect(getByRole("link", { name: "View all activity →" })).toHaveAttribute(
-			"href",
-			"/activity/history",
-		);
+		await expect.element(page.getByText("Recent Activity")).toBeInTheDocument();
+		await expect.element(page.getByText("Dune")).toBeInTheDocument();
+		await expect.element(page.getByText(/was added/)).toBeInTheDocument();
+		await expect.element(page.getByText("Unknown item")).toBeInTheDocument();
+		await expect
+			.element(page.getByText(/was mysteryEvent/))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "View all activity →" }))
+			.toHaveAttribute("href", "/activity/history");
 	});
 });

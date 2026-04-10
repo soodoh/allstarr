@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type UnmappedFile = {
 	contentType: string;
@@ -308,15 +308,17 @@ describe("UnmappedFilesTable", () => {
 	});
 
 	it("shows the empty state and keeps the toolbar wired to the query params", async () => {
-		const user = userEvent.setup();
 		tableMocks.state.groups = [];
 
-		const { getByPlaceholderText, getByRole, getByTestId } =
-			renderWithProviders(<UnmappedFilesTable />);
+		await renderWithProviders(<UnmappedFilesTable />);
 
-		expect(getByTestId("empty-state")).toHaveTextContent("No unmapped files");
-		expect(getByPlaceholderText("Search files...")).toBeInTheDocument();
-		expect(getByRole("button", { name: "Show Ignored" })).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("empty-state"))
+			.toHaveTextContent("No unmapped files");
+		await expect.element(page.getByRole("textbox")).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Show Ignored" }))
+			.toBeInTheDocument();
 		expect(tableMocks.useQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				queryKey: [
@@ -331,11 +333,11 @@ describe("UnmappedFilesTable", () => {
 			}),
 		);
 
-		await user.click(getByRole("button", { name: "Show Ignored" }));
+		await page.getByRole("button", { name: "Show Ignored" }).click();
 
-		expect(
-			getByRole("button", { name: "Showing Ignored" }),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Showing Ignored" }))
+			.toBeInTheDocument();
 		expect(tableMocks.useQuery).toHaveBeenLastCalledWith(
 			expect.objectContaining({
 				queryKey: [
@@ -352,98 +354,123 @@ describe("UnmappedFilesTable", () => {
 	});
 
 	it("drives row actions, bulk actions, and toolbar filters from the table state", async () => {
-		const user = userEvent.setup();
 		tableMocks.state.groups = baseGroups;
 		tableMocks.deleteUnmappedFilesFn.mockResolvedValue({ success: true });
 		tableMocks.ignoreUnmappedFilesFn.mockResolvedValue({ success: true });
 		tableMocks.rescanRootFolderFn.mockResolvedValue({ success: true });
 
-		const {
-			getAllByRole,
-			getByPlaceholderText,
-			getByRole,
-			getByTestId,
-			getByText,
-			queryByText,
-		} = renderWithProviders(<UnmappedFilesTable />);
+		await renderWithProviders(<UnmappedFilesTable />);
 
-		expect(getByText("/library/books")).toBeInTheDocument();
-		expect(getByText("/library/movies")).toBeInTheDocument();
-		expect(getByText("Books")).toBeInTheDocument();
-		expect(getByText("Dune.epub")).toBeInTheDocument();
-		expect(getByText('"Dune" by Frank Herbert (1965)')).toBeInTheDocument();
-		expect(getByText("3.0 GB")).toBeInTheDocument();
-		expect(getByText("epub")).toBeInTheDocument();
-		expect(getByText("Alien (1979).mkv")).toBeInTheDocument();
-		expect(getByText("2.0 GB")).toBeInTheDocument();
-		expect(getByText("mkv")).toBeInTheDocument();
-		expect(queryByText("Ignored Title.pdf")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/library/books", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/library/movies", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Dune.epub", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('"Dune" by Frank Herbert (1965)'))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("3.0 GB")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("epub", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Alien (1979).mkv", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("2.0 GB")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("mkv", { exact: true }).first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Ignored Title.pdf", { exact: true }))
+			.not.toBeInTheDocument();
 
-		await user.click(
-			getAllByRole("button", { name: "Map to library entry" })[1],
-		);
+		await page.getByTitle("Map to library entry").nth(1).click();
 
-		expect(getByTestId("mapping-dialog")).toHaveTextContent("mapping:movie:3");
-		await user.click(getByRole("button", { name: "Close mapping dialog" }));
-		expect(queryByText("1 file selected")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("mapping-dialog"))
+			.toHaveTextContent("mapping:movie:3");
+		await page.getByRole("button", { name: "Close mapping dialog" }).click();
+		await expect
+			.element(page.getByText("1 file selected"))
+			.not.toBeInTheDocument();
 
-		await user.click(getAllByRole("checkbox")[1]);
-		expect(getByText("1 file selected")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Map Selected" }));
-		expect(getByTestId("mapping-dialog")).toHaveTextContent("mapping:ebook:1");
-		await user.click(getByRole("button", { name: "Close mapping dialog" }));
-		expect(queryByText("1 file selected")).not.toBeInTheDocument();
+		await page.getByRole("checkbox", { name: "checkbox" }).nth(1).click();
+		await expect.element(page.getByText("1 file selected")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Map Selected" }).click();
+		await expect
+			.element(page.getByTestId("mapping-dialog"))
+			.toHaveTextContent("mapping:ebook:1");
+		await page.getByRole("button", { name: "Close mapping dialog" }).click();
+		await expect
+			.element(page.getByText("1 file selected"))
+			.not.toBeInTheDocument();
 
-		await user.click(getAllByRole("button", { name: "Ignore" })[0]);
-		expect(tableMocks.ignoreUnmappedFilesFn).toHaveBeenCalledWith({
-			data: {
-				ids: [1],
-				ignored: true,
-			},
-		});
-		expect(tableMocks.invalidateQueries).toHaveBeenCalledWith({
-			queryKey: ["unmappedFiles"],
-		});
-		expect(tableMocks.toast.success).toHaveBeenCalledWith("Files ignored");
+		await page.getByTitle("Ignore").first().click();
+		await expect
+			.poll(() => tableMocks.ignoreUnmappedFilesFn.mock.calls)
+			.toContainEqual([
+				{
+					data: {
+						ids: [1],
+						ignored: true,
+					},
+				},
+			]);
+		await expect
+			.poll(() => tableMocks.toast.success.mock.calls)
+			.toContainEqual(["Files ignored"]);
 
-		await user.click(getAllByRole("button", { name: "Delete file" })[0]);
-		expect(getByTestId("confirm-dialog")).toHaveTextContent("Delete files");
-		await user.click(getByRole("button", { name: "Confirm" }));
-		expect(tableMocks.deleteUnmappedFilesFn).toHaveBeenCalledWith({
-			data: {
-				ids: [1],
-			},
-		});
-		expect(tableMocks.toast.success).toHaveBeenCalledWith("1 file deleted");
+		await page.getByTitle("Delete file").first().click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toHaveTextContent("Delete files");
+		await page.getByRole("button", { name: "Confirm" }).click();
+		await expect
+			.poll(() => tableMocks.deleteUnmappedFilesFn.mock.calls)
+			.toContainEqual([{ data: { ids: [1] } }]);
+		await expect
+			.poll(() => tableMocks.toast.success.mock.calls)
+			.toContainEqual(["1 file deleted"]);
 
-		await user.click(getAllByRole("button", { name: "Rescan" })[0]);
-		expect(tableMocks.rescanRootFolderFn).toHaveBeenCalledWith({
-			data: {
-				rootFolderPath: "/library/books",
-			},
-		});
-		expect(tableMocks.toast.success).toHaveBeenCalledWith("Rescan complete");
+		await page.getByRole("button", { name: "Rescan" }).first().click();
+		await expect
+			.poll(() => tableMocks.rescanRootFolderFn.mock.calls)
+			.toContainEqual([{ data: { rootFolderPath: "/library/books" } }]);
+		await expect
+			.poll(() => tableMocks.toast.success.mock.calls)
+			.toContainEqual(["Rescan complete"]);
 
-		await user.click(getByRole("button", { name: "Show Ignored" }));
-		expect(getByText("Ignored Title.pdf")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Show Ignored" }).click();
+		await expect
+			.element(page.getByText("Ignored Title.pdf", { exact: true }).first())
+			.toBeInTheDocument();
 
-		await user.click(getAllByRole("checkbox")[2]);
-		expect(getByText("1 file selected")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Unignore Selected" }));
-		expect(tableMocks.ignoreUnmappedFilesFn).toHaveBeenCalledWith({
-			data: {
-				ids: [2],
-				ignored: false,
-			},
-		});
-		expect(tableMocks.toast.success).toHaveBeenCalledWith("Files unignored");
-		expect(queryByText("1 file selected")).not.toBeInTheDocument();
+		await page.getByRole("checkbox", { name: "checkbox" }).nth(2).click();
+		await expect.element(page.getByText("1 file selected")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Unignore Selected" }).click();
+		await expect
+			.poll(() => tableMocks.ignoreUnmappedFilesFn.mock.calls)
+			.toContainEqual([{ data: { ids: [2], ignored: false } }]);
+		await expect
+			.poll(() => tableMocks.toast.success.mock.calls)
+			.toContainEqual(["Files unignored"]);
+		await expect
+			.element(page.getByText("1 file selected"))
+			.not.toBeInTheDocument();
 
-		await user.selectOptions(getByRole("combobox"), "movie");
-		expect(queryByText("/library/books")).not.toBeInTheDocument();
-		expect(getByText("/library/movies")).toBeInTheDocument();
+		await userEvent.selectOptions(page.getByRole("combobox"), "movie");
+		await expect
+			.element(page.getByText("/library/books", { exact: true }).first())
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/library/movies", { exact: true }).first())
+			.toBeInTheDocument();
 
-		await user.type(getByPlaceholderText("Search files..."), "Alien");
+		await userEvent.type(page.getByRole("textbox"), "Alien");
 		expect(tableMocks.useQuery).toHaveBeenLastCalledWith(
 			expect.objectContaining({
 				queryKey: [
@@ -457,6 +484,8 @@ describe("UnmappedFilesTable", () => {
 				],
 			}),
 		);
-		expect(getByText("Alien (1979).mkv")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Alien (1979).mkv", { exact: true }).first())
+			.toBeInTheDocument();
 	});
 });

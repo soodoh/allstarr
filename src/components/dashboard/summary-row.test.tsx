@@ -1,5 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const summaryRowMocks = vi.hoisted(() => ({
 	useSuspenseQuery: vi.fn(),
@@ -48,7 +49,7 @@ describe("SummaryRow", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders aggregate counts and a healthy system state", () => {
+	it("renders aggregate counts and a healthy system state", async () => {
 		summaryRowMocks.useSuspenseQuery
 			.mockReturnValueOnce({
 				data: {
@@ -70,20 +71,23 @@ describe("SummaryRow", () => {
 				},
 			});
 
-		const { getByRole, getByText } = renderWithProviders(<SummaryRow />);
+		await renderWithProviders(<SummaryRow />);
 
-		expect(getByText("9")).toBeInTheDocument();
-		expect(getByText("23")).toBeInTheDocument();
-		expect(getByText("1 GB")).toBeInTheDocument();
-		expect(getByText("of 2 GB across 2 root folders")).toBeInTheDocument();
-		expect(getByText("All systems healthy")).toBeInTheDocument();
-		expect(getByRole("link", { name: /System Health/ })).toHaveAttribute(
-			"href",
-			"/system/status",
-		);
+		await expect.element(page.getByText("9")).toBeInTheDocument();
+		await expect.element(page.getByText("23")).toBeInTheDocument();
+		await expect.element(page.getByText("1 GB")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("of 2 GB across 2 root folders"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("All systems healthy"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: /System Health/ }))
+			.toHaveAttribute("href", "/system/status");
 	});
 
-	it("renders issue and no-root-folder fallback messaging", () => {
+	it("renders issue and no-root-folder fallback messaging", async () => {
 		summaryRowMocks.useSuspenseQuery
 			.mockReturnValueOnce({
 				data: {
@@ -108,13 +112,17 @@ describe("SummaryRow", () => {
 				},
 			});
 
-		const { getByText } = renderWithProviders(<SummaryRow />);
+		await renderWithProviders(<SummaryRow />);
 
-		expect(getByText("No root folders configured")).toBeInTheDocument();
-		expect(getByText("2 issues detected")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No root folders configured"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("2 issues detected"))
+			.toBeInTheDocument();
 	});
 
-	it("renders the singular root folder message", () => {
+	it("renders the singular root folder message", async () => {
 		summaryRowMocks.useSuspenseQuery
 			.mockReturnValueOnce({
 				data: {
@@ -136,13 +144,17 @@ describe("SummaryRow", () => {
 				},
 			});
 
-		const { getByText } = renderWithProviders(<SummaryRow />);
+		await renderWithProviders(<SummaryRow />);
 
-		expect(getByText("of 1 GB across 1 root folder")).toBeInTheDocument();
-		expect(getByText("All systems healthy")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("of 1 GB across 1 root folder"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("All systems healthy"))
+			.toBeInTheDocument();
 	});
 
-	it("renders the singular issue message", () => {
+	it("renders the singular issue message", async () => {
 		summaryRowMocks.useSuspenseQuery
 			.mockReturnValueOnce({
 				data: {
@@ -164,9 +176,13 @@ describe("SummaryRow", () => {
 				},
 			});
 
-		const { getByText } = renderWithProviders(<SummaryRow />);
+		await renderWithProviders(<SummaryRow />);
 
-		expect(getByText("1 issue detected")).toBeInTheDocument();
-		expect(getByText("of 1 GB across 1 root folder")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("1 issue detected"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("of 1 GB across 1 root folder"))
+			.toBeInTheDocument();
 	});
 });
