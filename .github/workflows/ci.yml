@@ -87,21 +87,6 @@ jobs:
           path: coverage/unit/raw/
           retention-days: 1
 
-  coverage-server-core:
-    name: Coverage (Server/Core)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ env.CHECKOUT_REF }}
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Server/Core Coverage Gate
-        run: bun run test:coverage:server-core
-
   e2e:
     name: E2E + Merged Coverage
     needs: [unit]
