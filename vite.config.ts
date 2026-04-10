@@ -3,6 +3,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
+import istanbul from "vite-plugin-istanbul";
 const ignoredNitroWarningCodes = new Set([
   "EVAL",
   "CIRCULAR_DEPENDENCY",
@@ -137,5 +138,15 @@ export default defineConfig({
     tanstackStart(),
     nitro(),
     viteReact(),
+    ...(process.env.INSTRUMENT_COVERAGE === "true"
+      ? [
+          istanbul({
+            include: "src/**/*",
+            exclude: ["node_modules", "**/*.test.*", "**/*.spec.*"],
+            extension: [".ts", ".tsx"],
+            forceBuildInstrument: true,
+          }),
+        ]
+      : []),
   ],
 });
