@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { renderHook } from "src/test/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -106,17 +105,15 @@ describe("useServerEvents", () => {
 			{ id: 2, name: "Refresh", progress: undefined },
 		]);
 
-		const { result } = renderHook(() => useServerEvents());
+		const { result } = await renderHook(() => useServerEvents());
 
 		expect(MockEventSource.instance?.url).toBe("/api/events");
 		expect(result.current.isConnected).toBe(false);
 
-		act(() => {
-			MockEventSource.instance?.emit("open");
-		});
+		MockEventSource.instance?.emit("open");
+		await vi.waitFor(() => expect(result.current.isConnected).toBe(true));
 		await Promise.resolve();
 
-		expect(result.current.isConnected).toBe(true);
 		expect(loading).toHaveBeenNthCalledWith(1, "Working...", {
 			id: "command-1",
 		});
@@ -128,29 +125,22 @@ describe("useServerEvents", () => {
 	it("ignores failures while restoring active command toasts", async () => {
 		getActiveCommandsFn.mockRejectedValue(new Error("boom"));
 
-		const { result } = renderHook(() => useServerEvents());
+		const { result } = await renderHook(() => useServerEvents());
 
-		act(() => {
-			MockEventSource.instance?.emit("open");
-		});
-		await Promise.resolve();
+		MockEventSource.instance?.emit("open");
+		await vi.waitFor(() => expect(result.current.isConnected).toBe(true));
 
-		expect(result.current.isConnected).toBe(true);
 		expect(loading).not.toHaveBeenCalled();
 	});
 
-	it("updates connection state and closes the event source on cleanup", () => {
-		const { result, unmount } = renderHook(() => useServerEvents());
+	it("updates connection state and closes the event source on cleanup", async () => {
+		const { result, unmount } = await renderHook(() => useServerEvents());
 
-		act(() => {
-			MockEventSource.instance?.emit("open");
-		});
-		expect(result.current.isConnected).toBe(true);
+		MockEventSource.instance?.emit("open");
+		await vi.waitFor(() => expect(result.current.isConnected).toBe(true));
 
-		act(() => {
-			MockEventSource.instance?.emit("error");
-		});
-		expect(result.current.isConnected).toBe(false);
+		MockEventSource.instance?.emit("error");
+		await vi.waitFor(() => expect(result.current.isConnected).toBe(false));
 
 		const instance = MockEventSource.instance;
 		unmount();
@@ -158,8 +148,8 @@ describe("useServerEvents", () => {
 		expect(instance?.close).toHaveBeenCalledTimes(1);
 	});
 
-	it("handles queue and task invalidation events", () => {
-		renderHook(() => useServerEvents());
+	it("handles queue and task invalidation events", async () => {
+		await renderHook(() => useServerEvents());
 
 		MockEventSource.instance?.emit("queueProgress", {
 			data: { items: [{ id: 1 }], warnings: ["warn"] },
@@ -179,8 +169,8 @@ describe("useServerEvents", () => {
 		});
 	});
 
-	it("shows download and import notifications and invalidates import detail queries", () => {
-		renderHook(() => useServerEvents());
+	it("shows download and import notifications and invalidates import detail queries", async () => {
+		await renderHook(() => useServerEvents());
 
 		MockEventSource.instance?.emit("downloadCompleted", { title: "Dune" });
 		MockEventSource.instance?.emit("downloadFailed", {
@@ -208,8 +198,8 @@ describe("useServerEvents", () => {
 		});
 	});
 
-	it("handles command progress, success, failure, and invalidation rules", () => {
-		renderHook(() => useServerEvents());
+	it("handles command progress, success, failure, and invalidation rules", async () => {
+		await renderHook(() => useServerEvents());
 
 		MockEventSource.instance?.emit("commandProgress", {
 			commandId: 5,
