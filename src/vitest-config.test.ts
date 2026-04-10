@@ -1,26 +1,45 @@
 import { describe, expect, it } from "vitest";
 import config from "../vitest.config";
 
+type ProjectConfig = {
+	test?: {
+		include?: string[];
+		exclude?: string[];
+	};
+};
+
+const getProjectConfigs = () => {
+	const projects = config.test?.projects ?? [];
+
+	return projects.filter((project): project is ProjectConfig => {
+		return typeof project !== "string";
+	});
+};
+
 describe("vitest config", () => {
 	it("routes node and browser tests by suffix", () => {
-		const projects = config.test?.projects;
+		const projects = config.test?.projects ?? [];
+		const projectConfigs = getProjectConfigs();
+		const nodeProject = projectConfigs[0];
+		const browserProject = projectConfigs[1];
 
 		expect(projects).toHaveLength(2);
-		expect(projects?.[0]?.test?.include).toEqual(["**/*.test.ts", "**/*.test.tsx"]);
-		expect(projects?.[0]?.test?.exclude).toEqual([
+		expect(projectConfigs).toHaveLength(2);
+		expect(nodeProject?.test?.include).toEqual(["**/*.test.ts", "**/*.test.tsx"]);
+		expect(nodeProject?.test?.exclude).toEqual([
 			"**/node_modules/**",
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
 		]);
-		expect(projects?.[1]?.test?.include).toEqual([
+		expect(browserProject?.test?.include).toEqual([
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
 		]);
 	});
 
 	it("keeps node_modules out of project discovery", () => {
-		const projects = config.test?.projects;
-		const nodeExclude = projects?.[0]?.test?.exclude;
+		const projectConfigs = getProjectConfigs();
+		const nodeExclude = projectConfigs[0]?.test?.exclude;
 
 		expect(nodeExclude).toContain("**/node_modules/**");
 	});
