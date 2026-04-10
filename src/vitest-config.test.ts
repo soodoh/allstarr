@@ -25,15 +25,25 @@ describe("vitest config", () => {
 
 		expect(projects).toHaveLength(2);
 		expect(projectConfigs).toHaveLength(2);
-		expect(nodeProject?.test?.include).toEqual(["**/*.test.ts", "**/*.test.tsx"]);
+		expect(nodeProject?.test?.include).toEqual([
+			"**/*.test.ts",
+			"**/*.test.tsx",
+			"**/*.spec.ts",
+			"**/*.spec.tsx",
+		]);
 		expect(nodeProject?.test?.exclude).toEqual([
 			"**/node_modules/**",
+			"**/e2e/tests/**/*.spec.ts",
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
+			"**/*.browser.spec.ts",
+			"**/*.browser.spec.tsx",
 		]);
 		expect(browserProject?.test?.include).toEqual([
 			"**/*.browser.test.ts",
 			"**/*.browser.test.tsx",
+			"**/*.browser.spec.ts",
+			"**/*.browser.spec.tsx",
 		]);
 	});
 
