@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import {
+	enforceCoverageGates,
+	globalCoverageThresholds,
+	serverCoverageThresholds,
+	type CoverageResultsLike,
+} from "../vitest.config";
 import config from "../vitest.config";
 
 type ProjectConfig = {
@@ -14,6 +20,28 @@ const getProjectConfigs = () => {
 	return projects.filter((project): project is ProjectConfig => {
 		return typeof project !== "string";
 	});
+};
+
+const createSummaryMetric = (pct: number, total = 100) => {
+	return {
+		covered: Math.round((pct / 100) * total),
+		total,
+		pct,
+	};
+};
+
+const createSummary = (
+	statements: number,
+	branches: number,
+	functions: number,
+	lines: number,
+) => {
+	return {
+		statements: createSummaryMetric(statements),
+		branches: createSummaryMetric(branches),
+		functions: createSummaryMetric(functions),
+		lines: createSummaryMetric(lines),
+	};
 };
 
 describe("vitest config", () => {
@@ -56,16 +84,50 @@ describe("vitest config", () => {
 
 	it("keeps stricter coverage thresholds for server source files", () => {
 		expect(config.test?.coverage?.thresholds).toMatchObject({
-			statements: 90,
-			branches: 85,
-			functions: 90,
-			lines: 90,
+			...globalCoverageThresholds,
 			"src/server/**/*.{ts,tsx}": {
-				statements: 95,
-				branches: 95,
-				functions: 95,
-				lines: 95,
+				...serverCoverageThresholds,
 			},
 		});
+	});
+
+	it("enforces coverage gates when thresholds are met", () => {
+		const results: CoverageResultsLike = {
+			summary: createSummary(91, 86, 91, 91),
+			files: [
+				{
+					sourcePath: "src/server/alpha.ts",
+					summary: createSummary(96, 95, 95, 96),
+				},
+				{
+					sourcePath: "src/server/beta.ts",
+					summary: createSummary(95, 96, 96, 95),
+				},
+				{
+					sourcePath: "src/lib/other.ts",
+					summary: createSummary(90, 85, 90, 90),
+				},
+			],
+		};
+
+		expect(() => enforceCoverageGates(results)).not.toThrow();
+	});
+
+	it("fails when aggregated src/server coverage drops below threshold", () => {
+		const results: CoverageResultsLike = {
+			summary: createSummary(91, 86, 91, 91),
+			files: [
+				{
+					sourcePath: "src/server/alpha.ts",
+					summary: createSummary(94, 96, 96, 96),
+				},
+				{
+					sourcePath: "src/server/beta.ts",
+					summary: createSummary(94, 96, 96, 96),
+				},
+			],
+		};
+
+		expect(() => enforceCoverageGates(results)).toThrow(/src\/server statements/);
 	});
 });
