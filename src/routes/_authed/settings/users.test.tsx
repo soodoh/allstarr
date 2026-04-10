@@ -1,5 +1,3 @@
-import { waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
 	Children,
 	cloneElement,
@@ -11,6 +9,7 @@ import {
 } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 type LoaderData = {
 	defaultRole: { defaultRole: string };
@@ -445,35 +444,40 @@ describe("users route", () => {
 		expect(usersRouteMocks.getRegistrationStatusFn).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the non-admin view with read-only roles and empty provider state", () => {
+	it("renders the non-admin view with read-only roles and empty provider state", async () => {
 		usersRouteMocks.isAdmin = false;
 
-		const view = renderRoute(
+		await renderRoute(
 			createLoaderData({
 				oidcProviders: [],
 				registrationStatus: { registrationDisabled: true },
 			}),
 		);
 
-		expect(
-			view.getByRole("heading", { name: "Users", level: 1 }),
-		).toBeInTheDocument();
-		expect(view.getByText("Disabled")).toBeInTheDocument();
-		expect(view.getByRole("button", { name: "viewer" })).toBeDisabled();
-		expect(view.getByText("No OIDC providers configured.")).toBeInTheDocument();
-		expect(
-			view.queryByRole("button", { name: "Add User" }),
-		).not.toBeInTheDocument();
-		expect(
-			view.queryByRole("button", { name: "Add Provider" }),
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Users", level: 1 }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Disabled")).toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("button", { name: "viewer", exact: true }).first(),
+			)
+			.toBeDisabled();
+		await expect
+			.element(page.getByText("No OIDC providers configured."))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Add User" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Add Provider" }))
+			.not.toBeInTheDocument();
 	});
 
 	it("handles admin updates, creation, and deletion flows", async () => {
-		const user = userEvent.setup();
 		usersRouteMocks.isAdmin = true;
 
-		const view = renderRoute(
+		await renderRoute(
 			createLoaderData({
 				defaultRole: { defaultRole: "viewer" },
 				oidcProviders: [
@@ -494,57 +498,56 @@ describe("users route", () => {
 			}),
 		);
 
-		const registrationCard = view
-			.getByRole("heading", {
-				name: "Registration",
-			})
-			.closest("section") as HTMLElement;
-		await user.click(
-			within(registrationCard).getByRole("button", { name: "Requester" }),
-		);
-		await expect(usersRouteMocks.updateDefaultRoleFn).toHaveBeenCalledWith({
-			data: { role: "requester" },
+		// Find "Requester" button within Registration section
+		const registrationHeading = page.getByRole("heading", {
+			name: "Registration",
 		});
+		const registrationSection = page.elementLocator(
+			(await registrationHeading.element()).closest("section") as HTMLElement,
+		);
+		await registrationSection
+			.getByRole("button", { name: "Requester" })
+			.click();
+		await expect
+			.poll(() => usersRouteMocks.updateDefaultRoleFn)
+			.toHaveBeenCalledWith({
+				data: { role: "requester" },
+			});
 		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith(
 			"Default role updated",
 		);
 
-		const userRow = view.getByText("Alice").closest("tr") as HTMLElement;
-		await user.click(within(userRow).getByRole("button", { name: "Admin" }));
+		// Find Alice's row by locating the td whose text is exactly "Alice"
+		const aliceTd = Array.from(document.querySelectorAll("td")).find(
+			(td) => td.textContent?.trim() === "Alice",
+		) as HTMLElement;
+		const aliceRow = page.elementLocator(aliceTd.closest("tr") as HTMLElement);
+		await aliceRow.getByRole("button", { name: "Admin" }).click();
 		expect(usersRouteMocks.setUserRoleFn).toHaveBeenCalledWith({
 			data: { role: "admin", userId: "user-1" },
 		});
 		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith("Role updated");
 
-		await user.click(within(userRow).getByRole("button", { name: "Trash" }));
-		await user.click(view.getByRole("button", { name: "Confirm" }));
+		await aliceRow.getByRole("button", { name: "Trash" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(usersRouteMocks.deleteUserFn).toHaveBeenCalledWith({
 			data: { userId: "user-1" },
 		});
 		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith("User deleted");
 
-		await user.click(view.getByRole("button", { name: /Add User/ }));
-		const createUserDialog = view
-			.getByRole("heading", { name: "Create User" })
-			.closest("div") as HTMLElement;
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("User name"),
-			"New User",
-		);
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("user@example.com"),
+		await page.getByRole("button", { name: /Add User/ }).click();
+		await userEvent.type(page.getByLabelText("User name"), "New User");
+		await userEvent.type(
+			page.getByLabelText("user@example.com"),
 			"new@example.com",
 		);
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("Minimum 8 characters"),
+		await userEvent.type(
+			page.getByLabelText("Minimum 8 characters"),
 			"supersecret",
 		);
-		await user.click(
-			within(createUserDialog).getByRole("button", { name: "Requester" }),
-		);
-		await user.click(
-			within(createUserDialog).getByRole("button", { name: "Create User" }),
-		);
+		// "Requester" buttons: [Registration, Dialog, Alice's row] — pick index 1 for Dialog
+		await page.getByRole("button", { name: "Requester" }).nth(1).click();
+		await page.getByRole("button", { name: "Create User" }).click();
 		expect(usersRouteMocks.createUserFn).toHaveBeenCalledWith({
 			data: {
 				email: "new@example.com",
@@ -555,12 +558,15 @@ describe("users route", () => {
 		});
 		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith("User created");
 
-		const providerRow = view
-			.getByText("Authentik")
-			.closest("tr") as HTMLElement;
-		const providerCheckboxes = within(providerRow).getAllByRole("checkbox");
-		await user.click(providerCheckboxes[0]);
-		await user.click(providerCheckboxes[1]);
+		const authentikTd = Array.from(document.querySelectorAll("td")).find(
+			(td) => td.textContent?.trim() === "Authentik",
+		) as HTMLElement;
+		const providerRow = page.elementLocator(
+			authentikTd.closest("tr") as HTMLElement,
+		);
+		const providerCheckboxes = providerRow.getByRole("checkbox");
+		await providerCheckboxes.first().click();
+		await providerCheckboxes.nth(1).click();
 		expect(usersRouteMocks.updateOidcProviderFn).toHaveBeenCalledWith({
 			data: { id: "provider-1", trusted: true },
 		});
@@ -568,10 +574,8 @@ describe("users route", () => {
 			data: { enabled: false, id: "provider-1" },
 		});
 
-		await user.click(
-			within(providerRow).getByRole("button", { name: "Trash" }),
-		);
-		await user.click(view.getByRole("button", { name: "Confirm" }));
+		await providerRow.getByRole("button", { name: "Trash" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(usersRouteMocks.deleteOidcProviderFn).toHaveBeenCalledWith({
 			data: { id: "provider-1" },
 		});
@@ -583,7 +587,6 @@ describe("users route", () => {
 	});
 
 	it("surfaces toast errors for failed admin actions", async () => {
-		const user = userEvent.setup();
 		usersRouteMocks.isAdmin = true;
 		usersRouteMocks.updateDefaultRoleFn.mockRejectedValueOnce(
 			new Error("default role failed"),
@@ -604,7 +607,7 @@ describe("users route", () => {
 			new Error("provider delete failed"),
 		);
 
-		const view = renderRoute(
+		await renderRoute(
 			createLoaderData({
 				oidcProviders: [
 					{
@@ -624,93 +627,72 @@ describe("users route", () => {
 			}),
 		);
 
-		const registrationCard = view
-			.getByRole("heading", {
-				name: "Registration",
-			})
-			.closest("section") as HTMLElement;
-		await user.click(
-			within(registrationCard).getByRole("button", { name: "Requester" }),
+		const registrationHeading = page.getByRole("heading", {
+			name: "Registration",
+		});
+		const registrationSection = page.elementLocator(
+			(await registrationHeading.element()).closest("section") as HTMLElement,
 		);
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"Failed to update default role",
-			),
-		);
+		await registrationSection
+			.getByRole("button", { name: "Requester" })
+			.click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Failed to update default role");
 
-		const userRow = view.getByText("Alice").closest("tr") as HTMLElement;
-		await user.click(within(userRow).getByRole("button", { name: "Admin" }));
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"role update failed",
-			),
-		);
+		const aliceTd2 = Array.from(document.querySelectorAll("td")).find(
+			(td) => td.textContent?.trim() === "Alice",
+		) as HTMLElement;
+		const aliceRow = page.elementLocator(aliceTd2.closest("tr") as HTMLElement);
+		await aliceRow.getByRole("button", { name: "Admin" }).click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("role update failed");
 
-		await user.click(within(userRow).getByRole("button", { name: "Trash" }));
-		await user.click(view.getByRole("button", { name: "Confirm" }));
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"delete user failed",
-			),
-		);
-		await user.click(view.getByRole("button", { name: "Cancel" }));
+		await aliceRow.getByRole("button", { name: "Trash" }).click();
+		await page.getByRole("button", { name: "Confirm" }).click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("delete user failed");
+		await page.getByRole("button", { name: "Cancel" }).click();
 
-		await user.click(view.getByRole("button", { name: /Add User/ }));
-		const createUserDialog = view
-			.getByRole("heading", { name: "Create User" })
-			.closest("div") as HTMLElement;
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("User name"),
-			"New User",
-		);
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("user@example.com"),
+		await page.getByRole("button", { name: /Add User/ }).click();
+		await userEvent.type(page.getByLabelText("User name"), "New User");
+		await userEvent.type(
+			page.getByLabelText("user@example.com"),
 			"new@example.com",
 		);
-		await user.type(
-			within(createUserDialog).getByPlaceholderText("Minimum 8 characters"),
+		await userEvent.type(
+			page.getByLabelText("Minimum 8 characters"),
 			"supersecret",
 		);
-		await user.click(
-			within(createUserDialog).getByRole("button", { name: "Create User" }),
-		);
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"create user failed",
-			),
-		);
+		await page.getByRole("button", { name: "Create User" }).click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("create user failed");
 
-		const providerRow = view
-			.getByText("Authentik")
-			.closest("tr") as HTMLElement;
-		const providerCheckboxes = within(providerRow).getAllByRole("checkbox");
-		await user.click(providerCheckboxes[0]);
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"Failed to update provider",
-			),
+		const authentikTd2 = Array.from(document.querySelectorAll("td")).find(
+			(td) => td.textContent?.trim() === "Authentik",
+		) as HTMLElement;
+		const providerRow = page.elementLocator(
+			authentikTd2.closest("tr") as HTMLElement,
 		);
+		const providerCheckboxes = providerRow.getByRole("checkbox");
+		await providerCheckboxes.first().click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Failed to update provider");
 
-		await user.click(providerCheckboxes[1]);
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"Failed to update provider",
-			),
-		);
+		await providerCheckboxes.nth(1).click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Failed to update provider");
 
-		await user.click(
-			within(providerRow).getByRole("button", { name: "Trash" }),
-		);
-		const confirmButtons = view.getAllByRole("button", { name: "Confirm" });
-		const latestConfirmButton = confirmButtons.at(-1);
-		if (!latestConfirmButton) {
-			throw new Error("confirm button not found");
-		}
-		await user.click(latestConfirmButton);
-		await waitFor(() =>
-			expect(usersRouteMocks.toast.error).toHaveBeenCalledWith(
-				"Failed to delete provider",
-			),
-		);
+		await providerRow.getByRole("button", { name: "Trash" }).click();
+		const confirmButtons = page.getByRole("button", { name: "Confirm" });
+		await confirmButtons.last().click();
+		await expect
+			.poll(() => usersRouteMocks.toast.error)
+			.toHaveBeenCalledWith("Failed to delete provider");
 	});
 });

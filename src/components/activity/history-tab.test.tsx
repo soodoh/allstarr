@@ -286,9 +286,15 @@ describe("HistoryTab", () => {
 			.toBeInTheDocument();
 		await expect.element(page.getByText("Author #7")).toBeInTheDocument();
 		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
-		await expect.element(page.getByText("Inception")).toBeInTheDocument();
-		await expect.element(page.getByText("Severance")).toBeInTheDocument();
-		await expect.element(page.getByText("Pilot")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Inception", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Severance", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Pilot", { exact: true }))
+			.toBeInTheDocument();
 		await expect.element(page.getByText("miscEvent")).toBeInTheDocument();
 		await expect.element(page.getByText("flag: true")).toBeInTheDocument();
 		await expect
@@ -296,21 +302,33 @@ describe("HistoryTab", () => {
 			.toBeInTheDocument();
 
 		await page.getByText("Books content").click();
-		await expect.element(page.getByText("Inception")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Inception", { exact: true }))
+			.not.toBeInTheDocument();
 		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
 
 		await page.getByText("Movies content").click();
 		await expect.element(page.getByText("Book #11")).not.toBeInTheDocument();
-		await expect.element(page.getByText("Inception")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Inception", { exact: true }))
+			.toBeInTheDocument();
 
 		await page.getByText("TV content").click();
-		await expect.element(page.getByText("Severance")).toBeInTheDocument();
-		await expect.element(page.getByText("Pilot")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Severance", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Pilot", { exact: true }))
+			.toBeInTheDocument();
 
 		await page.getByText("Unexpected content").click();
 		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
-		await expect.element(page.getByText("Inception")).toBeInTheDocument();
-		await expect.element(page.getByText("Severance")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Inception", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Severance", { exact: true }))
+			.toBeInTheDocument();
 	});
 
 	it("updates query params for event filters and pagination controls", async () => {
