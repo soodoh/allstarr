@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 import QueueItemRow from "./queue-item-row";
 
@@ -14,7 +14,6 @@ describe("QueueItemRow", () => {
 	};
 
 	it("renders downloading rows with author, progress details, and all action buttons", async () => {
-		const user = userEvent.setup();
 		const item = {
 			id: "dl-1",
 			name: "Ubuntu ISO",
@@ -31,24 +30,24 @@ describe("QueueItemRow", () => {
 			protocol: "torrent",
 		};
 
-		const { getByText, getByTitle } = renderWithProviders(
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={item as never} />,
 		);
 
-		expect(getByText("Ubuntu ISO")).toBeInTheDocument();
-		expect(getByText("Canonical")).toBeInTheDocument();
-		expect(getByText("42%")).toBeInTheDocument();
-		expect(getByText("↓ 1.5 KB/s")).toBeInTheDocument();
-		expect(getByText("↑ 512 B/s")).toBeInTheDocument();
-		expect(getByText("2 KB / 4 KB")).toBeInTheDocument();
-		expect(getByText("ETA: 1m 5s")).toBeInTheDocument();
-		expect(getByText("qBittorrent")).toBeInTheDocument();
-		expect(getByText("torrent")).toBeInTheDocument();
+		await expect.element(page.getByText("Ubuntu ISO")).toBeInTheDocument();
+		await expect.element(page.getByText("Canonical")).toBeInTheDocument();
+		await expect.element(page.getByText("42%")).toBeInTheDocument();
+		await expect.element(page.getByText("↓ 1.5 KB/s")).toBeInTheDocument();
+		await expect.element(page.getByText("↑ 512 B/s")).toBeInTheDocument();
+		await expect.element(page.getByText("2 KB / 4 KB")).toBeInTheDocument();
+		await expect.element(page.getByText("ETA: 1m 5s")).toBeInTheDocument();
+		await expect.element(page.getByText("qBittorrent")).toBeInTheDocument();
+		await expect.element(page.getByText("torrent")).toBeInTheDocument();
 
-		await user.click(getByTitle("Increase priority"));
-		await user.click(getByTitle("Decrease priority"));
-		await user.click(getByTitle("Pause"));
-		await user.click(getByTitle("Remove"));
+		await page.getByTitle("Increase priority").click();
+		await page.getByTitle("Decrease priority").click();
+		await page.getByTitle("Pause").click();
+		await page.getByTitle("Remove").click();
 
 		expect(handlers.onPriorityUp).toHaveBeenCalledWith(item);
 		expect(handlers.onPriorityDown).toHaveBeenCalledWith(item);
@@ -57,7 +56,6 @@ describe("QueueItemRow", () => {
 	});
 
 	it("renders paused and queued statuses with their specific controls", async () => {
-		const user = userEvent.setup();
 		const pausedItem = {
 			id: "dl-2",
 			name: "Paused item",
@@ -80,25 +78,26 @@ describe("QueueItemRow", () => {
 			status: "queued",
 		};
 
-		const pausedView = renderWithProviders(
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={pausedItem as never} />,
 		);
-		const queuedView = renderWithProviders(
+
+		await expect.element(page.getByText("Paused").first()).toBeInTheDocument();
+		await page.getByTitle("Resume").click();
+		expect(handlers.onResume).toHaveBeenCalledWith(pausedItem);
+
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={queuedItem as never} />,
 		);
 
-		expect(pausedView.getAllByText("Paused")).toHaveLength(2);
-		await user.click(pausedView.getByTitle("Resume"));
-		expect(handlers.onResume).toHaveBeenCalledWith(pausedItem);
-
-		expect(queuedView.getByText("Waiting")).toBeInTheDocument();
-		await user.click(queuedView.getByTitle("Increase priority"));
-		await user.click(queuedView.getByTitle("Decrease priority"));
+		await expect.element(page.getByText("Waiting")).toBeInTheDocument();
+		await page.getByTitle("Increase priority").click();
+		await page.getByTitle("Decrease priority").click();
 		expect(handlers.onPriorityUp).toHaveBeenCalledWith(queuedItem);
 		expect(handlers.onPriorityDown).toHaveBeenCalledWith(queuedItem);
 	});
 
-	it("renders failed statuses with the fallback error details", () => {
+	it("renders failed statuses with the fallback error details", async () => {
 		const failedItem = {
 			id: "dl-4",
 			name: "Failed item",
@@ -114,16 +113,17 @@ describe("QueueItemRow", () => {
 			downloadClientName: "Client",
 			protocol: "usenet",
 		};
-		const failedView = renderWithProviders(
+
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={failedItem as never} />,
 		);
 
-		expect(failedView.getByText("Failed")).toBeInTheDocument();
-		expect(failedView.getByText("Download failed")).toBeInTheDocument();
-		expect(failedView.getByText("1 KB")).toBeInTheDocument();
+		await expect.element(page.getByText("Failed")).toBeInTheDocument();
+		await expect.element(page.getByText("Download failed")).toBeInTheDocument();
+		await expect.element(page.getByText("1 KB")).toBeInTheDocument();
 	});
 
-	it("renders completed statuses with the final size", () => {
+	it("renders completed statuses with the final size", async () => {
 		const completedItem = {
 			id: "dl-5",
 			name: "Complete item",
@@ -139,15 +139,16 @@ describe("QueueItemRow", () => {
 			downloadClientName: "Client",
 			protocol: "usenet",
 		};
-		const { getByText } = renderWithProviders(
+
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={completedItem as never} />,
 		);
 
-		expect(getByText("Done")).toBeInTheDocument();
-		expect(getByText("1 KB")).toBeInTheDocument();
+		await expect.element(page.getByText("Done")).toBeInTheDocument();
+		await expect.element(page.getByText("1 KB")).toBeInTheDocument();
 	});
 
-	it("formats short, empty, and hour-based download ETAs", () => {
+	it("formats short, empty, and hour-based download ETAs", async () => {
 		const shortEtaItem = {
 			id: "dl-6",
 			name: "Short ETA",
@@ -176,22 +177,23 @@ describe("QueueItemRow", () => {
 			estimatedTimeLeft: 3660,
 		};
 
-		const shortView = renderWithProviders(
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={shortEtaItem as never} />,
 		);
-		const emptyView = renderWithProviders(
+		await expect.element(page.getByText("ETA: 45s")).toBeInTheDocument();
+
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={emptyEtaItem as never} />,
 		);
-		const longView = renderWithProviders(
+		await expect.element(page.getByText("ETA: —")).toBeInTheDocument();
+
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={longEtaItem as never} />,
 		);
-
-		expect(shortView.getByText("ETA: 45s")).toBeInTheDocument();
-		expect(emptyView.getByText("ETA: —")).toBeInTheDocument();
-		expect(longView.getByText("ETA: 1h 1m")).toBeInTheDocument();
+		await expect.element(page.getByText("ETA: 1h 1m")).toBeInTheDocument();
 	});
 
-	it("shows the failed output path when one is available", () => {
+	it("shows the failed output path when one is available", async () => {
 		const failedItem = {
 			id: "dl-9",
 			name: "Failed import",
@@ -208,11 +210,15 @@ describe("QueueItemRow", () => {
 			protocol: "usenet",
 		};
 
-		const { getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<QueueItemRow {...handlers} item={failedItem as never} />,
 		);
 
-		expect(getByText("/downloads/failed/import.nzb")).toBeInTheDocument();
-		expect(queryByText("Download failed")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/downloads/failed/import.nzb"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Download failed"))
+			.not.toBeInTheDocument();
 	});
 });

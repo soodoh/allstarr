@@ -1,12 +1,12 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import QueueConnectionBanner from "./queue-connection-banner";
 
 describe("QueueConnectionBanner", () => {
-	it("returns nothing when there are no warnings", () => {
-		const { container } = renderWithProviders(
+	it("returns nothing when there are no warnings", async () => {
+		const { container } = await renderWithProviders(
 			<QueueConnectionBanner warnings={[]} />,
 		);
 
@@ -14,23 +14,30 @@ describe("QueueConnectionBanner", () => {
 	});
 
 	it("renders warnings and dismisses them individually", async () => {
-		const user = userEvent.setup();
-		const { getAllByRole, getByText, queryByText } = renderWithProviders(
+		await renderWithProviders(
 			<QueueConnectionBanner
 				warnings={["Indexer offline", "Download client unreachable"]}
 			/>,
 		);
 
-		expect(getByText("Indexer offline")).toBeInTheDocument();
-		expect(getByText("Download client unreachable")).toBeInTheDocument();
+		await expect.element(page.getByText("Indexer offline")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Download client unreachable"))
+			.toBeInTheDocument();
 
-		await user.click(getAllByRole("button", { name: "Dismiss warning" })[0]);
+		await page.getByRole("button", { name: "Dismiss warning" }).first().click();
 
-		expect(queryByText("Indexer offline")).not.toBeInTheDocument();
-		expect(getByText("Download client unreachable")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Indexer offline"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Download client unreachable"))
+			.toBeInTheDocument();
 
-		await user.click(getAllByRole("button", { name: "Dismiss warning" })[0]);
+		await page.getByRole("button", { name: "Dismiss warning" }).first().click();
 
-		expect(queryByText("Download client unreachable")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Download client unreachable"))
+			.not.toBeInTheDocument();
 	});
 });

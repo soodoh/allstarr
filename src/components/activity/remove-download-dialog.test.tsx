@@ -1,7 +1,7 @@
-import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const removeDownloadDialogMocks = vi.hoisted(() => ({
 	isPending: false,
@@ -74,20 +74,18 @@ describe("RemoveDownloadDialog", () => {
 	};
 
 	it("opens for an item and resets option state when cancelled", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<RemoveDownloadDialog item={item as never} onOpenChange={onOpenChange} />,
 		);
 
-		await user.click(getByLabelText("Add release to blocklist"));
-		await user.click(getByRole("button", { name: "Cancel" }));
+		await page.getByLabelText("Add release to blocklist").click();
+		await page.getByRole("button", { name: "Cancel" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
 	it("submits the selected options and closes on successful removal", async () => {
-		const user = userEvent.setup();
 		const onOpenChange = vi.fn();
 		removeDownloadDialogMocks.mutate.mockImplementation(
 			(
@@ -100,13 +98,13 @@ describe("RemoveDownloadDialog", () => {
 			},
 		);
 
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<RemoveDownloadDialog item={item as never} onOpenChange={onOpenChange} />,
 		);
 
-		await user.click(getByLabelText("Remove from download client"));
-		await user.click(getByLabelText("Add release to blocklist"));
-		await user.click(getByRole("button", { name: "Remove" }));
+		await page.getByLabelText("Remove from download client").click();
+		await page.getByLabelText("Add release to blocklist").click();
+		await page.getByRole("button", { name: "Remove" }).click();
 
 		expect(removeDownloadDialogMocks.mutate).toHaveBeenCalledWith(
 			{
@@ -123,37 +121,41 @@ describe("RemoveDownloadDialog", () => {
 	});
 
 	it("does not reset checkbox state when the dialog stays open", async () => {
-		const user = userEvent.setup();
-		const { getByLabelText, getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<RemoveDownloadDialog item={item as never} onOpenChange={vi.fn()} />,
 		);
 
-		await user.click(getByLabelText("Remove from download client"));
-		await user.click(getByLabelText("Add release to blocklist"));
-		await user.click(getByRole("button", { name: "Keep dialog open" }));
+		await page.getByLabelText("Remove from download client").click();
+		await page.getByLabelText("Add release to blocklist").click();
+		await page.getByRole("button", { name: "Keep dialog open" }).click();
 
-		expect(getByLabelText("Remove from download client")).not.toBeChecked();
-		expect(getByLabelText("Add release to blocklist")).toBeChecked();
+		await expect
+			.element(page.getByLabelText("Remove from download client"))
+			.not.toBeChecked();
+		await expect
+			.element(page.getByLabelText("Add release to blocklist"))
+			.toBeChecked();
 	});
 
 	it("does nothing when remove is clicked without an item", async () => {
-		const user = userEvent.setup();
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<RemoveDownloadDialog item={null} onOpenChange={vi.fn()} />,
 		);
 
-		await user.click(getByRole("button", { name: "Remove" }));
+		await page.getByRole("button", { name: "Remove" }).click();
 
 		expect(removeDownloadDialogMocks.mutate).not.toHaveBeenCalled();
 	});
 
-	it("shows a pending label while removal is in progress", () => {
+	it("shows a pending label while removal is in progress", async () => {
 		removeDownloadDialogMocks.isPending = true;
 
-		const { getByRole } = renderWithProviders(
+		await renderWithProviders(
 			<RemoveDownloadDialog item={item as never} onOpenChange={vi.fn()} />,
 		);
 
-		expect(getByRole("button", { name: "Removing..." })).toBeDisabled();
+		await expect
+			.element(page.getByRole("button", { name: "Removing..." }))
+			.toBeDisabled();
 	});
 });

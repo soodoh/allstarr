@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const queueTabMocks = vi.hoisted(() => ({
 	pauseDownloadFn: vi.fn(),
@@ -201,7 +201,7 @@ describe("QueueTab", () => {
 		});
 	});
 
-	it("shows a loading state and configures fallback polling when disconnected", () => {
+	it("shows a loading state and configures fallback polling when disconnected", async () => {
 		queueTabMocks.useQueryClient.mockReturnValue({
 			setQueryData: queueTabMocks.setQueryData,
 		});
@@ -210,7 +210,9 @@ describe("QueueTab", () => {
 			isLoading: true,
 		});
 
-		const { container } = renderWithProviders(<QueueTab isConnected={false} />);
+		const { container } = await renderWithProviders(
+			<QueueTab isConnected={false} />,
+		);
 
 		expect(container.querySelector(".animate-spin")).not.toBeNull();
 		expect(queueTabMocks.useQuery).toHaveBeenCalledWith(
@@ -220,7 +222,7 @@ describe("QueueTab", () => {
 		);
 	});
 
-	it("shows the empty state when there are no items or warnings", () => {
+	it("shows the empty state when there are no items or warnings", async () => {
 		queueTabMocks.useQueryClient.mockReturnValue({
 			setQueryData: queueTabMocks.setQueryData,
 		});
@@ -229,12 +231,18 @@ describe("QueueTab", () => {
 			isLoading: false,
 		});
 
-		const { getByText } = renderWithProviders(<QueueTab isConnected={true} />);
+		await renderWithProviders(<QueueTab isConnected={true} />);
 
-		expect(getByText("No active downloads")).toBeInTheDocument();
-		expect(
-			getByText("Downloads from your configured clients will appear here."),
-		).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No active downloads"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText(
+					"Downloads from your configured clients will appear here.",
+				),
+			)
+			.toBeInTheDocument();
 		expect(queueTabMocks.useQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				refetchInterval: false,
@@ -243,7 +251,6 @@ describe("QueueTab", () => {
 	});
 
 	it("filters items by content type and status and resets the remove dialog", async () => {
-		const user = userEvent.setup();
 		queueTabMocks.useQueryClient.mockReturnValue({
 			setQueryData: queueTabMocks.setQueryData,
 		});
@@ -286,52 +293,81 @@ describe("QueueTab", () => {
 			isLoading: false,
 		});
 
-		const { getByRole, getByText, queryByText } = renderWithProviders(
-			<QueueTab isConnected={false} />,
-		);
+		await renderWithProviders(<QueueTab isConnected={false} />);
 
-		expect(getByText("Warnings: Client offline")).toBeInTheDocument();
-		expect(getByText("Book download")).toBeInTheDocument();
-		expect(getByText("TV download")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Warnings: Client offline"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Book download").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("TV download").first())
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Books content" }));
-		expect(queryByText("TV download")).not.toBeInTheDocument();
+		await page.getByRole("button", { name: "Books content" }).click();
+		await expect
+			.element(page.getByText("TV download").first())
+			.not.toBeInTheDocument();
 		expect(queueTabMocks.summaryProps.at(-1)?.items).toEqual([
 			expect.objectContaining({ id: "book-1", name: "Book download" }),
 		]);
 
-		await user.click(getByRole("button", { name: "Show paused statuses" }));
-		expect(getByText("No paused downloads")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Show paused statuses" }).click();
+		await expect
+			.element(page.getByText("No paused downloads"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "TV content" }));
-		expect(queryByText("Book download")).not.toBeInTheDocument();
-		expect(getByText("TV download")).toBeInTheDocument();
+		await page.getByRole("button", { name: "TV content" }).click();
+		await expect
+			.element(page.getByText("Book download").first())
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("TV download").first())
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Movies content" }));
-		expect(queryByText("TV download")).not.toBeInTheDocument();
-		expect(getByText("No paused downloads")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Show all statuses" }));
-		expect(getByText("Movie download")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Movies content" }).click();
+		await expect
+			.element(page.getByText("TV download").first())
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No paused downloads"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Show all statuses" }).click();
+		await expect
+			.element(page.getByText("Movie download").first())
+			.toBeInTheDocument();
 		expect(queueTabMocks.summaryProps.at(-1)?.items).toEqual([
 			expect.objectContaining({ id: "movie-1", name: "Movie download" }),
 		]);
 
-		await user.click(getByRole("button", { name: "Unexpected content" }));
-		expect(getByText("Book download")).toBeInTheDocument();
-		expect(getByText("TV download")).toBeInTheDocument();
-		expect(getByText("Movie download")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Unexpected content" }).click();
+		await expect
+			.element(page.getByText("Book download").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("TV download").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Movie download").first())
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "TV content" }));
-		await user.click(getByRole("button", { name: "Remove TV download" }));
-		expect(getByText("remove-dialog:TV download")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Keep remove dialog open" }));
-		expect(getByText("remove-dialog:TV download")).toBeInTheDocument();
-		await user.click(getByRole("button", { name: "Close remove dialog" }));
-		expect(getByText("remove-dialog:none")).toBeInTheDocument();
+		await page.getByRole("button", { name: "TV content" }).click();
+		await page.getByRole("button", { name: "Remove TV download" }).click();
+		await expect
+			.element(page.getByText("remove-dialog:TV download"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Keep remove dialog open" }).click();
+		await expect
+			.element(page.getByText("remove-dialog:TV download"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Close remove dialog" }).click();
+		await expect
+			.element(page.getByText("remove-dialog:none"))
+			.toBeInTheDocument();
 	});
 
 	it("optimistically updates queue state and reports mutation errors", async () => {
-		const user = userEvent.setup();
 		const item = {
 			bookId: 1,
 			downloadClientId: 9,
@@ -363,9 +399,9 @@ describe("QueueTab", () => {
 		);
 		queueTabMocks.setDownloadPriorityFn.mockRejectedValueOnce("not-an-error");
 
-		const { getByRole } = renderWithProviders(<QueueTab isConnected={true} />);
+		await renderWithProviders(<QueueTab isConnected={true} />);
 
-		await user.click(getByRole("button", { name: "Pause Debian ISO" }));
+		await page.getByRole("button", { name: "Pause Debian ISO" }).click();
 		expect(queueTabMocks.pauseDownloadFn).toHaveBeenCalledWith({
 			data: {
 				downloadClientId: 9,
@@ -410,12 +446,12 @@ describe("QueueTab", () => {
 		expect(queueTabMocks.toastError).toHaveBeenCalledWith(
 			"Failed to pause: pause failed",
 		);
-		await user.click(getByRole("button", { name: "Pause Debian ISO" }));
+		await page.getByRole("button", { name: "Pause Debian ISO" }).click();
 		expect(queueTabMocks.toastError).toHaveBeenCalledWith(
 			"Failed to pause: Unknown error",
 		);
 
-		await user.click(getByRole("button", { name: "Resume Debian ISO" }));
+		await page.getByRole("button", { name: "Resume Debian ISO" }).click();
 		expect(queueTabMocks.resumeDownloadFn).toHaveBeenCalledWith({
 			data: {
 				downloadClientId: 9,
@@ -455,12 +491,12 @@ describe("QueueTab", () => {
 		expect(queueTabMocks.toastError).toHaveBeenCalledWith(
 			"Failed to resume: resume failed",
 		);
-		await user.click(getByRole("button", { name: "Resume Debian ISO" }));
+		await page.getByRole("button", { name: "Resume Debian ISO" }).click();
 		expect(queueTabMocks.toastError).toHaveBeenCalledWith(
 			"Failed to resume: Unknown error",
 		);
 
-		await user.click(getByRole("button", { name: "Priority up Debian ISO" }));
+		await page.getByRole("button", { name: "Priority up Debian ISO" }).click();
 		expect(queueTabMocks.setDownloadPriorityFn).toHaveBeenCalledWith({
 			data: {
 				downloadClientId: 9,
@@ -469,7 +505,9 @@ describe("QueueTab", () => {
 			},
 		});
 
-		await user.click(getByRole("button", { name: "Priority down Debian ISO" }));
+		await page
+			.getByRole("button", { name: "Priority down Debian ISO" })
+			.click();
 		expect(queueTabMocks.setDownloadPriorityFn).toHaveBeenLastCalledWith({
 			data: {
 				downloadClientId: 9,

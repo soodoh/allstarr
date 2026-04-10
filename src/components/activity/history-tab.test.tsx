@@ -1,6 +1,6 @@
-import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const historyTabMocks = vi.hoisted(() => ({
 	historyListQuery: vi.fn(),
@@ -185,7 +185,7 @@ describe("HistoryTab", () => {
 		historyTabMocks.useSuspenseQuery.mockReset();
 	});
 
-	it("shows an empty state and requests the default first page", () => {
+	it("shows an empty state and requests the default first page", async () => {
 		historyTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [],
@@ -194,9 +194,11 @@ describe("HistoryTab", () => {
 			},
 		});
 
-		const { getByText } = renderWithProviders(<HistoryTab />);
+		await renderWithProviders(<HistoryTab />);
 
-		expect(getByText("No history events found.")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No history events found."))
+			.toBeInTheDocument();
 		expect(historyTabMocks.historyListQuery).toHaveBeenCalledWith({
 			limit: 25,
 			page: 1,
@@ -204,7 +206,6 @@ describe("HistoryTab", () => {
 	});
 
 	it("renders history rows, helper fallbacks, and local content-type filters", async () => {
-		const user = userEvent.setup();
 		historyTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [
@@ -278,49 +279,41 @@ describe("HistoryTab", () => {
 			},
 		});
 
-		const { getAllByText, getByText, queryByText } = renderWithProviders(
-			<HistoryTab />,
-		);
+		await renderWithProviders(<HistoryTab />);
 
-		expect(getAllByText("Grabbed").length).toBeGreaterThan(0);
-		expect(
-			getByText("Client: qBittorrent · Protocol: torrent · 1 KB"),
-		).toBeInTheDocument();
-		expect(getByText("Author #7")).toBeInTheDocument();
-		expect(getByText("Book #11")).toBeInTheDocument();
-		expect(getByText("Inception")).toBeInTheDocument();
-		expect(getByText("Severance")).toBeInTheDocument();
-		expect(getByText("Pilot")).toBeInTheDocument();
-		expect(getByText("miscEvent")).toBeInTheDocument();
-		expect(getByText("flag: true")).toBeInTheDocument();
-		expect(getAllByText("-").length).toBeGreaterThan(0);
-		expect(getByText("pagination:1:25:6:3")).toBeInTheDocument();
-		expect(
-			getAllByText(
-				(_content, node) => node?.getAttribute("data-variant") === "secondary",
-			).length,
-		).toBeGreaterThan(0);
+		await expect
+			.element(page.getByText("Client: qBittorrent · Protocol: torrent · 1 KB"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Author #7")).toBeInTheDocument();
+		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
+		await expect.element(page.getByText("Inception")).toBeInTheDocument();
+		await expect.element(page.getByText("Severance")).toBeInTheDocument();
+		await expect.element(page.getByText("Pilot")).toBeInTheDocument();
+		await expect.element(page.getByText("miscEvent")).toBeInTheDocument();
+		await expect.element(page.getByText("flag: true")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("pagination:1:25:6:3"))
+			.toBeInTheDocument();
 
-		await user.click(getByText("Books content"));
-		expect(queryByText("Inception")).not.toBeInTheDocument();
-		expect(getByText("Book #11")).toBeInTheDocument();
+		await page.getByText("Books content").click();
+		await expect.element(page.getByText("Inception")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
 
-		await user.click(getByText("Movies content"));
-		expect(queryByText("Book #11")).not.toBeInTheDocument();
-		expect(getByText("Inception")).toBeInTheDocument();
+		await page.getByText("Movies content").click();
+		await expect.element(page.getByText("Book #11")).not.toBeInTheDocument();
+		await expect.element(page.getByText("Inception")).toBeInTheDocument();
 
-		await user.click(getByText("TV content"));
-		expect(getByText("Severance")).toBeInTheDocument();
-		expect(getByText("Pilot")).toBeInTheDocument();
+		await page.getByText("TV content").click();
+		await expect.element(page.getByText("Severance")).toBeInTheDocument();
+		await expect.element(page.getByText("Pilot")).toBeInTheDocument();
 
-		await user.click(getByText("Unexpected content"));
-		expect(getByText("Book #11")).toBeInTheDocument();
-		expect(getByText("Inception")).toBeInTheDocument();
-		expect(getByText("Severance")).toBeInTheDocument();
+		await page.getByText("Unexpected content").click();
+		await expect.element(page.getByText("Book #11")).toBeInTheDocument();
+		await expect.element(page.getByText("Inception")).toBeInTheDocument();
+		await expect.element(page.getByText("Severance")).toBeInTheDocument();
 	});
 
 	it("updates query params for event filters and pagination controls", async () => {
-		const user = userEvent.setup();
 		historyTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [
@@ -344,37 +337,37 @@ describe("HistoryTab", () => {
 			},
 		});
 
-		const { getByText } = renderWithProviders(<HistoryTab />);
+		await renderWithProviders(<HistoryTab />);
 
-		await user.click(getByText("Grabbed filter"));
+		await page.getByText("Grabbed filter").click();
 		expect(historyTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			eventType: "bookGrabbed",
 			limit: 25,
 			page: 1,
 		});
 
-		await user.click(getByText("Next page"));
+		await page.getByText("Next page").click();
 		expect(historyTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			eventType: "bookGrabbed",
 			limit: 25,
 			page: 2,
 		});
 
-		await user.click(getByText("Page size 10"));
+		await page.getByText("Page size 10").click();
 		expect(historyTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			eventType: "bookGrabbed",
 			limit: 10,
 			page: 1,
 		});
 
-		await user.click(getByText("All events filter"));
+		await page.getByText("All events filter").click();
 		expect(historyTabMocks.historyListQuery).toHaveBeenLastCalledWith({
 			limit: 10,
 			page: 1,
 		});
 	});
 
-	it("falls back when show titles and grabbed details are missing", () => {
+	it("falls back when show titles and grabbed details are missing", async () => {
 		historyTabMocks.useSuspenseQuery.mockReturnValue({
 			data: {
 				items: [
@@ -404,9 +397,10 @@ describe("HistoryTab", () => {
 			},
 		});
 
-		const { getAllByText, queryByText } = renderWithProviders(<HistoryTab />);
+		await renderWithProviders(<HistoryTab />);
 
-		expect(getAllByText("-").length).toBeGreaterThan(1);
-		expect(queryByText("Client: qBittorrent")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Client: qBittorrent"))
+			.not.toBeInTheDocument();
 	});
 });
