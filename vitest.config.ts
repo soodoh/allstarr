@@ -2,9 +2,23 @@ import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-const nodeTestInclude = ["**/*.test.ts", "**/*.test.tsx"];
-const browserTestPatterns = ["**/*.browser.test.ts", "**/*.browser.test.tsx"];
-const nodeTestExclude = ["**/node_modules/**", ...browserTestPatterns];
+const nodeTestInclude = [
+	"**/*.test.ts",
+	"**/*.test.tsx",
+	"**/*.spec.ts",
+	"**/*.spec.tsx",
+];
+const browserTestPatterns = [
+	"**/*.browser.test.ts",
+	"**/*.browser.test.tsx",
+	"**/*.browser.spec.ts",
+	"**/*.browser.spec.tsx",
+];
+const nodeTestExclude = [
+	"**/node_modules/**",
+	"**/e2e/tests/**/*.spec.ts",
+	...browserTestPatterns,
+];
 
 export const coverageExclude = [
 	"**/*.test.*",
