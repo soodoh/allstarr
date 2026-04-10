@@ -1,8 +1,7 @@
-import { act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const showDetailHeaderMocks = vi.hoisted(() => ({
 	bulkMonitor: {
@@ -392,114 +391,117 @@ describe("ShowDetailHeader", () => {
 		showDetailHeaderMocks.updateShow.mutate.mockReset();
 	});
 
-	it("renders the show summary, assigned profiles, and fallbacks", () => {
-		const { getByAltText, getByRole, getByText, queryByText } =
-			renderWithProviders(
-				<ShowDetailHeader
-					downloadProfiles={[
-						{ contentType: "tv", icon: "tv", id: 11, name: "4K" },
-						{ contentType: "tv", icon: "tv", id: 12, name: "HD" },
-						{ contentType: "movie", icon: "film", id: 13, name: "Movies" },
-					]}
-					show={{
-						downloadProfileIds: [11, 12],
-						episodeGroupId: null,
-						genres: ["Drama", "Mystery"],
-						id: 8,
-						imdbId: null,
-						monitorNewSeasons: "all",
-						network: "Apple TV+",
-						overview: "",
-						posterUrl: "/severance.jpg",
-						runtime: 55,
-						seasons: [
-							{
-								id: 1,
-								episodes: [
-									{ id: 1, downloadProfileIds: [11, 12], hasFile: true },
-									{ id: 2, downloadProfileIds: [11], hasFile: false },
-								],
-								seasonNumber: 1,
-							},
-						],
-						seriesType: "standard",
-						status: "continuing",
-						title: "Severance",
-						tmdbId: 12345,
-						useSeasonFolder: null,
-						year: 2022,
-					}}
-				/>,
-			);
+	it("renders the show summary, assigned profiles, and fallbacks", async () => {
+		await renderWithProviders(
+			<ShowDetailHeader
+				downloadProfiles={[
+					{ contentType: "tv", icon: "tv", id: 11, name: "4K" },
+					{ contentType: "tv", icon: "tv", id: 12, name: "HD" },
+					{ contentType: "movie", icon: "film", id: 13, name: "Movies" },
+				]}
+				show={{
+					downloadProfileIds: [11, 12],
+					episodeGroupId: null,
+					genres: ["Drama", "Mystery"],
+					id: 8,
+					imdbId: null,
+					monitorNewSeasons: "all",
+					network: "Apple TV+",
+					overview: "",
+					posterUrl: "/severance.jpg",
+					runtime: 55,
+					seasons: [
+						{
+							id: 1,
+							episodes: [
+								{ id: 1, downloadProfileIds: [11, 12], hasFile: true },
+								{ id: 2, downloadProfileIds: [11], hasFile: false },
+							],
+							seasonNumber: 1,
+						},
+					],
+					seriesType: "standard",
+					status: "continuing",
+					title: "Severance",
+					tmdbId: 12345,
+					useSeasonFolder: null,
+					year: 2022,
+				}}
+			/>,
+		);
 
-		expect(getByRole("heading", { name: "Severance" })).toBeInTheDocument();
-		expect(getByText("2022 - Apple TV+")).toBeInTheDocument();
-		expect(getByText("55m")).toBeInTheDocument();
-		expect(getByText("Continuing")).toHaveClass("bg-green-600");
-		expect(getByText("Standard")).toBeInTheDocument();
-		expect(getByText("Drama, Mystery")).toBeInTheDocument();
-		expect(getByText("1/2 episodes")).toBeInTheDocument();
-		expect(getByText("No description available.")).toBeInTheDocument();
-		expect(queryByText("IMDB")).not.toBeInTheDocument();
-		expect(getByText("4K:active")).toBeInTheDocument();
-		expect(getByText("HD:partial")).toBeInTheDocument();
-		expect(queryByText("Movies:inactive")).not.toBeInTheDocument();
-		expect(getByRole("link", { name: "Back to TV Shows" })).toHaveAttribute(
-			"href",
-			"/tv",
-		);
-		expect(getByRole("link", { name: "Open in TMDB" })).toHaveAttribute(
-			"href",
-			"https://www.themoviedb.org/tv/12345",
-		);
-		expect(getByAltText("Severance poster")).toHaveAttribute(
-			"src",
-			"/severance.jpg",
-		);
+		await expect
+			.element(page.getByRole("heading", { name: "Severance" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("2022 - Apple TV+"))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("55m")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Continuing"))
+			.toHaveClass("bg-green-600");
+		await expect.element(page.getByText("Standard")).toBeInTheDocument();
+		await expect.element(page.getByText("Drama, Mystery")).toBeInTheDocument();
+		await expect.element(page.getByText("1/2 episodes")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("No description available."))
+			.toBeInTheDocument();
+		await expect.element(page.getByText("IMDB")).not.toBeInTheDocument();
+		await expect.element(page.getByText("4K:active")).toBeInTheDocument();
+		await expect.element(page.getByText("HD:partial")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Movies:inactive"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Back to TV Shows" }))
+			.toHaveAttribute("href", "/tv");
+		await expect
+			.element(page.getByRole("link", { name: "Open in TMDB" }))
+			.toHaveAttribute("href", "https://www.themoviedb.org/tv/12345");
+		await expect
+			.element(page.getByAltText("Severance poster"))
+			.toHaveAttribute("src", "/severance.jpg");
 	});
 
 	it("refreshes metadata and saves edited show settings", async () => {
-		const user = userEvent.setup();
+		await renderWithProviders(
+			<ShowDetailHeader
+				downloadProfiles={[
+					{ contentType: "tv", icon: "tv", id: 11, name: "4K" },
+					{ contentType: "tv", icon: "tv", id: 12, name: "HD" },
+				]}
+				show={{
+					downloadProfileIds: [11],
+					episodeGroupId: null,
+					genres: null,
+					id: 99,
+					imdbId: "tt1234567",
+					monitorNewSeasons: "all",
+					network: "HBO",
+					overview: "A mysterious story about profile management.",
+					posterUrl: "/darkroom.jpg",
+					runtime: 60,
+					seasons: [
+						{
+							id: 3,
+							episodes: [
+								{ id: 301, downloadProfileIds: [11], hasFile: true },
+								{ id: 302, downloadProfileIds: [11], hasFile: true },
+							],
+							seasonNumber: 1,
+						},
+					],
+					seriesType: "standard",
+					status: "upcoming",
+					title: "Darkroom",
+					tmdbId: 777,
+					useSeasonFolder: null,
+					year: 2024,
+				}}
+			/>,
+		);
 
-		const { getAllByRole, getByRole, getByText, queryByTestId } =
-			renderWithProviders(
-				<ShowDetailHeader
-					downloadProfiles={[
-						{ contentType: "tv", icon: "tv", id: 11, name: "4K" },
-						{ contentType: "tv", icon: "tv", id: 12, name: "HD" },
-					]}
-					show={{
-						downloadProfileIds: [11],
-						episodeGroupId: null,
-						genres: null,
-						id: 99,
-						imdbId: "tt1234567",
-						monitorNewSeasons: "all",
-						network: "HBO",
-						overview: "A mysterious story about profile management.",
-						posterUrl: "/darkroom.jpg",
-						runtime: 60,
-						seasons: [
-							{
-								id: 3,
-								episodes: [
-									{ id: 301, downloadProfileIds: [11], hasFile: true },
-									{ id: 302, downloadProfileIds: [11], hasFile: true },
-								],
-								seasonNumber: 1,
-							},
-						],
-						seriesType: "standard",
-						status: "upcoming",
-						title: "Darkroom",
-						tmdbId: 777,
-						useSeasonFolder: null,
-						year: 2024,
-					}}
-				/>,
-			);
-
-		await user.click(getByRole("button", { name: "Update metadata" }));
+		await page.getByRole("button", { name: "Update metadata" }).click();
 		expect(showDetailHeaderMocks.refreshMetadata.mutate).toHaveBeenCalledWith(
 			99,
 			expect.objectContaining({
@@ -509,21 +511,21 @@ describe("ShowDetailHeader", () => {
 
 		const refreshOnSuccess = showDetailHeaderMocks.refreshMetadata.mutate.mock
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			refreshOnSuccess?.();
-		});
+		refreshOnSuccess?.();
 		expect(showDetailHeaderMocks.router.invalidate).toHaveBeenCalledTimes(1);
 
-		await user.click(getByRole("button", { name: "Edit" }));
-		expect(getByText("Edit Download Profiles")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Edit" }).click();
+		await expect
+			.element(page.getByText("Edit Download Profiles"))
+			.toBeInTheDocument();
 
-		const selects = getAllByRole("combobox");
-		await user.selectOptions(selects[0] as HTMLSelectElement, "new");
-		await user.selectOptions(selects[1] as HTMLSelectElement, "anime");
-		await user.click(getByRole("checkbox", { name: "HD" }));
-		await user.click(getByRole("checkbox", { name: "Use Season Folder" }));
-		await user.click(getByRole("button", { name: "Choose episode group" }));
-		await user.click(getByRole("button", { name: "Save" }));
+		const selects = page.getByRole("combobox").all();
+		await userEvent.selectOptions(selects[0], "new");
+		await userEvent.selectOptions(selects[1], "anime");
+		await page.getByRole("checkbox", { name: "HD" }).click();
+		await page.getByRole("checkbox", { name: "Use Season Folder" }).click();
+		await page.getByRole("button", { name: "Choose episode group" }).click();
+		await page.getByRole("button", { name: "Save" }).click();
 
 		expect(showDetailHeaderMocks.updateShow.mutate).toHaveBeenCalledWith(
 			{
@@ -541,18 +543,16 @@ describe("ShowDetailHeader", () => {
 
 		const updateOnSuccess = showDetailHeaderMocks.updateShow.mutate.mock
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			updateOnSuccess?.();
-		});
+		updateOnSuccess?.();
 
 		expect(showDetailHeaderMocks.router.invalidate).toHaveBeenCalledTimes(2);
-		expect(queryByTestId("dialog-root")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("dialog-root"))
+			.not.toBeInTheDocument();
 	});
 
 	it("unmonitors an active profile and deletes the show", async () => {
-		const user = userEvent.setup();
-
-		const { getByRole, getByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<ShowDetailHeader
 				downloadProfiles={[
 					{ contentType: "tv", icon: "tv", id: 11, name: "4K" },
@@ -589,12 +589,12 @@ describe("ShowDetailHeader", () => {
 			/>,
 		);
 
-		await user.click(getByRole("button", { name: "4K:active" }));
-		expect(getByTestId("unmonitor-dialog")).toHaveTextContent(
-			"unmonitor:4K:Archive:show:false:0",
-		);
+		await page.getByRole("button", { name: "4K:active" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("unmonitor:4K:Archive:show:false:0");
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(showDetailHeaderMocks.bulkUnmonitor.mutate).toHaveBeenCalledWith(
 			{
 				deleteFiles: false,
@@ -608,9 +608,7 @@ describe("ShowDetailHeader", () => {
 
 		const bulkUnmonitorOnSuccess = showDetailHeaderMocks.bulkUnmonitor.mutate
 			.mock.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			bulkUnmonitorOnSuccess?.();
-		});
+		bulkUnmonitorOnSuccess?.();
 
 		expect(
 			showDetailHeaderMocks.unmonitorShowProfile.mutate,
@@ -623,16 +621,16 @@ describe("ShowDetailHeader", () => {
 
 		const unmonitorShowOnSuccess = showDetailHeaderMocks.unmonitorShowProfile
 			.mutate.mock.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			unmonitorShowOnSuccess?.();
-		});
+		unmonitorShowOnSuccess?.();
 
 		expect(showDetailHeaderMocks.router.invalidate).toHaveBeenCalledTimes(1);
 
-		await user.click(getByRole("button", { name: "Delete" }));
-		expect(getByTestId("confirm-dialog")).toHaveTextContent("Delete Show");
+		await page.getByRole("button", { name: "Delete" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toHaveTextContent("Delete Show");
 
-		await user.click(getByRole("button", { name: "Confirm" }));
+		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(showDetailHeaderMocks.deleteShow.mutate).toHaveBeenCalledWith(
 			{ deleteFiles: true, id: 42 },
 			expect.objectContaining({
@@ -642,9 +640,7 @@ describe("ShowDetailHeader", () => {
 
 		const deleteOnSuccess = showDetailHeaderMocks.deleteShow.mutate.mock
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			deleteOnSuccess?.();
-		});
+		deleteOnSuccess?.();
 
 		expect(showDetailHeaderMocks.navigate).toHaveBeenCalledWith({
 			to: "/tv",

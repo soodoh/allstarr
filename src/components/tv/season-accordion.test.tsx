@@ -1,8 +1,7 @@
-import { act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 const seasonAccordionMocks = vi.hoisted(() => ({
 	bulkMonitor: {
@@ -149,8 +148,8 @@ describe("SeasonAccordion", () => {
 		seasonAccordionMocks.router.invalidate.mockReset();
 	});
 
-	it("renders an empty season with muted progress and no profile icons", () => {
-		const { container, getByText, queryByRole } = renderWithProviders(
+	it("renders an empty season with muted progress and no profile icons", async () => {
+		const { container } = await renderWithProviders(
 			<SeasonAccordion
 				downloadProfiles={[]}
 				season={{
@@ -164,17 +163,17 @@ describe("SeasonAccordion", () => {
 			/>,
 		);
 
-		expect(getByText("Specials")).toBeInTheDocument();
-		expect(getByText("0 episodes")).toBeInTheDocument();
-		expect(getByText("0/0")).toBeInTheDocument();
+		await expect.element(page.getByText("Specials")).toBeInTheDocument();
+		await expect.element(page.getByText("0 episodes")).toBeInTheDocument();
+		await expect.element(page.getByText("0/0")).toBeInTheDocument();
 		expect(container.querySelector(".text-muted-foreground")).not.toBeNull();
-		expect(queryByRole("button", { name: /profile/i })).toBeNull();
+		await expect
+			.element(page.getByRole("button", { name: /profile/i }))
+			.not.toBeInTheDocument();
 	});
 
 	it("sorts episodes and toggles active and inactive profiles", async () => {
-		const user = userEvent.setup();
-
-		const { getByRole, getByText, queryByTestId } = renderWithProviders(
+		await renderWithProviders(
 			<SeasonAccordion
 				downloadProfiles={[
 					{ icon: "tv", id: 11, name: "4K" },
@@ -223,23 +222,31 @@ describe("SeasonAccordion", () => {
 			/>,
 		);
 
-		expect(getByText("Season 2")).toBeInTheDocument();
-		expect(getByText("3 episodes")).toBeInTheDocument();
-		expect(getByText("3/3")).toHaveClass("text-green-500");
-		expect(getByText("4K:active")).toBeInTheDocument();
-		expect(getByText("HD:partial")).toBeInTheDocument();
-		expect(getByText("Audio:inactive")).toBeInTheDocument();
-		expect(queryByTestId("unmonitor-dialog")).not.toBeInTheDocument();
-		expect(getByText("episode:201:3:Three:anime")).toBeInTheDocument();
-		expect(getByText("episode:203:2:Two:anime")).toBeInTheDocument();
-		expect(getByText("episode:202:1:One:anime")).toBeInTheDocument();
+		await expect.element(page.getByText("Season 2")).toBeInTheDocument();
+		await expect.element(page.getByText("3 episodes")).toBeInTheDocument();
+		await expect.element(page.getByText("3/3")).toHaveClass("text-green-500");
+		await expect.element(page.getByText("4K:active")).toBeInTheDocument();
+		await expect.element(page.getByText("HD:partial")).toBeInTheDocument();
+		await expect.element(page.getByText("Audio:inactive")).toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:201:3:Three:anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:203:2:Two:anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:202:1:One:anime"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "4K:active" }));
-		expect(
-			getByText("unmonitor:4K:Season 2:season:false:0"),
-		).toBeInTheDocument();
+		await page.getByRole("button", { name: "4K:active", exact: true }).click();
+		await expect
+			.element(page.getByText("unmonitor:4K:Season 2:season:false:0"))
+			.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "Confirm delete" }));
+		await page.getByRole("button", { name: "Confirm delete" }).click();
 		expect(seasonAccordionMocks.bulkUnmonitor.mutate).toHaveBeenCalledWith(
 			{
 				deleteFiles: true,
@@ -253,14 +260,14 @@ describe("SeasonAccordion", () => {
 
 		const unmonitorOnSuccess = seasonAccordionMocks.bulkUnmonitor.mutate.mock
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			unmonitorOnSuccess?.();
-		});
+		unmonitorOnSuccess?.();
 
 		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(1);
-		expect(queryByTestId("unmonitor-dialog")).not.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
 
-		await user.click(getByRole("button", { name: "HD:partial" }));
+		await page.getByRole("button", { name: "HD:partial", exact: true }).click();
 		expect(seasonAccordionMocks.bulkMonitor.mutate).toHaveBeenCalledWith(
 			{
 				downloadProfileId: 12,
@@ -273,9 +280,7 @@ describe("SeasonAccordion", () => {
 
 		const monitorOnSuccess = seasonAccordionMocks.bulkMonitor.mutate.mock
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		await act(async () => {
-			monitorOnSuccess?.();
-		});
+		monitorOnSuccess?.();
 
 		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(2);
 	});
