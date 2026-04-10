@@ -1,6 +1,5 @@
 import { renderWithProviders } from "src/test/render";
 import { describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
 
 import AllstarrIcon from "./allstarr-icon";
 
