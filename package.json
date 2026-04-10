@@ -18,7 +18,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:coverage:server-core": "vitest run --config vitest.server-core.config.ts --coverage",
     "test:e2e:install": "bunx playwright install chromium",
     "test:e2e": "bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts",
     "test:e2e:coverage": "INSTRUMENT_COVERAGE=true bun run build && COLLECT_COVERAGE=true bun run test:e2e",

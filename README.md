@@ -13,8 +13,8 @@ Useful commands:
 - `bun run build`
 - `bun run start`
 - `bun run test`
-- `bun run test:coverage:all`
-- `bun run test:coverage:server-core`
+- `bun run test:coverage`
+- `bun run test:coverage:full`
 - `bun run lint`
 - `bun run db:migrate`
 

@@ -10,4 +10,8 @@ describe("package scripts", () => {
 		expect(buildIndex).toBeGreaterThanOrEqual(0);
 		expect(buildIndex).toBeLessThan(e2eIndex);
 	});
+
+	it("does not expose a separate server-core coverage script", () => {
+		expect(packageJson.scripts["test:coverage:server-core"]).toBeUndefined();
+	});
 });
