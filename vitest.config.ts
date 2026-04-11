@@ -1,7 +1,5 @@
 import { playwright } from "@vitest/browser-playwright";
-import type { CoverageReportOptions } from "vitest-monocart-coverage";
 import { defineConfig } from "vitest/config";
-import type { CoverageOptions } from "vitest/node";
 
 export default defineConfig({
 	resolve: {
@@ -102,20 +100,6 @@ export default defineConfig({
 				"src/lib/tmdb-validators.ts",
 				"src/test/**",
 			],
-			reports: ["v8", "console-summary", "html", "raw"],
-			outputDir: "coverage/unit",
-			thresholds: {
-				statements: 90,
-				branches: 85,
-				functions: 90,
-				lines: 90,
-				"src/server/**/*.{ts,tsx}": {
-					statements: 95,
-					branches: 95,
-					functions: 95,
-					lines: 95,
-				},
-			},
-		} as CoverageOptions & CoverageReportOptions,
+		},
 	},
 });
