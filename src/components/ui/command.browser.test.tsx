@@ -95,8 +95,8 @@ describe("Command", () => {
 		await page.getByText("Refresh").click();
 
 		const refreshItem = page
-			.getByText("Refresh")
-			.locator('xpath=ancestor-or-self::*[@data-slot="command-item"]');
+			.getByRole("option", { name: "Refresh" })
+			.filter({ hasText: "Refresh" });
 		await expect.element(refreshItem).toHaveAttribute("data-selected", "true");
 		expect(onSelect).toHaveBeenCalledWith("refresh");
 	});
