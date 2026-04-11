@@ -16,7 +16,9 @@ const mocks = vi.hoisted(() => ({
 		}),
 	),
 	anyIndexerAvailable: vi.fn(() => true),
-	searchNewznab: vi.fn(async (): Promise<unknown[]> => []),
+	searchNewznab: vi.fn(
+		async (_feed?: unknown, _query?: unknown): Promise<unknown[]> => [],
+	),
 	enrichRelease: vi.fn((r: unknown) => r),
 	getProfileWeight: vi.fn((id: number) => id),
 	isFormatInProfile: vi.fn(() => true),
