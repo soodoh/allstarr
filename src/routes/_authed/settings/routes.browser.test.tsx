@@ -166,7 +166,11 @@ const settingsRouteMocks = vi.hoisted(() => ({
 		},
 	],
 	syncedIndexers: [],
-	validateForm: vi.fn(() => ({ success: true, data: {}, errors: null })),
+	validateForm: vi.fn((_schema?: unknown, _data?: unknown) => ({
+		success: true,
+		data: {},
+		errors: null,
+	})),
 	updateCustomFormat: createMutation(),
 	updateDownloadClient: createMutation(),
 	updateDownloadFormat: createMutation(),
@@ -680,7 +684,8 @@ vi.mock("src/lib/nav-config", () => ({
 }));
 
 vi.mock("src/lib/form-validation", () => ({
-	default: (...args: unknown[]) => settingsRouteMocks.validateForm(...args),
+	default: (schema: unknown, data: unknown) =>
+		settingsRouteMocks.validateForm(schema, data),
 }));
 
 vi.mock("src/lib/validators", () => ({
