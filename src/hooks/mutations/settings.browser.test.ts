@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { renderHook } from "src/test/render";
+import { runMutation } from "src/test/mutations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -39,25 +39,6 @@ import {
 	useUpdateMetadataProfile,
 	useUpdateSettings,
 } from "./settings";
-
-type HookRunner = () => {
-	mutateAsync: (variables: unknown) => Promise<unknown>;
-};
-
-async function runMutation(
-	useHook: HookRunner,
-	variables: unknown,
-	swallowError = false,
-) {
-	const { result } = await renderHook(() => useHook());
-
-	const promise = result.current.mutateAsync(variables as never);
-	if (swallowError) {
-		await promise.catch(() => {});
-		return;
-	}
-	await promise;
-}
 
 describe("mutations/settings", () => {
 	beforeEach(() => {
