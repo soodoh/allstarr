@@ -115,10 +115,10 @@ describe("useTableState", () => {
 		};
 
 		const { result, rerender } = await renderHook(
-			({ data }: { data: Array<{ value: number }> }) =>
+			(props?: { data: Array<{ value: number }> }) =>
 				useTableState({
 					comparators,
-					data,
+					data: props?.data ?? [],
 					defaultPageSize: 2,
 					defaultSortColumn: "value",
 					defaultSortDirection: "asc",
