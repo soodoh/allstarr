@@ -54,13 +54,13 @@ export function renderWithProviders(ui: ReactElement) {
 export { render };
 
 export function renderHookWithProviders<Result, Props>(
-	callback: (initialProps: Props) => Result,
+	callback: (initialProps?: Props) => Result,
 ) {
 	return vbrRenderHook(callback, { wrapper: TestProviders });
 }
 
 export function renderHook<Result, Props>(
-	callback: (initialProps: Props) => Result,
+	callback: (initialProps?: Props) => Result,
 	options?: RenderHookOptions<Props>,
 ) {
 	const { wrapper, ...rest } = options ?? {};
