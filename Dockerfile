@@ -4,6 +4,7 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 COPY package.json bun.lock ./
+COPY patches ./patches
 RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY . .
@@ -23,6 +24,7 @@ COPY --from=builder /app/.output ./.output
 # Copy package files and install production deps directly
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/bun.lock ./bun.lock
+COPY --from=builder /app/patches ./patches
 RUN bun install --production --ignore-scripts
 
 # Copy db config, migrations, and seed script
