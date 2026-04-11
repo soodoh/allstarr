@@ -16,30 +16,30 @@ const mocks = vi.hoisted(() => {
 
 	// db chain helpers
 	const run = vi.fn();
-	const get = vi.fn();
-	const all = vi.fn(() => []);
+	const get = vi.fn((): unknown => undefined);
+	const all = vi.fn((): unknown[] => []);
 	const limit = vi.fn(() => ({ get }));
 	const where = vi.fn(() => ({ all, run, get, limit }));
 	const set = vi.fn(() => ({ where }));
 	const innerJoin = vi.fn(() => ({ where }));
 	const from = vi.fn(() => ({ all, where, innerJoin }));
 	const select = vi.fn(() => ({ from }));
-	const values = vi.fn(() => ({ run }));
+	const values = vi.fn((_val?: unknown) => ({ run }));
 	const insert = vi.fn(() => ({ values }));
 	const updateFn = vi.fn(() => ({ set }));
 	const deleteFn = vi.fn(() => ({ where }));
 
 	// extractHints + matchFormat + probes
-	const extractHints = vi.fn(() => null);
+	const extractHints = vi.fn((): unknown => null);
 	const matchFormat = vi.fn(() => ({
 		id: 1,
 		name: "EPUB",
 		weight: 10,
 		color: "blue",
 	}));
-	const probeAudioFile = vi.fn(async () => null);
-	const probeEbookFile = vi.fn(() => null);
-	const getRootFolderPaths = vi.fn(() => []);
+	const probeAudioFile = vi.fn(async (): Promise<unknown> => null);
+	const probeEbookFile = vi.fn((): unknown => null);
+	const getRootFolderPaths = vi.fn((): unknown[] => []);
 
 	return {
 		existsSync,
