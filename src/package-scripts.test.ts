@@ -12,6 +12,10 @@ describe("package scripts", () => {
 	});
 
 	it("does not expose a separate server-core coverage script", () => {
-		expect(packageJson.scripts["test:coverage:server-core"]).toBeUndefined();
+		expect(
+			(packageJson.scripts as Record<string, string | undefined>)[
+				"test:coverage:server-core"
+			],
+		).toBeUndefined();
 	});
 });
