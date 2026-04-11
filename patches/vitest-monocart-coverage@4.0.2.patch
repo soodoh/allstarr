@@ -1,0 +1,50 @@
+diff --git a/lib/provider.js b/lib/provider.js
+index 33f249d76c85c13faace298970d25ce6acc9af86..b5970942c75e560554581d51be5c82debe0d49d5 100644
+--- a/lib/provider.js
++++ b/lib/provider.js
+@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
+ import CoverageReport from 'monocart-coverage-reports';
+ import { createInstrumenter } from 'istanbul-lib-instrument';
+ import TestExclude from 'test-exclude';
+-import { BaseCoverageProvider } from 'vitest/coverage';
++import { BaseCoverageProvider } from 'vitest/node';
+ 
+ const COVERAGE_STORE_KEY = '__VITEST_COVERAGE__';
+ const FILE_PROTOCOL = 'file://';
+@@ -32,17 +32,27 @@ function removeStartsWith(filepath, start) {
+ }
+ 
+ async function onTransform(project, environment, filepath) {
+-    if (environment === '__browser__' && project.browser) {
+-        const result = await project.browser.vite.transformRequest(removeStartsWith(filepath, project.config.root));
+-
+-        if (result) {
+-            return {
+-                ... result,
+-                code: `${result.code}// <inline-source-map>`
+-            };
++    try {
++        if (environment === '__browser__' && project.browser) {
++            const relative = removeStartsWith(filepath, project.config.root);
++            if (!relative || relative === '/') {
++                return;
++            }
++            const result = await project.browser.vite.transformRequest(relative);
++
++            if (result) {
++                return {
++                    ... result,
++                    code: `${result.code}// <inline-source-map>`
++                };
++            }
+         }
++        return await project.vite.environments[environment].transformRequest(filepath);
++    } catch {
++        // Swallow Vite transform errors (e.g. entries resolving to "/" or paths Vite can't load).
++        // These surface as unhandled rejections otherwise and fail the whole coverage run.
++        return;
+     }
+-    return project.vite.environments[environment].transformRequest(filepath);
+ }
+ 
+ export class MonocartProvider extends BaseCoverageProvider {

@@ -80,5 +80,9 @@
     "vitest": "4.1.4",
     "vitest-browser-react": "^2.2.0",
     "vitest-monocart-coverage": "^4.0.2"
+  },
+  "patchedDependencies": {
+    "vitest-monocart-coverage@4.0.2": "patches/vitest-monocart-coverage@4.0.2.patch",
+    "@vitest/browser@4.1.4": "patches/@vitest%2Fbrowser@4.1.4.patch"
   }
 }
