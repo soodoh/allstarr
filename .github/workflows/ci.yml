@@ -77,6 +77,8 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Unit / Component Tests with Coverage
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: bun run test:coverage
 
       - name: Upload unit coverage
