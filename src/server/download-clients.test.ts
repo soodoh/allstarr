@@ -71,7 +71,7 @@ function createSelectChain(result: { all?: unknown }) {
 
 function createInsertChain(result?: { get?: unknown }) {
 	const chain = {
-		values: vi.fn(() => chain),
+		values: vi.fn((_val?: unknown) => chain),
 		returning: vi.fn(() => chain),
 		get: vi.fn(() => result?.get),
 	};
@@ -80,7 +80,7 @@ function createInsertChain(result?: { get?: unknown }) {
 
 function createUpdateChain(result?: { get?: unknown }) {
 	const chain = {
-		set: vi.fn(() => chain),
+		set: vi.fn((_val?: unknown) => chain),
 		where: vi.fn(() => chain),
 		returning: vi.fn(() => chain),
 		get: vi.fn(() => result?.get),
@@ -154,7 +154,10 @@ describe("download-clients", () => {
 			expect(mocks.requireAdmin).toHaveBeenCalledTimes(1);
 			expect(result).toEqual(created);
 
-			const insertedValues = chain.values.mock.calls[0][0];
+			const insertedValues = chain.values.mock.calls[0][0] as Record<
+				string,
+				unknown
+			>;
 			expect(insertedValues.createdAt).toBeGreaterThanOrEqual(now);
 			expect(insertedValues.updatedAt).toBeGreaterThanOrEqual(now);
 			expect(insertedValues.createdAt).toBe(insertedValues.updatedAt);
@@ -194,7 +197,7 @@ describe("download-clients", () => {
 			expect(mocks.requireAdmin).toHaveBeenCalledTimes(1);
 			expect(result).toEqual(updated);
 
-			const setValues = chain.set.mock.calls[0][0];
+			const setValues = chain.set.mock.calls[0][0] as Record<string, unknown>;
 			expect(setValues.updatedAt).toBeGreaterThanOrEqual(now);
 			expect(setValues.name).toBe("qBit Updated");
 			expect(setValues.port).toBe(9090);
