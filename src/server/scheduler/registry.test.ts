@@ -12,7 +12,7 @@ function createMockTask(overrides: { id: string; name?: string }) {
 		name: overrides.name ?? `Task ${overrides.id}`,
 		description: `Description for ${overrides.id}`,
 		defaultInterval: 300,
-		group: "maintenance" as const,
+		group: "maintenance" as "search" | "metadata" | "media" | "maintenance",
 		handler: vi
 			.fn<(updateProgress: (message: string) => void) => Promise<TaskResult>>()
 			.mockResolvedValue({
