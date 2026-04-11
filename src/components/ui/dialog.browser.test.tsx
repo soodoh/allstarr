@@ -63,7 +63,8 @@ describe("Dialog", () => {
 
 		await renderWithProviders(
 			<Dialog open onOpenChange={onOpenChange}>
-				<DialogContent>
+				<DialogContent aria-describedby={undefined}>
+					<DialogTitle className="sr-only">Dialog</DialogTitle>
 					<p>Dialog body</p>
 				</DialogContent>
 			</Dialog>,
@@ -83,7 +84,8 @@ describe("Dialog", () => {
 
 		await renderWithProviders(
 			<Dialog open onOpenChange={onOpenChange}>
-				<DialogContent showCloseButton={false}>
+				<DialogContent showCloseButton={false} aria-describedby={undefined}>
+					<DialogTitle className="sr-only">Dialog</DialogTitle>
 					<DialogFooter showCloseButton>
 						<p>Footer actions</p>
 					</DialogFooter>

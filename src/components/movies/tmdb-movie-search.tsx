@@ -143,7 +143,11 @@ export function MoviePreviewModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl" onClick={(e) => e.stopPropagation()}>
+			<DialogContent
+				className="max-w-2xl"
+				onClick={(e) => e.stopPropagation()}
+				aria-describedby={undefined}
+			>
 				<DialogHeader>
 					<DialogTitle className="sr-only">{movie.title}</DialogTitle>
 				</DialogHeader>

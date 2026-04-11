@@ -28,7 +28,7 @@ vi.mock("src/components/shared/optimized-image", () => ({
 		alt: string;
 		src: string | null;
 		type: string;
-	}) => <img alt={alt} data-type={type} src={src ?? ""} />,
+	}) => <img alt={alt} data-type={type} src={src ?? undefined} />,
 }));
 
 vi.mock("src/components/ui/popover", () => ({

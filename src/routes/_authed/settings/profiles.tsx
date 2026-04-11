@@ -183,7 +183,10 @@ function ProfilesPage() {
 			</Tabs>
 
 			<Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
-				<DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl">
+				<DialogContent
+					className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl"
+					aria-describedby={undefined}
+				>
 					<DialogHeader>
 						<DialogTitle>
 							{editingProfile ? "Edit Profile" : "Add Profile"}

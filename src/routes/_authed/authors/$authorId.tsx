@@ -1824,7 +1824,7 @@ function AuthorDetailPage() {
 			</div>
 
 			<Dialog open={editOpen} onOpenChange={setEditOpen}>
-				<DialogContent className="max-w-2xl">
+				<DialogContent className="max-w-2xl" aria-describedby={undefined}>
 					<DialogHeader>
 						<DialogTitle>Edit Author</DialogTitle>
 					</DialogHeader>
