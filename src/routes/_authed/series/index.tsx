@@ -467,6 +467,12 @@ function SeriesPage() {
 		setSearchQuery("");
 	};
 
+	const toggleSeriesExpanded = (seriesId: number) => {
+		setExpandedId((currentId) =>
+			currentId === seriesId ? undefined : seriesId,
+		);
+	};
+
 	const bookMap = useMemo(() => {
 		const map = new Map<number, LocalBook>();
 		for (const b of allBooks) {
@@ -731,61 +737,68 @@ function SeriesPage() {
 
 					return (
 						<div key={s.id} className="border rounded-lg">
-							<button
-								type="button"
-								className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
-								onClick={() => setExpandedId(isExpanded ? undefined : s.id)}
-							>
-								<div className="flex items-center gap-3">
-									<button
-										type="button"
-										className={`h-2.5 w-2.5 rounded-full shrink-0 ${s.monitored ? "bg-green-500" : "bg-muted-foreground/40"}`}
-										onClick={(e) => {
-											e.stopPropagation();
-											handleToggleMonitored(s);
-										}}
-										aria-label={
-											s.monitored ? "Unmonitor series" : "Monitor series"
-										}
-									/>
-									<Library className="h-4 w-4 text-muted-foreground shrink-0" />
-									<span className="font-medium text-sm">{s.title}</span>
-									<Badge variant="secondary" className="text-xs">
-										{entryCount} book{entryCount === 1 ? "" : "s"}
-									</Badge>
-									{monitoredCount > 0 && (
-										<Badge variant="default" className="text-xs">
-											{monitoredCount} monitored
-										</Badge>
-									)}
-									{s.isCompleted && (
-										<Badge variant="outline" className="text-xs">
-											Complete
-										</Badge>
-									)}
+							<div className="relative">
+								<button
+									type="button"
+									aria-expanded={isExpanded}
+									aria-label={`${isExpanded ? "Collapse" : "Expand"} ${s.title}`}
+									className="absolute inset-0 w-full rounded-lg hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+									onClick={() => toggleSeriesExpanded(s.id)}
+								/>
+								<div className="relative flex items-center justify-between px-4 py-3 pointer-events-none">
+									<div className="flex items-center gap-3 min-w-0">
+										<button
+											type="button"
+											className={`pointer-events-auto relative z-10 h-2.5 w-2.5 rounded-full shrink-0 ${s.monitored ? "bg-green-500" : "bg-muted-foreground/40"}`}
+											onClick={(event) => {
+												event.stopPropagation();
+												handleToggleMonitored(s);
+											}}
+											aria-label={
+												s.monitored ? "Unmonitor series" : "Monitor series"
+											}
+										/>
+										<div className="flex items-center gap-3 min-w-0">
+											<Library className="h-4 w-4 text-muted-foreground shrink-0" />
+											<span className="font-medium text-sm">{s.title}</span>
+											<Badge variant="secondary" className="text-xs">
+												{entryCount} book{entryCount === 1 ? "" : "s"}
+											</Badge>
+											{monitoredCount > 0 && (
+												<Badge variant="default" className="text-xs">
+													{monitoredCount} monitored
+												</Badge>
+											)}
+											{s.isCompleted && (
+												<Badge variant="outline" className="text-xs">
+													Complete
+												</Badge>
+											)}
+										</div>
+									</div>
+									<div className="flex items-center gap-2">
+										<Button
+											variant="ghost"
+											size="icon"
+											className="pointer-events-auto relative z-10 h-7 w-7"
+											onClick={(event) => {
+												event.stopPropagation();
+												setEditProfilesTarget({
+													seriesId: s.id,
+													seriesTitle: s.title,
+													downloadProfileIds: s.downloadProfileIds,
+												});
+											}}
+											aria-label="Edit download profiles"
+										>
+											<Settings2 className="h-3.5 w-3.5" />
+										</Button>
+										<ChevronRight
+											className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+										/>
+									</div>
 								</div>
-								<div className="flex items-center gap-2">
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-7 w-7"
-										onClick={(e) => {
-											e.stopPropagation();
-											setEditProfilesTarget({
-												seriesId: s.id,
-												seriesTitle: s.title,
-												downloadProfileIds: s.downloadProfileIds,
-											});
-										}}
-										aria-label="Edit download profiles"
-									>
-										<Settings2 className="h-3.5 w-3.5" />
-									</Button>
-									<ChevronRight
-										className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
-									/>
-								</div>
-							</button>
+							</div>
 
 							{isExpanded && (
 								<div className="border-t overflow-x-auto">
