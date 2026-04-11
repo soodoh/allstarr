@@ -62,7 +62,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("src/components/shared/optimized-image", () => ({
 	default: ({ alt, src }: { alt: string; src: string | null }) => (
-		<img alt={alt} src={src ?? ""} />
+		<img alt={alt} src={src ?? undefined} />
 	),
 }));
 

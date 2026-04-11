@@ -33,7 +33,7 @@ vi.mock("src/components/shared/optimized-image", () => ({
 			alt={alt}
 			className={imageClassName ?? className}
 			data-type={type}
-			src={src ?? ""}
+			src={src ?? undefined}
 		/>
 	),
 }));

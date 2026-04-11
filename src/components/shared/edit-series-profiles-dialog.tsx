@@ -51,7 +51,7 @@ export default function EditSeriesProfilesDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>Edit Profiles for {seriesTitle}</DialogTitle>
 				</DialogHeader>

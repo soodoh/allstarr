@@ -176,6 +176,7 @@ describe("ReassignFilesDialog", () => {
 
 		await expect.element(page.getByText("Loading")).toBeInTheDocument();
 		unmount();
+		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		reassignFilesDialogMocks.useQuery.mockReturnValueOnce({
 			data: [{ authorName: "Alpha", id: 1, title: "Origin Book" }],

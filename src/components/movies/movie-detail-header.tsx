@@ -382,7 +382,7 @@ export default function MovieDetailHeader({
 
 			{/* Edit profiles dialog */}
 			<Dialog open={editProfilesOpen} onOpenChange={setEditProfilesOpen}>
-				<DialogContent className="max-w-md">
+				<DialogContent className="max-w-md" aria-describedby={undefined}>
 					<DialogHeader>
 						<DialogTitle>Edit Download Profiles</DialogTitle>
 					</DialogHeader>

@@ -273,7 +273,7 @@ function FormatsPage() {
 			</Tabs>
 
 			<Dialog open={defDialogOpen} onOpenChange={setDefDialogOpen}>
-				<DialogContent className="max-w-lg">
+				<DialogContent className="max-w-lg" aria-describedby={undefined}>
 					<DialogHeader>
 						<DialogTitle>
 							{editingDef ? "Edit Format" : "Add Format"}

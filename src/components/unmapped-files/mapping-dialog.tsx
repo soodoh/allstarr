@@ -130,7 +130,7 @@ export default function MappingDialog({
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-lg">
+			<DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>
 						Map {fileIds.length} file{fileIds.length !== 1 ? "s" : ""}

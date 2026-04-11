@@ -103,7 +103,7 @@ export default function AddMissingMoviesDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>Add Missing Movies</DialogTitle>
 					{collection && (

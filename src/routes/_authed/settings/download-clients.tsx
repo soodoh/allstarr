@@ -313,7 +313,7 @@ function DownloadClientsPage() {
 			/>
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className="max-w-lg">
+				<DialogContent className="max-w-lg" aria-describedby={undefined}>
 					<DialogHeader>
 						<DialogTitle>{dialogTitle}</DialogTitle>
 					</DialogHeader>

@@ -62,7 +62,9 @@ describe("Sheet", () => {
 				<SheetContent
 					side={side as "top" | "right" | "bottom" | "left"}
 					showCloseButton={false}
+					aria-describedby={undefined}
 				>
+					<SheetTitle className="sr-only">Sheet</SheetTitle>
 					<p>Sheet body</p>
 				</SheetContent>
 			</Sheet>,
@@ -81,7 +83,8 @@ describe("Sheet", () => {
 
 		await renderWithProviders(
 			<Sheet open onOpenChange={onOpenChange}>
-				<SheetContent>
+				<SheetContent aria-describedby={undefined}>
+					<SheetTitle className="sr-only">Sheet</SheetTitle>
 					<p>Sheet body</p>
 				</SheetContent>
 			</Sheet>,

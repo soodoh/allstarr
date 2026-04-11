@@ -9,7 +9,7 @@ import EmptyState from "src/components/shared/empty-state";
 import OptimizedImage from "src/components/shared/optimized-image";
 import PageHeader from "src/components/shared/page-header";
 import { Badge } from "src/components/ui/badge";
-import { Button } from "src/components/ui/button";
+import { Button, buttonVariants } from "src/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -222,19 +222,11 @@ function ResultCard({
 	const isBook = result.type === "book";
 	const isClickable = isAuthor || isBook;
 
-	let actionButton: ReactNode = null;
+	let actionLabel: string | null = null;
 	if (isAuthor) {
-		actionButton = (
-			<Button variant="outline" size="sm">
-				View Author Details
-			</Button>
-		);
+		actionLabel = "View Author Details";
 	} else if (isBook) {
-		actionButton = (
-			<Button variant="outline" size="sm">
-				View Book Details
-			</Button>
-		);
+		actionLabel = "View Book Details";
 	}
 
 	const content = (
@@ -272,7 +264,13 @@ function ResultCard({
 							</p>
 						)}
 
-						{actionButton}
+						{actionLabel && (
+							<span
+								className={buttonVariants({ variant: "outline", size: "sm" })}
+							>
+								{actionLabel}
+							</span>
+						)}
 					</div>
 				</div>
 			</CardContent>

@@ -357,7 +357,7 @@ function CreateUserDialog({
 					Add User
 				</Button>
 			</DialogTrigger>
-			<DialogContent>
+			<DialogContent aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>Create User</DialogTitle>
 				</DialogHeader>
@@ -624,7 +624,7 @@ function CreateOidcProviderDialog({
 					Add Provider
 				</Button>
 			</DialogTrigger>
-			<DialogContent>
+			<DialogContent aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>Add OIDC Provider</DialogTitle>
 				</DialogHeader>
