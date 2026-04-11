@@ -1,17 +1,13 @@
 import { renderHook } from "src/test/render";
 
-type MutationHook<TVars, TResult> = () => {
-	mutateAsync: (variables: TVars) => Promise<TResult>;
-};
-
-export async function runMutation<TVars, TResult>(
-	useHook: MutationHook<TVars, TResult>,
-	variables: TVars,
+export async function runMutation(
+	useHook: () => { mutateAsync: (variables: never) => Promise<unknown> },
+	variables: unknown,
 	swallowError = false,
-): Promise<TResult | undefined> {
+): Promise<unknown> {
 	const { result } = await renderHook(() => useHook());
 
-	const promise = result.current.mutateAsync(variables);
+	const promise = result.current.mutateAsync(variables as never);
 	if (swallowError) {
 		return promise.catch(() => undefined);
 	}
