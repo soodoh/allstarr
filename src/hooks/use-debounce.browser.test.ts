@@ -15,7 +15,7 @@ describe("useDebounce", () => {
 
 	it("returns the initial value immediately and updates after the delay", async () => {
 		const { result, rerender } = await renderHook(
-			({ delay, value }) => useDebounce(value, delay),
+			(props) => useDebounce(props?.value ?? "first", props?.delay ?? 200),
 			{
 				initialProps: { delay: 200, value: "first" },
 			},
@@ -33,7 +33,7 @@ describe("useDebounce", () => {
 
 	it("cancels the previous timer when the value changes again", async () => {
 		const { result, rerender } = await renderHook(
-			({ delay, value }) => useDebounce(value, delay),
+			(props) => useDebounce(props?.value ?? "first", props?.delay ?? 200),
 			{
 				initialProps: { delay: 200, value: "first" },
 			},
