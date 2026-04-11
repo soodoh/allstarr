@@ -876,7 +876,7 @@ describe("series route", () => {
 		await page.getByText("Refresh All").click();
 		expect(seriesRouteMocks.refreshSeries.mutate).toHaveBeenCalledWith({});
 
-		await page.getByText("Chronicles").click();
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
 		await expect
 			.element(page.getByText("Gamma Special Edition").first())
 			.toBeInTheDocument();
@@ -944,6 +944,25 @@ describe("series route", () => {
 			.toHaveTextContent("Chronicles");
 	});
 
+	it("toggles a series when clicking the full header row", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+
+		installQueryMocks();
+
+		await renderWithProviders(<Component />);
+
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
+		await expect
+			.element(page.getByText("Gamma Special Edition").first())
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Collapse Chronicles" }).click();
+		await expect
+			.element(page.getByText("Gamma Special Edition").first())
+			.not.toBeInTheDocument();
+	});
+
 	it("supports debounced search, language filtering, and the empty-state branch", async () => {
 		vi.useFakeTimers();
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
@@ -964,7 +983,7 @@ describe("series route", () => {
 		// Use locator for tab switching since it's rendered via the mock
 		await page.getByText("French").click();
 
-		await page.getByText("Chronicles").click();
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
 
 		await page.getByPlaceholder("Filter by series name...").fill("zzz");
 
@@ -984,7 +1003,7 @@ describe("series route", () => {
 
 		await renderWithProviders(<Component />);
 
-		await page.getByText("Chronicles").first().click();
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
 
 		await expect
 			.element(page.getByTestId("metadata-warning-book"))
@@ -1026,7 +1045,7 @@ describe("series route", () => {
 
 		await renderWithProviders(<Component />);
 
-		await page.getByText("Chronicles").first().click();
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
 
 		await expect.element(page.getByText("Beta").first()).toBeInTheDocument();
 		await expect.element(page.getByText("Beta Shadow")).not.toBeInTheDocument();
