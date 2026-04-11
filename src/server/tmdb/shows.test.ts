@@ -60,7 +60,7 @@ describe("getTmdbShowDetailFn", () => {
 				season_number: 1,
 				name: "Season 1",
 				overview: "",
-				poster_path: "/s1.jpg",
+				poster_path: "/s1.jpg" as string | null,
 				episode_count: 7,
 				air_date: "2008-01-20",
 			},
