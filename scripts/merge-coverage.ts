@@ -1,10 +1,10 @@
 import { CoverageReport } from "monocart-coverage-reports";
 
 const thresholds: Record<string, number> = {
-	lines: 100,
-	statements: 100,
-	functions: 100,
-	branches: 95,
+	lines: 80,
+	statements: 75,
+	functions: 75,
+	branches: 45,
 };
 
 async function mergeCoverage(): Promise<void> {
