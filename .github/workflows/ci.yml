@@ -77,11 +77,11 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
 
-      - name: Unit / Component Tests (diagnostic - no coverage)
+      - name: Unit / Component Tests with Coverage
         timeout-minutes: 12
         env:
           NODE_OPTIONS: --max-old-space-size=6144
-        run: bun run test
+        run: bun run test:coverage
 
       - name: Upload unit coverage
         if: success()
