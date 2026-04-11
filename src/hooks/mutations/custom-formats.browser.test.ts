@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { renderHook } from "src/test/render";
+import { runMutation } from "src/test/mutations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -61,16 +61,6 @@ import {
 	useSetProfileCFScore,
 	useUpdateCustomFormat,
 } from "./custom-formats";
-
-type HookRunner = () => {
-	mutateAsync: (variables: unknown) => Promise<unknown>;
-};
-
-async function runMutation(useHook: HookRunner, variables: unknown) {
-	const { result } = await renderHook(() => useHook());
-
-	await result.current.mutateAsync(variables as never);
-}
 
 describe("mutations/custom-formats", () => {
 	beforeEach(() => {
