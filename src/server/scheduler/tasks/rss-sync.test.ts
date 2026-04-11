@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
 		select: vi.fn().mockReturnThis(),
 		from: vi.fn().mockReturnThis(),
 		where: vi.fn().mockReturnThis(),
-		all: vi.fn(() => []),
+		all: vi.fn((): unknown[] => []),
 	},
 	runAutoSearch: vi.fn(),
 	anyIndexerAvailable: vi.fn(),
