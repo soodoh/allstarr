@@ -196,10 +196,7 @@ describe("BaseBookTable", () => {
 		await page.getByRole("columnheader", { name: /Title/i }).click();
 		expect(onSort).toHaveBeenCalledWith("title");
 
-		const unknownRow = await page
-			.getByRole("row", { name: /Unknown Book/i })
-			.element();
-		unknownRow.click();
+		await page.getByRole("row", { name: /Unknown Book/i }).click();
 		expect(onRowClick).toHaveBeenCalledWith(rows[1]);
 		await expect
 			.element(page.getByRole("row", { name: /Dune/i }))
