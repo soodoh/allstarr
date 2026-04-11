@@ -139,13 +139,18 @@ function buildChainableDbMock() {
 
 const dbMock = buildChainableDbMock();
 
+const dbMockCallable = dbMock as unknown as Record<
+	string,
+	(...args: unknown[]) => unknown
+>;
+
 vi.mock("src/db", () => ({
 	db: {
-		select: (...args: unknown[]) => dbMock.select(...args),
-		insert: (...args: unknown[]) => dbMock.insert(...args),
-		update: (...args: unknown[]) => dbMock.update(...args),
-		delete: (...args: unknown[]) => dbMock.delete(...args),
-		transaction: (...args: unknown[]) => dbMock.transaction(...args),
+		select: (...args: unknown[]) => dbMockCallable.select(...args),
+		insert: (...args: unknown[]) => dbMockCallable.insert(...args),
+		update: (...args: unknown[]) => dbMockCallable.update(...args),
+		delete: (...args: unknown[]) => dbMockCallable.delete(...args),
+		transaction: (...args: unknown[]) => dbMockCallable.transaction(...args),
 	},
 }));
 
