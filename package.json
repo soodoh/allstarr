@@ -21,7 +21,7 @@
     "test:e2e:install": "bunx playwright install chromium",
     "test:e2e": "bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts",
     "test:e2e:coverage": "INSTRUMENT_COVERAGE=true bun run build && COLLECT_COVERAGE=true bun run test:e2e",
-    "test:coverage:merged": "bun scripts/merge-coverage.ts",
+    "test:coverage:merged": "bun --expose-gc scripts/merge-coverage.ts",
     "test:coverage:full": "bun run test:coverage && bun run test:e2e:coverage && bun run test:coverage:merged"
   },
   "dependencies": {
