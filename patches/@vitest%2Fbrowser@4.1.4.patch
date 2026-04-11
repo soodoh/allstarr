@@ -1,0 +1,13 @@
+diff --git a/dist/index.js b/dist/index.js
+index 7dc3ff14a551314a30e0222a0f5d160bfc1150ac..8e8a56f1482bd453304998e2672ecef35addbd83 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1408,7 +1408,7 @@ class BrowserServerCDPHandler {
+ 		this.listenerIds[event].push(id);
+ 		if (!this.listeners[event]) {
+ 			this.listeners[event] = (payload) => {
+-				this.tester.cdpEvent(event, payload);
++				Promise.resolve(this.tester.cdpEvent(event, payload)).catch(() => {});
+ 				if (once) {
+ 					this.off(event, id);
+ 				}

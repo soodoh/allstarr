@@ -20,6 +20,6 @@ data/
 e2e/.test-state.json
 test-results/
 playwright-report/
-coverage-report/
+coverage-reports/
 .vitest-attachments/
 **/__screenshots__/
