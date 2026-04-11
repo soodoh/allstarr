@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IndexerRelease, ReleaseQuality } from "../indexers/types";
+import type { IndexerRelease } from "../indexers/types";
 import { ReleaseType } from "../indexers/types";
 
 // ─── Hoisted mocks ──────────────────────────────────────────────────────────
