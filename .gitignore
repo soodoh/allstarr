@@ -20,6 +20,8 @@ data/
 e2e/.test-state.json
 test-results/
 playwright-report/
+coverage/
 coverage-reports/
+monocart-report/
 .vitest-attachments/
 **/__screenshots__/
