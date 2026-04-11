@@ -178,7 +178,7 @@ describe("MetadataWarning", () => {
 				fileCount={1}
 				itemId={11}
 				itemTitle="Dune Hardcover"
-				missingSince={new Date("2025-01-01")}
+				missingSince={new Date("2025-01-01T12:00:00Z")}
 				size="lg"
 				type="edition"
 			/>,
@@ -193,7 +193,7 @@ describe("MetadataWarning", () => {
 			)
 			.toBeInTheDocument();
 		await expect
-			.element(page.getByText("Since Dec 31, 2024"))
+			.element(page.getByText("Since Jan 1, 2025"))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole("button", { name: "Reassign 1 File(s)" }))
