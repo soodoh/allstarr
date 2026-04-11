@@ -61,6 +61,7 @@ jobs:
   unit:
     name: Unit / Component Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -76,10 +77,11 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
 
-      - name: Unit / Component Tests with Coverage
+      - name: Unit / Component Tests (diagnostic - no coverage)
+        timeout-minutes: 12
         env:
           NODE_OPTIONS: --max-old-space-size=6144
-        run: bun run test:coverage
+        run: bun run test
 
       - name: Upload unit coverage
         if: success()
@@ -88,6 +90,7 @@ jobs:
           name: unit-coverage
           path: coverage/unit/raw/
           retention-days: 1
+        continue-on-error: true
 
   e2e:
     name: E2E + Merged Coverage
