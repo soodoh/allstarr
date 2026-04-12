@@ -675,7 +675,7 @@ describe("server/authors", () => {
 			);
 		});
 
-		it("persists monitorNewBooks='none' without dropping existing profile links", async () => {
+		it("persists monitorNewBooks='none' while replacing author profile links", async () => {
 			mocks.authorRow = { id: 1, name: "Author One" };
 			setupUpdateMocks();
 
@@ -693,6 +693,12 @@ describe("server/authors", () => {
 			expect(mocks.insertFn).toHaveBeenCalledWith(
 				schemaMocks.authorDownloadProfiles,
 			);
+			const profileInsertChain = mocks.insertFn.mock.results[0]
+				?.value as InsertChain;
+			expect(profileInsertChain.values).toHaveBeenCalledWith({
+				authorId: 1,
+				downloadProfileId: 11,
+			});
 		});
 
 		it("does not replace download profiles when not provided", async () => {
