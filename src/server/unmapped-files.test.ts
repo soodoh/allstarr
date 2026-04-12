@@ -19,6 +19,11 @@ const mocks = vi.hoisted(() => {
 	const requireAdmin = vi.fn();
 	const eventBusEmit = vi.fn();
 	const logWarn = vi.fn();
+	const buildBookAuthorFolderName = vi.fn(() => "Isaac Asimov");
+	const buildBookFolderName = vi.fn(() => "Foundation (1951)");
+	const renameSync = vi.fn();
+	const copyFileSync = vi.fn();
+	const mkdirSync = vi.fn();
 	const unlinkSync = vi.fn();
 
 	// Dynamic import mocks
@@ -32,15 +37,35 @@ const mocks = vi.hoisted(() => {
 	const insert = vi.fn();
 	const update = vi.fn();
 	const deleteFn = vi.fn();
+	const transaction = vi.fn(
+		(
+			fn: (tx: {
+				delete: typeof deleteFn;
+				insert: typeof insert;
+				select: typeof select;
+				update: typeof update;
+			}) => unknown,
+		) =>
+			fn({
+				delete: deleteFn,
+				insert,
+				select,
+				update,
+			}),
+	);
 
 	return {
 		and,
+		buildBookAuthorFolderName,
+		buildBookFolderName,
 		count,
 		deleteFn,
 		eq,
 		eventBusEmit,
 		getRootFolderPaths,
+		copyFileSync,
 		insert,
+		mkdirSync,
 		like,
 		logWarn,
 		or,
@@ -50,6 +75,8 @@ const mocks = vi.hoisted(() => {
 		requireAdmin,
 		requireAuth,
 		rescanRootFolder,
+		renameSync,
+		transaction,
 		select,
 		unlinkSync,
 		update,
@@ -132,23 +159,58 @@ vi.mock("src/server/logger", () => ({
 	logWarn: mocks.logWarn,
 }));
 
+vi.mock("src/server/book-paths", () => ({
+	buildBookAuthorFolderName: mocks.buildBookAuthorFolderName,
+	buildBookFolderName: mocks.buildBookFolderName,
+}));
+
 vi.mock("src/server/middleware", () => ({
 	requireAdmin: mocks.requireAdmin,
 	requireAuth: mocks.requireAuth,
 }));
 
 vi.mock("node:fs", () => ({
-	default: { unlinkSync: mocks.unlinkSync },
+	default: {
+		copyFileSync: mocks.copyFileSync,
+		mkdirSync: mocks.mkdirSync,
+		renameSync: mocks.renameSync,
+		unlinkSync: mocks.unlinkSync,
+	},
+	copyFileSync: mocks.copyFileSync,
+	mkdirSync: mocks.mkdirSync,
+	renameSync: mocks.renameSync,
 	unlinkSync: mocks.unlinkSync,
 }));
 
 vi.mock("node:path", () => ({
 	default: {
+		basename: (p: string) => {
+			const parts = p.split("/");
+			return parts[parts.length - 1] ?? "";
+		},
+		dirname: (p: string) => {
+			const parts = p.split("/");
+			parts.pop();
+			const joined = parts.join("/");
+			return joined === "" ? "." : joined;
+		},
+		join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
 		extname: (p: string) => {
 			const dot = p.lastIndexOf(".");
 			return dot >= 0 ? p.slice(dot) : "";
 		},
 	},
+	basename: (p: string) => {
+		const parts = p.split("/");
+		return parts[parts.length - 1] ?? "";
+	},
+	dirname: (p: string) => {
+		const parts = p.split("/");
+		parts.pop();
+		const joined = parts.join("/");
+		return joined === "" ? "." : joined;
+	},
+	join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
 	extname: (p: string) => {
 		const dot = p.lastIndexOf(".");
 		return dot >= 0 ? p.slice(dot) : "";
@@ -235,6 +297,7 @@ vi.mock("src/db", () => ({
 	db: {
 		delete: mocks.deleteFn,
 		insert: mocks.insert,
+		transaction: mocks.transaction,
 		select: mocks.select,
 		update: mocks.update,
 	},
@@ -258,11 +321,68 @@ import {
 function useDefaultMocks() {
 	mocks.requireAuth.mockResolvedValue({ user: { id: 1 } });
 	mocks.requireAdmin.mockResolvedValue({ user: { id: 1, role: "admin" } });
+	mocks.buildBookAuthorFolderName.mockImplementation(() => "Isaac Asimov");
+	mocks.buildBookFolderName.mockImplementation(() => "Foundation (1951)");
+	mocks.transaction.mockImplementation(
+		(
+			fn: (tx: {
+				delete: typeof mocks.deleteFn;
+				insert: typeof mocks.insert;
+				select: typeof mocks.select;
+				update: typeof mocks.update;
+			}) => unknown,
+		) =>
+			fn({
+				delete: mocks.deleteFn,
+				insert: mocks.insert,
+				select: mocks.select,
+				update: mocks.update,
+			}),
+	);
+}
+
+function setupBookMappingSelects({
+	book,
+	fallbackProfile,
+	file,
+	files,
+	profile,
+}: {
+	book: Record<string, unknown>;
+	file?: Record<string, unknown>;
+	files?: Record<string, unknown>[];
+	fallbackProfile?: Record<string, unknown>;
+	profile: Record<string, unknown>;
+}) {
+	const profileChain = createSelectChain(profile);
+	const fallbackChain = createSelectChain(fallbackProfile ?? profile);
+	const bookChain = createSelectChain(book);
+	const fileChains = (files ?? (file ? [file] : [])).map((item) =>
+		createSelectChain(item),
+	);
+
+	let fileIndex = 0;
+	let selectIndex = 0;
+	let bookQuerySeen = false;
+	mocks.select.mockImplementation((shape?: Record<string, unknown>) => {
+		if (shape) {
+			bookQuerySeen = true;
+			return bookChain;
+		}
+		selectIndex++;
+		if (selectIndex === 1) return profileChain;
+		if (!bookQuerySeen) {
+			const chain = fileChains[fileIndex] ?? fileChains[fileChains.length - 1];
+			fileIndex++;
+			return chain;
+		}
+		return fallbackChain;
+	});
 }
 
 describe("server/unmapped-files", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
 		useDefaultMocks();
 	});
 
@@ -567,22 +687,28 @@ describe("server/unmapped-files", () => {
 		});
 
 		it("maps an audio book file with probe metadata", async () => {
-			const profile = { id: 5, name: "Audiobooks" };
+			const profile = {
+				id: 5,
+				name: "Audiobooks",
+				rootFolderPath: "/library",
+			};
 			const file = {
 				id: 1,
 				path: "/media/books/story.m4b",
 				size: 50000,
 				quality: { quality: { name: "Lossless" } },
 			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
 
-			const profileChain = createSelectChain(profile);
-			const fileChain = createSelectChain(file);
-
-			let selectIndex = 0;
-			mocks.select.mockImplementation(() => {
-				selectIndex++;
-				if (selectIndex === 1) return profileChain;
-				return fileChain;
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
 			});
 
 			const insertChain = createInsertChain();
@@ -590,6 +716,7 @@ describe("server/unmapped-files", () => {
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
 
 			mocks.probeAudioFile.mockResolvedValue({
 				duration: 3600,
@@ -605,11 +732,15 @@ describe("server/unmapped-files", () => {
 			expect(mocks.probeAudioFile).toHaveBeenCalledWith(
 				"/media/books/story.m4b",
 			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/media/books/story.m4b",
+				"/library/Isaac Asimov/Foundation (1951)/story.m4b",
+			);
 			expect(mocks.insert).toHaveBeenCalledWith(schemaMocks.bookFiles);
 			expect(insertChain.values).toHaveBeenCalledWith(
 				expect.objectContaining({
 					bookId: 10,
-					path: "/media/books/story.m4b",
+					path: "/library/Isaac Asimov/Foundation (1951)/story.m4b",
 					duration: 3600,
 					bitrate: 128000,
 					codec: "aac",
@@ -625,23 +756,25 @@ describe("server/unmapped-files", () => {
 			expect(result).toEqual({ success: true, mappedCount: 1 });
 		});
 
-		it("maps an ebook file with ebook probe", async () => {
-			const profile = { id: 5, name: "Ebooks" };
+		it("moves mapped book files into the managed library path", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
 			const file = {
 				id: 1,
-				path: "/media/books/novel.epub",
+				path: "/downloads/Foundation.epub",
 				size: 5000,
 				quality: null,
 			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
 
-			const profileChain = createSelectChain(profile);
-			const fileChain = createSelectChain(file);
-
-			let selectIndex = 0;
-			mocks.select.mockImplementation(() => {
-				selectIndex++;
-				if (selectIndex === 1) return profileChain;
-				return fileChain;
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
 			});
 
 			const insertChain = createInsertChain();
@@ -649,6 +782,319 @@ describe("server/unmapped-files", () => {
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			const result = await mapUnmappedFileFn({
+				data: baseData,
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.copyFileSync).not.toHaveBeenCalled();
+			expect(mocks.unlinkSync).not.toHaveBeenCalled();
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					path: "/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+				}),
+			);
+			expect(mocks.insert).toHaveBeenCalledWith(schemaMocks.history);
+			expect(result).toEqual({ success: true, mappedCount: 1 });
+		});
+
+		it("uses a fallback root folder when the profile root is empty", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "" };
+			const fallbackProfile = {
+				id: 9,
+				name: "Fallback",
+				rootFolderPath: "/library",
+			};
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				fallbackProfile,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			const result = await mapUnmappedFileFn({ data: baseData });
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					path: "/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+				}),
+			);
+			expect(result).toEqual({ success: true, mappedCount: 1 });
+		});
+
+		it("uses the managed import author fallback when no primary author exists", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: null,
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			const result = await mapUnmappedFileFn({ data: baseData });
+
+			expect(mocks.buildBookAuthorFolderName).toHaveBeenCalledWith(
+				expect.objectContaining({
+					authorName: "Unknown Author",
+					authorFolderVarsMode: "author-only",
+				}),
+			);
+			expect(mocks.buildBookFolderName).toHaveBeenCalledWith(
+				expect.objectContaining({
+					authorName: "Unknown Author",
+				}),
+			);
+			expect(result).toEqual({ success: true, mappedCount: 1 });
+		});
+
+		it("rolls back the file move when cleanup fails after DB writes", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			const bookFilesInsertChain = createInsertChain();
+			const historyInsertChain = createInsertChain();
+			mocks.insert.mockImplementation((schema: unknown) => {
+				if (schema === schemaMocks.bookFiles) return bookFilesInsertChain;
+				return historyInsertChain;
+			});
+
+			const cleanupDeleteChain = createDeleteChain();
+			cleanupDeleteChain.run.mockImplementation(() => {
+				throw new Error("cleanup failed");
+			});
+			mocks.deleteFn.mockImplementation((schema: unknown) => {
+				expect(schema).toBe(schemaMocks.unmappedFiles);
+				return cleanupDeleteChain;
+			});
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
+				"cleanup failed",
+			);
+
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+				"/downloads/Foundation.epub",
+			);
+			expect(bookFilesInsertChain.run).toHaveBeenCalledTimes(1);
+			expect(historyInsertChain.run).toHaveBeenCalledTimes(1);
+		});
+
+		it("falls back to copy and unlink when rename hits EXDEV", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			const exdevError = Object.assign(new Error("cross-device"), {
+				code: "EXDEV",
+			});
+			mocks.renameSync.mockImplementation(() => {
+				throw exdevError;
+			});
+
+			const result = await mapUnmappedFileFn({
+				data: baseData,
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.copyFileSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.unlinkSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					path: "/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+				}),
+			);
+			expect(result).toEqual({ success: true, mappedCount: 1 });
+		});
+
+		it("cleans up the copied destination if EXDEV fallback cannot delete the source", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			const exdevError = Object.assign(new Error("cross-device"), {
+				code: "EXDEV",
+			});
+			mocks.renameSync.mockImplementation(() => {
+				throw exdevError;
+			});
+			mocks.unlinkSync
+				.mockImplementationOnce(() => {
+					throw new Error("source delete failed");
+				})
+				.mockImplementationOnce(() => undefined);
+
+			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
+				"source delete failed",
+			);
+
+			expect(mocks.copyFileSync).toHaveBeenCalledWith(
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.unlinkSync).toHaveBeenNthCalledWith(
+				1,
+				"/downloads/Foundation.epub",
+			);
+			expect(mocks.unlinkSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.insert).not.toHaveBeenCalledWith(schemaMocks.bookFiles);
+		});
+
+		it("maps an ebook file with ebook probe", async () => {
+			const profile = {
+				id: 5,
+				name: "Ebooks",
+				rootFolderPath: "/library",
+			};
+			const file = {
+				id: 1,
+				path: "/media/books/novel.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
 
 			mocks.probeEbookFile.mockReturnValue({
 				pageCount: 350,
@@ -659,6 +1105,11 @@ describe("server/unmapped-files", () => {
 
 			expect(mocks.probeEbookFile).toHaveBeenCalledWith(
 				"/media/books/novel.epub",
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					path: "/library/Isaac Asimov/Foundation (1951)/novel.epub",
+				}),
 			);
 			expect(insertChain.values).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -718,6 +1169,8 @@ describe("server/unmapped-files", () => {
 					container: "matroska",
 				}),
 			);
+			expect(mocks.deleteFn).toHaveBeenCalledWith(schemaMocks.unmappedFiles);
+			expect(deleteChain.run).toHaveBeenCalledTimes(1);
 			expect(result).toEqual({ success: true, mappedCount: 1 });
 		});
 
@@ -764,11 +1217,17 @@ describe("server/unmapped-files", () => {
 					codec: "hevc",
 				}),
 			);
+			expect(mocks.deleteFn).toHaveBeenCalledWith(schemaMocks.unmappedFiles);
+			expect(deleteChain.run).toHaveBeenCalledTimes(1);
 			expect(result).toEqual({ success: true, mappedCount: 1 });
 		});
 
 		it("sets part/partCount for multi-part audiobooks", async () => {
-			const profile = { id: 5, name: "Audiobooks" };
+			const profile = {
+				id: 5,
+				name: "Audiobooks",
+				rootFolderPath: "/library",
+			};
 			const file1 = {
 				id: 1,
 				path: "/media/books/part1.mp3",
@@ -781,15 +1240,17 @@ describe("server/unmapped-files", () => {
 				size: 50000,
 				quality: null,
 			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
 
-			const profileChain = createSelectChain(profile);
-
-			let selectIndex = 0;
-			mocks.select.mockImplementation(() => {
-				selectIndex++;
-				if (selectIndex === 1) return profileChain;
-				if (selectIndex === 2) return createSelectChain(file1);
-				return createSelectChain(file2);
+			setupBookMappingSelects({
+				book,
+				files: [file1, file2],
+				profile,
 			});
 
 			const insertChain = createInsertChain();
@@ -797,6 +1258,7 @@ describe("server/unmapped-files", () => {
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
 
 			mocks.probeAudioFile.mockResolvedValue({
 				duration: 1800,
@@ -815,6 +1277,7 @@ describe("server/unmapped-files", () => {
 				expect.objectContaining({
 					part: 1,
 					partCount: 2,
+					path: "/library/Isaac Asimov/Foundation (1951)/part1.mp3",
 				}),
 			);
 			// Second audio file: part=2, partCount=2
@@ -822,6 +1285,7 @@ describe("server/unmapped-files", () => {
 				expect.objectContaining({
 					part: 2,
 					partCount: 2,
+					path: "/library/Isaac Asimov/Foundation (1951)/part2.mp3",
 				}),
 			);
 		});
