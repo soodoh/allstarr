@@ -1,22 +1,18 @@
-import { createRequire } from "node:module";
-import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { createRequire } from "node:module";
+import { defineConfig } from "vite";
 import { nitro } from "nitro/vite";
 import istanbul from "vite-plugin-istanbul";
 
 const require = createRequire(import.meta.url);
-
-type IstanbulInstrumenter = {
-  instrumentSync(code: string, filename: string): string;
-  lastSourceMap(): object | null;
+const { createInstrumenter } = require("istanbul-lib-instrument") as {
+  createInstrumenter: (opts: Record<string, unknown>) => {
+    instrumentSync(code: string, filename: string): string;
+    lastSourceMap(): object | null;
+  };
 };
-
-type CreateInstrumenter = (
-  opts: Record<string, unknown>,
-) => IstanbulInstrumenter;
-
 const ignoredNitroWarningCodes = new Set([
   "EVAL",
   "CIRCULAR_DEPENDENCY",
@@ -166,9 +162,6 @@ export default defineConfig({
           // Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
           // so we instrument it here using the same istanbul-lib-instrument that it uses.
           (() => {
-            const { createInstrumenter } = require("istanbul-lib-instrument") as {
-              createInstrumenter: CreateInstrumenter;
-            };
             return {
               name: "istanbul-ssr",
               enforce: "post" as const,
