@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import { trapBrowserConsoleError } from "src/test/browser-console";
 import { renderWithProviders } from "src/test/render";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 const authorDetailRouteMocks = vi.hoisted(() => ({
@@ -69,6 +70,10 @@ const authorDetailRouteMocks = vi.hoisted(() => ({
 		mutate: vi.fn((_: unknown, options?: { onSuccess?: () => void }) =>
 			options?.onSuccess?.(),
 		),
+	},
+	updateSeries: {
+		isPending: false,
+		mutate: vi.fn(),
 	},
 	setObserverCallback: undefined as
 		| ((entries: IntersectionObserverEntry[]) => void)
@@ -492,17 +497,13 @@ vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
 vi.mock("src/components/ui/button", () => ({
 	Button: ({
 		children,
-		onClick,
-		type,
+		...props
 	}: {
 		children: ReactNode;
 		onClick?: () => void;
 		type?: "button" | "submit";
-	}) => (
-		<button onClick={onClick} type={type ?? "button"}>
-			{children}
-		</button>
-	),
+		[key: string]: unknown;
+	}) => <button {...props}>{children}</button>,
 }));
 
 vi.mock("src/components/ui/card", () => ({
@@ -625,10 +626,7 @@ vi.mock("src/hooks/mutations/series", () => ({
 		isPending: false,
 		mutate: vi.fn(),
 	}),
-	useUpdateSeries: () => ({
-		isPending: false,
-		mutate: vi.fn(),
-	}),
+	useUpdateSeries: () => authorDetailRouteMocks.updateSeries,
 }));
 
 vi.mock("src/hooks/use-table-columns", () => ({
@@ -676,7 +674,10 @@ vi.mock("src/lib/queries/user-settings", () => ({
 import { Route } from "./$authorId";
 
 describe("AuthorDetailRoute", () => {
+	let browserConsoleGuard: ReturnType<typeof trapBrowserConsoleError>;
+
 	beforeEach(() => {
+		browserConsoleGuard = trapBrowserConsoleError();
 		authorDetailRouteMocks.author = null;
 		authorDetailRouteMocks.downloadProfiles = [];
 		authorDetailRouteMocks.metadataProfile = null;
@@ -693,6 +694,7 @@ describe("AuthorDetailRoute", () => {
 		authorDetailRouteMocks.notFound.mockClear();
 		authorDetailRouteMocks.params.authorId = "7";
 		authorDetailRouteMocks.refreshAuthorMetadata.mutate.mockReset();
+		authorDetailRouteMocks.updateSeries.mutate.mockReset();
 		authorDetailRouteMocks.updateAuthor.mutate.mockReset();
 		authorDetailRouteMocks.unmonitorBookProfile.mutate.mockReset();
 		authorDetailRouteMocks.useInfiniteQuery.mockReset();
@@ -759,6 +761,11 @@ describe("AuthorDetailRoute", () => {
 
 		globalThis.IntersectionObserver =
 			MockIntersectionObserver as unknown as typeof IntersectionObserver;
+	});
+
+	afterEach(() => {
+		browserConsoleGuard.assertNoDomNestingWarnings();
+		browserConsoleGuard.restore();
 	});
 
 	it("rejects invalid ids and converts missing-author loader errors into notFound", async () => {
@@ -889,6 +896,7 @@ describe("AuthorDetailRoute", () => {
 					isbn10: null,
 					isbn13: null,
 					language: "English",
+					languageCodes: ["en"],
 					metadataSourceMissingSince: null,
 					missingEditionsCount: 0,
 					pageCount: 800,
@@ -1060,6 +1068,109 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "Series" }).click();
 		await expect
 			.element(page.getByText("No series found for this author."))
+			.toBeInTheDocument();
+	});
+
+	it("expands a series row, toggles monitoring, and opens edit controls without DOM nesting warnings", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: "Prolific science fiction author.",
+			bornYear: 1920,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [
+						{
+							authorId: 7,
+							authorName: "Isaac Asimov",
+							foreignAuthorId: "isaac-asimov",
+							isPrimary: true,
+						},
+					],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editions: [],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 800,
+					publisher: "Ace",
+					rating: 4.2,
+					ratingsCount: 123,
+					releaseDate: "1950-01-01",
+					releaseYear: 1950,
+					score: 98,
+					series: null,
+					title: "Foundation",
+					usersCount: 10_000,
+					country: "US",
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			deathYear: 1992,
+			status: "active",
+			series: [
+				{
+					books: [{ bookId: 1, position: "1" }],
+					downloadProfileIds: [11],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: false,
+					slug: "foundation",
+					title: "Foundation",
+				},
+			],
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{
+				contentType: "ebook",
+				id: 11,
+				language: "en",
+				name: "4K",
+			},
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: false,
+			skipMissingReleaseDate: false,
+		};
+
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation" }).click();
+		await page
+			.getByRole("button", { name: "Monitor series", exact: true })
+			.click();
+		expect(authorDetailRouteMocks.updateSeries.mutate).toHaveBeenCalledWith({
+			id: 101,
+			monitored: true,
+		});
+
+		await page
+			.getByRole("button", { name: "Edit download profiles", exact: true })
+			.click();
+		await expect
+			.element(page.getByTestId("edit-series-profiles-dialog"))
 			.toBeInTheDocument();
 	});
 
