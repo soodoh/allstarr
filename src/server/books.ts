@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, exists, inArray, like, or, sql } from "drizzle-orm";
@@ -1010,6 +1009,7 @@ export const deleteBookFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteBookSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const fs = await import("node:fs");
 
 		const book = db.select().from(books).where(eq(books.id, data.id)).get();
 		if (!book) {
@@ -1259,6 +1259,7 @@ export const bulkUnmonitorBookProfileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => bulkUnmonitorBookProfileSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const fs = await import("node:fs");
 		const { bookIds, downloadProfileId, deleteFiles } = data;
 
 		if (bookIds.length === 0) {

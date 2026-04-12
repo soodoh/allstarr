@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "src/db";
@@ -930,6 +929,7 @@ export const deleteShowFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => deleteShowSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const fs = await import("node:fs");
 
 		const show = db.select().from(shows).where(eq(shows.id, data.id)).get();
 

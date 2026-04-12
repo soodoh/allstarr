@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, like, sql } from "drizzle-orm";
 import { db } from "src/db";
@@ -157,6 +155,8 @@ export const moveProfileFilesFn = createServerFn({ method: "POST" })
 			d,
 	)
 	.handler(async ({ data }) => {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
 		await requireAdmin();
 		const profile = db
 			.select()
