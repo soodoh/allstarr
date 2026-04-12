@@ -93,29 +93,67 @@ vi.mock("src/components/shared/unmonitor-dialog", () => ({
 		) : null,
 }));
 
-vi.mock("src/components/ui/accordion", () => ({
-	AccordionContent: ({ children }: { children: ReactNode }) => (
-		<div data-testid="accordion-content">{children}</div>
-	),
-	AccordionItem: ({
-		children,
-		value,
-	}: {
-		children: ReactNode;
-		value: string;
-	}) => <section data-value={value}>{children}</section>,
-	AccordionTrigger: ({
-		children,
-		className,
-	}: {
-		children: ReactNode;
-		className?: string;
-	}) => (
-		<button className={className} data-state="open" type="button">
-			{children}
-		</button>
-	),
-}));
+vi.mock("src/components/ui/accordion", async () => {
+	const { createContext, useContext, useState } = await import("react");
+
+	const AccordionItemContext = createContext<{
+		open: boolean;
+		setOpen: (open: boolean) => void;
+	} | null>(null);
+
+	return {
+		AccordionContent: ({ children }: { children: ReactNode }) => {
+			const accordionItem = useContext(AccordionItemContext);
+
+			if (!accordionItem?.open) {
+				return null;
+			}
+
+			return <div data-testid="accordion-content">{children}</div>;
+		},
+		AccordionItem: ({
+			children,
+			value,
+		}: {
+			children: ReactNode;
+			value: string;
+		}) => {
+			const [open, setOpen] = useState(false);
+
+			return (
+				<AccordionItemContext.Provider value={{ open, setOpen }}>
+					<section data-state={open ? "open" : "closed"} data-value={value}>
+						{children}
+					</section>
+				</AccordionItemContext.Provider>
+			);
+		},
+		AccordionTrigger: ({
+			children,
+			className,
+		}: {
+			children: ReactNode;
+			className?: string;
+		}) => {
+			const accordionItem = useContext(AccordionItemContext);
+
+			return (
+				<button
+					className={className}
+					data-state={accordionItem?.open ? "open" : "closed"}
+					onClick={() => {
+						if (accordionItem) {
+							accordionItem.setOpen(!accordionItem.open);
+						}
+					}}
+					type="button"
+				>
+					{children}
+				</button>
+			);
+		},
+	};
+});
 
 vi.mock("./episode-row", () => ({
 	default: ({
@@ -256,8 +294,19 @@ describe("SeasonAccordion", () => {
 		await expect.element(page.getByText("HD:partial")).toBeInTheDocument();
 		await expect.element(page.getByText("Audio:inactive")).toBeInTheDocument();
 		await expect
-			.element(page.getByTestId("unmonitor-dialog"))
+			.element(page.getByText("episode:201:3:Three:anime"))
 			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:203:2:Two:anime"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:202:1:One:anime"))
+			.not.toBeInTheDocument();
+
+		await page
+			.getByRole("button", { name: /Season 2, 3 episodes, 3\/3 files/ })
+			.click();
+
 		await expect
 			.element(page.getByText("episode:201:3:Three:anime"))
 			.toBeInTheDocument();
@@ -267,6 +316,53 @@ describe("SeasonAccordion", () => {
 		await expect
 			.element(page.getByText("episode:202:1:One:anime"))
 			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("button", { name: /Season 2, 3 episodes, 3\/3 files/ }),
+			)
+			.toHaveAttribute("data-state", "open");
+
+		await page.getByRole("button", { name: "HD:partial", exact: true }).click();
+		expect(seasonAccordionMocks.bulkMonitor.mutate).toHaveBeenCalledWith(
+			{
+				downloadProfileId: 12,
+				episodeIds: [201, 203, 202],
+			},
+			expect.objectContaining({
+				onSuccess: expect.any(Function),
+			}),
+		);
+		const monitorOnSuccess = seasonAccordionMocks.bulkMonitor.mutate.mock
+			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
+		monitorOnSuccess?.();
+		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(1);
+		await expect
+			.element(page.getByText("episode:201:3:Three:anime"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("button", { name: /Season 2, 3 episodes, 3\/3 files/ }),
+			)
+			.toHaveAttribute("data-state", "open");
+
+		await page
+			.getByRole("button", { name: /Season 2, 3 episodes, 3\/3 files/ })
+			.click();
+
+		await expect
+			.element(page.getByText("episode:201:3:Three:anime"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:203:2:Two:anime"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("episode:202:1:One:anime"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByRole("button", { name: /Season 2, 3 episodes, 3\/3 files/ }),
+			)
+			.toHaveAttribute("data-state", "closed");
 
 		await page.getByRole("button", { name: "4K:active", exact: true }).click();
 		await expect
@@ -289,26 +385,9 @@ describe("SeasonAccordion", () => {
 			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
 		unmonitorOnSuccess?.();
 
-		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(1);
+		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(2);
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
 			.not.toBeInTheDocument();
-
-		await page.getByRole("button", { name: "HD:partial", exact: true }).click();
-		expect(seasonAccordionMocks.bulkMonitor.mutate).toHaveBeenCalledWith(
-			{
-				downloadProfileId: 12,
-				episodeIds: [201, 203, 202],
-			},
-			expect.objectContaining({
-				onSuccess: expect.any(Function),
-			}),
-		);
-
-		const monitorOnSuccess = seasonAccordionMocks.bulkMonitor.mutate.mock
-			.calls[0]?.[1]?.onSuccess as (() => void) | undefined;
-		monitorOnSuccess?.();
-
-		expect(seasonAccordionMocks.router.invalidate).toHaveBeenCalledTimes(2);
 	});
 });
