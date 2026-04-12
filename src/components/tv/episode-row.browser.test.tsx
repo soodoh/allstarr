@@ -1,6 +1,6 @@
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 const episodeRowMocks = vi.hoisted(() => ({
 	monitorEpisodeProfile: {

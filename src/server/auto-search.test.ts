@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── Hoisted mocks ─────────────────────────────────────────────────────────
@@ -640,9 +641,6 @@ describe("findBestReleaseForProfile (via runAutoSearch)", () => {
 	});
 
 	it("does not grab when existing file meets cutoff and upgrades not allowed", async () => {
-		const release = makeRelease({
-			quality: { id: 3, name: "PDF", weight: 3, color: "#00f" },
-		});
 		const profile = makeProfile({ upgradeAllowed: false });
 		const callIdx = { n: 0 };
 		mocks.selectAll.mockImplementation(() => {
@@ -997,7 +995,7 @@ describe("indexer rate limiting", () => {
 			}
 		});
 
-		const result = await runAutoSearch({ bookIds: [10, 11] });
+		await runAutoSearch({ bookIds: [10, 11] });
 
 		// Should stop before searching any books since indexers are exhausted
 		expect(mocks.searchNewznab).not.toHaveBeenCalled();
@@ -2008,11 +2006,12 @@ describe("runAutoSearch — movies and episodes integration", () => {
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+		const movieDetails = requireValue(result.movieDetails);
 
 		expect(result.searched).toBeGreaterThanOrEqual(1);
 		expect(result.grabbed).toBeGreaterThanOrEqual(1);
 		expect(result.movieDetails).toBeDefined();
-		expect(result.movieDetails!.length).toBeGreaterThanOrEqual(1);
+		expect(movieDetails.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("records movie search error gracefully", async () => {
@@ -2064,10 +2063,11 @@ describe("runAutoSearch — movies and episodes integration", () => {
 		});
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+		const movieDetails = requireValue(result.movieDetails);
 
 		expect(result.errors).toBe(1);
-		expect(result.movieDetails!.length).toBe(1);
-		expect(result.movieDetails![0].error).toBe("Movie parse error");
+		expect(movieDetails.length).toBe(1);
+		expect(movieDetails[0].error).toBe("Movie parse error");
 	});
 
 	it("stops movie processing when indexers exhausted", async () => {
@@ -2125,7 +2125,7 @@ describe("runAutoSearch — movies and episodes integration", () => {
 		// Indexers exhausted from the start
 		mocks.anyIndexerAvailable.mockReturnValue(false);
 
-		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+		await runAutoSearch({ delayBetweenBooks: 0 });
 
 		// Should not search any movies since indexers are exhausted
 		expect(mocks.searchNewznab).not.toHaveBeenCalled();
@@ -3133,7 +3133,6 @@ describe("grab flow with tracked downloads", () => {
 
 describe("searchForAuthorBooks — with books", () => {
 	it("searches books belonging to an author", async () => {
-		const profile = makeProfile();
 		const callIdx = { n: 0 };
 		mocks.selectAll.mockImplementation(() => {
 			callIdx.n += 1;
@@ -3175,7 +3174,6 @@ describe("searchForAuthorBooks — with books", () => {
 
 describe("getWantedBooks edge cases (via runAutoSearch)", () => {
 	it("skips books whose primary author is not monitored", async () => {
-		const profile = makeProfile();
 		const callIdx = { n: 0 };
 		mocks.selectAll.mockImplementation(() => {
 			callIdx.n += 1;
@@ -3794,10 +3792,11 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		});
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+		const episodeDetails = requireValue(result.episodeDetails);
 
 		expect(result.errors).toBe(1);
-		expect(result.episodeDetails!.length).toBe(1);
-		expect(result.episodeDetails![0].error).toBe("Episode parse error");
+		expect(episodeDetails.length).toBe(1);
+		expect(episodeDetails[0].error).toBe("Episode parse error");
 	});
 });
 

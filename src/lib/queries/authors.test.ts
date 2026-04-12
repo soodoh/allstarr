@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -41,7 +42,9 @@ describe("authors queries", () => {
 		]);
 		expect(options.initialPageParam).toBe(1);
 
-		await expect(options.queryFn!({ pageParam: 3 } as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+
+		await expect(queryFn({ pageParam: 3 } as never)).resolves.toEqual({
 			page: 2,
 			totalPages: 4,
 		});
@@ -52,7 +55,7 @@ describe("authors queries", () => {
 
 	it("advances authors pagination until the last page", () => {
 		const options = authorsInfiniteQuery();
-		const getNextPageParam = options.getNextPageParam!;
+		const getNextPageParam = requireValue(options.getNextPageParam);
 
 		expect(
 			getNextPageParam(
@@ -78,7 +81,8 @@ describe("authors queries", () => {
 		const options = authorDetailQuery(7);
 
 		expect(options.queryKey).toStrictEqual(["authors", "detail", 7]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({ id: 7 });
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({ id: 7 });
 		expect(mocks.getAuthorFn).toHaveBeenCalledWith({ data: { id: 7 } });
 	});
 
@@ -92,7 +96,8 @@ describe("authors queries", () => {
 			"existence",
 			"foreign-123",
 		]);
-		await expect(options.queryFn!({} as never)).resolves.toBe(true);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toBe(true);
 		expect(mocks.checkAuthorExistsFn).toHaveBeenCalledWith({
 			data: { foreignAuthorId: "foreign-123" },
 		});
@@ -117,7 +122,9 @@ describe("authors queries", () => {
 		]);
 		expect(options.initialPageParam).toBe(1);
 
-		await expect(options.queryFn!({ pageParam: 4 } as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+
+		await expect(queryFn({ pageParam: 4 } as never)).resolves.toEqual({
 			page: 1,
 			totalPages: 2,
 		});
@@ -136,7 +143,7 @@ describe("authors queries", () => {
 
 	it("advances author books pagination until the last page", () => {
 		const options = authorBooksInfiniteQuery(11);
-		const getNextPageParam = options.getNextPageParam!;
+		const getNextPageParam = requireValue(options.getNextPageParam);
 
 		expect(
 			getNextPageParam(

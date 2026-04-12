@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -21,7 +22,8 @@ describe("series queries", () => {
 		const options = seriesListQuery();
 
 		expect(options.queryKey).toStrictEqual(["series", "list"]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual([{ id: 1 }]);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual([{ id: 1 }]);
 		expect(mocks.getSeriesListFn).toHaveBeenCalledTimes(1);
 	});
 });

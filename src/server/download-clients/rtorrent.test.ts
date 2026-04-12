@@ -97,7 +97,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("returns null version when the response has no string tag", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcSuccess("<int>1</int>"));
@@ -129,7 +129,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("reports a fault response from testConnection", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcFault(-501, "Unknown method"));
@@ -161,7 +161,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("reports HTTP failures from the XML-RPC endpoint", async () => {
-		const server = await startHttpTestServer((request, response) => {
+		const server = await startHttpTestServer((_request, response) => {
 			response.statusCode = 503;
 			response.end("unavailable");
 		});
@@ -366,7 +366,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("throws when removeDownload returns a fault", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcFault(-501, "Could not find info-hash"));
@@ -431,7 +431,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("throws when pauseDownload returns a fault", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcFault(-501, "Could not find info-hash"));
@@ -496,7 +496,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("throws when resumeDownload returns a fault", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcFault(-501, "Could not find info-hash"));
@@ -567,7 +567,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("throws when setPriority returns a fault", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcFault(-501, "Could not find info-hash"));
@@ -731,7 +731,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("returns an empty list when the response has no data elements", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			response.end(xmlRpcSuccess("<array><data></data></array>"));
@@ -759,7 +759,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("skips rows with fewer than 2 string values", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			// Row with only 1 string — should be skipped
@@ -891,7 +891,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("surfaces HTTP failures from action methods", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 500;
 			response.end("boom");
 		});
@@ -973,7 +973,7 @@ describe("rtorrent provider", () => {
 	});
 
 	it("handles missing integer fields in multicall rows gracefully", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "text/xml");
 			// Row with 2 strings but no i8 values

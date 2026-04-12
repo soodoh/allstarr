@@ -1,4 +1,3 @@
-/* eslint-disable jest/no-conditional-in-test */
 import { test, expect } from "../fixtures/app";
 import {
   TEST_USER,

@@ -18,8 +18,8 @@
 - DB schema change: `bun run db:generate` then `bun run db:migrate`
 
 ## Coding Style & Naming Conventions
-- This repo uses TypeScript with Biome for formatting and linting. After making changes, use existing lint/format commands to apply fixes rather than manually updating. Ensure that we do not contribute additional lint errors or warnings.
-- Do not use biome or typescript ignore comments.
+- This repo uses TypeScript with Biome as the linting and formatting source of truth. After making changes, use existing lint/format commands to apply fixes rather than manually updating. Ensure that we do not contribute additional lint errors or warnings.
+- Do not add lint or TypeScript suppression comments.
 - Do not use default React imports; use named imports such as `import { useState } from "react"`.
 - Keep route files aligned with URL structure (`src/routes/setup.tsx`, `src/routes/_authed/index.tsx`).
 - Use lowercase kebab-case for component files (`movie-card.tsx`). Test suffixes: `.test.ts` for Node unit tests, `.browser.test.tsx` for Vitest browser-mode tests (Chromium via Playwright — required for anything touching the DOM), `.spec.ts` for Playwright e2e.

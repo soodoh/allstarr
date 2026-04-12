@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -32,7 +33,8 @@ describe("history queries", () => {
 			"all",
 			undefined,
 		]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({
 			items: [],
 			page: 1,
 			total: 0,
@@ -63,7 +65,8 @@ describe("history queries", () => {
 			"download",
 			99,
 		]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({
 			items: [],
 			page: 3,
 			total: 0,

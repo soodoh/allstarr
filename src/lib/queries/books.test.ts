@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -41,7 +42,9 @@ describe("books queries", () => {
 		]);
 		expect(options.initialPageParam).toBe(1);
 
-		await expect(options.queryFn!({ pageParam: 2 } as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+
+		await expect(queryFn({ pageParam: 2 } as never)).resolves.toEqual({
 			page: 1,
 			totalPages: 4,
 		});
@@ -59,7 +62,7 @@ describe("books queries", () => {
 
 	it("advances book pagination until the last page", () => {
 		const options = booksInfiniteQuery();
-		const getNextPageParam = options.getNextPageParam!;
+		const getNextPageParam = requireValue(options.getNextPageParam);
 
 		expect(
 			getNextPageParam(
@@ -96,7 +99,9 @@ describe("books queries", () => {
 		]);
 		expect(options.initialPageParam).toBe(1);
 
-		await expect(options.queryFn!({ pageParam: 3 } as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+
+		await expect(queryFn({ pageParam: 3 } as never)).resolves.toEqual({
 			page: 3,
 			totalPages: 5,
 		});
@@ -113,7 +118,7 @@ describe("books queries", () => {
 
 	it("advances book editions pagination until the last page", () => {
 		const options = bookEditionsInfiniteQuery(22);
-		const getNextPageParam = options.getNextPageParam!;
+		const getNextPageParam = requireValue(options.getNextPageParam);
 
 		expect(
 			getNextPageParam(
@@ -139,7 +144,8 @@ describe("books queries", () => {
 		const options = bookDetailQuery(9);
 
 		expect(options.queryKey).toStrictEqual(["books", "detail", 9]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({ id: 9 });
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({ id: 9 });
 		expect(mocks.getBookFn).toHaveBeenCalledWith({ data: { id: 9 } });
 	});
 
@@ -159,7 +165,8 @@ describe("books queries", () => {
 		]);
 		expect(enabled.enabled).toBe(true);
 
-		await expect(enabled.queryFn!({} as never)).resolves.toBe(true);
+		const queryFn = requireValue(enabled.queryFn);
+		await expect(queryFn({} as never)).resolves.toBe(true);
 		expect(mocks.checkBooksExistFn).toHaveBeenCalledWith({
 			data: { foreignBookIds: ["foreign-1", "foreign-2"] },
 		});

@@ -195,6 +195,12 @@ function makeSeriesRecord(
 	};
 }
 
+function assertExists<T>(
+	value: T | null | undefined,
+): asserts value is NonNullable<T> {
+	expect(value).toBeDefined();
+}
+
 // ---------------------------------------------------------------------------
 // fetchAuthorComplete
 // ---------------------------------------------------------------------------
@@ -1044,27 +1050,28 @@ describe("fetchBatchedEditions", () => {
 		});
 
 		const result = await fetchBatchedEditions([100]);
-		const edition = result.get(100)?.[0];
+		const editions = result.get(100);
+		assertExists(editions);
+		const edition = editions[0];
 
-		expect(edition).toBeDefined();
-		expect(edition!.id).toBe(200);
-		expect(edition!.bookId).toBe(100);
-		expect(edition!.title).toBe("Mistborn: The Final Empire");
-		expect(edition!.isbn10).toBe("0765311785");
-		expect(edition!.isbn13).toBe("9780765311788");
-		expect(edition!.asin).toBe("B001QKBHG4");
-		expect(edition!.format).toBe("Physical Book"); // "Read" -> "Physical Book"
-		expect(edition!.pageCount).toBe(541);
-		expect(edition!.audioLength).toBe(86400);
-		expect(edition!.publisher).toBe("Tor Books");
-		expect(edition!.editionInformation).toBe("First Edition");
-		expect(edition!.releaseDate).toBe("2006-07-17");
-		expect(edition!.language).toBe("English");
-		expect(edition!.languageCode).toBe("en");
-		expect(edition!.country).toBe("United States");
-		expect(edition!.usersCount).toBe(3000);
-		expect(edition!.score).toBe(95);
-		expect(edition!.coverUrl).toBe("https://example.com/edition.jpg");
+		expect(edition.id).toBe(200);
+		expect(edition.bookId).toBe(100);
+		expect(edition.title).toBe("Mistborn: The Final Empire");
+		expect(edition.isbn10).toBe("0765311785");
+		expect(edition.isbn13).toBe("9780765311788");
+		expect(edition.asin).toBe("B001QKBHG4");
+		expect(edition.format).toBe("Physical Book"); // "Read" -> "Physical Book"
+		expect(edition.pageCount).toBe(541);
+		expect(edition.audioLength).toBe(86400);
+		expect(edition.publisher).toBe("Tor Books");
+		expect(edition.editionInformation).toBe("First Edition");
+		expect(edition.releaseDate).toBe("2006-07-17");
+		expect(edition.language).toBe("English");
+		expect(edition.languageCode).toBe("en");
+		expect(edition.country).toBe("United States");
+		expect(edition.usersCount).toBe(3000);
+		expect(edition.score).toBe(95);
+		expect(edition.coverUrl).toBe("https://example.com/edition.jpg");
 	});
 
 	it("parses edition contributors correctly", async () => {
@@ -1073,10 +1080,12 @@ describe("fetchBatchedEditions", () => {
 		});
 
 		const result = await fetchBatchedEditions([100]);
-		const edition = result.get(100)?.[0];
+		const editions = result.get(100);
+		assertExists(editions);
+		const edition = editions[0];
 
-		expect(edition!.contributors).toHaveLength(1);
-		expect(edition!.contributors[0]).toStrictEqual({
+		expect(edition.contributors).toHaveLength(1);
+		expect(edition.contributors[0]).toStrictEqual({
 			authorId: "1",
 			name: "Brandon Sanderson",
 			contribution: null,
@@ -1109,25 +1118,26 @@ describe("fetchBatchedEditions", () => {
 		});
 
 		const result = await fetchBatchedEditions([100]);
-		const edition = result.get(100)?.[0];
+		const editions = result.get(100);
+		assertExists(editions);
+		const edition = editions[0];
 
-		expect(edition).toBeDefined();
-		expect(edition!.isbn10).toBeNull();
-		expect(edition!.isbn13).toBeNull();
-		expect(edition!.asin).toBeNull();
-		expect(edition!.format).toBeNull();
-		expect(edition!.pageCount).toBeNull();
-		expect(edition!.audioLength).toBeNull();
-		expect(edition!.publisher).toBeNull();
-		expect(edition!.editionInformation).toBeNull();
-		expect(edition!.releaseDate).toBeNull();
-		expect(edition!.language).toBeNull();
-		expect(edition!.languageCode).toBeNull();
-		expect(edition!.country).toBeNull();
-		expect(edition!.usersCount).toBe(0);
-		expect(edition!.score).toBe(0);
-		expect(edition!.coverUrl).toBeNull();
-		expect(edition!.contributors).toEqual([]);
+		expect(edition.isbn10).toBeNull();
+		expect(edition.isbn13).toBeNull();
+		expect(edition.asin).toBeNull();
+		expect(edition.format).toBeNull();
+		expect(edition.pageCount).toBeNull();
+		expect(edition.audioLength).toBeNull();
+		expect(edition.publisher).toBeNull();
+		expect(edition.editionInformation).toBeNull();
+		expect(edition.releaseDate).toBeNull();
+		expect(edition.language).toBeNull();
+		expect(edition.languageCode).toBeNull();
+		expect(edition.country).toBeNull();
+		expect(edition.usersCount).toBe(0);
+		expect(edition.score).toBe(0);
+		expect(edition.coverUrl).toBeNull();
+		expect(edition.contributors).toEqual([]);
 	});
 
 	it("skips editions with no id", async () => {
@@ -1137,8 +1147,10 @@ describe("fetchBatchedEditions", () => {
 
 		const result = await fetchBatchedEditions([100]);
 
-		expect(result.get(100)).toHaveLength(1);
-		expect(result.get(100)![0].id).toBe(400);
+		const editions = result.get(100);
+		assertExists(editions);
+		expect(editions).toHaveLength(1);
+		expect(editions[0].id).toBe(400);
 	});
 
 	it("handles multiple editions per book", async () => {
@@ -1173,7 +1185,8 @@ describe("fetchBatchedEditions", () => {
 		});
 
 		const result = await fetchBatchedEditions([100]);
-		const editions = result.get(100)!;
+		const editions = result.get(100);
+		assertExists(editions);
 
 		expect(editions[0].format).toBe("Audiobook");
 		expect(editions[1].format).toBe("E-Book");
@@ -1241,7 +1254,9 @@ describe("fetchBatchedEditions", () => {
 		});
 
 		const result = await fetchBatchedEditions([100]);
-		const contributors = result.get(100)![0].contributors;
+		const editions = result.get(100);
+		assertExists(editions);
+		const contributors = editions[0].contributors;
 
 		expect(contributors).toHaveLength(2);
 		expect(contributors[0]).toStrictEqual({
@@ -1270,11 +1285,11 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result).toBeDefined();
-		expect(result!.book.id).toBe(100);
-		expect(result!.book.title).toBe("Mistborn");
-		expect(result!.editions).toHaveLength(1);
-		expect(result!.editions[0].id).toBe(200);
+		assertExists(result);
+		expect(result.book.id).toBe(100);
+		expect(result.book.title).toBe("Mistborn");
+		expect(result.editions).toHaveLength(1);
+		expect(result.editions[0].id).toBe(200);
 	});
 
 	it("returns undefined when no books are found", async () => {
@@ -1341,9 +1356,10 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result!.book.contributions).toHaveLength(2);
-		expect(result!.book.contributions[0].contribution).toBeNull();
-		expect(result!.book.contributions[1].contribution).toBe("Illustrator");
+		assertExists(result);
+		expect(result.book.contributions).toHaveLength(2);
+		expect(result.book.contributions[0].contribution).toBeNull();
+		expect(result.book.contributions[1].contribution).toBe("Illustrator");
 	});
 
 	it("parses book series entries", async () => {
@@ -1368,11 +1384,12 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result!.book.series).toHaveLength(1);
-		expect(result!.book.series[0].seriesId).toBe(20);
-		expect(result!.book.series[0].seriesTitle).toBe("Epic Fantasy Series");
-		expect(result!.book.series[0].position).toBe("3");
-		expect(result!.book.series[0].isCompleted).toBe(false);
+		assertExists(result);
+		expect(result.book.series).toHaveLength(1);
+		expect(result.book.series[0].seriesId).toBe(20);
+		expect(result.book.series[0].seriesTitle).toBe("Epic Fantasy Series");
+		expect(result.book.series[0].position).toBe("3");
+		expect(result.book.series[0].isCompleted).toBe(false);
 	});
 
 	it("parses multiple editions with varying formats", async () => {
@@ -1387,10 +1404,11 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result!.editions).toHaveLength(3);
-		expect(result!.editions[0].format).toBe("Physical Book");
-		expect(result!.editions[1].format).toBe("Audiobook");
-		expect(result!.editions[2].format).toBe("E-Book");
+		assertExists(result);
+		expect(result.editions).toHaveLength(3);
+		expect(result.editions[0].format).toBe("Physical Book");
+		expect(result.editions[1].format).toBe("Audiobook");
+		expect(result.editions[2].format).toBe("E-Book");
 	});
 
 	it("assigns the correct bookId to each edition", async () => {
@@ -1405,8 +1423,9 @@ describe("fetchBookComplete", () => {
 		// foreignBookId is passed to parseEdition
 		const result = await fetchBookComplete(42);
 
-		expect(result!.editions[0].bookId).toBe(42);
-		expect(result!.editions[1].bookId).toBe(42);
+		assertExists(result);
+		expect(result.editions[0].bookId).toBe(42);
+		expect(result.editions[1].bookId).toBe(42);
 	});
 
 	it("handles book with empty contributions and series", async () => {
@@ -1422,9 +1441,10 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result!.book.contributions).toEqual([]);
-		expect(result!.book.series).toEqual([]);
-		expect(result!.editions).toEqual([]);
+		assertExists(result);
+		expect(result.book.contributions).toEqual([]);
+		expect(result.book.series).toEqual([]);
+		expect(result.editions).toEqual([]);
 	});
 
 	it("skips editions with missing id", async () => {
@@ -1435,8 +1455,9 @@ describe("fetchBookComplete", () => {
 
 		const result = await fetchBookComplete(100);
 
-		expect(result!.editions).toHaveLength(1);
-		expect(result!.editions[0].id).toBe(500);
+		assertExists(result);
+		expect(result.editions).toHaveLength(1);
+		expect(result.editions[0].id).toBe(500);
 	});
 
 	it("passes the foreignBookId argument to the query", async () => {

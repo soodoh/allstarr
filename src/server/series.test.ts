@@ -487,14 +487,6 @@ describe("updateSeriesFn", () => {
 // ---------------------------------------------------------------------------
 
 describe("refreshSeriesInternal", () => {
-	function setupSelectSequence(
-		results: Array<{ all?: unknown; get?: unknown }>,
-	) {
-		for (const result of results) {
-			mocks.select.mockReturnValueOnce(createSelectChain(result));
-		}
-	}
-
 	it("returns zero stats when no monitored series exist", async () => {
 		// series query returns empty
 		mocks.select.mockReturnValueOnce(createSelectChain({ all: [] }));

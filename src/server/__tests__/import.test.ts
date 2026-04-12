@@ -2511,7 +2511,7 @@ describe("refreshAuthorInternal — edition orphan detection", () => {
 		});
 
 		const { refreshAuthorInternal } = await import("../import");
-		const result = await refreshAuthorInternal(1, noopProgress);
+		await refreshAuthorInternal(1, noopProgress);
 
 		// Orphan edition should be deleted
 		expect(dbMock.delete).toHaveBeenCalled();
@@ -2562,7 +2562,7 @@ describe("refreshAuthorInternal — edition orphan detection", () => {
 		});
 
 		const { refreshAuthorInternal } = await import("../import");
-		const result = await refreshAuthorInternal(1, noopProgress);
+		await refreshAuthorInternal(1, noopProgress);
 
 		// Should stamp metadataSourceMissingSince instead of deleting
 		expect(dbMock.update).toHaveBeenCalled();
@@ -2614,7 +2614,7 @@ describe("refreshAuthorInternal — existing book filtered out by profile", () =
 		});
 
 		const { refreshAuthorInternal } = await import("../import");
-		const result = await refreshAuthorInternal(1, noopProgress);
+		await refreshAuthorInternal(1, noopProgress);
 
 		expect(dbMock.delete).toHaveBeenCalled();
 	});
@@ -2774,7 +2774,7 @@ describe("refreshBookInternal — edition processing", () => {
 		});
 
 		const { refreshBookInternal } = await import("../import");
-		const result = await refreshBookInternal(1, noopProgress);
+		await refreshBookInternal(1, noopProgress);
 
 		expect(dbMock.delete).toHaveBeenCalled();
 	});
@@ -2812,7 +2812,7 @@ describe("refreshBookInternal — edition processing", () => {
 		});
 
 		const { refreshBookInternal } = await import("../import");
-		const result = await refreshBookInternal(1, noopProgress);
+		await refreshBookInternal(1, noopProgress);
 
 		expect(dbMock.update).toHaveBeenCalled();
 	});
@@ -3079,7 +3079,7 @@ describe("refreshBookInternal — existing edition filtered out by profile", () 
 		mocks.all.mockReturnValue([]);
 
 		const { refreshBookInternal } = await import("../import");
-		const result = await refreshBookInternal(1, noopProgress);
+		await refreshBookInternal(1, noopProgress);
 
 		expect(dbMock.delete).toHaveBeenCalled();
 	});
@@ -3157,7 +3157,7 @@ describe("refreshAuthorInternal — book filtered out by language during update"
 		});
 
 		const { refreshAuthorInternal } = await import("../import");
-		const result = await refreshAuthorInternal(1, noopProgress);
+		await refreshAuthorInternal(1, noopProgress);
 
 		expect(dbMock.delete).toHaveBeenCalled();
 	});
@@ -3286,7 +3286,7 @@ describe("syncBookAuthors fallback via refreshAuthorInternal", () => {
 		});
 
 		const { refreshAuthorInternal } = await import("../import");
-		const result = await refreshAuthorInternal(1, noopProgress);
+		await refreshAuthorInternal(1, noopProgress);
 
 		// The fallback path should have inserted booksAuthors for the primary author
 		const valuesCalls = dbMock.values.mock.calls;

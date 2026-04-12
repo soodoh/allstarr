@@ -295,7 +295,6 @@ describe("indexer-rate-limiter", () => {
 
 		it("uses retryAfterMs when provided", () => {
 			const id = freshId();
-			const now = Date.now();
 			mocks.selectGet.mockReturnValue({
 				backoffUntil: 0,
 				escalationLevel: 0,

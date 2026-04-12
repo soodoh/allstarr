@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import getSchemaTemplates from "./schema-templates";
 
+function assertExists<T>(
+	value: T | null | undefined,
+): asserts value is NonNullable<T> {
+	expect(value).toBeDefined();
+}
+
 describe("getSchemaTemplates", () => {
 	it("returns exactly two templates", () => {
 		const templates = getSchemaTemplates();
@@ -11,20 +17,20 @@ describe("getSchemaTemplates", () => {
 		const templates = getSchemaTemplates();
 		const newznab = templates.find((t) => t.implementation === "Newznab");
 
-		expect(newznab).toBeDefined();
-		expect(newznab!.protocol).toBe("usenet");
-		expect(newznab!.configContract).toBe("NewznabSettings");
-		expect(newznab!.implementationName).toBe("Newznab");
+		assertExists(newznab);
+		expect(newznab.protocol).toBe("usenet");
+		expect(newznab.configContract).toBe("NewznabSettings");
+		expect(newznab.implementationName).toBe("Newznab");
 	});
 
 	it("returns a Torznab template with torrent protocol", () => {
 		const templates = getSchemaTemplates();
 		const torznab = templates.find((t) => t.implementation === "Torznab");
 
-		expect(torznab).toBeDefined();
-		expect(torznab!.protocol).toBe("torrent");
-		expect(torznab!.configContract).toBe("TorznabSettings");
-		expect(torznab!.implementationName).toBe("Torznab");
+		assertExists(torznab);
+		expect(torznab.protocol).toBe("torrent");
+		expect(torznab.configContract).toBe("TorznabSettings");
+		expect(torznab.implementationName).toBe("Torznab");
 	});
 
 	it("includes expected fields on each template", () => {

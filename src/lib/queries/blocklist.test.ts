@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -26,7 +27,8 @@ describe("blocklist queries", () => {
 		const options = blocklistListQuery();
 
 		expect(options.queryKey).toStrictEqual(["blocklist", "list", {}]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({
 			items: [],
 			page: 1,
 			total: 0,
@@ -50,7 +52,8 @@ describe("blocklist queries", () => {
 			"list",
 			{ page: 2, limit: 50 },
 		]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({
 			items: [],
 			page: 2,
 			total: 0,

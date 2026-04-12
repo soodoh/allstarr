@@ -1,9 +1,22 @@
+import { createRequire } from "node:module";
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import istanbul from "vite-plugin-istanbul";
+
+const require = createRequire(import.meta.url);
+
+type IstanbulInstrumenter = {
+  instrumentSync(code: string, filename: string): string;
+  lastSourceMap(): object | null;
+};
+
+type CreateInstrumenter = (
+  opts: Record<string, unknown>,
+) => IstanbulInstrumenter;
+
 const ignoredNitroWarningCodes = new Set([
   "EVAL",
   "CIRCULAR_DEPENDENCY",
@@ -135,7 +148,11 @@ export default defineConfig({
   },
   plugins: [
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        routeTreeFileHeader: [],
+      },
+    }),
     nitro(),
     viteReact(),
     ...(process.env.INSTRUMENT_COVERAGE === "true"
@@ -149,12 +166,8 @@ export default defineConfig({
           // Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
           // so we instrument it here using the same istanbul-lib-instrument that it uses.
           (() => {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
             const { createInstrumenter } = require("istanbul-lib-instrument") as {
-              createInstrumenter: (opts: Record<string, unknown>) => {
-                instrumentSync(code: string, filename: string): string;
-                lastSourceMap(): unknown;
-              };
+              createInstrumenter: CreateInstrumenter;
             };
             return {
               name: "istanbul-ssr",
@@ -179,8 +192,7 @@ export default defineConfig({
                   compact: false,
                 });
                 const instrumented = instrumenter.instrumentSync(code, id);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                return { code: instrumented, map: instrumenter.lastSourceMap() as any };
+                return { code: instrumented, map: instrumenter.lastSourceMap() };
               },
             };
           })(),
