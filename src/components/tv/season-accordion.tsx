@@ -1,4 +1,5 @@
 import { useRouter } from "@tanstack/react-router";
+import { ChevronDownIcon } from "lucide-react";
 import type { JSX } from "react";
 import { useState } from "react";
 import ProfileToggleIcons from "src/components/shared/profile-toggle-icons";
@@ -13,6 +14,7 @@ import {
 	useBulkMonitorEpisodeProfile,
 	useBulkUnmonitorEpisodeProfile,
 } from "src/hooks/mutations/episode-profiles";
+import { cn } from "src/lib/utils";
 
 type Episode = {
 	id: number;
@@ -124,28 +126,37 @@ export default function SeasonAccordion({
 
 	return (
 		<>
-			<AccordionItem value={`season-${season.id}`}>
-				<AccordionTrigger className="hover:no-underline px-3">
-					<div className="flex flex-1 items-center gap-4">
+			<AccordionItem className="group relative" value={`season-${season.id}`}>
+				<div className="relative">
+					<AccordionTrigger className="absolute inset-0 z-10 h-full w-full justify-start px-3 py-4 hover:no-underline [&>svg]:hidden">
+						<span className="sr-only">
+							{seasonLabel}, {totalCount} episode{totalCount === 1 ? "" : "s"},{" "}
+							{fileCount}/{totalCount} files
+						</span>
+					</AccordionTrigger>
+					<div className="relative z-20 flex items-center gap-4 px-3 py-4 pointer-events-none">
 						{downloadProfiles.length > 0 && (
-							<ProfileToggleIcons
-								profiles={downloadProfiles}
-								activeProfileIds={activeProfileIds}
-								partialProfileIds={partialProfileIds}
-								onToggle={handleSeasonProfileToggle}
-								size="sm"
-								direction="horizontal"
-							/>
+							<div className="pointer-events-auto">
+								<ProfileToggleIcons
+									profiles={downloadProfiles}
+									activeProfileIds={activeProfileIds}
+									partialProfileIds={partialProfileIds}
+									onToggle={handleSeasonProfileToggle}
+									size="sm"
+									direction="horizontal"
+								/>
+							</div>
 						)}
 						<span className="font-medium">{seasonLabel}</span>
 						<span className="text-muted-foreground text-xs">
 							{totalCount} episode{totalCount === 1 ? "" : "s"}
 						</span>
-						<span className={`text-xs font-mono ${progressColor}`}>
+						<span className={cn("text-xs font-mono", progressColor)}>
 							{fileCount}/{totalCount}
 						</span>
+						<ChevronDownIcon className="pointer-events-none ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
 					</div>
-				</AccordionTrigger>
+				</div>
 				<AccordionContent className="px-0 pb-0">
 					{/* Column headers — no header for monitor column */}
 					<div className="flex items-center gap-4 px-3 py-1.5 text-xs text-muted-foreground border-b font-medium">

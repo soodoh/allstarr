@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
+import { trapBrowserConsoleError } from "src/test/browser-console";
 import { renderWithProviders } from "src/test/render";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 
 const seasonAccordionMocks = vi.hoisted(() => ({
 	bulkMonitor: {
@@ -15,6 +16,8 @@ const seasonAccordionMocks = vi.hoisted(() => ({
 		invalidate: vi.fn(),
 	},
 }));
+
+let browserConsoleGuard: ReturnType<typeof trapBrowserConsoleError> | undefined;
 
 vi.mock("@tanstack/react-router", () => ({
 	useRouter: () => seasonAccordionMocks.router,
@@ -108,10 +111,9 @@ vi.mock("src/components/ui/accordion", () => ({
 		children: ReactNode;
 		className?: string;
 	}) => (
-		// biome-ignore lint/a11y/useSemanticElements: test mock avoids nested button markup
-		<div className={className} role="button" tabIndex={0}>
+		<button className={className} data-state="open" type="button">
 			{children}
-		</div>
+		</button>
 	),
 }));
 
@@ -142,10 +144,23 @@ import SeasonAccordion from "./season-accordion";
 
 describe("SeasonAccordion", () => {
 	beforeEach(() => {
+		browserConsoleGuard = trapBrowserConsoleError();
 		seasonAccordionMocks.bulkMonitor.mutate.mockReset();
 		seasonAccordionMocks.bulkUnmonitor.isPending = false;
 		seasonAccordionMocks.bulkUnmonitor.mutate.mockReset();
 		seasonAccordionMocks.router.invalidate.mockReset();
+	});
+
+	afterEach(() => {
+		if (!browserConsoleGuard) {
+			return;
+		}
+
+		try {
+			browserConsoleGuard.assertNoDomNestingWarnings();
+		} finally {
+			browserConsoleGuard.restore();
+		}
 	});
 
 	it("renders an empty season with muted progress and no profile icons", async () => {
@@ -163,9 +178,15 @@ describe("SeasonAccordion", () => {
 			/>,
 		);
 
-		await expect.element(page.getByText("Specials")).toBeInTheDocument();
-		await expect.element(page.getByText("0 episodes")).toBeInTheDocument();
-		await expect.element(page.getByText("0/0")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Specials", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("0 episodes", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("0/0", { exact: true }))
+			.toBeInTheDocument();
 		expect(container.querySelector(".text-muted-foreground")).not.toBeNull();
 		await expect
 			.element(page.getByRole("button", { name: /profile/i }))
@@ -222,9 +243,15 @@ describe("SeasonAccordion", () => {
 			/>,
 		);
 
-		await expect.element(page.getByText("Season 2")).toBeInTheDocument();
-		await expect.element(page.getByText("3 episodes")).toBeInTheDocument();
-		await expect.element(page.getByText("3/3")).toHaveClass("text-green-500");
+		await expect
+			.element(page.getByText("Season 2", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("3 episodes", { exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("3/3", { exact: true }))
+			.toHaveClass("text-green-500");
 		await expect.element(page.getByText("4K:active")).toBeInTheDocument();
 		await expect.element(page.getByText("HD:partial")).toBeInTheDocument();
 		await expect.element(page.getByText("Audio:inactive")).toBeInTheDocument();
