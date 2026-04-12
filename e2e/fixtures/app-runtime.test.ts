@@ -9,6 +9,7 @@ describe("createAppServerSpawnConfig", () => {
 			dbPath: "/tmp/allstarr-worker-2.db",
 			servers: {
 				HARDCOVER: "http://localhost:19009",
+				TMDB: "http://localhost:19010",
 			},
 		});
 
@@ -20,6 +21,8 @@ describe("createAppServerSpawnConfig", () => {
 		expect(config.env.HARDCOVER_GRAPHQL_URL).toBe(
 			"http://localhost:19009/v1/graphql",
 		);
+		expect(config.env.TMDB_API_BASE_URL).toBe("http://localhost:19010/3");
+		expect(config.env.TMDB_TOKEN).toBe("test-tmdb-token");
 		expect(config.env.BETTER_AUTH_URL).toBe("http://localhost:19102");
 		expect(config.env.PORT).toBe("19102");
 		expect(config.env.E2E_TEST_MODE).toBe("true");

@@ -178,9 +178,9 @@ function handleAuthorQuery(
 }
 
 function handleEditionsQuery(state: State, query: string): HandlerResult {
-  // Parse batch aliases like "b123: editions(where: {book_id: {_eq: 123}})"
+  // Match the aliased multiline query emitted by buildBatchedEditionsQuery().
   const aliasPattern =
-    /(\w+):\s*editions\(where:\s*\{book_id:\s*\{_eq:\s*(\d+)\}\}\)/g;
+    /(\w+):\s*editions\(\s*where:\s*\{\s*book_id:\s*\{\s*_eq:\s*(\d+)\s*\}\s*\}/gm;
   const result: Record<string, Edition[]> = {};
 
   let found = aliasPattern.exec(query);
@@ -203,17 +203,26 @@ function handleSeriesQuery(
   state: State,
   variables: Record<string, unknown>,
 ): HandlerResult {
-  const seriesId = variables.seriesId as number | undefined;
+  const requestedSeriesIds = Array.isArray(variables.seriesIds)
+    ? variables.seriesIds
+        .map((value) => (typeof value === "number" ? value : Number(value)))
+        .filter((value) => Number.isFinite(value))
+    : [];
+  const requestedSeriesId = variables.seriesId as number | undefined;
+  const matchesRequestedSeries = (seriesId: number): boolean =>
+    requestedSeriesIds.length > 0
+      ? requestedSeriesIds.includes(seriesId)
+      : !requestedSeriesId || seriesId === requestedSeriesId;
 
   // Find books with matching series
   const seriesBooks = state.books.filter((b) =>
-    b.book_series.some((bs) => !seriesId || bs.series.id === seriesId),
+    b.book_series.some((bs) => matchesRequestedSeries(bs.series.id)),
   );
 
   const seriesData =
     seriesBooks.length > 0
       ? seriesBooks[0].book_series
-          .filter((bs) => !seriesId || bs.series.id === seriesId)
+          .filter((bs) => matchesRequestedSeries(bs.series.id))
           .map((bs) => {
             const matchingBooks = seriesBooks
               .filter((sb) =>
@@ -223,7 +232,11 @@ function handleSeriesQuery(
                 position: sb.book_series.find(
                   (sbs) => sbs.series.id === bs.series.id,
                 )?.position,
-                book: sb,
+                compilation: sb.compilation,
+                book: {
+                  ...sb,
+                  editions: state.editions.filter((edition) => edition.bookId === sb.id),
+                },
               }));
             return {
               id: bs.series.id,
@@ -267,7 +280,11 @@ function handler(
     return handleAuthorQuery(state, vars);
   }
 
-  if (query.includes("editions(where")) {
+  if (query.includes("SeriesComplete") || query.includes("series(where")) {
+    return handleSeriesQuery(state, vars);
+  }
+
+  if (query.includes("query BatchedEditions") || query.includes("editions(")) {
     return handleEditionsQuery(state, query);
   }
 
@@ -290,10 +307,6 @@ function handler(
       found = aliasPattern.exec(query);
     }
     return json({ data: result });
-  }
-
-  if (query.includes("series(where")) {
-    return handleSeriesQuery(state, vars);
   }
 
   // Fallback: empty data

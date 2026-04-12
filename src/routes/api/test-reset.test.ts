@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const resetRouteMocks = vi.hoisted(() => ({
 	clearRunningTasks: vi.fn(),
+	clearTmdbCache: vi.fn(),
 	invalidateFormatDefCache: vi.fn(),
 }));
 
@@ -15,6 +16,10 @@ vi.mock("src/server/indexers/format-parser", () => ({
 
 vi.mock("src/server/scheduler/state", () => ({
 	clearRunningTasks: resetRouteMocks.clearRunningTasks,
+}));
+
+vi.mock("src/server/tmdb/client", () => ({
+	clearTmdbCache: resetRouteMocks.clearTmdbCache,
 }));
 
 import { Route as TestResetRoute } from "./__test-reset";
@@ -48,6 +53,7 @@ describe("test reset api route", () => {
 		await expect(response.text()).resolves.toBe("Not available");
 		expect(resetRouteMocks.invalidateFormatDefCache).not.toHaveBeenCalled();
 		expect(resetRouteMocks.clearRunningTasks).not.toHaveBeenCalled();
+		expect(resetRouteMocks.clearTmdbCache).not.toHaveBeenCalled();
 	});
 
 	it("clears caches and returns ok when test mode is enabled", async () => {
@@ -59,5 +65,6 @@ describe("test reset api route", () => {
 		await expect(response.json()).resolves.toEqual({ ok: true });
 		expect(resetRouteMocks.invalidateFormatDefCache).toHaveBeenCalledTimes(1);
 		expect(resetRouteMocks.clearRunningTasks).toHaveBeenCalledTimes(1);
+		expect(resetRouteMocks.clearTmdbCache).toHaveBeenCalledTimes(1);
 	});
 });

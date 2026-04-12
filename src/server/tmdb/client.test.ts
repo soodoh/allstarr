@@ -83,6 +83,20 @@ describe("tmdbFetch", () => {
 		);
 	});
 
+	it("uses TMDB_API_BASE_URL when provided", async () => {
+		vi.stubEnv("TMDB_TOKEN", "test-api-key");
+		vi.stubEnv("TMDB_API_BASE_URL", "http://localhost:19010/3");
+		mocks.fetchFn.mockResolvedValue({});
+
+		await tmdbFetch("/movie/456");
+
+		const [cacheKey] = mocks.fetchFn.mock.calls[0] as [string, () => unknown];
+		const url = new URL(cacheKey);
+		expect(url.origin + url.pathname).toBe(
+			"http://localhost:19010/3/movie/456",
+		);
+	});
+
 	it("appends custom params to the URL", async () => {
 		vi.stubEnv("TMDB_TOKEN", "test-api-key");
 		mocks.fetchFn.mockResolvedValue({});

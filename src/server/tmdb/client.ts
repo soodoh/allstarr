@@ -3,10 +3,14 @@ import getMediaSetting from "../settings-reader";
 
 export { TMDB_IMAGE_BASE } from "./types";
 
-const TMDB_API_BASE = "https://api.themoviedb.org/3";
+const DEFAULT_TMDB_API_BASE = "https://api.themoviedb.org/3";
 
 function getTmdbApiKey(): string {
 	return process.env.TMDB_TOKEN ?? "";
+}
+
+function getTmdbApiBase(): string {
+	return process.env.TMDB_API_BASE_URL ?? DEFAULT_TMDB_API_BASE;
 }
 
 const tmdb = createApiFetcher({
@@ -15,6 +19,10 @@ const tmdb = createApiFetcher({
 	rateLimit: { maxRequests: 40, windowMs: 10_000 },
 	retry: { maxRetries: 3, baseDelayMs: 2000 },
 });
+
+export function clearTmdbCache(): void {
+	tmdb.clear();
+}
 
 export async function tmdbFetch<T>(
 	path: string,
@@ -26,7 +34,7 @@ export async function tmdbFetch<T>(
 	}
 
 	const language = getMediaSetting<string>("metadata.tmdb.language", "en");
-	const url = new URL(`${TMDB_API_BASE}${path}`);
+	const url = new URL(`${getTmdbApiBase()}${path}`);
 	url.searchParams.set("api_key", apiKey);
 	url.searchParams.set("language", language);
 	if (params) {

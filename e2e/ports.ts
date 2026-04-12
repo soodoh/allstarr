@@ -9,6 +9,7 @@ const PORTS = {
   NEWZNAB: 19_007,
   PROWLARR: 19_008,
   HARDCOVER: 19_009,
+  TMDB: 19_010,
   // App server ports start at 19100, incremented per worker
   APP_BASE: 19_100,
 } as const;
