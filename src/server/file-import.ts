@@ -17,6 +17,12 @@ import {
 	shows,
 	trackedDownloads,
 } from "src/db/schema";
+import {
+	applyNamingTemplate,
+	buildBookAuthorFolderName,
+	buildBookFolderName,
+	sanitizePath,
+} from "./book-paths";
 import { eventBus } from "./event-bus";
 import { mapBookFiles, mapTvFiles } from "./import-mapping";
 import { matchFormat } from "./indexers/format-parser";
@@ -34,26 +40,6 @@ const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
 
 type MediaType = "ebook" | "audio";
 
-function applyNamingTemplate(
-	template: string,
-	vars: Record<string, string>,
-): string {
-	// First pass: handle padded tokens like {PartNumber:00}
-	// The number of 0 chars after the colon = minimum output width
-	let result = template.replaceAll(
-		/\{([\w\s]+):(0+)\}/g,
-		(_match, key: string, zeros: string) => {
-			const value = vars[key.trim()] ?? "";
-			return value ? value.padStart(zeros.length, "0") : "";
-		},
-	);
-	// Second pass: handle plain tokens like {Author Name}
-	for (const [key, value] of Object.entries(vars)) {
-		result = result.replaceAll(`{${key}}`, value);
-	}
-	return result;
-}
-
 const SUPPORTED_EXTENSIONS = new Set([
 	".pdf",
 	".mobi",
@@ -64,10 +50,6 @@ const SUPPORTED_EXTENSIONS = new Set([
 	".m4b",
 	".flac",
 ]);
-
-function sanitizePath(name: string): string {
-	return name.replaceAll(/[<>:"/\\|?*]/g, "_").trim();
-}
 
 function resolveAuthorName(
 	authorId: number | null,
@@ -368,10 +350,6 @@ async function importFiles(
 		mediaType === "audio"
 			? "naming.book.audio.bookFile"
 			: "naming.book.ebook.bookFile";
-	const defaultTemplate =
-		mediaType === "audio"
-			? "{Author Name} - {Book Title} - Part {PartNumber:00}"
-			: "{Author Name} - {Book Title}";
 
 	let count = 0;
 	for (let i = 0; i < sorted.length; i += 1) {
@@ -385,6 +363,10 @@ async function importFiles(
 
 		let result: ImportResult;
 		if (cfg.renameBooks) {
+			const defaultTemplate =
+				mediaType === "audio" && isMultiPart
+					? "{Author Name} - {Book Title} - Part {PartNumber:00}"
+					: "{Author Name} - {Book Title}";
 			const template = getMediaSetting(templateKey, defaultTemplate);
 			const ext = path.extname(filePath);
 			const newName =
@@ -510,54 +492,6 @@ function fuzzyMatchBook(
 		}
 	}
 	return bestMatch;
-}
-
-/** Import a single book file from a pack and probe its metadata */
-async function importAndProbeBookFile(
-	filePath: string,
-	destDir: string,
-	bookId: number,
-	cfg: ImportSettings,
-): Promise<boolean> {
-	const result = importFile(
-		filePath,
-		destDir,
-		bookId,
-		cfg.useHardLinks,
-		cfg.applyPermissions,
-		cfg.fileChmod,
-		null,
-		null,
-	);
-	if (!result?.bookFileId) {
-		return false;
-	}
-
-	const ext = path.extname(filePath).toLowerCase();
-	if (AUDIO_EXTENSIONS.has(ext)) {
-		const meta = await probeAudioFile(result.destPath);
-		if (meta) {
-			db.update(bookFiles)
-				.set({
-					duration: meta.duration,
-					bitrate: meta.bitrate,
-					sampleRate: meta.sampleRate,
-					channels: meta.channels,
-					codec: meta.codec,
-				})
-				.where(eq(bookFiles.id, result.bookFileId))
-				.run();
-		}
-	} else {
-		const meta = probeEbookFile(result.destPath);
-		if (meta) {
-			db.update(bookFiles)
-				.set({ pageCount: meta.pageCount, language: meta.language })
-				.where(eq(bookFiles.id, result.bookFileId))
-				.run();
-		}
-	}
-	return true;
 }
 
 function importEpisodeFile(
@@ -832,16 +766,6 @@ async function importBookPackDownload(
 			.map((bf) => bf.bookId),
 	);
 
-	const authorFolderName = sanitizePath(
-		applyNamingTemplate(
-			getMediaSetting(
-				`naming.book.${primaryType}.authorFolder`,
-				"{Author Name}",
-			),
-			{ "Author Name": author.name },
-		),
-	);
-
 	let importedCount = 0;
 	for (const mf of mapped) {
 		const bestMatch = fuzzyMatchBook(mf.extractedTitle, authorBooks);
@@ -849,6 +773,29 @@ async function importBookPackDownload(
 			continue;
 		}
 
+		const authorFolderName = buildBookAuthorFolderName({
+			mediaType: primaryType,
+			authorName: author.name,
+			bookTitle: bestMatch.title,
+			releaseYear: bestMatch.releaseYear,
+			authorFolderVarsMode: "author-only",
+		});
+		const bookFolderName = buildBookFolderName({
+			mediaType: primaryType,
+			authorName: author.name,
+			bookTitle: bestMatch.title,
+			releaseYear: bestMatch.releaseYear,
+		});
+
+		const destDir = path.join(rootFolderPath, authorFolderName, bookFolderName);
+		fs.mkdirSync(destDir, { recursive: true });
+		if (cfg.applyPermissions && cfg.folderChmod) {
+			fs.chmodSync(destDir, Number.parseInt(cfg.folderChmod, 8));
+		}
+
+		const mediaType = AUDIO_EXTENSIONS.has(path.extname(mf.path).toLowerCase())
+			? "audio"
+			: "ebook";
 		const namingVars: Record<string, string> = {
 			"Author Name": author.name,
 			"Book Title": bestMatch.title,
@@ -860,30 +807,15 @@ async function importBookPackDownload(
 			PartNumber: "",
 			PartCount: "",
 		};
-
-		const bookFolderName = sanitizePath(
-			applyNamingTemplate(
-				getMediaSetting(
-					`naming.book.${primaryType}.bookFolder`,
-					"{Book Title} ({Release Year})",
-				),
-				namingVars,
-			),
-		);
-
-		const destDir = path.join(rootFolderPath, authorFolderName, bookFolderName);
-		fs.mkdirSync(destDir, { recursive: true });
-		if (cfg.applyPermissions && cfg.folderChmod) {
-			fs.chmodSync(destDir, Number.parseInt(cfg.folderChmod, 8));
-		}
-
-		const imported = await importAndProbeBookFile(
-			mf.path,
+		const imported = await importFiles(
+			[mf.path],
 			destDir,
 			bestMatch.id,
+			namingVars,
 			cfg,
+			mediaType,
 		);
-		if (imported) {
+		if (imported > 0) {
 			importedCount += 1;
 			booksWithFiles.add(bestMatch.id);
 		}
@@ -1013,24 +945,18 @@ export async function importCompletedDownload(
 		PartCount: "",
 	};
 
-	const authorFolderName = sanitizePath(
-		applyNamingTemplate(
-			getMediaSetting(
-				`naming.book.${primaryType}.authorFolder`,
-				"{Author Name}",
-			),
-			namingVars,
-		),
-	);
-	const bookFolderName = sanitizePath(
-		applyNamingTemplate(
-			getMediaSetting(
-				`naming.book.${primaryType}.bookFolder`,
-				"{Book Title} ({Release Year})",
-			),
-			namingVars,
-		),
-	);
+	const authorFolderName = buildBookAuthorFolderName({
+		mediaType: primaryType,
+		authorName,
+		bookTitle,
+		releaseYear: year,
+	});
+	const bookFolderName = buildBookFolderName({
+		mediaType: primaryType,
+		authorName,
+		bookTitle,
+		releaseYear: year,
+	});
 
 	const destDir = path.join(rootFolderPath, authorFolderName, bookFolderName);
 	fs.mkdirSync(destDir, { recursive: true });
