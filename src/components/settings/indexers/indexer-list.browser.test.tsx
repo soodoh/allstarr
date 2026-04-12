@@ -1,7 +1,7 @@
 import type { SyncedIndexer } from "src/db/schema/synced-indexers";
 import { renderWithProviders } from "src/test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 const indexerListMocks = vi.hoisted(() => ({
 	confirmDialog: vi.fn(),

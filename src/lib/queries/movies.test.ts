@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -29,7 +30,8 @@ describe("movies queries", () => {
 		const options = moviesListQuery();
 
 		expect(options.queryKey).toStrictEqual(["movies", "list"]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual([{ id: 1 }]);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual([{ id: 1 }]);
 		expect(mocks.getMoviesFn).toHaveBeenCalledTimes(1);
 	});
 
@@ -39,7 +41,8 @@ describe("movies queries", () => {
 		const options = movieDetailQuery(41);
 
 		expect(options.queryKey).toStrictEqual(["movies", "detail", 41]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual({ id: 41 });
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual({ id: 41 });
 		expect(mocks.getMovieDetailFn).toHaveBeenCalledWith({ data: { id: 41 } });
 	});
 
@@ -58,7 +61,8 @@ describe("movies queries", () => {
 
 		const options = movieExistenceQuery(321);
 
-		await expect(options.queryFn!({} as never)).resolves.toBe(true);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toBe(true);
 		expect(mocks.checkMovieExistsFn).toHaveBeenCalledWith({
 			data: { tmdbId: 321 },
 		});

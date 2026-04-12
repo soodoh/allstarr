@@ -1,3 +1,4 @@
+import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -26,7 +27,8 @@ describe("unmapped file queries", () => {
 		const options = unmappedFilesListQuery();
 
 		expect(options.queryKey).toStrictEqual(["unmappedFiles", "list", {}]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual([{ id: 1 }]);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual([{ id: 1 }]);
 		expect(mocks.getUnmappedFilesFn).toHaveBeenCalledWith({ data: {} });
 	});
 
@@ -41,7 +43,8 @@ describe("unmapped file queries", () => {
 		const options = unmappedFilesListQuery(params);
 
 		expect(options.queryKey).toStrictEqual(["unmappedFiles", "list", params]);
-		await expect(options.queryFn!({} as never)).resolves.toEqual([{ id: 2 }]);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toEqual([{ id: 2 }]);
 		expect(mocks.getUnmappedFilesFn).toHaveBeenCalledWith({ data: params });
 	});
 
@@ -51,7 +54,8 @@ describe("unmapped file queries", () => {
 		const options = unmappedFilesCountQuery();
 
 		expect(options.queryKey).toStrictEqual(["unmappedFiles", "count"]);
-		await expect(options.queryFn!({} as never)).resolves.toBe(9);
+		const queryFn = requireValue(options.queryFn);
+		await expect(queryFn({} as never)).resolves.toBe(9);
 		expect(mocks.getUnmappedFileCountFn).toHaveBeenCalledTimes(1);
 	});
 });

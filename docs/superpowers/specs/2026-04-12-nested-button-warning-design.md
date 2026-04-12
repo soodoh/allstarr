@@ -91,7 +91,7 @@ That follow-up is explicitly out of scope for this fix.
 ## Implementation Notes
 
 - Keep the fix narrowly scoped to confirmed offenders and any additional real offenders found during implementation.
-- Avoid introducing `biome-ignore` or TypeScript ignore comments.
+- Avoid introducing suppression comments.
 - Preserve existing user-visible behavior except for the removal of invalid nesting.
 - Verify with `bun run test` and any targeted browser tests added for this work.
 

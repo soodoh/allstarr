@@ -535,7 +535,7 @@ git commit -m "test(server): annotate vi.fn generics to fix never return types"
 
 Run: `bun run typecheck 2>&1 | grep "error TS"`
 
-- [ ] **Step 2:** For each remaining error, inspect the surrounding code and apply a targeted fix. No `// @ts-ignore`, no `// biome-ignore` comments. Prefer real type narrowing, type annotations on generics, or fixture adjustments.
+- [ ] **Step 2:** For each remaining error, inspect the surrounding code and apply a targeted fix. Do not add suppression comments. Prefer real type narrowing, type annotations on generics, or fixture adjustments.
 
 - [ ] **Step 3:** After each fix, re-run the full typecheck to confirm the error count is decreasing.
 
@@ -852,6 +852,6 @@ Run: `gh run watch`
 ## Notes
 
 - Keep commits small and conventionally formatted (`feat(scope):`, `fix(scope):`, `test(scope):`, `ci:`, `docs:`, `style:`, `chore:`). Lefthook runs commitlint — a malformed message will be rejected.
-- Do **not** add `// @ts-ignore`, `// @ts-expect-error`, or `// biome-ignore` comments. If a type issue can't be fixed cleanly, raise it in the commit message as a follow-up rather than suppressing.
+- Do **not** add suppression comments. If a type issue can't be fixed cleanly, raise it in the commit message as a follow-up rather than suppressing.
 - If the typecheck error count in the initial run (173) doesn't match what you see after starting the work, don't assume new errors have been introduced — some of the errors are counted per overload / per diagnostic line, not per file. The 23-file number is the authoritative target.
 - Don't touch `src/routeTree.gen.ts` or anything under `.worktrees/` that isn't the branch's own checkout.

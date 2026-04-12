@@ -12,15 +12,13 @@
  * the import chain without blowing up.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getRequest = (): any => {
+export const getRequest = (): never => {
 	throw new Error(
 		"getRequest from @tanstack/react-start/server should not be called in browser test mode",
 	);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const createServerFn = (): any => {
+export const createServerFn = (): never => {
 	throw new Error(
 		"createServerFn should not be called in browser test mode — mock the containing module",
 	);

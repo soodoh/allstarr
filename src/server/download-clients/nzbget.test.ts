@@ -78,7 +78,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("returns an empty version when the result is null", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ result: null }));
@@ -110,7 +110,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("reports HTTP failures from the NZBGet RPC endpoint", async () => {
-		const server = await startHttpTestServer((request, response) => {
+		const server = await startHttpTestServer((_request, response) => {
 			response.statusCode = 503;
 			response.end("unavailable");
 		});
@@ -141,7 +141,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("reports NZBGet JSON-RPC error responses", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ error: { message: "Auth failed" } }));
@@ -173,7 +173,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("reports NZBGet JSON-RPC error responses without a message", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ error: {} }));
@@ -349,7 +349,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("returns an empty string when addDownload result is null", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ result: null }));
@@ -839,7 +839,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("returns an empty list when both active and history results are undefined", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ result: undefined }));
@@ -961,7 +961,7 @@ describe("nzbget provider", () => {
 	});
 
 	it("surfaces editqueue HTTP failures", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 500;
 			response.end("boom");
 		});

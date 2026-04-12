@@ -77,6 +77,12 @@ vi.mock("./tasks/refresh-series-metadata", () => ({}));
 // Shared fake timer map used by getTimers mock
 const fakeTimers = new Map<string, ReturnType<typeof setInterval>>();
 
+function assertExists<T>(
+	value: T | null | undefined,
+): asserts value is NonNullable<T> {
+	expect(value).toBeDefined();
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	fakeTimers.clear();
@@ -475,10 +481,10 @@ describe("scheduler/index", () => {
 
 			await mod.runTaskNow("task-progress");
 
-			expect(capturedCallback).toBeDefined();
+			assertExists(capturedCallback);
 
 			// Calling the progress callback should update DB and emit event
-			capturedCallback!("50% complete");
+			capturedCallback("50% complete");
 
 			expect(mocks.updateRun).toHaveBeenCalled();
 			expect(mocks.emit).toHaveBeenCalledWith({

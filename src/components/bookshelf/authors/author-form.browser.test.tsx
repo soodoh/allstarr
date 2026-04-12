@@ -135,7 +135,7 @@ describe("AuthorForm", () => {
 	it("submits selected profiles and monitoring mode", async () => {
 		const onSubmit = vi.fn();
 
-		const { container } = await renderWithProviders(
+		await renderWithProviders(
 			<AuthorForm
 				downloadProfiles={[
 					{ id: 1, name: "Books", icon: "book" },

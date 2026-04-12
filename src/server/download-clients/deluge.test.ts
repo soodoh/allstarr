@@ -34,7 +34,7 @@ function jsonRpc(result: unknown, error?: { message?: string }) {
 describe("deluge provider", () => {
 	it("authenticates, connects to daemon, and returns version", async () => {
 		const server = await startHttpTestServer(
-			async (request, response, requests) => {
+			async (request, response, _requests) => {
 				expect(request.pathname).toBe("/json");
 				expect(request.method).toBe("POST");
 				const body = JSON.parse(request.body);
@@ -222,7 +222,7 @@ describe("deluge provider", () => {
 	});
 
 	it("reports HTTP failures from the Deluge API", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 500;
 			response.end("boom");
 		});
@@ -242,7 +242,7 @@ describe("deluge provider", () => {
 	});
 
 	it("reports RPC error responses from Deluge", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
@@ -265,7 +265,7 @@ describe("deluge provider", () => {
 	});
 
 	it("reports RPC error with no message as generic error", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ id: 1, error: {} }));

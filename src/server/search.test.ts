@@ -118,6 +118,12 @@ function mockHardcoverFetchSequence(
 	}
 }
 
+function assertExists<T>(
+	value: T | null | undefined,
+): asserts value is NonNullable<T> {
+	expect(value).toBeDefined();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -974,23 +980,23 @@ describe("getHardcoverBookDetailFn", () => {
 			data: { foreignBookId: 500 },
 		});
 
-		expect(result).toBeDefined();
-		expect(result!.id).toBe("500");
-		expect(result!.title).toBe("Epic Novel");
-		expect(result!.slug).toBe("epic-novel");
-		expect(result!.description).toBe("An epic story");
-		expect(result!.releaseYear).toBe(2023);
-		expect(result!.rating).toBe(4.5);
-		expect(result!.coverUrl).toBe("https://example.com/epic.jpg");
-		expect(result!.series).toHaveLength(1);
-		expect(result!.series[0]).toEqual({
+		assertExists(result);
+		expect(result.id).toBe("500");
+		expect(result.title).toBe("Epic Novel");
+		expect(result.slug).toBe("epic-novel");
+		expect(result.description).toBe("An epic story");
+		expect(result.releaseYear).toBe(2023);
+		expect(result.rating).toBe(4.5);
+		expect(result.coverUrl).toBe("https://example.com/epic.jpg");
+		expect(result.series).toHaveLength(1);
+		expect(result.series[0]).toEqual({
 			id: "10",
 			title: "Saga",
 			position: "3",
 		});
-		expect(result!.contributors).toHaveLength(2);
-		expect(result!.contributors[0]).toEqual({ id: "1", name: "Writer One" });
-		expect(result!.contributors[1]).toEqual({ id: "2", name: "Writer Two" });
+		expect(result.contributors).toHaveLength(2);
+		expect(result.contributors[0]).toEqual({ id: "1", name: "Writer One" });
+		expect(result.contributors[1]).toEqual({ id: "2", name: "Writer Two" });
 	});
 
 	it("returns undefined when no book found", async () => {
@@ -1037,8 +1043,8 @@ describe("getHardcoverBookDetailFn", () => {
 			data: { foreignBookId: 600 },
 		});
 
-		expect(result).toBeDefined();
-		expect(result!.series).toHaveLength(0);
-		expect(result!.coverUrl).toBeNull();
+		assertExists(result);
+		expect(result.series).toHaveLength(0);
+		expect(result.coverUrl).toBeNull();
 	});
 });

@@ -115,7 +115,7 @@ describe("transmission provider", () => {
 	});
 
 	it("reports unexpected result from Transmission", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
@@ -143,7 +143,7 @@ describe("transmission provider", () => {
 	});
 
 	it("reports HTTP failures from Transmission RPC", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 500;
 			response.end("boom");
 		});
@@ -184,7 +184,7 @@ describe("transmission provider", () => {
 	});
 
 	it("returns null version when arguments.version is missing", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
@@ -344,7 +344,7 @@ describe("transmission provider", () => {
 	});
 
 	it("throws when torrent-add returns a non-success result", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
@@ -437,7 +437,7 @@ describe("transmission provider", () => {
 	});
 
 	it("throws when torrent-remove returns a non-success result", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
@@ -500,7 +500,7 @@ describe("transmission provider", () => {
 	});
 
 	it("throws when pause or resume returns a non-success result", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ result: "error", arguments: {} }));
@@ -561,7 +561,7 @@ describe("transmission provider", () => {
 	});
 
 	it("throws when setPriority returns a non-success result", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(JSON.stringify({ result: "error", arguments: {} }));
@@ -819,7 +819,7 @@ describe("transmission provider", () => {
 	});
 
 	it("returns an empty list when torrents array is missing", async () => {
-		const server = await startHttpTestServer(async (request, response) => {
+		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(
