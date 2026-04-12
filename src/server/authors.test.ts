@@ -675,6 +675,26 @@ describe("server/authors", () => {
 			);
 		});
 
+		it("persists monitorNewBooks='none' without dropping existing profile links", async () => {
+			mocks.authorRow = { id: 1, name: "Author One" };
+			setupUpdateMocks();
+
+			await updateAuthorFn({
+				data: { id: 1, monitorNewBooks: "none", downloadProfileIds: [11] },
+			});
+
+			const updateChain = mocks.updateFn.mock.results[0]?.value as UpdateChain;
+			expect(updateChain.set).toHaveBeenCalledWith(
+				expect.objectContaining({ monitorNewBooks: "none" }),
+			);
+			expect(mocks.deleteFn).toHaveBeenCalledWith(
+				schemaMocks.authorDownloadProfiles,
+			);
+			expect(mocks.insertFn).toHaveBeenCalledWith(
+				schemaMocks.authorDownloadProfiles,
+			);
+		});
+
 		it("does not replace download profiles when not provided", async () => {
 			mocks.authorRow = { id: 1, name: "Author One" };
 			setupUpdateMocks();
