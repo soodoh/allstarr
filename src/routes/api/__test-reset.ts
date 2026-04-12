@@ -18,8 +18,10 @@ export const Route = createFileRoute("/api/__test-reset")({
 				const { clearRunningTasks } = await import(
 					"src/server/scheduler/state"
 				);
+				const { clearTmdbCache } = await import("src/server/tmdb/client");
 				invalidateFormatDefCache();
 				clearRunningTasks();
+				clearTmdbCache();
 				return Response.json({ ok: true });
 			},
 		},

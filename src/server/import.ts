@@ -1299,8 +1299,21 @@ export async function refreshAuthorInternal(
 	const now = new Date();
 	const metadataProfile = getMetadataProfile();
 	const profileLanguages = getProfileLanguages();
+	const authorProfileIds =
+		localAuthor.monitorNewBooks === "all" ||
+		localAuthor.monitorNewBooks === "new"
+			? db
+					.select({
+						downloadProfileId: authorDownloadProfiles.downloadProfileId,
+					})
+					.from(authorDownloadProfiles)
+					.where(eq(authorDownloadProfiles.authorId, authorId))
+					.all()
+					.map((link) => link.downloadProfileId)
+			: [];
+	const newBookIds: number[] = [];
 
-	return db.transaction((tx) => {
+	const result = db.transaction((tx) => {
 		// Update author fields
 		tx.update(authors)
 			.set({
@@ -1628,6 +1641,7 @@ export async function refreshAuthorInternal(
 					.returning()
 					.get();
 				booksAdded += 1;
+				newBookIds.push(newBook.id);
 
 				// Insert booksAuthors entries
 				insertBookAuthors(
@@ -1788,6 +1802,12 @@ export async function refreshAuthorInternal(
 
 		return { booksUpdated, booksAdded, editionsUpdated, editionsAdded };
 	});
+
+	for (const newBookId of newBookIds) {
+		ensureEditionProfileLinks(newBookId, authorProfileIds);
+	}
+
+	return result;
 }
 
 const refreshAuthorHandler: CommandHandler = async (

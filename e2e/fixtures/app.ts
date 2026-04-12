@@ -79,12 +79,14 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 			const dbHandle = createTestDb(`worker-${workerInfo.workerIndex}`);
 			const hardcoverBase =
 				serviceManager.getUrls().HARDCOVER ?? "http://127.0.0.1:9";
+			const tmdbBase = serviceManager.getUrls().TMDB ?? "http://127.0.0.1:9";
 
 			const spawnConfig = createAppServerSpawnConfig({
 				workerIndex: workerInfo.workerIndex,
 				dbPath: dbHandle.dbPath,
 				servers: {
 					HARDCOVER: hardcoverBase,
+					TMDB: tmdbBase,
 				},
 			});
 

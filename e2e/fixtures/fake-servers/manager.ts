@@ -8,6 +8,7 @@ import createProwlarrServer from "./prowlarr";
 import createQBittorrentServer from "./qbittorrent";
 import createRTorrentServer from "./rtorrent";
 import createSABnzbdServer from "./sabnzbd";
+import createTmdbServer from "./tmdb";
 import createTransmissionServer from "./transmission";
 
 export type ServiceName = Exclude<keyof typeof PORTS, "APP_BASE">;
@@ -54,6 +55,7 @@ const factories: Record<ServiceName, () => ManagedServer> = {
 	NEWZNAB: () => createNewznabServer(PORTS.NEWZNAB) as ManagedServer,
 	PROWLARR: () => createProwlarrServer(PORTS.PROWLARR) as ManagedServer,
 	HARDCOVER: () => createHardcoverServer(PORTS.HARDCOVER) as ManagedServer,
+	TMDB: () => createTmdbServer(PORTS.TMDB) as ManagedServer,
 };
 
 export type FakeServerManager = ReturnType<typeof createFakeServerManager>;

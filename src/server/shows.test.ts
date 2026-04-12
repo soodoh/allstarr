@@ -482,7 +482,7 @@ describe("server/shows", () => {
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
 
-			const insertChain = createInsertChain();
+			const insertChain = createInsertChain({ returning: { id: 101 } });
 			mocks.insert.mockReturnValue(insertChain);
 
 			await updateShowFn({
@@ -511,7 +511,7 @@ describe("server/shows", () => {
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
 
-			const insertChain = createInsertChain();
+			const insertChain = createInsertChain({ returning: { id: 101 } });
 			mocks.insert.mockReturnValue(insertChain);
 
 			const result = await deleteShowFn({
@@ -543,7 +543,7 @@ describe("server/shows", () => {
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
 
-			const insertChain = createInsertChain();
+			const insertChain = createInsertChain({ returning: { id: 101 } });
 			mocks.insert.mockReturnValue(insertChain);
 
 			const result = await deleteShowFn({
@@ -810,7 +810,7 @@ describe("server/shows", () => {
 			const existingEp2Chain = createSelectChain({ get: undefined });
 			mocks.select.mockImplementationOnce(() => existingEp2Chain);
 
-			const insertChain = createInsertChain();
+			const insertChain = createInsertChain({ returning: { id: 101 } });
 			mocks.insert.mockReturnValue(insertChain);
 
 			const result = await refreshShowInternal(1);
@@ -872,6 +872,86 @@ describe("server/shows", () => {
 
 			expect(mocks.insert).toHaveBeenCalled();
 			expect(result).toEqual({ success: true, newEpisodes: 0 });
+		});
+
+		it("applies show download profiles to newly discovered episodes when monitoring new seasons", async () => {
+			const show = { id: 1, tmdbId: 100, monitorNewSeasons: "all" };
+
+			queueSelectResults([{ get: show }]);
+
+			mocks.tmdbFetch
+				.mockResolvedValueOnce({
+					name: "Show",
+					overview: "Overview",
+					status: "Returning Series",
+					networks: [{ name: "Example" }],
+					first_air_date: "2024-01-01",
+					episode_run_time: [55],
+					genres: [{ name: "Drama" }],
+					poster_path: "/show.jpg",
+					backdrop_path: "/show-backdrop.jpg",
+					external_ids: { imdb_id: "tt1234567" },
+					seasons: [
+						{
+							season_number: 2,
+							overview: "Season 2",
+							poster_path: "/season-2.jpg",
+						},
+					],
+				})
+				.mockResolvedValueOnce({
+					episodes: [
+						{
+							episode_number: 1,
+							name: "Season Premiere",
+							overview: "Fresh episode",
+							air_date: "2026-04-01",
+							runtime: 56,
+							id: 8802,
+						},
+					],
+				});
+
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+
+			mocks.select.mockImplementationOnce(() =>
+				createSelectChain({ get: undefined }),
+			);
+			mocks.select.mockImplementationOnce(() =>
+				createSelectChain({ get: undefined }),
+			);
+			mocks.select.mockImplementationOnce(() =>
+				createSelectChain({ all: [{ downloadProfileId: 5 }] }),
+			);
+			mocks.select.mockImplementationOnce(() =>
+				createSelectChain({
+					all: [
+						{
+							id: 30,
+							seasonId: 20,
+							episodeNumber: 1,
+							airDate: "2026-04-01",
+							hasFile: false,
+						},
+					],
+				}),
+			);
+
+			mocks.insert
+				.mockReturnValueOnce(createInsertChain({ returning: { id: 20 } }))
+				.mockReturnValueOnce(createInsertChain({ returning: { id: 30 } }))
+				.mockReturnValue(createInsertChain());
+
+			const result = await refreshShowInternal(1);
+
+			expect(result).toEqual({ success: true, newEpisodes: 1 });
+			expect(mocks.insert).toHaveBeenCalledWith(
+				expect.objectContaining({
+					downloadProfileId: "episodeDownloadProfiles.downloadProfileId",
+					episodeId: "episodeDownloadProfiles.episodeId",
+				}),
+			);
 		});
 	});
 

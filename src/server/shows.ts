@@ -80,6 +80,7 @@ function applyMonitoringOption(
 	showId: number,
 	option: MonitorOption,
 	downloadProfileIds: number[],
+	candidateEpisodeIds?: Set<number>,
 ): void {
 	if (downloadProfileIds.length === 0) {
 		return;
@@ -178,6 +179,12 @@ function applyMonitoringOption(
 			monitoredEpisodes = [];
 			break;
 		}
+	}
+
+	if (candidateEpisodeIds) {
+		monitoredEpisodes = monitoredEpisodes.filter((ep) =>
+			candidateEpisodeIds.has(ep.id),
+		);
 	}
 
 	// Insert episodeDownloadProfiles rows for each monitored episode × each profile ID
@@ -1099,7 +1106,11 @@ export async function refreshShowInternal(
 	showId: number,
 ): Promise<{ success: boolean; newEpisodes: number }> {
 	const show = db
-		.select({ id: shows.id, tmdbId: shows.tmdbId })
+		.select({
+			id: shows.id,
+			tmdbId: shows.tmdbId,
+			monitorNewSeasons: shows.monitorNewSeasons,
+		})
 		.from(shows)
 		.where(eq(shows.id, showId))
 		.get();
@@ -1143,6 +1154,7 @@ export async function refreshShowInternal(
 		.run();
 
 	let newEpisodes = 0;
+	const newEpisodeIds = new Set<number>();
 
 	for (const seasonSummary of raw.seasons) {
 		const seasonDetail = await tmdbFetch<TmdbSeasonDetail>(
@@ -1209,7 +1221,8 @@ export async function refreshShowInternal(
 					.where(eq(episodes.id, existingEpisode.id))
 					.run();
 			} else {
-				db.insert(episodes)
+				const newEpisode = db
+					.insert(episodes)
 					.values({
 						showId: show.id,
 						seasonId,
@@ -1221,10 +1234,34 @@ export async function refreshShowInternal(
 						tmdbId: ep.id,
 						hasFile: false,
 					})
-					.run();
+					.returning()
+					.get();
+				newEpisodeIds.add(newEpisode.id);
 				newEpisodes += 1;
 			}
 		}
+	}
+
+	if (
+		newEpisodeIds.size > 0 &&
+		show.monitorNewSeasons &&
+		show.monitorNewSeasons !== "none"
+	) {
+		const downloadProfileIds = db
+			.select({
+				downloadProfileId: showDownloadProfiles.downloadProfileId,
+			})
+			.from(showDownloadProfiles)
+			.where(eq(showDownloadProfiles.showId, show.id))
+			.all()
+			.map((link) => link.downloadProfileId);
+
+		applyMonitoringOption(
+			show.id,
+			show.monitorNewSeasons,
+			downloadProfileIds,
+			newEpisodeIds,
+		);
 	}
 
 	return { success: true, newEpisodes };

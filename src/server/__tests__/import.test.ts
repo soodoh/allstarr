@@ -195,7 +195,10 @@ vi.mock("src/db/schema", () => ({
 		editionId: "editionDownloadProfiles.editionId",
 		downloadProfileId: "editionDownloadProfiles.downloadProfileId",
 	},
-	authorDownloadProfiles: {},
+	authorDownloadProfiles: {
+		authorId: "authorDownloadProfiles.authorId",
+		downloadProfileId: "authorDownloadProfiles.downloadProfileId",
+	},
 	bookFiles: { bookId: "bookFiles.bookId" },
 	bookImportListExclusions: {
 		foreignBookId: "bookImportListExclusions.foreignBookId",
@@ -2246,6 +2249,71 @@ describe("refreshAuthorInternal — adds new books during refresh", () => {
 		const result = await refreshAuthorInternal(1, noopProgress);
 
 		expect(result.booksAdded).toBe(0);
+	});
+
+	it("applies the author's download profiles to newly discovered books", async () => {
+		const rawAuthor = makeRawAuthor();
+		const rawBook = makeRawBook();
+		const rawEdition = makeRawEdition({ format: "EPUB" });
+
+		mocks.get.mockReturnValueOnce({
+			id: 1,
+			foreignAuthorId: "100",
+			name: "J.R.R. Tolkien",
+			monitorNewBooks: "all",
+		});
+		mocks.fetchAuthorComplete.mockResolvedValue({
+			author: rawAuthor,
+			books: [rawBook],
+		});
+		mocks.fetchBatchedEditions.mockResolvedValue(
+			new Map([[rawBook.id, [rawEdition]]]),
+		);
+		mocks.pickBestEditionForProfile.mockReturnValue({ id: rawEdition.id });
+
+		let txAllCallCount = 0;
+		mocks.all.mockImplementation(() => {
+			txAllCallCount++;
+			switch (txAllCallCount) {
+				case 1:
+					return [{ downloadProfileId: 7 }]; // author profile links
+				case 2:
+					return []; // excluded books
+				case 3:
+					return []; // author book entries for orphan detection
+				case 4:
+					return [{ id: rawEdition.id, format: "EPUB" }]; // book editions
+				case 5:
+					return [{ id: 7, contentType: "ebook" }]; // download profiles
+				default:
+					return [];
+			}
+		});
+
+		let txGetCallCount = 0;
+		mocks.get.mockImplementation(() => {
+			txGetCallCount++;
+			switch (txGetCallCount) {
+				case 1:
+					return undefined; // no existing book
+				case 2:
+					return { id: 10, title: rawBook.title }; // inserted book
+				default:
+					return undefined;
+			}
+		});
+
+		const { refreshAuthorInternal } = await import("../import");
+		await refreshAuthorInternal(1, noopProgress);
+
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalledWith(
+			expect.arrayContaining([expect.objectContaining({ id: rawEdition.id })]),
+			expect.objectContaining({ id: 7, contentType: "ebook" }),
+		);
+		expect(dbMock.values).toHaveBeenCalledWith({
+			downloadProfileId: 7,
+			editionId: rawEdition.id,
+		});
 	});
 });
 
