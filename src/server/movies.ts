@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "src/db";
@@ -392,6 +391,7 @@ export const deleteMovieFn = createServerFn({ method: "POST" })
 
 		// If deleteFiles, find and delete all movie files from disk
 		if (data.deleteFiles) {
+			const fs = await import("node:fs");
 			const files = db
 				.select({ path: movieFiles.path })
 				.from(movieFiles)

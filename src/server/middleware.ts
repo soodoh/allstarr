@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { getAuth } from "src/lib/auth";
 import { isServerRuntime } from "src/lib/runtime";
-import "./coverage-exit";
+
+if (import.meta.env.SSR) {
+	import("./coverage-exit");
+}
 
 export async function getSessionFromRequest(request: Request) {
 	const auth = await getAuth();
