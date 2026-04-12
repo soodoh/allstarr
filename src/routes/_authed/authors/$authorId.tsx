@@ -1110,10 +1110,10 @@ function SeriesTab({
 
 				return (
 					<div key={s.id} className="border rounded-lg">
-						<div className="relative overflow-hidden rounded-t-lg">
+						<div className="relative rounded-t-lg">
 							<button
 								type="button"
-								className="absolute inset-0 z-0 cursor-pointer rounded-t-lg hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+								className="absolute inset-0 z-0 cursor-pointer rounded-t-lg hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 								onClick={() => setExpandedId(isExpanded ? undefined : s.id)}
 								aria-expanded={isExpanded}
 								aria-controls={`series-panel-${s.id}`}

@@ -764,8 +764,11 @@ describe("AuthorDetailRoute", () => {
 	});
 
 	afterEach(() => {
-		browserConsoleGuard.assertNoDomNestingWarnings();
-		browserConsoleGuard.restore();
+		try {
+			browserConsoleGuard.assertNoDomNestingWarnings();
+		} finally {
+			browserConsoleGuard.restore();
+		}
 	});
 
 	it("rejects invalid ids and converts missing-author loader errors into notFound", async () => {
