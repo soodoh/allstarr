@@ -1,14 +1,21 @@
+import * as path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, like, or } from "drizzle-orm";
 import { db } from "src/db";
 import {
 	bookFiles,
+	books,
+	booksAuthors,
 	downloadProfiles,
 	episodeFiles,
 	history,
 	movieFiles,
 	unmappedFiles,
 } from "src/db/schema";
+import {
+	buildBookAuthorFolderName,
+	buildBookFolderName,
+} from "src/server/book-paths";
 import { eventBus } from "src/server/event-bus";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
@@ -21,6 +28,54 @@ const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".ts"]);
 
 function naturalSort(a: string, b: string): number {
 	return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function moveFileToManagedPath(
+	fs: typeof import("node:fs"),
+	sourcePath: string,
+	destPath: string,
+): void {
+	fs.mkdirSync(path.dirname(destPath), { recursive: true });
+
+	try {
+		fs.renameSync(sourcePath, destPath);
+		return;
+	} catch (error) {
+		if (
+			!(error instanceof Error) ||
+			!("code" in error) ||
+			error.code !== "EXDEV"
+		) {
+			throw error;
+		}
+	}
+
+	fs.copyFileSync(sourcePath, destPath);
+	try {
+		fs.unlinkSync(sourcePath);
+	} catch (error) {
+		try {
+			fs.unlinkSync(destPath);
+		} catch {
+			// Ignore cleanup failures so the original unlink error is preserved.
+		}
+		throw error;
+	}
+}
+
+function resolveManagedRootFolder(downloadProfileId: number): string | null {
+	const profile = db
+		.select()
+		.from(downloadProfiles)
+		.where(eq(downloadProfiles.id, downloadProfileId))
+		.get();
+
+	if (profile?.rootFolderPath) {
+		return profile.rootFolderPath;
+	}
+
+	const fallback = db.select().from(downloadProfiles).get();
+	return fallback?.rootFolderPath ?? null;
 }
 
 // ─── getUnmappedFilesFn ────────────────────────────────────────────────────
@@ -178,7 +233,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => mapUnmappedFileSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		const path = await import("node:path");
+		const fs = await import("node:fs");
 		const { probeAudioFile, probeEbookFile, probeVideoFile } = await import(
 			"src/server/media-probe"
 		);
@@ -217,6 +272,52 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 			const isVideo = VIDEO_EXTENSIONS.has(ext);
 
 			if (data.entityType === "book") {
+				const book = db
+					.select({
+						authorName: booksAuthors.authorName,
+						releaseYear: books.releaseYear,
+						title: books.title,
+					})
+					.from(books)
+					.leftJoin(
+						booksAuthors,
+						and(
+							eq(booksAuthors.bookId, books.id),
+							eq(booksAuthors.isPrimary, true),
+						),
+					)
+					.where(eq(books.id, data.entityId))
+					.limit(1)
+					.get();
+
+				if (!book) {
+					throw new Error(`Book ${data.entityId} not found`);
+				}
+
+				const mediaType =
+					profile.contentType === "audiobook" ? "audio" : "ebook";
+				const authorFolderName = buildBookAuthorFolderName({
+					mediaType,
+					authorName: book.authorName ?? "Unknown Author",
+					bookTitle: book.title,
+					releaseYear: book.releaseYear,
+					authorFolderVarsMode: "author-only",
+				});
+				const bookFolderName = buildBookFolderName({
+					mediaType,
+					authorName: book.authorName ?? "Unknown Author",
+					bookTitle: book.title,
+					releaseYear: book.releaseYear,
+				});
+				const managedRootPath = resolveManagedRootFolder(
+					data.downloadProfileId,
+				);
+				if (!managedRootPath) {
+					throw new Error(
+						`Download profile ${data.downloadProfileId} has no root folder configured`,
+					);
+				}
+
 				// Probe metadata
 				let duration: number | null = null;
 				let bitrate: number | null = null;
@@ -249,37 +350,61 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					}
 				}
 
-				db.insert(bookFiles)
-					.values({
-						bookId: data.entityId,
-						path: file.path,
-						size: file.size,
-						quality: file.quality,
-						downloadProfileId: data.downloadProfileId,
-						duration,
-						bitrate,
-						sampleRate,
-						channels,
-						codec,
-						pageCount,
-						language,
-						part,
-						partCount,
-					})
-					.run();
+				const destPath = path.join(
+					managedRootPath,
+					authorFolderName,
+					bookFolderName,
+					path.basename(file.path),
+				);
+				moveFileToManagedPath(fs, file.path, destPath);
 
-				db.insert(history)
-					.values({
-						eventType: "bookFileAdded",
-						bookId: data.entityId,
-						data: {
-							path: file.path,
-							size: file.size,
-							quality: file.quality?.quality?.name ?? "Unknown",
-							source: "unmappedFileMapping",
-						},
-					})
-					.run();
+				try {
+					db.transaction((tx) => {
+						tx.insert(bookFiles)
+							.values({
+								bookId: data.entityId,
+								path: destPath,
+								size: file.size,
+								quality: file.quality,
+								downloadProfileId: data.downloadProfileId,
+								duration,
+								bitrate,
+								sampleRate,
+								channels,
+								codec,
+								pageCount,
+								language,
+								part,
+								partCount,
+							})
+							.run();
+
+						tx.insert(history)
+							.values({
+								eventType: "bookFileAdded",
+								bookId: data.entityId,
+								data: {
+									path: destPath,
+									size: file.size,
+									quality: file.quality?.quality?.name ?? "Unknown",
+									source: "unmappedFileMapping",
+								},
+							})
+							.run();
+
+						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+					});
+				} catch (error) {
+					try {
+						moveFileToManagedPath(fs, destPath, file.path);
+					} catch (rollbackError) {
+						logWarn(
+							"unmapped-files",
+							`Failed to roll back file move for ${file.path}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+						);
+					}
+					throw error;
+				}
 			} else if (data.entityType === "movie") {
 				// Probe video metadata
 				let duration: number | null = null;
@@ -362,8 +487,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					.run();
 			}
 
-			// Remove from unmapped files
-			db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+			if (data.entityType !== "book") {
+				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+			}
 			mappedCount++;
 		}
 
