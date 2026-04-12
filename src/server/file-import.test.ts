@@ -671,6 +671,42 @@ describe("importCompletedDownload", () => {
 		);
 	});
 
+	it("renames single-file audio imports without a part suffix", async () => {
+		const td = makeTd();
+		queueGets(
+			td,
+			{ contentType: "audiobook" },
+			{ name: "Audio Author" },
+			{ rootFolderPath: "/audiobooks" },
+			{ title: "Audio Book", releaseYear: 2024 },
+			{ id: 74 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 4096, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "track01.mp3", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.renameBooks") return true;
+				return defaultValue;
+			},
+		);
+
+		await importCompletedDownload(1);
+
+		expect(mocks.linkSync).toHaveBeenCalledWith(
+			"/downloads/test-book/track01.mp3",
+			expect.stringContaining("Audio Author - Audio Book.mp3"),
+		);
+		expect(
+			(mocks.linkSync.mock.calls[0]?.[1] as string | undefined) ?? "",
+		).not.toContain("Part");
+	});
+
 	it("skips free space check when skipFreeSpaceCheck is enabled", async () => {
 		const td = makeTd();
 		queueGets(
@@ -910,6 +946,101 @@ describe("importBookPackDownload", () => {
 				bookTitle: expect.stringContaining("pack: 2 books"),
 			}),
 		);
+	});
+
+	it("renames pack imports through the shared file flow when enabled", async () => {
+		const td = makeTd({
+			bookId: null,
+			authorId: 200,
+			outputPath: "/downloads/pack",
+		});
+		queueGets(
+			td,
+			{ id: 200, name: "Pack Author" },
+			{ rootFolderPath: "/library" },
+			{ contentType: "audiobook" },
+			{ id: 90 },
+		);
+		mocks.statSync.mockReturnValue({ size: 1024, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "Author - Title.mp3", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+
+		mocks.mapBookFiles.mockReturnValue([
+			{
+				path: "/downloads/pack/Author - Title.mp3",
+				extractedTitle: "Title",
+			},
+		]);
+
+		queueAlls([{ id: 101, title: "Title", releaseYear: 2023 }], []);
+
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.renameBooks") return true;
+				if (key === "naming.book.audio.bookFile") {
+					return "Pack - {Author Name} - {Book Title}";
+				}
+				return defaultValue;
+			},
+		);
+
+		await importCompletedDownload(1);
+
+		expect(mocks.linkSync).toHaveBeenCalledWith(
+			"/downloads/pack/Author - Title.mp3",
+			expect.stringContaining("Pack - Pack Author - Title.mp3"),
+		);
+		expect(mocks.dbSet).toHaveBeenCalledWith(
+			expect.objectContaining({ state: "imported" }),
+		);
+	});
+
+	it("renames single-file audio pack imports without a part suffix", async () => {
+		const td = makeTd({
+			bookId: null,
+			authorId: 200,
+			outputPath: "/downloads/pack",
+		});
+		queueGets(
+			td,
+			{ id: 200, name: "Pack Author" },
+			{ rootFolderPath: "/library" },
+			{ contentType: "audiobook" },
+			{ id: 92 },
+		);
+		mocks.statSync.mockReturnValue({ size: 1024, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "Author - Title.mp3", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+
+		mocks.mapBookFiles.mockReturnValue([
+			{
+				path: "/downloads/pack/Author - Title.mp3",
+				extractedTitle: "Title",
+			},
+		]);
+
+		queueAlls([{ id: 101, title: "Title", releaseYear: 2023 }], []);
+
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.renameBooks") return true;
+				return defaultValue;
+			},
+		);
+
+		await importCompletedDownload(1);
+
+		expect(mocks.linkSync).toHaveBeenCalledWith(
+			"/downloads/pack/Author - Title.mp3",
+			expect.stringContaining("Pack Author - Title.mp3"),
+		);
+		expect(
+			(mocks.linkSync.mock.calls[0]?.[1] as string | undefined) ?? "",
+		).not.toContain("Part");
 	});
 
 	it("skips books that already have files", async () => {
