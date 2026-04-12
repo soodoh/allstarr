@@ -27,11 +27,48 @@ function formatConsoleError(args: unknown[]): string {
 		.join(" ");
 }
 
+function substituteConsoleMessage(template: string, args: unknown[]): string {
+	let index = 0;
+
+	const message = template.replace(/%[sdifoOc]/g, (token) => {
+		const value = args[index];
+		index += 1;
+
+		if (token === "%c") {
+			return "";
+		}
+		if (typeof value === "string") {
+			return value;
+		}
+		if (typeof value === "number" || typeof value === "boolean") {
+			return String(value);
+		}
+		if (value instanceof Error) {
+			return value.message;
+		}
+		return formatConsoleError([value]);
+	});
+
+	if (index >= args.length) {
+		return message;
+	}
+
+	const rest = args.slice(index).map((arg) => formatConsoleError([arg]));
+	return [message, ...rest].filter(Boolean).join(" ");
+}
+
 function isDomNestingWarning(args: unknown[]): boolean {
-	const message = formatConsoleError(args);
-	return (
-		message.includes("validateDOMNesting") ||
-		/<button>.*descendant.*<button>/i.test(message)
+	const [firstArg, ...rest] = args;
+	const messages = [formatConsoleError(args)];
+
+	if (typeof firstArg === "string") {
+		messages.push(substituteConsoleMessage(firstArg, rest));
+	}
+
+	return messages.some(
+		(message) =>
+			message.includes("validateDOMNesting") ||
+			/<button>\s+cannot be a descendant of\s+<button>/i.test(message),
 	);
 }
 
