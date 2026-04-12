@@ -156,6 +156,12 @@ test.describe("Unmapped Files", () => {
       releaseYear: 2025,
     });
     const file = seedUnmappedEbook(db, tempDir, "mapped-book.epub");
+    const expectedPath = join(
+      tempDir,
+      "Mapped Author",
+      "Mapped Book (2025)",
+      file.filename,
+    );
     checkpoint();
 
     await navigateTo(page, appUrl, "/unmapped-files");
@@ -191,15 +197,20 @@ test.describe("Unmapped Files", () => {
           .select({
             bookId: schema.bookFiles.bookId,
             downloadProfileId: schema.bookFiles.downloadProfileId,
+            path: schema.bookFiles.path,
           })
           .from(schema.bookFiles)
-          .where(eq(schema.bookFiles.path, file.path))
+          .where(eq(schema.bookFiles.bookId, book.id))
           .get() ?? null,
       )
       .toEqual({
         bookId: book.id,
         downloadProfileId: profile.id,
+        path: expectedPath,
       });
+
+    await expect.poll(() => existsSync(expectedPath)).toBe(true);
+    await expect.poll(() => existsSync(file.path)).toBe(false);
 
     await expect
       .poll(() =>
