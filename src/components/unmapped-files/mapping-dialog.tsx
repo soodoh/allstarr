@@ -221,6 +221,11 @@ function TvMappingRow({
 		searchResults?.library,
 		suggestion,
 	]);
+	const selectHint = !searchEnabled
+		? "Type at least 2 characters to search"
+		: !isLoading && selectOptions.length === 0
+			? "No matching episodes found"
+			: null;
 
 	const fileName = getFileName(file.path);
 	const searchId = `tv-episode-search-${file.id}`;
@@ -284,11 +289,6 @@ function TvMappingRow({
 							/>
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="">
-								{searchEnabled
-									? "Select an episode"
-									: "Type at least 2 characters to search"}
-							</SelectItem>
 							{selectOptions.map((option) => (
 								<SelectItem key={option.id} value={String(option.id)}>
 									{formatEpisodeOption(option)}
@@ -296,6 +296,9 @@ function TvMappingRow({
 							))}
 						</SelectContent>
 					</Select>
+					{selectHint ? (
+						<p className="text-xs text-muted-foreground">{selectHint}</p>
+					) : null}
 				</div>
 			</div>
 
