@@ -83,23 +83,49 @@ function stripSourceStemPrefix(
 	);
 }
 
-function buildTvSidecarSuffix(sourcePath: string, sidecarPath: string): string {
+function normalizeSuffixParts(value: string): string[] {
+	return value
+		.split(/[ ._-]+/)
+		.map((part) => part.trim())
+		.filter(Boolean);
+}
+
+function getRelativeSidecarDirectoryParts(
+	sourcePath: string,
+	sidecarPath: string,
+): string[] {
+	const sourceDir = path.dirname(sourcePath);
+	const sidecarDir = path.dirname(sidecarPath);
+	if (sidecarDir === sourceDir || !sidecarDir.startsWith(`${sourceDir}/`)) {
+		return [];
+	}
+
+	return sidecarDir
+		.slice(sourceDir.length + 1)
+		.split("/")
+		.flatMap((segment) => normalizeSuffixParts(segment));
+}
+
+function getTvSidecarSuffixParts(
+	sourcePath: string,
+	sidecarPath: string,
+): string[] {
 	const sourceStem = stripFileExtension(path.basename(sourcePath));
 	const sidecarStem = stripFileExtension(path.basename(sidecarPath));
 
 	if (sidecarStem === sourceStem) {
-		return "";
+		return [];
 	}
 
 	const episodeToken = getTvEpisodeToken(sourcePath);
 	if (!episodeToken) {
-		return "";
+		return [];
 	}
 
 	const sourceMatch = sourceStem.match(TV_EPISODE_PATTERN);
 	const sidecarMatch = sidecarStem.match(TV_EPISODE_PATTERN);
 	if (!sourceMatch || !sidecarMatch) {
-		return "";
+		return [];
 	}
 
 	const sourcePrefix = sourceStem
@@ -119,11 +145,9 @@ function buildTvSidecarSuffix(sourcePath: string, sidecarPath: string): string {
 		sourceSuffix,
 	);
 
-	const suffixParts = [sidecarPrefix, sidecarSuffix]
-		.flatMap((part) => part.split(/[ ._-]+/))
-		.filter(Boolean);
-
-	return suffixParts.length > 0 ? `.${suffixParts.join(".")}` : "";
+	return [sidecarPrefix, sidecarSuffix].flatMap((part) =>
+		normalizeSuffixParts(part),
+	);
 }
 
 function isRelatedTvSidecar(
@@ -182,10 +206,56 @@ function buildManagedTvSidecarPath(
 	managedEpisodePath: string,
 	sourcePath: string,
 	sidecarPath: string,
+	usedDestPaths: Set<string>,
+	preferRelativeDirParts = false,
 ): string {
+	const baseName = stripFileExtension(path.basename(managedEpisodePath));
+	const ext = path.extname(sidecarPath);
+	const suffixParts = getTvSidecarSuffixParts(sourcePath, sidecarPath);
+	const relativeDirParts = getRelativeSidecarDirectoryParts(
+		sourcePath,
+		sidecarPath,
+	);
+	const candidatePartSets = [
+		preferRelativeDirParts && relativeDirParts.length > 0
+			? [...relativeDirParts, ...suffixParts]
+			: suffixParts,
+		relativeDirParts.length > 0 ? [...relativeDirParts, ...suffixParts] : null,
+		preferRelativeDirParts ? suffixParts : null,
+	].filter((parts): parts is string[] => parts != null);
+
+	for (const parts of candidatePartSets) {
+		const candidatePath = path.join(
+			path.dirname(managedEpisodePath),
+			`${baseName}${parts.length > 0 ? `.${parts.join(".")}` : ""}${ext}`,
+		);
+		if (!usedDestPaths.has(candidatePath)) {
+			return candidatePath;
+		}
+	}
+
+	let counter = 2;
+	while (true) {
+		const candidatePath = path.join(
+			path.dirname(managedEpisodePath),
+			`${baseName}.${[...relativeDirParts, ...suffixParts, String(counter)].filter(Boolean).join(".")}${ext}`,
+		);
+		if (!usedDestPaths.has(candidatePath)) {
+			return candidatePath;
+		}
+		counter++;
+	}
+}
+
+function buildTvSidecarCollisionKey(
+	managedEpisodePath: string,
+	sourcePath: string,
+	sidecarPath: string,
+): string {
+	const suffixParts = getTvSidecarSuffixParts(sourcePath, sidecarPath);
 	return path.join(
 		path.dirname(managedEpisodePath),
-		`${stripFileExtension(path.basename(managedEpisodePath))}${buildTvSidecarSuffix(sourcePath, sidecarPath)}${path.extname(sidecarPath)}`,
+		`${stripFileExtension(path.basename(managedEpisodePath))}${suffixParts.length > 0 ? `.${suffixParts.join(".")}` : ""}${path.extname(sidecarPath)}`,
 	);
 }
 
@@ -233,8 +303,16 @@ function resolveManagedRootFolder(downloadProfileId: number): string | null {
 		return profile.rootFolderPath;
 	}
 
-	const fallback = db.select().from(downloadProfiles).get();
-	return fallback?.rootFolderPath ?? null;
+	const fallbackProfiles = db.select().from(downloadProfiles).all();
+	return (
+		fallbackProfiles
+			.filter(
+				(candidate) =>
+					typeof candidate.rootFolderPath === "string" &&
+					candidate.rootFolderPath.trim() !== "",
+			)
+			.sort((left, right) => left.id - right.id)[0]?.rootFolderPath ?? null
+	);
 }
 
 // ─── getUnmappedFilesFn ────────────────────────────────────────────────────
@@ -504,6 +582,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						destPath: managedEpisodePath,
 						sourcePath: file.path,
 					});
+					const usedDestPaths = new Set([managedEpisodePath]);
 
 					if (data.moveRelatedSidecars) {
 						const candidates = db
@@ -511,26 +590,45 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							.from(unmappedFiles)
 							.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
 							.all();
+						const relatedSidecars = candidates.filter(
+							(candidate) =>
+								candidate.id !== file.id &&
+								!mappedIds.has(candidate.id) &&
+								isRelatedTvSidecar(file.path, candidate.path),
+						);
+						const sidecarCollisionCounts = new Map<string, number>();
 
-						for (const candidate of candidates) {
-							if (
-								candidate.id === file.id ||
-								mappedIds.has(candidate.id) ||
-								!isRelatedTvSidecar(file.path, candidate.path)
-							) {
-								continue;
-							}
+						for (const candidate of relatedSidecars) {
+							const collisionKey = buildTvSidecarCollisionKey(
+								managedEpisodePath,
+								file.path,
+								candidate.path,
+							);
+							sidecarCollisionCounts.set(
+								collisionKey,
+								(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
+							);
+						}
 
+						for (const candidate of relatedSidecars) {
+							const collisionKey = buildTvSidecarCollisionKey(
+								managedEpisodePath,
+								file.path,
+								candidate.path,
+							);
 							const sidecarDest = buildManagedTvSidecarPath(
 								managedEpisodePath,
 								file.path,
 								candidate.path,
+								usedDestPaths,
+								(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
 							);
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
 							movedFiles.push({
 								destPath: sidecarDest,
 								sourcePath: candidate.path,
 							});
+							usedDestPaths.add(sidecarDest);
 							movedSidecarIds.push(candidate.id);
 						}
 					}
