@@ -1,7 +1,20 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
+
+type MappingDialogFile = {
+	id: number;
+	path: string;
+	hints: {
+		author?: string;
+		episode?: number;
+		season?: number;
+		source?: "filename" | "path" | "metadata";
+		title?: string;
+		year?: number;
+	} | null;
+};
 
 const mappingDialogState = vi.hoisted(() => ({
 	profiles: [] as Array<{
@@ -15,6 +28,26 @@ const mappingDialogState = vi.hoisted(() => ({
 		subtitle: string;
 		title: string;
 	}>,
+	tvSuggestions: [] as Array<{
+		fileId: number;
+		hints: null | {
+			episode?: number;
+			season?: number;
+			source?: "filename" | "path" | "metadata";
+			title?: string;
+		};
+		path: string;
+		subtitle: string;
+		suggestedEpisodeId: number | null;
+		title: string;
+	}>,
+	userSettings: undefined as
+		| {
+				addDefaults?: {
+					moveRelatedSidecars?: boolean;
+				};
+		  }
+		| undefined,
 	loading: false,
 }));
 
@@ -22,10 +55,12 @@ const mappingDialogMocks = vi.hoisted(() => ({
 	invalidateQueries: vi.fn(),
 	mapUnmappedFileFn: vi.fn(),
 	searchLibraryFn: vi.fn(),
+	suggestUnmappedTvMappingsFn: vi.fn(),
 	toast: {
 		error: vi.fn(),
 		success: vi.fn(),
 	},
+	upsertUserSettingsFn: vi.fn(),
 	useDebounce: vi.fn((value: string) => value),
 	useQuery: vi.fn((options: { queryKey?: unknown }) => {
 		const queryKey = Array.isArray(options.queryKey) ? options.queryKey : [];
@@ -33,6 +68,14 @@ const mappingDialogMocks = vi.hoisted(() => ({
 		if (queryKey[0] === "downloadProfiles") {
 			return {
 				data: mappingDialogState.profiles,
+				isFetched: true,
+			};
+		}
+
+		if (queryKey[0] === "userSettings") {
+			return {
+				data: mappingDialogState.userSettings,
+				isFetched: true,
 			};
 		}
 
@@ -41,12 +84,24 @@ const mappingDialogMocks = vi.hoisted(() => ({
 				data: {
 					library: mappingDialogState.results,
 				},
+				isFetched: true,
 				isLoading: mappingDialogState.loading,
+			};
+		}
+
+		if (queryKey[0] === "unmappedFiles" && queryKey[1] === "tv-suggestions") {
+			return {
+				data: {
+					rows: mappingDialogState.tvSuggestions,
+				},
+				isFetched: true,
+				isLoading: false,
 			};
 		}
 
 		return {
 			data: undefined,
+			isFetched: true,
 			isLoading: false,
 		};
 	}),
@@ -83,6 +138,26 @@ vi.mock("src/components/ui/button", () => ({
 		<button disabled={disabled} onClick={onClick} type="button">
 			{children}
 		</button>
+	),
+}));
+
+vi.mock("src/components/ui/checkbox", () => ({
+	default: ({
+		checked,
+		id,
+		onCheckedChange,
+	}: {
+		checked?: boolean;
+		id?: string;
+		onCheckedChange?: (checked: boolean) => void;
+	}) => (
+		<input
+			aria-label="Move related sidecar files"
+			checked={Boolean(checked)}
+			id={id}
+			onChange={() => onCheckedChange?.(!checked)}
+			type="checkbox"
+		/>
 	),
 }));
 
@@ -152,6 +227,12 @@ vi.mock("src/components/ui/select", () => ({
 	SelectValue: () => null,
 }));
 
+vi.mock("src/hooks/mutations/user-settings", () => ({
+	useUpsertUserSettings: () => ({
+		mutate: mappingDialogMocks.upsertUserSettingsFn,
+	}),
+}));
+
 vi.mock("src/hooks/use-debounce", () => ({
 	useDebounce: (value: string) => mappingDialogMocks.useDebounce(value),
 }));
@@ -162,11 +243,19 @@ vi.mock("src/lib/queries/download-profiles", () => ({
 	}),
 }));
 
+vi.mock("src/lib/queries/user-settings", () => ({
+	userSettingsQuery: (tableId: string) => ({
+		queryKey: ["userSettings", tableId],
+	}),
+}));
+
 vi.mock("src/server/unmapped-files", () => ({
 	mapUnmappedFileFn: (...args: unknown[]) =>
 		mappingDialogMocks.mapUnmappedFileFn(...args),
 	searchLibraryFn: (...args: unknown[]) =>
 		mappingDialogMocks.searchLibraryFn(...args),
+	suggestUnmappedTvMappingsFn: (...args: unknown[]) =>
+		mappingDialogMocks.suggestUnmappedTvMappingsFn(...args),
 }));
 
 import MappingDialog from "./mapping-dialog";
@@ -174,9 +263,192 @@ import MappingDialog from "./mapping-dialog";
 describe("MappingDialog", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
+		mappingDialogState.loading = false;
 		mappingDialogState.profiles = [];
 		mappingDialogState.results = [];
-		mappingDialogState.loading = false;
+		mappingDialogState.tvSuggestions = [];
+		mappingDialogState.userSettings = undefined;
+	});
+
+	it("renders one tv row per selected file and loads the saved sidecar default", async () => {
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.userSettings = {
+			addDefaults: { moveRelatedSidecars: true },
+		};
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 11,
+				hints: {
+					episode: 1,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "S01E01 - Good News About Hell",
+				suggestedEpisodeId: 101,
+				title: "Severance",
+			},
+			{
+				fileId: 12,
+				hints: {
+					episode: 2,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E02.mkv",
+				subtitle: "S01E02 - Half Loop",
+				suggestedEpisodeId: 102,
+				title: "Severance",
+			},
+		];
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Severance.S01E01.mkv",
+							hints: {
+								episode: 1,
+								season: 1,
+								title: "Severance",
+							},
+						},
+						{
+							id: 12,
+							path: "/incoming/Severance.S01E02.mkv",
+							hints: {
+								episode: 2,
+								season: 1,
+								title: "Severance",
+							},
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByLabelText("Move related sidecar files"))
+			.toBeChecked();
+		await expect
+			.element(page.getByText("S01E01 - Good News About Hell"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("S01E02 - Half Loop"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/incoming/Severance.S01E01.mkv"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/incoming/Severance.S01E02.mkv"))
+			.toBeInTheDocument();
+	});
+
+	it("maps tv rows and persists the sidecar checkbox after success", async () => {
+		const onClose = vi.fn();
+
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.userSettings = {
+			addDefaults: { moveRelatedSidecars: true },
+		};
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 11,
+				hints: {
+					episode: 1,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "S01E01 - Good News About Hell",
+				suggestedEpisodeId: 101,
+				title: "Severance",
+			},
+			{
+				fileId: 12,
+				hints: {
+					episode: 2,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E02.mkv",
+				subtitle: "S01E02 - Half Loop",
+				suggestedEpisodeId: 102,
+				title: "Severance",
+			},
+		];
+		mappingDialogMocks.mapUnmappedFileFn.mockResolvedValue({
+			mappedCount: 2,
+			success: true,
+		});
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Severance.S01E01.mkv",
+							hints: {
+								episode: 1,
+								season: 1,
+								title: "Severance",
+							},
+						},
+						{
+							id: 12,
+							path: "/incoming/Severance.S01E02.mkv",
+							hints: {
+								episode: 2,
+								season: 1,
+								title: "Severance",
+							},
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={onClose}
+			/>,
+		);
+
+		await page.getByLabelText("Move related sidecar files").click();
+		await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
+			data: {
+				downloadProfileId: 8,
+				entityType: "episode",
+				moveRelatedSidecars: false,
+				tvMappings: [
+					{ episodeId: 101, unmappedFileId: 11 },
+					{ episodeId: 102, unmappedFileId: 12 },
+				],
+			},
+		});
+		expect(mappingDialogMocks.upsertUserSettingsFn).toHaveBeenCalledWith({
+			addDefaults: { moveRelatedSidecars: false },
+			tableId: "unmapped-files",
+		});
+		expect(mappingDialogMocks.invalidateQueries).toHaveBeenCalledWith({
+			queryKey: ["unmappedFiles"],
+		});
+		expect(mappingDialogMocks.toast.success).toHaveBeenCalledWith(
+			"2 files mapped",
+		);
+		expect(mappingDialogMocks.toast.error).not.toHaveBeenCalled();
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it("maps a search result with the hinted search text and selected profile", async () => {
@@ -202,8 +474,20 @@ describe("MappingDialog", () => {
 		await renderWithProviders(
 			<MappingDialog
 				contentType="movie"
-				fileIds={[11, 12]}
-				hints={{ author: "Ridley Scott", title: "Alien" }}
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Alien (1979).mkv",
+							hints: { author: "Ridley Scott", title: "Alien" },
+						},
+						{
+							id: 12,
+							path: "/incoming/Alien sample.nfo",
+							hints: null,
+						},
+					] as MappingDialogFile[]
+				}
 				onClose={onClose}
 			/>,
 		);
@@ -246,8 +530,15 @@ describe("MappingDialog", () => {
 		await renderWithProviders(
 			<MappingDialog
 				contentType="tv"
-				fileIds={[42]}
-				hints={null}
+				files={
+					[
+						{
+							id: 42,
+							path: "/incoming/Unknown show.mkv",
+							hints: null,
+						},
+					] as MappingDialogFile[]
+				}
 				onClose={vi.fn()}
 			/>,
 		);
@@ -259,17 +550,5 @@ describe("MappingDialog", () => {
 				),
 			)
 			.toBeInTheDocument();
-		await expect
-			.element(page.getByText("Type at least 2 characters to search"))
-			.toBeInTheDocument();
-
-		await userEvent.type(page.getByLabelText("Search Library"), "ab");
-
-		await expect
-			.element(page.getByText("No results found in your library"))
-			.toBeInTheDocument();
-		await expect
-			.element(page.getByRole("button", { name: "Map Here" }))
-			.not.toBeInTheDocument();
 	});
 });
