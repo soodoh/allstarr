@@ -222,12 +222,31 @@ export const deleteUnmappedFilesFn = createServerFn({ method: "POST" })
 
 // ─── mapUnmappedFileFn ─────────────────────────────────────────────────────
 
-const mapUnmappedFileSchema = z.object({
-	unmappedFileIds: z.array(z.number()),
-	entityType: z.enum(["book", "movie", "episode"]),
-	entityId: z.number(),
-	downloadProfileId: z.number(),
+const tvMappingSchema = z.object({
+	unmappedFileId: z.number(),
+	episodeId: z.number(),
 });
+
+const mapUnmappedFileSchema = z.union([
+	z.object({
+		entityType: z.enum(["book", "movie"]),
+		unmappedFileIds: z.array(z.number()),
+		entityId: z.number(),
+		downloadProfileId: z.number(),
+	}),
+	z.object({
+		entityType: z.literal("episode"),
+		unmappedFileIds: z.array(z.number()),
+		entityId: z.number(),
+		downloadProfileId: z.number(),
+	}),
+	z.object({
+		entityType: z.literal("episode"),
+		downloadProfileId: z.number(),
+		moveRelatedSidecars: z.boolean().default(false),
+		tvMappings: z.array(tvMappingSchema).min(1),
+	}),
+]);
 
 export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => mapUnmappedFileSchema.parse(d))
@@ -237,6 +256,75 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 		const { probeAudioFile, probeEbookFile, probeVideoFile } = await import(
 			"src/server/media-probe"
 		);
+
+		if (data.entityType === "episode" && "tvMappings" in data) {
+			const profile = db
+				.select()
+				.from(downloadProfiles)
+				.where(eq(downloadProfiles.id, data.downloadProfileId))
+				.get();
+
+			if (!profile) {
+				throw new Error(`Download profile ${data.downloadProfileId} not found`);
+			}
+
+			let mappedCount = 0;
+
+			for (const row of data.tvMappings) {
+				const file = db
+					.select()
+					.from(unmappedFiles)
+					.where(eq(unmappedFiles.id, row.unmappedFileId))
+					.get();
+
+				if (!file) continue;
+
+				let duration: number | null = null;
+				let codec: string | null = null;
+				let container: string | null = null;
+
+				if (VIDEO_EXTENSIONS.has(path.extname(file.path).toLowerCase())) {
+					const meta = await probeVideoFile(file.path);
+					if (meta) {
+						duration = meta.duration;
+						codec = meta.codec;
+						container = meta.container;
+					}
+				}
+
+				db.insert(episodeFiles)
+					.values({
+						episodeId: row.episodeId,
+						path: file.path,
+						size: file.size,
+						quality: file.quality,
+						downloadProfileId: data.downloadProfileId,
+						duration,
+						codec,
+						container,
+					})
+					.run();
+
+				db.insert(history)
+					.values({
+						eventType: "episodeFileAdded",
+						episodeId: row.episodeId,
+						data: {
+							path: file.path,
+							size: file.size,
+							quality: file.quality?.quality?.name ?? "Unknown",
+							source: "unmappedFileMapping",
+						},
+					})
+					.run();
+
+				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+				mappedCount++;
+			}
+
+			eventBus.emit({ type: "unmappedFilesUpdated" });
+			return { success: true, mappedCount };
+		}
 
 		// Validate profile exists
 		const profile = db
@@ -495,6 +583,87 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 		eventBus.emit({ type: "unmappedFilesUpdated" });
 		return { success: true, mappedCount };
+	});
+
+// ─── suggestUnmappedTvMappingsFn ──────────────────────────────────────────
+
+const suggestUnmappedTvMappingsSchema = z.object({
+	rows: z.array(
+		z.object({
+			fileId: z.number(),
+			contentType: z.literal("tv"),
+			path: z.string(),
+			hints: z
+				.object({
+					title: z.string().optional(),
+					season: z.number().optional(),
+					episode: z.number().optional(),
+					source: z.enum(["filename", "path", "metadata"]).optional(),
+				})
+				.nullable(),
+		}),
+	),
+});
+
+export const suggestUnmappedTvMappingsFn = createServerFn({ method: "GET" })
+	.inputValidator((d: unknown) => suggestUnmappedTvMappingsSchema.parse(d))
+	.handler(async ({ data }) => {
+		await requireAuth();
+
+		const { episodes, seasons, shows } = await import("src/db/schema");
+
+		return {
+			rows: data.rows.map((row) => {
+				const hintTitle = row.hints?.title?.trim();
+				const hintSeason = row.hints?.season;
+				const hintEpisode = row.hints?.episode;
+
+				if (!hintTitle || hintSeason == null || hintEpisode == null) {
+					return {
+						fileId: row.fileId,
+						contentType: row.contentType,
+						path: row.path,
+						hints: row.hints,
+						suggestedEpisodeId: null,
+						subtitle: "",
+					};
+				}
+
+				const candidates = db
+					.select({
+						id: episodes.id,
+						episodeNumber: episodes.episodeNumber,
+						seasonNumber: seasons.seasonNumber,
+						showTitle: shows.title,
+						title: episodes.title,
+					})
+					.from(episodes)
+					.innerJoin(seasons, eq(seasons.id, episodes.seasonId))
+					.innerJoin(shows, eq(shows.id, episodes.showId))
+					.where(
+						and(
+							like(shows.title, `%${hintTitle}%`),
+							eq(seasons.seasonNumber, hintSeason),
+							eq(episodes.episodeNumber, hintEpisode),
+						),
+					)
+					.limit(10)
+					.all();
+
+				const match = candidates[0];
+
+				return {
+					fileId: row.fileId,
+					contentType: row.contentType,
+					path: row.path,
+					hints: row.hints,
+					suggestedEpisodeId: match?.id ?? null,
+					subtitle: match
+						? `S${String(match.seasonNumber).padStart(2, "0")}E${String(match.episodeNumber).padStart(2, "0")} - ${match.title}`
+						: "",
+				};
+			}),
+		};
 	});
 
 // ─── rescanAllRootFoldersFn ────────────────────────────────────────────────
