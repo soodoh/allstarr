@@ -360,6 +360,13 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				throw new Error(`Download profile ${data.downloadProfileId} not found`);
 			}
 
+			const managedRootPath = resolveManagedRootFolder(profile.id);
+			if (!managedRootPath) {
+				throw new Error(
+					`Download profile ${data.downloadProfileId} has no root folder configured`,
+				);
+			}
+
 			const mappedIds = new Set(
 				data.tvMappings.map((mapping) => mapping.unmappedFileId),
 			);
@@ -407,7 +414,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				}
 
 				const managedEpisodePath = buildManagedTvEpisodePath({
-					rootFolderPath: profile.rootFolderPath,
+					rootFolderPath: managedRootPath,
 					showTitle: episode.showTitle,
 					showYear: episode.showYear,
 					seasonNumber: episode.seasonNumber,
@@ -416,6 +423,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					useSeasonFolder: Boolean(episode.useSeasonFolder),
 				});
 				const movedFiles: Array<{ destPath: string; sourcePath: string }> = [];
+				const movedSidecarIds: number[] = [];
 
 				try {
 					moveFileToManagedPath(fs, file.path, managedEpisodePath);
@@ -449,6 +457,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 								destPath: sidecarDest,
 								sourcePath: candidate.path,
 							});
+							movedSidecarIds.push(candidate.id);
 						}
 					}
 
@@ -480,6 +489,11 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							.run();
 
 						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+						for (const sidecarId of movedSidecarIds) {
+							tx.delete(unmappedFiles)
+								.where(eq(unmappedFiles.id, sidecarId))
+								.run();
+						}
 					});
 
 					mappedCount++;
