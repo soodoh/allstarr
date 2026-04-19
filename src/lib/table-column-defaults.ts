@@ -17,6 +17,7 @@ export const TABLE_IDS = [
 	"book-editions",
 	"tv",
 	"movies",
+	"unmapped-files",
 ] as const;
 
 export type TableId = (typeof TABLE_IDS)[number];
@@ -135,6 +136,8 @@ export const TABLE_DEFAULTS: Record<TableId, TableColumnDef[]> = {
 		{ key: "studio", label: "Studio", defaultVisible: true },
 		{ key: "status", label: "Status", defaultVisible: true },
 	],
+
+	"unmapped-files": [],
 };
 
 /** Returns the default column order (all column keys) for a table */

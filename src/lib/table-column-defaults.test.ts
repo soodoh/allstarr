@@ -76,6 +76,7 @@ const EXPECTED_COLUMN_ORDERS = {
 		"status",
 	],
 	movies: ["monitored", "cover", "title", "year", "studio", "status"],
+	"unmapped-files": [],
 } as const;
 
 const EXPECTED_HIDDEN_COLUMNS = {
@@ -94,6 +95,7 @@ const EXPECTED_HIDDEN_COLUMNS = {
 	"book-editions": ["information", "isbn13", "isbn10", "asin", "country"],
 	tv: [],
 	movies: [],
+	"unmapped-files": [],
 } as const;
 
 describe("table column defaults", () => {

@@ -57,12 +57,6 @@ vi.mock("src/db/schema", () => ({
 	},
 }));
 
-vi.mock("src/lib/validators", () => ({
-	tableIdSchema: { parse: (v: unknown) => v },
-	upsertUserSettingsSchema: { parse: (v: unknown) => v },
-	deleteUserSettingsSchema: { parse: (v: unknown) => v },
-}));
-
 vi.mock("src/server/middleware", () => ({
 	requireAuth: mocks.requireAuth,
 }));
@@ -161,6 +155,18 @@ describe("upsertUserSettingsFn", () => {
 				hiddenColumns: ["year"],
 				viewMode: "table",
 				addDefaults: { monitored: true },
+			},
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(mocks.insertRun).toHaveBeenCalledTimes(1);
+	});
+
+	it("supports the unmapped import defaults row", async () => {
+		const result = await upsertUserSettingsFn({
+			data: {
+				tableId: "unmapped-files",
+				addDefaults: { moveRelatedSidecars: true },
 			},
 		});
 
