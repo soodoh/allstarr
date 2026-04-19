@@ -35,6 +35,45 @@ type ImportResult = {
 	destPath: string;
 } | null;
 
+export function buildManagedEpisodeDestination({
+	rootFolderPath,
+	showTitle,
+	showYear,
+	seasonNumber,
+	useSeasonFolder,
+	sourcePath,
+}: {
+	rootFolderPath: string;
+	seasonNumber: number;
+	showTitle: string;
+	showYear?: number | null;
+	sourcePath: string;
+	useSeasonFolder: boolean;
+}): string {
+	const showFolderName = sanitizePath(
+		applyNamingTemplate(
+			getMediaSetting("naming.tv.showFolder", "{Show Title} ({Year})"),
+			{
+				"Show Title": showTitle,
+				Year: showYear ? String(showYear) : "",
+			},
+		),
+	);
+
+	const seasonFolderName = sanitizePath(
+		applyNamingTemplate(
+			getMediaSetting("naming.tv.seasonFolder", "Season {Season:00}"),
+			{ Season: String(seasonNumber) },
+		),
+	);
+
+	const baseDir = useSeasonFolder
+		? path.join(rootFolderPath, showFolderName, seasonFolderName)
+		: path.join(rootFolderPath, showFolderName);
+
+	return path.join(baseDir, path.basename(sourcePath));
+}
+
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
 
@@ -610,13 +649,6 @@ async function importEpisodePackDownload(
 		.where(eq(episodes.showId, td.showId))
 		.all();
 
-	const showFolderName = sanitizePath(
-		applyNamingTemplate(
-			getMediaSetting("naming.tv.showFolder", "{Show Title} ({Year})"),
-			{ "Show Title": show.title, Year: show.year ? String(show.year) : "" },
-		),
-	);
-
 	let importedCount = 0;
 	for (const mf of mapped) {
 		const ep = showEpisodes.find(
@@ -631,16 +663,19 @@ async function importEpisodePackDownload(
 			continue;
 		}
 
-		// Build destination path: rootFolder / showFolder / seasonFolder / file
-		const seasonFolderName = sanitizePath(
-			applyNamingTemplate(
-				getMediaSetting("naming.tv.seasonFolder", "Season {Season:00}"),
-				{ Season: String(mf.season) },
-			),
+		const destDir = path.dirname(
+			buildManagedEpisodeDestination({
+				rootFolderPath,
+				showTitle: show.title,
+				showYear: show.year,
+				seasonNumber: mf.season,
+				useSeasonFolder: Boolean(show.useSeasonFolder),
+				sourcePath: path.join(
+					rootFolderPath,
+					`${show.title} S${String(mf.season).padStart(2, "0")}E${String(mf.episode).padStart(2, "0")}${path.extname(mf.path)}`,
+				),
+			}),
 		);
-		const destDir = show.useSeasonFolder
-			? path.join(rootFolderPath, showFolderName, seasonFolderName)
-			: path.join(rootFolderPath, showFolderName);
 
 		fs.mkdirSync(destDir, { recursive: true });
 		if (cfg.applyPermissions && cfg.folderChmod) {
