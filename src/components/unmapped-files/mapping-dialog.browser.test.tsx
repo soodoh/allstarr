@@ -45,7 +45,7 @@ const mappingDialogState = vi.hoisted(() => ({
 		path: string;
 		subtitle: string;
 		suggestedEpisodeId: number | null;
-		title: string;
+		title?: string;
 	}>,
 	userSettings: undefined as
 		| {
@@ -390,6 +390,49 @@ describe("MappingDialog", () => {
 		await expect
 			.element(page.getByText("/incoming/Severance.S01E02.mkv"))
 			.toBeInTheDocument();
+	});
+
+	it("renders unresolved tv rows when the server returns no suggested title", async () => {
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 21,
+				hints: null,
+				path: "/incoming/Mystery.Show.S01E09.mkv",
+				subtitle: "",
+				suggestedEpisodeId: null,
+			},
+		];
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 21,
+							path: "/incoming/Mystery.Show.S01E09.mkv",
+							hints: null,
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByText("No episode suggestion found"))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByLabelText("Search episodes for Mystery.Show.S01E09.mkv"),
+			)
+			.toHaveValue("Mystery.Show.S01E09.mkv");
+		await expect
+			.element(page.getByRole("button", { name: "Map Selected Files" }))
+			.toBeDisabled();
 	});
 
 	it("lets one tv row change without affecting the others", async () => {

@@ -67,7 +67,7 @@ type TvSuggestionRow = {
 	path: string;
 	subtitle: string;
 	suggestedEpisodeId: number | null;
-	title: string;
+	title?: string;
 };
 
 type TvRowState = {
@@ -190,7 +190,7 @@ function TvMappingRow({
 				entityType: "episode",
 				id: suggestion.suggestedEpisodeId,
 				subtitle: suggestion.subtitle,
-				title: suggestion.title,
+				title: suggestion.title ?? file.hints?.title ?? getFileName(file.path),
 			});
 		}
 
@@ -214,7 +214,13 @@ function TvMappingRow({
 		}
 
 		return Array.from(options.values());
-	}, [rowState.selectedEpisodeId, searchResults?.library, suggestion]);
+	}, [
+		file.hints?.title,
+		file.path,
+		rowState.selectedEpisodeId,
+		searchResults?.library,
+		suggestion,
+	]);
 
 	const fileName = getFileName(file.path);
 	const searchId = `tv-episode-search-${file.id}`;
@@ -382,7 +388,13 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		enabled: isTv && files.length > 0,
 	});
 
-	const tvSuggestionRows = tvSuggestionResults?.rows ?? [];
+	const tvSuggestionRows: TvSuggestionRow[] = (
+		tvSuggestionResults?.rows ?? []
+	).map((row) => ({
+		...row,
+		title:
+			"title" in row && typeof row.title === "string" ? row.title : undefined,
+	}));
 	const tvSuggestionMap = useMemo(
 		() =>
 			new Map<number, TvSuggestionRow>(
@@ -393,7 +405,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const tvSeedSignature = `${files.map((file) => file.id).join(",")}::${tvSuggestionRows
 		.map(
 			(row) =>
-				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title}:${row.subtitle}`,
+				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title ?? ""}:${row.subtitle}`,
 		)
 		.join("|")}`;
 
