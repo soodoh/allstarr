@@ -415,19 +415,26 @@ function setupBookMappingSelects({
 function setupTvMappingSelects({
 	files,
 	episodeRows = [],
+	fallbackProfile,
 	sidecarRows = [],
 	profile,
 }: {
 	files: Record<string, unknown>[];
 	episodeRows?: Record<string, unknown>[];
+	fallbackProfile?: Record<string, unknown>;
 	sidecarRows?: Record<string, unknown>[];
 	profile: Record<string, unknown>;
 }) {
 	const profileChain = createSelectChain(profile);
+	const fallbackChain = createSelectChain(fallbackProfile ?? profile);
 	const fileChains = files.map((item) => createSelectChain(item));
 	const episodeChains = episodeRows.map((item) => createSelectChain(item));
 	const sidecarChain = createSelectChain(undefined, sidecarRows);
 
+	const plainSelectChains =
+		profile.rootFolderPath === ""
+			? [profileChain, profileChain, fallbackChain, ...fileChains, sidecarChain]
+			: [profileChain, profileChain, ...fileChains, sidecarChain];
 	let plainSelectIndex = 0;
 	let episodeSelectIndex = 0;
 	mocks.select.mockImplementation((shape?: Record<string, unknown>) => {
@@ -441,18 +448,11 @@ function setupTvMappingSelects({
 			return chain;
 		}
 
-		plainSelectIndex++;
-		if (plainSelectIndex === 1) return profileChain;
-		if (plainSelectIndex <= fileChains.length + 1) {
-			const chain = fileChains[plainSelectIndex - 2];
-			if (!chain) {
-				throw new Error(
-					`Unexpected file select call ${plainSelectIndex} in TV mapping test`,
-				);
-			}
-			return chain;
+		const chain = plainSelectChains[plainSelectIndex++];
+		if (!chain) {
+			return sidecarChain;
 		}
-		return sidecarChain;
+		return chain;
 	});
 }
 
@@ -502,6 +502,64 @@ describe("server/unmapped-files", () => {
 			expect(result[0].rootFolderPath).toBe("/media/movies");
 			expect(result[0].profileName).toBe("HD Movies");
 			expect(result[0].files).toHaveLength(2);
+		});
+
+		it("uses a fallback root folder when the tv profile root is empty", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "",
+			};
+			const fallbackProfile = {
+				id: 9,
+				name: "Fallback",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				fallbackProfile,
+				files,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: false,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
 		});
 
 		it("applies content type filter when provided", async () => {
@@ -1468,6 +1526,13 @@ describe("server/unmapped-files", () => {
 				"/incoming/Severance.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
 			);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.right === 4 &&
+						condition?.left === schemaMocks.unmappedFiles.id,
+				),
+			).toBe(true);
 			expect(mocks.renameSync).not.toHaveBeenCalledWith(
 				"/incoming/folder.jpg",
 				expect.anything(),
