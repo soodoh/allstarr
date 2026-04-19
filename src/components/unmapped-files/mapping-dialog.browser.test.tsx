@@ -235,9 +235,25 @@ vi.mock("src/components/ui/select", () => ({
 		</select>
 	),
 	SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-	SelectItem: ({ children, value }: { children: ReactNode; value: string }) => (
-		<option value={value}>{children}</option>
-	),
+	SelectItem: ({
+		children,
+		disabled,
+		value,
+	}: {
+		children: ReactNode;
+		disabled?: boolean;
+		value: string;
+	}) => {
+		if (value.length === 0) {
+			throw new Error("SelectItem value cannot be empty");
+		}
+
+		return (
+			<option disabled={disabled} value={value}>
+				{children}
+			</option>
+		);
+	},
 	SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 	SelectValue: () => null,
 }));
