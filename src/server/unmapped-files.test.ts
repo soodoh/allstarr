@@ -376,18 +376,23 @@ function useDefaultMocks() {
 function setupBookMappingSelects({
 	book,
 	fallbackProfile,
+	fallbackProfiles,
 	file,
 	files,
 	profile,
 }: {
 	book: Record<string, unknown>;
+	fallbackProfiles?: Record<string, unknown>[];
 	file?: Record<string, unknown>;
 	files?: Record<string, unknown>[];
 	fallbackProfile?: Record<string, unknown>;
 	profile: Record<string, unknown>;
 }) {
 	const profileChain = createSelectChain(profile);
-	const fallbackChain = createSelectChain(fallbackProfile ?? profile);
+	const fallbackChain = createSelectChain(
+		fallbackProfile ?? profile,
+		fallbackProfiles ?? (fallbackProfile ? [fallbackProfile] : [profile]),
+	);
 	const bookChain = createSelectChain(book);
 	const fileChains = (files ?? (file ? [file] : [])).map((item) =>
 		createSelectChain(item),
@@ -416,17 +421,22 @@ function setupTvMappingSelects({
 	files,
 	episodeRows = [],
 	fallbackProfile,
+	fallbackProfiles,
 	sidecarRows = [],
 	profile,
 }: {
 	files: Record<string, unknown>[];
 	episodeRows?: Record<string, unknown>[];
 	fallbackProfile?: Record<string, unknown>;
+	fallbackProfiles?: Record<string, unknown>[];
 	sidecarRows?: Record<string, unknown>[];
 	profile: Record<string, unknown>;
 }) {
 	const profileChain = createSelectChain(profile);
-	const fallbackChain = createSelectChain(fallbackProfile ?? profile);
+	const fallbackChain = createSelectChain(
+		fallbackProfile ?? profile,
+		fallbackProfiles ?? (fallbackProfile ? [fallbackProfile] : [profile]),
+	);
 	const fileChains = files.map((item) => createSelectChain(item));
 	const episodeChains = episodeRows.map((item) => createSelectChain(item));
 	const sidecarChain = createSelectChain(undefined, sidecarRows);
@@ -535,6 +545,64 @@ describe("server/unmapped-files", () => {
 					},
 				],
 				fallbackProfile,
+				files,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: false,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
+		});
+
+		it("uses the first usable fallback root folder when earlier profiles are empty", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "",
+			};
+			const fallbackProfiles = [
+				{ id: 6, name: "Empty A", rootFolderPath: "" },
+				{ id: 7, name: "Usable", rootFolderPath: "/library/tv" },
+				{ id: 8, name: "Later", rootFolderPath: "/other-library/tv" },
+			];
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				fallbackProfiles,
 				files,
 				profile,
 			});
@@ -1631,6 +1699,80 @@ describe("server/unmapped-files", () => {
 			expect(mocks.renameSync).not.toHaveBeenCalledWith(
 				"/incoming/severance/subtitles/Severance.English.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
+			);
+		});
+
+		it("preserves nested subtree context when two matching sidecars would otherwise collide", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/severance/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/severance/subtitles/Severance.English.S01E01.srt",
+						size: 240,
+						quality: null,
+					},
+					{
+						id: 3,
+						path: "/incoming/severance/commentary/Severance.English.S01E01.srt",
+						size: 220,
+						quality: null,
+					},
+				],
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/subtitles/Severance.English.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.subtitles.English.srt",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/commentary/Severance.English.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.commentary.English.srt",
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/severance/commentary/Severance.English.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.subtitles.English.srt",
 			);
 		});
 
