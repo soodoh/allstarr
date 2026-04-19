@@ -1452,7 +1452,7 @@ describe("server/unmapped-files", () => {
 			expect(result).toEqual({ success: true, mappedCount: 2 });
 		});
 
-		it("moves related sidecars when enabled for tv rows", async () => {
+		it("moves related sidecars from the source tree when enabled for tv rows", async () => {
 			const profile = {
 				id: 5,
 				name: "TV",
@@ -1498,6 +1498,18 @@ describe("server/unmapped-files", () => {
 						size: 420,
 						quality: null,
 					},
+					{
+						id: 5,
+						path: "/incoming/subtitles/Severance.S01E01.xml",
+						size: 160,
+						quality: null,
+					},
+					{
+						id: 6,
+						path: "/incoming/subtitles/Severance.English.S01E01.srt",
+						size: 240,
+						quality: null,
+					},
 				],
 			});
 
@@ -1526,10 +1538,32 @@ describe("server/unmapped-files", () => {
 				"/incoming/Severance.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
 			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/subtitles/Severance.S01E01.xml",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.xml",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/subtitles/Severance.English.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
+			);
 			expect(
 				deleteChain.where.mock.calls.some(
 					([condition]) =>
 						condition?.right === 4 &&
+						condition?.left === schemaMocks.unmappedFiles.id,
+				),
+			).toBe(true);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.right === 5 &&
+						condition?.left === schemaMocks.unmappedFiles.id,
+				),
+			).toBe(true);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.right === 6 &&
 						condition?.left === schemaMocks.unmappedFiles.id,
 				),
 			).toBe(true);
