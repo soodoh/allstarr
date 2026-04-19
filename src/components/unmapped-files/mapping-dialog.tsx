@@ -70,6 +70,27 @@ type TvSuggestionRow = {
 	title: string;
 };
 
+type TvRowState = {
+	search: string;
+	selectedEpisodeId: number | null;
+};
+
+type TvRowProps = {
+	file: MappingDialogFile;
+	onSearchChange: (fileId: number, search: string) => void;
+	onSelectedEpisodeIdChange: (
+		fileId: number,
+		selectedEpisodeId: number | null,
+	) => void;
+	rowState: TvRowState;
+	suggestion: TvSuggestionRow | undefined;
+};
+
+function getFileName(pathname: string): string {
+	const fileName = pathname.split("/").pop();
+	return fileName && fileName.length > 0 ? fileName : pathname;
+}
+
 function buildInitialSearch(files: MappingDialogFile[]): string {
 	const hintedFile = files.find((file) => file.hints != null);
 	if (!hintedFile?.hints) {
@@ -94,20 +115,187 @@ function normalizeFiles(props: MappingDialogProps): MappingDialogFile[] {
 	}));
 }
 
-function TvMappingRow({ row }: { row: TvSuggestionRow }): JSX.Element {
+function buildTvInitialRowState(
+	files: MappingDialogFile[],
+	suggestionMap: Map<number, TvSuggestionRow>,
+	current: Record<number, TvRowState>,
+	searchTouched: Set<number>,
+	selectionTouched: Set<number>,
+): Record<number, TvRowState> {
+	const next: Record<number, TvRowState> = {};
+
+	for (const file of files) {
+		const suggestion = suggestionMap.get(file.id);
+		const currentRow = current[file.id];
+		const defaultSearch =
+			file.hints?.title ?? suggestion?.title ?? getFileName(file.path) ?? "";
+		const defaultSelection = suggestion?.suggestedEpisodeId ?? null;
+
+		if (!currentRow) {
+			next[file.id] = {
+				search: defaultSearch,
+				selectedEpisodeId: defaultSelection,
+			};
+			continue;
+		}
+
+		next[file.id] = {
+			search: searchTouched.has(file.id)
+				? currentRow.search
+				: currentRow.search.length > 0
+					? currentRow.search
+					: defaultSearch,
+			selectedEpisodeId: selectionTouched.has(file.id)
+				? currentRow.selectedEpisodeId
+				: (currentRow.selectedEpisodeId ?? defaultSelection),
+		};
+	}
+
+	return next;
+}
+
+function formatEpisodeOption(option: LibraryResult): string {
+	return option.subtitle
+		? `${option.title} · ${option.subtitle}`
+		: option.title;
+}
+
+function TvMappingRow({
+	file,
+	onSearchChange,
+	onSelectedEpisodeIdChange,
+	rowState,
+	suggestion,
+}: TvRowProps): JSX.Element {
+	const debouncedSearch = useDebounce(rowState.search, 300);
+	const searchEnabled = debouncedSearch.trim().length >= 2;
+
+	const { data: searchResults, isLoading } = useQuery({
+		queryKey: ["unmappedFiles", "search", debouncedSearch, "tv", file.id],
+		queryFn: () =>
+			searchLibraryFn({
+				data: {
+					contentType: "tv",
+					query: debouncedSearch,
+				},
+			}),
+		enabled: searchEnabled,
+	});
+
+	const selectOptions = useMemo(() => {
+		const options = new Map<number, LibraryResult>();
+
+		if (suggestion?.suggestedEpisodeId != null) {
+			options.set(suggestion.suggestedEpisodeId, {
+				entityType: "episode",
+				id: suggestion.suggestedEpisodeId,
+				subtitle: suggestion.subtitle,
+				title: suggestion.title,
+			});
+		}
+
+		for (const result of searchResults?.library ?? []) {
+			if (result.entityType !== "episode" || options.has(result.id)) {
+				continue;
+			}
+			options.set(result.id, result);
+		}
+
+		if (
+			rowState.selectedEpisodeId != null &&
+			!options.has(rowState.selectedEpisodeId)
+		) {
+			options.set(rowState.selectedEpisodeId, {
+				entityType: "episode",
+				id: rowState.selectedEpisodeId,
+				subtitle: "Selected manually",
+				title: `Episode ${rowState.selectedEpisodeId}`,
+			});
+		}
+
+		return Array.from(options.values());
+	}, [rowState.selectedEpisodeId, searchResults?.library, suggestion]);
+
+	const fileName = getFileName(file.path);
+	const searchId = `tv-episode-search-${file.id}`;
+
 	return (
-		<div className="flex items-start justify-between gap-3 px-3 py-2.5">
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-sm font-medium">
-					{row.path || `Unmapped file ${row.fileId}`}
-				</p>
-				<p className="truncate text-xs text-muted-foreground">
-					{row.subtitle || "No episode suggestion found"}
-				</p>
+		<div className="space-y-3 px-3 py-2.5">
+			<div className="flex items-start justify-between gap-3">
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-sm font-medium">
+						{file.path || `Unmapped file ${file.id}`}
+					</p>
+					<p className="truncate text-xs text-muted-foreground">
+						{suggestion?.subtitle || "No episode suggestion found"}
+					</p>
+				</div>
+				<div className="shrink-0 text-xs text-muted-foreground">
+					{suggestion?.suggestedEpisodeId != null
+						? "Suggested"
+						: "Needs selection"}
+				</div>
 			</div>
-			<div className="shrink-0 text-xs text-muted-foreground">
-				{row.suggestedEpisodeId != null ? "Suggested" : "Needs selection"}
+
+			<div className="grid gap-3 sm:grid-cols-2">
+				<div className="space-y-1.5">
+					<Label htmlFor={searchId}>Search episodes for {fileName}</Label>
+					<div className="relative">
+						<Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							id={searchId}
+							placeholder="Search by show title..."
+							value={rowState.search}
+							onChange={(event) => onSearchChange(file.id, event.target.value)}
+							className="pl-9"
+						/>
+					</div>
+				</div>
+
+				<div className="space-y-1.5">
+					<Label>Episode target for {fileName}</Label>
+					<Select
+						aria-label={`Episode target for ${fileName}`}
+						value={
+							rowState.selectedEpisodeId != null
+								? String(rowState.selectedEpisodeId)
+								: ""
+						}
+						onValueChange={(value) =>
+							onSelectedEpisodeIdChange(
+								file.id,
+								value.length > 0 ? Number(value) : null,
+							)
+						}
+					>
+						<SelectTrigger>
+							<SelectValue
+								placeholder={
+									searchEnabled
+										? "Select an episode"
+										: "Type to search episodes"
+								}
+							/>
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="">
+								{searchEnabled
+									? "Select an episode"
+									: "Type at least 2 characters to search"}
+							</SelectItem>
+							{selectOptions.map((option) => (
+								<SelectItem key={option.id} value={String(option.id)}>
+									{formatEpisodeOption(option)}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
 			</div>
+
+			{searchEnabled && isLoading ? (
+				<p className="text-xs text-muted-foreground">Searching episodes...</p>
+			) : null}
 		</div>
 	);
 }
@@ -116,7 +304,8 @@ function TvMappingRow({ row }: { row: TvSuggestionRow }): JSX.Element {
 
 export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const { contentType, onClose } = props;
-	const files = useMemo(() => normalizeFiles(props), [props]);
+	const files = normalizeFiles(props);
+	const filesRef = useRef(files);
 	const queryClient = useQueryClient();
 	const upsertUserSettings = useUpsertUserSettings();
 	const isTv = contentType === "tv";
@@ -126,7 +315,14 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 	const [mapping, setMapping] = useState(false);
 	const [moveRelatedSidecars, setMoveRelatedSidecars] = useState(false);
+	const [tvRowStateById, setTvRowStateById] = useState<
+		Record<number, TvRowState>
+	>({});
+	const previousSeedSignatureRef = useRef("");
+	const searchTouchedRef = useRef(new Set<number>());
+	const selectionTouchedRef = useRef(new Set<number>());
 	const sidecarDefaultHydrated = useRef(false);
+	filesRef.current = files;
 
 	const debouncedSearch = useDebounce(search, 300);
 
@@ -165,31 +361,82 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		enabled: !isTv && debouncedSearch.length >= 2,
 	});
 
-	const { data: tvSuggestionResults, isLoading: isTvSuggestionsLoading } =
-		useQuery({
-			queryKey: [
-				"unmappedFiles",
-				"tv-suggestions",
-				contentType,
-				files.map((file) => file.id).join(","),
-			],
-			queryFn: () =>
-				suggestUnmappedTvMappingsFn({
-					data: {
-						rows: files.map((file) => ({
-							contentType: "tv" as const,
-							fileId: file.id,
-							hints: file.hints,
-							path: file.path,
-						})),
-					},
-				}),
-			enabled: isTv && files.length > 0,
-		});
+	const { data: tvSuggestionResults } = useQuery({
+		queryKey: [
+			"unmappedFiles",
+			"tv-suggestions",
+			contentType,
+			files.map((file) => file.id).join(","),
+		],
+		queryFn: () =>
+			suggestUnmappedTvMappingsFn({
+				data: {
+					rows: files.map((file) => ({
+						contentType: "tv" as const,
+						fileId: file.id,
+						hints: file.hints,
+						path: file.path,
+					})),
+				},
+			}),
+		enabled: isTv && files.length > 0,
+	});
 
-	const tvRows = useMemo<TvSuggestionRow[]>(
-		() => tvSuggestionResults?.rows ?? [],
-		[tvSuggestionResults],
+	const tvSuggestionRows = tvSuggestionResults?.rows ?? [];
+	const tvSuggestionMap = useMemo(
+		() =>
+			new Map<number, TvSuggestionRow>(
+				tvSuggestionRows.map((row) => [row.fileId, row]),
+			),
+		[tvSuggestionRows],
+	);
+	const tvSeedSignature = `${files.map((file) => file.id).join(",")}::${tvSuggestionRows
+		.map(
+			(row) =>
+				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title}:${row.subtitle}`,
+		)
+		.join("|")}`;
+
+	useEffect(() => {
+		if (!isTv) {
+			return;
+		}
+
+		if (previousSeedSignatureRef.current === tvSeedSignature) {
+			return;
+		}
+		previousSeedSignatureRef.current = tvSeedSignature;
+
+		setTvRowStateById((current) =>
+			buildTvInitialRowState(
+				filesRef.current,
+				tvSuggestionMap,
+				current,
+				searchTouchedRef.current,
+				selectionTouchedRef.current,
+			),
+		);
+	}, [isTv, tvSeedSignature, tvSuggestionMap]);
+
+	const tvRows = useMemo(
+		() =>
+			files.map((file) => {
+				const suggestion = tvSuggestionMap.get(file.id);
+				const currentState = tvRowStateById[file.id];
+				const defaultSearch =
+					file.hints?.title ?? suggestion?.title ?? getFileName(file.path);
+				const rowState = currentState ?? {
+					search: defaultSearch,
+					selectedEpisodeId: suggestion?.suggestedEpisodeId ?? null,
+				};
+
+				return {
+					file,
+					rowState,
+					suggestion,
+				};
+			}),
+		[files, tvRowStateById, tvSuggestionMap],
 	);
 
 	const handleMovieOrBookMap = async (result: LibraryResult) => {
@@ -232,10 +479,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			return;
 		}
 
-		if (
-			tvRows.length === 0 ||
-			tvRows.some((row) => row.suggestedEpisodeId == null)
-		) {
+		if (tvRows.some((row) => row.rowState.selectedEpisodeId == null)) {
 			toast.error("Please resolve all TV rows first");
 			return;
 		}
@@ -248,8 +492,8 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 					entityType: "episode",
 					moveRelatedSidecars,
 					tvMappings: tvRows.map((row) => ({
-						episodeId: row.suggestedEpisodeId as number,
-						unmappedFileId: row.fileId,
+						episodeId: row.rowState.selectedEpisodeId as number,
+						unmappedFileId: row.file.id,
 					})),
 				},
 			});
@@ -324,21 +568,46 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 							</div>
 
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
-								{isTvSuggestionsLoading ? (
-									<div className="flex items-center justify-center h-[200px]">
-										<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-									</div>
-								) : tvRows.length === 0 ? (
-									<div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">
-										No TV suggestions available
-									</div>
-								) : (
-									<div className="divide-y divide-border">
-										{tvRows.map((row) => (
-											<TvMappingRow key={row.fileId} row={row} />
-										))}
-									</div>
-								)}
+								<div className="divide-y divide-border">
+									{tvRows.map(({ file, rowState, suggestion }) => (
+										<TvMappingRow
+											key={file.id}
+											file={file}
+											onSearchChange={(fileId, searchValue) => {
+												searchTouchedRef.current.add(fileId);
+												setTvRowStateById((current) => ({
+													...current,
+													[fileId]: {
+														search: searchValue,
+														selectedEpisodeId:
+															current[fileId]?.selectedEpisodeId ??
+															suggestion?.suggestedEpisodeId ??
+															null,
+													},
+												}));
+											}}
+											onSelectedEpisodeIdChange={(
+												fileId,
+												selectedEpisodeId,
+											) => {
+												selectionTouchedRef.current.add(fileId);
+												setTvRowStateById((current) => ({
+													...current,
+													[fileId]: {
+														search:
+															current[fileId]?.search ??
+															file.hints?.title ??
+															suggestion?.title ??
+															getFileName(file.path),
+														selectedEpisodeId,
+													},
+												}));
+											}}
+											rowState={rowState}
+											suggestion={suggestion}
+										/>
+									))}
+								</div>
 							</div>
 
 							<div className="flex justify-end">
@@ -347,7 +616,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 										mapping ||
 										!effectiveProfileId ||
 										tvRows.length === 0 ||
-										tvRows.some((row) => row.suggestedEpisodeId == null)
+										tvRows.some((row) => row.rowState.selectedEpisodeId == null)
 									}
 									onClick={() => {
 										void handleTvMap();
@@ -372,7 +641,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 										id="unmapped-file-library-search"
 										placeholder="Search by title..."
 										value={search}
-										onChange={(e) => setSearch(e.target.value)}
+										onChange={(event) => setSearch(event.target.value)}
 										className="pl-9"
 									/>
 								</div>
@@ -380,15 +649,15 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
 								{debouncedSearch.length < 2 ? (
-									<div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">
+									<div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
 										Type at least 2 characters to search
 									</div>
 								) : isSearching ? (
-									<div className="flex items-center justify-center h-[200px]">
+									<div className="flex h-[200px] items-center justify-center">
 										<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 									</div>
 								) : searchResults?.library.length === 0 ? (
-									<div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">
+									<div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
 										No results found in your library
 									</div>
 								) : (
