@@ -314,6 +314,7 @@ import {
 	rescanAllRootFoldersFn,
 	rescanRootFolderFn,
 	searchLibraryFn,
+	suggestUnmappedTvMappingsFn,
 } from "./unmapped-files";
 
 // -- helpers --
@@ -377,6 +378,26 @@ function setupBookMappingSelects({
 			return chain;
 		}
 		return fallbackChain;
+	});
+}
+
+function setupTvMappingSelects({
+	files,
+	profile,
+}: {
+	files: Record<string, unknown>[];
+	profile: Record<string, unknown>;
+}) {
+	const profileChain = createSelectChain(profile);
+	const fileChains = files.map((item) => createSelectChain(item));
+
+	let selectIndex = 0;
+	mocks.select.mockImplementation(() => {
+		selectIndex++;
+		if (selectIndex === 1) return profileChain;
+		const chain =
+			fileChains[selectIndex - 2] ?? fileChains[fileChains.length - 1];
+		return chain;
 	});
 }
 
@@ -1222,6 +1243,108 @@ describe("server/unmapped-files", () => {
 			expect(result).toEqual({ success: true, mappedCount: 1 });
 		});
 
+		it("maps tv rows to managed episode destinations", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+				{
+					id: 2,
+					path: "/incoming/Severance.S01E02.mkv",
+					size: 4100000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({ files, profile });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: false,
+					tvMappings: [
+						{ unmappedFileId: 1, episodeId: 101 },
+						{ unmappedFileId: 2, episodeId: 102 },
+					],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/incoming/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/incoming/Severance.S01E02.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E02.mkv",
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					path: "/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+				}),
+			);
+			expect(deleteChain.run).toHaveBeenCalledTimes(2);
+			expect(result).toEqual({ success: true, mappedCount: 2 });
+		});
+
+		it("moves related sidecars when enabled for tv rows", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({ files, profile });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/Severance.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
+			);
+		});
+
 		it("sets part/partCount for multi-part audiobooks", async () => {
 			const profile = {
 				id: 5,
@@ -1562,6 +1685,47 @@ describe("server/unmapped-files", () => {
 					data: { query: "test", contentType: "movie" },
 				}),
 			).rejects.toThrow("unauthorized");
+		});
+	});
+
+	describe("suggestUnmappedTvMappingsFn", () => {
+		it("suggests an episode from title and season/episode hints", async () => {
+			const episodeResults = [
+				{
+					id: 102,
+					title: "Half Loop",
+					seasonNumber: 1,
+					episodeNumber: 2,
+					showTitle: "Severance",
+				},
+			];
+			const chain = createSelectChain(undefined, episodeResults);
+			mocks.select.mockReturnValue(chain);
+
+			const result = await suggestUnmappedTvMappingsFn({
+				data: {
+					rows: [
+						{
+							fileId: 1,
+							contentType: "tv" as const,
+							path: "/incoming/Severance.S01E02.mkv",
+							hints: {
+								title: "Severance",
+								season: 1,
+								episode: 2,
+								source: "filename" as const,
+							},
+						},
+					],
+				},
+			});
+
+			expect(result.rows[0]).toEqual(
+				expect.objectContaining({
+					suggestedEpisodeId: 102,
+					subtitle: "S01E02 - Half Loop",
+				}),
+			);
 		});
 	});
 });
