@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 type MappingDialogFile = {
 	id: number;
@@ -24,6 +24,12 @@ const mappingDialogState = vi.hoisted(() => ({
 	}>,
 	results: [] as Array<{
 		entityType: "book" | "movie" | "episode";
+		id: number;
+		subtitle: string;
+		title: string;
+	}>,
+	tvSearchResults: [] as Array<{
+		entityType: "episode";
 		id: number;
 		subtitle: string;
 		title: string;
@@ -80,6 +86,16 @@ const mappingDialogMocks = vi.hoisted(() => ({
 		}
 
 		if (queryKey[0] === "unmappedFiles" && queryKey[1] === "search") {
+			if (queryKey[3] === "tv") {
+				return {
+					data: {
+						library: mappingDialogState.tvSearchResults,
+					},
+					isFetched: true,
+					isLoading: false,
+				};
+			}
+
 			return {
 				data: {
 					library: mappingDialogState.results,
@@ -206,15 +222,14 @@ vi.mock("src/components/ui/select", () => ({
 	Select: ({
 		children,
 		onValueChange,
-		value,
-	}: {
+		...props
+	}: ComponentPropsWithoutRef<"select"> & {
 		children: ReactNode;
 		onValueChange?: (value: string) => void;
-		value?: string;
 	}) => (
 		<select
+			{...props}
 			onChange={(event) => onValueChange?.(event.target.value)}
-			value={value}
 		>
 			{children}
 		</select>
@@ -266,6 +281,7 @@ describe("MappingDialog", () => {
 		mappingDialogState.loading = false;
 		mappingDialogState.profiles = [];
 		mappingDialogState.results = [];
+		mappingDialogState.tvSearchResults = [];
 		mappingDialogState.tvSuggestions = [];
 		mappingDialogState.userSettings = undefined;
 	});
@@ -305,6 +321,26 @@ describe("MappingDialog", () => {
 				title: "Severance",
 			},
 		];
+		mappingDialogState.tvSearchResults = [
+			{
+				entityType: "episode",
+				id: 101,
+				subtitle: "S01E01 - Good News About Hell",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 102,
+				subtitle: "S01E02 - Half Loop",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 201,
+				subtitle: "S01E03 - In Perpetuity",
+				title: "Severance",
+			},
+		];
 
 		await renderWithProviders(
 			<MappingDialog
@@ -339,10 +375,14 @@ describe("MappingDialog", () => {
 			.element(page.getByLabelText("Move related sidecar files"))
 			.toBeChecked();
 		await expect
-			.element(page.getByText("S01E01 - Good News About Hell"))
+			.element(
+				page
+					.getByText("S01E01 - Good News About Hell", { exact: true })
+					.first(),
+			)
 			.toBeInTheDocument();
 		await expect
-			.element(page.getByText("S01E02 - Half Loop"))
+			.element(page.getByText("S01E02 - Half Loop", { exact: true }).first())
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByText("/incoming/Severance.S01E01.mkv"))
@@ -350,6 +390,111 @@ describe("MappingDialog", () => {
 		await expect
 			.element(page.getByText("/incoming/Severance.S01E02.mkv"))
 			.toBeInTheDocument();
+	});
+
+	it("lets one tv row change without affecting the others", async () => {
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.userSettings = {
+			addDefaults: { moveRelatedSidecars: true },
+		};
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 11,
+				hints: {
+					episode: 1,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "S01E01 - Good News About Hell",
+				suggestedEpisodeId: 101,
+				title: "Severance",
+			},
+			{
+				fileId: 12,
+				hints: {
+					episode: 2,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E02.mkv",
+				subtitle: "S01E02 - Half Loop",
+				suggestedEpisodeId: 102,
+				title: "Severance",
+			},
+		];
+		mappingDialogState.tvSearchResults = [
+			{
+				entityType: "episode",
+				id: 101,
+				subtitle: "S01E01 - Good News About Hell",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 102,
+				subtitle: "S01E02 - Half Loop",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 201,
+				subtitle: "S01E03 - In Perpetuity",
+				title: "Severance",
+			},
+		];
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Severance.S01E01.mkv",
+							hints: {
+								episode: 1,
+								season: 1,
+								title: "Severance",
+							},
+						},
+						{
+							id: 12,
+							path: "/incoming/Severance.S01E02.mkv",
+							hints: {
+								episode: 2,
+								season: 1,
+								title: "Severance",
+							},
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByLabelText("Episode target for Severance.S01E01.mkv"))
+			.toHaveValue("101");
+		await expect
+			.element(page.getByLabelText("Episode target for Severance.S01E02.mkv"))
+			.toHaveValue("102");
+
+		await userEvent.selectOptions(
+			page.getByLabelText("Episode target for Severance.S01E01.mkv"),
+			"201",
+		);
+
+		await expect
+			.element(page.getByLabelText("Episode target for Severance.S01E01.mkv"))
+			.toHaveValue("201");
+		await expect
+			.element(page.getByLabelText("Episode target for Severance.S01E02.mkv"))
+			.toHaveValue("102");
 	});
 
 	it("maps tv rows and persists the sidecar checkbox after success", async () => {
@@ -389,6 +534,26 @@ describe("MappingDialog", () => {
 				title: "Severance",
 			},
 		];
+		mappingDialogState.tvSearchResults = [
+			{
+				entityType: "episode",
+				id: 101,
+				subtitle: "S01E01 - Good News About Hell",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 102,
+				subtitle: "S01E02 - Half Loop",
+				title: "Severance",
+			},
+			{
+				entityType: "episode",
+				id: 201,
+				subtitle: "S01E03 - In Perpetuity",
+				title: "Severance",
+			},
+		];
 		mappingDialogMocks.mapUnmappedFileFn.mockResolvedValue({
 			mappedCount: 2,
 			success: true,
@@ -423,6 +588,10 @@ describe("MappingDialog", () => {
 			/>,
 		);
 
+		await userEvent.selectOptions(
+			page.getByLabelText("Episode target for Severance.S01E01.mkv"),
+			"201",
+		);
 		await page.getByLabelText("Move related sidecar files").click();
 		await page.getByRole("button", { name: "Map Selected Files" }).click();
 
@@ -432,7 +601,7 @@ describe("MappingDialog", () => {
 				entityType: "episode",
 				moveRelatedSidecars: false,
 				tvMappings: [
-					{ episodeId: 101, unmappedFileId: 11 },
+					{ episodeId: 201, unmappedFileId: 11 },
 					{ episodeId: 102, unmappedFileId: 12 },
 				],
 			},
