@@ -1452,7 +1452,7 @@ describe("server/unmapped-files", () => {
 			expect(result).toEqual({ success: true, mappedCount: 2 });
 		});
 
-		it("moves related sidecars from the source tree when enabled for tv rows", async () => {
+		it("moves related sidecars from the source tree and ignores same-root different-tree matches", async () => {
 			const profile = {
 				id: 5,
 				name: "TV",
@@ -1461,7 +1461,7 @@ describe("server/unmapped-files", () => {
 			const files = [
 				{
 					id: 1,
-					path: "/incoming/Severance.S01E01.mkv",
+					path: "/incoming/severance/Severance.S01E01.mkv",
 					size: 4000000,
 					quality: { quality: { name: "720p" } },
 				},
@@ -1482,31 +1482,121 @@ describe("server/unmapped-files", () => {
 				sidecarRows: [
 					{
 						id: 2,
-						path: "/incoming/folder.jpg",
+						path: "/incoming/severance/folder.jpg",
 						size: 12000,
 						quality: null,
 					},
 					{
 						id: 3,
-						path: "/incoming/Severance.S01E02.srt",
+						path: "/incoming/other/Another.S01E01.srt",
 						size: 400,
 						quality: null,
 					},
 					{
 						id: 4,
-						path: "/incoming/Severance.S01E01.srt",
+						path: "/incoming/severance/Severance.S01E01.srt",
 						size: 420,
 						quality: null,
 					},
 					{
 						id: 5,
-						path: "/incoming/subtitles/Severance.S01E01.xml",
+						path: "/incoming/severance/subtitles/Severance.S01E01.xml",
 						size: 160,
 						quality: null,
 					},
+				],
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/Severance.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/subtitles/Severance.S01E01.xml",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.xml",
+			);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.right === 4 &&
+						condition?.left === schemaMocks.unmappedFiles.id,
+				),
+			).toBe(true);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.right === 5 &&
+						condition?.left === schemaMocks.unmappedFiles.id,
+				),
+			).toBe(true);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/severance/folder.jpg",
+				expect.anything(),
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/other/Another.S01E01.srt",
+				expect.anything(),
+			);
+		});
+
+		it("preserves suffixes so multiple matching srt sidecars get distinct destinations", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/severance/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
 					{
-						id: 6,
-						path: "/incoming/subtitles/Severance.English.S01E01.srt",
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/severance/Severance.S01E01.srt",
+						size: 420,
+						quality: null,
+					},
+					{
+						id: 3,
+						path: "/incoming/severance/subtitles/Severance.English.S01E01.srt",
 						size: 240,
 						quality: null,
 					},
@@ -1531,49 +1621,16 @@ describe("server/unmapped-files", () => {
 			});
 
 			expect(mocks.renameSync).toHaveBeenCalledWith(
-				"/incoming/Severance.S01E01.mkv",
-				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
-			);
-			expect(mocks.renameSync).toHaveBeenCalledWith(
-				"/incoming/Severance.S01E01.srt",
+				"/incoming/severance/Severance.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
 			);
 			expect(mocks.renameSync).toHaveBeenCalledWith(
-				"/incoming/subtitles/Severance.S01E01.xml",
-				"/library/tv/Severance (2022)/Season 01/Severance S01E01.xml",
+				"/incoming/severance/subtitles/Severance.English.S01E01.srt",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.English.srt",
 			);
-			expect(mocks.renameSync).toHaveBeenCalledWith(
-				"/incoming/subtitles/Severance.English.S01E01.srt",
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/severance/subtitles/Severance.English.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
-			);
-			expect(
-				deleteChain.where.mock.calls.some(
-					([condition]) =>
-						condition?.right === 4 &&
-						condition?.left === schemaMocks.unmappedFiles.id,
-				),
-			).toBe(true);
-			expect(
-				deleteChain.where.mock.calls.some(
-					([condition]) =>
-						condition?.right === 5 &&
-						condition?.left === schemaMocks.unmappedFiles.id,
-				),
-			).toBe(true);
-			expect(
-				deleteChain.where.mock.calls.some(
-					([condition]) =>
-						condition?.right === 6 &&
-						condition?.left === schemaMocks.unmappedFiles.id,
-				),
-			).toBe(true);
-			expect(mocks.renameSync).not.toHaveBeenCalledWith(
-				"/incoming/folder.jpg",
-				expect.anything(),
-			);
-			expect(mocks.renameSync).not.toHaveBeenCalledWith(
-				"/incoming/Severance.S01E02.srt",
-				expect.anything(),
 			);
 		});
 
