@@ -395,8 +395,12 @@ function setupTvMappingSelects({
 	mocks.select.mockImplementation(() => {
 		selectIndex++;
 		if (selectIndex === 1) return profileChain;
-		const chain =
-			fileChains[selectIndex - 2] ?? fileChains[fileChains.length - 1];
+		const chain = fileChains[selectIndex - 2];
+		if (!chain) {
+			throw new Error(
+				`Unexpected select call ${selectIndex} in TV mapping test`,
+			);
+		}
 		return chain;
 	});
 }
@@ -705,6 +709,21 @@ describe("server/unmapped-files", () => {
 			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
 				"Download profile 5 not found",
 			);
+		});
+
+		it("rejects mixed legacy and tv episode payloads", async () => {
+			expect(() =>
+				mapUnmappedFileFn({
+					data: {
+						entityType: "episode",
+						unmappedFileIds: [1],
+						entityId: 10,
+						downloadProfileId: 5,
+						moveRelatedSidecars: false,
+						tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+					},
+				}),
+			).toThrow("Invalid input");
 		});
 
 		it("maps an audio book file with probe metadata", async () => {

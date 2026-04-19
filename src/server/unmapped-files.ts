@@ -228,24 +228,30 @@ const tvMappingSchema = z.object({
 });
 
 const mapUnmappedFileSchema = z.union([
-	z.object({
-		entityType: z.enum(["book", "movie"]),
-		unmappedFileIds: z.array(z.number()),
-		entityId: z.number(),
-		downloadProfileId: z.number(),
-	}),
-	z.object({
-		entityType: z.literal("episode"),
-		unmappedFileIds: z.array(z.number()),
-		entityId: z.number(),
-		downloadProfileId: z.number(),
-	}),
-	z.object({
-		entityType: z.literal("episode"),
-		downloadProfileId: z.number(),
-		moveRelatedSidecars: z.boolean().default(false),
-		tvMappings: z.array(tvMappingSchema).min(1),
-	}),
+	z
+		.object({
+			entityType: z.enum(["book", "movie"]),
+			unmappedFileIds: z.array(z.number()),
+			entityId: z.number(),
+			downloadProfileId: z.number(),
+		})
+		.strict(),
+	z
+		.object({
+			entityType: z.literal("episode"),
+			unmappedFileIds: z.array(z.number()),
+			entityId: z.number(),
+			downloadProfileId: z.number(),
+		})
+		.strict(),
+	z
+		.object({
+			entityType: z.literal("episode"),
+			downloadProfileId: z.number(),
+			moveRelatedSidecars: z.boolean().default(false),
+			tvMappings: z.array(tvMappingSchema).min(1),
+		})
+		.strict(),
 ]);
 
 export const mapUnmappedFileFn = createServerFn({ method: "POST" })
