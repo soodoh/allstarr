@@ -198,25 +198,30 @@ vi.mock("src/components/shared/empty-state", () => ({
 }));
 
 vi.mock("src/components/unmapped-files/mapping-dialog", () => ({
-	default: ({
-		files,
-		contentType,
-		fileIds,
-		onClose,
-	}: {
+	default: (props: {
 		files?: MappingDialogFile[];
 		contentType: string;
-		fileIds: number[];
+		fileIds?: number[];
 		onClose: () => void;
-	}) => (
-		<div data-testid="mapping-dialog">
-			<p>{`mapping:${contentType}:${fileIds.join(",")}`}</p>
-			<p>{`files:${JSON.stringify(files ?? [])}`}</p>
-			<button onClick={onClose} type="button">
-				Close mapping dialog
-			</button>
-		</div>
-	),
+	}) => {
+		const hasFilesProp = Object.hasOwn(props, "files");
+		if (hasFilesProp && !Array.isArray(props.files)) {
+			throw new Error("files prop must be omitted when not used");
+		}
+
+		const { contentType, fileIds, files, onClose } = props;
+		const mappingIds = fileIds ?? files?.map((file) => file.id) ?? [];
+
+		return (
+			<div data-testid="mapping-dialog">
+				<p>{`mapping:${contentType}:${mappingIds.join(",")}`}</p>
+				<p>{`files:${JSON.stringify(files ?? [])}`}</p>
+				<button onClick={onClose} type="button">
+					Close mapping dialog
+				</button>
+			</div>
+		);
+	},
 }));
 
 vi.mock("src/components/ui/badge", () => ({

@@ -24,7 +24,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "src/components/ui/select";
-import MappingDialog from "src/components/unmapped-files/mapping-dialog";
+import MappingDialog, {
+	type MappingDialogFile,
+} from "src/components/unmapped-files/mapping-dialog";
 import type { UnmappedFileHints } from "src/db/schema/unmapped-files";
 import { unmappedFilesListQuery } from "src/lib/queries";
 import { queryKeys } from "src/lib/query-keys";
@@ -87,12 +89,6 @@ function getFormatColor(format: string): FormatColor {
 	return { bg: "bg-zinc-800", text: "text-zinc-400" };
 }
 
-type MappingFile = {
-	hints: UnmappedFileHints | null;
-	id: number;
-	path: string;
-};
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function UnmappedFilesTable(): JSX.Element {
@@ -112,7 +108,9 @@ export default function UnmappedFilesTable(): JSX.Element {
 	const [mappingHints, setMappingHints] = useState<UnmappedFileHints | null>(
 		null,
 	);
-	const [mappingFiles, setMappingFiles] = useState<MappingFile[] | null>(null);
+	const [mappingFiles, setMappingFiles] = useState<MappingDialogFile[] | null>(
+		null,
+	);
 
 	// Delete confirmation
 	const [deleteConfirmIds, setDeleteConfirmIds] = useState<number[] | null>(
@@ -218,12 +216,7 @@ export default function UnmappedFilesTable(): JSX.Element {
 	};
 
 	const launchMappingDialog = (
-		files: Array<{
-			hints: UnmappedFileHints | null;
-			id: number;
-			path: string;
-			contentType: string;
-		}>,
+		files: Array<MappingDialogFile & { contentType: string }>,
 	) => {
 		if (files.length === 0) return;
 
@@ -236,6 +229,12 @@ export default function UnmappedFilesTable(): JSX.Element {
 				? files.map(({ hints, id, path }) => ({ hints, id, path }))
 				: null,
 		);
+	};
+
+	const closeMappingDialog = () => {
+		setMappingFileIds(null);
+		setMappingFiles(null);
+		setSelectedIds(new Set());
 	};
 
 	// ─── Empty state ──────────────────────────────────────────────────────
@@ -468,17 +467,19 @@ export default function UnmappedFilesTable(): JSX.Element {
 			)}
 
 			{/* Mapping dialog */}
-			{mappingFileIds && (
+			{mappingFileIds && mappingFiles && (
+				<MappingDialog
+					files={mappingFiles}
+					contentType={mappingContentType}
+					onClose={closeMappingDialog}
+				/>
+			)}
+			{mappingFileIds && !mappingFiles && (
 				<MappingDialog
 					fileIds={mappingFileIds}
 					contentType={mappingContentType}
-					files={mappingFiles ?? undefined}
 					hints={mappingHints}
-					onClose={() => {
-						setMappingFileIds(null);
-						setMappingFiles(null);
-						setSelectedIds(new Set());
-					}}
+					onClose={closeMappingDialog}
 				/>
 			)}
 
