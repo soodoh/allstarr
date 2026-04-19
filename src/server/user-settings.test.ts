@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	requireAuth: vi.fn(),
 	selectGet: vi.fn(),
+	insertValues: vi.fn(),
 	insertRun: vi.fn(),
 	updateRun: vi.fn(),
 }));
@@ -34,7 +35,7 @@ vi.mock("src/db", () => ({
 			})),
 		})),
 		insert: vi.fn(() => ({
-			values: vi.fn(() => ({
+			values: mocks.insertValues.mockImplementation(() => ({
 				onConflictDoUpdate: vi.fn(() => ({
 					run: mocks.insertRun,
 				})),
@@ -163,15 +164,43 @@ describe("upsertUserSettingsFn", () => {
 	});
 
 	it("supports the unmapped import defaults row", async () => {
-		const result = await upsertUserSettingsFn({
+		await upsertUserSettingsFn({
 			data: {
 				tableId: "unmapped-files",
 				addDefaults: { moveRelatedSidecars: true },
 			},
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(mocks.insertValues).toHaveBeenCalledWith({
+			userId: "user-1",
+			tableId: "unmapped-files",
+			columnOrder: [],
+			hiddenColumns: [],
+			viewMode: null,
+			addDefaults: { moveRelatedSidecars: true },
+		});
 		expect(mocks.insertRun).toHaveBeenCalledTimes(1);
+
+		mocks.selectGet.mockReturnValue({
+			id: 1,
+			userId: "user-1",
+			tableId: "unmapped-files",
+			columnOrder: [],
+			hiddenColumns: [],
+			viewMode: null,
+			addDefaults: { moveRelatedSidecars: true },
+		});
+
+		const persisted = await getUserSettingsFn({
+			data: { tableId: "unmapped-files" },
+		});
+
+		expect(persisted).toEqual({
+			columnOrder: [],
+			hiddenColumns: [],
+			viewMode: null,
+			addDefaults: { moveRelatedSidecars: true },
+		});
 	});
 });
 
