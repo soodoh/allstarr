@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { eq } from "drizzle-orm";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
@@ -15,6 +15,11 @@ type SeededUnmappedFile = {
   id: number;
   filename: string;
   path: string;
+};
+
+type SeededUnmappedTvFile = SeededUnmappedFile & {
+  sidecarPaths: string[];
+  sourceDir: string;
 };
 
 function seedUnmappedFile(
@@ -67,11 +72,170 @@ function seedUnmappedEbook(
   return seedUnmappedFile(db, rootFolderPath, filename);
 }
 
+function seedUnmappedTvFile(
+  db: Parameters<typeof seedAuthor>[0],
+  rootFolderPath: string,
+  filename: string,
+  episodeNumber: number,
+  sidecarFilenames: string[] = [],
+): SeededUnmappedTvFile {
+  const sourceDir = join(rootFolderPath, "incoming", "severance");
+  mkdirSync(sourceDir, { recursive: true });
+
+  const filePath = join(sourceDir, filename);
+  writeFileSync(filePath, "dummy tv content");
+
+  const sidecarPaths = sidecarFilenames.map((sidecarFilename) => {
+    const sidecarPath = join(sourceDir, sidecarFilename);
+    mkdirSync(dirname(sidecarPath), { recursive: true });
+    writeFileSync(sidecarPath, `dummy sidecar content for ${sidecarFilename}`);
+
+    const extension = sidecarFilename.split(".").pop()?.toUpperCase() ?? "TXT";
+    db.insert(schema.unmappedFiles)
+      .values({
+        path: sidecarPath,
+        size: 64,
+        rootFolderPath,
+        contentType: "tv",
+        format: extension,
+        quality: null,
+        hints: {
+          source: "filename",
+          title: "Severance",
+          season: 1,
+          episode: episodeNumber,
+        },
+        ignored: false,
+      })
+      .run();
+
+    return sidecarPath;
+  });
+
+  const row = db
+    .insert(schema.unmappedFiles)
+    .values({
+      path: filePath,
+      size: 1024 * 1024 * 4,
+      rootFolderPath,
+      contentType: "tv",
+      format: "MKV",
+      quality: {
+        quality: { id: 4, name: "1080p" },
+        revision: { version: 1, real: 0 },
+      },
+      hints: {
+        title: "Severance",
+        episode: episodeNumber,
+        season: 1,
+        source: "filename",
+      },
+      ignored: false,
+    })
+    .returning()
+    .get();
+
+  return {
+    id: row.id,
+    filename,
+    path: filePath,
+    sidecarPaths,
+    sourceDir,
+  };
+}
+
+function seedTvLibrary(
+  db: Parameters<typeof seedAuthor>[0],
+  rootFolderPath: string,
+) {
+  const profile = seedDownloadProfile(db, {
+    name: "Unmapped TV Profile",
+    rootFolderPath,
+    contentType: "tv",
+    icon: "tv",
+  });
+
+  const show = db
+    .insert(schema.shows)
+    .values({
+      title: "Severance",
+      sortTitle: "Severance",
+      overview: "A test show for unmapped TV mapping e2e coverage.",
+      tmdbId: 2022,
+      imdbId: "tt2022",
+      status: "continuing",
+      seriesType: "standard",
+      network: "Test Network",
+      year: 2022,
+      runtime: 55,
+      genres: ["Drama"],
+      tags: [],
+      posterUrl: "https://example.com/severance-poster.jpg",
+      fanartUrl: "https://example.com/severance-fanart.jpg",
+      path: "",
+      useSeasonFolder: 1,
+      monitorNewSeasons: "all",
+    })
+    .returning()
+    .get();
+
+  const season = db
+    .insert(schema.seasons)
+    .values({
+      showId: show.id,
+      seasonNumber: 1,
+      overview: "Season 1",
+      posterUrl: "https://example.com/severance-season-1.jpg",
+    })
+    .returning()
+    .get();
+
+  const episodes = db
+    .insert(schema.episodes)
+    .values([
+      {
+        showId: show.id,
+        seasonId: season.id,
+        episodeNumber: 1,
+        title: "Episode One",
+        tmdbId: 202201,
+        hasFile: false,
+      },
+      {
+        showId: show.id,
+        seasonId: season.id,
+        episodeNumber: 2,
+        title: "Episode Two",
+        tmdbId: 202202,
+        hasFile: false,
+      },
+      {
+        showId: show.id,
+        seasonId: season.id,
+        episodeNumber: 3,
+        title: "Episode Three",
+        tmdbId: 202203,
+        hasFile: false,
+      },
+    ])
+    .returning()
+    .all();
+
+  return { episodes, profile, season, show };
+}
+
 test.describe("Unmapped Files", () => {
   test.beforeEach(async ({ page, appUrl, db }) => {
     await ensureAuthenticated(page, appUrl);
 
     db.delete(schema.history).run();
+    db.delete(schema.episodeFiles).run();
+    db.delete(schema.episodeDownloadProfiles).run();
+    db.delete(schema.showDownloadProfiles).run();
+    db.delete(schema.seriesBookLinks).run();
+    db.delete(schema.episodes).run();
+    db.delete(schema.seasons).run();
+    db.delete(schema.shows).run();
     db.delete(schema.bookFiles).run();
     db.delete(schema.unmappedFiles).run();
     db.delete(schema.editions).run();
@@ -227,6 +391,142 @@ test.describe("Unmapped Files", () => {
         eventType: "bookFileAdded",
         bookId: book.id,
       });
+  });
+
+  test("maps TV rows with distinct episode targets and moves related sidecars", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    const { episodes, show } = seedTvLibrary(db, tempDir);
+
+    const firstFile = seedUnmappedTvFile(
+      db,
+      tempDir,
+      "Severance.S01E01.mkv",
+      1,
+      ["Severance.S01E01.nfo", "Severance.S01E01.xml"],
+    );
+    const secondFile = seedUnmappedTvFile(
+      db,
+      tempDir,
+      "Severance.S01E02.mkv",
+      2,
+      ["Severance.S01E02.nfo", "Severance.S01E02.xml"],
+    );
+
+    const sourceFolderFile = join(firstFile.sourceDir, "folder.jpg");
+    writeFileSync(sourceFolderFile, "keep me in the source tree");
+
+    const destinationSeasonDir = join(
+      tempDir,
+      `${show.title} (${show.year})`,
+      "Season 01",
+    );
+    mkdirSync(destinationSeasonDir, { recursive: true });
+    const destinationSidecarFile = join(destinationSeasonDir, "readme.txt");
+    writeFileSync(destinationSidecarFile, "keep me in the destination tree");
+
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(page.getByText(firstFile.filename, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(secondFile.filename, { exact: true }),
+    ).toBeVisible();
+
+    const firstVideoRow = page
+      .getByText(firstFile.filename, { exact: true })
+      .locator("xpath=ancestor::div[contains(@class,'flex items-center gap-3')][1]");
+    const secondVideoRow = page
+      .getByText(secondFile.filename, { exact: true })
+      .locator("xpath=ancestor::div[contains(@class,'flex items-center gap-3')][1]");
+
+    await firstVideoRow.getByRole("checkbox").click();
+    await secondVideoRow.getByRole("checkbox").click();
+
+    await expect(page.getByText("2 files selected")).toBeVisible();
+    await page.getByRole("button", { name: "Map Selected" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Map 2 files" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Search episodes for Severance.S01E01.mkv", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Search episodes for Severance.S01E02.mkv", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("S01E01 - Episode One").first()).toBeVisible();
+    await expect(page.getByText("S01E02 - Episode Two").first()).toBeVisible();
+
+    await page.getByLabel("Move related sidecar files").click();
+    await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+    const firstDestPath = join(
+      destinationSeasonDir,
+      "Severance S01E01.mkv",
+    );
+    const secondDestPath = join(
+      destinationSeasonDir,
+      "Severance S01E02.mkv",
+    );
+    const firstSidecarNfoDest = join(
+      destinationSeasonDir,
+      "Severance S01E01.nfo",
+    );
+    const firstSidecarXmlDest = join(
+      destinationSeasonDir,
+      "Severance S01E01.xml",
+    );
+    const secondSidecarNfoDest = join(
+      destinationSeasonDir,
+      "Severance S01E02.nfo",
+    );
+    const secondSidecarXmlDest = join(
+      destinationSeasonDir,
+      "Severance S01E02.xml",
+    );
+
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    for (const file of [firstFile, secondFile]) {
+      await expect
+        .poll(() =>
+          db
+            .select({ id: schema.unmappedFiles.id })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.path, file.path))
+            .get() ?? null,
+        )
+        .toBeNull();
+    }
+
+    for (const sidecarPath of [
+      ...firstFile.sidecarPaths,
+      ...secondFile.sidecarPaths,
+    ]) {
+      await expect
+        .poll(() =>
+          db
+            .select({ id: schema.unmappedFiles.id })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.path, sidecarPath))
+            .get() ?? null,
+        )
+        .toBeNull();
+    }
+
+    await expect.poll(() => existsSync(firstDestPath)).toBe(true);
+    await expect.poll(() => existsSync(secondDestPath)).toBe(true);
+    await expect.poll(() => existsSync(firstSidecarNfoDest)).toBe(true);
+    await expect.poll(() => existsSync(firstSidecarXmlDest)).toBe(true);
+    await expect.poll(() => existsSync(secondSidecarNfoDest)).toBe(true);
+    await expect.poll(() => existsSync(secondSidecarXmlDest)).toBe(true);
+    await expect.poll(() => existsSync(sourceFolderFile)).toBe(true);
+    await expect.poll(() => existsSync(destinationSidecarFile)).toBe(true);
   });
 
   test("delete an unmapped file from disk", async ({
