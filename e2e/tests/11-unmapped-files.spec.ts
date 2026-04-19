@@ -190,8 +190,7 @@ function seedTvLibrary(
     .returning()
     .get();
 
-  const episodes = db
-    .insert(schema.episodes)
+  db.insert(schema.episodes)
     .values([
       {
         showId: show.id,
@@ -218,10 +217,9 @@ function seedTvLibrary(
         hasFile: false,
       },
     ])
-    .returning()
-    .all();
+    .run();
 
-  return { episodes, profile, season, show };
+  return { show };
 }
 
 test.describe("Unmapped Files", () => {
@@ -400,7 +398,7 @@ test.describe("Unmapped Files", () => {
     tempDir,
     checkpoint,
   }) => {
-    const { episodes, show } = seedTvLibrary(db, tempDir);
+    const { show } = seedTvLibrary(db, tempDir);
 
     const firstFile = seedUnmappedTvFile(
       db,
@@ -437,12 +435,15 @@ test.describe("Unmapped Files", () => {
       page.getByText(secondFile.filename, { exact: true }),
     ).toBeVisible();
 
-    const firstVideoRow = page
-      .getByText(firstFile.filename, { exact: true })
-      .locator("xpath=ancestor::div[contains(@class,'flex items-center gap-3')][1]");
-    const secondVideoRow = page
-      .getByText(secondFile.filename, { exact: true })
-      .locator("xpath=ancestor::div[contains(@class,'flex items-center gap-3')][1]");
+    const getVideoRow = (filename: string) =>
+      page
+        .getByText(filename, { exact: true })
+        .locator(
+          "xpath=ancestor::div[.//button[@title='Map to library entry'] and .//*[@role='checkbox']][1]",
+        );
+
+    const firstVideoRow = getVideoRow(firstFile.filename);
+    const secondVideoRow = getVideoRow(secondFile.filename);
 
     await firstVideoRow.getByRole("checkbox").click();
     await secondVideoRow.getByRole("checkbox").click();
@@ -525,6 +526,14 @@ test.describe("Unmapped Files", () => {
     await expect.poll(() => existsSync(firstSidecarXmlDest)).toBe(true);
     await expect.poll(() => existsSync(secondSidecarNfoDest)).toBe(true);
     await expect.poll(() => existsSync(secondSidecarXmlDest)).toBe(true);
+    await expect.poll(() => existsSync(firstFile.path)).toBe(false);
+    await expect.poll(() => existsSync(secondFile.path)).toBe(false);
+    for (const sidecarPath of [
+      ...firstFile.sidecarPaths,
+      ...secondFile.sidecarPaths,
+    ]) {
+      await expect.poll(() => existsSync(sidecarPath)).toBe(false);
+    }
     await expect.poll(() => existsSync(sourceFolderFile)).toBe(true);
     await expect.poll(() => existsSync(destinationSidecarFile)).toBe(true);
   });
