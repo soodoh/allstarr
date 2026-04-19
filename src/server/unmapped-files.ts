@@ -37,6 +37,7 @@ const TV_SIDECAR_EXTENSIONS = new Set([
 	".ssa",
 	".sub",
 	".vtt",
+	".xml",
 ]);
 const TV_EPISODE_PATTERN = /S(\d{1,2})E(\d{1,3})/i;
 
@@ -58,10 +59,6 @@ function isRelatedTvSidecar(
 	sourcePath: string,
 	candidatePath: string,
 ): boolean {
-	if (path.dirname(sourcePath) !== path.dirname(candidatePath)) {
-		return false;
-	}
-
 	const candidateExt = path.extname(candidatePath).toLowerCase();
 	if (!TV_SIDECAR_EXTENSIONS.has(candidateExt)) {
 		return false;
