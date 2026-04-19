@@ -1244,8 +1244,7 @@ export async function refreshShowInternal(
 
 	if (
 		newEpisodeIds.size > 0 &&
-		show.monitorNewSeasons &&
-		show.monitorNewSeasons !== "none"
+		(show.monitorNewSeasons === "all" || show.monitorNewSeasons === "new")
 	) {
 		const downloadProfileIds = db
 			.select({
@@ -1256,12 +1255,7 @@ export async function refreshShowInternal(
 			.all()
 			.map((link) => link.downloadProfileId);
 
-		applyMonitoringOption(
-			show.id,
-			show.monitorNewSeasons,
-			downloadProfileIds,
-			newEpisodeIds,
-		);
+		applyMonitoringOption(show.id, "all", downloadProfileIds, newEpisodeIds);
 	}
 
 	return { success: true, newEpisodes };
