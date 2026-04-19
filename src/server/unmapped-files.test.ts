@@ -21,6 +21,32 @@ const mocks = vi.hoisted(() => {
 	const logWarn = vi.fn();
 	const buildBookAuthorFolderName = vi.fn(() => "Isaac Asimov");
 	const buildBookFolderName = vi.fn(() => "Foundation (1951)");
+	const buildManagedEpisodeDestination = vi.fn(
+		({
+			rootFolderPath,
+			showTitle,
+			showYear,
+			seasonNumber,
+			useSeasonFolder,
+			sourcePath,
+		}: {
+			rootFolderPath: string;
+			seasonNumber: number;
+			showTitle: string;
+			showYear?: number | null;
+			sourcePath: string;
+			useSeasonFolder: boolean;
+		}) => {
+			const showFolderName = showYear
+				? `${showTitle} (${showYear})`
+				: showTitle;
+			const seasonFolderName = `Season ${String(seasonNumber).padStart(2, "0")}`;
+			const baseDir = useSeasonFolder
+				? `${rootFolderPath}/${showFolderName}/${seasonFolderName}`
+				: `${rootFolderPath}/${showFolderName}`;
+			return `${baseDir}/${sourcePath.split("/").pop() ?? ""}`;
+		},
+	);
 	const renameSync = vi.fn();
 	const copyFileSync = vi.fn();
 	const mkdirSync = vi.fn();
@@ -58,6 +84,7 @@ const mocks = vi.hoisted(() => {
 		and,
 		buildBookAuthorFolderName,
 		buildBookFolderName,
+		buildManagedEpisodeDestination,
 		count,
 		deleteFn,
 		eq,
@@ -162,6 +189,10 @@ vi.mock("src/server/logger", () => ({
 vi.mock("src/server/book-paths", () => ({
 	buildBookAuthorFolderName: mocks.buildBookAuthorFolderName,
 	buildBookFolderName: mocks.buildBookFolderName,
+}));
+
+vi.mock("src/server/file-import", () => ({
+	buildManagedEpisodeDestination: mocks.buildManagedEpisodeDestination,
 }));
 
 vi.mock("src/server/middleware", () => ({
@@ -383,25 +414,45 @@ function setupBookMappingSelects({
 
 function setupTvMappingSelects({
 	files,
+	episodeRows = [],
+	sidecarRows = [],
 	profile,
 }: {
 	files: Record<string, unknown>[];
+	episodeRows?: Record<string, unknown>[];
+	sidecarRows?: Record<string, unknown>[];
 	profile: Record<string, unknown>;
 }) {
 	const profileChain = createSelectChain(profile);
 	const fileChains = files.map((item) => createSelectChain(item));
+	const episodeChains = episodeRows.map((item) => createSelectChain(item));
+	const sidecarChain = createSelectChain(undefined, sidecarRows);
 
-	let selectIndex = 0;
-	mocks.select.mockImplementation(() => {
-		selectIndex++;
-		if (selectIndex === 1) return profileChain;
-		const chain = fileChains[selectIndex - 2];
-		if (!chain) {
-			throw new Error(
-				`Unexpected select call ${selectIndex} in TV mapping test`,
-			);
+	let plainSelectIndex = 0;
+	let episodeSelectIndex = 0;
+	mocks.select.mockImplementation((shape?: Record<string, unknown>) => {
+		if (shape) {
+			const chain = episodeChains[episodeSelectIndex++];
+			if (!chain) {
+				throw new Error(
+					`Unexpected shaped select call ${episodeSelectIndex} in TV mapping test`,
+				);
+			}
+			return chain;
 		}
-		return chain;
+
+		plainSelectIndex++;
+		if (plainSelectIndex === 1) return profileChain;
+		if (plainSelectIndex <= fileChains.length + 1) {
+			const chain = fileChains[plainSelectIndex - 2];
+			if (!chain) {
+				throw new Error(
+					`Unexpected file select call ${plainSelectIndex} in TV mapping test`,
+				);
+			}
+			return chain;
+		}
+		return sidecarChain;
 	});
 }
 
@@ -1283,7 +1334,26 @@ describe("server/unmapped-files", () => {
 				},
 			];
 
-			setupTvMappingSelects({ files, profile });
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+					{
+						episodeNumber: 2,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+			});
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
@@ -1339,7 +1409,39 @@ describe("server/unmapped-files", () => {
 				},
 			];
 
-			setupTvMappingSelects({ files, profile });
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/folder.jpg",
+						size: 12000,
+						quality: null,
+					},
+					{
+						id: 3,
+						path: "/incoming/Severance.S01E02.srt",
+						size: 400,
+						quality: null,
+					},
+					{
+						id: 4,
+						path: "/incoming/Severance.S01E01.srt",
+						size: 420,
+						quality: null,
+					},
+				],
+			});
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
@@ -1359,8 +1461,83 @@ describe("server/unmapped-files", () => {
 			});
 
 			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
 				"/incoming/Severance.S01E01.srt",
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.srt",
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/folder.jpg",
+				expect.anything(),
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/Severance.S01E02.srt",
+				expect.anything(),
+			);
+		});
+
+		it("rolls back moved tv files when the row transaction fails", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.transaction.mockImplementationOnce(() => {
+				throw new Error("db failed");
+			});
+
+			await expect(
+				mapUnmappedFileFn({
+					data: {
+						entityType: "episode",
+						downloadProfileId: 5,
+						moveRelatedSidecars: false,
+						tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+					},
+				}),
+			).rejects.toThrow("db failed");
+
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/incoming/Severance.S01E01.mkv",
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
+				"/incoming/Severance.S01E01.mkv",
 			);
 		});
 

@@ -8,8 +8,11 @@ import {
 	booksAuthors,
 	downloadProfiles,
 	episodeFiles,
+	episodes,
 	history,
 	movieFiles,
+	seasons,
+	shows,
 	unmappedFiles,
 } from "src/db/schema";
 import {
@@ -17,6 +20,7 @@ import {
 	buildBookFolderName,
 } from "src/server/book-paths";
 import { eventBus } from "src/server/event-bus";
+import { buildManagedEpisodeDestination } from "src/server/file-import";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
@@ -25,9 +29,91 @@ import { z } from "zod";
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".ts"]);
+const TV_SIDECAR_EXTENSIONS = new Set([
+	".ass",
+	".idx",
+	".nfo",
+	".srt",
+	".ssa",
+	".sub",
+	".vtt",
+]);
+const TV_EPISODE_PATTERN = /S(\d{1,2})E(\d{1,3})/i;
 
 function naturalSort(a: string, b: string): number {
 	return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function stripFileExtension(filename: string): string {
+	const dotIndex = filename.lastIndexOf(".");
+	return dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
+}
+
+function getTvEpisodeToken(filePath: string): string | null {
+	const match = path.basename(filePath).match(TV_EPISODE_PATTERN);
+	return match ? match[0].toUpperCase() : null;
+}
+
+function isRelatedTvSidecar(
+	sourcePath: string,
+	candidatePath: string,
+): boolean {
+	if (path.dirname(sourcePath) !== path.dirname(candidatePath)) {
+		return false;
+	}
+
+	const candidateExt = path.extname(candidatePath).toLowerCase();
+	if (!TV_SIDECAR_EXTENSIONS.has(candidateExt)) {
+		return false;
+	}
+
+	const sourceStem = stripFileExtension(path.basename(sourcePath));
+	const candidateStem = stripFileExtension(path.basename(candidatePath));
+	if (candidateStem === sourceStem) {
+		return true;
+	}
+
+	const sourceToken = getTvEpisodeToken(sourcePath);
+	const candidateToken = getTvEpisodeToken(candidatePath);
+	return sourceToken != null && candidateToken === sourceToken;
+}
+
+function buildManagedTvEpisodePath({
+	rootFolderPath,
+	showTitle,
+	showYear,
+	seasonNumber,
+	episodeNumber,
+	sourcePath,
+	useSeasonFolder,
+}: {
+	episodeNumber: number;
+	rootFolderPath: string;
+	seasonNumber: number;
+	showTitle: string;
+	showYear: number | null;
+	sourcePath: string;
+	useSeasonFolder: boolean;
+}): string {
+	const managedFilename = `${showTitle} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}${path.extname(sourcePath)}`;
+	return buildManagedEpisodeDestination({
+		rootFolderPath,
+		showTitle,
+		showYear,
+		seasonNumber,
+		useSeasonFolder,
+		sourcePath: path.join(path.dirname(sourcePath), managedFilename),
+	});
+}
+
+function buildManagedTvSidecarPath(
+	managedEpisodePath: string,
+	sidecarPath: string,
+): string {
+	return path.join(
+		path.dirname(managedEpisodePath),
+		`${stripFileExtension(path.basename(managedEpisodePath))}${path.extname(sidecarPath)}`,
+	);
 }
 
 function moveFileToManagedPath(
@@ -274,6 +360,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				throw new Error(`Download profile ${data.downloadProfileId} not found`);
 			}
 
+			const mappedIds = new Set(
+				data.tvMappings.map((mapping) => mapping.unmappedFileId),
+			);
 			let mappedCount = 0;
 
 			for (const row of data.tvMappings) {
@@ -284,6 +373,25 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					.get();
 
 				if (!file) continue;
+
+				const episode = db
+					.select({
+						episodeNumber: episodes.episodeNumber,
+						seasonNumber: seasons.seasonNumber,
+						showTitle: shows.title,
+						showYear: shows.year,
+						useSeasonFolder: shows.useSeasonFolder,
+					})
+					.from(episodes)
+					.innerJoin(seasons, eq(seasons.id, episodes.seasonId))
+					.innerJoin(shows, eq(shows.id, episodes.showId))
+					.where(eq(episodes.id, row.episodeId))
+					.limit(1)
+					.get();
+
+				if (!episode) {
+					throw new Error(`Episode ${row.episodeId} not found`);
+				}
 
 				let duration: number | null = null;
 				let codec: string | null = null;
@@ -298,34 +406,96 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					}
 				}
 
-				db.insert(episodeFiles)
-					.values({
-						episodeId: row.episodeId,
-						path: file.path,
-						size: file.size,
-						quality: file.quality,
-						downloadProfileId: data.downloadProfileId,
-						duration,
-						codec,
-						container,
-					})
-					.run();
+				const managedEpisodePath = buildManagedTvEpisodePath({
+					rootFolderPath: profile.rootFolderPath,
+					showTitle: episode.showTitle,
+					showYear: episode.showYear,
+					seasonNumber: episode.seasonNumber,
+					episodeNumber: episode.episodeNumber,
+					sourcePath: file.path,
+					useSeasonFolder: Boolean(episode.useSeasonFolder),
+				});
+				const movedFiles: Array<{ destPath: string; sourcePath: string }> = [];
 
-				db.insert(history)
-					.values({
-						eventType: "episodeFileAdded",
-						episodeId: row.episodeId,
-						data: {
-							path: file.path,
-							size: file.size,
-							quality: file.quality?.quality?.name ?? "Unknown",
-							source: "unmappedFileMapping",
-						},
-					})
-					.run();
+				try {
+					moveFileToManagedPath(fs, file.path, managedEpisodePath);
+					movedFiles.push({
+						destPath: managedEpisodePath,
+						sourcePath: file.path,
+					});
 
-				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
-				mappedCount++;
+					if (data.moveRelatedSidecars) {
+						const candidates = db
+							.select()
+							.from(unmappedFiles)
+							.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
+							.all();
+
+						for (const candidate of candidates) {
+							if (
+								candidate.id === file.id ||
+								mappedIds.has(candidate.id) ||
+								!isRelatedTvSidecar(file.path, candidate.path)
+							) {
+								continue;
+							}
+
+							const sidecarDest = buildManagedTvSidecarPath(
+								managedEpisodePath,
+								candidate.path,
+							);
+							moveFileToManagedPath(fs, candidate.path, sidecarDest);
+							movedFiles.push({
+								destPath: sidecarDest,
+								sourcePath: candidate.path,
+							});
+						}
+					}
+
+					db.transaction((tx) => {
+						tx.insert(episodeFiles)
+							.values({
+								episodeId: row.episodeId,
+								path: managedEpisodePath,
+								size: file.size,
+								quality: file.quality,
+								downloadProfileId: data.downloadProfileId,
+								duration,
+								codec,
+								container,
+							})
+							.run();
+
+						tx.insert(history)
+							.values({
+								eventType: "episodeFileAdded",
+								episodeId: row.episodeId,
+								data: {
+									path: managedEpisodePath,
+									size: file.size,
+									quality: file.quality?.quality?.name ?? "Unknown",
+									source: "unmappedFileMapping",
+								},
+							})
+							.run();
+
+						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+					});
+
+					mappedCount++;
+				} catch (error) {
+					for (const moved of [...movedFiles].reverse()) {
+						try {
+							moveFileToManagedPath(fs, moved.destPath, moved.sourcePath);
+						} catch (rollbackError) {
+							logWarn(
+								"unmapped-files",
+								`Failed to roll back TV file move for ${moved.sourcePath}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+							);
+						}
+					}
+					throw error;
+				}
 			}
 
 			eventBus.emit({ type: "unmappedFilesUpdated" });
