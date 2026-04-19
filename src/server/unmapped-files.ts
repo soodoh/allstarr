@@ -50,15 +50,90 @@ function stripFileExtension(filename: string): string {
 	return dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
 }
 
+function escapeRegExp(value: string): string {
+	return value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getTvEpisodeToken(filePath: string): string | null {
 	const match = path.basename(filePath).match(TV_EPISODE_PATTERN);
 	return match ? match[0].toUpperCase() : null;
+}
+
+function isWithinSourceDirectoryTree(
+	sourcePath: string,
+	candidatePath: string,
+): boolean {
+	const sourceDir = path.dirname(sourcePath);
+	return (
+		candidatePath.startsWith(`${sourceDir}/`) || candidatePath === sourcePath
+	);
+}
+
+function stripSourceStemPrefix(
+	candidatePart: string,
+	sourcePart: string,
+): string {
+	if (!candidatePart || !sourcePart) {
+		return candidatePart;
+	}
+
+	return candidatePart.replace(
+		new RegExp(`^${escapeRegExp(sourcePart)}[ ._-]*`, "i"),
+		"",
+	);
+}
+
+function buildTvSidecarSuffix(sourcePath: string, sidecarPath: string): string {
+	const sourceStem = stripFileExtension(path.basename(sourcePath));
+	const sidecarStem = stripFileExtension(path.basename(sidecarPath));
+
+	if (sidecarStem === sourceStem) {
+		return "";
+	}
+
+	const episodeToken = getTvEpisodeToken(sourcePath);
+	if (!episodeToken) {
+		return "";
+	}
+
+	const sourceMatch = sourceStem.match(TV_EPISODE_PATTERN);
+	const sidecarMatch = sidecarStem.match(TV_EPISODE_PATTERN);
+	if (!sourceMatch || !sidecarMatch) {
+		return "";
+	}
+
+	const sourcePrefix = sourceStem
+		.slice(0, sourceMatch.index)
+		.replace(/[ ._-]+$/g, "");
+	const sourceSuffix = sourceStem
+		.slice((sourceMatch.index ?? 0) + sourceMatch[0].length)
+		.replace(/^[ ._-]+/g, "");
+	const sidecarPrefix = stripSourceStemPrefix(
+		sidecarStem.slice(0, sidecarMatch.index).replace(/[ ._-]+$/g, ""),
+		sourcePrefix,
+	);
+	const sidecarSuffix = stripSourceStemPrefix(
+		sidecarStem
+			.slice((sidecarMatch.index ?? 0) + sidecarMatch[0].length)
+			.replace(/^[ ._-]+/g, ""),
+		sourceSuffix,
+	);
+
+	const suffixParts = [sidecarPrefix, sidecarSuffix]
+		.flatMap((part) => part.split(/[ ._-]+/))
+		.filter(Boolean);
+
+	return suffixParts.length > 0 ? `.${suffixParts.join(".")}` : "";
 }
 
 function isRelatedTvSidecar(
 	sourcePath: string,
 	candidatePath: string,
 ): boolean {
+	if (!isWithinSourceDirectoryTree(sourcePath, candidatePath)) {
+		return false;
+	}
+
 	const candidateExt = path.extname(candidatePath).toLowerCase();
 	if (!TV_SIDECAR_EXTENSIONS.has(candidateExt)) {
 		return false;
@@ -105,11 +180,12 @@ function buildManagedTvEpisodePath({
 
 function buildManagedTvSidecarPath(
 	managedEpisodePath: string,
+	sourcePath: string,
 	sidecarPath: string,
 ): string {
 	return path.join(
 		path.dirname(managedEpisodePath),
-		`${stripFileExtension(path.basename(managedEpisodePath))}${path.extname(sidecarPath)}`,
+		`${stripFileExtension(path.basename(managedEpisodePath))}${buildTvSidecarSuffix(sourcePath, sidecarPath)}${path.extname(sidecarPath)}`,
 	);
 }
 
@@ -447,6 +523,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 							const sidecarDest = buildManagedTvSidecarPath(
 								managedEpisodePath,
+								file.path,
 								candidate.path,
 							);
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
