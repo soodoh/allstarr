@@ -87,6 +87,12 @@ function getFormatColor(format: string): FormatColor {
 	return { bg: "bg-zinc-800", text: "text-zinc-400" };
 }
 
+type MappingFile = {
+	hints: UnmappedFileHints | null;
+	id: number;
+	path: string;
+};
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function UnmappedFilesTable(): JSX.Element {
@@ -106,6 +112,7 @@ export default function UnmappedFilesTable(): JSX.Element {
 	const [mappingHints, setMappingHints] = useState<UnmappedFileHints | null>(
 		null,
 	);
+	const [mappingFiles, setMappingFiles] = useState<MappingFile[] | null>(null);
 
 	// Delete confirmation
 	const [deleteConfirmIds, setDeleteConfirmIds] = useState<number[] | null>(
@@ -208,6 +215,27 @@ export default function UnmappedFilesTable(): JSX.Element {
 				return next;
 			});
 		}
+	};
+
+	const launchMappingDialog = (
+		files: Array<{
+			hints: UnmappedFileHints | null;
+			id: number;
+			path: string;
+			contentType: string;
+		}>,
+	) => {
+		if (files.length === 0) return;
+
+		const [firstFile] = files;
+		setMappingFileIds(files.map((file) => file.id));
+		setMappingContentType(firstFile.contentType);
+		setMappingHints(firstFile.hints);
+		setMappingFiles(
+			firstFile.contentType === "tv"
+				? files.map(({ hints, id, path }) => ({ hints, id, path }))
+				: null,
+		);
 	};
 
 	// ─── Empty state ──────────────────────────────────────────────────────
@@ -343,11 +371,14 @@ export default function UnmappedFilesTable(): JSX.Element {
 												size="icon-sm"
 												title="Map to library entry"
 												onClick={() => {
-													setMappingFileIds([file.id]);
-													setMappingContentType(file.contentType);
-													setMappingHints(
-														file.hints as UnmappedFileHints | null,
-													);
+													launchMappingDialog([
+														{
+															contentType: file.contentType,
+															hints: file.hints as UnmappedFileHints | null,
+															id: file.id,
+															path: file.path,
+														},
+													]);
 												}}
 											>
 												<Link2 className="h-4 w-4" />
@@ -394,17 +425,16 @@ export default function UnmappedFilesTable(): JSX.Element {
 								variant="outline"
 								size="sm"
 								onClick={() => {
-									const ids = [...selectedIds];
-									const firstFile = groups
+									const files = groups
 										.flatMap((g) => g.files)
-										.find((f) => ids.includes(f.id));
-									if (firstFile) {
-										setMappingFileIds(ids);
-										setMappingContentType(firstFile.contentType);
-										setMappingHints(
-											firstFile.hints as UnmappedFileHints | null,
-										);
-									}
+										.filter((file) => selectedIds.has(file.id))
+										.map((file) => ({
+											contentType: file.contentType,
+											hints: file.hints as UnmappedFileHints | null,
+											id: file.id,
+											path: file.path,
+										}));
+									launchMappingDialog(files);
 								}}
 							>
 								<Link2 className="mr-1 h-4 w-4" />
@@ -442,9 +472,11 @@ export default function UnmappedFilesTable(): JSX.Element {
 				<MappingDialog
 					fileIds={mappingFileIds}
 					contentType={mappingContentType}
+					files={mappingFiles ?? undefined}
 					hints={mappingHints}
 					onClose={() => {
 						setMappingFileIds(null);
+						setMappingFiles(null);
 						setSelectedIds(new Set());
 					}}
 				/>

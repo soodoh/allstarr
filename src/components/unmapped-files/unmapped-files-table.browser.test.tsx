@@ -21,6 +21,12 @@ type UnmappedFile = {
 	size: number;
 };
 
+type MappingDialogFile = {
+	id: number;
+	path: string;
+	hints: UnmappedFile["hints"] | null;
+};
+
 type UnmappedGroup = {
 	contentType: string;
 	files: UnmappedFile[];
@@ -193,16 +199,19 @@ vi.mock("src/components/shared/empty-state", () => ({
 
 vi.mock("src/components/unmapped-files/mapping-dialog", () => ({
 	default: ({
+		files,
 		contentType,
 		fileIds,
 		onClose,
 	}: {
+		files?: MappingDialogFile[];
 		contentType: string;
 		fileIds: number[];
 		onClose: () => void;
 	}) => (
 		<div data-testid="mapping-dialog">
 			<p>{`mapping:${contentType}:${fileIds.join(",")}`}</p>
+			<p>{`files:${JSON.stringify(files ?? [])}`}</p>
 			<button onClick={onClose} type="button">
 				Close mapping dialog
 			</button>
@@ -487,5 +496,67 @@ describe("UnmappedFilesTable", () => {
 		await expect
 			.element(page.getByText("Alien (1979).mkv", { exact: true }).first())
 			.toBeInTheDocument();
+	});
+
+	it("passes individual TV file rows into the mapping dialog for single and bulk launches", async () => {
+		tableMocks.state.groups = [
+			{
+				contentType: "tv",
+				profileName: "TV",
+				rootFolderPath: "/library/tv",
+				files: [
+					{
+						contentType: "tv",
+						format: "mkv",
+						hints: {
+							episode: 1,
+							season: 1,
+							title: "Pilot",
+						},
+						id: 4,
+						ignored: false,
+						path: "/library/tv/Show.S01E01.mkv",
+						rootFolderPath: "/library/tv",
+						size: 4 * 1024 * 1024 * 1024,
+					},
+					{
+						contentType: "tv",
+						format: "mkv",
+						hints: {
+							episode: 2,
+							season: 1,
+							title: "Second Episode",
+						},
+						id: 5,
+						ignored: false,
+						path: "/library/tv/Show.S01E02.mkv",
+						rootFolderPath: "/library/tv",
+						size: 4 * 1024 * 1024 * 1024,
+					},
+				],
+			},
+		];
+
+		await renderWithProviders(<UnmappedFilesTable />);
+
+		await page.getByTitle("Map to library entry").first().click();
+		await expect
+			.element(page.getByTestId("mapping-dialog"))
+			.toHaveTextContent(
+				'files:[{"hints":{"episode":1,"season":1,"title":"Pilot"},"id":4,"path":"/library/tv/Show.S01E01.mkv"}]',
+			);
+		await page.getByRole("button", { name: "Close mapping dialog" }).click();
+
+		await page.getByRole("checkbox", { name: "checkbox" }).nth(1).click();
+		await page.getByRole("checkbox", { name: "checkbox" }).nth(2).click();
+		await expect
+			.element(page.getByText("2 files selected"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Map Selected" }).click();
+		await expect
+			.element(page.getByTestId("mapping-dialog"))
+			.toHaveTextContent(
+				'files:[{"hints":{"episode":1,"season":1,"title":"Pilot"},"id":4,"path":"/library/tv/Show.S01E01.mkv"},{"hints":{"episode":2,"season":1,"title":"Second Episode"},"id":5,"path":"/library/tv/Show.S01E02.mkv"}]',
+			);
 	});
 });
