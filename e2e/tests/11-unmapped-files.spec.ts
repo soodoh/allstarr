@@ -72,6 +72,75 @@ function seedUnmappedEbook(
   return seedUnmappedFile(db, rootFolderPath, filename);
 }
 
+function seedUnmappedMovieFile(
+  db: Parameters<typeof seedAuthor>[0],
+  rootFolderPath: string,
+  filename: string,
+  sidecarFilenames: string[] = [],
+): SeededUnmappedTvFile {
+  const sourceDir = join(rootFolderPath, "incoming", "movies");
+  mkdirSync(sourceDir, { recursive: true });
+
+  const filePath = join(sourceDir, filename);
+  writeFileSync(filePath, "dummy movie content");
+
+  const sidecarPaths = sidecarFilenames.map((sidecarFilename) => {
+    const sidecarPath = join(sourceDir, sidecarFilename);
+    mkdirSync(dirname(sidecarPath), { recursive: true });
+    writeFileSync(sidecarPath, `dummy sidecar content for ${sidecarFilename}`);
+
+    const extension = sidecarFilename.split(".").pop()?.toUpperCase() ?? "TXT";
+    db.insert(schema.unmappedFiles)
+      .values({
+        path: sidecarPath,
+        size: 64,
+        rootFolderPath,
+        contentType: "movie",
+        format: extension,
+        quality: null,
+        hints: {
+          source: "filename",
+          title: "Alien",
+          year: 1979,
+        },
+        ignored: false,
+      })
+      .run();
+
+    return sidecarPath;
+  });
+
+  const row = db
+    .insert(schema.unmappedFiles)
+    .values({
+      path: filePath,
+      size: 1024 * 1024 * 4,
+      rootFolderPath,
+      contentType: "movie",
+      format: "MKV",
+      quality: {
+        quality: { id: 4, name: "1080p" },
+        revision: { version: 1, real: 0 },
+      },
+      hints: {
+        title: "Alien",
+        year: 1979,
+        source: "filename",
+      },
+      ignored: false,
+    })
+    .returning()
+    .get();
+
+  return {
+    id: row.id,
+    filename,
+    path: filePath,
+    sidecarPaths,
+    sourceDir,
+  };
+}
+
 function seedUnmappedTvFile(
   db: Parameters<typeof seedAuthor>[0],
   rootFolderPath: string,
@@ -222,15 +291,61 @@ function seedTvLibrary(
   return { show };
 }
 
+function seedMovieLibrary(
+  db: Parameters<typeof seedAuthor>[0],
+  rootFolderPath: string,
+) {
+  const profile = seedDownloadProfile(db, {
+    name: "Unmapped Movie Profile",
+    rootFolderPath,
+    contentType: "movie",
+    icon: "film",
+  });
+
+  const movie = db
+    .insert(schema.movies)
+    .values({
+      title: "Alien",
+      sortTitle: "Alien",
+      overview: "A test movie for unmapped movie mapping e2e coverage.",
+      tmdbId: 1979,
+      imdbId: "tt0078748",
+      status: "released",
+      studio: "Test Studio",
+      year: 1979,
+      runtime: 117,
+      genres: ["Sci-Fi"],
+      tags: [],
+      posterUrl: "https://example.com/alien-poster.jpg",
+      fanartUrl: "https://example.com/alien-fanart.jpg",
+      minimumAvailability: "released",
+      path: "",
+    })
+    .returning()
+    .get();
+
+  db.insert(schema.movieDownloadProfiles)
+    .values({
+      movieId: movie.id,
+      downloadProfileId: profile.id,
+    })
+    .run();
+
+  return { movie, profile };
+}
+
 test.describe("Unmapped Files", () => {
   test.beforeEach(async ({ page, appUrl, db }) => {
     await ensureAuthenticated(page, appUrl);
 
     db.delete(schema.history).run();
+    db.delete(schema.movieDownloadProfiles).run();
+    db.delete(schema.movieFiles).run();
     db.delete(schema.episodeFiles).run();
     db.delete(schema.episodeDownloadProfiles).run();
     db.delete(schema.showDownloadProfiles).run();
     db.delete(schema.seriesBookLinks).run();
+    db.delete(schema.movies).run();
     db.delete(schema.episodes).run();
     db.delete(schema.seasons).run();
     db.delete(schema.shows).run();
@@ -240,6 +355,7 @@ test.describe("Unmapped Files", () => {
     db.delete(schema.booksAuthors).run();
     db.delete(schema.books).run();
     db.delete(schema.authors).run();
+    db.delete(schema.userSettings).run();
     db.delete(schema.downloadProfiles).run();
   });
 
@@ -334,11 +450,14 @@ test.describe("Unmapped Files", () => {
       page.getByRole("heading", { name: "Map 1 file" }),
     ).toBeVisible();
 
-    const searchInput = page.getByLabel("Search Library");
-    await searchInput.fill("Mapped Book");
-    await expect(page.getByText("Mapped Book", { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel(`Search library for ${file.filename}`),
+    ).toHaveValue("Mapped Book");
+    await expect(
+      page.getByText("Mapped Book · Mapped Author · 2025", { exact: true }),
+    ).toBeVisible();
 
-    await page.getByRole("button", { name: "Map Here" }).click();
+    await page.getByRole("button", { name: "Map Selected Files" }).click();
 
     await expect(page.getByText(file.filename, { exact: true })).toHaveCount(0);
     await expect(page.getByText("No unmapped files")).toBeVisible();
@@ -389,6 +508,127 @@ test.describe("Unmapped Files", () => {
         eventType: "bookFileAdded",
         bookId: book.id,
       });
+  });
+
+  test("maps an unmapped movie into the managed folder and moves related sidecars", async ({
+    page,
+    appUrl,
+    db,
+    tempDir,
+    checkpoint,
+  }) => {
+    const { movie, profile } = seedMovieLibrary(db, tempDir);
+    const unmappedMovie = seedUnmappedMovieFile(
+      db,
+      tempDir,
+      "Alien (1979).mkv",
+      ["Alien (1979).nfo", "Alien (1979).xml"],
+    );
+
+    const sourceFolderFile = join(unmappedMovie.sourceDir, "folder.jpg");
+    writeFileSync(sourceFolderFile, "keep me in the source tree");
+
+    const destinationMovieDir = join(tempDir, `${movie.title} (${movie.year})`);
+    mkdirSync(destinationMovieDir, { recursive: true });
+    const destinationKeepFile = join(destinationMovieDir, "readme.txt");
+    writeFileSync(destinationKeepFile, "keep me in the destination tree");
+
+    const expectedMoviePath = join(destinationMovieDir, unmappedMovie.filename);
+    const expectedNfoPath = join(destinationMovieDir, "Alien (1979).nfo");
+    const expectedXmlPath = join(destinationMovieDir, "Alien (1979).xml");
+
+    checkpoint();
+
+    await navigateTo(page, appUrl, "/unmapped-files");
+    await expect(
+      page.getByText(unmappedMovie.filename, { exact: true }),
+    ).toBeVisible();
+
+    const movieRow = page
+      .getByText(unmappedMovie.filename, { exact: true })
+      .locator(
+        "xpath=ancestor::div[.//button[@title='Map to library entry'] and .//*[@role='checkbox']][1]",
+      );
+    await movieRow.getByTitle("Map to library entry").click();
+    await expect(
+      page.getByRole("heading", { name: "Map 1 file" }),
+    ).toBeVisible();
+
+    await expect(
+      page.getByLabel(`Search library for ${unmappedMovie.filename}`),
+    ).toHaveValue("Alien");
+    await expect(
+      page.getByText("Alien · 1979", { exact: true }),
+    ).toBeVisible();
+
+    await page.getByLabel("Move related sidecar files").check();
+    await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+    await expect(page.getByText("No unmapped files")).toBeVisible();
+
+    await expect
+      .poll(() =>
+        db
+          .select({ path: schema.movieFiles.path })
+          .from(schema.movieFiles)
+          .where(eq(schema.movieFiles.movieId, movie.id))
+          .get() ?? null,
+      )
+      .toEqual({ path: expectedMoviePath });
+
+    await expect
+      .poll(() =>
+        db
+          .select({ path: schema.movies.path })
+          .from(schema.movies)
+          .where(eq(schema.movies.id, movie.id))
+          .get() ?? null,
+      )
+      .toEqual({ path: destinationMovieDir });
+
+    await expect
+      .poll(() =>
+        db
+          .select({
+            downloadProfileId: schema.movieFiles.downloadProfileId,
+          })
+          .from(schema.movieFiles)
+          .where(eq(schema.movieFiles.movieId, movie.id))
+          .get()?.downloadProfileId ?? null,
+      )
+      .toBe(profile.id);
+
+    await expect
+      .poll(() =>
+        db
+          .select({ id: schema.unmappedFiles.id })
+          .from(schema.unmappedFiles)
+          .where(eq(schema.unmappedFiles.path, unmappedMovie.path))
+          .get() ?? null,
+      )
+      .toBeNull();
+
+    for (const sidecarPath of unmappedMovie.sidecarPaths) {
+      await expect
+        .poll(() =>
+          db
+            .select({ id: schema.unmappedFiles.id })
+            .from(schema.unmappedFiles)
+            .where(eq(schema.unmappedFiles.path, sidecarPath))
+            .get() ?? null,
+        )
+        .toBeNull();
+    }
+
+    await expect.poll(() => existsSync(expectedMoviePath)).toBe(true);
+    await expect.poll(() => existsSync(expectedNfoPath)).toBe(true);
+    await expect.poll(() => existsSync(expectedXmlPath)).toBe(true);
+    await expect.poll(() => existsSync(unmappedMovie.path)).toBe(false);
+    for (const sidecarPath of unmappedMovie.sidecarPaths) {
+      await expect.poll(() => existsSync(sidecarPath)).toBe(false);
+    }
+    await expect.poll(() => existsSync(sourceFolderFile)).toBe(true);
+    await expect.poll(() => existsSync(destinationKeepFile)).toBe(true);
   });
 
   test("maps TV rows with distinct episode targets and moves related sidecars", async ({

@@ -11,6 +11,7 @@ import {
 	episodes,
 	history,
 	movieFiles,
+	movies,
 	seasons,
 	shows,
 	unmappedFiles,
@@ -20,7 +21,10 @@ import {
 	buildBookFolderName,
 } from "src/server/book-paths";
 import { eventBus } from "src/server/event-bus";
-import { buildManagedEpisodeDestination } from "src/server/file-import";
+import {
+	buildManagedEpisodeDestination,
+	buildManagedMovieDestination,
+} from "src/server/file-import";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
@@ -39,6 +43,7 @@ const TV_SIDECAR_EXTENSIONS = new Set([
 	".vtt",
 	".xml",
 ]);
+const MOVIE_SIDECAR_EXTENSIONS = TV_SIDECAR_EXTENSIONS;
 const TV_EPISODE_PATTERN = /S(\d{1,2})E(\d{1,3})/i;
 
 function naturalSort(a: string, b: string): number {
@@ -256,6 +261,112 @@ function buildTvSidecarCollisionKey(
 	return path.join(
 		path.dirname(managedEpisodePath),
 		`${stripFileExtension(path.basename(managedEpisodePath))}${suffixParts.length > 0 ? `.${suffixParts.join(".")}` : ""}${path.extname(sidecarPath)}`,
+	);
+}
+
+function getMovieSidecarSuffixParts(
+	sourcePath: string,
+	sidecarPath: string,
+): string[] {
+	const sourceStem = stripFileExtension(path.basename(sourcePath));
+	const sidecarStem = stripFileExtension(path.basename(sidecarPath));
+
+	if (sidecarStem === sourceStem) {
+		return [];
+	}
+
+	if (!sidecarStem.toLowerCase().startsWith(sourceStem.toLowerCase())) {
+		return [];
+	}
+
+	const suffix = sidecarStem
+		.slice(sourceStem.length)
+		.replace(/^[ ._-]+/g, "")
+		.trim();
+
+	return normalizeSuffixParts(suffix);
+}
+
+function isRelatedMovieSidecar(
+	sourcePath: string,
+	candidatePath: string,
+): boolean {
+	if (!isWithinSourceDirectoryTree(sourcePath, candidatePath)) {
+		return false;
+	}
+
+	const candidateExt = path.extname(candidatePath).toLowerCase();
+	if (!MOVIE_SIDECAR_EXTENSIONS.has(candidateExt)) {
+		return false;
+	}
+
+	const sourceStem = stripFileExtension(path.basename(sourcePath));
+	const candidateStem = stripFileExtension(path.basename(candidatePath));
+	if (candidateStem === sourceStem) {
+		return true;
+	}
+
+	if (!candidateStem.toLowerCase().startsWith(sourceStem.toLowerCase())) {
+		return false;
+	}
+
+	return /^[ ._-]+/.test(candidateStem.slice(sourceStem.length));
+}
+
+function buildManagedMovieSidecarPath(
+	managedMoviePath: string,
+	sourcePath: string,
+	sidecarPath: string,
+	usedDestPaths: Set<string>,
+	preferRelativeDirParts = false,
+): string {
+	const baseName = stripFileExtension(path.basename(managedMoviePath));
+	const ext = path.extname(sidecarPath);
+	const suffixParts = getMovieSidecarSuffixParts(sourcePath, sidecarPath);
+	const relativeDirParts = getRelativeSidecarDirectoryParts(
+		sourcePath,
+		sidecarPath,
+	);
+	const candidatePartSets = [
+		preferRelativeDirParts && relativeDirParts.length > 0
+			? [...relativeDirParts, ...suffixParts]
+			: suffixParts,
+		relativeDirParts.length > 0 ? [...relativeDirParts, ...suffixParts] : null,
+		preferRelativeDirParts ? suffixParts : null,
+	].filter((parts): parts is string[] => parts != null);
+
+	for (const parts of candidatePartSets) {
+		const candidatePath = path.join(
+			path.dirname(managedMoviePath),
+			`${baseName}${parts.length > 0 ? `.${parts.join(".")}` : ""}${ext}`,
+		);
+		if (!usedDestPaths.has(candidatePath)) {
+			return candidatePath;
+		}
+	}
+
+	let counter = 2;
+	while (true) {
+		const candidatePath = path.join(
+			path.dirname(managedMoviePath),
+			`${baseName}.${[...relativeDirParts, ...suffixParts, String(counter)].filter(Boolean).join(".")}${ext}`,
+		);
+		if (!usedDestPaths.has(candidatePath)) {
+			return candidatePath;
+		}
+		counter++;
+	}
+}
+
+function buildMovieSidecarCollisionKey(
+	managedMoviePath: string,
+	sourcePath: string,
+	sidecarPath: string,
+): string {
+	const suffixParts = getMovieSidecarSuffixParts(sourcePath, sidecarPath);
+	return path.join(
+		path.dirname(managedMoviePath),
+		`${stripFileExtension(path.basename(managedMoviePath))}${suffixParts.length > 0 ? `.${suffixParts.join(".")}` : ""}${path.extname(sidecarPath)}`,
 	);
 }
 
@@ -548,6 +659,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 		);
 		const normalized = normalizeImportRows(data);
 		const rows = normalized.rows;
+		const mappedFileIds = new Set(rows.map((row) => row.unmappedFileId));
 		const episodeRows = rows.filter(
 			(row): row is ImportRow & { entityType: "episode" } =>
 				row.entityType === "episode",
@@ -939,6 +1051,29 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					throw error;
 				}
 			} else if (row.entityType === "movie") {
+				const movie = db
+					.select({
+						title: movies.title,
+						year: movies.year,
+					})
+					.from(movies)
+					.where(eq(movies.id, row.entityId))
+					.limit(1)
+					.get();
+
+				if (!movie) {
+					throw new Error(`Movie ${row.entityId} not found`);
+				}
+
+				const managedRootPath = resolveManagedRootFolder(
+					data.downloadProfileId,
+				);
+				if (!managedRootPath) {
+					throw new Error(
+						`Download profile ${data.downloadProfileId} has no root folder configured`,
+					);
+				}
+
 				// Probe video metadata
 				let duration: number | null = null;
 				let codec: string | null = null;
@@ -953,31 +1088,124 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					}
 				}
 
-				db.insert(movieFiles)
-					.values({
-						movieId: row.entityId,
-						path: file.path,
-						size: file.size,
-						quality: file.quality,
-						downloadProfileId: data.downloadProfileId,
-						duration,
-						codec,
-						container,
-					})
-					.run();
+				const destPath = buildManagedMovieDestination({
+					rootFolderPath: managedRootPath,
+					movieTitle: movie.title,
+					movieYear: movie.year,
+					sourcePath: file.path,
+				});
+				const movedFiles: Array<{ destPath: string; sourcePath: string }> = [];
+				const movedSidecarIds: number[] = [];
 
-				db.insert(history)
-					.values({
-						eventType: "movieFileAdded",
-						movieId: row.entityId,
-						data: {
-							path: file.path,
-							size: file.size,
-							quality: file.quality?.quality?.name ?? "Unknown",
-							source: "unmappedFileMapping",
-						},
-					})
-					.run();
+				try {
+					moveFileToManagedPath(fs, file.path, destPath);
+					movedFiles.push({
+						destPath,
+						sourcePath: file.path,
+					});
+					const usedDestPaths = new Set([destPath]);
+
+					if (normalized.moveRelatedSidecars) {
+						const candidates = db
+							.select()
+							.from(unmappedFiles)
+							.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
+							.all();
+						const relatedSidecars = candidates.filter(
+							(candidate) =>
+								candidate.id !== file.id &&
+								!mappedFileIds.has(candidate.id) &&
+								isRelatedMovieSidecar(file.path, candidate.path),
+						);
+						const sidecarCollisionCounts = new Map<string, number>();
+
+						for (const candidate of relatedSidecars) {
+							const collisionKey = buildMovieSidecarCollisionKey(
+								destPath,
+								file.path,
+								candidate.path,
+							);
+							sidecarCollisionCounts.set(
+								collisionKey,
+								(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
+							);
+						}
+
+						for (const candidate of relatedSidecars) {
+							const collisionKey = buildMovieSidecarCollisionKey(
+								destPath,
+								file.path,
+								candidate.path,
+							);
+							const sidecarDest = buildManagedMovieSidecarPath(
+								destPath,
+								file.path,
+								candidate.path,
+								usedDestPaths,
+								(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
+							);
+							moveFileToManagedPath(fs, candidate.path, sidecarDest);
+							movedFiles.push({
+								destPath: sidecarDest,
+								sourcePath: candidate.path,
+							});
+							usedDestPaths.add(sidecarDest);
+							movedSidecarIds.push(candidate.id);
+						}
+					}
+
+					db.transaction((tx) => {
+						tx.insert(movieFiles)
+							.values({
+								movieId: row.entityId,
+								path: destPath,
+								size: file.size,
+								quality: file.quality,
+								downloadProfileId: data.downloadProfileId,
+								duration,
+								codec,
+								container,
+							})
+							.run();
+
+						tx.update(movies)
+							.set({ path: path.dirname(destPath) })
+							.where(eq(movies.id, row.entityId))
+							.run();
+
+						tx.insert(history)
+							.values({
+								eventType: "movieFileAdded",
+								movieId: row.entityId,
+								data: {
+									path: destPath,
+									size: file.size,
+									quality: file.quality?.quality?.name ?? "Unknown",
+									source: "unmappedFileMapping",
+								},
+							})
+							.run();
+
+						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+						for (const sidecarId of movedSidecarIds) {
+							tx.delete(unmappedFiles)
+								.where(eq(unmappedFiles.id, sidecarId))
+								.run();
+						}
+					});
+				} catch (error) {
+					for (const moved of [...movedFiles].reverse()) {
+						try {
+							moveFileToManagedPath(fs, moved.destPath, moved.sourcePath);
+						} catch (rollbackError) {
+							logWarn(
+								"unmapped-files",
+								`Failed to roll back movie file move for ${moved.sourcePath}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+							);
+						}
+					}
+					throw error;
+				}
 			} else if (row.entityType === "episode") {
 				// Probe video metadata
 				let duration: number | null = null;
@@ -1020,7 +1248,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					.run();
 			}
 
-			if (row.entityType !== "book") {
+			if (row.entityType !== "book" && row.entityType !== "movie") {
 				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
 			}
 			mappedCount++;
