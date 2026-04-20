@@ -466,6 +466,49 @@ function setupTvMappingSelects({
 	});
 }
 
+function setupMovieRowMappingSelects({
+	profile,
+	rows,
+}: {
+	profile: Record<string, unknown>;
+	rows: Array<{
+		file: Record<string, unknown>;
+		movie: Record<string, unknown>;
+	}>;
+}) {
+	const profileChain = createSelectChain(profile);
+	const fileChains = rows.map((row) => createSelectChain(row.file));
+	const movieChains = rows.map((row) => createSelectChain(row.movie));
+
+	let plainSelectIndex = 0;
+	let shapedSelectIndex = 0;
+	mocks.select.mockImplementation((shape?: Record<string, unknown>) => {
+		if (shape) {
+			const chain = movieChains[shapedSelectIndex++];
+			if (!chain) {
+				throw new Error(
+					`Unexpected shaped select call ${shapedSelectIndex} in movie mapping test`,
+				);
+			}
+			return chain;
+		}
+
+		if (plainSelectIndex === 0) {
+			plainSelectIndex++;
+			return profileChain;
+		}
+
+		const chain = fileChains[plainSelectIndex - 1];
+		plainSelectIndex++;
+		if (!chain) {
+			throw new Error(
+				`Unexpected plain select call ${plainSelectIndex} in movie mapping test`,
+			);
+		}
+		return chain;
+	});
+}
+
 describe("server/unmapped-files", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
@@ -901,6 +944,139 @@ describe("server/unmapped-files", () => {
 					},
 				}),
 			).toThrow("Invalid input");
+		});
+
+		it("maps multiple movie rows to different movie ids in one request", async () => {
+			const profile = {
+				id: 7,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const rows = [
+				{
+					file: {
+						id: 1,
+						path: "/downloads/Alien (1979).mkv",
+						size: 2000000000,
+						quality: null,
+					},
+					movie: { id: 11, title: "Alien", year: 1979 },
+				},
+				{
+					file: {
+						id: 2,
+						path: "/downloads/Aliens (1986).mkv",
+						size: 2100000000,
+						quality: null,
+					},
+					movie: { id: 12, title: "Aliens", year: 1986 },
+				},
+			];
+
+			setupMovieRowMappingSelects({ profile, rows });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.probeVideoFile.mockResolvedValue(null);
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 7,
+					rows: [
+						{ unmappedFileId: 1, entityType: "movie", entityId: 11 },
+						{ unmappedFileId: 2, entityType: "movie", entityId: 12 },
+					],
+					moveRelatedSidecars: false,
+				},
+			});
+
+			expect(result).toEqual({ success: true, mappedCount: 2 });
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					movieId: 11,
+				}),
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					movieId: 12,
+				}),
+			);
+		});
+
+		it("maps multiple audiobook rows to the same book id without a bulk entityId", async () => {
+			const profile = {
+				id: 5,
+				name: "Audiobooks",
+				rootFolderPath: "/library",
+				contentType: "audiobook",
+			};
+			const file1 = {
+				id: 1,
+				path: "/downloads/Foundation Part 1.mp3",
+				size: 50000,
+				quality: null,
+			};
+			const file2 = {
+				id: 2,
+				path: "/downloads/Foundation Part 2.mp3",
+				size: 50000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				files: [file1, file2],
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			mocks.probeAudioFile.mockResolvedValue({
+				duration: 1800,
+				bitrate: 128000,
+				sampleRate: 44100,
+				channels: 2,
+				codec: "mp3",
+			});
+
+			await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					rows: [
+						{ unmappedFileId: 1, entityType: "book", entityId: 10 },
+						{ unmappedFileId: 2, entityType: "book", entityId: 10 },
+					],
+				},
+			});
+
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					part: 1,
+					partCount: 2,
+				}),
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({
+					part: 2,
+					partCount: 2,
+				}),
+			);
 		});
 
 		it("maps an audio book file with probe metadata", async () => {
