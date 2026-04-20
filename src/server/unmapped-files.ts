@@ -464,6 +464,12 @@ const tvMappingSchema = z.object({
 	episodeId: z.number(),
 });
 
+const importRowSchema = z.object({
+	unmappedFileId: z.number(),
+	entityId: z.number(),
+	entityType: z.enum(["book", "movie", "episode"]),
+});
+
 const mapUnmappedFileSchema = z.union([
 	z
 		.object({
@@ -489,7 +495,48 @@ const mapUnmappedFileSchema = z.union([
 			tvMappings: z.array(tvMappingSchema).min(1),
 		})
 		.strict(),
+	z
+		.object({
+			downloadProfileId: z.number(),
+			rows: z.array(importRowSchema).min(1),
+			moveRelatedSidecars: z.boolean().default(false),
+		})
+		.strict(),
 ]);
+
+type ImportRow = z.infer<typeof importRowSchema>;
+
+function normalizeImportRows(data: z.infer<typeof mapUnmappedFileSchema>): {
+	moveRelatedSidecars: boolean;
+	rows: ImportRow[];
+} {
+	if ("rows" in data) {
+		return {
+			moveRelatedSidecars: data.moveRelatedSidecars,
+			rows: data.rows,
+		};
+	}
+
+	if ("tvMappings" in data) {
+		return {
+			moveRelatedSidecars: data.moveRelatedSidecars,
+			rows: data.tvMappings.map((mapping) => ({
+				unmappedFileId: mapping.unmappedFileId,
+				entityId: mapping.episodeId,
+				entityType: "episode" as const,
+			})),
+		};
+	}
+
+	return {
+		moveRelatedSidecars: false,
+		rows: data.unmappedFileIds.map((unmappedFileId) => ({
+			unmappedFileId,
+			entityId: data.entityId,
+			entityType: data.entityType,
+		})),
+	};
+}
 
 export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => mapUnmappedFileSchema.parse(d))
@@ -499,8 +546,18 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 		const { probeAudioFile, probeEbookFile, probeVideoFile } = await import(
 			"src/server/media-probe"
 		);
+		const normalized = normalizeImportRows(data);
+		const rows = normalized.rows;
+		const episodeRows = rows.filter(
+			(row): row is ImportRow & { entityType: "episode" } =>
+				row.entityType === "episode",
+		);
 
-		if (data.entityType === "episode" && "tvMappings" in data) {
+		if (
+			episodeRows.length > 0 &&
+			episodeRows.length === rows.length &&
+			("tvMappings" in data || "rows" in data)
+		) {
 			const profile = db
 				.select()
 				.from(downloadProfiles)
@@ -518,12 +575,10 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				);
 			}
 
-			const mappedIds = new Set(
-				data.tvMappings.map((mapping) => mapping.unmappedFileId),
-			);
+			const mappedIds = new Set(episodeRows.map((row) => row.unmappedFileId));
 			let mappedCount = 0;
 
-			for (const row of data.tvMappings) {
+			for (const row of episodeRows) {
 				const file = db
 					.select()
 					.from(unmappedFiles)
@@ -543,12 +598,12 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					.from(episodes)
 					.innerJoin(seasons, eq(seasons.id, episodes.seasonId))
 					.innerJoin(shows, eq(shows.id, episodes.showId))
-					.where(eq(episodes.id, row.episodeId))
+					.where(eq(episodes.id, row.entityId))
 					.limit(1)
 					.get();
 
 				if (!episode) {
-					throw new Error(`Episode ${row.episodeId} not found`);
+					throw new Error(`Episode ${row.entityId} not found`);
 				}
 
 				let duration: number | null = null;
@@ -584,7 +639,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					});
 					const usedDestPaths = new Set([managedEpisodePath]);
 
-					if (data.moveRelatedSidecars) {
+					if (normalized.moveRelatedSidecars) {
 						const candidates = db
 							.select()
 							.from(unmappedFiles)
@@ -636,7 +691,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					db.transaction((tx) => {
 						tx.insert(episodeFiles)
 							.values({
-								episodeId: row.episodeId,
+								episodeId: row.entityId,
 								path: managedEpisodePath,
 								size: file.size,
 								quality: file.quality,
@@ -650,7 +705,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						tx.insert(history)
 							.values({
 								eventType: "episodeFileAdded",
-								episodeId: row.episodeId,
+								episodeId: row.entityId,
 								data: {
 									path: managedEpisodePath,
 									size: file.size,
@@ -699,29 +754,54 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 			throw new Error(`Download profile ${data.downloadProfileId} not found`);
 		}
 
-		// Fetch all unmapped files and sort naturally for part numbering
-		const files = data.unmappedFileIds
-			.map((id) =>
-				db.select().from(unmappedFiles).where(eq(unmappedFiles.id, id)).get(),
+		// Fetch all unmapped rows and sort naturally for deterministic part numbering
+		const resolvedRows = rows
+			.map((row) => ({
+				file: db
+					.select()
+					.from(unmappedFiles)
+					.where(eq(unmappedFiles.id, row.unmappedFileId))
+					.get(),
+				row,
+			}))
+			.filter(
+				(
+					resolvedRow,
+				): resolvedRow is {
+					file: NonNullable<typeof resolvedRow.file>;
+					row: ImportRow;
+				} => resolvedRow.file != null,
 			)
-			.filter((f): f is NonNullable<typeof f> => f != null)
-			.sort((a, b) => naturalSort(a.path, b.path));
+			.sort((left, right) => naturalSort(left.file.path, right.file.path));
 
 		let mappedCount = 0;
 
-		// Determine if this is a multi-part audiobook
-		const audioFiles = files.filter((f) =>
-			AUDIO_EXTENSIONS.has(path.extname(f.path).toLowerCase()),
-		);
-		const audioCount = audioFiles.length;
+		const audioRowsByBookId = new Map<number, typeof resolvedRows>();
+		for (const resolvedRow of resolvedRows) {
+			if (
+				resolvedRow.row.entityType !== "book" ||
+				!AUDIO_EXTENSIONS.has(path.extname(resolvedRow.file.path).toLowerCase())
+			) {
+				continue;
+			}
 
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
+			const current = audioRowsByBookId.get(resolvedRow.row.entityId) ?? [];
+			current.push(resolvedRow);
+			audioRowsByBookId.set(resolvedRow.row.entityId, current);
+		}
+
+		for (const bookRows of audioRowsByBookId.values()) {
+			bookRows.sort((left, right) =>
+				naturalSort(left.file.path, right.file.path),
+			);
+		}
+
+		for (const { file, row } of resolvedRows) {
 			const ext = path.extname(file.path).toLowerCase();
 			const isAudio = AUDIO_EXTENSIONS.has(ext);
 			const isVideo = VIDEO_EXTENSIONS.has(ext);
 
-			if (data.entityType === "book") {
+			if (row.entityType === "book") {
 				const book = db
 					.select({
 						authorName: booksAuthors.authorName,
@@ -736,12 +816,12 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							eq(booksAuthors.isPrimary, true),
 						),
 					)
-					.where(eq(books.id, data.entityId))
+					.where(eq(books.id, row.entityId))
 					.limit(1)
 					.get();
 
 				if (!book) {
-					throw new Error(`Book ${data.entityId} not found`);
+					throw new Error(`Book ${row.entityId} not found`);
 				}
 
 				const mediaType =
@@ -788,9 +868,12 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						channels = meta.channels;
 						codec = meta.codec;
 					}
-					if (audioCount > 1) {
-						part = audioFiles.indexOf(file) + 1;
-						partCount = audioCount;
+					const audioRows = audioRowsByBookId.get(row.entityId) ?? [];
+					if (audioRows.length > 1) {
+						part =
+							audioRows.findIndex((audioRow) => audioRow.file.id === file.id) +
+							1;
+						partCount = audioRows.length;
 					}
 				} else {
 					const meta = probeEbookFile(file.path);
@@ -812,7 +895,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					db.transaction((tx) => {
 						tx.insert(bookFiles)
 							.values({
-								bookId: data.entityId,
+								bookId: row.entityId,
 								path: destPath,
 								size: file.size,
 								quality: file.quality,
@@ -832,7 +915,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						tx.insert(history)
 							.values({
 								eventType: "bookFileAdded",
-								bookId: data.entityId,
+								bookId: row.entityId,
 								data: {
 									path: destPath,
 									size: file.size,
@@ -855,7 +938,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					}
 					throw error;
 				}
-			} else if (data.entityType === "movie") {
+			} else if (row.entityType === "movie") {
 				// Probe video metadata
 				let duration: number | null = null;
 				let codec: string | null = null;
@@ -872,7 +955,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 				db.insert(movieFiles)
 					.values({
-						movieId: data.entityId,
+						movieId: row.entityId,
 						path: file.path,
 						size: file.size,
 						quality: file.quality,
@@ -886,7 +969,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				db.insert(history)
 					.values({
 						eventType: "movieFileAdded",
-						movieId: data.entityId,
+						movieId: row.entityId,
 						data: {
 							path: file.path,
 							size: file.size,
@@ -895,7 +978,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						},
 					})
 					.run();
-			} else if (data.entityType === "episode") {
+			} else if (row.entityType === "episode") {
 				// Probe video metadata
 				let duration: number | null = null;
 				let codec: string | null = null;
@@ -912,7 +995,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 				db.insert(episodeFiles)
 					.values({
-						episodeId: data.entityId,
+						episodeId: row.entityId,
 						path: file.path,
 						size: file.size,
 						quality: file.quality,
@@ -926,7 +1009,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				db.insert(history)
 					.values({
 						eventType: "episodeFileAdded",
-						episodeId: data.entityId,
+						episodeId: row.entityId,
 						data: {
 							path: file.path,
 							size: file.size,
@@ -937,7 +1020,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					.run();
 			}
 
-			if (data.entityType !== "book") {
+			if (row.entityType !== "book") {
 				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
 			}
 			mappedCount++;
