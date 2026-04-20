@@ -103,11 +103,7 @@ export default function UnmappedFilesTable(): JSX.Element {
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
 	// Mapping state
-	const [mappingFileIds, setMappingFileIds] = useState<number[] | null>(null);
 	const [mappingContentType, setMappingContentType] = useState("");
-	const [mappingHints, setMappingHints] = useState<UnmappedFileHints | null>(
-		null,
-	);
 	const [mappingFiles, setMappingFiles] = useState<MappingDialogFile[] | null>(
 		null,
 	);
@@ -220,19 +216,18 @@ export default function UnmappedFilesTable(): JSX.Element {
 	) => {
 		if (files.length === 0) return;
 
+		const contentTypes = new Set(files.map((file) => file.contentType));
+		if (contentTypes.size > 1) {
+			toast.error("Select files from a single content type to map together");
+			return;
+		}
+
 		const [firstFile] = files;
-		setMappingFileIds(files.map((file) => file.id));
 		setMappingContentType(firstFile.contentType);
-		setMappingHints(firstFile.hints);
-		setMappingFiles(
-			firstFile.contentType === "tv"
-				? files.map(({ hints, id, path }) => ({ hints, id, path }))
-				: null,
-		);
+		setMappingFiles(files.map(({ hints, id, path }) => ({ hints, id, path })));
 	};
 
 	const closeMappingDialog = () => {
-		setMappingFileIds(null);
 		setMappingFiles(null);
 		setSelectedIds(new Set());
 	};
@@ -467,18 +462,10 @@ export default function UnmappedFilesTable(): JSX.Element {
 			)}
 
 			{/* Mapping dialog */}
-			{mappingFileIds && mappingFiles && (
+			{mappingFiles && (
 				<MappingDialog
 					files={mappingFiles}
 					contentType={mappingContentType}
-					onClose={closeMappingDialog}
-				/>
-			)}
-			{mappingFileIds && !mappingFiles && (
-				<MappingDialog
-					fileIds={mappingFileIds}
-					contentType={mappingContentType}
-					hints={mappingHints}
 					onClose={closeMappingDialog}
 				/>
 			)}

@@ -679,19 +679,28 @@ describe("MappingDialog", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("maps a search result with the hinted search text and selected profile", async () => {
+	it("maps non-tv rows independently with the hinted search text and selected profile", async () => {
 		const onClose = vi.fn();
 
 		mappingDialogState.profiles = [
 			{ contentType: "movie", id: 7, name: "Movies 4K" },
 			{ contentType: "tv", id: 8, name: "TV Only" },
 		];
+		mappingDialogState.userSettings = {
+			addDefaults: { moveRelatedSidecars: true },
+		};
 		mappingDialogState.results = [
 			{
 				entityType: "movie",
 				id: 501,
 				subtitle: "1979",
 				title: "Alien",
+			},
+			{
+				entityType: "movie",
+				id: 502,
+				subtitle: "1986",
+				title: "Aliens",
 			},
 		];
 		mappingDialogMocks.mapUnmappedFileFn.mockResolvedValue({
@@ -707,12 +716,12 @@ describe("MappingDialog", () => {
 						{
 							id: 11,
 							path: "/incoming/Alien (1979).mkv",
-							hints: { author: "Ridley Scott", title: "Alien" },
+							hints: { title: "Alien" },
 						},
 						{
 							id: 12,
-							path: "/incoming/Alien sample.nfo",
-							hints: null,
+							path: "/incoming/Aliens (1986).mkv",
+							hints: { title: "Aliens" },
 						},
 					] as MappingDialogFile[]
 				}
@@ -724,27 +733,46 @@ describe("MappingDialog", () => {
 			.element(page.getByRole("heading", { name: "Map 2 files" }))
 			.toBeInTheDocument();
 		await expect
-			.element(page.getByLabelText("Search Library"))
-			.toHaveValue("Alien Ridley Scott");
-		await expect.element(page.getByRole("combobox")).toHaveValue("7");
-		await expect.element(page.getByText("Alien")).toBeInTheDocument();
-		await expect.element(page.getByText("1979")).toBeInTheDocument();
+			.element(page.getByLabelText("Search library for Alien (1979).mkv"))
+			.toHaveValue("Alien");
+		await expect
+			.element(page.getByLabelText("Search library for Aliens (1986).mkv"))
+			.toHaveValue("Aliens");
+		await expect
+			.element(page.getByLabelText("Download Profile"))
+			.toHaveValue("7");
+		await expect
+			.element(page.getByLabelText("Move related sidecar files"))
+			.toBeChecked();
+		await expect
+			.element(page.getByLabelText("Target for Alien (1979).mkv"))
+			.toHaveValue("501");
+		await expect
+			.element(page.getByLabelText("Target for Aliens (1986).mkv"))
+			.toHaveValue("502");
 
-		await page.getByRole("button", { name: "Map Here" }).click();
+		await page.getByLabelText("Move related sidecar files").click();
+		await page.getByRole("button", { name: "Map Selected Files" }).click();
 
 		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
 			data: {
 				downloadProfileId: 7,
-				entityId: 501,
-				entityType: "movie",
-				unmappedFileIds: [11, 12],
+				moveRelatedSidecars: false,
+				rows: [
+					{ entityId: 501, entityType: "movie", unmappedFileId: 11 },
+					{ entityId: 502, entityType: "movie", unmappedFileId: 12 },
+				],
 			},
 		});
 		expect(mappingDialogMocks.invalidateQueries).toHaveBeenCalledWith({
 			queryKey: ["unmappedFiles"],
 		});
+		expect(mappingDialogMocks.upsertUserSettingsFn).toHaveBeenCalledWith({
+			addDefaults: { moveRelatedSidecars: false },
+			tableId: "unmapped-files",
+		});
 		expect(mappingDialogMocks.toast.success).toHaveBeenCalledWith(
-			'2 files mapped to "Alien"',
+			"2 files mapped",
 		);
 		expect(mappingDialogMocks.toast.error).not.toHaveBeenCalled();
 		expect(onClose).toHaveBeenCalledTimes(1);

@@ -41,18 +41,11 @@ export type MappingDialogFile = {
 	hints: UnmappedFileHints | null;
 };
 
-type MappingDialogProps =
-	| {
-			contentType: string;
-			files: MappingDialogFile[];
-			onClose: () => void;
-	  }
-	| {
-			contentType: string;
-			fileIds: number[];
-			hints: UnmappedFileHints | null;
-			onClose: () => void;
-	  };
+type MappingDialogProps = {
+	contentType: string;
+	files: MappingDialogFile[];
+	onClose: () => void;
+};
 
 type LibraryResult = {
 	id: number;
@@ -75,6 +68,11 @@ type TvRowState = {
 	selectedEpisodeId: number | null;
 };
 
+type NonTvRowState = {
+	search: string;
+	selectedEntityId: number | null;
+};
+
 type TvRowProps = {
 	file: MappingDialogFile;
 	onSearchChange: (fileId: number, search: string) => void;
@@ -86,33 +84,35 @@ type TvRowProps = {
 	suggestion: TvSuggestionRow | undefined;
 };
 
+type NonTvRowProps = {
+	contentType: string;
+	file: MappingDialogFile;
+	onSearchChange: (fileId: number, search: string) => void;
+	onSelectedEntityIdChange: (
+		fileId: number,
+		selectedEntityId: number | null,
+	) => void;
+	rowState: NonTvRowState;
+	selectionTouched: boolean;
+};
+
 function getFileName(pathname: string): string {
 	const fileName = pathname.split("/").pop();
 	return fileName && fileName.length > 0 ? fileName : pathname;
 }
 
-function buildInitialSearch(files: MappingDialogFile[]): string {
-	const hintedFile = files.find((file) => file.hints != null);
-	if (!hintedFile?.hints) {
-		return "";
+function buildInitialRowSearch(file: MappingDialogFile): string {
+	if (file.hints?.title) {
+		return file.hints.title;
 	}
 
-	const parts: string[] = [];
-	if (hintedFile.hints.title) parts.push(hintedFile.hints.title);
-	if (hintedFile.hints.author) parts.push(hintedFile.hints.author);
-	return parts.join(" ");
+	return getFileName(file.path);
 }
 
-function normalizeFiles(props: MappingDialogProps): MappingDialogFile[] {
-	if ("files" in props) {
-		return props.files;
-	}
-
-	return props.fileIds.map((id) => ({
-		id,
-		hints: props.hints,
-		path: "",
-	}));
+function getEntityTypeForContentType(
+	contentType: string,
+): LibraryResult["entityType"] {
+	return contentType === "movie" ? "movie" : "book";
 }
 
 function buildTvInitialRowState(
@@ -158,6 +158,51 @@ function formatEpisodeOption(option: LibraryResult): string {
 	return option.subtitle
 		? `${option.title} · ${option.subtitle}`
 		: option.title;
+}
+
+function formatLibraryOption(option: LibraryResult): string {
+	return option.subtitle
+		? `${option.title} · ${option.subtitle}`
+		: option.title;
+}
+
+function normalizeComparisonValue(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replaceAll(/[^a-z0-9]+/g, " ");
+}
+
+function pickSuggestedLibraryOption(
+	file: MappingDialogFile,
+	rowState: NonTvRowState,
+	options: LibraryResult[],
+): LibraryResult | undefined {
+	const hintedTitle = file.hints?.title;
+	const normalizedHint =
+		typeof hintedTitle === "string" && hintedTitle.length > 0
+			? normalizeComparisonValue(hintedTitle)
+			: "";
+	if (normalizedHint.length > 0) {
+		const hintMatch = options.find(
+			(option) => normalizeComparisonValue(option.title) === normalizedHint,
+		);
+		if (hintMatch) {
+			return hintMatch;
+		}
+	}
+
+	const normalizedSearch = normalizeComparisonValue(rowState.search);
+	if (normalizedSearch.length > 0) {
+		const searchMatch = options.find(
+			(option) => normalizeComparisonValue(option.title) === normalizedSearch,
+		);
+		if (searchMatch) {
+			return searchMatch;
+		}
+	}
+
+	return options[0];
 }
 
 function TvMappingRow({
@@ -309,31 +354,204 @@ function TvMappingRow({
 	);
 }
 
+function NonTvMappingRow({
+	contentType,
+	file,
+	onSearchChange,
+	onSelectedEntityIdChange,
+	rowState,
+	selectionTouched,
+}: NonTvRowProps): JSX.Element {
+	const debouncedSearch = useDebounce(rowState.search, 300);
+	const searchEnabled = debouncedSearch.trim().length >= 2;
+	const expectedEntityType = getEntityTypeForContentType(contentType);
+	const searchId = `library-search-${file.id}`;
+	const fileName = getFileName(file.path);
+
+	const { data: searchResults, isLoading } = useQuery({
+		queryKey: [
+			"unmappedFiles",
+			"search",
+			debouncedSearch,
+			contentType,
+			file.id,
+		],
+		queryFn: () =>
+			searchLibraryFn({
+				data: {
+					contentType,
+					query: debouncedSearch,
+				},
+			}),
+		enabled: searchEnabled,
+	});
+
+	const selectOptions = useMemo(() => {
+		const options = new Map<number, LibraryResult>();
+
+		for (const result of searchResults?.library ?? []) {
+			if (result.entityType !== expectedEntityType || options.has(result.id)) {
+				continue;
+			}
+			options.set(result.id, result);
+		}
+
+		if (
+			rowState.selectedEntityId != null &&
+			!options.has(rowState.selectedEntityId)
+		) {
+			options.set(rowState.selectedEntityId, {
+				entityType: expectedEntityType,
+				id: rowState.selectedEntityId,
+				subtitle: "Selected manually",
+				title: `${expectedEntityType === "movie" ? "Movie" : "Book"} ${rowState.selectedEntityId}`,
+			});
+		}
+
+		return Array.from(options.values());
+	}, [expectedEntityType, rowState.selectedEntityId, searchResults?.library]);
+
+	useEffect(() => {
+		const suggestedOption = pickSuggestedLibraryOption(
+			file,
+			rowState,
+			selectOptions,
+		);
+
+		if (
+			selectionTouched ||
+			rowState.selectedEntityId != null ||
+			suggestedOption == null
+		) {
+			return;
+		}
+
+		onSelectedEntityIdChange(file.id, suggestedOption.id);
+	}, [
+		file.id,
+		file,
+		onSelectedEntityIdChange,
+		rowState.selectedEntityId,
+		rowState,
+		selectOptions,
+		selectionTouched,
+	]);
+
+	const selectHint = !searchEnabled
+		? "Type at least 2 characters to search"
+		: !isLoading && selectOptions.length === 0
+			? "No matching library entries found"
+			: null;
+
+	return (
+		<div className="space-y-3 px-3 py-2.5">
+			<div className="flex items-start justify-between gap-3">
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-sm font-medium">
+						{file.path || `Unmapped file ${file.id}`}
+					</p>
+				</div>
+				<div className="shrink-0 text-xs text-muted-foreground">
+					{rowState.selectedEntityId != null ? "Ready" : "Needs selection"}
+				</div>
+			</div>
+
+			<div className="grid gap-3 sm:grid-cols-2">
+				<div className="space-y-1.5">
+					<Label htmlFor={searchId}>Search library for {fileName}</Label>
+					<div className="relative">
+						<Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							id={searchId}
+							placeholder="Search by title..."
+							value={rowState.search}
+							onChange={(event) => onSearchChange(file.id, event.target.value)}
+							className="pl-9"
+						/>
+					</div>
+				</div>
+
+				<div className="space-y-1.5">
+					<Label>Target for {fileName}</Label>
+					<Select
+						aria-label={`Target for ${fileName}`}
+						value={
+							rowState.selectedEntityId != null
+								? String(rowState.selectedEntityId)
+								: ""
+						}
+						onValueChange={(value) =>
+							onSelectedEntityIdChange(
+								file.id,
+								value.length > 0 ? Number(value) : null,
+							)
+						}
+					>
+						<SelectTrigger>
+							<SelectValue
+								placeholder={
+									searchEnabled
+										? "Select a library entry"
+										: "Type to search the library"
+								}
+							/>
+						</SelectTrigger>
+						<SelectContent>
+							{selectOptions.map((option) => (
+								<SelectItem key={option.id} value={String(option.id)}>
+									{formatLibraryOption(option)}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					{selectHint ? (
+						<p className="text-xs text-muted-foreground">{selectHint}</p>
+					) : null}
+				</div>
+			</div>
+
+			{searchEnabled && isLoading ? (
+				<p className="text-xs text-muted-foreground">Searching library...</p>
+			) : null}
+		</div>
+	);
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function MappingDialog(props: MappingDialogProps): JSX.Element {
-	const { contentType, onClose } = props;
-	const files = normalizeFiles(props);
+	const { contentType, files, onClose } = props;
 	const filesRef = useRef(files);
 	const queryClient = useQueryClient();
 	const upsertUserSettings = useUpsertUserSettings();
 	const isTv = contentType === "tv";
+	const supportsSidecars = contentType === "tv" || contentType === "movie";
 
-	const initialSearch = useMemo(() => buildInitialSearch(files), [files]);
-	const [search, setSearch] = useState(initialSearch);
 	const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 	const [mapping, setMapping] = useState(false);
 	const [moveRelatedSidecars, setMoveRelatedSidecars] = useState(false);
 	const [tvRowStateById, setTvRowStateById] = useState<
 		Record<number, TvRowState>
 	>({});
+	const [nonTvRowStateById, setNonTvRowStateById] = useState<
+		Record<number, NonTvRowState>
+	>(() =>
+		Object.fromEntries(
+			files.map((file) => [
+				file.id,
+				{
+					search: buildInitialRowSearch(file),
+					selectedEntityId: null,
+				},
+			]),
+		),
+	);
 	const previousSeedSignatureRef = useRef("");
 	const searchTouchedRef = useRef(new Set<number>());
 	const selectionTouchedRef = useRef(new Set<number>());
+	const nonTvSelectionTouchedRef = useRef(new Set<number>());
 	const sidecarDefaultHydrated = useRef(false);
 	filesRef.current = files;
-
-	const debouncedSearch = useDebounce(search, 300);
 
 	const { data: userSettings, isFetched: isUserSettingsFetched } = useQuery(
 		userSettingsQuery("unmapped-files"),
@@ -362,13 +580,6 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		if (filteredProfiles.length > 0) return String(filteredProfiles[0].id);
 		return "";
 	}, [filteredProfiles, selectedProfileId]);
-
-	const { data: searchResults, isLoading: isSearching } = useQuery({
-		queryKey: ["unmappedFiles", "search", debouncedSearch, contentType],
-		queryFn: () =>
-			searchLibraryFn({ data: { query: debouncedSearch, contentType } }),
-		enabled: !isTv && debouncedSearch.length >= 2,
-	});
 
 	const { data: tvSuggestionResults } = useQuery({
 		queryKey: [
@@ -433,6 +644,24 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		);
 	}, [isTv, tvSeedSignature, tvSuggestionMap]);
 
+	useEffect(() => {
+		if (isTv) {
+			return;
+		}
+
+		setNonTvRowStateById((current) =>
+			Object.fromEntries(
+				files.map((file) => [
+					file.id,
+					current[file.id] ?? {
+						search: buildInitialRowSearch(file),
+						selectedEntityId: null,
+					},
+				]),
+			),
+		);
+	}, [files, isTv]);
+
 	const tvRows = useMemo(
 		() =>
 			files.map((file) => {
@@ -454,10 +683,27 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		[files, tvRowStateById, tvSuggestionMap],
 	);
 
-	const handleMovieOrBookMap = async (result: LibraryResult) => {
+	const nonTvRows = useMemo(
+		() =>
+			files.map((file) => ({
+				file,
+				rowState: nonTvRowStateById[file.id] ?? {
+					search: buildInitialRowSearch(file),
+					selectedEntityId: null,
+				},
+			})),
+		[files, nonTvRowStateById],
+	);
+
+	const handleNonTvMap = async () => {
 		const profileId = Number(effectiveProfileId);
 		if (!profileId) {
 			toast.error("Please select a download profile first");
+			return;
+		}
+
+		if (nonTvRows.some((row) => row.rowState.selectedEntityId == null)) {
+			toast.error("Please resolve all rows first");
 			return;
 		}
 
@@ -466,9 +712,13 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			await mapUnmappedFileFn({
 				data: {
 					downloadProfileId: profileId,
-					entityId: result.id,
-					entityType: result.entityType,
-					unmappedFileIds: files.map((file) => file.id),
+					moveRelatedSidecars:
+						contentType === "movie" ? moveRelatedSidecars : false,
+					rows: nonTvRows.map((row) => ({
+						entityId: row.rowState.selectedEntityId as number,
+						entityType: getEntityTypeForContentType(contentType),
+						unmappedFileId: row.file.id,
+					})),
 				},
 			});
 
@@ -476,8 +726,15 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 				queryKey: queryKeys.unmappedFiles.all,
 			});
 
+			if (contentType === "movie") {
+				upsertUserSettings.mutate({
+					addDefaults: { moveRelatedSidecars },
+					tableId: "unmapped-files",
+				});
+			}
+
 			toast.success(
-				`${files.length} file${files.length !== 1 ? "s" : ""} mapped to "${result.title}"`,
+				`${files.length} file${files.length !== 1 ? "s" : ""} mapped`,
 			);
 			onClose();
 		} catch {
@@ -545,6 +802,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						<Label>Download Profile</Label>
 						{filteredProfiles.length > 0 ? (
 							<Select
+								aria-label="Download Profile"
 								value={effectiveProfileId}
 								onValueChange={setSelectedProfileId}
 							>
@@ -646,69 +904,78 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						</>
 					) : (
 						<>
-							<div className="space-y-1.5">
-								<Label htmlFor="unmapped-file-library-search">
-									Search Library
-								</Label>
-								<div className="relative">
-									<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-									<Input
-										id="unmapped-file-library-search"
-										placeholder="Search by title..."
-										value={search}
-										onChange={(event) => setSearch(event.target.value)}
-										className="pl-9"
+							{supportsSidecars ? (
+								<div className="space-y-1.5">
+									<Label htmlFor="move-related-sidecars">
+										Move related sidecar files
+									</Label>
+									<Checkbox
+										checked={moveRelatedSidecars}
+										id="move-related-sidecars"
+										onCheckedChange={(checked) =>
+											setMoveRelatedSidecars(Boolean(checked))
+										}
 									/>
+								</div>
+							) : null}
+
+							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
+								<div className="divide-y divide-border">
+									{nonTvRows.map(({ file, rowState }) => (
+										<NonTvMappingRow
+											key={file.id}
+											contentType={contentType}
+											file={file}
+											onSearchChange={(fileId, searchValue) => {
+												setNonTvRowStateById((current) => ({
+													...current,
+													[fileId]: {
+														search: searchValue,
+														selectedEntityId:
+															current[fileId]?.selectedEntityId ?? null,
+													},
+												}));
+											}}
+											onSelectedEntityIdChange={(fileId, selectedEntityId) => {
+												nonTvSelectionTouchedRef.current.add(fileId);
+												setNonTvRowStateById((current) => ({
+													...current,
+													[fileId]: {
+														search:
+															current[fileId]?.search ??
+															buildInitialRowSearch(file),
+														selectedEntityId,
+													},
+												}));
+											}}
+											rowState={rowState}
+											selectionTouched={nonTvSelectionTouchedRef.current.has(
+												file.id,
+											)}
+										/>
+									))}
 								</div>
 							</div>
 
-							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
-								{debouncedSearch.length < 2 ? (
-									<div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-										Type at least 2 characters to search
-									</div>
-								) : isSearching ? (
-									<div className="flex h-[200px] items-center justify-center">
-										<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-									</div>
-								) : searchResults?.library.length === 0 ? (
-									<div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-										No results found in your library
-									</div>
-								) : (
-									<div className="divide-y divide-border">
-										{searchResults?.library.map((result) => (
-											<div
-												key={`${result.entityType}-${result.id}`}
-												className="flex items-center justify-between gap-3 px-3 py-2.5"
-											>
-												<div className="min-w-0 flex-1">
-													<p className="truncate text-sm font-medium">
-														{result.title}
-													</p>
-													{result.subtitle && (
-														<p className="truncate text-xs text-muted-foreground">
-															{result.subtitle}
-														</p>
-													)}
-												</div>
-												<Button
-													disabled={mapping || !effectiveProfileId}
-													onClick={() => {
-														void handleMovieOrBookMap(result);
-													}}
-													size="sm"
-													variant="outline"
-												>
-													{mapping ? (
-														<Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-													) : null}
-													Map Here
-												</Button>
-											</div>
-										))}
-									</div>
-								)}
+							<div className="flex justify-end">
+								<Button
+									disabled={
+										mapping ||
+										!effectiveProfileId ||
+										nonTvRows.length === 0 ||
+										nonTvRows.some(
+											(row) => row.rowState.selectedEntityId == null,
+										)
+									}
+									onClick={() => {
+										void handleNonTvMap();
+									}}
+								>
+									{mapping ? (
+										<Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+									) : null}
+									Map Selected Files
+								</Button>
 							</div>
 						</>
 					)}

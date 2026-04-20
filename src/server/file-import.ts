@@ -74,6 +74,24 @@ export function buildManagedEpisodeDestination({
 	return path.join(baseDir, path.basename(sourcePath));
 }
 
+export function buildManagedMovieDestination({
+	rootFolderPath,
+	movieTitle,
+	movieYear,
+	sourcePath,
+}: {
+	rootFolderPath: string;
+	movieTitle: string;
+	movieYear?: number | null;
+	sourcePath: string;
+}): string {
+	const movieFolderName = sanitizePath(
+		movieYear ? `${movieTitle} (${movieYear})` : movieTitle,
+	);
+
+	return path.join(rootFolderPath, movieFolderName, path.basename(sourcePath));
+}
+
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
 const EBOOK_EXTENSIONS = new Set([".pdf", ".epub", ".mobi", ".azw3", ".azw"]);
 

@@ -406,7 +406,9 @@ describe("UnmappedFilesTable", () => {
 
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent("mapping:movie:3");
+			.toHaveTextContent(
+				'files:[{"hints":{"title":"Alien","year":1979},"id":3,"path":"/library/movies/Alien (1979).mkv"}]',
+			);
 		await page.getByRole("button", { name: "Close mapping dialog" }).click();
 		await expect
 			.element(page.getByText("1 file selected"))
@@ -417,7 +419,9 @@ describe("UnmappedFilesTable", () => {
 		await page.getByRole("button", { name: "Map Selected" }).click();
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent("mapping:ebook:1");
+			.toHaveTextContent(
+				'files:[{"hints":{"author":"Frank Herbert","title":"Dune","year":1965},"id":1,"path":"/library/books/Dune.epub"}]',
+			);
 		await page.getByRole("button", { name: "Close mapping dialog" }).click();
 		await expect
 			.element(page.getByText("1 file selected"))

@@ -47,6 +47,24 @@ const mocks = vi.hoisted(() => {
 			return `${baseDir}/${sourcePath.split("/").pop() ?? ""}`;
 		},
 	);
+	const buildManagedMovieDestination = vi.fn(
+		({
+			movieTitle,
+			movieYear,
+			rootFolderPath,
+			sourcePath,
+		}: {
+			movieTitle: string;
+			movieYear?: number | null;
+			rootFolderPath: string;
+			sourcePath: string;
+		}) => {
+			const movieFolderName = movieYear
+				? `${movieTitle} (${movieYear})`
+				: movieTitle;
+			return `${rootFolderPath}/${movieFolderName}/${sourcePath.split("/").pop() ?? ""}`;
+		},
+	);
 	const renameSync = vi.fn();
 	const copyFileSync = vi.fn();
 	const mkdirSync = vi.fn();
@@ -85,6 +103,7 @@ const mocks = vi.hoisted(() => {
 		buildBookAuthorFolderName,
 		buildBookFolderName,
 		buildManagedEpisodeDestination,
+		buildManagedMovieDestination,
 		count,
 		deleteFn,
 		eq,
@@ -193,6 +212,7 @@ vi.mock("src/server/book-paths", () => ({
 
 vi.mock("src/server/file-import", () => ({
 	buildManagedEpisodeDestination: mocks.buildManagedEpisodeDestination,
+	buildManagedMovieDestination: mocks.buildManagedMovieDestination,
 }));
 
 vi.mock("src/server/middleware", () => ({
@@ -469,16 +489,28 @@ function setupTvMappingSelects({
 function setupMovieRowMappingSelects({
 	profile,
 	rows,
+	sidecarRows,
 }: {
 	profile: Record<string, unknown>;
 	rows: Array<{
 		file: Record<string, unknown>;
 		movie: Record<string, unknown>;
 	}>;
+	sidecarRows?: Record<string, unknown>[];
 }) {
 	const profileChain = createSelectChain(profile);
-	const fileChains = rows.map((row) => createSelectChain(row.file));
 	const movieChains = rows.map((row) => createSelectChain(row.movie));
+	const plainSelectChains = [
+		profileChain,
+		...rows.map((row) => createSelectChain(row.file)),
+		...rows.flatMap(() => {
+			const chains = [profileChain];
+			if (sidecarRows) {
+				chains.push(createSelectChain(undefined, sidecarRows));
+			}
+			return chains;
+		}),
+	];
 
 	let plainSelectIndex = 0;
 	let shapedSelectIndex = 0;
@@ -493,13 +525,7 @@ function setupMovieRowMappingSelects({
 			return chain;
 		}
 
-		if (plainSelectIndex === 0) {
-			plainSelectIndex++;
-			return profileChain;
-		}
-
-		const chain = fileChains[plainSelectIndex - 1];
-		plainSelectIndex++;
+		const chain = plainSelectChains[plainSelectIndex++];
 		if (!chain) {
 			throw new Error(
 				`Unexpected plain select call ${plainSelectIndex} in movie mapping test`,
@@ -594,6 +620,8 @@ describe("server/unmapped-files", () => {
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
@@ -978,6 +1006,8 @@ describe("server/unmapped-files", () => {
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
@@ -1515,30 +1545,38 @@ describe("server/unmapped-files", () => {
 			expect(result).toEqual({ success: true, mappedCount: 1 });
 		});
 
-		it("maps a movie file with video probe", async () => {
-			const profile = { id: 5, name: "Movies" };
+		it("moves a movie file into the managed movie path and updates the movie folder", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
 			const file = {
 				id: 1,
 				path: "/media/movies/film.mkv",
 				size: 8000000,
 				quality: { quality: { name: "1080p" } },
 			};
+			const movie = {
+				id: 10,
+				title: "Film",
+				year: 1999,
+			};
 
-			const profileChain = createSelectChain(profile);
-			const fileChain = createSelectChain(file);
-
-			let selectIndex = 0;
-			mocks.select.mockImplementation(() => {
-				selectIndex++;
-				if (selectIndex === 1) return profileChain;
-				return fileChain;
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
 			});
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
 
 			mocks.probeVideoFile.mockResolvedValue({
 				duration: 7200,
@@ -1547,24 +1585,199 @@ describe("server/unmapped-files", () => {
 			});
 
 			const result = await mapUnmappedFileFn({
-				data: { ...baseData, entityType: "movie" },
+				data: {
+					downloadProfileId: 5,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
 			});
 
 			expect(mocks.probeVideoFile).toHaveBeenCalledWith(
 				"/media/movies/film.mkv",
 			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/media/movies/film.mkv",
+				"/library/movies/Film (1999)/film.mkv",
+			);
 			expect(mocks.insert).toHaveBeenCalledWith(schemaMocks.movieFiles);
 			expect(insertChain.values).toHaveBeenCalledWith(
 				expect.objectContaining({
 					movieId: 10,
+					path: "/library/movies/Film (1999)/film.mkv",
 					duration: 7200,
 					codec: "h264",
 					container: "matroska",
 				}),
 			);
+			expect(updateChain.set).toHaveBeenCalledWith({
+				path: "/library/movies/Film (1999)",
+			});
 			expect(mocks.deleteFn).toHaveBeenCalledWith(schemaMocks.unmappedFiles);
 			expect(deleteChain.run).toHaveBeenCalledTimes(1);
 			expect(result).toEqual({ success: true, mappedCount: 1 });
+		});
+
+		it("rolls back the movie move when the transaction fails", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const file = {
+				id: 1,
+				path: "/media/movies/film.mkv",
+				size: 8000000,
+				quality: null,
+			};
+			const movie = {
+				id: 10,
+				title: "Film",
+				year: 1999,
+			};
+
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+
+			const deleteChain = createDeleteChain();
+			deleteChain.run.mockImplementation(() => {
+				throw new Error("delete failed");
+			});
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await expect(
+				mapUnmappedFileFn({
+					data: {
+						downloadProfileId: 5,
+						rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+					},
+				}),
+			).rejects.toThrow("delete failed");
+
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/media/movies/film.mkv",
+				"/library/movies/Film (1999)/film.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/movies/Film (1999)/film.mkv",
+				"/media/movies/film.mkv",
+			);
+		});
+
+		it("moves related movie sidecars when enabled and leaves unrelated files behind", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const file = {
+				id: 1,
+				path: "/incoming/movies/Alien (1979).mkv",
+				rootFolderPath: "/incoming/movies",
+				size: 8000000,
+				quality: null,
+			};
+			const movie = {
+				id: 10,
+				title: "Alien",
+				year: 1979,
+			};
+
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/movies/Alien (1979).nfo",
+						rootFolderPath: "/incoming/movies",
+						size: 200,
+						quality: null,
+					},
+					{
+						id: 3,
+						path: "/incoming/movies/subtitles/Alien (1979).eng.srt",
+						rootFolderPath: "/incoming/movies",
+						size: 300,
+						quality: null,
+					},
+					{
+						id: 4,
+						path: "/incoming/movies/folder.jpg",
+						rootFolderPath: "/incoming/movies",
+						size: 400,
+						quality: null,
+					},
+					{
+						id: 5,
+						path: "/incoming/movies/Aliens (1986).srt",
+						rootFolderPath: "/incoming/movies",
+						size: 500,
+						quality: null,
+					},
+				],
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/Alien (1979).mkv",
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/Alien (1979).nfo",
+				"/library/movies/Alien (1979)/Alien (1979).nfo",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/subtitles/Alien (1979).eng.srt",
+				"/library/movies/Alien (1979)/Alien (1979).eng.srt",
+			);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.left === schemaMocks.unmappedFiles.id &&
+						condition?.right === 2,
+				),
+			).toBe(true);
+			expect(
+				deleteChain.where.mock.calls.some(
+					([condition]) =>
+						condition?.left === schemaMocks.unmappedFiles.id &&
+						condition?.right === 3,
+				),
+			).toBe(true);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/movies/folder.jpg",
+				expect.anything(),
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/movies/Aliens (1986).srt",
+				expect.anything(),
+			);
 		});
 
 		it("maps an episode file with video probe", async () => {
@@ -2106,26 +2319,33 @@ describe("server/unmapped-files", () => {
 		});
 
 		it("handles null probe result for video files", async () => {
-			const profile = { id: 5, name: "Movies" };
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
 			const file = {
 				id: 1,
 				path: "/media/movies/film.mkv",
 				size: 8000000,
 				quality: null,
 			};
+			const movie = {
+				id: 10,
+				title: "Film",
+				year: 1999,
+			};
 
-			const profileChain = createSelectChain(profile);
-			const fileChain = createSelectChain(file);
-
-			let selectIndex = 0;
-			mocks.select.mockImplementation(() => {
-				selectIndex++;
-				if (selectIndex === 1) return profileChain;
-				return fileChain;
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
 			});
 
 			const insertChain = createInsertChain();
 			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
 
 			const deleteChain = createDeleteChain();
 			mocks.deleteFn.mockReturnValue(deleteChain);
