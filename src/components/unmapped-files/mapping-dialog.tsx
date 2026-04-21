@@ -29,6 +29,7 @@ import { userSettingsQuery } from "src/lib/queries/user-settings";
 import { queryKeys } from "src/lib/query-keys";
 import {
 	mapUnmappedFileFn,
+	previewUnmappedImportAssetsFn,
 	searchLibraryFn,
 	suggestUnmappedTvMappingsFn,
 } from "src/server/unmapped-files";
@@ -64,17 +65,41 @@ type TvSuggestionRow = {
 };
 
 type TvRowState = {
+	assets: ImportAssetState[];
+	assetsExpanded: boolean;
 	search: string;
 	selectedEpisodeId: number | null;
 };
 
 type NonTvRowState = {
+	assets: ImportAssetState[];
+	assetsExpanded: boolean;
 	search: string;
 	selectedEntityId: number | null;
 };
 
+type ImportAssetState = {
+	kind: "directory" | "file";
+	ownershipReason: "container" | "direct" | "nested" | "token";
+	relativeSourcePath: string;
+	selected: boolean;
+	sourcePath: string;
+};
+
 type TvRowProps = {
+	assetSummary: string;
 	file: MappingDialogFile;
+	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
+	onAssetSelectedChange: (
+		fileId: number,
+		sourcePath: string,
+		selected: boolean,
+	) => void;
+	onGroupSelectedChange: (
+		fileId: number,
+		ownershipReason: ImportAssetState["ownershipReason"],
+		selected: boolean,
+	) => void;
 	onSearchChange: (fileId: number, search: string) => void;
 	onSelectedEpisodeIdChange: (
 		fileId: number,
@@ -85,8 +110,20 @@ type TvRowProps = {
 };
 
 type NonTvRowProps = {
+	assetSummary: string;
 	contentType: string;
 	file: MappingDialogFile;
+	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
+	onAssetSelectedChange: (
+		fileId: number,
+		sourcePath: string,
+		selected: boolean,
+	) => void;
+	onGroupSelectedChange: (
+		fileId: number,
+		ownershipReason: ImportAssetState["ownershipReason"],
+		selected: boolean,
+	) => void;
 	onSearchChange: (fileId: number, search: string) => void;
 	onSelectedEntityIdChange: (
 		fileId: number,
@@ -94,6 +131,24 @@ type NonTvRowProps = {
 	) => void;
 	rowState: NonTvRowState;
 	selectionTouched: boolean;
+};
+
+type RowAssetsProps = {
+	assetSummary: string;
+	assets: ImportAssetState[];
+	assetsExpanded: boolean;
+	file: MappingDialogFile;
+	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
+	onAssetSelectedChange: (
+		fileId: number,
+		sourcePath: string,
+		selected: boolean,
+	) => void;
+	onGroupSelectedChange: (
+		fileId: number,
+		ownershipReason: ImportAssetState["ownershipReason"],
+		selected: boolean,
+	) => void;
 };
 
 function getFileName(pathname: string): string {
@@ -117,6 +172,7 @@ function getEntityTypeForContentType(
 
 function buildTvInitialRowState(
 	files: MappingDialogFile[],
+	assetStateById: Record<number, ImportAssetState[]>,
 	suggestionMap: Map<number, TvSuggestionRow>,
 	current: Record<number, TvRowState>,
 	searchTouched: Set<number>,
@@ -133,6 +189,8 @@ function buildTvInitialRowState(
 
 		if (!currentRow) {
 			next[file.id] = {
+				assets: assetStateById[file.id] ?? [],
+				assetsExpanded: false,
 				search: defaultSearch,
 				selectedEpisodeId: defaultSelection,
 			};
@@ -140,6 +198,11 @@ function buildTvInitialRowState(
 		}
 
 		next[file.id] = {
+			assets:
+				currentRow.assets.length > 0
+					? currentRow.assets
+					: (assetStateById[file.id] ?? []),
+			assetsExpanded: currentRow.assetsExpanded,
 			search: searchTouched.has(file.id)
 				? currentRow.search
 				: currentRow.search.length > 0
@@ -205,8 +268,131 @@ function pickSuggestedLibraryOption(
 	return options[0];
 }
 
-function TvMappingRow({
+function summarizeAssets(assets: ImportAssetState[]): string {
+	if (assets.length === 0) {
+		return "No assets";
+	}
+
+	const selectedCount = assets.filter((asset) => asset.selected).length;
+	return `${selectedCount} selected / ${assets.length} total`;
+}
+
+function groupAssets(assets: ImportAssetState[]): Array<{
+	assets: ImportAssetState[];
+	label: string;
+}> {
+	const groups = new Map<string, ImportAssetState[]>();
+
+	for (const asset of assets) {
+		const label =
+			asset.ownershipReason === "direct"
+				? "Direct file assets"
+				: asset.ownershipReason === "nested"
+					? "Nested assets"
+					: "Container assets";
+		const current = groups.get(label) ?? [];
+		current.push(asset);
+		groups.set(label, current);
+	}
+
+	return Array.from(groups.entries()).map(([label, groupedAssets]) => ({
+		label,
+		assets: groupedAssets,
+	}));
+}
+
+function RowAssets({
+	assetSummary,
+	assets,
+	assetsExpanded,
 	file,
+	onAssetExpandedChange,
+	onAssetSelectedChange,
+	onGroupSelectedChange,
+}: RowAssetsProps): JSX.Element {
+	if (assets.length === 0) {
+		return (
+			<div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+				No related assets found
+			</div>
+		);
+	}
+
+	return (
+		<div className="space-y-2">
+			<Button
+				type="button"
+				variant="ghost"
+				className="h-auto w-full justify-between px-2 py-2 text-left"
+				onClick={() => onAssetExpandedChange(file.id, !assetsExpanded)}
+			>
+				<span>Assets</span>
+				<span className="text-xs text-muted-foreground">{assetSummary}</span>
+			</Button>
+
+			{assetsExpanded ? (
+				<div className="space-y-3 rounded-md border p-3">
+					{groupAssets(assets).map((group) => (
+						<div key={group.label} className="space-y-2">
+							<div className="flex items-center justify-between gap-3">
+								<p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+									{group.label}
+								</p>
+								<Checkbox
+									aria-label={`Toggle ${group.label} for ${getFileName(file.path)}`}
+									checked={group.assets.every((asset) => asset.selected)}
+									onCheckedChange={(checked) =>
+										onGroupSelectedChange(
+											file.id,
+											group.assets[0]?.ownershipReason ?? "direct",
+											Boolean(checked),
+										)
+									}
+								/>
+							</div>
+
+							<div className="space-y-2">
+								{group.assets.map((asset) => (
+									<div
+										key={asset.sourcePath}
+										className="flex items-start gap-2 rounded-sm border px-2 py-1.5"
+									>
+										<Checkbox
+											aria-label={asset.relativeSourcePath}
+											checked={asset.selected}
+											onCheckedChange={(checked) =>
+												onAssetSelectedChange(
+													file.id,
+													asset.sourcePath,
+													Boolean(checked),
+												)
+											}
+										/>
+										<div className="min-w-0 flex-1">
+											<p className="truncate text-sm">
+												{asset.relativeSourcePath}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												{asset.kind === "directory" ? "Directory" : "File"}
+											</p>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					))}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function TvMappingRow({
+	assetSummary,
+	file,
+	onAssetExpandedChange,
+	onAssetSelectedChange,
+	onGroupSelectedChange,
 	onSearchChange,
 	onSelectedEpisodeIdChange,
 	rowState,
@@ -350,13 +536,27 @@ function TvMappingRow({
 			{searchEnabled && isLoading ? (
 				<p className="text-xs text-muted-foreground">Searching episodes...</p>
 			) : null}
+
+			<RowAssets
+				assetSummary={assetSummary}
+				assets={rowState.assets}
+				assetsExpanded={rowState.assetsExpanded}
+				file={file}
+				onAssetExpandedChange={onAssetExpandedChange}
+				onAssetSelectedChange={onAssetSelectedChange}
+				onGroupSelectedChange={onGroupSelectedChange}
+			/>
 		</div>
 	);
 }
 
 function NonTvMappingRow({
+	assetSummary,
 	contentType,
 	file,
+	onAssetExpandedChange,
+	onAssetSelectedChange,
+	onGroupSelectedChange,
 	onSearchChange,
 	onSelectedEntityIdChange,
 	rowState,
@@ -513,6 +713,16 @@ function NonTvMappingRow({
 			{searchEnabled && isLoading ? (
 				<p className="text-xs text-muted-foreground">Searching library...</p>
 			) : null}
+
+			<RowAssets
+				assetSummary={assetSummary}
+				assets={rowState.assets}
+				assetsExpanded={rowState.assetsExpanded}
+				file={file}
+				onAssetExpandedChange={onAssetExpandedChange}
+				onAssetSelectedChange={onAssetSelectedChange}
+				onGroupSelectedChange={onGroupSelectedChange}
+			/>
 		</div>
 	);
 }
@@ -525,11 +735,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const queryClient = useQueryClient();
 	const upsertUserSettings = useUpsertUserSettings();
 	const isTv = contentType === "tv";
-	const supportsSidecars = contentType === "tv" || contentType === "movie";
 
 	const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 	const [mapping, setMapping] = useState(false);
-	const [moveRelatedSidecars, setMoveRelatedSidecars] = useState(false);
+	const [moveRelatedFiles, setMoveRelatedFiles] = useState(false);
+	const [deleteDeselectedRelatedFiles, setDeleteDeselectedRelatedFiles] =
+		useState(false);
 	const [tvRowStateById, setTvRowStateById] = useState<
 		Record<number, TvRowState>
 	>({});
@@ -540,6 +751,8 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			files.map((file) => [
 				file.id,
 				{
+					assets: [],
+					assetsExpanded: false,
 					search: buildInitialRowSearch(file),
 					selectedEntityId: null,
 				},
@@ -547,10 +760,11 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		),
 	);
 	const previousSeedSignatureRef = useRef("");
+	const previousNonTvAssetSignatureRef = useRef("");
 	const searchTouchedRef = useRef(new Set<number>());
 	const selectionTouchedRef = useRef(new Set<number>());
 	const nonTvSelectionTouchedRef = useRef(new Set<number>());
-	const sidecarDefaultHydrated = useRef(false);
+	const importDefaultsHydrated = useRef(false);
 	filesRef.current = files;
 
 	const { data: userSettings, isFetched: isUserSettingsFetched } = useQuery(
@@ -558,14 +772,18 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	);
 
 	useEffect(() => {
-		if (!isUserSettingsFetched || sidecarDefaultHydrated.current) {
+		if (!isUserSettingsFetched || importDefaultsHydrated.current) {
 			return;
 		}
 
-		const savedMoveRelatedSidecars =
+		const savedMoveRelatedFiles =
+			userSettings?.addDefaults?.moveRelatedFiles ??
 			userSettings?.addDefaults?.moveRelatedSidecars;
-		setMoveRelatedSidecars(Boolean(savedMoveRelatedSidecars ?? false));
-		sidecarDefaultHydrated.current = true;
+		const savedDeleteDeselected =
+			userSettings?.addDefaults?.deleteDeselectedRelatedFiles;
+		setMoveRelatedFiles(Boolean(savedMoveRelatedFiles ?? false));
+		setDeleteDeselectedRelatedFiles(Boolean(savedDeleteDeselected ?? false));
+		importDefaultsHydrated.current = true;
 	}, [isUserSettingsFetched, userSettings]);
 
 	const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
@@ -602,6 +820,61 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		enabled: isTv && files.length > 0,
 	});
 
+	const assetPreviewQuery = useQuery({
+		queryKey: [
+			"unmappedFiles",
+			"asset-preview",
+			contentType,
+			files.map((file) => file.id).join(","),
+		],
+		queryFn: () =>
+			previewUnmappedImportAssetsFn({
+				data: {
+					rows: files.map((file) => ({
+						contentType:
+							contentType === "ebook"
+								? "book"
+								: (contentType as "audiobook" | "book" | "movie" | "tv"),
+						fileId: file.id,
+						path: file.path,
+					})),
+				},
+			}),
+		enabled: files.length > 0,
+	});
+	const assetPreviewResults = assetPreviewQuery.data;
+	const isAssetPreviewPending = Boolean(
+		assetPreviewQuery.isLoading || assetPreviewQuery.isFetching,
+	);
+	const assetPreviewById = useMemo(
+		() =>
+			Object.fromEntries(
+				(assetPreviewResults?.rows ?? []).map((row) => [
+					row.fileId,
+					row.assets.map((asset) => ({
+						kind: asset.kind,
+						ownershipReason: asset.ownershipReason,
+						relativeSourcePath: asset.relativeSourcePath,
+						selected: asset.selected,
+						sourcePath: asset.sourcePath,
+					})),
+				]),
+			) as Record<number, ImportAssetState[]>,
+		[assetPreviewResults],
+	);
+	const assetPreviewSignature = useMemo(
+		() =>
+			(assetPreviewResults?.rows ?? [])
+				.map(
+					(row) =>
+						`${row.fileId}:${row.assets
+							.map((asset) => `${asset.sourcePath}:${asset.selected}`)
+							.join(",")}`,
+				)
+				.join("|"),
+		[assetPreviewResults],
+	);
+
 	const tvSuggestionRows: TvSuggestionRow[] = (
 		tvSuggestionResults?.rows ?? []
 	).map((row) => ({
@@ -621,7 +894,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			(row) =>
 				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title ?? ""}:${row.subtitle}`,
 		)
-		.join("|")}`;
+		.join("|")}::${assetPreviewSignature}`;
 
 	useEffect(() => {
 		if (!isTv) {
@@ -636,31 +909,48 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		setTvRowStateById((current) =>
 			buildTvInitialRowState(
 				filesRef.current,
+				assetPreviewById,
 				tvSuggestionMap,
 				current,
 				searchTouchedRef.current,
 				selectionTouchedRef.current,
 			),
 		);
-	}, [isTv, tvSeedSignature, tvSuggestionMap]);
+	}, [assetPreviewById, isTv, tvSeedSignature, tvSuggestionMap]);
 
 	useEffect(() => {
 		if (isTv) {
 			return;
 		}
 
+		const nonTvSignature = `${files.map((file) => file.id).join(",")}::${assetPreviewSignature}`;
+		if (previousNonTvAssetSignatureRef.current === nonTvSignature) {
+			return;
+		}
+		previousNonTvAssetSignatureRef.current = nonTvSignature;
+
 		setNonTvRowStateById((current) =>
 			Object.fromEntries(
 				files.map((file) => [
 					file.id,
-					current[file.id] ?? {
-						search: buildInitialRowSearch(file),
-						selectedEntityId: null,
-					},
+					current[file.id]
+						? {
+								...current[file.id],
+								assets:
+									current[file.id].assets.length > 0
+										? current[file.id].assets
+										: (assetPreviewById[file.id] ?? []),
+							}
+						: {
+								assets: assetPreviewById[file.id] ?? [],
+								assetsExpanded: false,
+								search: buildInitialRowSearch(file),
+								selectedEntityId: null,
+							},
 				]),
 			),
 		);
-	}, [files, isTv]);
+	}, [assetPreviewById, assetPreviewSignature, files, isTv]);
 
 	const tvRows = useMemo(
 		() =>
@@ -670,6 +960,8 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 				const defaultSearch =
 					file.hints?.title ?? suggestion?.title ?? getFileName(file.path);
 				const rowState = currentState ?? {
+					assets: assetPreviewById[file.id] ?? [],
+					assetsExpanded: false,
 					search: defaultSearch,
 					selectedEpisodeId: suggestion?.suggestedEpisodeId ?? null,
 				};
@@ -680,7 +972,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 					suggestion,
 				};
 			}),
-		[files, tvRowStateById, tvSuggestionMap],
+		[assetPreviewById, files, tvRowStateById, tvSuggestionMap],
 	);
 
 	const nonTvRows = useMemo(
@@ -688,12 +980,136 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			files.map((file) => ({
 				file,
 				rowState: nonTvRowStateById[file.id] ?? {
+					assets: assetPreviewById[file.id] ?? [],
+					assetsExpanded: false,
 					search: buildInitialRowSearch(file),
 					selectedEntityId: null,
 				},
 			})),
-		[files, nonTvRowStateById],
+		[assetPreviewById, files, nonTvRowStateById],
 	);
+	const requiresAssetPreview = moveRelatedFiles || deleteDeselectedRelatedFiles;
+	const disableTvSubmit =
+		mapping ||
+		!effectiveProfileId ||
+		tvRows.length === 0 ||
+		tvRows.some((row) => row.rowState.selectedEpisodeId == null) ||
+		(requiresAssetPreview && isAssetPreviewPending);
+	const disableNonTvSubmit =
+		mapping ||
+		!effectiveProfileId ||
+		nonTvRows.length === 0 ||
+		nonTvRows.some((row) => row.rowState.selectedEntityId == null) ||
+		(requiresAssetPreview && isAssetPreviewPending);
+
+	const getFallbackSearchValue = (fileId: number): string => {
+		const fallbackFile =
+			filesRef.current.find((file) => file.id === fileId) ??
+			filesRef.current[0];
+		return fallbackFile ? buildInitialRowSearch(fallbackFile) : "";
+	};
+
+	const setTvAssetsExpanded = (fileId: number, assetsExpanded: boolean) => {
+		setTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...(current[fileId] ?? {
+					assets: assetPreviewById[fileId] ?? [],
+					assetsExpanded: false,
+					search: getFallbackSearchValue(fileId),
+					selectedEpisodeId: null,
+				}),
+				assetsExpanded,
+			},
+		}));
+	};
+
+	const setNonTvAssetsExpanded = (fileId: number, assetsExpanded: boolean) => {
+		setNonTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...(current[fileId] ?? {
+					assets: assetPreviewById[fileId] ?? [],
+					assetsExpanded: false,
+					search: getFallbackSearchValue(fileId),
+					selectedEntityId: null,
+				}),
+				assetsExpanded,
+			},
+		}));
+	};
+
+	const setTvAssetSelected = (
+		fileId: number,
+		sourcePath: string,
+		selected: boolean,
+	) => {
+		setTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...current[fileId],
+				assets:
+					current[fileId]?.assets.map((asset) =>
+						asset.sourcePath === sourcePath ? { ...asset, selected } : asset,
+					) ?? [],
+			},
+		}));
+	};
+
+	const setNonTvAssetSelected = (
+		fileId: number,
+		sourcePath: string,
+		selected: boolean,
+	) => {
+		setNonTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...current[fileId],
+				assets:
+					current[fileId]?.assets.map((asset) =>
+						asset.sourcePath === sourcePath ? { ...asset, selected } : asset,
+					) ?? [],
+			},
+		}));
+	};
+
+	const setTvGroupSelected = (
+		fileId: number,
+		ownershipReason: ImportAssetState["ownershipReason"],
+		selected: boolean,
+	) => {
+		setTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...current[fileId],
+				assets:
+					current[fileId]?.assets.map((asset) =>
+						asset.ownershipReason === ownershipReason
+							? { ...asset, selected }
+							: asset,
+					) ?? [],
+			},
+		}));
+	};
+
+	const setNonTvGroupSelected = (
+		fileId: number,
+		ownershipReason: ImportAssetState["ownershipReason"],
+		selected: boolean,
+	) => {
+		setNonTvRowStateById((current) => ({
+			...current,
+			[fileId]: {
+				...current[fileId],
+				assets:
+					current[fileId]?.assets.map((asset) =>
+						asset.ownershipReason === ownershipReason
+							? { ...asset, selected }
+							: asset,
+					) ?? [],
+			},
+		}));
+	};
 
 	const handleNonTvMap = async () => {
 		const profileId = Number(effectiveProfileId);
@@ -706,15 +1122,33 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			toast.error("Please resolve all rows first");
 			return;
 		}
+		if (requiresAssetPreview && isAssetPreviewPending) {
+			toast.error("Please wait for related files to finish loading");
+			return;
+		}
 
 		setMapping(true);
 		try {
 			await mapUnmappedFileFn({
 				data: {
 					downloadProfileId: profileId,
-					moveRelatedSidecars:
-						contentType === "movie" ? moveRelatedSidecars : false,
+					deleteDeselectedRelatedFiles,
+					moveRelatedFiles,
 					rows: nonTvRows.map((row) => ({
+						assets: row.rowState.assets.map((asset) => ({
+							action: !moveRelatedFiles
+								? "ignore"
+								: asset.selected
+									? "move"
+									: deleteDeselectedRelatedFiles
+										? "delete"
+										: "ignore",
+							kind: asset.kind,
+							ownershipReason: asset.ownershipReason,
+							relativeSourcePath: asset.relativeSourcePath,
+							selected: asset.selected,
+							sourcePath: asset.sourcePath,
+						})),
 						entityId: row.rowState.selectedEntityId as number,
 						entityType: getEntityTypeForContentType(contentType),
 						unmappedFileId: row.file.id,
@@ -725,13 +1159,13 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.unmappedFiles.all,
 			});
-
-			if (contentType === "movie") {
-				upsertUserSettings.mutate({
-					addDefaults: { moveRelatedSidecars },
-					tableId: "unmapped-files",
-				});
-			}
+			upsertUserSettings.mutate({
+				addDefaults: {
+					deleteDeselectedRelatedFiles,
+					moveRelatedFiles,
+				},
+				tableId: "unmapped-files",
+			});
 
 			toast.success(
 				`${files.length} file${files.length !== 1 ? "s" : ""} mapped`,
@@ -755,23 +1189,45 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			toast.error("Please resolve all TV rows first");
 			return;
 		}
+		if (requiresAssetPreview && isAssetPreviewPending) {
+			toast.error("Please wait for related files to finish loading");
+			return;
+		}
 
 		setMapping(true);
 		try {
 			await mapUnmappedFileFn({
 				data: {
 					downloadProfileId: profileId,
-					entityType: "episode",
-					moveRelatedSidecars,
-					tvMappings: tvRows.map((row) => ({
-						episodeId: row.rowState.selectedEpisodeId as number,
+					deleteDeselectedRelatedFiles,
+					moveRelatedFiles,
+					rows: tvRows.map((row) => ({
+						assets: row.rowState.assets.map((asset) => ({
+							action: !moveRelatedFiles
+								? "ignore"
+								: asset.selected
+									? "move"
+									: deleteDeselectedRelatedFiles
+										? "delete"
+										: "ignore",
+							kind: asset.kind,
+							ownershipReason: asset.ownershipReason,
+							relativeSourcePath: asset.relativeSourcePath,
+							selected: asset.selected,
+							sourcePath: asset.sourcePath,
+						})),
+						entityId: row.rowState.selectedEpisodeId as number,
+						entityType: "episode" as const,
 						unmappedFileId: row.file.id,
 					})),
 				},
 			});
 
 			upsertUserSettings.mutate({
-				addDefaults: { moveRelatedSidecars },
+				addDefaults: {
+					deleteDeselectedRelatedFiles,
+					moveRelatedFiles,
+				},
 				tableId: "unmapped-files",
 			});
 			queryClient.invalidateQueries({
@@ -825,32 +1281,55 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						)}
 					</div>
 
+					<div className="space-y-3">
+						<div className="space-y-1.5">
+							<Label htmlFor="move-related-files">Move related files</Label>
+							<Checkbox
+								checked={moveRelatedFiles}
+								id="move-related-files"
+								onCheckedChange={(checked) =>
+									setMoveRelatedFiles(Boolean(checked))
+								}
+							/>
+						</div>
+
+						<div className="space-y-1.5">
+							<Label htmlFor="delete-deselected-related-files">
+								Delete deselected related files
+							</Label>
+							<Checkbox
+								checked={deleteDeselectedRelatedFiles}
+								id="delete-deselected-related-files"
+								onCheckedChange={(checked) =>
+									setDeleteDeselectedRelatedFiles(Boolean(checked))
+								}
+							/>
+						</div>
+					</div>
+
 					{isTv ? (
 						<>
-							<div className="space-y-1.5">
-								<Label htmlFor="move-related-sidecars">
-									Move related sidecar files
-								</Label>
-								<Checkbox
-									checked={moveRelatedSidecars}
-									id="move-related-sidecars"
-									onCheckedChange={(checked) =>
-										setMoveRelatedSidecars(Boolean(checked))
-									}
-								/>
-							</div>
-
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
 								<div className="divide-y divide-border">
 									{tvRows.map(({ file, rowState, suggestion }) => (
 										<TvMappingRow
+											assetSummary={summarizeAssets(rowState.assets)}
 											key={file.id}
 											file={file}
+											onAssetExpandedChange={setTvAssetsExpanded}
+											onAssetSelectedChange={setTvAssetSelected}
+											onGroupSelectedChange={setTvGroupSelected}
 											onSearchChange={(fileId, searchValue) => {
 												searchTouchedRef.current.add(fileId);
 												setTvRowStateById((current) => ({
 													...current,
 													[fileId]: {
+														assets:
+															current[fileId]?.assets ??
+															assetPreviewById[fileId] ??
+															[],
+														assetsExpanded:
+															current[fileId]?.assetsExpanded ?? false,
 														search: searchValue,
 														selectedEpisodeId:
 															current[fileId]?.selectedEpisodeId ??
@@ -867,6 +1346,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 												setTvRowStateById((current) => ({
 													...current,
 													[fileId]: {
+														assets:
+															current[fileId]?.assets ??
+															assetPreviewById[fileId] ??
+															[],
+														assetsExpanded:
+															current[fileId]?.assetsExpanded ?? false,
 														search:
 															current[fileId]?.search ??
 															file.hints?.title ??
@@ -885,12 +1370,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 							<div className="flex justify-end">
 								<Button
-									disabled={
-										mapping ||
-										!effectiveProfileId ||
-										tvRows.length === 0 ||
-										tvRows.some((row) => row.rowState.selectedEpisodeId == null)
-									}
+									disabled={disableTvSubmit}
 									onClick={() => {
 										void handleTvMap();
 									}}
@@ -904,32 +1384,27 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						</>
 					) : (
 						<>
-							{supportsSidecars ? (
-								<div className="space-y-1.5">
-									<Label htmlFor="move-related-sidecars">
-										Move related sidecar files
-									</Label>
-									<Checkbox
-										checked={moveRelatedSidecars}
-										id="move-related-sidecars"
-										onCheckedChange={(checked) =>
-											setMoveRelatedSidecars(Boolean(checked))
-										}
-									/>
-								</div>
-							) : null}
-
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
 								<div className="divide-y divide-border">
 									{nonTvRows.map(({ file, rowState }) => (
 										<NonTvMappingRow
+											assetSummary={summarizeAssets(rowState.assets)}
 											key={file.id}
 											contentType={contentType}
 											file={file}
+											onAssetExpandedChange={setNonTvAssetsExpanded}
+											onAssetSelectedChange={setNonTvAssetSelected}
+											onGroupSelectedChange={setNonTvGroupSelected}
 											onSearchChange={(fileId, searchValue) => {
 												setNonTvRowStateById((current) => ({
 													...current,
 													[fileId]: {
+														assets:
+															current[fileId]?.assets ??
+															assetPreviewById[fileId] ??
+															[],
+														assetsExpanded:
+															current[fileId]?.assetsExpanded ?? false,
 														search: searchValue,
 														selectedEntityId:
 															current[fileId]?.selectedEntityId ?? null,
@@ -941,6 +1416,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 												setNonTvRowStateById((current) => ({
 													...current,
 													[fileId]: {
+														assets:
+															current[fileId]?.assets ??
+															assetPreviewById[fileId] ??
+															[],
+														assetsExpanded:
+															current[fileId]?.assetsExpanded ?? false,
 														search:
 															current[fileId]?.search ??
 															buildInitialRowSearch(file),
@@ -959,14 +1440,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 							<div className="flex justify-end">
 								<Button
-									disabled={
-										mapping ||
-										!effectiveProfileId ||
-										nonTvRows.length === 0 ||
-										nonTvRows.some(
-											(row) => row.rowState.selectedEntityId == null,
-										)
-									}
+									disabled={disableNonTvSubmit}
 									onClick={() => {
 										void handleNonTvMap();
 									}}

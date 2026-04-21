@@ -47,19 +47,33 @@ const mappingDialogState = vi.hoisted(() => ({
 		suggestedEpisodeId: number | null;
 		title?: string;
 	}>,
+	assetPreviewRows: [] as Array<{
+		assets: Array<{
+			kind: "directory" | "file";
+			ownershipReason: "container" | "direct" | "nested" | "token";
+			relativeSourcePath: string;
+			selected: boolean;
+			sourcePath: string;
+		}>;
+		fileId: number;
+	}>,
 	userSettings: undefined as
 		| {
 				addDefaults?: {
+					deleteDeselectedRelatedFiles?: boolean;
+					moveRelatedFiles?: boolean;
 					moveRelatedSidecars?: boolean;
 				};
 		  }
 		| undefined,
+	assetPreviewLoading: false,
 	loading: false,
 }));
 
 const mappingDialogMocks = vi.hoisted(() => ({
 	invalidateQueries: vi.fn(),
 	mapUnmappedFileFn: vi.fn(),
+	previewUnmappedImportAssetsFn: vi.fn(),
 	searchLibraryFn: vi.fn(),
 	suggestUnmappedTvMappingsFn: vi.fn(),
 	toast: {
@@ -115,6 +129,17 @@ const mappingDialogMocks = vi.hoisted(() => ({
 			};
 		}
 
+		if (queryKey[0] === "unmappedFiles" && queryKey[1] === "asset-preview") {
+			return {
+				data: {
+					rows: mappingDialogState.assetPreviewRows,
+				},
+				isFetched: true,
+				isFetching: mappingDialogState.assetPreviewLoading,
+				isLoading: mappingDialogState.assetPreviewLoading,
+			};
+		}
+
 		return {
 			data: undefined,
 			isFetched: true,
@@ -159,16 +184,18 @@ vi.mock("src/components/ui/button", () => ({
 
 vi.mock("src/components/ui/checkbox", () => ({
 	default: ({
+		"aria-label": ariaLabel,
 		checked,
 		id,
 		onCheckedChange,
 	}: {
+		"aria-label"?: string;
 		checked?: boolean;
 		id?: string;
 		onCheckedChange?: (checked: boolean) => void;
 	}) => (
 		<input
-			aria-label="Move related sidecar files"
+			aria-label={ariaLabel}
 			checked={Boolean(checked)}
 			id={id}
 			onChange={() => onCheckedChange?.(!checked)}
@@ -283,6 +310,8 @@ vi.mock("src/lib/queries/user-settings", () => ({
 vi.mock("src/server/unmapped-files", () => ({
 	mapUnmappedFileFn: (...args: unknown[]) =>
 		mappingDialogMocks.mapUnmappedFileFn(...args),
+	previewUnmappedImportAssetsFn: (...args: unknown[]) =>
+		mappingDialogMocks.previewUnmappedImportAssetsFn(...args),
 	searchLibraryFn: (...args: unknown[]) =>
 		mappingDialogMocks.searchLibraryFn(...args),
 	suggestUnmappedTvMappingsFn: (...args: unknown[]) =>
@@ -299,6 +328,8 @@ describe("MappingDialog", () => {
 		mappingDialogState.results = [];
 		mappingDialogState.tvSearchResults = [];
 		mappingDialogState.tvSuggestions = [];
+		mappingDialogState.assetPreviewRows = [];
+		mappingDialogState.assetPreviewLoading = false;
 		mappingDialogState.userSettings = undefined;
 	});
 
@@ -388,7 +419,7 @@ describe("MappingDialog", () => {
 		);
 
 		await expect
-			.element(page.getByLabelText("Move related sidecar files"))
+			.element(page.getByLabelText("Move related files"))
 			.toBeChecked();
 		await expect
 			.element(
@@ -446,6 +477,58 @@ describe("MappingDialog", () => {
 				page.getByLabelText("Search episodes for Mystery.Show.S01E09.mkv"),
 			)
 			.toHaveValue("Mystery.Show.S01E09.mkv");
+		await expect
+			.element(page.getByRole("button", { name: "Map Selected Files" }))
+			.toBeDisabled();
+	});
+
+	it("keeps submit disabled while related files are still loading", async () => {
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.userSettings = {
+			addDefaults: { moveRelatedFiles: true },
+		};
+		mappingDialogState.assetPreviewLoading = true;
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 11,
+				hints: {
+					episode: 1,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "S01E01 - Good News About Hell",
+				suggestedEpisodeId: 101,
+				title: "Severance",
+			},
+		];
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Severance.S01E01.mkv",
+							hints: {
+								episode: 1,
+								season: 1,
+								title: "Severance",
+							},
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByLabelText("Move related files"))
+			.toBeChecked();
 		await expect
 			.element(page.getByRole("button", { name: "Map Selected Files" }))
 			.toBeDisabled();
@@ -556,7 +639,7 @@ describe("MappingDialog", () => {
 			.toHaveValue("102");
 	});
 
-	it("maps tv rows and persists the sidecar checkbox after success", async () => {
+	it("maps tv rows and persists the related-file defaults after success", async () => {
 		const onClose = vi.fn();
 
 		mappingDialogState.profiles = [
@@ -651,22 +734,35 @@ describe("MappingDialog", () => {
 			page.getByLabelText("Episode target for Severance.S01E01.mkv"),
 			"201",
 		);
-		await page.getByLabelText("Move related sidecar files").click();
+		await page.getByLabelText("Move related files").click();
 		await page.getByRole("button", { name: "Map Selected Files" }).click();
 
 		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
 			data: {
+				deleteDeselectedRelatedFiles: false,
 				downloadProfileId: 8,
-				entityType: "episode",
-				moveRelatedSidecars: false,
-				tvMappings: [
-					{ episodeId: 201, unmappedFileId: 11 },
-					{ episodeId: 102, unmappedFileId: 12 },
+				moveRelatedFiles: false,
+				rows: [
+					{
+						assets: [],
+						entityId: 201,
+						entityType: "episode",
+						unmappedFileId: 11,
+					},
+					{
+						assets: [],
+						entityId: 102,
+						entityType: "episode",
+						unmappedFileId: 12,
+					},
 				],
 			},
 		});
 		expect(mappingDialogMocks.upsertUserSettingsFn).toHaveBeenCalledWith({
-			addDefaults: { moveRelatedSidecars: false },
+			addDefaults: {
+				deleteDeselectedRelatedFiles: false,
+				moveRelatedFiles: false,
+			},
 			tableId: "unmapped-files",
 		});
 		expect(mappingDialogMocks.invalidateQueries).toHaveBeenCalledWith({
@@ -742,7 +838,7 @@ describe("MappingDialog", () => {
 			.element(page.getByLabelText("Download Profile"))
 			.toHaveValue("7");
 		await expect
-			.element(page.getByLabelText("Move related sidecar files"))
+			.element(page.getByLabelText("Move related files"))
 			.toBeChecked();
 		await expect
 			.element(page.getByLabelText("Target for Alien (1979).mkv"))
@@ -751,16 +847,27 @@ describe("MappingDialog", () => {
 			.element(page.getByLabelText("Target for Aliens (1986).mkv"))
 			.toHaveValue("502");
 
-		await page.getByLabelText("Move related sidecar files").click();
+		await page.getByLabelText("Move related files").click();
 		await page.getByRole("button", { name: "Map Selected Files" }).click();
 
 		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
 			data: {
+				deleteDeselectedRelatedFiles: false,
 				downloadProfileId: 7,
-				moveRelatedSidecars: false,
+				moveRelatedFiles: false,
 				rows: [
-					{ entityId: 501, entityType: "movie", unmappedFileId: 11 },
-					{ entityId: 502, entityType: "movie", unmappedFileId: 12 },
+					{
+						assets: [],
+						entityId: 501,
+						entityType: "movie",
+						unmappedFileId: 11,
+					},
+					{
+						assets: [],
+						entityId: 502,
+						entityType: "movie",
+						unmappedFileId: 12,
+					},
 				],
 			},
 		});
@@ -768,7 +875,10 @@ describe("MappingDialog", () => {
 			queryKey: ["unmappedFiles"],
 		});
 		expect(mappingDialogMocks.upsertUserSettingsFn).toHaveBeenCalledWith({
-			addDefaults: { moveRelatedSidecars: false },
+			addDefaults: {
+				deleteDeselectedRelatedFiles: false,
+				moveRelatedFiles: false,
+			},
 			tableId: "unmapped-files",
 		});
 		expect(mappingDialogMocks.toast.success).toHaveBeenCalledWith(
@@ -776,6 +886,129 @@ describe("MappingDialog", () => {
 		);
 		expect(mappingDialogMocks.toast.error).not.toHaveBeenCalled();
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("renders previewed assets per row and submits deselected asset actions", async () => {
+		mappingDialogState.profiles = [
+			{ contentType: "tv", id: 8, name: "TV Only" },
+		];
+		mappingDialogState.userSettings = {
+			addDefaults: {
+				deleteDeselectedRelatedFiles: true,
+				moveRelatedFiles: true,
+			},
+		};
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 11,
+				hints: {
+					episode: 1,
+					season: 1,
+					source: "filename",
+					title: "Severance",
+				},
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "S01E01 - Good News About Hell",
+				suggestedEpisodeId: 101,
+				title: "Severance",
+			},
+		];
+		mappingDialogState.tvSearchResults = [
+			{
+				entityType: "episode",
+				id: 101,
+				subtitle: "S01E01 - Good News About Hell",
+				title: "Severance",
+			},
+		];
+		mappingDialogState.assetPreviewRows = [
+			{
+				fileId: 11,
+				assets: [
+					{
+						kind: "file",
+						ownershipReason: "direct",
+						relativeSourcePath: "Season 1/Severance - S01E01-thumb.jpg",
+						selected: true,
+						sourcePath:
+							"/incoming/Severance/Season 1/Severance - S01E01-thumb.jpg",
+					},
+					{
+						kind: "file",
+						ownershipReason: "container",
+						relativeSourcePath: "theme.mp3",
+						selected: true,
+						sourcePath: "/incoming/Severance/theme.mp3",
+					},
+				],
+			},
+		];
+		mappingDialogMocks.mapUnmappedFileFn.mockResolvedValue({
+			mappedCount: 1,
+			success: true,
+		});
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="tv"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Severance.S01E01.mkv",
+							hints: {
+								episode: 1,
+								season: 1,
+								title: "Severance",
+							},
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByRole("button", { name: /2 selected \/ 2 total/i }))
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: /2 selected \/ 2 total/i }).click();
+		await page.getByLabelText("theme.mp3").click();
+		await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+		expect(mappingDialogMocks.mapUnmappedFileFn).toHaveBeenCalledWith({
+			data: {
+				deleteDeselectedRelatedFiles: true,
+				downloadProfileId: 8,
+				moveRelatedFiles: true,
+				rows: [
+					{
+						assets: [
+							{
+								action: "move",
+								kind: "file",
+								ownershipReason: "direct",
+								relativeSourcePath: "Season 1/Severance - S01E01-thumb.jpg",
+								selected: true,
+								sourcePath:
+									"/incoming/Severance/Season 1/Severance - S01E01-thumb.jpg",
+							},
+							{
+								action: "delete",
+								kind: "file",
+								ownershipReason: "container",
+								relativeSourcePath: "theme.mp3",
+								selected: false,
+								sourcePath: "/incoming/Severance/theme.mp3",
+							},
+						],
+						entityId: 101,
+						entityType: "episode",
+						unmappedFileId: 11,
+					},
+				],
+			},
+		});
 	});
 
 	it("shows the profile fallback and no-results state when nothing matches", async () => {
