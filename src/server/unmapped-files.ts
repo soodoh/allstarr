@@ -25,6 +25,15 @@ import {
 	buildManagedEpisodeDestination,
 	buildManagedMovieDestination,
 } from "src/server/file-import";
+import {
+	type AssetOperation,
+	assignImportAssets,
+	buildAssetOperations,
+	type ImportAssetRow,
+	type ImportAssetRowInput,
+	type ImportAssetSelection,
+	pruneEmptyDirectories,
+} from "src/server/import-assets";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
 import { z } from "zod";
@@ -32,6 +41,7 @@ import { z } from "zod";
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4b", ".flac"]);
+const EBOOK_EXTENSIONS = new Set([".azw", ".azw3", ".epub", ".mobi", ".pdf"]);
 const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".ts"]);
 const TV_SIDECAR_EXTENSIONS = new Set([
 	".ass",
@@ -426,6 +436,203 @@ function resolveManagedRootFolder(downloadProfileId: number): string | null {
 	);
 }
 
+function movePathToManagedDestination(
+	fs: typeof import("node:fs"),
+	sourcePath: string,
+	destPath: string,
+	kind: "directory" | "file",
+): void {
+	fs.mkdirSync(path.dirname(destPath), { recursive: true });
+
+	try {
+		fs.renameSync(sourcePath, destPath);
+		return;
+	} catch (error) {
+		if (
+			kind === "directory" ||
+			!(error instanceof Error) ||
+			!("code" in error) ||
+			error.code !== "EXDEV"
+		) {
+			throw error;
+		}
+	}
+
+	fs.copyFileSync(sourcePath, destPath);
+	try {
+		fs.unlinkSync(sourcePath);
+	} catch (error) {
+		try {
+			fs.unlinkSync(destPath);
+		} catch {
+			// Ignore cleanup failures so the original unlink error is preserved.
+		}
+		throw error;
+	}
+}
+
+function isPrimaryImportFile(contentType: string, filePath: string): boolean {
+	const ext = path.extname(filePath).toLowerCase();
+	if (contentType === "tv" || contentType === "movie") {
+		return VIDEO_EXTENSIONS.has(ext);
+	}
+
+	if (contentType === "audiobook") {
+		return AUDIO_EXTENSIONS.has(ext);
+	}
+
+	return AUDIO_EXTENSIONS.has(ext) || EBOOK_EXTENSIONS.has(ext);
+}
+
+function inferTvSourceContainerRoot(filePath: string): string {
+	const parentDirectory = path.dirname(filePath);
+	return /^season\b/i.test(path.basename(parentDirectory))
+		? path.dirname(parentDirectory)
+		: parentDirectory;
+}
+
+function inferTvDestinationContainerRoot(destinationPath: string): string {
+	const parentDirectory = path.dirname(destinationPath);
+	return /^season\b/i.test(path.basename(parentDirectory))
+		? path.dirname(parentDirectory)
+		: parentDirectory;
+}
+
+function collectNonPrimaryFiles(
+	fs: typeof import("node:fs"),
+	rootPath: string,
+	contentType: string,
+): string[] {
+	const results: string[] = [];
+
+	function walk(currentPath: string): void {
+		for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+			const absolutePath = path.join(currentPath, entry.name);
+
+			if (entry.isDirectory()) {
+				walk(absolutePath);
+				continue;
+			}
+
+			if (isPrimaryImportFile(contentType, absolutePath)) {
+				continue;
+			}
+
+			results.push(absolutePath);
+		}
+	}
+
+	walk(rootPath);
+	return results.sort(naturalSort);
+}
+
+function buildImportAssetRows({
+	contentType,
+	destinationPathByRowId,
+	filesByRowId,
+}: {
+	contentType: "audiobook" | "book" | "movie" | "tv";
+	destinationPathByRowId: Map<string, string>;
+	filesByRowId: Map<string, { path: string }>;
+}): ImportAssetRowInput[] {
+	return [...filesByRowId.entries()].map(([rowId, file]) => {
+		const destinationPath = destinationPathByRowId.get(rowId);
+		if (!destinationPath) {
+			throw new Error(`Missing destination path for import row ${rowId}`);
+		}
+
+		if (contentType === "tv") {
+			return {
+				rowId,
+				contentType,
+				sourcePath: file.path,
+				destinationPath,
+				sourceContainerRoot: inferTvSourceContainerRoot(file.path),
+				destinationContainerRoot:
+					inferTvDestinationContainerRoot(destinationPath),
+			};
+		}
+
+		return {
+			rowId,
+			contentType,
+			sourcePath: file.path,
+			destinationPath,
+			sourceContainerRoot: path.dirname(file.path),
+			destinationContainerRoot: path.dirname(destinationPath),
+		};
+	});
+}
+
+function buildImportAssetPlan({
+	contentType,
+	destinationPathByRowId,
+	filesByRowId,
+	requestedAssetsByRowId,
+}: {
+	contentType: "audiobook" | "book" | "movie" | "tv";
+	destinationPathByRowId: Map<string, string>;
+	filesByRowId: Map<string, { path: string }>;
+	requestedAssetsByRowId: Map<
+		string,
+		Array<
+			Pick<ImportAssetSelection, "action" | "kind" | "selected" | "sourcePath">
+		>
+	>;
+}): Map<string, ImportAssetRow> {
+	const assetRows = buildImportAssetRows({
+		contentType,
+		destinationPathByRowId,
+		filesByRowId,
+	});
+	const rowsByContainer = new Map<string, ImportAssetRowInput[]>();
+
+	for (const row of assetRows) {
+		const key = `${row.sourceContainerRoot}::${row.destinationContainerRoot}`;
+		const current = rowsByContainer.get(key) ?? [];
+		current.push(row);
+		rowsByContainer.set(key, current);
+	}
+
+	const plannedRows = new Map<string, ImportAssetRow>();
+
+	for (const rows of rowsByContainer.values()) {
+		const selectedPaths = new Set(
+			rows.flatMap((row) =>
+				(requestedAssetsByRowId.get(row.rowId) ?? []).map(
+					(asset) => asset.sourcePath,
+				),
+			),
+		);
+		const assigned = assignImportAssets({
+			rows,
+			discoveredPaths: [...selectedPaths],
+		});
+
+		for (const row of assigned.rows) {
+			const requestedByPath = new Map(
+				(requestedAssetsByRowId.get(row.rowId) ?? []).map((asset) => [
+					asset.sourcePath,
+					asset,
+				]),
+			);
+
+			plannedRows.set(row.rowId, {
+				...row,
+				assets: row.assets.map((asset) => ({
+					...asset,
+					selected:
+						requestedByPath.get(asset.sourcePath)?.selected ?? asset.selected,
+					action: requestedByPath.get(asset.sourcePath)?.action ?? asset.action,
+					kind: requestedByPath.get(asset.sourcePath)?.kind ?? asset.kind,
+				})),
+			});
+		}
+	}
+
+	return plannedRows;
+}
+
 // ─── getUnmappedFilesFn ────────────────────────────────────────────────────
 
 const getUnmappedFilesSchema = z.object({
@@ -575,7 +782,17 @@ const tvMappingSchema = z.object({
 	episodeId: z.number(),
 });
 
+const importAssetSchema = z.object({
+	action: z.enum(["move", "delete", "ignore"]).default("move"),
+	kind: z.enum(["file", "directory"]),
+	ownershipReason: z.enum(["direct", "token", "nested", "container"]),
+	relativeSourcePath: z.string().optional(),
+	selected: z.boolean().default(true),
+	sourcePath: z.string(),
+});
+
 const importRowSchema = z.object({
+	assets: z.array(importAssetSchema).default([]),
 	unmappedFileId: z.number(),
 	entityId: z.number(),
 	entityType: z.enum(["book", "movie", "episode"]),
@@ -603,6 +820,8 @@ const mapUnmappedFileSchema = z.union([
 			entityType: z.literal("episode"),
 			downloadProfileId: z.number(),
 			moveRelatedSidecars: z.boolean().default(false),
+			moveRelatedFiles: z.boolean().optional(),
+			deleteDeselectedRelatedFiles: z.boolean().default(false),
 			tvMappings: z.array(tvMappingSchema).min(1),
 		})
 		.strict(),
@@ -611,6 +830,8 @@ const mapUnmappedFileSchema = z.union([
 			downloadProfileId: z.number(),
 			rows: z.array(importRowSchema).min(1),
 			moveRelatedSidecars: z.boolean().default(false),
+			moveRelatedFiles: z.boolean().optional(),
+			deleteDeselectedRelatedFiles: z.boolean().default(false),
 		})
 		.strict(),
 ]);
@@ -618,20 +839,26 @@ const mapUnmappedFileSchema = z.union([
 type ImportRow = z.infer<typeof importRowSchema>;
 
 function normalizeImportRows(data: z.infer<typeof mapUnmappedFileSchema>): {
-	moveRelatedSidecars: boolean;
+	deleteDeselectedRelatedFiles: boolean;
+	moveRelatedFiles: boolean;
 	rows: ImportRow[];
 } {
 	if ("rows" in data) {
 		return {
-			moveRelatedSidecars: data.moveRelatedSidecars,
+			deleteDeselectedRelatedFiles: data.deleteDeselectedRelatedFiles,
+			moveRelatedFiles:
+				data.moveRelatedFiles ?? data.moveRelatedSidecars ?? false,
 			rows: data.rows,
 		};
 	}
 
 	if ("tvMappings" in data) {
 		return {
-			moveRelatedSidecars: data.moveRelatedSidecars,
+			deleteDeselectedRelatedFiles: data.deleteDeselectedRelatedFiles,
+			moveRelatedFiles:
+				data.moveRelatedFiles ?? data.moveRelatedSidecars ?? false,
 			rows: data.tvMappings.map((mapping) => ({
+				assets: [],
 				unmappedFileId: mapping.unmappedFileId,
 				entityId: mapping.episodeId,
 				entityType: "episode" as const,
@@ -640,8 +867,10 @@ function normalizeImportRows(data: z.infer<typeof mapUnmappedFileSchema>): {
 	}
 
 	return {
-		moveRelatedSidecars: false,
+		deleteDeselectedRelatedFiles: false,
+		moveRelatedFiles: false,
 		rows: data.unmappedFileIds.map((unmappedFileId) => ({
+			assets: [],
 			unmappedFileId,
 			entityId: data.entityId,
 			entityType: data.entityType,
@@ -740,18 +969,53 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					sourcePath: file.path,
 					useSeasonFolder: Boolean(episode.useSeasonFolder),
 				});
-				const movedFiles: Array<{ destPath: string; sourcePath: string }> = [];
+				const movedFiles: Array<{
+					destPath: string;
+					kind: "directory" | "file";
+					sourcePath: string;
+				}> = [];
 				const movedSidecarIds: number[] = [];
+				let plannedAssetRow: ImportAssetRow | undefined;
 
 				try {
 					moveFileToManagedPath(fs, file.path, managedEpisodePath);
 					movedFiles.push({
 						destPath: managedEpisodePath,
+						kind: "file",
 						sourcePath: file.path,
 					});
 					const usedDestPaths = new Set([managedEpisodePath]);
 
-					if (normalized.moveRelatedSidecars) {
+					if (normalized.moveRelatedFiles && row.assets.length > 0) {
+						plannedAssetRow = buildImportAssetPlan({
+							contentType: "tv",
+							destinationPathByRowId: new Map([
+								[String(row.unmappedFileId), managedEpisodePath],
+							]),
+							filesByRowId: new Map([
+								[String(row.unmappedFileId), { path: file.path }],
+							]),
+							requestedAssetsByRowId: new Map([
+								[String(row.unmappedFileId), row.assets],
+							]),
+						}).get(String(row.unmappedFileId));
+
+						if (plannedAssetRow) {
+							const assetOperations = buildAssetOperations({
+								row: plannedAssetRow,
+								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+							});
+
+							for (const move of assetOperations.moves) {
+								movePathToManagedDestination(fs, move.from, move.to, move.kind);
+								movedFiles.push({
+									destPath: move.to,
+									kind: move.kind,
+									sourcePath: move.from,
+								});
+							}
+						}
+					} else if (normalized.moveRelatedFiles) {
 						const candidates = db
 							.select()
 							.from(unmappedFiles)
@@ -793,6 +1057,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
 							movedFiles.push({
 								destPath: sidecarDest,
+								kind: "file",
 								sourcePath: candidate.path,
 							});
 							usedDestPaths.add(sidecarDest);
@@ -835,11 +1100,38 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}
 					});
 
+					if (plannedAssetRow) {
+						const assetOperations = buildAssetOperations({
+							row: plannedAssetRow,
+							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+						});
+
+						for (const deletion of assetOperations.deletes) {
+							fs.rmSync(deletion.path, {
+								force: true,
+								recursive: deletion.kind === "directory",
+							});
+						}
+
+						pruneEmptyDirectories({
+							startDirectories: assetOperations.pruneDirectories,
+							stopAt: assetOperations.stopAt,
+							listEntries: (dir) => fs.readdirSync(dir),
+							removeDirectory: (dir) =>
+								fs.rmSync(dir, { force: true, recursive: false }),
+						});
+					}
+
 					mappedCount++;
 				} catch (error) {
 					for (const moved of [...movedFiles].reverse()) {
 						try {
-							moveFileToManagedPath(fs, moved.destPath, moved.sourcePath);
+							movePathToManagedDestination(
+								fs,
+								moved.destPath,
+								moved.sourcePath,
+								moved.kind,
+							);
 						} catch (rollbackError) {
 							logWarn(
 								"unmapped-files",
@@ -1001,9 +1293,44 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					bookFolderName,
 					path.basename(file.path),
 				);
-				moveFileToManagedPath(fs, file.path, destPath);
+				const movedPaths: AssetOperation[] = [];
+				let plannedAssetRow: ImportAssetRow | undefined;
 
 				try {
+					moveFileToManagedPath(fs, file.path, destPath);
+					movedPaths.push({
+						from: file.path,
+						to: destPath,
+						kind: "file",
+					});
+
+					if (normalized.moveRelatedFiles && row.assets.length > 0) {
+						plannedAssetRow = buildImportAssetPlan({
+							contentType:
+								profile.contentType === "audiobook" ? "audiobook" : "book",
+							destinationPathByRowId: new Map([
+								[String(row.unmappedFileId), destPath],
+							]),
+							filesByRowId: new Map([
+								[String(row.unmappedFileId), { path: file.path }],
+							]),
+							requestedAssetsByRowId: new Map([
+								[String(row.unmappedFileId), row.assets],
+							]),
+						}).get(String(row.unmappedFileId));
+
+						if (plannedAssetRow) {
+							const assetOperations = buildAssetOperations({
+								row: plannedAssetRow,
+								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+							});
+							for (const move of assetOperations.moves) {
+								movePathToManagedDestination(fs, move.from, move.to, move.kind);
+								movedPaths.push(move);
+							}
+						}
+					}
+
 					db.transaction((tx) => {
 						tx.insert(bookFiles)
 							.values({
@@ -1039,14 +1366,43 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
 					});
+
+					if (plannedAssetRow) {
+						const assetOperations = buildAssetOperations({
+							row: plannedAssetRow,
+							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+						});
+
+						for (const deletion of assetOperations.deletes) {
+							fs.rmSync(deletion.path, {
+								force: true,
+								recursive: deletion.kind === "directory",
+							});
+						}
+
+						pruneEmptyDirectories({
+							startDirectories: assetOperations.pruneDirectories,
+							stopAt: assetOperations.stopAt,
+							listEntries: (dir) => fs.readdirSync(dir),
+							removeDirectory: (dir) =>
+								fs.rmSync(dir, { force: true, recursive: false }),
+						});
+					}
 				} catch (error) {
-					try {
-						moveFileToManagedPath(fs, destPath, file.path);
-					} catch (rollbackError) {
-						logWarn(
-							"unmapped-files",
-							`Failed to roll back file move for ${file.path}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-						);
+					for (const moved of [...movedPaths].reverse()) {
+						try {
+							movePathToManagedDestination(
+								fs,
+								moved.to,
+								moved.from,
+								moved.kind,
+							);
+						} catch (rollbackError) {
+							logWarn(
+								"unmapped-files",
+								`Failed to roll back file move for ${moved.from}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+							);
+						}
 					}
 					throw error;
 				}
@@ -1094,18 +1450,53 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					movieYear: movie.year,
 					sourcePath: file.path,
 				});
-				const movedFiles: Array<{ destPath: string; sourcePath: string }> = [];
+				const movedFiles: Array<{
+					destPath: string;
+					kind: "directory" | "file";
+					sourcePath: string;
+				}> = [];
 				const movedSidecarIds: number[] = [];
+				let plannedAssetRow: ImportAssetRow | undefined;
 
 				try {
 					moveFileToManagedPath(fs, file.path, destPath);
 					movedFiles.push({
 						destPath,
+						kind: "file",
 						sourcePath: file.path,
 					});
 					const usedDestPaths = new Set([destPath]);
 
-					if (normalized.moveRelatedSidecars) {
+					if (normalized.moveRelatedFiles && row.assets.length > 0) {
+						plannedAssetRow = buildImportAssetPlan({
+							contentType: "movie",
+							destinationPathByRowId: new Map([
+								[String(row.unmappedFileId), destPath],
+							]),
+							filesByRowId: new Map([
+								[String(row.unmappedFileId), { path: file.path }],
+							]),
+							requestedAssetsByRowId: new Map([
+								[String(row.unmappedFileId), row.assets],
+							]),
+						}).get(String(row.unmappedFileId));
+
+						if (plannedAssetRow) {
+							const assetOperations = buildAssetOperations({
+								row: plannedAssetRow,
+								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+							});
+
+							for (const move of assetOperations.moves) {
+								movePathToManagedDestination(fs, move.from, move.to, move.kind);
+								movedFiles.push({
+									destPath: move.to,
+									kind: move.kind,
+									sourcePath: move.from,
+								});
+							}
+						}
+					} else if (normalized.moveRelatedFiles) {
 						const candidates = db
 							.select()
 							.from(unmappedFiles)
@@ -1147,6 +1538,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
 							movedFiles.push({
 								destPath: sidecarDest,
+								kind: "file",
 								sourcePath: candidate.path,
 							});
 							usedDestPaths.add(sidecarDest);
@@ -1193,10 +1585,37 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 								.run();
 						}
 					});
+
+					if (plannedAssetRow) {
+						const assetOperations = buildAssetOperations({
+							row: plannedAssetRow,
+							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+						});
+
+						for (const deletion of assetOperations.deletes) {
+							fs.rmSync(deletion.path, {
+								force: true,
+								recursive: deletion.kind === "directory",
+							});
+						}
+
+						pruneEmptyDirectories({
+							startDirectories: assetOperations.pruneDirectories,
+							stopAt: assetOperations.stopAt,
+							listEntries: (dir) => fs.readdirSync(dir),
+							removeDirectory: (dir) =>
+								fs.rmSync(dir, { force: true, recursive: false }),
+						});
+					}
 				} catch (error) {
 					for (const moved of [...movedFiles].reverse()) {
 						try {
-							moveFileToManagedPath(fs, moved.destPath, moved.sourcePath);
+							movePathToManagedDestination(
+								fs,
+								moved.destPath,
+								moved.sourcePath,
+								moved.kind,
+							);
 						} catch (rollbackError) {
 							logWarn(
 								"unmapped-files",
@@ -1256,6 +1675,97 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 		eventBus.emit({ type: "unmappedFilesUpdated" });
 		return { success: true, mappedCount };
+	});
+
+// ─── previewUnmappedImportAssetsFn ────────────────────────────────────────
+
+const previewImportAssetRowsSchema = z.object({
+	rows: z.array(
+		z.object({
+			contentType: z.enum(["audiobook", "book", "movie", "tv"]),
+			fileId: z.number(),
+			path: z.string(),
+		}),
+	),
+});
+
+export const previewUnmappedImportAssetsFn = createServerFn({ method: "GET" })
+	.inputValidator((d: unknown) => previewImportAssetRowsSchema.parse(d))
+	.handler(async ({ data }) => {
+		await requireAuth();
+		const fs = await import("node:fs");
+		const rowsByContainer = new Map<
+			string,
+			Array<ImportAssetRowInput & { fileId: number }>
+		>();
+
+		for (const row of data.rows) {
+			const sourceContainerRoot =
+				row.contentType === "tv"
+					? inferTvSourceContainerRoot(row.path)
+					: path.dirname(row.path);
+			const containerKey = `${row.contentType}::${sourceContainerRoot}`;
+			const current = rowsByContainer.get(containerKey) ?? [];
+			current.push({
+				rowId: String(row.fileId),
+				fileId: row.fileId,
+				contentType: row.contentType,
+				sourcePath: row.path,
+				destinationPath: row.path,
+				sourceContainerRoot,
+				destinationContainerRoot: sourceContainerRoot,
+			});
+			rowsByContainer.set(containerKey, current);
+		}
+
+		const previewRows = new Map<
+			number,
+			{
+				assets: Array<
+					Pick<
+						ImportAssetSelection,
+						| "kind"
+						| "ownershipReason"
+						| "relativeSourcePath"
+						| "selected"
+						| "sourcePath"
+					>
+				>;
+				fileId: number;
+			}
+		>();
+
+		for (const rows of rowsByContainer.values()) {
+			const discoveredPaths = collectNonPrimaryFiles(
+				fs,
+				rows[0].sourceContainerRoot,
+				rows[0].contentType,
+			);
+			const assigned = assignImportAssets({
+				rows,
+				discoveredPaths,
+			});
+
+			for (const row of assigned.rows) {
+				previewRows.set(Number(row.rowId), {
+					fileId: Number(row.rowId),
+					assets: row.assets.map((asset) => ({
+						kind: asset.kind,
+						ownershipReason: asset.ownershipReason,
+						relativeSourcePath: asset.relativeSourcePath,
+						selected: asset.selected,
+						sourcePath: asset.sourcePath,
+					})),
+				});
+			}
+		}
+
+		return {
+			rows: data.rows.map((row) => ({
+				fileId: row.fileId,
+				assets: previewRows.get(row.fileId)?.assets ?? [],
+			})),
+		};
 	});
 
 // ─── suggestUnmappedTvMappingsFn ──────────────────────────────────────────

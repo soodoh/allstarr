@@ -89,24 +89,6 @@ function seedUnmappedMovieFile(
     mkdirSync(dirname(sidecarPath), { recursive: true });
     writeFileSync(sidecarPath, `dummy sidecar content for ${sidecarFilename}`);
 
-    const extension = sidecarFilename.split(".").pop()?.toUpperCase() ?? "TXT";
-    db.insert(schema.unmappedFiles)
-      .values({
-        path: sidecarPath,
-        size: 64,
-        rootFolderPath,
-        contentType: "movie",
-        format: extension,
-        quality: null,
-        hints: {
-          source: "filename",
-          title: "Alien",
-          year: 1979,
-        },
-        ignored: false,
-      })
-      .run();
-
     return sidecarPath;
   });
 
@@ -158,25 +140,6 @@ function seedUnmappedTvFile(
     const sidecarPath = join(sourceDir, sidecarFilename);
     mkdirSync(dirname(sidecarPath), { recursive: true });
     writeFileSync(sidecarPath, `dummy sidecar content for ${sidecarFilename}`);
-
-    const extension = sidecarFilename.split(".").pop()?.toUpperCase() ?? "TXT";
-    db.insert(schema.unmappedFiles)
-      .values({
-        path: sidecarPath,
-        size: 64,
-        rootFolderPath,
-        contentType: "tv",
-        format: extension,
-        quality: null,
-        hints: {
-          source: "filename",
-          title: "Severance",
-          season: 1,
-          episode: episodeNumber,
-        },
-        ignored: false,
-      })
-      .run();
 
     return sidecarPath;
   });
@@ -530,6 +493,7 @@ test.describe("Unmapped Files", () => {
 
     const destinationMovieDir = join(tempDir, `${movie.title} (${movie.year})`);
     mkdirSync(destinationMovieDir, { recursive: true });
+    const expectedFolderArtPath = join(destinationMovieDir, "folder.jpg");
     const destinationKeepFile = join(destinationMovieDir, "readme.txt");
     writeFileSync(destinationKeepFile, "keep me in the destination tree");
 
@@ -561,7 +525,7 @@ test.describe("Unmapped Files", () => {
       page.getByText("Alien · 1979", { exact: true }),
     ).toBeVisible();
 
-    await page.getByLabel("Move related sidecar files").check();
+    await page.getByLabel("Move related files").check();
     await page.getByRole("button", { name: "Map Selected Files" }).click();
 
     await expect(page.getByText("No unmapped files")).toBeVisible();
@@ -608,18 +572,6 @@ test.describe("Unmapped Files", () => {
       )
       .toBeNull();
 
-    for (const sidecarPath of unmappedMovie.sidecarPaths) {
-      await expect
-        .poll(() =>
-          db
-            .select({ id: schema.unmappedFiles.id })
-            .from(schema.unmappedFiles)
-            .where(eq(schema.unmappedFiles.path, sidecarPath))
-            .get() ?? null,
-        )
-        .toBeNull();
-    }
-
     await expect.poll(() => existsSync(expectedMoviePath)).toBe(true);
     await expect.poll(() => existsSync(expectedNfoPath)).toBe(true);
     await expect.poll(() => existsSync(expectedXmlPath)).toBe(true);
@@ -627,11 +579,12 @@ test.describe("Unmapped Files", () => {
     for (const sidecarPath of unmappedMovie.sidecarPaths) {
       await expect.poll(() => existsSync(sidecarPath)).toBe(false);
     }
-    await expect.poll(() => existsSync(sourceFolderFile)).toBe(true);
+    await expect.poll(() => existsSync(expectedFolderArtPath)).toBe(true);
+    await expect.poll(() => existsSync(sourceFolderFile)).toBe(false);
     await expect.poll(() => existsSync(destinationKeepFile)).toBe(true);
   });
 
-  test("maps TV rows with distinct episode targets and moves related sidecars", async ({
+  test("maps TV rows with distinct episode targets and preserves nested and show-level related files", async ({
     page,
     appUrl,
     db,
@@ -645,7 +598,12 @@ test.describe("Unmapped Files", () => {
       tempDir,
       "Severance.S01E01.mkv",
       1,
-      ["Severance.S01E01.nfo", "Severance.S01E01.xml"],
+      [
+        "Severance.S01E01.nfo",
+        "Severance.S01E01.xml",
+        "Severance.S01E01-thumb.jpg",
+        "Severance.S01E01.trickplay/320 - 10x10/0.jpg",
+      ],
     );
     const secondFile = seedUnmappedTvFile(
       db,
@@ -657,6 +615,8 @@ test.describe("Unmapped Files", () => {
 
     const sourceFolderFile = join(firstFile.sourceDir, "folder.jpg");
     writeFileSync(sourceFolderFile, "keep me in the source tree");
+    const themePath = join(tempDir, "incoming", "severance", "theme.mp3");
+    writeFileSync(themePath, "theme music");
 
     const destinationSeasonDir = join(
       tempDir,
@@ -703,7 +663,10 @@ test.describe("Unmapped Files", () => {
     await expect(page.getByText("S01E01 - Episode One").first()).toBeVisible();
     await expect(page.getByText("S01E02 - Episode Two").first()).toBeVisible();
 
-    await page.getByLabel("Move related sidecar files").click();
+    await page.getByLabel("Move related files").check();
+    await expect(
+      page.getByRole("button", { name: "Map Selected Files" }),
+    ).toBeEnabled();
     await page.getByRole("button", { name: "Map Selected Files" }).click();
 
     const firstDestPath = join(
@@ -722,6 +685,16 @@ test.describe("Unmapped Files", () => {
       destinationSeasonDir,
       "Severance S01E01.xml",
     );
+    const firstThumbDest = join(
+      destinationSeasonDir,
+      "Severance S01E01-thumb.jpg",
+    );
+    const firstTrickplayDest = join(
+      destinationSeasonDir,
+      "Severance S01E01.trickplay",
+      "320 - 10x10",
+      "0.jpg",
+    );
     const secondSidecarNfoDest = join(
       destinationSeasonDir,
       "Severance S01E02.nfo",
@@ -730,6 +703,8 @@ test.describe("Unmapped Files", () => {
       destinationSeasonDir,
       "Severance S01E02.xml",
     );
+    const folderArtDest = join(tempDir, `${show.title} (${show.year})`, "folder.jpg");
+    const themeDest = join(tempDir, `${show.title} (${show.year})`, "theme.mp3");
 
     await expect(page.getByText("No unmapped files")).toBeVisible();
 
@@ -745,27 +720,15 @@ test.describe("Unmapped Files", () => {
         .toBeNull();
     }
 
-    for (const sidecarPath of [
-      ...firstFile.sidecarPaths,
-      ...secondFile.sidecarPaths,
-    ]) {
-      await expect
-        .poll(() =>
-          db
-            .select({ id: schema.unmappedFiles.id })
-            .from(schema.unmappedFiles)
-            .where(eq(schema.unmappedFiles.path, sidecarPath))
-            .get() ?? null,
-        )
-        .toBeNull();
-    }
-
     await expect.poll(() => existsSync(firstDestPath)).toBe(true);
     await expect.poll(() => existsSync(secondDestPath)).toBe(true);
     await expect.poll(() => existsSync(firstSidecarNfoDest)).toBe(true);
     await expect.poll(() => existsSync(firstSidecarXmlDest)).toBe(true);
+    await expect.poll(() => existsSync(firstThumbDest)).toBe(true);
+    await expect.poll(() => existsSync(firstTrickplayDest)).toBe(true);
     await expect.poll(() => existsSync(secondSidecarNfoDest)).toBe(true);
     await expect.poll(() => existsSync(secondSidecarXmlDest)).toBe(true);
+    await expect.poll(() => existsSync(themeDest)).toBe(true);
     await expect.poll(() => existsSync(firstFile.path)).toBe(false);
     await expect.poll(() => existsSync(secondFile.path)).toBe(false);
     for (const sidecarPath of [
@@ -774,7 +737,9 @@ test.describe("Unmapped Files", () => {
     ]) {
       await expect.poll(() => existsSync(sidecarPath)).toBe(false);
     }
-    await expect.poll(() => existsSync(sourceFolderFile)).toBe(true);
+    await expect.poll(() => existsSync(themePath)).toBe(false);
+    await expect.poll(() => existsSync(folderArtDest)).toBe(true);
+    await expect.poll(() => existsSync(sourceFolderFile)).toBe(false);
     await expect.poll(() => existsSync(destinationSidecarFile)).toBe(true);
   });
 
