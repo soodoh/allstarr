@@ -67,6 +67,7 @@ type TvSuggestionRow = {
 type TvRowState = {
 	assets: ImportAssetState[];
 	assetsExpanded: boolean;
+	errorMessage: string | null;
 	search: string;
 	selectedEpisodeId: number | null;
 };
@@ -74,8 +75,24 @@ type TvRowState = {
 type NonTvRowState = {
 	assets: ImportAssetState[];
 	assetsExpanded: boolean;
+	errorMessage: string | null;
 	search: string;
 	selectedEntityId: number | null;
+};
+
+type ImportRowIssue = {
+	entityType: "book" | "episode" | "movie";
+	message: string;
+	sourcePath: string;
+	unmappedFileId: number;
+};
+
+type MapImportResult = {
+	failedCount?: number;
+	failures?: ImportRowIssue[];
+	mappedCount: number;
+	success: boolean;
+	warnings?: ImportRowIssue[];
 };
 
 type ImportAssetState = {
@@ -191,6 +208,7 @@ function buildTvInitialRowState(
 			next[file.id] = {
 				assets: assetStateById[file.id] ?? [],
 				assetsExpanded: false,
+				errorMessage: null,
 				search: defaultSearch,
 				selectedEpisodeId: defaultSelection,
 			};
@@ -203,6 +221,7 @@ function buildTvInitialRowState(
 					? currentRow.assets
 					: (assetStateById[file.id] ?? []),
 			assetsExpanded: currentRow.assetsExpanded,
+			errorMessage: currentRow.errorMessage ?? null,
 			search: searchTouched.has(file.id)
 				? currentRow.search
 				: currentRow.search.length > 0
@@ -536,6 +555,9 @@ function TvMappingRow({
 			{searchEnabled && isLoading ? (
 				<p className="text-xs text-muted-foreground">Searching episodes...</p>
 			) : null}
+			{rowState.errorMessage ? (
+				<p className="text-xs text-destructive">{rowState.errorMessage}</p>
+			) : null}
 
 			<RowAssets
 				assetSummary={assetSummary}
@@ -713,6 +735,9 @@ function NonTvMappingRow({
 			{searchEnabled && isLoading ? (
 				<p className="text-xs text-muted-foreground">Searching library...</p>
 			) : null}
+			{rowState.errorMessage ? (
+				<p className="text-xs text-destructive">{rowState.errorMessage}</p>
+			) : null}
 
 			<RowAssets
 				assetSummary={assetSummary}
@@ -736,6 +761,9 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const upsertUserSettings = useUpsertUserSettings();
 	const isTv = contentType === "tv";
 
+	const [activeFileIds, setActiveFileIds] = useState<number[]>(() =>
+		files.map((file) => file.id),
+	);
 	const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 	const [mapping, setMapping] = useState(false);
 	const [moveRelatedFiles, setMoveRelatedFiles] = useState(false);
@@ -753,6 +781,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 				{
 					assets: [],
 					assetsExpanded: false,
+					errorMessage: null,
 					search: buildInitialRowSearch(file),
 					selectedEntityId: null,
 				},
@@ -765,7 +794,24 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const selectionTouchedRef = useRef(new Set<number>());
 	const nonTvSelectionTouchedRef = useRef(new Set<number>());
 	const importDefaultsHydrated = useRef(false);
+	const initialFileSignatureRef = useRef("");
 	filesRef.current = files;
+
+	const fileSignature = files.map((file) => file.id).join(",");
+	useEffect(() => {
+		if (initialFileSignatureRef.current === fileSignature) {
+			return;
+		}
+
+		initialFileSignatureRef.current = fileSignature;
+		setActiveFileIds(files.map((file) => file.id));
+	}, [fileSignature, files]);
+
+	const visibleFiles = useMemo(
+		() => files.filter((file) => activeFileIds.includes(file.id)),
+		[activeFileIds, files],
+	);
+	filesRef.current = visibleFiles;
 
 	const { data: userSettings, isFetched: isUserSettingsFetched } = useQuery(
 		userSettingsQuery("unmapped-files"),
@@ -804,12 +850,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			"unmappedFiles",
 			"tv-suggestions",
 			contentType,
-			files.map((file) => file.id).join(","),
+			visibleFiles.map((file) => file.id).join(","),
 		],
 		queryFn: () =>
 			suggestUnmappedTvMappingsFn({
 				data: {
-					rows: files.map((file) => ({
+					rows: visibleFiles.map((file) => ({
 						contentType: "tv" as const,
 						fileId: file.id,
 						hints: file.hints,
@@ -817,7 +863,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 					})),
 				},
 			}),
-		enabled: isTv && files.length > 0,
+		enabled: isTv && visibleFiles.length > 0,
 	});
 
 	const assetPreviewQuery = useQuery({
@@ -825,12 +871,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			"unmappedFiles",
 			"asset-preview",
 			contentType,
-			files.map((file) => file.id).join(","),
+			visibleFiles.map((file) => file.id).join(","),
 		],
 		queryFn: () =>
 			previewUnmappedImportAssetsFn({
 				data: {
-					rows: files.map((file) => ({
+					rows: visibleFiles.map((file) => ({
 						contentType:
 							contentType === "ebook"
 								? "book"
@@ -840,7 +886,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 					})),
 				},
 			}),
-		enabled: files.length > 0,
+		enabled: visibleFiles.length > 0,
 	});
 	const assetPreviewResults = assetPreviewQuery.data;
 	const isAssetPreviewPending = Boolean(
@@ -889,7 +935,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			),
 		[tvSuggestionRows],
 	);
-	const tvSeedSignature = `${files.map((file) => file.id).join(",")}::${tvSuggestionRows
+	const tvSeedSignature = `${visibleFiles.map((file) => file.id).join(",")}::${tvSuggestionRows
 		.map(
 			(row) =>
 				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title ?? ""}:${row.subtitle}`,
@@ -923,7 +969,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			return;
 		}
 
-		const nonTvSignature = `${files.map((file) => file.id).join(",")}::${assetPreviewSignature}`;
+		const nonTvSignature = `${visibleFiles.map((file) => file.id).join(",")}::${assetPreviewSignature}`;
 		if (previousNonTvAssetSignatureRef.current === nonTvSignature) {
 			return;
 		}
@@ -931,7 +977,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 		setNonTvRowStateById((current) =>
 			Object.fromEntries(
-				files.map((file) => [
+				visibleFiles.map((file) => [
 					file.id,
 					current[file.id]
 						? {
@@ -944,17 +990,18 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						: {
 								assets: assetPreviewById[file.id] ?? [],
 								assetsExpanded: false,
+								errorMessage: null,
 								search: buildInitialRowSearch(file),
 								selectedEntityId: null,
 							},
 				]),
 			),
 		);
-	}, [assetPreviewById, assetPreviewSignature, files, isTv]);
+	}, [assetPreviewById, assetPreviewSignature, isTv, visibleFiles]);
 
 	const tvRows = useMemo(
 		() =>
-			files.map((file) => {
+			visibleFiles.map((file) => {
 				const suggestion = tvSuggestionMap.get(file.id);
 				const currentState = tvRowStateById[file.id];
 				const defaultSearch =
@@ -962,6 +1009,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 				const rowState = currentState ?? {
 					assets: assetPreviewById[file.id] ?? [],
 					assetsExpanded: false,
+					errorMessage: null,
 					search: defaultSearch,
 					selectedEpisodeId: suggestion?.suggestedEpisodeId ?? null,
 				};
@@ -972,21 +1020,22 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 					suggestion,
 				};
 			}),
-		[assetPreviewById, files, tvRowStateById, tvSuggestionMap],
+		[assetPreviewById, tvRowStateById, tvSuggestionMap, visibleFiles],
 	);
 
 	const nonTvRows = useMemo(
 		() =>
-			files.map((file) => ({
+			visibleFiles.map((file) => ({
 				file,
 				rowState: nonTvRowStateById[file.id] ?? {
 					assets: assetPreviewById[file.id] ?? [],
 					assetsExpanded: false,
+					errorMessage: null,
 					search: buildInitialRowSearch(file),
 					selectedEntityId: null,
 				},
 			})),
-		[assetPreviewById, files, nonTvRowStateById],
+		[assetPreviewById, nonTvRowStateById, visibleFiles],
 	);
 	const requiresAssetPreview = moveRelatedFiles || deleteDeselectedRelatedFiles;
 	const disableTvSubmit =
@@ -1111,6 +1160,53 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		}));
 	};
 
+	const clearRowErrors = () => {
+		setTvRowStateById((current) =>
+			Object.fromEntries(
+				Object.entries(current).map(([fileId, rowState]) => [
+					Number(fileId),
+					{ ...rowState, errorMessage: null },
+				]),
+			),
+		);
+		setNonTvRowStateById((current) =>
+			Object.fromEntries(
+				Object.entries(current).map(([fileId, rowState]) => [
+					Number(fileId),
+					{ ...rowState, errorMessage: null },
+				]),
+			),
+		);
+	};
+
+	const applyRowFailures = (failures: ImportRowIssue[]) => {
+		const failureMessageById = new Map(
+			failures.map((failure) => [failure.unmappedFileId, failure.message]),
+		);
+		setTvRowStateById((current) =>
+			Object.fromEntries(
+				Object.entries(current).map(([fileId, rowState]) => [
+					Number(fileId),
+					{
+						...rowState,
+						errorMessage: failureMessageById.get(Number(fileId)) ?? null,
+					},
+				]),
+			),
+		);
+		setNonTvRowStateById((current) =>
+			Object.fromEntries(
+				Object.entries(current).map(([fileId, rowState]) => [
+					Number(fileId),
+					{
+						...rowState,
+						errorMessage: failureMessageById.get(Number(fileId)) ?? null,
+					},
+				]),
+			),
+		);
+	};
+
 	const handleNonTvMap = async () => {
 		const profileId = Number(effectiveProfileId);
 		if (!profileId) {
@@ -1128,8 +1224,9 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		}
 
 		setMapping(true);
+		clearRowErrors();
 		try {
-			await mapUnmappedFileFn({
+			const result = (await mapUnmappedFileFn({
 				data: {
 					downloadProfileId: profileId,
 					deleteDeselectedRelatedFiles,
@@ -1154,7 +1251,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						unmappedFileId: row.file.id,
 					})),
 				},
-			});
+			})) as MapImportResult;
 
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.unmappedFiles.all,
@@ -1166,9 +1263,19 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 				},
 				tableId: "unmapped-files",
 			});
+			const failures = result.failures ?? [];
+			const failedCount = result.failedCount ?? failures.length;
+			if (failedCount > 0) {
+				applyRowFailures(failures);
+				setActiveFileIds(failures.map((failure) => failure.unmappedFileId));
+				toast.error(
+					`${failedCount} file${failedCount !== 1 ? "s" : ""} failed to map`,
+				);
+				return;
+			}
 
 			toast.success(
-				`${files.length} file${files.length !== 1 ? "s" : ""} mapped`,
+				`${result.mappedCount} file${result.mappedCount !== 1 ? "s" : ""} mapped`,
 			);
 			onClose();
 		} catch {
@@ -1195,8 +1302,9 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 		}
 
 		setMapping(true);
+		clearRowErrors();
 		try {
-			await mapUnmappedFileFn({
+			const result = (await mapUnmappedFileFn({
 				data: {
 					downloadProfileId: profileId,
 					deleteDeselectedRelatedFiles,
@@ -1221,7 +1329,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						unmappedFileId: row.file.id,
 					})),
 				},
-			});
+			})) as MapImportResult;
 
 			upsertUserSettings.mutate({
 				addDefaults: {
@@ -1233,8 +1341,18 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.unmappedFiles.all,
 			});
+			const failures = result.failures ?? [];
+			const failedCount = result.failedCount ?? failures.length;
+			if (failedCount > 0) {
+				applyRowFailures(failures);
+				setActiveFileIds(failures.map((failure) => failure.unmappedFileId));
+				toast.error(
+					`${failedCount} file${failedCount !== 1 ? "s" : ""} failed to map`,
+				);
+				return;
+			}
 			toast.success(
-				`${files.length} file${files.length !== 1 ? "s" : ""} mapped`,
+				`${result.mappedCount} file${result.mappedCount !== 1 ? "s" : ""} mapped`,
 			);
 			onClose();
 		} catch {
@@ -1330,6 +1448,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 															[],
 														assetsExpanded:
 															current[fileId]?.assetsExpanded ?? false,
+														errorMessage: null,
 														search: searchValue,
 														selectedEpisodeId:
 															current[fileId]?.selectedEpisodeId ??
@@ -1352,6 +1471,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 															[],
 														assetsExpanded:
 															current[fileId]?.assetsExpanded ?? false,
+														errorMessage: null,
 														search:
 															current[fileId]?.search ??
 															file.hints?.title ??
@@ -1405,6 +1525,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 															[],
 														assetsExpanded:
 															current[fileId]?.assetsExpanded ?? false,
+														errorMessage: null,
 														search: searchValue,
 														selectedEntityId:
 															current[fileId]?.selectedEntityId ?? null,
@@ -1422,6 +1543,7 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 															[],
 														assetsExpanded:
 															current[fileId]?.assetsExpanded ?? false,
+														errorMessage: null,
 														search:
 															current[fileId]?.search ??
 															buildInitialRowSearch(file),
