@@ -837,6 +837,19 @@ const mapUnmappedFileSchema = z.union([
 ]);
 
 type ImportRow = z.infer<typeof importRowSchema>;
+type ImportRowIssue = {
+	entityType: ImportRow["entityType"];
+	message: string;
+	sourcePath: string;
+	unmappedFileId: number;
+};
+type ImportResult = {
+	failedCount: number;
+	failures: ImportRowIssue[];
+	mappedCount: number;
+	success: true;
+	warnings: ImportRowIssue[];
+};
 
 function normalizeImportRows(data: z.infer<typeof mapUnmappedFileSchema>): {
 	deleteDeselectedRelatedFiles: boolean;
@@ -875,6 +888,58 @@ function normalizeImportRows(data: z.infer<typeof mapUnmappedFileSchema>): {
 			entityId: data.entityId,
 			entityType: data.entityType,
 		})),
+	};
+}
+
+function toIssue({
+	error,
+	file,
+	row,
+}: {
+	error: unknown;
+	file: { path: string };
+	row: ImportRow;
+}): ImportRowIssue {
+	return {
+		entityType: row.entityType,
+		message: error instanceof Error ? error.message : String(error),
+		sourcePath: file.path,
+		unmappedFileId: row.unmappedFileId,
+	};
+}
+
+function rollbackMovedPaths(
+	fs: typeof import("node:fs"),
+	movedPaths: AssetOperation[],
+	logLabel: string,
+): void {
+	for (const moved of [...movedPaths].reverse()) {
+		try {
+			movePathToManagedDestination(fs, moved.to, moved.from, moved.kind);
+		} catch (rollbackError) {
+			logWarn(
+				"unmapped-files",
+				`Failed to roll back ${logLabel} for ${moved.from}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+			);
+		}
+	}
+}
+
+function createImportResult({
+	failures,
+	mappedCount,
+	warnings,
+}: {
+	failures: ImportRowIssue[];
+	mappedCount: number;
+	warnings: ImportRowIssue[];
+}): ImportResult {
+	return {
+		failedCount: failures.length,
+		failures,
+		mappedCount,
+		success: true,
+		warnings,
 	};
 }
 
@@ -918,6 +983,8 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 			const mappedIds = new Set(episodeRows.map((row) => row.unmappedFileId));
 			let mappedCount = 0;
+			const failures: ImportRowIssue[] = [];
+			const warnings: ImportRowIssue[] = [];
 
 			for (const row of episodeRows) {
 				const file = db
@@ -969,20 +1036,19 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					sourcePath: file.path,
 					useSeasonFolder: Boolean(episode.useSeasonFolder),
 				});
-				const movedFiles: Array<{
-					destPath: string;
-					kind: "directory" | "file";
-					sourcePath: string;
-				}> = [];
+				const movedFiles: AssetOperation[] = [];
 				const movedSidecarIds: number[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
+				let assetOperations:
+					| ReturnType<typeof buildAssetOperations>
+					| undefined;
 
 				try {
 					moveFileToManagedPath(fs, file.path, managedEpisodePath);
 					movedFiles.push({
-						destPath: managedEpisodePath,
+						from: file.path,
 						kind: "file",
-						sourcePath: file.path,
+						to: managedEpisodePath,
 					});
 					const usedDestPaths = new Set([managedEpisodePath]);
 
@@ -1001,18 +1067,14 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}).get(String(row.unmappedFileId));
 
 						if (plannedAssetRow) {
-							const assetOperations = buildAssetOperations({
+							assetOperations = buildAssetOperations({
 								row: plannedAssetRow,
 								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
 							});
 
 							for (const move of assetOperations.moves) {
 								movePathToManagedDestination(fs, move.from, move.to, move.kind);
-								movedFiles.push({
-									destPath: move.to,
-									kind: move.kind,
-									sourcePath: move.from,
-								});
+								movedFiles.push(move);
 							}
 						}
 					} else if (normalized.moveRelatedFiles) {
@@ -1056,9 +1118,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							);
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
 							movedFiles.push({
-								destPath: sidecarDest,
+								from: candidate.path,
 								kind: "file",
-								sourcePath: candidate.path,
+								to: sidecarDest,
 							});
 							usedDestPaths.add(sidecarDest);
 							movedSidecarIds.push(candidate.id);
@@ -1100,12 +1162,15 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}
 					});
 
-					if (plannedAssetRow) {
-						const assetOperations = buildAssetOperations({
-							row: plannedAssetRow,
-							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
-						});
+					mappedCount++;
+				} catch (error) {
+					rollbackMovedPaths(fs, movedFiles, "TV file move");
+					failures.push(toIssue({ error, file, row }));
+					continue;
+				}
 
+				if (assetOperations) {
+					try {
 						for (const deletion of assetOperations.deletes) {
 							fs.rmSync(deletion.path, {
 								force: true,
@@ -1120,31 +1185,14 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							removeDirectory: (dir) =>
 								fs.rmSync(dir, { force: true, recursive: false }),
 						});
+					} catch (error) {
+						warnings.push(toIssue({ error, file, row }));
 					}
-
-					mappedCount++;
-				} catch (error) {
-					for (const moved of [...movedFiles].reverse()) {
-						try {
-							movePathToManagedDestination(
-								fs,
-								moved.destPath,
-								moved.sourcePath,
-								moved.kind,
-							);
-						} catch (rollbackError) {
-							logWarn(
-								"unmapped-files",
-								`Failed to roll back TV file move for ${moved.sourcePath}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-							);
-						}
-					}
-					throw error;
 				}
 			}
 
 			eventBus.emit({ type: "unmappedFilesUpdated" });
-			return { success: true, mappedCount };
+			return createImportResult({ failures, mappedCount, warnings });
 		}
 
 		// Validate profile exists
@@ -1179,6 +1227,8 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 			.sort((left, right) => naturalSort(left.file.path, right.file.path));
 
 		let mappedCount = 0;
+		const failures: ImportRowIssue[] = [];
+		const warnings: ImportRowIssue[] = [];
 
 		const audioRowsByBookId = new Map<number, typeof resolvedRows>();
 		for (const resolvedRow of resolvedRows) {
@@ -1295,6 +1345,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 				);
 				const movedPaths: AssetOperation[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
+				let assetOperations:
+					| ReturnType<typeof buildAssetOperations>
+					| undefined;
 
 				try {
 					moveFileToManagedPath(fs, file.path, destPath);
@@ -1320,7 +1373,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}).get(String(row.unmappedFileId));
 
 						if (plannedAssetRow) {
-							const assetOperations = buildAssetOperations({
+							assetOperations = buildAssetOperations({
 								row: plannedAssetRow,
 								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
 							});
@@ -1366,13 +1419,14 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 
 						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
 					});
+				} catch (error) {
+					rollbackMovedPaths(fs, movedPaths, "file move");
+					failures.push(toIssue({ error, file, row }));
+					continue;
+				}
 
-					if (plannedAssetRow) {
-						const assetOperations = buildAssetOperations({
-							row: plannedAssetRow,
-							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
-						});
-
+				if (assetOperations) {
+					try {
 						for (const deletion of assetOperations.deletes) {
 							fs.rmSync(deletion.path, {
 								force: true,
@@ -1387,24 +1441,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							removeDirectory: (dir) =>
 								fs.rmSync(dir, { force: true, recursive: false }),
 						});
+					} catch (error) {
+						warnings.push(toIssue({ error, file, row }));
 					}
-				} catch (error) {
-					for (const moved of [...movedPaths].reverse()) {
-						try {
-							movePathToManagedDestination(
-								fs,
-								moved.to,
-								moved.from,
-								moved.kind,
-							);
-						} catch (rollbackError) {
-							logWarn(
-								"unmapped-files",
-								`Failed to roll back file move for ${moved.from}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-							);
-						}
-					}
-					throw error;
 				}
 			} else if (row.entityType === "movie") {
 				const movie = db
@@ -1450,20 +1489,19 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					movieYear: movie.year,
 					sourcePath: file.path,
 				});
-				const movedFiles: Array<{
-					destPath: string;
-					kind: "directory" | "file";
-					sourcePath: string;
-				}> = [];
+				const movedFiles: AssetOperation[] = [];
 				const movedSidecarIds: number[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
+				let assetOperations:
+					| ReturnType<typeof buildAssetOperations>
+					| undefined;
 
 				try {
 					moveFileToManagedPath(fs, file.path, destPath);
 					movedFiles.push({
-						destPath,
+						from: file.path,
 						kind: "file",
-						sourcePath: file.path,
+						to: destPath,
 					});
 					const usedDestPaths = new Set([destPath]);
 
@@ -1482,18 +1520,14 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}).get(String(row.unmappedFileId));
 
 						if (plannedAssetRow) {
-							const assetOperations = buildAssetOperations({
+							assetOperations = buildAssetOperations({
 								row: plannedAssetRow,
 								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
 							});
 
 							for (const move of assetOperations.moves) {
 								movePathToManagedDestination(fs, move.from, move.to, move.kind);
-								movedFiles.push({
-									destPath: move.to,
-									kind: move.kind,
-									sourcePath: move.from,
-								});
+								movedFiles.push(move);
 							}
 						}
 					} else if (normalized.moveRelatedFiles) {
@@ -1537,9 +1571,9 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							);
 							moveFileToManagedPath(fs, candidate.path, sidecarDest);
 							movedFiles.push({
-								destPath: sidecarDest,
+								from: candidate.path,
 								kind: "file",
-								sourcePath: candidate.path,
+								to: sidecarDest,
 							});
 							usedDestPaths.add(sidecarDest);
 							movedSidecarIds.push(candidate.id);
@@ -1585,13 +1619,14 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 								.run();
 						}
 					});
+				} catch (error) {
+					rollbackMovedPaths(fs, movedFiles, "movie file move");
+					failures.push(toIssue({ error, file, row }));
+					continue;
+				}
 
-					if (plannedAssetRow) {
-						const assetOperations = buildAssetOperations({
-							row: plannedAssetRow,
-							deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
-						});
-
+				if (assetOperations) {
+					try {
 						for (const deletion of assetOperations.deletes) {
 							fs.rmSync(deletion.path, {
 								force: true,
@@ -1606,75 +1641,70 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 							removeDirectory: (dir) =>
 								fs.rmSync(dir, { force: true, recursive: false }),
 						});
+					} catch (error) {
+						warnings.push(toIssue({ error, file, row }));
 					}
-				} catch (error) {
-					for (const moved of [...movedFiles].reverse()) {
-						try {
-							movePathToManagedDestination(
-								fs,
-								moved.destPath,
-								moved.sourcePath,
-								moved.kind,
-							);
-						} catch (rollbackError) {
-							logWarn(
-								"unmapped-files",
-								`Failed to roll back movie file move for ${moved.sourcePath}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-							);
-						}
-					}
-					throw error;
 				}
 			} else if (row.entityType === "episode") {
-				// Probe video metadata
-				let duration: number | null = null;
-				let codec: string | null = null;
-				let container: string | null = null;
+				try {
+					// Probe video metadata
+					let duration: number | null = null;
+					let codec: string | null = null;
+					let container: string | null = null;
 
-				if (isVideo) {
-					const meta = await probeVideoFile(file.path);
-					if (meta) {
-						duration = meta.duration;
-						codec = meta.codec;
-						container = meta.container;
+					if (isVideo) {
+						const meta = await probeVideoFile(file.path);
+						if (meta) {
+							duration = meta.duration;
+							codec = meta.codec;
+							container = meta.container;
+						}
 					}
-				}
 
-				db.insert(episodeFiles)
-					.values({
-						episodeId: row.entityId,
-						path: file.path,
-						size: file.size,
-						quality: file.quality,
-						downloadProfileId: data.downloadProfileId,
-						duration,
-						codec,
-						container,
-					})
-					.run();
-
-				db.insert(history)
-					.values({
-						eventType: "episodeFileAdded",
-						episodeId: row.entityId,
-						data: {
+					db.insert(episodeFiles)
+						.values({
+							episodeId: row.entityId,
 							path: file.path,
 							size: file.size,
-							quality: file.quality?.quality?.name ?? "Unknown",
-							source: "unmappedFileMapping",
-						},
-					})
-					.run();
+							quality: file.quality,
+							downloadProfileId: data.downloadProfileId,
+							duration,
+							codec,
+							container,
+						})
+						.run();
+
+					db.insert(history)
+						.values({
+							eventType: "episodeFileAdded",
+							episodeId: row.entityId,
+							data: {
+								path: file.path,
+								size: file.size,
+								quality: file.quality?.quality?.name ?? "Unknown",
+								source: "unmappedFileMapping",
+							},
+						})
+						.run();
+				} catch (error) {
+					failures.push(toIssue({ error, file, row }));
+					continue;
+				}
 			}
 
 			if (row.entityType !== "book" && row.entityType !== "movie") {
-				db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+				try {
+					db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+				} catch (error) {
+					failures.push(toIssue({ error, file, row }));
+					continue;
+				}
 			}
 			mappedCount++;
 		}
 
 		eventBus.emit({ type: "unmappedFilesUpdated" });
-		return { success: true, mappedCount };
+		return createImportResult({ failures, mappedCount, warnings });
 	});
 
 // ─── previewUnmappedImportAssetsFn ────────────────────────────────────────

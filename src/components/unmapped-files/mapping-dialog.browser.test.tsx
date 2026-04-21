@@ -888,6 +888,88 @@ describe("MappingDialog", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it("keeps only failed rows visible after a partial-success import", async () => {
+		const onClose = vi.fn();
+
+		mappingDialogState.profiles = [
+			{ contentType: "movie", id: 7, name: "Movies 4K" },
+		];
+		mappingDialogState.results = [
+			{
+				entityType: "movie",
+				id: 501,
+				subtitle: "1979",
+				title: "Alien",
+			},
+			{
+				entityType: "movie",
+				id: 502,
+				subtitle: "1986",
+				title: "Aliens",
+			},
+		];
+		mappingDialogMocks.mapUnmappedFileFn.mockResolvedValue({
+			failedCount: 1,
+			failures: [
+				{
+					entityType: "movie",
+					message: "db failed",
+					sourcePath: "/incoming/Aliens (1986).mkv",
+					unmappedFileId: 12,
+				},
+			],
+			mappedCount: 1,
+			success: true,
+			warnings: [],
+		});
+
+		await renderWithProviders(
+			<MappingDialog
+				contentType="movie"
+				files={
+					[
+						{
+							id: 11,
+							path: "/incoming/Alien (1979).mkv",
+							hints: { title: "Alien" },
+						},
+						{
+							id: 12,
+							path: "/incoming/Aliens (1986).mkv",
+							hints: { title: "Aliens" },
+						},
+					] as MappingDialogFile[]
+				}
+				onClose={onClose}
+			/>,
+		);
+
+		await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+		await expect.element(page.getByText("db failed")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("/incoming/Aliens (1986).mkv"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("/incoming/Alien (1979).mkv"))
+			.not.toBeInTheDocument();
+		expect(mappingDialogMocks.invalidateQueries).toHaveBeenCalledWith({
+			queryKey: ["unmappedFiles"],
+		});
+		expect(mappingDialogMocks.upsertUserSettingsFn).toHaveBeenCalledWith({
+			addDefaults: {
+				deleteDeselectedRelatedFiles: false,
+				moveRelatedFiles: false,
+			},
+			tableId: "unmapped-files",
+		});
+		expect(mappingDialogMocks.toast.error).toHaveBeenCalledWith(
+			"1 file failed to map",
+		);
+		expect(mappingDialogMocks.toast.success).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it("renders previewed assets per row and submits deselected asset actions", async () => {
 		mappingDialogState.profiles = [
 			{ contentType: "tv", id: 8, name: "TV Only" },

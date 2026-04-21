@@ -68,6 +68,8 @@ const mocks = vi.hoisted(() => {
 	const renameSync = vi.fn();
 	const copyFileSync = vi.fn();
 	const mkdirSync = vi.fn();
+	const readdirSync = vi.fn(() => []);
+	const rmSync = vi.fn();
 	const unlinkSync = vi.fn();
 
 	// Dynamic import mocks
@@ -112,6 +114,7 @@ const mocks = vi.hoisted(() => {
 		copyFileSync,
 		insert,
 		mkdirSync,
+		readdirSync,
 		like,
 		logWarn,
 		or,
@@ -122,6 +125,7 @@ const mocks = vi.hoisted(() => {
 		requireAuth,
 		rescanRootFolder,
 		renameSync,
+		rmSync,
 		transaction,
 		select,
 		unlinkSync,
@@ -224,12 +228,16 @@ vi.mock("node:fs", () => ({
 	default: {
 		copyFileSync: mocks.copyFileSync,
 		mkdirSync: mocks.mkdirSync,
+		readdirSync: mocks.readdirSync,
 		renameSync: mocks.renameSync,
+		rmSync: mocks.rmSync,
 		unlinkSync: mocks.unlinkSync,
 	},
 	copyFileSync: mocks.copyFileSync,
 	mkdirSync: mocks.mkdirSync,
+	readdirSync: mocks.readdirSync,
 	renameSync: mocks.renameSync,
+	rmSync: mocks.rmSync,
 	unlinkSync: mocks.unlinkSync,
 }));
 
@@ -246,6 +254,23 @@ vi.mock("node:path", () => ({
 			return joined === "" ? "." : joined;
 		},
 		join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
+		normalize: (p: string) => p.replace(/\/+/g, "/"),
+		relative: (from: string, to: string) => {
+			const fromParts = from.replace(/\/+$/g, "").split("/").filter(Boolean);
+			const toParts = to.replace(/\/+$/g, "").split("/").filter(Boolean);
+			let commonIndex = 0;
+			while (
+				commonIndex < fromParts.length &&
+				commonIndex < toParts.length &&
+				fromParts[commonIndex] === toParts[commonIndex]
+			) {
+				commonIndex++;
+			}
+			const upward = fromParts.slice(commonIndex).map(() => "..");
+			const downward = toParts.slice(commonIndex);
+			const result = [...upward, ...downward].join("/");
+			return result === "" ? "." : result;
+		},
 		extname: (p: string) => {
 			const dot = p.lastIndexOf(".");
 			return dot >= 0 ? p.slice(dot) : "";
@@ -262,6 +287,23 @@ vi.mock("node:path", () => ({
 		return joined === "" ? "." : joined;
 	},
 	join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
+	normalize: (p: string) => p.replace(/\/+/g, "/"),
+	relative: (from: string, to: string) => {
+		const fromParts = from.replace(/\/+$/g, "").split("/").filter(Boolean);
+		const toParts = to.replace(/\/+$/g, "").split("/").filter(Boolean);
+		let commonIndex = 0;
+		while (
+			commonIndex < fromParts.length &&
+			commonIndex < toParts.length &&
+			fromParts[commonIndex] === toParts[commonIndex]
+		) {
+			commonIndex++;
+		}
+		const upward = fromParts.slice(commonIndex).map(() => "..");
+		const downward = toParts.slice(commonIndex);
+		const result = [...upward, ...downward].join("/");
+		return result === "" ? "." : result;
+	},
 	extname: (p: string) => {
 		const dot = p.lastIndexOf(".");
 		return dot >= 0 ? p.slice(dot) : "";
@@ -1025,7 +1067,13 @@ describe("server/unmapped-files", () => {
 				},
 			});
 
-			expect(result).toEqual({ success: true, mappedCount: 2 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 2,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 			expect(insertChain.values).toHaveBeenCalledWith(
 				expect.objectContaining({
 					movieId: 11,
@@ -1176,7 +1224,13 @@ describe("server/unmapped-files", () => {
 			expect(mocks.eventBusEmit).toHaveBeenCalledWith({
 				type: "unmappedFilesUpdated",
 			});
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("moves mapped book files into the managed library path", async () => {
@@ -1224,7 +1278,13 @@ describe("server/unmapped-files", () => {
 				}),
 			);
 			expect(mocks.insert).toHaveBeenCalledWith(schemaMocks.history);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("uses a fallback root folder when the profile root is empty", async () => {
@@ -1273,7 +1333,13 @@ describe("server/unmapped-files", () => {
 					path: "/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
 				}),
 			);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("uses the managed import author fallback when no primary author exists", async () => {
@@ -1318,7 +1384,13 @@ describe("server/unmapped-files", () => {
 					authorName: "Unknown Author",
 				}),
 			);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("rolls back the file move when cleanup fails after DB writes", async () => {
@@ -1360,9 +1432,22 @@ describe("server/unmapped-files", () => {
 
 			mocks.renameSync.mockImplementation(() => undefined);
 
-			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
-				"cleanup failed",
-			);
+			const result = await mapUnmappedFileFn({ data: baseData });
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "book",
+						message: "cleanup failed",
+						sourcePath: "/downloads/Foundation.epub",
+						unmappedFileId: 1,
+					},
+				],
+				warnings: [],
+			});
 
 			expect(mocks.renameSync).toHaveBeenNthCalledWith(
 				1,
@@ -1432,7 +1517,13 @@ describe("server/unmapped-files", () => {
 					path: "/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
 				}),
 			);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("cleans up the copied destination if EXDEV fallback cannot delete the source", async () => {
@@ -1468,9 +1559,22 @@ describe("server/unmapped-files", () => {
 				})
 				.mockImplementationOnce(() => undefined);
 
-			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
-				"source delete failed",
-			);
+			const result = await mapUnmappedFileFn({ data: baseData });
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "book",
+						message: "source delete failed",
+						sourcePath: "/downloads/Foundation.epub",
+						unmappedFileId: 1,
+					},
+				],
+				warnings: [],
+			});
 
 			expect(mocks.copyFileSync).toHaveBeenCalledWith(
 				"/downloads/Foundation.epub",
@@ -1542,7 +1646,13 @@ describe("server/unmapped-files", () => {
 					duration: null,
 				}),
 			);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("moves a movie file into the managed movie path and updates the movie folder", async () => {
@@ -1613,7 +1723,13 @@ describe("server/unmapped-files", () => {
 			});
 			expect(mocks.deleteFn).toHaveBeenCalledWith(schemaMocks.unmappedFiles);
 			expect(deleteChain.run).toHaveBeenCalledTimes(1);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("rolls back the movie move when the transaction fails", async () => {
@@ -1652,14 +1768,27 @@ describe("server/unmapped-files", () => {
 			mocks.deleteFn.mockReturnValue(deleteChain);
 			mocks.renameSync.mockImplementation(() => undefined);
 
-			await expect(
-				mapUnmappedFileFn({
-					data: {
-						downloadProfileId: 5,
-						rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "movie",
+						message: "delete failed",
+						sourcePath: "/media/movies/film.mkv",
+						unmappedFileId: 1,
 					},
-				}),
-			).rejects.toThrow("delete failed");
+				],
+				warnings: [],
+			});
 
 			expect(mocks.renameSync).toHaveBeenNthCalledWith(
 				1,
@@ -1825,7 +1954,13 @@ describe("server/unmapped-files", () => {
 			);
 			expect(mocks.deleteFn).toHaveBeenCalledWith(schemaMocks.unmappedFiles);
 			expect(deleteChain.run).toHaveBeenCalledTimes(1);
-			expect(result).toEqual({ success: true, mappedCount: 1 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("maps tv rows to managed episode destinations", async () => {
@@ -1906,7 +2041,13 @@ describe("server/unmapped-files", () => {
 				}),
 			);
 			expect(deleteChain.run).toHaveBeenCalledTimes(2);
-			expect(result).toEqual({ success: true, mappedCount: 2 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 2,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("moves related sidecars from the source tree and ignores same-root different-tree matches", async () => {
@@ -2205,16 +2346,29 @@ describe("server/unmapped-files", () => {
 				throw new Error("db failed");
 			});
 
-			await expect(
-				mapUnmappedFileFn({
-					data: {
+			const result = await mapUnmappedFileFn({
+				data: {
+					entityType: "episode",
+					downloadProfileId: 5,
+					moveRelatedSidecars: false,
+					tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
 						entityType: "episode",
-						downloadProfileId: 5,
-						moveRelatedSidecars: false,
-						tvMappings: [{ unmappedFileId: 1, episodeId: 101 }],
+						message: "db failed",
+						sourcePath: "/incoming/Severance.S01E01.mkv",
+						unmappedFileId: 1,
 					},
-				}),
-			).rejects.toThrow("db failed");
+				],
+				warnings: [],
+			});
 
 			expect(mocks.renameSync).toHaveBeenNthCalledWith(
 				1,
@@ -2225,6 +2379,199 @@ describe("server/unmapped-files", () => {
 				2,
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
 				"/incoming/Severance.S01E01.mkv",
+			);
+		});
+
+		it("continues after a row failure and returns per-row failures", async () => {
+			const profile = {
+				id: 7,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const rows = [
+				{
+					file: {
+						id: 1,
+						path: "/downloads/Alien (1979).mkv",
+						size: 2000000000,
+						quality: null,
+					},
+					movie: { id: 11, title: "Alien", year: 1979 },
+				},
+				{
+					file: {
+						id: 2,
+						path: "/downloads/Aliens (1986).mkv",
+						size: 2100000000,
+						quality: null,
+					},
+					movie: { id: 12, title: "Aliens", year: 1986 },
+				},
+				{
+					file: {
+						id: 3,
+						path: "/downloads/Prometheus (2012).mkv",
+						size: 2200000000,
+						quality: null,
+					},
+					movie: { id: 13, title: "Prometheus", year: 2012 },
+				},
+			];
+
+			setupMovieRowMappingSelects({ profile, rows });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			let transactionCall = 0;
+			mocks.transaction.mockImplementation((fn) => {
+				transactionCall++;
+				if (transactionCall === 2) {
+					throw new Error("db failed");
+				}
+				return fn({
+					delete: mocks.deleteFn,
+					insert: mocks.insert,
+					select: mocks.select,
+					update: mocks.update,
+				});
+			});
+
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.probeVideoFile.mockResolvedValue(null);
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 7,
+					rows: [
+						{ unmappedFileId: 1, entityType: "movie", entityId: 11 },
+						{ unmappedFileId: 2, entityType: "movie", entityId: 12 },
+						{ unmappedFileId: 3, entityType: "movie", entityId: 13 },
+					],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 2,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "movie",
+						message: "db failed",
+						sourcePath: "/downloads/Aliens (1986).mkv",
+						unmappedFileId: 2,
+					},
+				],
+				warnings: [],
+			});
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/downloads/Alien (1979).mkv",
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/downloads/Aliens (1986).mkv",
+				"/library/movies/Aliens (1986)/Aliens (1986).mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				3,
+				"/library/movies/Aliens (1986)/Aliens (1986).mkv",
+				"/downloads/Aliens (1986).mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				4,
+				"/downloads/Prometheus (2012).mkv",
+				"/library/movies/Prometheus (2012)/Prometheus (2012).mkv",
+			);
+		});
+
+		it("does not roll back committed files on cleanup failure", async () => {
+			const profile = {
+				id: 7,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const rows = [
+				{
+					file: {
+						id: 1,
+						path: "/downloads/Alien (1979).mkv",
+						size: 2000000000,
+						quality: null,
+					},
+					movie: { id: 11, title: "Alien", year: 1979 },
+				},
+			];
+
+			setupMovieRowMappingSelects({ profile, rows });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.probeVideoFile.mockResolvedValue(null);
+			mocks.rmSync.mockImplementation(() => {
+				throw new Error("cleanup failed");
+			});
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 7,
+					moveRelatedFiles: true,
+					deleteDeselectedRelatedFiles: true,
+					rows: [
+						{
+							unmappedFileId: 1,
+							entityType: "movie",
+							entityId: 11,
+							assets: [
+								{
+									action: "delete",
+									kind: "file",
+									ownershipReason: "container",
+									relativeSourcePath: "movie.nfo",
+									selected: false,
+									sourcePath: "/downloads/movie.nfo",
+								},
+							],
+						},
+					],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [
+					{
+						entityType: "movie",
+						message: "cleanup failed",
+						sourcePath: "/downloads/Alien (1979).mkv",
+						unmappedFileId: 1,
+					},
+				],
+			});
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/downloads/Alien (1979).mkv",
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+				"/downloads/Alien (1979).mkv",
 			);
 		});
 
@@ -2315,7 +2662,13 @@ describe("server/unmapped-files", () => {
 			});
 
 			expect(mocks.insert).not.toHaveBeenCalled();
-			expect(result).toEqual({ success: true, mappedCount: 0 });
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
 		});
 
 		it("handles null probe result for video files", async () => {
