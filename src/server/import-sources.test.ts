@@ -195,9 +195,13 @@ describe("import source CRUD", () => {
 		});
 
 		expect(created.lastSyncStatus).toBe("idle");
+		expect(created).not.toHaveProperty("apiKey");
+		expect(created.hasApiKey).toBe(true);
 
 		const listed = await getImportSourcesFn();
 		expect(listed).toHaveLength(1);
+		expect(listed[0]).not.toHaveProperty("apiKey");
+		expect(listed[0]?.hasApiKey).toBe(true);
 
 		const updated = await updateImportSourceFn({
 			data: {
@@ -210,6 +214,8 @@ describe("import source CRUD", () => {
 		});
 
 		expect(updated.label).toBe("Radarr UHD");
+		expect(updated).not.toHaveProperty("apiKey");
+		expect(updated.hasApiKey).toBe(true);
 
 		await deleteImportSourceFn({ data: { id: created.id } });
 		await expect(getImportSourcesFn()).resolves.toEqual([]);
