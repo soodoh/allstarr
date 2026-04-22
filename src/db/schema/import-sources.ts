@@ -1,5 +1,4 @@
 import {
-	index,
 	integer,
 	sqliteTable,
 	text,
@@ -49,15 +48,9 @@ export const importProvenance = sqliteTable(
 		}).$defaultFn(() => new Date()),
 	},
 	(table) => [
-		index("import_provenance_source_key_idx").on(
+		uniqueIndex("import_provenance_source_item_idx").on(
 			table.sourceId,
 			table.sourceKey,
-		),
-		uniqueIndex("import_provenance_source_target_idx").on(
-			table.sourceId,
-			table.sourceKey,
-			table.targetType,
-			table.targetId,
 		),
 	],
 );

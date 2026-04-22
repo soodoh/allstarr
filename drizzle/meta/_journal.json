@@ -36,6 +36,13 @@
       "when": 1776822060710,
       "tag": "0004_confused_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1776822300740,
+      "tag": "0005_chunky_doomsday",
+      "breakpoints": true
     }
   ]
 }
