@@ -1,4 +1,10 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	index,
+	integer,
+	sqliteTable,
+	text,
+	uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const importSources = sqliteTable("import_sources", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -28,18 +34,33 @@ export const importSnapshots = sqliteTable("import_snapshots", {
 	),
 });
 
-export const importProvenance = sqliteTable("import_provenance", {
-	id: integer("id").primaryKey({ autoIncrement: true }),
-	sourceId: integer("source_id")
-		.notNull()
-		.references(() => importSources.id, { onDelete: "cascade" }),
-	sourceKey: text("source_key").notNull(),
-	targetType: text("target_type").notNull(),
-	targetId: integer("target_id").notNull(),
-	lastImportedAt: integer("last_imported_at", { mode: "timestamp" }).$defaultFn(
-		() => new Date(),
-	),
-});
+export const importProvenance = sqliteTable(
+	"import_provenance",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		sourceId: integer("source_id")
+			.notNull()
+			.references(() => importSources.id, { onDelete: "cascade" }),
+		sourceKey: text("source_key").notNull(),
+		targetType: text("target_type").notNull(),
+		targetId: text("target_id").notNull(),
+		lastImportedAt: integer("last_imported_at", {
+			mode: "timestamp",
+		}).$defaultFn(() => new Date()),
+	},
+	(table) => [
+		index("import_provenance_source_key_idx").on(
+			table.sourceId,
+			table.sourceKey,
+		),
+		uniqueIndex("import_provenance_source_target_idx").on(
+			table.sourceId,
+			table.sourceKey,
+			table.targetType,
+			table.targetId,
+		),
+	],
+);
 
 export const importReviewItems = sqliteTable("import_review_items", {
 	id: integer("id").primaryKey({ autoIncrement: true }),

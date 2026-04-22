@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+	applyImportPlanSchema,
 	createDownloadProfileSchema,
 	createImportSourceSchema,
 	refreshImportSourceSchema,
+	resolveImportReviewItemSchema,
 	updateDownloadProfileSchema,
+	updateImportSourceSchema,
 } from "./validators";
 
 function validProfile(overrides: Record<string, unknown> = {}) {
@@ -108,5 +111,45 @@ describe("import source validators", () => {
 
 	it("validates refresh payloads by source id", () => {
 		expect(refreshImportSourceSchema.parse({ id: 12 }).id).toBe(12);
+	});
+
+	it("requires a positive id when updating a source", () => {
+		expect(
+			updateImportSourceSchema.parse({
+				id: 12,
+				kind: "radarr",
+				label: "Radarr UHD",
+				baseUrl: "http://localhost:7878",
+				apiKey: "secret-2",
+			}).id,
+		).toBe(12);
+	});
+
+	it("validates import plan rows with object payloads", () => {
+		const result = applyImportPlanSchema.parse({
+			sourceId: 4,
+			selectedRows: [
+				{
+					sourceKey: "radarr:movie:123",
+					resourceType: "movie",
+					action: "link",
+					payload: { tmdbId: 123, title: "Alien" },
+				},
+			],
+		});
+
+		expect(result.selectedRows[0]?.payload).toEqual({
+			tmdbId: 123,
+			title: "Alien",
+		});
+	});
+
+	it("defaults review resolution payloads to an empty object", () => {
+		const result = resolveImportReviewItemSchema.parse({
+			id: 9,
+			status: "resolved",
+		});
+
+		expect(result.payload).toEqual({});
 	});
 });

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { db } from "src/db";
-import { importSources } from "src/db/schema";
+import { type ImportSource, importSources } from "src/db/schema";
 import {
 	createImportSourceSchema,
 	deleteImportSourceSchema,
@@ -9,10 +9,23 @@ import {
 } from "src/lib/validators";
 import { requireAdmin } from "./middleware";
 
+function toClientImportSource(source: ImportSource) {
+	const { apiKey, ...safeSource } = source;
+	return {
+		...safeSource,
+		hasApiKey: apiKey.trim().length > 0,
+	};
+}
+
 export const getImportSourcesFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAdmin();
-		return db.select().from(importSources).orderBy(importSources.label).all();
+		return db
+			.select()
+			.from(importSources)
+			.orderBy(importSources.label)
+			.all()
+			.map(toClientImportSource);
 	},
 );
 
@@ -20,7 +33,7 @@ export const createImportSourceFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => createImportSourceSchema.parse(data))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		return db
+		const source = db
 			.insert(importSources)
 			.values({
 				...data,
@@ -30,6 +43,7 @@ export const createImportSourceFn = createServerFn({ method: "POST" })
 			})
 			.returning()
 			.get();
+		return toClientImportSource(source);
 	});
 
 export const updateImportSourceFn = createServerFn({ method: "POST" })
@@ -37,7 +51,7 @@ export const updateImportSourceFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		await requireAdmin();
 		const { id, ...values } = data;
-		return db
+		const source = db
 			.update(importSources)
 			.set({
 				...values,
@@ -46,6 +60,7 @@ export const updateImportSourceFn = createServerFn({ method: "POST" })
 			.where(eq(importSources.id, id))
 			.returning()
 			.get();
+		return toClientImportSource(source);
 	});
 
 export const deleteImportSourceFn = createServerFn({ method: "POST" })
