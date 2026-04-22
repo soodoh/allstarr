@@ -5,6 +5,7 @@ import {
 	FileType,
 	HardDrive,
 	History,
+	Import,
 	ListFilter,
 	ListPlus,
 	ListTodo,
@@ -80,6 +81,13 @@ export const settingsNavItems: NavItem[] = [
 		icon: Radar,
 		description:
 			"Configure Usenet or torrent indexers used to search for book releases.",
+	},
+	{
+		title: "Imports",
+		to: "/settings/imports",
+		icon: Import,
+		description:
+			"Connect Servarr sources, build import plans, and resolve review items.",
 	},
 	{
 		title: "Import Lists",

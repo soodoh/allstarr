@@ -15,6 +15,7 @@ export * from "./download-profiles";
 export * from "./filesystem";
 export * from "./hardcover";
 export * from "./history";
+export * from "./imports";
 export * from "./indexers";
 export * from "./movies";
 export * from "./queue";

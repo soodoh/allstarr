@@ -157,6 +157,14 @@ const settingsRouteMocks = vi.hoisted(() => ({
 			to: "/settings/formats",
 		},
 		{
+			description: "Source connectors and review queue.",
+			icon: ({ className }: { className?: string }) => (
+				<span className={className} data-testid="settings-icon-imports" />
+			),
+			title: "Imports",
+			to: "/settings/imports",
+		},
+		{
 			description: "Connected clients.",
 			icon: ({ className }: { className?: string }) => (
 				<span className={className} data-testid="settings-icon-clients" />
@@ -882,6 +890,9 @@ describe("settings routes", () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole("heading", { name: "Formats" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("heading", { name: "Imports" }))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole("heading", { name: "Download Clients" }))

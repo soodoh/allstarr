@@ -4,6 +4,7 @@ export * from "./books";
 export * from "./download-clients";
 export * from "./download-profiles";
 export * from "./import";
+export * from "./imports";
 export * from "./indexer-search";
 export * from "./indexers";
 export * from "./movies";
