@@ -221,14 +221,10 @@ function buildDownloadClientValues(args: {
 	};
 }
 
-function buildDownloadProfileValues(args: {
-	row: ApplyImportPlanRow;
-	timestamp: Date;
-}) {
+function buildDownloadProfileValues(args: { row: ApplyImportPlanRow }) {
 	const raw = stripId(getSourcePayload(args.row));
 	return {
 		...(raw as typeof downloadProfiles.$inferInsert),
-		updatedAt: args.timestamp.getTime(),
 	};
 }
 
@@ -346,7 +342,6 @@ async function applyDownloadProfileRow(args: {
 			.set(
 				buildDownloadProfileValues({
 					row: args.row,
-					timestamp: args.timestamp,
 				}),
 			)
 			.where(eq(downloadProfiles.id, existing.id))
@@ -369,7 +364,6 @@ async function applyDownloadProfileRow(args: {
 		.values(
 			buildDownloadProfileValues({
 				row: args.row,
-				timestamp: args.timestamp,
 			}),
 		)
 		.returning()
