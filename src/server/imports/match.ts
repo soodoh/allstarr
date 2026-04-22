@@ -88,16 +88,23 @@ export function matchSonarrShowCandidate(
 	candidate: ShowCandidate,
 	context: Pick<MatchContext, "showsByTmdbId" | "tvdbToTmdb"> = {},
 ): MatchResult {
-	if (candidate.tvdbId === null || candidate.tvdbId === undefined) {
+	if (
+		(candidate.tmdbId === null || candidate.tmdbId === undefined) &&
+		(candidate.tvdbId === null || candidate.tvdbId === undefined)
+	) {
 		return {
 			status: "unresolved",
 			confidence: "low",
 			targetId: null,
-			reason: "Missing TVDB id for Sonarr series",
+			reason: "Missing TMDB and TVDB ids for Sonarr series",
 		};
 	}
 
-	const tmdbId = candidate.tmdbId ?? context.tvdbToTmdb?.get(candidate.tvdbId);
+	const tmdbId =
+		candidate.tmdbId ??
+		(candidate.tvdbId !== null && candidate.tvdbId !== undefined
+			? context.tvdbToTmdb?.get(candidate.tvdbId)
+			: undefined);
 	if (tmdbId === null || tmdbId === undefined) {
 		return {
 			status: "unresolved",
