@@ -361,6 +361,50 @@ export const removeMovieImportExclusionSchema = z.object({
 	id: z.number(),
 });
 
+const importSourceKindSchema = z.enum([
+	"sonarr",
+	"radarr",
+	"readarr",
+	"bookshelf",
+]);
+
+export const createImportSourceSchema = z.object({
+	kind: importSourceKindSchema,
+	label: z.string().trim().min(1),
+	baseUrl: z.string().url(),
+	apiKey: z.string().trim().min(1),
+});
+
+export const updateImportSourceSchema = createImportSourceSchema.extend({
+	id: z.number().int().positive(),
+});
+
+export const deleteImportSourceSchema = z.object({
+	id: z.number().int().positive(),
+});
+
+export const refreshImportSourceSchema = z.object({
+	id: z.number().int().positive(),
+});
+
+export const applyImportPlanSchema = z.object({
+	sourceId: z.number().int().positive(),
+	selectedRows: z.array(
+		z.object({
+			sourceKey: z.string().min(1),
+			resourceType: z.string().min(1),
+			action: z.string().min(1),
+			payload: z.record(z.string(), z.unknown()),
+		}),
+	),
+});
+
+export const resolveImportReviewItemSchema = z.object({
+	id: z.number().int().positive(),
+	status: z.enum(["unresolved", "resolved", "dismissed"]),
+	payload: z.record(z.string(), z.unknown()).default({}),
+});
+
 // User Settings
 export const tableIdSchema = z.enum(TABLE_IDS);
 
