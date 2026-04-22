@@ -141,6 +141,14 @@ export const queryKeys = {
 		movies: () => ["importExclusions", "movies"] as const,
 	},
 
+	// ─── Imports ───────────────────────────────────────────────────────────
+	imports: {
+		all: ["imports"] as const,
+		sources: () => ["imports", "sources"] as const,
+		plan: (sourceId: number) => ["imports", "plan", sourceId] as const,
+		review: (sourceId: number) => ["imports", "review", sourceId] as const,
+	},
+
 	// ─── Metadata Profile ──────────────────────────────────────────────────
 	metadataProfile: {
 		all: ["metadataProfile"] as const,
