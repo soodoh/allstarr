@@ -31,6 +31,14 @@ export const Route = createFileRoute("/_authed/settings/imports")({
 	component: ImportsPage,
 });
 
+function isSourceReady(source: ImportSourceRecord): boolean {
+	return (
+		source.hasApiKey &&
+		!source.lastSyncError &&
+		source.lastSyncStatus === "synced"
+	);
+}
+
 function ImportsPage() {
 	const { data: sources } = useSuspenseQuery(importSourcesQuery());
 	const createSourceMutation = useCreateImportSource();
@@ -51,12 +59,22 @@ function ImportsPage() {
 		}
 
 		const selectedExists = sources.some(
-			(source) => source.id === selectedSourceId,
+			(source) => source.id === selectedSourceId && isSourceReady(source),
 		);
 		if (!selectedExists) {
-			setSelectedSourceId(sources[0].id);
+			const firstReadySource = sources.find(isSourceReady);
+			setSelectedSourceId(firstReadySource?.id ?? null);
 		}
 	}, [selectedSourceId, sources]);
+
+	function handleSelectSource(sourceId: number) {
+		const source = sources.find((entry) => entry.id === sourceId);
+		if (!source || !isSourceReady(source)) {
+			return;
+		}
+
+		setSelectedSourceId(sourceId);
+	}
 
 	function openCreateDialog() {
 		setEditingSource(null);
@@ -128,13 +146,21 @@ function ImportsPage() {
 						<ImportSourcesList
 							sources={sources}
 							selectedSourceId={selectedSourceId}
-							refreshingSourceId={refreshSourceMutation.variables?.id ?? null}
-							deletingSourceId={deleteSourceMutation.variables?.id ?? null}
+							refreshingSourceId={
+								refreshSourceMutation.isPending
+									? (refreshSourceMutation.variables?.id ?? null)
+									: null
+							}
+							deletingSourceId={
+								deleteSourceMutation.isPending
+									? (deleteSourceMutation.variables?.id ?? null)
+									: null
+							}
 							onAddSource={openCreateDialog}
 							onDeleteSource={handleDeleteSource}
 							onEditSource={openEditDialog}
 							onRefreshSource={handleRefreshSource}
-							onSelectSource={setSelectedSourceId}
+							onSelectSource={handleSelectSource}
 						/>
 					</TabsContent>
 
@@ -142,7 +168,7 @@ function ImportsPage() {
 						<ImportPlanTable
 							sources={sources}
 							selectedSourceId={selectedSourceId}
-							onSelectSource={setSelectedSourceId}
+							onSelectSource={handleSelectSource}
 						/>
 					</TabsContent>
 
@@ -150,7 +176,7 @@ function ImportsPage() {
 						<ImportReviewPanel
 							sources={sources}
 							selectedSourceId={selectedSourceId}
-							onSelectSource={setSelectedSourceId}
+							onSelectSource={handleSelectSource}
 						/>
 					</TabsContent>
 				</div>

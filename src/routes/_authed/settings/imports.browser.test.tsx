@@ -8,6 +8,14 @@ const importsRouteMocks = vi.hoisted(() => ({
 	deleteImportSourceFn: vi.fn(),
 	importSourcesQuery: vi.fn(),
 	refreshImportSourceFn: vi.fn(),
+	deleteMutationState: {
+		isPending: false,
+		variables: null as null | { id: number },
+	},
+	refreshMutationState: {
+		isPending: false,
+		variables: null as null | { id: number },
+	},
 	updateImportSourceFn: vi.fn(),
 	sources: [
 		{
@@ -34,7 +42,18 @@ const importsRouteMocks = vi.hoisted(() => ({
 			lastSyncStatus: "synced",
 			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
 		},
-	],
+	] as Array<{
+		baseUrl: string;
+		createdAt: Date;
+		hasApiKey: boolean;
+		id: number;
+		kind: string;
+		label: string;
+		lastSyncError: string | null;
+		lastSyncedAt: Date | null;
+		lastSyncStatus: string;
+		updatedAt: Date;
+	}>,
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
@@ -81,7 +100,7 @@ vi.mock("src/hooks/mutations/imports", () => ({
 		},
 	}),
 	useDeleteImportSource: () => ({
-		isPending: false,
+		isPending: importsRouteMocks.deleteMutationState.isPending,
 		mutate: (
 			payload: Record<string, unknown>,
 			options?: { onSuccess?: () => void },
@@ -89,10 +108,10 @@ vi.mock("src/hooks/mutations/imports", () => ({
 			importsRouteMocks.deleteImportSourceFn(payload);
 			options?.onSuccess?.();
 		},
-		variables: null,
+		variables: importsRouteMocks.deleteMutationState.variables,
 	}),
 	useRefreshImportSource: () => ({
-		isPending: false,
+		isPending: importsRouteMocks.refreshMutationState.isPending,
 		mutate: (
 			payload: Record<string, unknown>,
 			options?: { onSuccess?: () => void },
@@ -100,7 +119,7 @@ vi.mock("src/hooks/mutations/imports", () => ({
 			importsRouteMocks.refreshImportSourceFn(payload);
 			options?.onSuccess?.();
 		},
-		variables: null,
+		variables: importsRouteMocks.refreshMutationState.variables,
 	}),
 	useUpdateImportSource: () => ({
 		isPending: false,
@@ -237,6 +256,36 @@ import { Route } from "./imports";
 describe("imports settings route", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		importsRouteMocks.sources = [
+			{
+				baseUrl: "http://localhost:8989",
+				createdAt: new Date("2026-04-21T00:00:00.000Z"),
+				hasApiKey: true,
+				id: 1,
+				kind: "sonarr",
+				label: "Sonarr",
+				lastSyncError: null,
+				lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+				lastSyncStatus: "synced",
+				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			},
+			{
+				baseUrl: "http://localhost:7878",
+				createdAt: new Date("2026-04-20T00:00:00.000Z"),
+				hasApiKey: true,
+				id: 2,
+				kind: "radarr",
+				label: "Radarr",
+				lastSyncError: null,
+				lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+				lastSyncStatus: "synced",
+				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			},
+		];
+		importsRouteMocks.refreshMutationState.isPending = false;
+		importsRouteMocks.refreshMutationState.variables = null;
+		importsRouteMocks.deleteMutationState.isPending = false;
+		importsRouteMocks.deleteMutationState.variables = null;
 		importsRouteMocks.importSourcesQuery.mockReturnValue({
 			queryKey: ["imports", "sources"],
 		});
@@ -344,5 +393,53 @@ describe("imports settings route", () => {
 		expect(importsRouteMocks.deleteImportSourceFn).toHaveBeenCalledWith({
 			id: 2,
 		});
+	});
+
+	it("only auto-selects ready sources and ignores stale mutation variables", async () => {
+		importsRouteMocks.sources = [
+			{
+				baseUrl: "http://localhost:7878",
+				createdAt: new Date("2026-04-20T00:00:00.000Z"),
+				hasApiKey: true,
+				id: 2,
+				kind: "radarr",
+				label: "Radarr",
+				lastSyncError: "Source API error: 401 Unauthorized",
+				lastSyncedAt: null,
+				lastSyncStatus: "error",
+				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			},
+			{
+				baseUrl: "http://localhost:8989",
+				createdAt: new Date("2026-04-21T00:00:00.000Z"),
+				hasApiKey: true,
+				id: 1,
+				kind: "sonarr",
+				label: "Sonarr",
+				lastSyncError: null,
+				lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+				lastSyncStatus: "synced",
+				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			},
+		];
+		importsRouteMocks.refreshMutationState.isPending = false;
+		importsRouteMocks.refreshMutationState.variables = { id: 2 };
+		importsRouteMocks.deleteMutationState.isPending = false;
+		importsRouteMocks.deleteMutationState.variables = { id: 2 };
+
+		const route = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		await renderWithProviders(<route.component />);
+
+		await expect
+			.element(page.getByTestId("sources-list"))
+			.toHaveAttribute("data-selected", "1");
+		await page.getByRole("button", { name: "Radarr", exact: true }).click();
+		await page.getByRole("tab", { name: "Plan" }).click();
+		await expect
+			.element(page.getByTestId("plan-table"))
+			.toHaveTextContent("selected-source:1");
 	});
 });
