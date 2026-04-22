@@ -5,9 +5,9 @@ import {
 	downloadProfiles,
 	importProvenance,
 	importReviewItems,
+	settings,
 } from "src/db/schema";
 import type { DownloadClientSettings } from "src/db/schema/download-clients";
-import { upsertSettingValue } from "../settings-store";
 
 export type ApplyImportPlanRow = {
 	action: string;
@@ -26,8 +26,14 @@ export type ApplyImportPlanResult = {
 	reviewCount: number;
 };
 
+type DbClient = Pick<typeof db, "insert" | "select" | "update">;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSupportedAction(action: string): boolean {
+	return action === "create" || action === "update";
 }
 
 function getRowPriority(row: ApplyImportPlanRow): number {
@@ -104,14 +110,38 @@ function stripId<T extends Record<string, unknown>>(values: T): Omit<T, "id"> {
 	return rest;
 }
 
-async function writeProvenance(args: {
+function getExistingProvenance(args: {
+	tx: DbClient;
+	sourceId: number;
+	sourceKey: string;
+}) {
+	return args.tx
+		.select()
+		.from(importProvenance)
+		.where(
+			and(
+				eq(importProvenance.sourceId, args.sourceId),
+				eq(importProvenance.sourceKey, args.sourceKey),
+			),
+		)
+		.get();
+}
+
+function getTargetIdNumber(targetId: string): number | null {
+	const parsed = Number(targetId);
+	return Number.isInteger(parsed) ? parsed : null;
+}
+
+function writeProvenance(args: {
+	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	targetId: string;
 	targetType: string;
 	timestamp: Date;
-}): Promise<void> {
-	db.insert(importProvenance)
+}): void {
+	args.tx
+		.insert(importProvenance)
 		.values({
 			lastImportedAt: args.timestamp,
 			sourceId: args.sourceId,
@@ -131,11 +161,12 @@ async function writeProvenance(args: {
 }
 
 async function persistReviewItem(args: {
+	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
 }): Promise<void> {
-	const existing = db
+	const existing = args.tx
 		.select()
 		.from(importReviewItems)
 		.where(
@@ -147,7 +178,8 @@ async function persistReviewItem(args: {
 		.get();
 
 	if (existing) {
-		db.update(importReviewItems)
+		args.tx
+			.update(importReviewItems)
 			.set({
 				payload: args.row.payload,
 				status: "unresolved",
@@ -158,7 +190,8 @@ async function persistReviewItem(args: {
 		return;
 	}
 
-	db.insert(importReviewItems)
+	args.tx
+		.insert(importReviewItems)
 		.values({
 			createdAt: args.timestamp,
 			payload: args.row.payload,
@@ -171,75 +204,221 @@ async function persistReviewItem(args: {
 		.run();
 }
 
+function buildDownloadClientValues(args: {
+	row: ApplyImportPlanRow;
+	timestamp: Date;
+	includeCreatedAt: boolean;
+}) {
+	const raw = stripId(getSourcePayload(args.row));
+	const settingsValue = isRecord(raw.settings)
+		? (raw.settings as DownloadClientSettings)
+		: null;
+	return {
+		...(raw as typeof downloadClients.$inferInsert),
+		...(args.includeCreatedAt ? { createdAt: args.timestamp.getTime() } : {}),
+		settings: settingsValue,
+		updatedAt: args.timestamp.getTime(),
+	};
+}
+
+function buildDownloadProfileValues(args: {
+	row: ApplyImportPlanRow;
+	timestamp: Date;
+}) {
+	const raw = stripId(getSourcePayload(args.row));
+	return {
+		...(raw as typeof downloadProfiles.$inferInsert),
+		updatedAt: args.timestamp.getTime(),
+	};
+}
+
 async function applyDownloadClientRow(args: {
+	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<void> {
-	const raw = stripId(getSourcePayload(args.row));
-	const values = {
-		...(raw as typeof downloadClients.$inferInsert),
-		createdAt: args.timestamp.getTime(),
-		settings: (isRecord(raw.settings)
-			? raw.settings
-			: null) as DownloadClientSettings | null,
-		updatedAt: args.timestamp.getTime(),
-	};
-	const inserted = db.insert(downloadClients).values(values).returning().get();
+	provenance: { targetId: string; targetType: string } | undefined;
+}): Promise<boolean> {
+	const targetId =
+		args.provenance?.targetType === "download-client"
+			? getTargetIdNumber(args.provenance.targetId)
+			: null;
+	const existing =
+		targetId === null
+			? undefined
+			: args.tx
+					.select()
+					.from(downloadClients)
+					.where(eq(downloadClients.id, targetId))
+					.get();
 
-	await writeProvenance({
+	if (args.row.action === "update" && !existing) {
+		await persistReviewItem({
+			row: args.row,
+			sourceId: args.sourceId,
+			timestamp: args.timestamp,
+			tx: args.tx,
+		});
+		return false;
+	}
+
+	if (existing) {
+		const updated = args.tx
+			.update(downloadClients)
+			.set(
+				buildDownloadClientValues({
+					includeCreatedAt: false,
+					row: args.row,
+					timestamp: args.timestamp,
+				}),
+			)
+			.where(eq(downloadClients.id, existing.id))
+			.returning()
+			.get();
+
+		writeProvenance({
+			row: args.row,
+			sourceId: args.sourceId,
+			targetId: getProvenanceTargetId(args.row, updated?.id ?? existing.id),
+			targetType: getProvenanceTargetType(args.row),
+			timestamp: args.timestamp,
+			tx: args.tx,
+		});
+		return true;
+	}
+
+	const inserted = args.tx
+		.insert(downloadClients)
+		.values(
+			buildDownloadClientValues({
+				includeCreatedAt: true,
+				row: args.row,
+				timestamp: args.timestamp,
+			}),
+		)
+		.returning()
+		.get();
+
+	writeProvenance({
 		row: args.row,
 		sourceId: args.sourceId,
 		targetId: getProvenanceTargetId(args.row, inserted?.id),
 		targetType: getProvenanceTargetType(args.row),
 		timestamp: args.timestamp,
+		tx: args.tx,
 	});
+	return true;
 }
 
 async function applyDownloadProfileRow(args: {
+	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<void> {
-	const raw = stripId(getSourcePayload(args.row));
-	const values = {
-		...(raw as typeof downloadProfiles.$inferInsert),
-	};
-	const inserted = db.insert(downloadProfiles).values(values).returning().get();
+	provenance: { targetId: string; targetType: string } | undefined;
+}): Promise<boolean> {
+	const targetId =
+		args.provenance?.targetType === "download-profile"
+			? getTargetIdNumber(args.provenance.targetId)
+			: null;
+	const existing =
+		targetId === null
+			? undefined
+			: args.tx
+					.select()
+					.from(downloadProfiles)
+					.where(eq(downloadProfiles.id, targetId))
+					.get();
 
-	await writeProvenance({
+	if (args.row.action === "update" && !existing) {
+		await persistReviewItem({
+			row: args.row,
+			sourceId: args.sourceId,
+			timestamp: args.timestamp,
+			tx: args.tx,
+		});
+		return false;
+	}
+
+	if (existing) {
+		const updated = args.tx
+			.update(downloadProfiles)
+			.set(
+				buildDownloadProfileValues({
+					row: args.row,
+					timestamp: args.timestamp,
+				}),
+			)
+			.where(eq(downloadProfiles.id, existing.id))
+			.returning()
+			.get();
+
+		writeProvenance({
+			row: args.row,
+			sourceId: args.sourceId,
+			targetId: getProvenanceTargetId(args.row, updated?.id ?? existing.id),
+			targetType: getProvenanceTargetType(args.row),
+			timestamp: args.timestamp,
+			tx: args.tx,
+		});
+		return true;
+	}
+
+	const inserted = args.tx
+		.insert(downloadProfiles)
+		.values(
+			buildDownloadProfileValues({
+				row: args.row,
+				timestamp: args.timestamp,
+			}),
+		)
+		.returning()
+		.get();
+
+	writeProvenance({
 		row: args.row,
 		sourceId: args.sourceId,
 		targetId: getProvenanceTargetId(args.row, inserted?.id),
 		targetType: getProvenanceTargetType(args.row),
 		timestamp: args.timestamp,
+		tx: args.tx,
 	});
+	return true;
 }
 
 async function applyMetadataProfileRow(args: {
+	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<void> {
+}): Promise<boolean> {
 	const raw = getSourcePayload(args.row);
-	upsertSettingValue("metadata.hardcover.profile", raw);
+	args.tx
+		.insert(settings)
+		.values({
+			key: "metadata.hardcover.profile",
+			value: JSON.stringify(raw),
+		})
+		.onConflictDoUpdate({
+			target: settings.key,
+			set: {
+				value: JSON.stringify(raw),
+			},
+		})
+		.run();
 
-	await writeProvenance({
+	writeProvenance({
 		row: args.row,
 		sourceId: args.sourceId,
 		targetId: getProvenanceTargetId(args.row, null),
 		targetType: getProvenanceTargetType(args.row),
 		timestamp: args.timestamp,
+		tx: args.tx,
 	});
+	return true;
 }
 
 function isSupportedRow(row: ApplyImportPlanRow): boolean {
-	if (row.action === "skip") {
-		return false;
-	}
-	if (row.action === "unresolved" || row.action === "unsupported") {
-		return false;
-	}
 	if (row.resourceType === "setting") {
 		return row.payload.group === "download-client";
 	}
@@ -264,72 +443,108 @@ export async function applyImportPlan(
 			left.action.localeCompare(right.action),
 	);
 
-	let appliedCount = 0;
-	let reviewCount = 0;
+	return db.transaction(async (tx) => {
+		const transactionDb = tx as DbClient;
+		let appliedCount = 0;
+		let reviewCount = 0;
 
-	for (const row of selectedRows) {
-		if (row.action === "skip") {
-			continue;
-		}
+		for (const row of selectedRows) {
+			if (row.action === "skip") {
+				continue;
+			}
 
-		if (row.action === "unresolved" || row.action === "unsupported") {
-			await persistReviewItem({
-				row,
+			if (row.action === "unresolved" || row.action === "unsupported") {
+				await persistReviewItem({
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				reviewCount += 1;
+				continue;
+			}
+
+			if (!isSupportedAction(row.action) || !isSupportedRow(row)) {
+				await persistReviewItem({
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				reviewCount += 1;
+				continue;
+			}
+
+			const provenance = getExistingProvenance({
 				sourceId: args.sourceId,
-				timestamp,
+				sourceKey: row.sourceKey,
+				tx: transactionDb,
 			});
-			reviewCount += 1;
-			continue;
+
+			if (row.resourceType === "setting") {
+				const applied = await applyDownloadClientRow({
+					provenance:
+						provenance?.targetType === "download-client"
+							? {
+									targetId: provenance.targetId,
+									targetType: provenance.targetType,
+								}
+							: undefined,
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				if (applied) {
+					appliedCount += 1;
+				} else {
+					reviewCount += 1;
+				}
+				continue;
+			}
+
+			if (
+				row.resourceType === "profile" &&
+				row.payload.profileKind === "quality"
+			) {
+				const applied = await applyDownloadProfileRow({
+					provenance:
+						provenance?.targetType === "download-profile"
+							? {
+									targetId: provenance.targetId,
+									targetType: provenance.targetType,
+								}
+							: undefined,
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				if (applied) {
+					appliedCount += 1;
+				} else {
+					reviewCount += 1;
+				}
+				continue;
+			}
+
+			if (
+				row.resourceType === "profile" &&
+				row.payload.profileKind === "metadata"
+			) {
+				await applyMetadataProfileRow({
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				appliedCount += 1;
+			}
 		}
 
-		if (!isSupportedRow(row)) {
-			await persistReviewItem({
-				row,
-				sourceId: args.sourceId,
-				timestamp,
-			});
-			reviewCount += 1;
-			continue;
-		}
-
-		if (row.resourceType === "setting") {
-			await applyDownloadClientRow({
-				row,
-				sourceId: args.sourceId,
-				timestamp,
-			});
-			appliedCount += 1;
-			continue;
-		}
-
-		if (
-			row.resourceType === "profile" &&
-			row.payload.profileKind === "quality"
-		) {
-			await applyDownloadProfileRow({
-				row,
-				sourceId: args.sourceId,
-				timestamp,
-			});
-			appliedCount += 1;
-			continue;
-		}
-
-		if (
-			row.resourceType === "profile" &&
-			row.payload.profileKind === "metadata"
-		) {
-			await applyMetadataProfileRow({
-				row,
-				sourceId: args.sourceId,
-				timestamp,
-			});
-			appliedCount += 1;
-		}
-	}
-
-	return {
-		appliedCount,
-		reviewCount,
-	};
+		return {
+			appliedCount,
+			reviewCount,
+		};
+	});
 }

@@ -547,4 +547,31 @@ describe("import source CRUD and refresh", () => {
 			status: "resolved",
 		});
 	});
+
+	it("preserves a review item payload when resolving without one", async () => {
+		mocks.reviewItems.push({
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 10,
+			payload: { title: "Keep Me" },
+			resourceType: "show",
+			sourceId: 1,
+			sourceKey: "sonarr:1:show:99",
+			status: "unresolved",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+
+		await expect(
+			resolveImportReviewItemFn({
+				data: {
+					id: 10,
+					status: "resolved",
+				},
+			}),
+		).resolves.toEqual({ success: true });
+
+		expect(mocks.reviewItems[0]).toMatchObject({
+			payload: { title: "Keep Me" },
+			status: "resolved",
+		});
+	});
 });
