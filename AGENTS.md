@@ -1,8 +1,6 @@
 # Repository Guidelines
 
 ## Workflow Guidelines
-- Unless explicitly asked to work on top of the current branch (or already on a worktree in `.worktrees/`), always make sure you start new work in a separate worktree.
-- When using the superpowers workflow, we should automatically accept the spec and implementation manual review steps. Then, start implementing using subagents.
 - Prefer using context7 over web search. When planning, we should reference the latest documentation rather than relying on general knowledge.
 - When completing the feature, we should either create a PR or merge to the local main branch. Then, clean up the worktree. If making a PR, keep the local branch. But if merging to main, we should clean up both worktree and branch. When "merging" to main, we should not use a merge commit; cherrypick all the commits on top of the local main branch.
 - Install dependencies with `bun install`, then copy `.env.example` to `.env`.
