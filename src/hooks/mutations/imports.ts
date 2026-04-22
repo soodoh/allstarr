@@ -91,12 +91,14 @@ export function useRefreshImportSource() {
 			toast.success("Import source refreshed");
 			queryClient.invalidateQueries({ queryKey: queryKeys.imports.all });
 		},
-		onError: (error) =>
+		onError: (error) => {
 			toast.error(
 				error instanceof Error
 					? error.message
 					: "Failed to refresh import source",
-			),
+			);
+			queryClient.invalidateQueries({ queryKey: queryKeys.imports.all });
+		},
 	});
 }
 

@@ -58,6 +58,31 @@ function sourceCard(page: Page, label: string) {
 		.last();
 }
 
+function sourceCardState(page: Page, label: string, text: string) {
+	return page
+		.getByRole("tabpanel", { name: "Sources" })
+		.locator("[data-slot='card']")
+		.filter({ hasText: label })
+		.filter({ hasText: text })
+		.first();
+}
+
+function planRow(page: Page, label: string) {
+	return page
+		.getByRole("tabpanel", { name: "Plan" })
+		.getByRole("row")
+		.filter({ hasText: label })
+		.first();
+}
+
+function reviewRow(page: Page, label: string) {
+	return page
+		.getByRole("tabpanel", { name: "Review" })
+		.locator("div.rounded-lg.border.p-4")
+		.filter({ hasText: label })
+		.first();
+}
+
 async function refreshSource(page: Page, label: string): Promise<void> {
 	await sourceCard(page, label).getByRole("button", { name: "Refresh" }).click();
 }
@@ -140,7 +165,6 @@ test.describe("Servarr imports", () => {
 						.get()?.lastSyncStatus,
 			)
 			.toBe("error");
-		await expect(page.getByText("Source API error: 401 Unauthorized")).toBeVisible();
 
 		await refreshSource(page, "Charlie Readarr");
 		await expect
@@ -165,6 +189,23 @@ test.describe("Servarr imports", () => {
 						.get()?.lastSyncStatus,
 			)
 			.toBe("synced");
+		await expect(
+			sourceCardState(page, "Alpha Sonarr", "Last sync synced"),
+		).toBeVisible();
+		await expect(
+			sourceCardState(page, "Charlie Readarr", "Last sync synced"),
+		).toBeVisible();
+		await expect(
+			sourceCardState(page, "Delta Bookshelf", "Last sync synced"),
+		).toBeVisible();
+		await expect(sourceCardState(page, "Bravo Radarr", "Sync error")).toBeVisible();
+		await expect(
+			sourceCardState(
+				page,
+				"Bravo Radarr",
+				"Source API error: 401 Unauthorized",
+			),
+		).toBeVisible();
 
 		await expect(
 			page.getByRole("tabpanel", { name: "Sources" }).getByRole("button", {
@@ -179,17 +220,20 @@ test.describe("Servarr imports", () => {
 		await expect(
 			planPanel.getByText("Needs attention 1", { exact: true }),
 		).toBeVisible();
-		await expect(
-			planPanel.getByText("Ready to advance", { exact: true }).first(),
-		).toBeVisible();
-		await expect(
-			planPanel.getByText("Unavailable", { exact: true }).first(),
-		).toBeVisible();
-		await expect(
-			planPanel.getByText("Resolve the sync error before planning", {
-				exact: true,
-			}),
-		).toBeVisible();
+		await expect(planRow(page, "Alpha Sonarr")).toContainText("Ready");
+		await expect(planRow(page, "Alpha Sonarr")).toContainText("Ready to advance");
+		await expect(planRow(page, "Charlie Readarr")).toContainText("Ready");
+		await expect(planRow(page, "Charlie Readarr")).toContainText(
+			"Ready to advance",
+		);
+		await expect(planRow(page, "Delta Bookshelf")).toContainText("Ready");
+		await expect(planRow(page, "Delta Bookshelf")).toContainText(
+			"Ready to advance",
+		);
+		await expect(planRow(page, "Bravo Radarr")).toContainText("Unavailable");
+		await expect(planRow(page, "Bravo Radarr")).toContainText(
+			"Resolve the sync error before planning",
+		);
 
 		await page.getByRole("tab", { name: "Review" }).click();
 		const reviewPanel = page.getByRole("tabpanel", { name: "Review" });
@@ -197,14 +241,16 @@ test.describe("Servarr imports", () => {
 		await expect(
 			reviewPanel.getByText("Needs attention 1", { exact: true }),
 		).toBeVisible();
-		await expect(
-			reviewPanel.getByText("Ready for review", { exact: true }).first(),
-		).toBeVisible();
-		await expect(
-			reviewPanel.getByText("Unresolved", { exact: true }).first(),
-		).toBeVisible();
-		await expect(
-			reviewPanel.getByText("Review locked", { exact: true }),
-		).toHaveCount(1);
+		await expect(reviewRow(page, "Alpha Sonarr")).toContainText(
+			"Ready for review",
+		);
+		await expect(reviewRow(page, "Charlie Readarr")).toContainText(
+			"Ready for review",
+		);
+		await expect(reviewRow(page, "Delta Bookshelf")).toContainText(
+			"Ready for review",
+		);
+		await expect(reviewRow(page, "Bravo Radarr")).toContainText("Unresolved");
+		await expect(reviewRow(page, "Bravo Radarr")).toContainText("Review locked");
 	});
 });

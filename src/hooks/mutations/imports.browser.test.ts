@@ -235,4 +235,15 @@ describe("mutations/imports", () => {
 
 		expect(error).toHaveBeenCalledWith("boom");
 	});
+
+	it("invalidates imports after refresh errors so source status stays current", async () => {
+		refreshImportSourceFn.mockRejectedValue(new Error("boom"));
+
+		await runMutation(useRefreshImportSource, { id: 3 }, true);
+
+		expect(error).toHaveBeenCalledWith("boom");
+		expect(invalidateQueries).toHaveBeenCalledWith({
+			queryKey: queryKeys.imports.all,
+		});
+	});
 });
