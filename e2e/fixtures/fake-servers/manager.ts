@@ -6,10 +6,14 @@ import createNewznabServer from "./newznab";
 import createNZBGetServer from "./nzbget";
 import createProwlarrServer from "./prowlarr";
 import createQBittorrentServer from "./qbittorrent";
+import createRadarrServer from "./radarr";
+import createReadarrServer from "./readarr";
 import createRTorrentServer from "./rtorrent";
 import createSABnzbdServer from "./sabnzbd";
+import createSonarrServer from "./sonarr";
 import createTmdbServer from "./tmdb";
 import createTransmissionServer from "./transmission";
+import createBookshelfServer from "./bookshelf";
 
 export type ServiceName = Exclude<keyof typeof PORTS, "APP_BASE">;
 export type ServiceUrls = Partial<Record<ServiceName, string>>;
@@ -56,6 +60,10 @@ const factories: Record<ServiceName, () => ManagedServer> = {
 	PROWLARR: () => createProwlarrServer(PORTS.PROWLARR) as ManagedServer,
 	HARDCOVER: () => createHardcoverServer(PORTS.HARDCOVER) as ManagedServer,
 	TMDB: () => createTmdbServer(PORTS.TMDB) as ManagedServer,
+	SONARR: () => createSonarrServer(PORTS.SONARR) as ManagedServer,
+	RADARR: () => createRadarrServer(PORTS.RADARR) as ManagedServer,
+	READARR: () => createReadarrServer(PORTS.READARR) as ManagedServer,
+	BOOKSHELF: () => createBookshelfServer(PORTS.BOOKSHELF) as ManagedServer,
 };
 
 export type FakeServerManager = ReturnType<typeof createFakeServerManager>;
