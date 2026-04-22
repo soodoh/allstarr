@@ -309,6 +309,11 @@ const mocks = vi.hoisted(() => {
 											if (current.failOnInsertTable === table) {
 												throw new Error("download profiles insert failed");
 											}
+											if ("updatedAt" in values) {
+												throw new Error(
+													"download profiles unexpectedly received updatedAt",
+												);
+											}
 											const row: ProfileRow = {
 												categories: (values.categories as number[]) ?? [],
 												contentType: values.contentType as string,
@@ -631,6 +636,11 @@ const mocks = vi.hoisted(() => {
 														condition,
 														schemaMocks.downloadProfiles.id,
 													);
+													if ("updatedAt" in values) {
+														throw new Error(
+															"download profiles unexpectedly received updatedAt",
+														);
+													}
 													const index = current.profiles.findIndex(
 														(entry) => entry.id === id,
 													);
