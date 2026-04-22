@@ -237,7 +237,7 @@ function normalizeMovies(args: {
 	return items
 		.map((record, index) => {
 			const sourceRecordId = readNumber(record, ["id", "movieId"]);
-			const tmdbId = readNumber(record, ["tmdbId", "tmdb_id", "id"]);
+			const tmdbId = readNumber(record, ["tmdbId", "tmdb_id"]);
 			const title = normalizeRecordTitle(record, `Movie ${index + 1}`);
 			return createItem({
 				kind,
@@ -271,6 +271,7 @@ function normalizeShows(args: {
 		.map((record, index) => {
 			const sourceRecordId = readNumber(record, ["id", "seriesId"]);
 			const tvdbId = readNumber(record, ["tvdbId", "tvdb_id"]);
+			const tmdbId = readNumber(record, ["tmdbId", "tmdb_id"]);
 			const title = normalizeRecordTitle(record, `Show ${index + 1}`);
 			return createItem({
 				kind,
@@ -279,12 +280,15 @@ function normalizeShows(args: {
 				identity:
 					sourceRecordId !== null
 						? String(sourceRecordId)
-						: tvdbId !== null
-							? String(tvdbId)
-							: slugify(title) || `show-${index + 1}`,
+						: tmdbId !== null
+							? String(tmdbId)
+							: tvdbId !== null
+								? String(tvdbId)
+								: slugify(title) || `show-${index + 1}`,
 				title,
 				payload: {
 					sourceRecordId,
+					tmdbId,
 					tvdbId,
 					title,
 					year: readNumber(record, ["year", "firstAirYear", "releaseYear"]),

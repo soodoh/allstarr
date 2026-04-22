@@ -74,6 +74,33 @@ describe("buildImportPlan", () => {
 		});
 	});
 
+	it("matches a Sonarr show directly by tmdbId without needing a crosswalk", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 11,
+					kind: "sonarr",
+					snapshot: buildRawSnapshot({
+						kind: "sonarr",
+						library: {
+							series: [{ id: 77, title: "Direct Match", tmdbId: 999 }],
+						},
+					}),
+				}),
+			],
+			existingState: {
+				showsByTmdbId: new Map([[999, { id: 55 }]]),
+			},
+		});
+
+		expect(plan.library.items[0]).toMatchObject({
+			resourceType: "show",
+			action: "update",
+			targetId: 55,
+			sourceKey: "sonarr:11:show:77",
+		});
+	});
+
 	it("marks duplicate movies from two Radarr instances as one update and one skip when provenance already exists", async () => {
 		const plan = await buildImportPlan({
 			snapshots: [
@@ -183,6 +210,66 @@ describe("buildImportPlan", () => {
 		).toBe(true);
 	});
 
+	it("keeps medium-confidence book fingerprint matches unresolved", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 6,
+					kind: "readarr",
+					snapshot: buildRawSnapshot({
+						kind: "readarr",
+						library: {
+							books: [
+								{
+									id: 501,
+									title: "Foundation",
+									authorName: "Isaac Asimov",
+									year: 1951,
+								},
+							],
+						},
+					}),
+				}),
+			],
+			existingState: {
+				bookFingerprintToId: new Map([["foundation|isaac asimov|1951", 123]]),
+			},
+		});
+
+		expect(plan.unresolved.items[0]).toMatchObject({
+			resourceType: "book",
+			action: "unresolved",
+			sourceKey: "readarr:6:book:501",
+		});
+	});
+
+	it("does not update a movie when tmdbId is missing", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 12,
+					kind: "radarr",
+					snapshot: buildRawSnapshot({
+						kind: "radarr",
+						library: {
+							movies: [{ id: 301, title: "Mystery Movie" }],
+						},
+					}),
+				}),
+			],
+			existingState: {
+				moviesByTmdbId: new Map([[301, { id: 77 }]]),
+			},
+		});
+
+		expect(plan.library.items[0]).toMatchObject({
+			resourceType: "movie",
+			action: "create",
+			targetId: null,
+			sourceKey: "radarr:12:movie:301",
+		});
+	});
+
 	it("emits unsupported rows for intentionally unsupported snapshot buckets", async () => {
 		const rawSnapshot = buildRawSnapshot({
 			kind: "radarr",
@@ -247,5 +334,23 @@ describe("normalizeImportSnapshot", () => {
 		expect(normalized.settings.metadataProfiles[0]?.sourceKey).toBe(
 			"readarr:8:profile:metadata:14",
 		);
+	});
+
+	it("preserves a direct Sonarr tmdbId in the normalized show payload", () => {
+		const normalized = normalizeImportSnapshot({
+			sourceId: 13,
+			kind: "sonarr",
+			snapshot: buildRawSnapshot({
+				kind: "sonarr",
+				library: {
+					series: [{ id: 77, title: "Direct Match", tmdbId: 999 }],
+				},
+			}),
+		});
+
+		expect(normalized.library.shows[0]?.payload).toMatchObject({
+			tmdbId: 999,
+			sourceRecordId: 77,
+		});
 	});
 });

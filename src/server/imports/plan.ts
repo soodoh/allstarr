@@ -129,6 +129,15 @@ function buildMovieRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
+		if (match.confidence !== "high") {
+			return rowFromItem({
+				item,
+				action: "unresolved",
+				targetId: null,
+				selectable: false,
+				warning: match.reason,
+			});
+		}
 		return rowFromItem({
 			item,
 			action: "update",
@@ -178,6 +187,15 @@ function buildShowRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
+		if (match.confidence !== "high") {
+			return rowFromItem({
+				item,
+				action: "unresolved",
+				targetId: null,
+				selectable: false,
+				warning: match.reason,
+			});
+		}
 		return rowFromItem({
 			item,
 			action: "update",
@@ -232,6 +250,15 @@ function buildBookRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
+		if (match.confidence !== "high") {
+			return rowFromItem({
+				item,
+				action: "unresolved",
+				targetId: null,
+				selectable: false,
+				warning: match.reason,
+			});
+		}
 		return rowFromItem({
 			item,
 			action: "update",
