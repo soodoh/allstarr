@@ -38,6 +38,14 @@ function formatSourceKind(kind: ImportSourceRecord["kind"]): string {
 	return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
+function isSourceReady(source: ImportSourceRecord): boolean {
+	return (
+		source.hasApiKey &&
+		!source.lastSyncError &&
+		source.lastSyncStatus === "synced"
+	);
+}
+
 function formatSyncStatus(source: ImportSourceRecord): JSX.Element {
 	if (source.lastSyncError) {
 		return (
@@ -113,6 +121,7 @@ export default function ImportSourcesList({
 					const active = source.id === selectedSourceId;
 					const refreshing = refreshingSourceId === source.id;
 					const deleting = deletingSourceId === source.id;
+					const ready = isSourceReady(source);
 
 					return (
 						<Card
@@ -137,9 +146,10 @@ export default function ImportSourcesList({
 										<Button
 											variant={active ? "default" : "outline"}
 											size="sm"
+											disabled={!ready}
 											onClick={() => onSelectSource(source.id)}
 										>
-											{active ? "Selected" : "Select"}
+											{ready ? (active ? "Selected" : "Select") : "Unavailable"}
 										</Button>
 										<Button
 											variant="outline"

@@ -183,8 +183,9 @@ describe("ImportSourcesList", () => {
 			expect.objectContaining({ id: 1, label: "Sonarr" }),
 		);
 
-		await page.getByRole("button", { name: "Select" }).last().click();
-		expect(onSelectSource).toHaveBeenCalledWith(2);
+		await expect
+			.element(page.getByRole("button", { name: "Unavailable" }))
+			.toBeDisabled();
 
 		await page.getByRole("button", { name: "Delete" }).last().click();
 		await expect
