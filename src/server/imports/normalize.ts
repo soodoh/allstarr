@@ -364,29 +364,113 @@ function normalizeActivity(args: {
 		.sort((left, right) => left.sourceKey.localeCompare(right.sourceKey));
 }
 
-function normalizeUnsupported(args: {
+function normalizeUnsupportedBuckets(args: {
 	kind: ImportSourceKind;
 	sourceId: number;
-	items: RawRecord[];
-	resourceType: ImportResourceType;
-	prefix: string;
+	snapshot: RawImportSnapshot;
 }): NormalizedImportItem[] {
-	const { kind, sourceId, items, resourceType, prefix } = args;
-	return items.map((record, index) => {
-		const title = normalizeRecordTitle(record, `${prefix} ${index + 1}`);
-		return createItem({
-			kind,
-			sourceId,
-			resourceType: "unsupported",
-			identity: `${prefix}:${index + 1}`,
-			title,
-			payload: {
-				resourceType,
-				title,
-				raw: record,
-			},
-		});
-	});
+	const unsupported: NormalizedImportItem[] = [];
+	const snapshotRecord = args.snapshot as RawRecord;
+	const sections: Array<{
+		bucket: string;
+		allowedKeys: string[];
+		value: unknown;
+	}> = [
+		{
+			bucket: "settings",
+			allowedKeys: [
+				"naming",
+				"mediaManagement",
+				"downloadClients",
+				"indexers",
+				"metadataProfiles",
+			],
+			value: args.snapshot.settings,
+		},
+		{
+			bucket: "library",
+			allowedKeys: ["movies", "series", "books"],
+			value: args.snapshot.library,
+		},
+		{
+			bucket: "activity",
+			allowedKeys: ["history", "queue", "blocklist"],
+			value: args.snapshot.activity,
+		},
+	];
+
+	for (const section of sections) {
+		const record = section.value as RawRecord;
+		if (!record || typeof record !== "object") {
+			continue;
+		}
+
+		for (const [key, value] of Object.entries(record)) {
+			if (section.allowedKeys.includes(key)) {
+				continue;
+			}
+			for (const item of toRecords(value)) {
+				const id = readNumber(item, ["id"]);
+				const title = normalizeRecordTitle(item, key);
+				unsupported.push(
+					createItem({
+						kind: args.kind,
+						sourceId: args.sourceId,
+						resourceType: "unsupported",
+						identity: `${section.bucket}:${key}:${id ?? (slugify(title) || "item")}`,
+						title,
+						payload: {
+							bucket: section.bucket,
+							key,
+							id,
+							title,
+							raw: item,
+						},
+					}),
+				);
+			}
+		}
+	}
+
+	for (const [key, value] of Object.entries(snapshotRecord)) {
+		if (
+			[
+				"kind",
+				"fetchedAt",
+				"settings",
+				"rootFolders",
+				"profiles",
+				"library",
+				"activity",
+			].includes(key)
+		) {
+			continue;
+		}
+		for (const item of toRecords(value)) {
+			const id = readNumber(item, ["id"]);
+			const title = normalizeRecordTitle(item, key);
+			unsupported.push(
+				createItem({
+					kind: args.kind,
+					sourceId: args.sourceId,
+					resourceType: "unsupported",
+					identity: `snapshot:${key}:${id ?? (slugify(title) || "item")}`,
+					title,
+					payload: {
+						bucket: "snapshot",
+						key,
+						id,
+						title,
+						raw: item,
+					},
+				}),
+			);
+		}
+	}
+
+	return unsupported.sort((left, right) =>
+		left.sourceKey.localeCompare(right.sourceKey),
+	);
 }
 
 export function normalizeImportSnapshot(args: {
@@ -465,12 +549,10 @@ export function normalizeImportSnapshot(args: {
 			queue,
 			blocklist,
 		},
-		unsupported: normalizeUnsupported({
+		unsupported: normalizeUnsupportedBuckets({
 			kind: args.kind,
 			sourceId: args.sourceId,
-			items: [],
-			resourceType: "unsupported",
-			prefix: "unsupported",
+			snapshot: args.snapshot,
 		}),
 	};
 }
