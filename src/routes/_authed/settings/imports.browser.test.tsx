@@ -144,4 +144,45 @@ describe("imports settings route", () => {
 			.element(page.getByRole("heading", { name: "Review" }))
 			.toBeInTheDocument();
 	});
+
+	it("renders the empty shell state when no sources exist", async () => {
+		importsRouteMocks.useSuspenseQuery.mockReturnValue({
+			data: [],
+			status: "success",
+		});
+
+		const route = Route as unknown as {
+			component: () => ReactElement;
+		};
+		const Component = route.component;
+		await renderWithProviders(<Component />);
+
+		await expect
+			.element(page.getByText(/No import sources yet\./))
+			.toBeInTheDocument();
+	});
+
+	it("renders the sync warning banner when a source has a lastSyncError", async () => {
+		importsRouteMocks.useSuspenseQuery.mockReturnValue({
+			data: [
+				{
+					...importsRouteMocks.sources[0],
+					lastSyncError: "Source API error: 401 Unauthorized",
+					lastSyncStatus: "error",
+				},
+			],
+			status: "success",
+		});
+
+		const route = Route as unknown as {
+			component: () => ReactElement;
+		};
+		const Component = route.component;
+		await renderWithProviders(<Component />);
+
+		await expect.element(page.getByText("Status: error")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Source API error: 401 Unauthorized"))
+			.toBeInTheDocument();
+	});
 });

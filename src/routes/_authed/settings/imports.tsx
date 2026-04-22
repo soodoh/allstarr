@@ -12,21 +12,12 @@ import {
 import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { importSourcesQuery } from "src/lib/queries";
 
-export const Route = createFileRoute("/_authed/settings/imports" as never)({
-	beforeLoad: requireAdminBeforeLoad as never,
-	loader: ({
-		context,
-	}: {
-		context: {
-			queryClient: {
-				ensureQueryData: (
-					query: ReturnType<typeof importSourcesQuery>,
-				) => unknown;
-			};
-		};
-	}) => context.queryClient.ensureQueryData(importSourcesQuery()),
+export const Route = createFileRoute("/_authed/settings/imports")({
+	beforeLoad: requireAdminBeforeLoad,
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(importSourcesQuery()),
 	component: ImportsPage,
-} as never);
+});
 
 function formatSourceKind(kind: string) {
 	return kind.charAt(0).toUpperCase() + kind.slice(1);
