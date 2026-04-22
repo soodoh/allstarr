@@ -42,6 +42,38 @@ function buildRawSnapshot(overrides: {
 }
 
 describe("buildImportPlan", () => {
+	it("keeps quality and metadata profiles in distinct plan sections", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 9,
+					kind: "readarr",
+					snapshot: buildRawSnapshot({
+						kind: "readarr",
+						profiles: [{ id: 13, name: "Lossless" }],
+						settings: {
+							metadataProfiles: [{ id: 14, name: "Hardcover" }],
+						},
+					}),
+				}),
+			],
+			existingState: {},
+		});
+
+		expect(plan.qualityProfiles.items).toHaveLength(1);
+		expect(plan.metadataProfiles.items).toHaveLength(1);
+		expect(plan.qualityProfiles.items[0]).toMatchObject({
+			resourceType: "profile",
+			title: "Lossless",
+			sourceKey: "readarr:9:profile:quality:13",
+		});
+		expect(plan.metadataProfiles.items[0]).toMatchObject({
+			resourceType: "profile",
+			title: "Hardcover",
+			sourceKey: "readarr:9:profile:metadata:14",
+		});
+	});
+
 	it("marks duplicate movies from two Radarr instances as one update and one skip when provenance already exists", async () => {
 		const plan = await buildImportPlan({
 			snapshots: [
@@ -149,6 +181,37 @@ describe("buildImportPlan", () => {
 		expect(
 			plan.unresolved.items.every((item) => item.action === "unresolved"),
 		).toBe(true);
+	});
+
+	it("emits unsupported rows for intentionally unsupported snapshot buckets", async () => {
+		const rawSnapshot = buildRawSnapshot({
+			kind: "radarr",
+			library: {
+				movies: [{ id: 1, tmdbId: 11, title: "Dune" }],
+				podcasts: [{ id: 99, title: "Unsupported Podcast" }],
+			} as Record<string, Array<Record<string, unknown>>>,
+		}) as ReturnType<typeof buildRawSnapshot> & {
+			library: Record<string, Array<Record<string, unknown>>>;
+		};
+
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 10,
+					kind: "radarr",
+					snapshot: rawSnapshot,
+				}),
+			],
+			existingState: {},
+		});
+
+		expect(plan.unsupported.items).toHaveLength(1);
+		expect(plan.unsupported.items[0]).toMatchObject({
+			resourceType: "unsupported",
+			action: "unsupported",
+			sourceKey: "radarr:10:unsupported:library:podcasts:99",
+			title: "Unsupported Podcast",
+		});
 	});
 });
 

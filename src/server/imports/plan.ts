@@ -35,7 +35,8 @@ export type ImportPlanSection = {
 
 export type ImportPlan = {
 	settings: ImportPlanSection;
-	profiles: ImportPlanSection;
+	qualityProfiles: ImportPlanSection;
+	metadataProfiles: ImportPlanSection;
 	library: ImportPlanSection;
 	activity: ImportPlanSection;
 	unresolved: ImportPlanSection;
@@ -299,17 +300,16 @@ function buildUnsupportedRow(
 
 function flattenSnapshot(snapshot: NormalizedImportSnapshot): {
 	settings: NormalizedImportItem[];
-	profiles: NormalizedImportItem[];
+	qualityProfiles: NormalizedImportItem[];
+	metadataProfiles: NormalizedImportItem[];
 	library: NormalizedImportItem[];
 	activity: NormalizedImportItem[];
 	unsupported: NormalizedImportItem[];
 } {
 	return {
 		settings: snapshot.settings.items,
-		profiles: [
-			...snapshot.settings.qualityProfiles,
-			...snapshot.settings.metadataProfiles,
-		],
+		qualityProfiles: snapshot.settings.qualityProfiles,
+		metadataProfiles: snapshot.settings.metadataProfiles,
 		library: [
 			...snapshot.library.movies,
 			...snapshot.library.shows,
@@ -327,7 +327,8 @@ function flattenSnapshot(snapshot: NormalizedImportSnapshot): {
 export function buildImportPlan(args: BuildImportPlanArgs): ImportPlan {
 	const plan: ImportPlan = {
 		settings: { items: [] },
-		profiles: { items: [] },
+		qualityProfiles: { items: [] },
+		metadataProfiles: { items: [] },
 		library: { items: [] },
 		activity: { items: [] },
 		unresolved: { items: [] },
@@ -342,9 +343,14 @@ export function buildImportPlan(args: BuildImportPlanArgs): ImportPlan {
 			push(plan.settings, row);
 		}
 
-		for (const item of snapshot.profiles) {
+		for (const item of snapshot.qualityProfiles) {
 			const row = buildGenericRow(item, args.existingState);
-			push(plan.profiles, row);
+			push(plan.qualityProfiles, row);
+		}
+
+		for (const item of snapshot.metadataProfiles) {
+			const row = buildGenericRow(item, args.existingState);
+			push(plan.metadataProfiles, row);
 		}
 
 		for (const item of snapshot.library) {
