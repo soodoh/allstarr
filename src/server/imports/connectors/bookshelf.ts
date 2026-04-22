@@ -5,9 +5,13 @@ export async function fetchBookshelfSnapshot(
 	config: SourceConfig,
 ): Promise<RawImportSnapshot> {
 	const [
-		settings,
-		libraries,
-		collections,
+		naming,
+		mediaManagement,
+		downloadClients,
+		indexers,
+		rootFolders,
+		qualityProfiles,
+		metadataProfiles,
 		authors,
 		books,
 		history,
@@ -16,35 +20,57 @@ export async function fetchBookshelfSnapshot(
 	] = await Promise.all([
 		fetchSourceJson<Record<string, unknown>>({
 			...config,
-			path: "/api/settings",
+			path: "/api/v1/config/naming",
+		}),
+		fetchSourceJson<Record<string, unknown>>({
+			...config,
+			path: "/api/v1/config/mediamanagement",
 		}),
 		fetchSourceJson<Array<Record<string, unknown>>>({
 			...config,
-			path: "/api/libraries",
+			path: "/api/v1/downloadclient",
 		}),
 		fetchSourceJson<Array<Record<string, unknown>>>({
 			...config,
-			path: "/api/collections",
+			path: "/api/v1/indexer",
 		}),
 		fetchSourceJson<Array<Record<string, unknown>>>({
 			...config,
-			path: "/api/authors",
+			path: "/api/v1/rootfolder",
 		}),
 		fetchSourceJson<Array<Record<string, unknown>>>({
 			...config,
-			path: "/api/books",
+			path: "/api/v1/qualityprofile",
 		}),
-		fetchPagedRecords(config, "/api/history"),
-		fetchQueueRecords(config, "/api/queue"),
-		fetchPagedRecords(config, "/api/blocklist"),
+		fetchSourceJson<Array<Record<string, unknown>>>({
+			...config,
+			path: "/api/v1/metadataprofile",
+		}),
+		fetchSourceJson<Array<Record<string, unknown>>>({
+			...config,
+			path: "/api/v1/author",
+		}),
+		fetchSourceJson<Array<Record<string, unknown>>>({
+			...config,
+			path: "/api/v1/book",
+		}),
+		fetchPagedRecords(config, "/api/v1/history"),
+		fetchQueueRecords(config, "/api/v1/queue"),
+		fetchPagedRecords(config, "/api/v1/blocklist"),
 	]);
 
 	return {
 		kind: "bookshelf",
 		fetchedAt: new Date().toISOString(),
-		settings,
-		rootFolders: libraries,
-		profiles: collections,
+		settings: {
+			naming,
+			mediaManagement,
+			downloadClients,
+			indexers,
+			metadataProfiles,
+		},
+		rootFolders,
+		profiles: qualityProfiles,
 		library: {
 			authors,
 			books,

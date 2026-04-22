@@ -19,7 +19,7 @@ export async function fetchRadarrSnapshot(
 	] = await Promise.all([
 		fetchSourceJson<Record<string, unknown>>({
 			...config,
-			path: "/api/v3/namingConfig",
+			path: "/api/v3/config/naming",
 		}),
 		fetchSourceJson<Record<string, unknown>>({
 			...config,

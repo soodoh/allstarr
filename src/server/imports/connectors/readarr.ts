@@ -20,7 +20,7 @@ export async function fetchReadarrSnapshot(
 	] = await Promise.all([
 		fetchSourceJson<Record<string, unknown>>({
 			...config,
-			path: "/api/v1/namingConfig",
+			path: "/api/v1/config/naming",
 		}),
 		fetchSourceJson<Record<string, unknown>>({
 			...config,
@@ -67,9 +67,10 @@ export async function fetchReadarrSnapshot(
 			mediaManagement,
 			downloadClients,
 			indexers,
+			metadataProfiles,
 		},
 		rootFolders,
-		profiles: [...qualityProfiles, ...metadataProfiles],
+		profiles: qualityProfiles,
 		library: {
 			authors,
 			books,
