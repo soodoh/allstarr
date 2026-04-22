@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
 	createDownloadProfileSchema,
+	createImportSourceSchema,
+	refreshImportSourceSchema,
 	updateDownloadProfileSchema,
 } from "./validators";
 
@@ -78,5 +80,33 @@ describe("updateDownloadProfileSchema refinement", () => {
 			expect(cutoffError).toBeDefined();
 			expect(cutoffError?.message).toBe("Upgrade cutoff quality is required");
 		}
+	});
+});
+
+describe("import source validators", () => {
+	it("accepts the supported source kinds", () => {
+		expect(
+			createImportSourceSchema.parse({
+				kind: "sonarr",
+				label: "Radarr 4K",
+				baseUrl: "http://localhost:7878",
+				apiKey: "secret",
+			}).kind,
+		).toBe("sonarr");
+	});
+
+	it("rejects unsupported source kinds", () => {
+		expect(() =>
+			createImportSourceSchema.parse({
+				kind: "prowlarr",
+				label: "Prowlarr",
+				baseUrl: "http://localhost:9696",
+				apiKey: "secret",
+			}),
+		).toThrow(/Invalid (enum value|option)/);
+	});
+
+	it("validates refresh payloads by source id", () => {
+		expect(refreshImportSourceSchema.parse({ id: 12 }).id).toBe(12);
 	});
 });

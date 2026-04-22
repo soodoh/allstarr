@@ -14,6 +14,7 @@ export * from "./edition-download-profiles";
 export * from "./episode-download-profiles";
 export * from "./episode-files";
 export * from "./history";
+export * from "./import-sources";
 export * from "./indexers";
 export * from "./movie-collection-download-profiles";
 export * from "./movie-collection-movies";
