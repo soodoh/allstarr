@@ -179,12 +179,17 @@ export const resolveImportReviewItemFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => resolveImportReviewItemSchema.parse(data))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const values: Record<string, unknown> = {
+			status: data.status,
+			updatedAt: new Date(),
+		};
+
+		if (data.payload !== undefined) {
+			values.payload = data.payload;
+		}
+
 		db.update(importReviewItems)
-			.set({
-				payload: data.payload,
-				status: data.status,
-				updatedAt: new Date(),
-			})
+			.set(values)
 			.where(eq(importReviewItems.id, data.id))
 			.run();
 		return { success: true };

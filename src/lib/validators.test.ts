@@ -144,12 +144,12 @@ describe("import source validators", () => {
 		});
 	});
 
-	it("defaults review resolution payloads to an empty object", () => {
+	it("allows review resolution payloads to be omitted", () => {
 		const result = resolveImportReviewItemSchema.parse({
 			id: 9,
 			status: "resolved",
 		});
 
-		expect(result.payload).toEqual({});
+		expect(result.payload).toBeUndefined();
 	});
 });

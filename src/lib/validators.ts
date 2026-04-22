@@ -402,7 +402,7 @@ export const applyImportPlanSchema = z.object({
 export const resolveImportReviewItemSchema = z.object({
 	id: z.number().int().positive(),
 	status: z.enum(["unresolved", "resolved", "dismissed"]),
-	payload: z.record(z.string(), z.unknown()).default({}),
+	payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 // User Settings
