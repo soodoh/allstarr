@@ -5,6 +5,7 @@ import { fetchBookshelfSnapshot } from "./connectors/bookshelf";
 import { fetchRadarrSnapshot } from "./connectors/radarr";
 import { fetchReadarrSnapshot } from "./connectors/readarr";
 import { fetchSonarrSnapshot } from "./connectors/sonarr";
+import { fetchPagedRecords, fetchSourceJson } from "./http";
 
 type FixtureValue = Record<string, unknown> | Array<Record<string, unknown>>;
 
@@ -35,25 +36,27 @@ afterEach(async () => {
 });
 
 describe("connector snapshots", () => {
-	it("fetches Sonarr library, settings, and activity pages with the API key header", async () => {
+	it("fetches Sonarr through a reverse-proxy subpath and uses the corrected naming endpoint", async () => {
 		const server = await createFixtureServer({
-			"/api/v3/namingConfig": { renameEpisodes: true },
-			"/api/v3/config/mediamanagement": { createEmptySeriesFolders: false },
-			"/api/v3/downloadclient": [{ id: 5, name: "qBittorrent" }],
-			"/api/v3/indexer": [{ id: 7, name: "Nyaa" }],
-			"/api/v3/rootfolder": [{ id: 1, path: "/tv" }],
-			"/api/v3/qualityprofile": [{ id: 2, name: "HD-1080p" }],
-			"/api/v3/series": [{ id: 101, title: "Andor", tvdbId: 389090 }],
-			"/api/v3/episode": [{ id: 201, seriesId: 101, seasonNumber: 1 }],
-			"/api/v3/history?page=1&pageSize=250": {
+			"/sonarr/api/v3/config/naming": { renameEpisodes: true },
+			"/sonarr/api/v3/config/mediamanagement": {
+				createEmptySeriesFolders: false,
+			},
+			"/sonarr/api/v3/downloadclient": [{ id: 5, name: "qBittorrent" }],
+			"/sonarr/api/v3/indexer": [{ id: 7, name: "Nyaa" }],
+			"/sonarr/api/v3/rootfolder": [{ id: 1, path: "/tv" }],
+			"/sonarr/api/v3/qualityprofile": [{ id: 2, name: "HD-1080p" }],
+			"/sonarr/api/v3/series": [{ id: 101, title: "Andor", tvdbId: 389090 }],
+			"/sonarr/api/v3/episode": [{ id: 201, seriesId: 101, seasonNumber: 1 }],
+			"/sonarr/api/v3/history?page=1&pageSize=250": {
 				records: [],
 				totalRecords: 0,
 			},
-			"/api/v3/queue?page=1&pageSize=250": {
+			"/sonarr/api/v3/queue?page=1&pageSize=250": {
 				records: [],
 				totalRecords: 0,
 			},
-			"/api/v3/blocklist?page=1&pageSize=250": {
+			"/sonarr/api/v3/blocklist?page=1&pageSize=250": {
 				records: [],
 				totalRecords: 0,
 			},
@@ -61,7 +64,7 @@ describe("connector snapshots", () => {
 		serversToStop.push(server);
 
 		const snapshot = await fetchSonarrSnapshot({
-			baseUrl: server.baseUrl,
+			baseUrl: `${server.baseUrl}/sonarr`,
 			apiKey: "sonarr-key",
 		});
 
@@ -72,12 +75,35 @@ describe("connector snapshots", () => {
 			tvdbId: 389090,
 		});
 		expect(snapshot.rootFolders).toEqual([{ id: 1, path: "/tv" }]);
+		expect(server.requests[0]?.pathname).toBe("/sonarr/api/v3/config/naming");
 		expect(server.requests[0]?.headers["x-api-key"]).toBe("sonarr-key");
 	});
 
-	it("fetches Radarr, Readarr, and Bookshelf snapshots with source-specific library roots and paginated activity", async () => {
+	it("throws when paginated fetches stop making progress before reaching total records", async () => {
+		const server = await createFixtureServer({
+			"/radarr/api/v3/history?page=1&pageSize=250": {
+				records: [],
+				totalRecords: 3,
+			},
+		});
+		serversToStop.push(server);
+
+		await expect(
+			fetchPagedRecords(
+				{
+					baseUrl: `${server.baseUrl}/radarr`,
+					apiKey: "radarr-key",
+				},
+				"/api/v3/history",
+			),
+		).rejects.toThrow(
+			"Source API pagination stalled for /api/v3/history on page 1",
+		);
+	});
+
+	it("fetches Radarr, Readarr, and Bookshelf snapshots with corrected naming paths and preserved metadata profile buckets", async () => {
 		const radarr = await createFixtureServer({
-			"/api/v3/namingConfig": { renameMovies: true },
+			"/api/v3/config/naming": { renameMovies: true },
 			"/api/v3/config/mediamanagement": { autoRenameFolders: true },
 			"/api/v3/downloadclient": [{ id: 1, name: "SABnzbd" }],
 			"/api/v3/indexer": [{ id: 2, name: "Indexer A" }],
@@ -105,8 +131,8 @@ describe("connector snapshots", () => {
 			},
 		});
 		const readarr = await createFixtureServer({
-			"/api/v1/namingConfig": { renameBooks: true },
-			"/api/v1/config/mediamanagement": { renameEpisodes: false },
+			"/api/v1/config/naming": { renameBooks: true },
+			"/api/v1/config/mediamanagement": { renameExistingFiles: false },
 			"/api/v1/downloadclient": [{ id: 10, name: "NZBGet" }],
 			"/api/v1/indexer": [{ id: 11, name: "Books Indexer" }],
 			"/api/v1/rootfolder": [{ id: 12, path: "/books" }],
@@ -128,21 +154,27 @@ describe("connector snapshots", () => {
 			},
 		});
 		const bookshelf = await createFixtureServer({
-			"/api/settings": { scanner: { enabled: true } },
-			"/api/libraries": [{ id: "lib-1", name: "Books" }],
-			"/api/collections": [{ id: "col-1", name: "Sci-Fi" }],
-			"/api/authors": [{ id: "author-1", name: "Frank Herbert" }],
-			"/api/books": [{ id: "book-1", title: "Dune", hardcoverId: 42 }],
-			"/api/history?page=1&pageSize=250": {
-				records: [{ id: "h-1", event: "added" }],
+			"/bookshelf/api/v1/config/naming": { renameBooks: true },
+			"/bookshelf/api/v1/config/mediamanagement": {
+				renameExistingFiles: true,
+			},
+			"/bookshelf/api/v1/downloadclient": [{ id: 20, name: "Transmission" }],
+			"/bookshelf/api/v1/indexer": [{ id: 21, name: "Bookshelf Indexer" }],
+			"/bookshelf/api/v1/rootfolder": [{ id: 22, path: "/bookshelf" }],
+			"/bookshelf/api/v1/qualityprofile": [{ id: 23, name: "EPUB" }],
+			"/bookshelf/api/v1/metadataprofile": [{ id: 24, name: "OpenLibrary" }],
+			"/bookshelf/api/v1/author": [{ id: 410, authorName: "Ursula Le Guin" }],
+			"/bookshelf/api/v1/book": [{ id: 411, title: "A Wizard of Earthsea" }],
+			"/bookshelf/api/v1/history?page=1&pageSize=250": {
+				records: [{ id: 5, eventType: "downloadFolderImported" }],
 				totalRecords: 1,
 			},
-			"/api/queue?page=1&pageSize=250": {
-				records: [{ id: "q-1", status: "processing" }],
+			"/bookshelf/api/v1/queue?page=1&pageSize=250": {
+				records: [{ id: 6, title: "The Tombs of Atuan" }],
 				totalRecords: 1,
 			},
-			"/api/blocklist?page=1&pageSize=250": {
-				records: [{ id: "b-1", reason: "duplicate" }],
+			"/bookshelf/api/v1/blocklist?page=1&pageSize=250": {
+				records: [{ id: 7, title: "Tehanu" }],
 				totalRecords: 1,
 			},
 		});
@@ -159,36 +191,62 @@ describe("connector snapshots", () => {
 					apiKey: "readarr-key",
 				}),
 				fetchBookshelfSnapshot({
-					baseUrl: bookshelf.baseUrl,
+					baseUrl: `${bookshelf.baseUrl}/bookshelf`,
 					apiKey: "bookshelf-key",
 				}),
 			]);
 
 		expect(radarrSnapshot.kind).toBe("radarr");
+		expect(radarrSnapshot.settings.naming).toEqual({ renameMovies: true });
 		expect(radarrSnapshot.library.movies).toEqual([
 			{ id: 210, title: "Dune", tmdbId: 11 },
 		]);
 		expect(radarrSnapshot.activity.history).toHaveLength(251);
+		expect(radarr.requests[0]?.pathname).toBe("/api/v3/config/naming");
 
 		expect(readarrSnapshot.kind).toBe("readarr");
-		expect(readarrSnapshot.profiles).toEqual([
-			{ id: 13, name: "Lossless" },
+		expect(readarrSnapshot.profiles).toEqual([{ id: 13, name: "Lossless" }]);
+		expect(readarrSnapshot.settings.metadataProfiles).toEqual([
 			{ id: 14, name: "Hardcover" },
 		]);
 		expect(readarrSnapshot.library.authors).toEqual([
 			{ id: 310, authorName: "Frank Herbert" },
 		]);
+		expect(readarr.requests[0]?.pathname).toBe("/api/v1/config/naming");
 		expect(readarr.requests[0]?.headers["x-api-key"]).toBe("readarr-key");
 
 		expect(bookshelfSnapshot.kind).toBe("bookshelf");
 		expect(bookshelfSnapshot.rootFolders).toEqual([
-			{ id: "lib-1", name: "Books" },
+			{ id: 22, path: "/bookshelf" },
+		]);
+		expect(bookshelfSnapshot.profiles).toEqual([{ id: 23, name: "EPUB" }]);
+		expect(bookshelfSnapshot.settings.metadataProfiles).toEqual([
+			{ id: 24, name: "OpenLibrary" },
 		]);
 		expect(bookshelfSnapshot.library.books).toEqual([
-			{ id: "book-1", title: "Dune", hardcoverId: 42 },
+			{ id: 411, title: "A Wizard of Earthsea" },
 		]);
-		expect(bookshelfSnapshot.activity.blocklist).toEqual([
-			{ id: "b-1", reason: "duplicate" },
-		]);
+		expect(bookshelf.requests[0]?.pathname).toBe(
+			"/bookshelf/api/v1/config/naming",
+		);
+		expect(bookshelf.requests[0]?.headers["x-api-key"]).toBe("bookshelf-key");
+	});
+
+	it("preserves reverse-proxy base subpaths when fetching a single source payload", async () => {
+		const server = await createFixtureServer({
+			"/proxy/radarr/api/v3/rootfolder": [{ id: 1, path: "/movies" }],
+		});
+		serversToStop.push(server);
+
+		const payload = await fetchSourceJson<Array<Record<string, unknown>>>({
+			baseUrl: `${server.baseUrl}/proxy/radarr`,
+			apiKey: "radarr-key",
+			path: "/api/v3/rootfolder",
+		});
+
+		expect(payload).toEqual([{ id: 1, path: "/movies" }]);
+		expect(server.requests[0]?.pathname).toBe(
+			"/proxy/radarr/api/v3/rootfolder",
+		);
 	});
 });
