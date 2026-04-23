@@ -86,6 +86,18 @@ function getProvenanceTargetType(row: ApplyImportPlanRow): string {
 	return row.resourceType;
 }
 
+function getExplicitTargetId(row: ApplyImportPlanRow): number | null {
+	const value = row.payload.targetId;
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		const parsed = Number(value.trim());
+		return Number.isInteger(parsed) ? parsed : null;
+	}
+	return null;
+}
+
 function getProvenanceTargetId(
 	row: ApplyImportPlanRow,
 	value: unknown,
@@ -458,7 +470,47 @@ export async function applyImportPlan(
 				continue;
 			}
 
-			if (!isSupportedAction(row.action) || !isSupportedRow(row)) {
+			if (!isSupportedAction(row.action)) {
+				await persistReviewItem({
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				reviewCount += 1;
+				continue;
+			}
+
+			if (
+				row.resourceType === "movie" ||
+				row.resourceType === "show" ||
+				row.resourceType === "book"
+			) {
+				const targetId = getExplicitTargetId(row);
+				if (targetId === null) {
+					await persistReviewItem({
+						row,
+						sourceId: args.sourceId,
+						timestamp,
+						tx: transactionDb,
+					});
+					reviewCount += 1;
+					continue;
+				}
+
+				writeProvenance({
+					row,
+					sourceId: args.sourceId,
+					targetId: String(targetId),
+					targetType: getProvenanceTargetType(row),
+					timestamp,
+					tx: transactionDb,
+				});
+				appliedCount += 1;
+				continue;
+			}
+
+			if (!isSupportedRow(row)) {
 				await persistReviewItem({
 					row,
 					sourceId: args.sourceId,

@@ -133,6 +133,157 @@ services:
       retries: 5
     restart: unless-stopped
 
+  qbittorrent-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+      WEBUI_PORT: 8081
+    ports:
+      - "28081:8081"
+    volumes:
+      - qbittorrent-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  prowlarr-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "29696:9696"
+    volumes:
+      - prowlarr-capture-config:/config
+    restart: unless-stopped
+
+  sabnzbd-capture:
+    profiles: ["capture"]
+    image: ghcr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd-capture
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    ports:
+      - "28080:8080"
+    volumes:
+      - sabnzbd-capture-data:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  transmission-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "29091:9091"
+    volumes:
+      - transmission-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  deluge-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/deluge:latest
+    container_name: deluge-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "28112:8112"
+    volumes:
+      - deluge-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  nzbget-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/nzbget:latest
+    container_name: nzbget-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "26789:6789"
+    volumes:
+      - nzbget-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  rtorrent-capture:
+    profiles: ["capture"]
+    image: crazymax/rtorrent-rutorrent:latest
+    container_name: rtorrent-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "28000:8000"
+      - "28085:8080"
+    volumes:
+      - rtorrent-capture-config:/data
+      - ./data/capture/downloads:/downloads
+    restart: unless-stopped
+
+  sonarr-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "28989:8989"
+    volumes:
+      - sonarr-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  radarr-capture:
+    profiles: ["capture"]
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "27878:7878"
+    volumes:
+      - radarr-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+  readarr-capture:
+    profiles: ["capture"]
+    image: ghcr.io/linuxserver/readarr:arm64v8-develop-0.4.18.2805-ls157
+    container_name: readarr-capture
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    ports:
+      - "28787:8787"
+    volumes:
+      - readarr-capture-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
 volumes:
   qbittorrent-config:
   prowlarr-config:
@@ -142,6 +293,16 @@ volumes:
   deluge-config:
   nzbget-config:
   rtorrent-config:
+  qbittorrent-capture-config:
+  prowlarr-capture-config:
+  sabnzbd-capture-data:
+  transmission-capture-config:
+  deluge-capture-config:
+  nzbget-capture-config:
+  rtorrent-capture-config:
+  sonarr-capture-config:
+  radarr-capture-config:
+  readarr-capture-config:
 
 networks:
   app-net:
