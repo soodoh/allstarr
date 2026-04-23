@@ -55,6 +55,13 @@ const mocks = vi.hoisted(() => {
 		payload: Record<string, unknown>;
 		sourceId: number;
 	}> = [];
+	const provenance: Array<{
+		lastImportedAt: Date;
+		sourceId: number;
+		sourceKey: string;
+		targetId: string;
+		targetType: string;
+	}> = [];
 	const reviewItems: Array<{
 		createdAt: Date;
 		id: number;
@@ -116,6 +123,7 @@ const mocks = vi.hoisted(() => {
 		},
 		normalizeImportSnapshot,
 		requireAdmin,
+		provenance,
 		reviewItems,
 		rows,
 		select,
@@ -193,6 +201,8 @@ import {
 	applyImportPlanFn,
 	createImportSourceFn,
 	deleteImportSourceFn,
+	getImportPlanFn,
+	getImportReviewFn,
 	getImportSourcesFn,
 	refreshImportSourceFn,
 	resolveImportReviewItemFn,
@@ -201,6 +211,7 @@ import {
 
 function resetState() {
 	mocks.rows.splice(0, mocks.rows.length);
+	mocks.provenance.splice(0, mocks.provenance.length);
 	mocks.snapshots.splice(0, mocks.snapshots.length);
 	mocks.reviewItems.splice(0, mocks.reviewItems.length);
 	mocks.nextSourceIdRef.value = 1;
@@ -235,11 +246,65 @@ function installDbMocks() {
 
 			if (table === schemaMocks.importReviewItems) {
 				return {
+					all: vi.fn(() =>
+						[...mocks.reviewItems].sort(
+							(left, right) =>
+								right.updatedAt.getTime() - left.updatedAt.getTime() ||
+								right.createdAt.getTime() - left.createdAt.getTime() ||
+								right.id - left.id,
+						),
+					),
 					get: vi.fn((condition?: { right: number }) =>
 						condition
 							? mocks.reviewItems.find((row) => row.id === condition.right)
 							: undefined,
 					),
+					where: vi.fn((condition: { right: number }) => ({
+						all: vi.fn(() =>
+							mocks.reviewItems.filter(
+								(row) => row.sourceId === condition.right,
+							),
+						),
+					})),
+				};
+			}
+
+			if (table === schemaMocks.importSnapshots) {
+				return {
+					all: vi.fn(() => [...mocks.snapshots]),
+					where: vi.fn((condition: { right: number }) => ({
+						all: vi.fn(() =>
+							mocks.snapshots.filter((row) => row.sourceId === condition.right),
+						),
+					})),
+				};
+			}
+
+			if (table === schemaMocks.importProvenance) {
+				return {
+					where: vi.fn((condition: { args?: Array<{ right: unknown }> }) => ({
+						all: vi.fn(() => {
+							const [sourceIdCondition, sourceKeyCondition] =
+								condition.args ?? [];
+							const sourceId =
+								typeof sourceIdCondition?.right === "number"
+									? sourceIdCondition.right
+									: undefined;
+							const sourceKey =
+								typeof sourceKeyCondition?.right === "string"
+									? sourceKeyCondition.right
+									: undefined;
+							return mocks.provenance.filter((row) => {
+								if (sourceId !== undefined && row.sourceId !== sourceId) {
+									return false;
+								}
+								if (sourceKey !== undefined && row.sourceKey !== sourceKey) {
+									return false;
+								}
+								return true;
+							});
+						}),
+					})),
 				};
 			}
 
@@ -300,6 +365,20 @@ function installDbMocks() {
 							updatedAt: data.updatedAt as Date,
 						});
 						mocks.nextReviewItemIdRef.value += 1;
+					}),
+				};
+			}
+
+			if (table === schemaMocks.importProvenance) {
+				return {
+					run: vi.fn(() => {
+						mocks.provenance.push({
+							lastImportedAt: data.lastImportedAt as Date,
+							sourceId: data.sourceId as number,
+							sourceKey: data.sourceKey as string,
+							targetId: data.targetId as string,
+							targetType: data.targetType as string,
+						});
 					}),
 				};
 			}
@@ -484,6 +563,148 @@ describe("import source CRUD and refresh", () => {
 			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
 			lastSyncStatus: "synced",
 		});
+	});
+
+	it("loads the latest snapshot and maps provenance target labels in the plan", async () => {
+		mocks.rows.push({
+			apiKey: "radarr-key",
+			baseUrl: "http://localhost:7878",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 1,
+			kind: "radarr",
+			label: "Radarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+		mocks.snapshots.push(
+			{
+				fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
+				id: 1,
+				payload: {
+					activity: { blocklist: [], history: [], queue: [] },
+					fetchedAt: "2026-04-21T10:00:00.000Z",
+					kind: "radarr",
+					library: { books: [], movies: [], shows: [] },
+					settings: {
+						items: [
+							{
+								action: "create",
+								payload: { group: "download-client", raw: { name: "Old" } },
+								resourceType: "setting",
+								selectable: true,
+								sourceId: 1,
+								sourceKey: "radarr:1:setting:old",
+								title: "Old",
+								warning: null,
+							},
+						],
+						metadataProfiles: [],
+						qualityProfiles: [],
+					},
+					sourceId: 1,
+					unsupported: [],
+				},
+				sourceId: 1,
+			},
+			{
+				fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+				id: 2,
+				payload: {
+					activity: { blocklist: [], history: [], queue: [] },
+					fetchedAt: "2026-04-21T12:00:00.000Z",
+					kind: "radarr",
+					library: { books: [], movies: [], shows: [] },
+					settings: {
+						items: [
+							{
+								action: "skip",
+								payload: { group: "download-client", raw: { name: "New" } },
+								resourceType: "setting",
+								selectable: false,
+								sourceId: 1,
+								sourceKey: "radarr:1:setting:new",
+								title: "New",
+								warning: "Already imported from this source",
+							},
+						],
+						metadataProfiles: [],
+						qualityProfiles: [],
+					},
+					sourceId: 1,
+					unsupported: [],
+				},
+				sourceId: 1,
+			},
+		);
+		mocks.provenance.push({
+			lastImportedAt: new Date("2026-04-21T12:30:00.000Z"),
+			sourceId: 1,
+			sourceKey: "radarr:1:setting:new",
+			targetId: "201",
+			targetType: "download-profile",
+		});
+
+		const plan = await getImportPlanFn({ data: { sourceId: 1 } });
+
+		expect(plan).toEqual([
+			expect.objectContaining({
+				action: "skip",
+				section: "settings",
+				sourceId: 1,
+				sourceKey: "radarr:1:setting:new",
+				targetId: 201,
+				targetLabel: "Download profile",
+			}),
+		]);
+		expect(plan).not.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ sourceKey: "radarr:1:setting:old" }),
+			]),
+		);
+	});
+
+	it("serializes review rows with stable dates and source labels", async () => {
+		mocks.rows.push({
+			apiKey: "sonarr-key",
+			baseUrl: "http://localhost:8989",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 1,
+			kind: "sonarr",
+			label: "Sonarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+		mocks.reviewItems.push({
+			createdAt: new Date("2026-04-21T01:00:00.000Z"),
+			id: 9,
+			payload: { title: "Unknown Show" },
+			resourceType: "show",
+			sourceId: 1,
+			sourceKey: "sonarr:1:show:55",
+			status: "unresolved",
+			updatedAt: new Date("2026-04-21T02:00:00.000Z"),
+		});
+
+		const rows = await getImportReviewFn({ data: { sourceId: 1 } });
+
+		expect(rows).toEqual([
+			{
+				createdAt: "2026-04-21T01:00:00.000Z",
+				id: 9,
+				payload: { title: "Unknown Show" },
+				resourceType: "show",
+				sourceId: 1,
+				sourceKind: "sonarr",
+				sourceKey: "sonarr:1:show:55",
+				sourceLabel: "Sonarr",
+				status: "unresolved",
+				updatedAt: "2026-04-21T02:00:00.000Z",
+			},
+		]);
 	});
 
 	it("delegates apply payloads to the apply engine", async () => {

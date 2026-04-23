@@ -933,6 +933,111 @@ describe("applyImportPlan", () => {
 		});
 	});
 
+	it("persists provenance for resolved movie, show, and book rows with explicit target ids", async () => {
+		const result = await applyImportPlan({
+			sourceId: 12,
+			selectedRows: [
+				{
+					action: "update",
+					payload: {
+						targetId: 503,
+						title: "The Book",
+					},
+					resourceType: "book",
+					sourceKey: "readarr:12:book:1",
+				},
+				{
+					action: "create",
+					payload: {
+						targetId: 404,
+						title: "The Movie",
+					},
+					resourceType: "movie",
+					sourceKey: "radarr:12:movie:2",
+				},
+				{
+					action: "create",
+					payload: {
+						targetId: "305",
+						title: "The Show",
+					},
+					resourceType: "show",
+					sourceKey: "sonarr:12:show:3",
+				},
+			],
+		});
+
+		expect(result).toEqual({ appliedCount: 3, reviewCount: 0 });
+		expect(mocks.getState().provenance).toHaveLength(3);
+		expect(mocks.getState().provenance).toEqual(
+			expect.arrayContaining([
+				{
+					lastImportedAt: expect.any(Date),
+					sourceId: 12,
+					sourceKey: "readarr:12:book:1",
+					targetId: "503",
+					targetType: "book",
+				},
+				{
+					lastImportedAt: expect.any(Date),
+					sourceId: 12,
+					sourceKey: "radarr:12:movie:2",
+					targetId: "404",
+					targetType: "movie",
+				},
+				{
+					lastImportedAt: expect.any(Date),
+					sourceId: 12,
+					sourceKey: "sonarr:12:show:3",
+					targetId: "305",
+					targetType: "show",
+				},
+			]),
+		);
+		expect(mocks.getState().reviews).toHaveLength(0);
+	});
+
+	it("queues movie, show, and book rows without explicit target ids for review", async () => {
+		const result = await applyImportPlan({
+			sourceId: 13,
+			selectedRows: [
+				{
+					action: "create",
+					payload: {
+						title: "Unresolved Movie",
+					},
+					resourceType: "movie",
+					sourceKey: "radarr:13:movie:1",
+				},
+				{
+					action: "update",
+					payload: {
+						title: "Unresolved Show",
+					},
+					resourceType: "show",
+					sourceKey: "sonarr:13:show:2",
+				},
+				{
+					action: "create",
+					payload: {
+						title: "Unresolved Book",
+					},
+					resourceType: "book",
+					sourceKey: "readarr:13:book:3",
+				},
+			],
+		});
+
+		expect(result).toEqual({ appliedCount: 0, reviewCount: 3 });
+		expect(mocks.getState().provenance).toHaveLength(0);
+		expect(mocks.getState().reviews).toHaveLength(3);
+		expect(mocks.getState().reviews.map((row) => row.sourceKey)).toEqual([
+			"radarr:13:movie:1",
+			"readarr:13:book:3",
+			"sonarr:13:show:2",
+		]);
+	});
+
 	it("rolls back earlier writes when a later row fails", async () => {
 		mocks.getState().failOnInsertTable = schemaMocks.downloadProfiles;
 
