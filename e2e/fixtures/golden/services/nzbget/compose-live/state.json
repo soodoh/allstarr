@@ -1,0 +1,108 @@
+{
+  "name": "compose-live",
+  "seed": {
+    "password": "nzbget",
+    "username": "nzbget",
+    "capturedResponses": {
+      "rpc:history": {
+        "body": {
+          "version": "1.1",
+          "id": 3,
+          "result": []
+        },
+        "contentType": "application/json",
+        "status": 200
+      },
+      "rpc:listgroups": {
+        "body": {
+          "version": "1.1",
+          "id": 2,
+          "result": [
+            {
+              "FirstID": 1,
+              "LastID": 1,
+              "RemainingSizeLo": 3393,
+              "RemainingSizeHi": 0,
+              "RemainingSizeMB": 0,
+              "PausedSizeLo": 0,
+              "PausedSizeHi": 0,
+              "PausedSizeMB": 0,
+              "RemainingFileCount": 1,
+              "RemainingParCount": 0,
+              "MinPriority": 0,
+              "MaxPriority": 0,
+              "ActiveDownloads": 0,
+              "Status": "QUEUED",
+              "NZBID": 1,
+              "NZBName": "The.Matrix.1999.1080p.WEB-DL-GRP",
+              "NZBNicename": "The.Matrix.1999.1080p.WEB-DL-GRP",
+              "Kind": "NZB",
+              "URL": "",
+              "NZBFilename": "The.Matrix.1999.1080p.WEB-DL-GRP.nzb",
+              "DestDir": "/downloads/intermediate/The.Matrix.1999.1080p.WEB-DL-GRP.#1",
+              "FinalDir": "",
+              "Category": "Movies",
+              "ParStatus": "NONE",
+              "ExParStatus": "NONE",
+              "UnpackStatus": "NONE",
+              "MoveStatus": "NONE",
+              "ScriptStatus": "NONE",
+              "DeleteStatus": "NONE",
+              "MarkStatus": "NONE",
+              "UrlStatus": "NONE",
+              "FileSizeLo": 3393,
+              "FileSizeHi": 0,
+              "FileSizeMB": 0,
+              "FileCount": 1,
+              "MinPostTime": 1713830400,
+              "MaxPostTime": 1713830400,
+              "TotalArticles": 1,
+              "SuccessArticles": 0,
+              "FailedArticles": 0,
+              "Health": 1000,
+              "CriticalHealth": 1000,
+              "DupeKey": "",
+              "DupeScore": 0,
+              "DupeMode": "SCORE",
+              "Deleted": false,
+              "DownloadedSizeLo": 0,
+              "DownloadedSizeHi": 0,
+              "DownloadedSizeMB": 0,
+              "DownloadTimeSec": 0,
+              "PostTotalTimeSec": 0,
+              "ParTimeSec": 0,
+              "RepairTimeSec": 0,
+              "UnpackTimeSec": 0,
+              "MessageCount": 2,
+              "ExtraParBlocks": 0,
+              "Parameters": [
+                {
+                  "Name": "*Unpack:",
+                  "Value": "yes"
+                }
+              ],
+              "ScriptStatuses": [],
+              "ServerStats": [],
+              "PostInfoText": "NONE",
+              "PostStageProgress": -1119522952,
+              "PostStageTimeSec": 0,
+              "Log": []
+            }
+          ]
+        },
+        "contentType": "application/json",
+        "status": 200
+      },
+      "rpc:version": {
+        "body": {
+          "version": "1.1",
+          "id": 1,
+          "result": "26.0"
+        },
+        "contentType": "application/json",
+        "status": 200
+      }
+    }
+  },
+  "service": "nzbget"
+}

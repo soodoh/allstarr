@@ -11,8 +11,13 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
+test.use({
+  fakeServerScenario: "queue-management-default",
+  requiredServices: ["QBITTORRENT", "SABNZBD"],
+});
+
 test.describe("Queue Management", () => {
-  test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
+  test.beforeEach(async ({ page, appUrl, db }) => {
     await ensureAuthenticated(page, appUrl);
 
     // Seed baseline data
@@ -42,26 +47,6 @@ test.describe("Queue Management", () => {
       authorId: author.id,
     });
 
-    // Configure fake qBittorrent with matching download
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        version: "v4.6.3",
-        torrents: [
-          {
-            hash: "abc123",
-            name: "Queue Author - Queue Book [EPUB]",
-            state: "downloading",
-            size: 5_242_880,
-            downloaded: 2_621_440,
-            dlspeed: 1_048_576,
-            upspeed: 524_288,
-            category: "allstarr",
-            save_path: "/downloads",
-          },
-        ],
-      }),
-    });
   });
 
   test("view queue with active downloads", async ({ page, appUrl }) => {
@@ -119,29 +104,16 @@ test.describe("Queue Management", () => {
     }).toPass({ timeout: 5000 });
   });
 
-  test("resume download", async ({ page, appUrl, db, fakeServers }) => {
+  test("resume download", async ({
+    page,
+    appUrl,
+    db,
+    fakeServers,
+    setFakeServiceState,
+  }) => {
     // Update the tracked download to paused state
     db.update(schema.trackedDownloads).set({ state: "paused" }).run();
-
-    // Update the fake qBittorrent to show paused state
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "abc123",
-            name: "Queue Author - Queue Book [EPUB]",
-            state: "pausedDL",
-            size: 5_242_880,
-            downloaded: 2_621_440,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/downloads",
-          },
-        ],
-      }),
-    });
+    await setFakeServiceState("QBITTORRENT", "queue-paused");
 
     await navigateTo(page, appUrl, "/activity");
 
@@ -238,7 +210,7 @@ test.describe("Queue Management", () => {
     page,
     appUrl,
     db,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Seed a SABnzbd client
     const sabClient = seedDownloadClient(db, {
@@ -258,23 +230,7 @@ test.describe("Queue Management", () => {
       state: "downloading",
     });
 
-    // Configure SABnzbd with matching download
-    await fetch(`${fakeServers.SABNZBD}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        version: "4.2.1",
-        apiKey: "test-sabnzbd-api-key",
-        queueSlots: [
-          {
-            nzo_id: "sab-nzo-123",
-            filename: "Queue Author - Queue Book [MOBI]",
-            status: "Downloading",
-            mb: "5.00",
-            mbleft: "2.50",
-          },
-        ],
-      }),
-    });
+    await setFakeServiceState("SABNZBD", "queue-active");
 
     await navigateTo(page, appUrl, "/activity");
 

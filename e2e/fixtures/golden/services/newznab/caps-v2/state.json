@@ -1,0 +1,10 @@
+{
+	"name": "caps-v2",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [],
+		"searchLog": [],
+		"serverVersion": "2.0.0"
+	}
+}

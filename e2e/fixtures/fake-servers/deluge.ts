@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   password: string;
   connected: boolean;
@@ -26,7 +31,8 @@ type State = {
   resumedIds: string[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "2.1.1",
     password: "deluge",
@@ -37,6 +43,7 @@ function defaultState(): State {
     removedIds: [],
     pausedIds: [],
     resumedIds: [],
+    ...clonedSeed,
   };
 }
 
@@ -131,6 +138,19 @@ function handler(
     case "auth.login": {
       const passwordMatch = params[0] === state.password;
       if (passwordMatch) {
+        const captured = getCapturedResponse(
+          state,
+          buildCapturedNamedKey("rpc", method),
+        );
+        if (captured) {
+          return {
+            ...captured,
+            headers: {
+              ...(captured.headers ?? {}),
+              "Set-Cookie": "_session_id=test-deluge-session; Path=/",
+            },
+          };
+        }
         return {
           headers: {
             "Content-Type": "application/json",
@@ -143,10 +163,24 @@ function handler(
     }
 
     case "web.connected": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, state.connected);
     }
 
     case "web.get_hosts": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, [
         [state.hostId, "127.0.0.1", 58_846, "Connected"],
       ]);
@@ -154,23 +188,51 @@ function handler(
 
     case "web.connect": {
       state.connected = true;
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, null);
     }
 
     case "daemon.get_version": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, state.version);
     }
 
-    default: {
-      const coreResult = handleCoreMethod(method, id, params, state);
-      if (coreResult) {
-        return coreResult;
+	default: {
+		const captured = getCapturedResponse(
+			state,
+			buildCapturedNamedKey("rpc", method),
+		);
+		if (captured) {
+			return captured;
+		}
+		const coreResult = handleCoreMethod(method, id, params, state);
+		if (coreResult) {
+			return coreResult;
       }
       return rpcError(id, `Unknown method: ${method}`);
     }
   }
 }
 
-export default function createDelugeServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createDelugeServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

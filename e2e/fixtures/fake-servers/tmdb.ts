@@ -10,13 +10,15 @@ type State = {
 	requestLog: string[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
 	return {
 		movieDetails: {},
 		collectionDetails: {},
 		showDetails: {},
 		seasonDetails: {},
 		requestLog: [],
+		...clonedSeed,
 	};
 }
 
@@ -75,6 +77,13 @@ function handler(
 	}
 }
 
-export default function createTmdbServer(port: number): FakeServer<State> {
-	return createFakeServer<State>({ port, defaultState, handler });
+export default function createTmdbServer(
+	port: number,
+	seed?: Partial<State>,
+): FakeServer<State> {
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }

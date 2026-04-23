@@ -892,14 +892,40 @@ describe("applyImportPlan", () => {
 		expect(mocks.getState().clients).toHaveLength(1);
 		expect(mocks.getState().profiles).toHaveLength(1);
 		expect(mocks.getState().settings).toHaveLength(1);
-		expect(mocks.getState().clients[0]).toMatchObject({
+		expect(mocks.getState().clients[0]).toEqual({
+			apiKey: "abc",
+			category: "allstarr",
+			createdAt: expect.any(Number),
+			enabled: true,
+			host: "localhost",
 			id: 101,
+			implementation: "qBittorrent",
 			name: "Updated Client",
+			password: null,
+			port: 8080,
+			priority: 1,
+			protocol: "torrent",
+			removeCompletedDownloads: true,
 			settings: { watchFolder: "/downloads" },
+			tag: null,
+			updatedAt: expect.any(Number),
+			urlBase: null,
+			useSsl: false,
+			username: null,
 		});
-		expect(mocks.getState().profiles[0]).toMatchObject({
+		expect(mocks.getState().profiles[0]).toEqual({
+			categories: [],
+			contentType: "movie",
+			cutoff: 0,
+			icon: "film",
 			id: 201,
+			items: [[1]],
+			language: "en",
+			minCustomFormatScore: 0,
 			name: "Updated Profile",
+			rootFolderPath: "/movies-4k",
+			upgradeAllowed: false,
+			upgradeUntilCustomFormatScore: 0,
 		});
 		expect(mocks.getState().provenance).toEqual([
 			{
@@ -1131,6 +1157,57 @@ describe("applyImportPlan", () => {
 			},
 		});
 		expect(mocks.getState().provenance).toHaveLength(0);
+	});
+
+	it("persists provenance for resolved movie, show, and book rows with explicit target ids", async () => {
+		const result = await applyImportPlan({
+			sourceId: 7,
+			selectedRows: [
+				{
+					action: "update",
+					payload: { targetId: 11, tmdbId: 2022 },
+					resourceType: "show",
+					sourceKey: "sonarr:7:show:101",
+				},
+				{
+					action: "update",
+					payload: { targetId: 21, tmdbId: 11 },
+					resourceType: "movie",
+					sourceKey: "radarr:7:movie:111",
+				},
+				{
+					action: "update",
+					payload: { authorName: "Frank Herbert", targetId: 31 },
+					resourceType: "book",
+					sourceKey: "readarr:7:book:501",
+				},
+			],
+		});
+
+		expect(result).toEqual({ appliedCount: 3, reviewCount: 0 });
+		expect(mocks.getState().provenance).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					sourceId: 7,
+					sourceKey: "sonarr:7:show:101",
+					targetId: "11",
+					targetType: "show",
+				}),
+				expect.objectContaining({
+					sourceId: 7,
+					sourceKey: "radarr:7:movie:111",
+					targetId: "21",
+					targetType: "movie",
+				}),
+				expect.objectContaining({
+					sourceId: 7,
+					sourceKey: "readarr:7:book:501",
+					targetId: "31",
+					targetType: "book",
+				}),
+			]),
+		);
+		expect(mocks.getState().reviews).toHaveLength(0);
 	});
 
 	it("does not create a local record for unsupported actions on supported rows", async () => {

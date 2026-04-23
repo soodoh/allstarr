@@ -43,7 +43,7 @@ function normalizeTitle(value: string): string {
 		.replace(/\s+/g, " ");
 }
 
-function buildBookFingerprint(candidate: BookCandidate): string {
+export function buildBookFingerprint(candidate: BookCandidate): string {
 	return [
 		normalizeTitle(candidate.title),
 		(candidate.authorName ?? "").toLowerCase().trim(),

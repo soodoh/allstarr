@@ -1,7 +1,12 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
+import {
+	buildCapturedPathKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
 	apiKey: string;
 	blocklist: Array<Record<string, unknown>>;
 	downloadClients: Array<Record<string, unknown>>;
@@ -16,7 +21,8 @@ type State = {
 	rootFolders: Array<Record<string, unknown>>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
 	return {
 		apiKey: "radarr-key",
 		blocklist: [{ id: 302, title: "Rejected release" }],
@@ -30,6 +36,7 @@ function defaultState(): State {
 		queue: [{ id: 502, title: "Dune queued" }],
 		qualityProfiles: [{ id: 22, name: "4K" }],
 		rootFolders: [{ id: 32, path: "/movies" }],
+		...clonedSeed,
 	};
 }
 
@@ -59,6 +66,13 @@ function handler(
 	}
 
 	const url = new URL(req.url || "/", "http://localhost");
+	const captured = getCapturedResponse(
+		state,
+		buildCapturedPathKey(req.method, `${url.pathname}${url.search}`),
+	);
+	if (captured) {
+		return captured;
+	}
 
 	switch (url.pathname) {
 		case "/api/v3/config/naming":
@@ -88,6 +102,13 @@ function handler(
 	}
 }
 
-export default function createRadarrServer(port: number): FakeServer<State> {
-	return createFakeServer<State>({ port, defaultState, handler });
+export default function createRadarrServer(
+	port: number,
+	seed?: Partial<State>,
+): FakeServer<State> {
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }

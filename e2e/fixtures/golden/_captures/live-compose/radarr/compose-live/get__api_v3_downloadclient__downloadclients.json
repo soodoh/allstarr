@@ -1,0 +1,208 @@
+{
+  "body": [
+    {
+      "enable": true,
+      "protocol": "usenet",
+      "priority": 1,
+      "removeCompletedDownloads": true,
+      "removeFailedDownloads": true,
+      "name": "SABnzbd Capture",
+      "fields": [
+        {
+          "order": 0,
+          "name": "host",
+          "label": "Host",
+          "value": "sabnzbd-capture",
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 1,
+          "name": "port",
+          "label": "Port",
+          "value": 8080,
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 2,
+          "name": "useSsl",
+          "label": "Use SSL",
+          "helpText": "Use secure connection when connection to Sabnzbd",
+          "value": false,
+          "type": "checkbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 3,
+          "name": "urlBase",
+          "label": "URL Base",
+          "helpText": "Adds a prefix to the Sabnzbd url, such as http://[host]:[port]/[urlBase]/api",
+          "value": "",
+          "type": "textbox",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 4,
+          "name": "apiKey",
+          "label": "API Key",
+          "value": "<redacted>",
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "apiKey",
+          "isFloat": false
+        },
+        {
+          "order": 5,
+          "name": "username",
+          "label": "Username",
+          "value": "",
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "userName",
+          "isFloat": false
+        },
+        {
+          "order": 6,
+          "name": "password",
+          "label": "Password",
+          "value": "<redacted>",
+          "type": "password",
+          "advanced": false,
+          "privacy": "password",
+          "isFloat": false
+        },
+        {
+          "order": 7,
+          "name": "movieCategory",
+          "label": "Category",
+          "helpText": "Adding a category specific to Radarr avoids conflicts with unrelated non-Radarr downloads. Using a category is optional, but strongly recommended.",
+          "value": "movies",
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 8,
+          "name": "recentMoviePriority",
+          "label": "Recent Priority",
+          "helpText": "Priority to use when grabbing movies that aired within the last 21 days",
+          "value": 0,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": -100,
+              "name": "Default",
+              "order": -100,
+              "dividerAfter": false
+            },
+            {
+              "value": -2,
+              "name": "Paused",
+              "order": -2,
+              "dividerAfter": false
+            },
+            {
+              "value": -1,
+              "name": "Low",
+              "order": -1,
+              "dividerAfter": false
+            },
+            {
+              "value": 0,
+              "name": "Normal",
+              "order": 0,
+              "dividerAfter": false
+            },
+            {
+              "value": 1,
+              "name": "High",
+              "order": 1,
+              "dividerAfter": false
+            },
+            {
+              "value": 2,
+              "name": "Force",
+              "order": 2,
+              "dividerAfter": false
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 9,
+          "name": "olderMoviePriority",
+          "label": "Older Priority",
+          "helpText": "Priority to use when grabbing movies that aired over 21 days ago",
+          "value": 0,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": -100,
+              "name": "Default",
+              "order": -100,
+              "dividerAfter": false
+            },
+            {
+              "value": -2,
+              "name": "Paused",
+              "order": -2,
+              "dividerAfter": false
+            },
+            {
+              "value": -1,
+              "name": "Low",
+              "order": -1,
+              "dividerAfter": false
+            },
+            {
+              "value": 0,
+              "name": "Normal",
+              "order": 0,
+              "dividerAfter": false
+            },
+            {
+              "value": 1,
+              "name": "High",
+              "order": 1,
+              "dividerAfter": false
+            },
+            {
+              "value": 2,
+              "name": "Force",
+              "order": 2,
+              "dividerAfter": false
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        }
+      ],
+      "implementationName": "SABnzbd",
+      "implementation": "Sabnzbd",
+      "configContract": "SabnzbdSettings",
+      "infoLink": "https://wiki.servarr.com/radarr/supported#sabnzbd",
+      "tags": [],
+      "id": 1
+    }
+  ],
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v3/downloadclient",
+  "status": 200
+}

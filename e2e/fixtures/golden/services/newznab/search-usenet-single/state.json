@@ -1,0 +1,20 @@
+{
+	"name": "search-usenet-single",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/u1.nzb",
+				"guid": "u1",
+				"protocol": "usenet",
+				"publishDate": "Fri, 20 Mar 2026 12:00:00 GMT",
+				"size": 5242880,
+				"title": "Test Author - Test Book [EPUB]"
+			}
+		],
+		"searchLog": [],
+		"serverVersion": "1.1.0-captured"
+	}
+}

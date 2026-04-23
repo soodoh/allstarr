@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import ImportPlanTable from "src/components/settings/imports/import-plan-table";
@@ -22,7 +22,11 @@ import {
 } from "src/hooks/mutations/imports";
 import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import type { ImportSourceRecord } from "src/lib/queries";
-import { importSourcesQuery } from "src/lib/queries";
+import {
+	importPlanQuery,
+	importReviewQuery,
+	importSourcesQuery,
+} from "src/lib/queries";
 
 export const Route = createFileRoute("/_authed/settings/imports")({
 	beforeLoad: requireAdminBeforeLoad,
@@ -51,6 +55,8 @@ function ImportsPage() {
 	const [editingSource, setEditingSource] = useState<ImportSourceRecord | null>(
 		null,
 	);
+	const planQuery = useQuery(importPlanQuery(selectedSourceId));
+	const reviewQuery = useQuery(importReviewQuery(selectedSourceId));
 
 	useEffect(() => {
 		if (sources.length === 0) {
@@ -131,7 +137,7 @@ function ImportsPage() {
 		<div className="space-y-8">
 			<PageHeader
 				title="Imports"
-				description="Connect Servarr sources, inspect placeholder plans, and review unresolved rows before the full read-side flow lands."
+				description="Connect Servarr sources, inspect mapped plan rows, and apply the selected source import."
 			/>
 
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -166,18 +172,13 @@ function ImportsPage() {
 
 					<TabsContent value="plan" className="space-y-4">
 						<ImportPlanTable
-							sources={sources}
-							selectedSourceId={selectedSourceId}
-							onSelectSource={handleSelectSource}
+							rows={planQuery.data ?? []}
+							sourceId={selectedSourceId}
 						/>
 					</TabsContent>
 
 					<TabsContent value="review" className="space-y-4">
-						<ImportReviewPanel
-							sources={sources}
-							selectedSourceId={selectedSourceId}
-							onSelectSource={handleSelectSource}
-						/>
+						<ImportReviewPanel rows={reviewQuery.data ?? []} />
 					</TabsContent>
 				</div>
 			</Tabs>

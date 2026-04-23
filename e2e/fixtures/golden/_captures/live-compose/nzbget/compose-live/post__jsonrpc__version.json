@@ -1,0 +1,15 @@
+{
+  "body": {
+    "version": "1.1",
+    "id": 1,
+    "result": "26.0"
+  },
+  "contentType": "application/json",
+  "headers": {
+    "Authorization": "<redacted>",
+    "Content-Type": "application/json"
+  },
+  "method": "POST",
+  "path": "/jsonrpc",
+  "status": 200
+}

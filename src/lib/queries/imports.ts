@@ -1,5 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getImportSourcesFn } from "src/server/import-sources";
+import {
+	getImportPlanFn,
+	getImportReviewFn,
+	getImportSourcesFn,
+} from "src/server/import-sources";
 import { queryKeys } from "../query-keys";
 
 export type ImportSourceRecord = Awaited<
@@ -12,17 +16,17 @@ export const importSourcesQuery = () =>
 		queryFn: () => getImportSourcesFn(),
 	});
 
-// Task 6 will replace these placeholders with read-side plan/review endpoints.
-export const importPlanQuery = (sourceId: number) =>
-	queryOptions<never[]>({
-		queryKey: queryKeys.imports.plan(sourceId),
-		queryFn: async () => [],
-		enabled: false,
+export const importPlanQuery = (sourceId: number | null) =>
+	queryOptions({
+		queryKey: queryKeys.imports.plan(sourceId ?? 0),
+		queryFn: () => getImportPlanFn({ data: { sourceId: sourceId as number } }),
+		enabled: sourceId !== null,
 	});
 
-export const importReviewQuery = (sourceId: number) =>
-	queryOptions<never[]>({
-		queryKey: queryKeys.imports.review(sourceId),
-		queryFn: async () => [],
-		enabled: false,
+export const importReviewQuery = (sourceId: number | null) =>
+	queryOptions({
+		queryKey: queryKeys.imports.review(sourceId ?? 0),
+		queryFn: () =>
+			getImportReviewFn({ data: { sourceId: sourceId as number } }),
+		enabled: sourceId !== null,
 	});

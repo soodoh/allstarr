@@ -1,0 +1,9 @@
+{
+	"name": "imports-all-sources-mapped",
+	"services": {
+		"BOOKSHELF": "mapped-library",
+		"RADARR": "compose-live",
+		"READARR": "compose-live",
+		"SONARR": "compose-live"
+	}
+}

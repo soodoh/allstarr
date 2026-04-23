@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   apiKey: string;
   queueSlots: Array<{
@@ -25,7 +30,8 @@ type State = {
   resumedIds: string[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "4.2.0",
     apiKey: "test-sabnzbd-api-key",
@@ -35,6 +41,7 @@ function defaultState(): State {
     removedIds: [],
     pausedIds: [],
     resumedIds: [],
+    ...clonedSeed,
   };
 }
 
@@ -122,10 +129,26 @@ function handler(
 
   switch (mode) {
     case "version": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("mode", "version"),
+      );
+      if (captured) {
+        return captured;
+      }
       return json({ version: state.version });
     }
 
     case "queue": {
+      if (!name) {
+        const captured = getCapturedResponse(
+          state,
+          buildCapturedNamedKey("mode", "queue"),
+        );
+        if (captured) {
+          return captured;
+        }
+      }
       return handleQueueMode(url, name, state);
     }
 
@@ -137,6 +160,15 @@ function handler(
     }
 
     case "history": {
+      if (!name) {
+        const captured = getCapturedResponse(
+          state,
+          buildCapturedNamedKey("mode", "history"),
+        );
+        if (captured) {
+          return captured;
+        }
+      }
       return handleHistoryMode(url, name, state);
     }
 
@@ -146,6 +178,13 @@ function handler(
   }
 }
 
-export default function createSABnzbdServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createSABnzbdServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   torrents: Array<{
     hash: string;
@@ -22,7 +27,8 @@ type State = {
   resumedIds: string[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "0.9.8",
     torrents: [],
@@ -30,6 +36,7 @@ function defaultState(): State {
     removedIds: [],
     pausedIds: [],
     resumedIds: [],
+    ...clonedSeed,
   };
 }
 
@@ -73,9 +80,9 @@ function handler(
 ): HandlerResult {
   const url = new URL(req.url || "/", "http://localhost");
 
-  if (url.pathname !== "/RPC2" || req.method !== "POST") {
-    return null;
-  }
+	if ((url.pathname !== "/" && url.pathname !== "/RPC2") || req.method !== "POST") {
+		return null;
+	}
 
   const methodName = extractMethodName(body);
   if (!methodName) {
@@ -84,10 +91,25 @@ function handler(
 
   switch (methodName) {
     case "system.client_version": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("xmlrpc", methodName),
+      );
+      if (captured) {
+        return captured;
+      }
       return xmlSuccess(xmlValue("string", state.version));
     }
 
-    case "d.multicall2": {
+		case "d.multicall2":
+		case "download_list": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("xmlrpc", "download_list"),
+      );
+      if (captured) {
+        return captured;
+      }
       const rows = state.torrents
         .map(
           (t) =>
@@ -134,12 +156,28 @@ function handler(
       return xmlSuccess(xmlValue("i8", 0));
     }
 
+    case "d.name":
+    case "d.directory":
+    case "d.complete": {
+      return getCapturedResponse(
+        state,
+        buildCapturedNamedKey("xmlrpc", methodName),
+      );
+    }
+
     default: {
       return xmlFault(`Unknown method: ${methodName}`);
     }
   }
 }
 
-export default function createRTorrentServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createRTorrentServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

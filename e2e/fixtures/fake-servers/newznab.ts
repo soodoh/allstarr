@@ -1,8 +1,14 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	buildCapturedPathKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   serverVersion: string;
   apiKey: string;
   releases: Array<{
@@ -21,12 +27,14 @@ type State = {
   searchLog: Array<{ type: string; query: string; categories: string }>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     serverVersion: "1.0",
     apiKey: "test-newznab-api-key",
     releases: [],
     searchLog: [],
+    ...clonedSeed,
   };
 }
 
@@ -98,23 +106,39 @@ function buildSearchResponse(releases: State["releases"]): string {
 }
 
 function handler(
-  req: IncomingMessage,
-  _body: string,
-  state: State,
+	req: IncomingMessage,
+	_body: string,
+	state: State,
 ): HandlerResult {
-  const url = new URL(req.url || "/", "http://localhost");
+	const url = new URL(req.url || "/", "http://localhost");
+	const isSearchPath =
+		url.pathname === "/api" || /^\/\d+\/api$/.test(url.pathname);
 
   // Prowlarr-style test connection paths
   if (url.pathname === "/api/v1/health" && req.method === "GET") {
+    const captured = getCapturedResponse(
+      state,
+      buildCapturedPathKey(req.method, url.pathname),
+    );
+    if (captured) {
+      return captured;
+    }
     return json([]);
   }
   if (url.pathname === "/api/v1/system/status" && req.method === "GET") {
+    const captured = getCapturedResponse(
+      state,
+      buildCapturedPathKey(req.method, url.pathname),
+    );
+    if (captured) {
+      return captured;
+    }
     return json({ version: state.serverVersion });
   }
 
-  if (url.pathname !== "/api" || req.method !== "GET") {
-    return null;
-  }
+	if (!isSearchPath || req.method !== "GET") {
+		return null;
+	}
 
   const t = url.searchParams.get("t");
 
@@ -128,6 +152,13 @@ function handler(
 
   switch (t) {
     case "caps": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("t", "caps"),
+      );
+      if (captured) {
+        return captured;
+      }
       return xml(
         `<?xml version="1.0"?><caps><server version="${escapeXml(state.serverVersion)}" /></caps>`,
       );
@@ -138,6 +169,14 @@ function handler(
       const query = url.searchParams.get("q") || "";
       const categories = url.searchParams.get("cat") || "";
       state.searchLog.push({ type: t, query, categories });
+
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("t", t),
+      );
+      if (captured) {
+        return captured;
+      }
 
       // Return all configured releases — real Newznab does full-text search,
       // not substring matching, so we skip client-side filtering.
@@ -152,6 +191,13 @@ function handler(
   }
 }
 
-export default function createNewznabServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createNewznabServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

@@ -74,6 +74,96 @@ describe("buildImportPlan", () => {
 		});
 	});
 
+	it("only makes the default metadata profile selectable", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 15,
+					kind: "readarr",
+					snapshot: buildRawSnapshot({
+						kind: "readarr",
+						rootFolders: [
+							{
+								defaultMetadataProfileId: 1,
+								path: "/data/capture/library/books",
+							},
+						],
+						settings: {
+							metadataProfiles: [
+								{ id: 1, name: "Standard" },
+								{ id: 2, name: "None" },
+							],
+						},
+					}),
+				}),
+			],
+			existingState: {},
+		});
+
+		expect(plan.metadataProfiles.items).toEqual([
+			expect.objectContaining({
+				action: "create",
+				selectable: true,
+				sourceKey: "readarr:15:profile:metadata:1",
+				title: "Standard",
+			}),
+			expect.objectContaining({
+				action: "unsupported",
+				selectable: false,
+				sourceKey: "readarr:15:profile:metadata:2",
+				title: "None",
+			}),
+		]);
+	});
+
+	it("marks unsupported settings and activity rows as non-selectable", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 10,
+					kind: "sonarr",
+					snapshot: buildRawSnapshot({
+						kind: "sonarr",
+						settings: {
+							downloadClients: [{ id: 1, name: "qBittorrent" }],
+							indexers: [{ id: 2, name: "Nyaa.si" }],
+							naming: [{ id: 3, name: "Naming" }],
+						},
+						activity: {
+							queue: [{ id: 4, title: "Queued Episode" }],
+						},
+					}),
+				}),
+			],
+			existingState: {},
+		});
+
+		expect(plan.settings.items).toEqual([
+			expect.objectContaining({
+				action: "create",
+				selectable: true,
+				title: "qBittorrent",
+			}),
+			expect.objectContaining({
+				action: "unsupported",
+				selectable: false,
+				title: "Nyaa.si",
+			}),
+			expect.objectContaining({
+				action: "unsupported",
+				selectable: false,
+				title: "Naming",
+			}),
+		]);
+		expect(plan.activity.items).toEqual([
+			expect.objectContaining({
+				action: "unsupported",
+				selectable: false,
+				title: "Queued Episode",
+			}),
+		]);
+	});
+
 	it("matches a Sonarr show directly by tmdbId without needing a crosswalk", async () => {
 		const plan = await buildImportPlan({
 			snapshots: [
@@ -210,7 +300,7 @@ describe("buildImportPlan", () => {
 		).toBe(true);
 	});
 
-	it("keeps medium-confidence book fingerprint matches unresolved", async () => {
+	it("accepts exact book fingerprint matches as updates", async () => {
 		const plan = await buildImportPlan({
 			snapshots: [
 				normalizeImportSnapshot({
@@ -236,11 +326,14 @@ describe("buildImportPlan", () => {
 			},
 		});
 
-		expect(plan.unresolved.items[0]).toMatchObject({
+		expect(plan.library.items[0]).toMatchObject({
 			resourceType: "book",
-			action: "unresolved",
+			action: "update",
+			selectable: true,
 			sourceKey: "readarr:6:book:501",
+			targetId: 123,
 		});
+		expect(plan.unresolved.items).toHaveLength(0);
 	});
 
 	it("does not update a movie when tmdbId is missing", async () => {
@@ -351,6 +444,41 @@ describe("normalizeImportSnapshot", () => {
 		expect(normalized.library.shows[0]?.payload).toMatchObject({
 			tmdbId: 999,
 			sourceRecordId: 77,
+		});
+	});
+
+	it("derives Readarr book author and year from companion author and release date fields", () => {
+		const normalized = normalizeImportSnapshot({
+			sourceId: 14,
+			kind: "readarr",
+			snapshot: buildRawSnapshot({
+				kind: "readarr",
+				library: {
+					authors: [
+						{
+							authorName: "Ursula K. Le Guin",
+							id: 1,
+						},
+					],
+					books: [
+						{
+							authorId: 1,
+							foreignBookId: "13642",
+							id: 1,
+							releaseDate: "1968-01-01T00:00:00Z",
+							title: "A Wizard of Earthsea",
+						},
+					],
+				},
+			}),
+		});
+
+		expect(normalized.library.books[0]?.payload).toMatchObject({
+			authorName: "Ursula K. Le Guin",
+			foreignBookId: "13642",
+			sourceRecordId: 1,
+			title: "A Wizard of Earthsea",
+			year: 1968,
 		});
 	});
 });

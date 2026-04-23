@@ -1,0 +1,14 @@
+{
+	"name": "configured",
+	"service": "sabnzbd",
+	"seed": {
+		"addedDownloads": [],
+		"apiKey": "test-sabnzbd-api-key",
+		"historySlots": [],
+		"pausedIds": [],
+		"queueSlots": [],
+		"removedIds": [],
+		"resumedIds": [],
+		"version": "4.2.1"
+	}
+}

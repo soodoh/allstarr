@@ -1,0 +1,6 @@
+{
+	"name": "author-book-import-default",
+	"services": {
+		"HARDCOVER": "author-search-brandon"
+	}
+}

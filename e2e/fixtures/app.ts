@@ -26,6 +26,7 @@ type AppServer = {
 
 type WorkerFixtures = {
   appServer: AppServer;
+  fakeServerScenario: string | null;
   serviceManager: FakeServerManager;
   requiredServices: ServiceName[];
 };
@@ -34,6 +35,12 @@ type AppFixtures = {
   appUrl: string;
   db: BetterSQLite3Database<typeof schema>;
   fakeServers: Partial<Record<ServiceName, string>>;
+  setFakeServerScenario: (scenarioName: string) => Promise<void>;
+  setFakeServiceState: (
+    serviceName: ServiceName,
+    stateName: string | null,
+    replacements?: Record<string, boolean | number | string>,
+  ) => Promise<void>;
   tempDir: string;
   /** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
   checkpoint: () => void;
@@ -63,10 +70,13 @@ function noop(): void {
 
 export const test = base.extend<AppFixtures, WorkerFixtures>({
 	requiredServices: [ALL_REQUIRED_SERVICES, { option: true, scope: "worker" }],
+	fakeServerScenario: [null, { option: true, scope: "worker" }],
 
 	serviceManager: [
-		async ({ requiredServices }, use) => {
-			const manager = createFakeServerManager(requiredServices);
+		async ({ requiredServices, fakeServerScenario }, use) => {
+			const manager = createFakeServerManager(requiredServices, {
+				...(fakeServerScenario ? { scenarioName: fakeServerScenario } : {}),
+			});
 			await manager.start();
 			await use(manager);
 			await manager.stop();
@@ -114,6 +124,28 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 
 	fakeServers: async ({ serviceManager }, use) => {
 		await use(serviceManager.getUrls());
+	},
+
+	setFakeServerScenario: async ({ serviceManager }, use) => {
+		await use(async (scenarioName: string) => {
+			await serviceManager.setScenario(scenarioName);
+		});
+	},
+
+	setFakeServiceState: async ({ serviceManager }, use) => {
+		await use(
+			async (
+				serviceName: ServiceName,
+				stateName: string | null,
+				replacements?: Record<string, boolean | number | string>,
+			) => {
+				await serviceManager.setServiceState(
+					serviceName,
+					stateName,
+					replacements,
+				);
+			},
+		);
 	},
 
 	checkpoint: async ({ appServer }, use) => {

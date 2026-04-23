@@ -1,0 +1,23 @@
+{
+	"name": "monitor-fresh-arrival",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/fresh-arrival.torrent",
+				"guid": "fresh-arrival-release",
+				"magnetUrl": "magnet:?xt=urn:btih:fresh-arrival",
+				"peers": 55,
+				"protocol": "torrent",
+				"publishDate": "Fri, 10 Apr 2026 12:00:00 GMT",
+				"seeders": 42,
+				"size": 5242880,
+				"title": "Monitor Author - Fresh Arrival [EPUB]"
+			}
+		],
+		"searchLog": [],
+		"serverVersion": "1.1.0-captured"
+	}
+}

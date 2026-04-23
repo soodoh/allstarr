@@ -1,0 +1,8 @@
+{
+	"name": "search-grab-usenet",
+	"services": {
+		"NEWZNAB": "search-usenet-single",
+		"QBITTORRENT": "idle",
+		"SABNZBD": "configured"
+	}
+}

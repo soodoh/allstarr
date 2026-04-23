@@ -107,7 +107,7 @@ export default function ImportSourcesList({
 						{sources.length} source{sources.length === 1 ? "" : "s"}
 					</div>
 					<div className="text-sm text-muted-foreground">
-						Select a source to inspect placeholder plan and review data.
+						Select a source to inspect its mapped plan rows and review data.
 					</div>
 				</div>
 				<Button onClick={onAddSource}>

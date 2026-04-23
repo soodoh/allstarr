@@ -5,169 +5,13 @@ import { eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
 import { seedDownloadProfile, seedDownloadClient } from "../fixtures/seed-data";
 
-// Mock Hardcover data
-const MOCK_AUTHOR = {
-  id: 100,
-  name: "Brandon Sanderson",
-  slug: "brandon-sanderson",
-  bio: "An American author of epic fantasy and science fiction.",
-  born_year: 1975,
-  death_year: null,
-  image: { url: "https://example.com/sanderson.jpg" },
-};
-
-const MOCK_BOOKS = [
-  {
-    id: 200,
-    title: "The Way of Kings",
-    slug: "the-way-of-kings",
-    description: "The first book of The Stormlight Archive.",
-    release_date: "2010-08-31",
-    release_year: 2010,
-    rating: 4.5,
-    ratings_count: 50_000,
-    users_count: 80_000,
-    compilation: false,
-    default_cover_edition_id: 300,
-    image: { url: "https://example.com/wok.jpg" },
-    authorId: 100,
-    contributions: [
-      {
-        contribution: null,
-        author: {
-          id: 100,
-          name: "Brandon Sanderson",
-          slug: "brandon-sanderson",
-          image: { url: "https://example.com/sanderson.jpg" },
-        },
-      },
-    ],
-    book_series: [
-      {
-        position: "1",
-        series: {
-          id: 10,
-          name: "The Stormlight Archive",
-          slug: "the-stormlight-archive",
-          is_completed: false,
-        },
-      },
-    ],
-  },
-  {
-    id: 201,
-    title: "Mistborn: The Final Empire",
-    slug: "mistborn-the-final-empire",
-    description: "The first book in the Mistborn series.",
-    release_date: "2006-07-17",
-    release_year: 2006,
-    rating: 4.4,
-    ratings_count: 60_000,
-    users_count: 90_000,
-    compilation: false,
-    default_cover_edition_id: 301,
-    image: { url: "https://example.com/mistborn.jpg" },
-    authorId: 100,
-    contributions: [
-      {
-        contribution: null,
-        author: {
-          id: 100,
-          name: "Brandon Sanderson",
-          slug: "brandon-sanderson",
-          image: { url: "https://example.com/sanderson.jpg" },
-        },
-      },
-    ],
-    book_series: [
-      {
-        position: "1",
-        series: {
-          id: 11,
-          name: "Mistborn",
-          slug: "mistborn",
-          is_completed: true,
-        },
-      },
-    ],
-  },
-];
-
-const MOCK_EDITIONS = [
-  {
-    id: 300,
-    bookId: 200,
-    title: "The Way of Kings (Hardcover)",
-    isbn_10: "0765326353",
-    isbn_13: "9780765326355",
-    asin: "B003P2WO5E",
-    pages: 1007,
-    audio_seconds: null,
-    release_date: "2010-08-31",
-    users_count: 5000,
-    score: 85,
-    image: { url: "https://example.com/wok-hc.jpg" },
-    language: { code2: "en", language: "English" },
-    reading_format: { format: "Hardcover" },
-    publisher: { name: "Tor Books" },
-  },
-  {
-    id: 301,
-    bookId: 201,
-    title: "Mistborn: The Final Empire (Paperback)",
-    isbn_10: "0765311780",
-    isbn_13: "9780765311788",
-    asin: "B002GYI9C4",
-    pages: 541,
-    audio_seconds: null,
-    release_date: "2006-07-17",
-    users_count: 8000,
-    score: 90,
-    image: { url: "https://example.com/mistborn-pb.jpg" },
-    language: { code2: "en", language: "English" },
-    reading_format: { format: "Paperback" },
-    publisher: { name: "Tor Books" },
-  },
-  {
-    id: 302,
-    bookId: 200,
-    title: "El camino de los reyes",
-    isbn_10: null,
-    isbn_13: "9788466657662",
-    asin: null,
-    pages: 1200,
-    audio_seconds: null,
-    release_date: "2013-01-01",
-    users_count: 200,
-    score: 40,
-    image: { url: "https://example.com/wok-es.jpg" },
-    language: { code2: "es", language: "Spanish" },
-    reading_format: { format: "Paperback" },
-    publisher: { name: "Nova" },
-  },
-];
-
-const MOCK_SEARCH_RESULTS = [
-  {
-    id: 100,
-    type: "author" as const,
-    slug: "brandon-sanderson",
-    title: "Brandon Sanderson",
-    readers: null,
-    coverUrl: "https://example.com/sanderson.jpg",
-  },
-  {
-    id: 200,
-    type: "book" as const,
-    slug: "the-way-of-kings",
-    title: "The Way of Kings",
-    readers: 80_000,
-    coverUrl: "https://example.com/wok.jpg",
-  },
-];
+test.use({
+  fakeServerScenario: "author-book-import-default",
+  requiredServices: ["HARDCOVER"],
+});
 
 test.describe("Author and Book Import", () => {
-  test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
+  test.beforeEach(async ({ page, appUrl, db, checkpoint }) => {
     // Clean up data from previous tests to prevent interference
     db.delete(schema.trackedDownloads).run();
     db.delete(schema.history).run();
@@ -196,17 +40,6 @@ test.describe("Author and Book Import", () => {
     checkpoint();
 
     await ensureAuthenticated(page, appUrl);
-
-    // Configure fake Hardcover server with mock data
-    await fetch(`${fakeServers.HARDCOVER}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        searchResults: MOCK_SEARCH_RESULTS,
-        authors: [MOCK_AUTHOR],
-        books: MOCK_BOOKS,
-        editions: MOCK_EDITIONS,
-      }),
-    });
   });
 
   test("search Hardcover for authors and books", async ({ page, appUrl }) => {
@@ -297,7 +130,7 @@ test.describe("Author and Book Import", () => {
           db
             .select({ id: schema.authors.id })
             .from(schema.authors)
-            .where(eq(schema.authors.foreignAuthorId, String(MOCK_AUTHOR.id)))
+            .where(eq(schema.authors.foreignAuthorId, "100"))
             .all().length,
         { timeout: 10_000 },
       )

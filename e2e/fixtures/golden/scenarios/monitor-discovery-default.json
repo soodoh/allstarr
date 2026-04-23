@@ -1,0 +1,7 @@
+{
+	"name": "monitor-discovery-default",
+	"services": {
+		"QBITTORRENT": "idle",
+		"TMDB": "discovery-refresh"
+	}
+}

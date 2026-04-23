@@ -1,0 +1,13 @@
+{
+  "name": "compose-live",
+  "seed": {
+    "capturedResponses": {
+      "GET /api/v2/torrents/info?hashes=all": {
+        "body": [],
+        "contentType": "application/json",
+        "status": 200
+      }
+    }
+  },
+  "service": "qbittorrent"
+}

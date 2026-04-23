@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   username: string;
   password: string;
@@ -26,7 +31,8 @@ type State = {
   editedQueue: Array<{ command: string; param: string; ids: number[] }>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "24.1",
     username: "nzbget",
@@ -35,6 +41,7 @@ function defaultState(): State {
     history: [],
     addedDownloads: [],
     editedQueue: [],
+    ...clonedSeed,
   };
 }
 
@@ -79,14 +86,35 @@ function handler(
 
   switch (method) {
     case "version": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, state.version);
     }
 
     case "listgroups": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, state.groups);
     }
 
     case "history": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", method),
+      );
+      if (captured) {
+        return captured;
+      }
       return rpcResponse(id, state.history);
     }
 
@@ -113,6 +141,13 @@ function handler(
   }
 }
 
-export default function createNZBGetServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createNZBGetServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

@@ -1,0 +1,7 @@
+{
+	"name": "search-grab-torrent",
+	"services": {
+		"NEWZNAB": "torrent-search",
+		"QBITTORRENT": "idle"
+	}
+}

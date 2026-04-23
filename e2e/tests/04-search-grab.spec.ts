@@ -12,53 +12,15 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
-const TORRENT_RELEASES = [
-	{
-		guid: "r1",
-		title: "Test Author - Test Book [EPUB]",
-		size: 5_242_880,
-		downloadUrl: "http://example.com/r1.torrent",
-		magnetUrl: "magnet:?xt=urn:btih:abc123",
-		publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-		seeders: 25,
-		peers: 30,
-		category: "7020",
-		protocol: "torrent" as const,
-	},
-	{
-		guid: "r2",
-		title: "Test Author - Test Book [MOBI]",
-		size: 3_145_728,
-		downloadUrl: "http://example.com/r2.torrent",
-		magnetUrl: "magnet:?xt=urn:btih:def456",
-		publishDate: "Thu, 19 Mar 2026 08:00:00 GMT",
-		seeders: 10,
-		peers: 15,
-		category: "7020",
-		protocol: "torrent" as const,
-	},
-];
-
-const USENET_RELEASES = [
-	{
-		guid: "u1",
-		title: "Test Author - Test Book [EPUB]",
-		size: 5_242_880,
-		downloadUrl: "http://example.com/u1.nzb",
-		publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-		category: "7020",
-		protocol: "usenet" as const,
-	},
-];
-
 test.use({
+	fakeServerScenario: "search-grab-torrent",
 	requiredServices: ["QBITTORRENT", "SABNZBD", "NEWZNAB"],
 });
 
 test.describe("Search and Grab", () => {
 	let bookId: number;
 
-	test.beforeEach(async ({ page, appUrl, db, fakeServers, checkpoint }) => {
+	test.beforeEach(async ({ page, appUrl, db, checkpoint }) => {
 		await ensureAuthenticated(page, appUrl);
 
 		db.delete(schema.trackedDownloads).run();
@@ -111,23 +73,12 @@ test.describe("Search and Grab", () => {
 		});
 
 		checkpoint();
-
-		await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ version: "v4.6.3" }),
-		});
 	});
 
 	test("interactive search displays releases on book detail page", async ({
 		page,
 		appUrl,
-		fakeServers,
 	}) => {
-		await fetch(`${fakeServers.NEWZNAB}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ releases: TORRENT_RELEASES }),
-		});
-
 		await navigateTo(page, appUrl, `/books/${bookId}`);
 		await page.getByRole("tab", { name: "Search Releases" }).click();
 		await expect(
@@ -141,13 +92,7 @@ test.describe("Search and Grab", () => {
 	test("release quality information is displayed", async ({
 		page,
 		appUrl,
-		fakeServers,
 	}) => {
-		await fetch(`${fakeServers.NEWZNAB}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ releases: TORRENT_RELEASES }),
-		});
-
 		await navigateTo(page, appUrl, `/books/${bookId}`);
 		await page.getByRole("tab", { name: "Search Releases" }).click();
 		await expect(
@@ -167,11 +112,6 @@ test.describe("Search and Grab", () => {
 		db,
 		fakeServers,
 	}) => {
-		await fetch(`${fakeServers.NEWZNAB}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ releases: [TORRENT_RELEASES[0]] }),
-		});
-
 		await navigateTo(page, appUrl, `/books/${bookId}`);
 		await page.getByRole("tab", { name: "Search Releases" }).click();
 		await expect(
@@ -201,6 +141,7 @@ test.describe("Search and Grab", () => {
 		appUrl,
 		db,
 		fakeServers,
+		setFakeServerScenario,
 	}) => {
 		seedDownloadClient(db, {
 			name: "Test SABnzbd",
@@ -218,18 +159,7 @@ test.describe("Search and Grab", () => {
 			apiKey: "test-newznab-api-key",
 		});
 
-		await fetch(`${fakeServers.SABNZBD}/__control`, {
-			method: "POST",
-			body: JSON.stringify({
-				version: "4.2.1",
-				apiKey: "test-sabnzbd-api-key",
-			}),
-		});
-
-		await fetch(`${fakeServers.NEWZNAB}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ releases: USENET_RELEASES }),
-		});
+		await setFakeServerScenario("search-grab-usenet");
 
 		await navigateTo(page, appUrl, `/books/${bookId}`);
 		await page.getByRole("tab", { name: "Search Releases" }).click();

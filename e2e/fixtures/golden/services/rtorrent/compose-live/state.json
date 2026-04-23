@@ -1,0 +1,33 @@
+{
+  "name": "compose-live",
+  "seed": {
+    "capturedResponses": {
+      "xmlrpc:system.client_version": {
+        "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><string>0.16.5</string></value></param></params></methodResponse>",
+        "contentType": "text/xml",
+        "status": 200
+      },
+      "xmlrpc:download_list": {
+        "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><array><data><value><string>342E9E4ADDCC71D7577FA776D057C5541E4BEAE3</string></value></data></array></value></param></params></methodResponse>",
+        "contentType": "text/xml",
+        "status": 200
+      },
+      "xmlrpc:d.complete": {
+        "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><i8>0</i8></value></param></params></methodResponse>",
+        "contentType": "text/xml",
+        "status": 200
+      },
+      "xmlrpc:d.directory": {
+        "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><string>/downloads/temp</string></value></param></params></methodResponse>",
+        "contentType": "text/xml",
+        "status": 200
+      },
+      "xmlrpc:d.name": {
+        "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><string>The.Matrix.1999.1080p.WEB-DL-GRP.mkv</string></value></param></params></methodResponse>",
+        "contentType": "text/xml",
+        "status": 200
+      }
+    }
+  },
+  "service": "rtorrent"
+}

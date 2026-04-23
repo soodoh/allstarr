@@ -1,0 +1,35 @@
+{
+	"name": "auto-search-default",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/auto-r1.torrent",
+				"guid": "auto-r1",
+				"magnetUrl": "magnet:?xt=urn:btih:auto1",
+				"peers": 30,
+				"protocol": "torrent",
+				"publishDate": "Fri, 20 Mar 2026 12:00:00 GMT",
+				"seeders": 20,
+				"size": 5242880,
+				"title": "Auto Author - Auto Book [EPUB]"
+			},
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/auto-r2.torrent",
+				"guid": "auto-r2",
+				"magnetUrl": "magnet:?xt=urn:btih:auto2",
+				"peers": 15,
+				"protocol": "torrent",
+				"publishDate": "Fri, 20 Mar 2026 10:00:00 GMT",
+				"seeders": 10,
+				"size": 3145728,
+				"title": "Auto Author - Auto Book [MOBI]"
+			}
+		],
+		"searchLog": [],
+		"serverVersion": "1.1.0-captured"
+	}
+}

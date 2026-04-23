@@ -1,7 +1,12 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
+import {
+	buildCapturedPathKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
 	apiKey: string;
 	blocklist: Array<Record<string, unknown>>;
 	downloadClients: Array<Record<string, unknown>>;
@@ -17,7 +22,8 @@ type State = {
 	rootFolders: Array<Record<string, unknown>>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
 	return {
 		apiKey: "readarr-key",
 		authors: [{ id: 401, authorName: "Frank Herbert" }],
@@ -40,6 +46,7 @@ function defaultState(): State {
 		queue: [{ id: 503, title: "Dune queued" }],
 		qualityProfiles: [{ id: 24, name: "Lossless" }],
 		rootFolders: [{ id: 33, path: "/books" }],
+		...clonedSeed,
 	};
 }
 
@@ -69,6 +76,13 @@ function handler(
 	}
 
 	const url = new URL(req.url || "/", "http://localhost");
+	const captured = getCapturedResponse(
+		state,
+		buildCapturedPathKey(req.method, `${url.pathname}${url.search}`),
+	);
+	if (captured) {
+		return captured;
+	}
 
 	switch (url.pathname) {
 		case "/api/v1/config/naming":
@@ -100,6 +114,13 @@ function handler(
 	}
 }
 
-export default function createReadarrServer(port: number): FakeServer<State> {
-	return createFakeServer<State>({ port, defaultState, handler });
+export default function createReadarrServer(
+	port: number,
+	seed?: Partial<State>,
+): FakeServer<State> {
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }
