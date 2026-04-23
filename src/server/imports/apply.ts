@@ -418,9 +418,13 @@ async function applyMetadataProfileRow(args: {
 
 function getExplicitTargetId(row: ApplyImportPlanRow): string | null {
 	const value = row.payload.targetId;
-	return typeof value === "number" && Number.isInteger(value)
-		? String(value)
-		: null;
+	if (typeof value === "number" && Number.isInteger(value)) {
+		return String(value);
+	}
+	if (typeof value === "string" && value.trim().length > 0) {
+		return value.trim();
+	}
+	return null;
 }
 
 async function applyResolvedLibraryRow(args: {
