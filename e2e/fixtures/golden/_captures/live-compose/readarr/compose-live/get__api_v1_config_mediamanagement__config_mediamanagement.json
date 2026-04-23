@@ -1,0 +1,30 @@
+{
+  "body": {
+    "autoUnmonitorPreviouslyDownloadedBooks": false,
+    "recycleBin": "",
+    "recycleBinCleanupDays": 7,
+    "downloadPropersAndRepacks": "preferAndUpgrade",
+    "createEmptyAuthorFolders": false,
+    "deleteEmptyFolders": false,
+    "fileDate": "none",
+    "watchLibraryForChanges": true,
+    "rescanAfterRefresh": "always",
+    "allowFingerprinting": "newFiles",
+    "setPermissionsLinux": false,
+    "chmodFolder": "755",
+    "chownGroup": "",
+    "skipFreeSpaceCheckWhenImporting": false,
+    "minimumFreeSpaceWhenImporting": 100,
+    "copyUsingHardlinks": true,
+    "importExtraFiles": false,
+    "extraFileExtensions": "srt",
+    "id": 1
+  },
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v1/config/mediamanagement",
+  "status": 200
+}

@@ -60,6 +60,10 @@ function getRowPriority(row: ApplyImportPlanRow): number {
 }
 
 function getSourcePayload(row: ApplyImportPlanRow): Record<string, unknown> {
+	const mapped = row.payload.mapped;
+	if (isRecord(mapped)) {
+		return mapped;
+	}
 	const raw = row.payload.raw;
 	if (isRecord(raw)) {
 		return raw;
@@ -84,18 +88,6 @@ function getProvenanceTargetType(row: ApplyImportPlanRow): string {
 		return "metadata-profile";
 	}
 	return row.resourceType;
-}
-
-function getExplicitTargetId(row: ApplyImportPlanRow): number | null {
-	const value = row.payload.targetId;
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
-	if (typeof value === "string") {
-		const parsed = Number(value.trim());
-		return Number.isInteger(parsed) ? parsed : null;
-	}
-	return null;
 }
 
 function getProvenanceTargetId(
@@ -424,6 +416,41 @@ async function applyMetadataProfileRow(args: {
 	return true;
 }
 
+function getExplicitTargetId(row: ApplyImportPlanRow): string | null {
+	const value = row.payload.targetId;
+	return typeof value === "number" && Number.isInteger(value)
+		? String(value)
+		: null;
+}
+
+async function applyResolvedLibraryRow(args: {
+	tx: DbClient;
+	row: ApplyImportPlanRow;
+	sourceId: number;
+	timestamp: Date;
+}): Promise<boolean> {
+	const targetId = getExplicitTargetId(args.row);
+	if (!targetId) {
+		await persistReviewItem({
+			row: args.row,
+			sourceId: args.sourceId,
+			timestamp: args.timestamp,
+			tx: args.tx,
+		});
+		return false;
+	}
+
+	writeProvenance({
+		row: args.row,
+		sourceId: args.sourceId,
+		targetId,
+		targetType: args.row.resourceType,
+		timestamp: args.timestamp,
+		tx: args.tx,
+	});
+	return true;
+}
+
 function isSupportedRow(row: ApplyImportPlanRow): boolean {
 	if (row.resourceType === "setting") {
 		return row.payload.group === "download-client";
@@ -433,6 +460,13 @@ function isSupportedRow(row: ApplyImportPlanRow): boolean {
 			row.payload.profileKind === "quality" ||
 			row.payload.profileKind === "metadata"
 		);
+	}
+	if (
+		row.resourceType === "movie" ||
+		row.resourceType === "show" ||
+		row.resourceType === "book"
+	) {
+		return getExplicitTargetId(row) !== null;
 	}
 	return false;
 }
@@ -470,47 +504,7 @@ export async function applyImportPlan(
 				continue;
 			}
 
-			if (!isSupportedAction(row.action)) {
-				await persistReviewItem({
-					row,
-					sourceId: args.sourceId,
-					timestamp,
-					tx: transactionDb,
-				});
-				reviewCount += 1;
-				continue;
-			}
-
-			if (
-				row.resourceType === "movie" ||
-				row.resourceType === "show" ||
-				row.resourceType === "book"
-			) {
-				const targetId = getExplicitTargetId(row);
-				if (targetId === null) {
-					await persistReviewItem({
-						row,
-						sourceId: args.sourceId,
-						timestamp,
-						tx: transactionDb,
-					});
-					reviewCount += 1;
-					continue;
-				}
-
-				writeProvenance({
-					row,
-					sourceId: args.sourceId,
-					targetId: String(targetId),
-					targetType: getProvenanceTargetType(row),
-					timestamp,
-					tx: transactionDb,
-				});
-				appliedCount += 1;
-				continue;
-			}
-
-			if (!isSupportedRow(row)) {
+			if (!isSupportedAction(row.action) || !isSupportedRow(row)) {
 				await persistReviewItem({
 					row,
 					sourceId: args.sourceId,
@@ -585,6 +579,25 @@ export async function applyImportPlan(
 					tx: transactionDb,
 				});
 				appliedCount += 1;
+				continue;
+			}
+
+			if (
+				row.resourceType === "movie" ||
+				row.resourceType === "show" ||
+				row.resourceType === "book"
+			) {
+				const applied = await applyResolvedLibraryRow({
+					row,
+					sourceId: args.sourceId,
+					timestamp,
+					tx: transactionDb,
+				});
+				if (applied) {
+					appliedCount += 1;
+				} else {
+					reviewCount += 1;
+				}
 			}
 		}
 

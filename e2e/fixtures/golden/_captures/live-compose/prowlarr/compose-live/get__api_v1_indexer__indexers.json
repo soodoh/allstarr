@@ -1,0 +1,645 @@
+{
+  "body": [
+    {
+      "indexerUrls": [
+        "https://nyaa.si/",
+        "https://nyaa.iss.ink/",
+        "https://nyaa.land/",
+        "https://nyaa.mom/",
+        "https://nyaa.unblockninja.com/"
+      ],
+      "legacyUrls": [
+        "https://nyaa.black-mirror.xyz/",
+        "https://nyaa.unblocked.casa/",
+        "https://nyaa.proxyportal.fun/",
+        "https://nyaa.uk-unblock.xyz/",
+        "https://nyaa.ind-unblock.xyz/",
+        "https://nyaa.unblocked.bar/",
+        "https://nyaa.proxyportal.pw/",
+        "https://nyaa.uk-unblock.pro/",
+        "https://nyaa.root.yt/",
+        "https://nyaa.lol/",
+        "https://nyaa.mrunblock.bond/",
+        "https://nyaa.nocensor.cloud/"
+      ],
+      "definitionName": "nyaasi",
+      "description": "Nyaa is a Public torrent site focused on Eastern ASIAN media including anime, manga, literature and music",
+      "language": "en-US",
+      "encoding": "Unicode (UTF-8)",
+      "enable": true,
+      "redirect": false,
+      "supportsRss": true,
+      "supportsSearch": true,
+      "supportsRedirect": false,
+      "supportsPagination": false,
+      "appProfileId": 1,
+      "protocol": "torrent",
+      "privacy": "public",
+      "capabilities": {
+        "limitsMax": 100,
+        "limitsDefault": 100,
+        "categories": [
+          {
+            "id": 5000,
+            "name": "TV",
+            "subCategories": [
+              {
+                "id": 5070,
+                "name": "TV/Anime",
+                "subCategories": []
+              }
+            ]
+          },
+          {
+            "id": 140679,
+            "name": "Anime",
+            "subCategories": []
+          },
+          {
+            "id": 125996,
+            "name": "Anime - Anime Music Video",
+            "subCategories": []
+          },
+          {
+            "id": 127720,
+            "name": "Anime - English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 131088,
+            "name": "Anime - Non-English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 134634,
+            "name": "Anime - Raw",
+            "subCategories": []
+          },
+          {
+            "id": 2000,
+            "name": "Movies",
+            "subCategories": [
+              {
+                "id": 2020,
+                "name": "Movies/Other",
+                "subCategories": []
+              }
+            ]
+          },
+          {
+            "id": 140679,
+            "name": "Anime",
+            "subCategories": []
+          },
+          {
+            "id": 125996,
+            "name": "Anime - Anime Music Video",
+            "subCategories": []
+          },
+          {
+            "id": 127720,
+            "name": "Anime - English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 131088,
+            "name": "Anime - Non-English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 134634,
+            "name": "Anime - Raw",
+            "subCategories": []
+          },
+          {
+            "id": 3000,
+            "name": "Audio",
+            "subCategories": []
+          },
+          {
+            "id": 145414,
+            "name": "Audio",
+            "subCategories": []
+          },
+          {
+            "id": 118685,
+            "name": "Audio - Lossless",
+            "subCategories": []
+          },
+          {
+            "id": 155285,
+            "name": "Audio - Lossy",
+            "subCategories": []
+          },
+          {
+            "id": 7000,
+            "name": "Books",
+            "subCategories": []
+          },
+          {
+            "id": 100920,
+            "name": "Literature",
+            "subCategories": []
+          },
+          {
+            "id": 156719,
+            "name": "Literature  English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 111160,
+            "name": "Literature - Non-English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 117084,
+            "name": "Literature - Raw",
+            "subCategories": []
+          },
+          {
+            "id": 129933,
+            "name": "Live Action",
+            "subCategories": []
+          },
+          {
+            "id": 101340,
+            "name": "Live Action - English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 150332,
+            "name": "Live Action - Idol/Promotional Video",
+            "subCategories": []
+          },
+          {
+            "id": 150562,
+            "name": "Live Action - Non-English-translated",
+            "subCategories": []
+          },
+          {
+            "id": 150452,
+            "name": "Live Action - Raw",
+            "subCategories": []
+          },
+          {
+            "id": 8000,
+            "name": "Other",
+            "subCategories": []
+          },
+          {
+            "id": 134686,
+            "name": "Pictures",
+            "subCategories": []
+          },
+          {
+            "id": 131360,
+            "name": "Pictures - Graphics",
+            "subCategories": []
+          },
+          {
+            "id": 109829,
+            "name": "Pictures - Photos",
+            "subCategories": []
+          },
+          {
+            "id": 4000,
+            "name": "PC",
+            "subCategories": [
+              {
+                "id": 4020,
+                "name": "PC/ISO",
+                "subCategories": []
+              },
+              {
+                "id": 4050,
+                "name": "PC/Games",
+                "subCategories": []
+              }
+            ]
+          },
+          {
+            "id": 117318,
+            "name": "Software",
+            "subCategories": []
+          },
+          {
+            "id": 130420,
+            "name": "Software - Applications",
+            "subCategories": []
+          },
+          {
+            "id": 103955,
+            "name": "Software - Games",
+            "subCategories": []
+          }
+        ],
+        "supportsRawSearch": true,
+        "searchParams": [
+          "q",
+          "q"
+        ],
+        "tvSearchParams": [
+          "q",
+          "season",
+          "ep"
+        ],
+        "movieSearchParams": [
+          "q"
+        ],
+        "musicSearchParams": [
+          "q"
+        ],
+        "bookSearchParams": [
+          "q"
+        ]
+      },
+      "priority": 25,
+      "downloadClientId": 0,
+      "added": "2026-04-23T19:47:25Z",
+      "sortName": "nyaa si",
+      "name": "Nyaa.si",
+      "fields": [
+        {
+          "order": 0,
+          "name": "definitionFile",
+          "value": "nyaasi",
+          "type": "textbox",
+          "advanced": false,
+          "hidden": "hidden",
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 1,
+          "name": "baseUrl",
+          "label": "Base Url",
+          "helpText": "Select which base url Prowlarr will use for requests to the site",
+          "type": "select",
+          "advanced": false,
+          "selectOptionsProviderAction": "getUrls",
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 2,
+          "name": "baseSettings.queryLimit",
+          "label": "Query Limit",
+          "helpText": "The number of max queries as specified by the respective unit that Prowlarr will allow to the site",
+          "type": "number",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 3,
+          "name": "baseSettings.grabLimit",
+          "label": "Grab Limit",
+          "helpText": "The number of max grabs as specified by the respective unit that Prowlarr will allow to the site",
+          "type": "number",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 4,
+          "name": "baseSettings.limitsUnit",
+          "label": "Limits Unit",
+          "helpText": "The unit of time for counting limits per indexer",
+          "value": 0,
+          "type": "select",
+          "advanced": true,
+          "selectOptions": [
+            {
+              "value": 0,
+              "name": "Day",
+              "order": 0,
+              "hint": "(0)"
+            },
+            {
+              "value": 1,
+              "name": "Hour",
+              "order": 1,
+              "hint": "(1)"
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 5,
+          "name": "torrentBaseSettings.appMinimumSeeders",
+          "label": "Apps Minimum Seeders",
+          "helpText": "Minimum seeders required by the Applications for the indexer to grab, empty is Sync profile's default",
+          "type": "number",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 6,
+          "name": "torrentBaseSettings.seedRatio",
+          "label": "Seed Ratio",
+          "helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
+          "type": "number",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": true
+        },
+        {
+          "order": 7,
+          "name": "torrentBaseSettings.seedTime",
+          "label": "Seed Time",
+          "unit": "minutes",
+          "helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
+          "type": "number",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 8,
+          "name": "torrentBaseSettings.packSeedTime",
+          "label": "Pack Seed Time",
+          "unit": "minutes",
+          "helpText": "The time a pack (season or discography) torrent should be seeded before stopping, empty is app's default",
+          "type": "number",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 9,
+          "name": "torrentBaseSettings.preferMagnetUrl",
+          "label": "Prefer Magnet URL",
+          "helpText": "When enabled, this indexer will prefer the use of magnet URLs for grabs with fallback to torrent links",
+          "value": false,
+          "type": "checkbox",
+          "advanced": true,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 0,
+          "name": "prefer_magnet_links",
+          "label": "Prefer Magnet Links",
+          "value": true,
+          "type": "checkbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 1,
+          "name": "sonarr_compatibility",
+          "label": "Improve Sonarr compatibility by trying to add Season information into Release Titles",
+          "value": false,
+          "type": "checkbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 2,
+          "name": "strip_s01",
+          "label": "Remove first season keywords (S1/S01/Season 1), as some results do not include this for first/single season releases",
+          "value": false,
+          "type": "checkbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 3,
+          "name": "radarr_compatibility",
+          "label": "Improve Radarr compatibility by removing year information from keywords and adding it to Release Titles",
+          "value": false,
+          "type": "checkbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 4,
+          "name": "filter-id",
+          "label": "Filter",
+          "value": 0,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": 0,
+              "name": "No filter",
+              "order": 0
+            },
+            {
+              "value": 1,
+              "name": "No remakes",
+              "order": 0
+            },
+            {
+              "value": 2,
+              "name": "Trusted only",
+              "order": 0
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 5,
+          "name": "cat-id",
+          "label": "Category",
+          "value": 0,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": 0,
+              "name": "All categories",
+              "order": 0
+            },
+            {
+              "value": 1,
+              "name": "Anime",
+              "order": 0
+            },
+            {
+              "value": 2,
+              "name": "Anime - Anime Music Video",
+              "order": 0
+            },
+            {
+              "value": 3,
+              "name": "Anime - English-translated",
+              "order": 0
+            },
+            {
+              "value": 4,
+              "name": "Anime - Non-English-translated",
+              "order": 0
+            },
+            {
+              "value": 5,
+              "name": "Anime - Raw",
+              "order": 0
+            },
+            {
+              "value": 6,
+              "name": "Audio",
+              "order": 0
+            },
+            {
+              "value": 7,
+              "name": "Audio - Lossless",
+              "order": 0
+            },
+            {
+              "value": 8,
+              "name": "Audio - Lossy",
+              "order": 0
+            },
+            {
+              "value": 9,
+              "name": "Literature",
+              "order": 0
+            },
+            {
+              "value": 10,
+              "name": "Literature - English-translated",
+              "order": 0
+            },
+            {
+              "value": 11,
+              "name": "Literature - Non-English-translated",
+              "order": 0
+            },
+            {
+              "value": 12,
+              "name": "Literature - Lossy",
+              "order": 0
+            },
+            {
+              "value": 13,
+              "name": "Live Action",
+              "order": 0
+            },
+            {
+              "value": 14,
+              "name": "Live Action - English",
+              "order": 0
+            },
+            {
+              "value": 15,
+              "name": "Live Action - Idol/PV",
+              "order": 0
+            },
+            {
+              "value": 16,
+              "name": "Live Action - Non-English",
+              "order": 0
+            },
+            {
+              "value": 17,
+              "name": "Live Action - Raw",
+              "order": 0
+            },
+            {
+              "value": 18,
+              "name": "Pictures",
+              "order": 0
+            },
+            {
+              "value": 19,
+              "name": "Pictures  - Graphics",
+              "order": 0
+            },
+            {
+              "value": 20,
+              "name": "Pictures  - Photos",
+              "order": 0
+            },
+            {
+              "value": 21,
+              "name": "Software",
+              "order": 0
+            },
+            {
+              "value": 22,
+              "name": "Software - Applications",
+              "order": 0
+            },
+            {
+              "value": 23,
+              "name": "Software - Games",
+              "order": 0
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 6,
+          "name": "sort",
+          "label": "Sort requested from site",
+          "value": 0,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": 0,
+              "name": "created",
+              "order": 0
+            },
+            {
+              "value": 1,
+              "name": "seeders",
+              "order": 0
+            },
+            {
+              "value": 2,
+              "name": "size",
+              "order": 0
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        },
+        {
+          "order": 7,
+          "name": "type",
+          "label": "Order requested from site",
+          "value": 1,
+          "type": "select",
+          "advanced": false,
+          "selectOptions": [
+            {
+              "value": 0,
+              "name": "asc",
+              "order": 0
+            },
+            {
+              "value": 1,
+              "name": "desc",
+              "order": 0
+            }
+          ],
+          "privacy": "normal",
+          "isFloat": false
+        }
+      ],
+      "implementationName": "Cardigann",
+      "implementation": "Cardigann",
+      "configContract": "CardigannSettings",
+      "infoLink": "https://wiki.servarr.com/prowlarr/supported-indexers#nyaasi",
+      "tags": [],
+      "id": 1
+    }
+  ],
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v1/indexer",
+  "status": 200
+}

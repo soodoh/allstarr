@@ -1,0 +1,7 @@
+{
+	"name": "auto-search-rejected",
+	"services": {
+		"NEWZNAB": "auto-search-rejected",
+		"QBITTORRENT": "idle"
+	}
+}

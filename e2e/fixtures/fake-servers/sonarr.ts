@@ -1,7 +1,12 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
+import {
+	buildCapturedPathKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
 	apiKey: string;
 	blocklist: Array<Record<string, unknown>>;
 	downloadClients: Array<Record<string, unknown>>;
@@ -16,7 +21,8 @@ type State = {
 	series: Array<Record<string, unknown>>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
 	return {
 		apiKey: "sonarr-key",
 		blocklist: [{ id: 301, title: "Rejected release" }],
@@ -38,6 +44,7 @@ function defaultState(): State {
 		qualityProfiles: [{ id: 21, name: "HD-1080p" }],
 		rootFolders: [{ id: 31, path: "/tv" }],
 		series: [{ id: 101, title: "Severance", tvdbId: 999_999 }],
+		...clonedSeed,
 	};
 }
 
@@ -67,6 +74,13 @@ function handler(
 	}
 
 	const url = new URL(req.url || "/", "http://localhost");
+	const captured = getCapturedResponse(
+		state,
+		buildCapturedPathKey(req.method, `${url.pathname}${url.search}`),
+	);
+	if (captured) {
+		return captured;
+	}
 
 	switch (url.pathname) {
 		case "/api/v3/config/naming":
@@ -96,6 +110,13 @@ function handler(
 	}
 }
 
-export default function createSonarrServer(port: number): FakeServer<State> {
-	return createFakeServer<State>({ port, defaultState, handler });
+export default function createSonarrServer(
+	port: number,
+	seed?: Partial<State>,
+): FakeServer<State> {
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }

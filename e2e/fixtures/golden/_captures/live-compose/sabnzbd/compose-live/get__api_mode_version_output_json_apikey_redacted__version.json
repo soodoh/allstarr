@@ -1,0 +1,10 @@
+{
+  "body": {
+    "version": "4.5.5"
+  },
+  "contentType": "application/json;charset=UTF-8",
+  "headers": {},
+  "method": "GET",
+  "path": "/api?mode=version&output=json&apikey=<redacted>",
+  "status": 200
+}

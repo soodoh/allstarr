@@ -7,40 +7,110 @@ afterEach(async () => {
 
 describe("createFakeServerManager", () => {
 	it("starts only the requested services and exposes only their URLs", async () => {
-		const manager = createFakeServerManager(["QBITTORRENT", "NEWZNAB"]);
+		const manager = createFakeServerManager(["QBITTORRENT", "NEWZNAB"], {
+			scenarioName: "search-grab-torrent",
+		});
+		try {
+			await manager.start();
+			const urls = manager.getUrls();
 
-		await manager.start();
-		const urls = manager.getUrls();
+			expect(urls.QBITTORRENT).toMatch(/^http:\/\/localhost:\d+$/);
+			expect(urls.NEWZNAB).toMatch(/^http:\/\/localhost:\d+$/);
+			expect(urls.HARDCOVER).toBeUndefined();
 
-		expect(urls.QBITTORRENT).toMatch(/^http:\/\/localhost:\d+$/);
-		expect(urls.NEWZNAB).toMatch(/^http:\/\/localhost:\d+$/);
-		expect(urls.HARDCOVER).toBeUndefined();
+			const qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(qbitState.version).toBe("v4.6.3");
 
-		const qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
-			r.json(),
-		);
-		expect(qbitState.version).toBe("v4.6.0");
-
-		await manager.stop();
+			const newznabState = await fetch(`${urls.NEWZNAB}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(newznabState.serverVersion).toBe("1.1.0-captured");
+			expect(newznabState.releases).toHaveLength(2);
+		} finally {
+			await manager.stop();
+		}
 	});
 
-	it("resets only the running services", async () => {
-		const manager = createFakeServerManager(["QBITTORRENT"]);
-		await manager.start();
-
-		const urls = manager.getUrls();
-		await fetch(`${urls.QBITTORRENT}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ version: "v9.9.9" }),
+	it("resets only the running services back to the selected scenario state", async () => {
+		const manager = createFakeServerManager(["QBITTORRENT"], {
+			scenarioName: "search-grab-torrent",
 		});
+		try {
+			await manager.start();
 
-		await manager.reset();
+			const urls = manager.getUrls();
 
-		const qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
-			r.json(),
+			await fetch(`${urls.QBITTORRENT}/api/v2/auth/login`, {
+				method: "POST",
+				body: "username=admin&password=adminadmin",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+			});
+			await fetch(`${urls.QBITTORRENT}/api/v2/torrents/add`, {
+				method: "POST",
+				body: "urls=magnet%3A%3Fxt%3Durn%3Abtih%3Aabc123&category=books",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+					Cookie: "SID=test-session-id",
+				},
+			});
+
+			let qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(qbitState.addedDownloads).toHaveLength(1);
+
+			await manager.reset();
+
+			qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(qbitState.version).toBe("v4.6.3");
+			expect(qbitState.addedDownloads).toEqual([]);
+		} finally {
+			await manager.stop();
+		}
+	});
+
+	it("can swap the running services to a different immutable scenario", async () => {
+		const manager = createFakeServerManager(
+			["QBITTORRENT", "NEWZNAB", "SABNZBD"],
+			{
+				scenarioName: "search-grab-torrent",
+			},
 		);
-		expect(qbitState.version).toBe("v4.6.0");
+		try {
+			await manager.start();
+			const urls = manager.getUrls();
 
-		await manager.stop();
+			let newznabState = await fetch(`${urls.NEWZNAB}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(newznabState.releases).toHaveLength(2);
+
+			let sabState = await fetch(`${urls.SABNZBD}/__state`).then((r) => r.json());
+			expect(sabState.version).toBe("4.2.0");
+
+			await manager.setScenario("search-grab-usenet");
+
+			newznabState = await fetch(`${urls.NEWZNAB}/__state`).then((r) => r.json());
+			expect(newznabState.releases).toHaveLength(1);
+			expect(newznabState.releases[0]?.protocol).toBe("usenet");
+
+			sabState = await fetch(`${urls.SABNZBD}/__state`).then((r) => r.json());
+			expect(sabState.version).toBe("4.2.1");
+			expect(sabState.apiKey).toBe("test-sabnzbd-api-key");
+
+			const qbitState = await fetch(`${urls.QBITTORRENT}/__state`).then((r) =>
+				r.json(),
+			);
+			expect(qbitState.version).toBe("v4.6.3");
+			expect(qbitState.torrents).toEqual([]);
+		} finally {
+			await manager.stop();
+		}
 	});
 });

@@ -1,0 +1,72 @@
+{
+	"name": "mapped-library",
+	"service": "bookshelf",
+	"seed": {
+		"apiKey": "bookshelf-key",
+		"authors": [{ "authorName": "Ursula K. Le Guin", "id": 9406 }],
+		"blocklist": [{ "id": 9410, "title": "Bookshelf blocked book" }],
+		"books": [
+			{
+				"authorName": "Ursula K. Le Guin",
+				"foreignBookId": "hc-earthsea-1",
+				"id": 801,
+				"title": "A Wizard of Earthsea",
+				"year": 1968
+			}
+		],
+		"downloadClients": [
+			{
+				"apiKey": null,
+				"category": "bookshelf",
+				"enabled": true,
+				"host": "localhost",
+				"id": 9401,
+				"implementation": "qBittorrent",
+				"name": "Bookshelf qBittorrent",
+				"password": null,
+				"port": 8083,
+				"priority": 4,
+				"protocol": "torrent",
+				"removeCompletedDownloads": true,
+				"settings": { "watchFolder": "/downloads/bookshelf" },
+				"tag": null,
+				"urlBase": null,
+				"useSsl": false,
+				"username": null
+			}
+		],
+		"history": [{ "id": 9408, "title": "Earthsea imported" }],
+		"indexers": [{ "id": 9402, "name": "Bookshelf Indexer" }],
+		"mediaManagement": { "renameBooks": true },
+		"metadataProfiles": [
+			{
+				"id": 9404,
+				"minimumPages": 100,
+				"minimumPopularity": 15,
+				"name": "Bookshelf OpenLibrary Profile",
+				"skipCompilations": true,
+				"skipMissingIsbnAsin": false,
+				"skipMissingReleaseDate": true
+			}
+		],
+		"naming": { "renameBooks": true },
+		"qualityProfiles": [
+			{
+				"categories": [7010],
+				"contentType": "ebook",
+				"cutoff": 6,
+				"icon": "book-open",
+				"id": 9403,
+				"items": [[6], [8]],
+				"language": "en",
+				"minCustomFormatScore": 0,
+				"name": "Bookshelf EPUB",
+				"rootFolderPath": "/bookshelf",
+				"upgradeAllowed": false,
+				"upgradeUntilCustomFormatScore": 0
+			}
+		],
+		"queue": [{ "id": 9409, "title": "Earthsea queued" }],
+		"rootFolders": [{ "id": 9405, "path": "/bookshelf" }]
+	}
+}

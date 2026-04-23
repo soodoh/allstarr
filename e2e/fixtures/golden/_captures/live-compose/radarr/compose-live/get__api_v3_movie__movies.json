@@ -1,0 +1,243 @@
+{
+  "body": [
+    {
+      "title": "The Matrix",
+      "originalTitle": "The Matrix",
+      "originalLanguage": {
+        "id": 1,
+        "name": "English"
+      },
+      "alternateTitles": [
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "เพาะพันธุ์มนุษย์เหนือโลก",
+          "id": 1
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "Μάτριξ",
+          "id": 2
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "매트릭스",
+          "id": 3
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "廿二世紀殺人網絡",
+          "id": 4
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "22世紀網絡",
+          "id": 5
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "駭客任務",
+          "id": 6
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "Մատրիցա",
+          "id": 7
+        },
+        {
+          "sourceType": "tmdb",
+          "movieMetadataId": 1,
+          "title": "Матрыца",
+          "id": 8
+        }
+      ],
+      "secondaryYearSourceId": 0,
+      "sortTitle": "matrix",
+      "sizeOnDisk": 3393,
+      "status": "released",
+      "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+      "inCinemas": "1999-03-31T00:00:00Z",
+      "physicalRelease": "1999-11-25T00:00:00Z",
+      "digitalRelease": "2001-03-19T00:00:00Z",
+      "releaseDate": "1999-03-31T00:00:00Z",
+      "images": [
+        {
+          "coverType": "poster",
+          "url": "/MediaCover/1/poster.jpg?lastWrite=639125702407616477",
+          "remoteUrl": "https://image.tmdb.org/t/p/original/aOIuZAjPaRIE6CMzbazvcHuHXDc.jpg"
+        },
+        {
+          "coverType": "fanart",
+          "url": "/MediaCover/1/fanart.jpg?lastWrite=639125702408186479",
+          "remoteUrl": "https://image.tmdb.org/t/p/original/tlm8UkiQsitc8rSuIAscQDCnP8d.jpg"
+        }
+      ],
+      "website": "http://www.warnerbros.com/matrix",
+      "year": 1999,
+      "youTubeTrailerId": "d0XTFAMmhrE",
+      "studio": "Village Roadshow Pictures",
+      "path": "/data/capture/library/movies/The Matrix (1999)",
+      "qualityProfileId": 4,
+      "hasFile": true,
+      "movieFileId": 1,
+      "monitored": true,
+      "minimumAvailability": "tba",
+      "isAvailable": true,
+      "folderName": "/data/capture/library/movies/The Matrix (1999)",
+      "runtime": 136,
+      "cleanTitle": "thematrix",
+      "imdbId": "tt0133093",
+      "tmdbId": 603,
+      "titleSlug": "603",
+      "rootFolderPath": "/data/capture/library/movies",
+      "certification": "R",
+      "genres": [
+        "Action",
+        "Science Fiction"
+      ],
+      "keywords": [
+        "action hero",
+        "allegory",
+        "allegory of the cave",
+        "artificial intelligence (a.i.)",
+        "baffled",
+        "chosen one",
+        "christ allegory",
+        "christ figure",
+        "christian allegory",
+        "christianity",
+        "cyberpunk",
+        "distressing",
+        "disturbed",
+        "dream world",
+        "dreams",
+        "dystopia",
+        "dystopian",
+        "fight",
+        "fortune teller",
+        "gnosticism",
+        "hacker",
+        "insurgence",
+        "joyous",
+        "kung fu",
+        "man vs machine",
+        "martial arts",
+        "messiah",
+        "oracle",
+        "philosophy",
+        "pill",
+        "prophecy",
+        "saving the world",
+        "self sacrifice",
+        "simulated reality ",
+        "soothsayer",
+        "truth",
+        "virtual reality"
+      ],
+      "tags": [],
+      "added": "2026-04-23T19:44:00Z",
+      "ratings": {
+        "imdb": {
+          "votes": 2242319,
+          "value": 8.7,
+          "type": "user"
+        },
+        "tmdb": {
+          "votes": 27696,
+          "value": 8.242,
+          "type": "user"
+        },
+        "metacritic": {
+          "votes": 0,
+          "value": 73,
+          "type": "user"
+        },
+        "rottenTomatoes": {
+          "votes": 0,
+          "value": 83,
+          "type": "user"
+        },
+        "trakt": {
+          "votes": 75199,
+          "value": 8.73464,
+          "type": "user"
+        }
+      },
+      "movieFile": {
+        "movieId": 1,
+        "relativePath": "The.Matrix.1999.1080p.WEB-DL-GRP.mkv",
+        "path": "/data/capture/library/movies/The Matrix (1999)/The.Matrix.1999.1080p.WEB-DL-GRP.mkv",
+        "size": 3393,
+        "dateAdded": "2026-04-23T19:44:00Z",
+        "releaseGroup": "GRP",
+        "edition": "",
+        "languages": [
+          {
+            "id": 1,
+            "name": "English"
+          }
+        ],
+        "quality": {
+          "quality": {
+            "id": 5,
+            "name": "WEBDL-720p",
+            "source": "webdl",
+            "resolution": 720,
+            "modifier": "none"
+          },
+          "revision": {
+            "version": 1,
+            "real": 0,
+            "isRepack": false
+          }
+        },
+        "indexerFlags": 0,
+        "mediaInfo": {
+          "audioBitrate": 0,
+          "audioChannels": 2,
+          "audioCodec": "AAC",
+          "audioLanguages": "",
+          "audioStreamCount": 1,
+          "videoBitDepth": 8,
+          "videoBitrate": 0,
+          "videoCodec": "x264",
+          "videoFps": 25,
+          "videoDynamicRange": "",
+          "videoDynamicRangeType": "",
+          "resolution": "1280x720",
+          "runTime": "0:01",
+          "scanType": "Progressive",
+          "subtitles": ""
+        },
+        "qualityCutoffNotMet": true,
+        "id": 1
+      },
+      "collection": {
+        "title": "The Matrix Collection",
+        "tmdbId": 2344
+      },
+      "popularity": 27.461,
+      "statistics": {
+        "movieFileCount": 1,
+        "sizeOnDisk": 3393,
+        "releaseGroups": [
+          "GRP"
+        ]
+      },
+      "id": 1
+    }
+  ],
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v3/movie",
+  "status": 200
+}

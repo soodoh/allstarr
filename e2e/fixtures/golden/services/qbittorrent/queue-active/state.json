@@ -1,0 +1,24 @@
+{
+	"name": "queue-active",
+	"service": "qbittorrent",
+	"seed": {
+		"addedDownloads": [],
+		"pausedIds": [],
+		"removedIds": [],
+		"resumedIds": [],
+		"torrents": [
+			{
+				"category": "allstarr",
+				"downloaded": 2621440,
+				"dlspeed": 1048576,
+				"hash": "abc123",
+				"name": "Queue Author - Queue Book [EPUB]",
+				"save_path": "/downloads",
+				"size": 5242880,
+				"state": "downloading",
+				"upspeed": 524288
+			}
+		],
+		"version": "v4.6.3"
+	}
+}

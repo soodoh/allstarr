@@ -1,0 +1,72 @@
+{
+	"name": "mapped-library",
+	"service": "readarr",
+	"seed": {
+		"apiKey": "readarr-key",
+		"authors": [{ "authorName": "Frank Herbert", "id": 9306 }],
+		"blocklist": [{ "id": 9310, "title": "Readarr blocked book" }],
+		"books": [
+			{
+				"authorName": "Frank Herbert",
+				"foreignBookId": "hc-dune-1",
+				"id": 501,
+				"title": "Dune",
+				"year": 1965
+			}
+		],
+		"downloadClients": [
+			{
+				"apiKey": null,
+				"category": "readarr",
+				"enabled": true,
+				"host": "localhost",
+				"id": 9301,
+				"implementation": "Transmission",
+				"name": "Readarr Transmission",
+				"password": null,
+				"port": 8082,
+				"priority": 3,
+				"protocol": "torrent",
+				"removeCompletedDownloads": true,
+				"settings": { "watchFolder": "/downloads/readarr" },
+				"tag": null,
+				"urlBase": null,
+				"useSsl": false,
+				"username": null
+			}
+		],
+		"history": [{ "id": 9308, "title": "Dune imported" }],
+		"indexers": [{ "id": 9302, "name": "Readarr Indexer" }],
+		"mediaManagement": { "renameBooks": true },
+		"metadataProfiles": [
+			{
+				"id": 9304,
+				"minimumPages": 10,
+				"minimumPopularity": 25,
+				"name": "Readarr Hardcover Profile",
+				"skipCompilations": false,
+				"skipMissingIsbnAsin": true,
+				"skipMissingReleaseDate": false
+			}
+		],
+		"naming": { "renameBooks": true },
+		"qualityProfiles": [
+			{
+				"categories": [7000],
+				"contentType": "ebook",
+				"cutoff": 4,
+				"icon": "book-open",
+				"id": 9303,
+				"items": [[4], [5]],
+				"language": "en",
+				"minCustomFormatScore": 0,
+				"name": "Readarr EPUB",
+				"rootFolderPath": "/books",
+				"upgradeAllowed": false,
+				"upgradeUntilCustomFormatScore": 0
+			}
+		],
+		"queue": [{ "id": 9309, "title": "Dune queued" }],
+		"rootFolders": [{ "id": 9305, "path": "/books" }]
+	}
+}

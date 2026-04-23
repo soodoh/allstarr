@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedNamedKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   sessionId: string;
   torrents: Array<{
@@ -21,7 +26,8 @@ type State = {
   startedIds: number[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "4.0.0",
     sessionId: "test-transmission-session-id",
@@ -30,6 +36,7 @@ function defaultState(): State {
     removedIds: [],
     stoppedIds: [],
     startedIds: [],
+    ...clonedSeed,
   };
 }
 
@@ -120,6 +127,13 @@ function handler(
 
   switch (rpc.method) {
     case "session-get": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", rpc.method),
+      );
+      if (captured) {
+        return captured;
+      }
       return json({
         result: "success",
         arguments: { version: state.version },
@@ -127,6 +141,13 @@ function handler(
     }
 
     case "torrent-get": {
+      const captured = getCapturedResponse(
+        state,
+        buildCapturedNamedKey("rpc", rpc.method),
+      );
+      if (captured) {
+        return captured;
+      }
       return json({
         result: "success",
         arguments: { torrents: state.torrents },
@@ -145,6 +166,11 @@ function handler(
 
 export default function createTransmissionServer(
   port: number,
+  seed?: Partial<State>,
 ): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

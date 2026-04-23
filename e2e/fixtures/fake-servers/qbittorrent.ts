@@ -1,8 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import {
+	buildCapturedPathKey,
+	getCapturedResponse,
+	type CapturedReplayState,
+} from "./captured";
 
-type State = {
+type State = CapturedReplayState & {
   version: string;
   torrents: Array<{
     hash: string;
@@ -21,7 +26,8 @@ type State = {
   resumedIds: string[];
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     version: "v4.6.0",
     torrents: [],
@@ -29,6 +35,7 @@ function defaultState(): State {
     removedIds: [],
     pausedIds: [],
     resumedIds: [],
+    ...clonedSeed,
   };
 }
 
@@ -134,7 +141,21 @@ function handler(
   }
 
   if (path === "/api/v2/app/version" && req.method === "GET") {
+    const captured = getCapturedResponse(state, buildCapturedPathKey(req.method, path));
+    if (captured) {
+      return captured;
+    }
     return { body: state.version };
+  }
+
+  if (path === "/api/v2/torrents/info" && req.method === "GET") {
+    const captured = getCapturedResponse(
+      state,
+      buildCapturedPathKey(req.method, `${path}${url.search}`),
+    );
+    if (captured) {
+      return captured;
+    }
   }
 
   return handleTorrentsEndpoint(path, body, url, state);
@@ -142,6 +163,11 @@ function handler(
 
 export default function createQBittorrentServer(
   port: number,
+  seed?: Partial<State>,
 ): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

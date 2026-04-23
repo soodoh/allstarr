@@ -1,0 +1,34 @@
+{
+  "body": [
+    {
+      "name": "Standard",
+      "minPopularity": 350,
+      "skipMissingDate": true,
+      "skipMissingIsbn": false,
+      "skipPartsAndSets": true,
+      "skipSeriesSecondary": false,
+      "allowedLanguages": "eng, null",
+      "minPages": 0,
+      "ignored": [],
+      "id": 1
+    },
+    {
+      "name": "None",
+      "minPopularity": 10000000000,
+      "skipMissingDate": false,
+      "skipMissingIsbn": false,
+      "skipPartsAndSets": false,
+      "skipSeriesSecondary": false,
+      "minPages": 0,
+      "ignored": [],
+      "id": 2
+    }
+  ],
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v1/metadataprofile",
+  "status": 200
+}

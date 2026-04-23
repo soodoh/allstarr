@@ -10,6 +10,16 @@ import type {
 	NormalizedImportSnapshot,
 } from "./normalize";
 
+type ImportPlanPayloadValue =
+	| boolean
+	| null
+	| number
+	| object
+	| string
+	| Array<unknown>;
+
+export type ImportPlanPayload = Record<string, ImportPlanPayloadValue>;
+
 export type ImportPlanAction =
 	| "create"
 	| "update"
@@ -23,6 +33,7 @@ export type ImportPlanRow = {
 	sourceKey: string;
 	resourceType: ImportResourceType;
 	title: string;
+	payload: ImportPlanPayload;
 	action: ImportPlanAction;
 	targetId: number | null;
 	warning: string | null;
@@ -79,6 +90,7 @@ function rowFromItem(args: {
 		sourceKey: args.item.sourceKey,
 		resourceType: args.item.resourceType,
 		title: args.item.title,
+		payload: args.item.payload as ImportPlanPayload,
 		action: args.action,
 		targetId: args.targetId,
 		warning: args.warning,
@@ -129,7 +141,7 @@ function buildMovieRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
-		if (match.confidence !== "high") {
+		if (match.confidence === "low") {
 			return rowFromItem({
 				item,
 				action: "unresolved",
@@ -187,7 +199,7 @@ function buildShowRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
-		if (match.confidence !== "high") {
+		if (match.confidence === "low") {
 			return rowFromItem({
 				item,
 				action: "unresolved",
@@ -250,7 +262,7 @@ function buildBookRow(
 	);
 
 	if (match.status === "matched" && match.targetId !== null) {
-		if (match.confidence !== "high") {
+		if (match.confidence === "low") {
 			return rowFromItem({
 				item,
 				action: "unresolved",
@@ -299,6 +311,14 @@ function buildGenericRow(
 		selectable: true,
 		warning: null,
 	});
+}
+
+function isSupportedSettingItem(item: NormalizedImportItem): boolean {
+	return item.payload.group === "download-client";
+}
+
+function isSupportedMetadataProfileItem(item: NormalizedImportItem): boolean {
+	return item.payload.isDefault !== false;
 }
 
 function buildUnsupportedRow(
@@ -366,7 +386,9 @@ export function buildImportPlan(args: BuildImportPlanArgs): ImportPlan {
 
 	for (const snapshot of sections) {
 		for (const item of snapshot.settings) {
-			const row = buildGenericRow(item, args.existingState);
+			const row = isSupportedSettingItem(item)
+				? buildGenericRow(item, args.existingState)
+				: buildUnsupportedRow(item, args.existingState);
 			push(plan.settings, row);
 		}
 
@@ -376,7 +398,9 @@ export function buildImportPlan(args: BuildImportPlanArgs): ImportPlan {
 		}
 
 		for (const item of snapshot.metadataProfiles) {
-			const row = buildGenericRow(item, args.existingState);
+			const row = isSupportedMetadataProfileItem(item)
+				? buildGenericRow(item, args.existingState)
+				: buildUnsupportedRow(item, args.existingState);
 			push(plan.metadataProfiles, row);
 		}
 
@@ -415,7 +439,7 @@ export function buildImportPlan(args: BuildImportPlanArgs): ImportPlan {
 		}
 
 		for (const item of snapshot.activity) {
-			const row = buildGenericRow(item, args.existingState);
+			const row = buildUnsupportedRow(item, args.existingState);
 			push(plan.activity, row);
 		}
 

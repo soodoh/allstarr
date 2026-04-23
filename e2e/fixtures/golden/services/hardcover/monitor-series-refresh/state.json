@@ -1,0 +1,140 @@
+{
+	"name": "monitor-series-refresh",
+	"service": "hardcover",
+	"seed": {
+		"authors": [
+			{
+				"bio": "Series Keeper bio",
+				"born_year": 1970,
+				"death_year": null,
+				"id": 110,
+				"image": { "url": "https://example.com/series-keeper.jpg" },
+				"name": "Series Keeper",
+				"slug": "series-keeper"
+			},
+			{
+				"bio": "Series Newcomer bio",
+				"born_year": 1970,
+				"death_year": null,
+				"id": 111,
+				"image": { "url": "https://example.com/series-newcomer.jpg" },
+				"name": "Series Newcomer",
+				"slug": "series-newcomer"
+			}
+		],
+		"books": [
+			{
+				"authorId": 110,
+				"book_series": [
+					{
+						"position": "1",
+						"series": {
+							"id": 910,
+							"is_completed": false,
+							"name": "Discovery Saga",
+							"slug": "discovery-saga"
+						}
+					}
+				],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 110,
+							"image": { "url": "https://example.com/series-keeper.jpg" },
+							"name": "Series Keeper",
+							"slug": "series-keeper"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 310,
+				"description": "Series Origin description",
+				"id": 210,
+				"image": { "url": "https://example.com/series-origin.jpg" },
+				"rating": 4.2,
+				"ratings_count": 1200,
+				"release_date": "2026-04-01",
+				"release_year": 2026,
+				"slug": "series-origin",
+				"title": "Series Origin",
+				"users_count": 3400
+			},
+			{
+				"authorId": 111,
+				"book_series": [
+					{
+						"position": "2",
+						"series": {
+							"id": 910,
+							"is_completed": false,
+							"name": "Discovery Saga",
+							"slug": "discovery-saga"
+						}
+					}
+				],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 111,
+							"image": { "url": "https://example.com/series-newcomer.jpg" },
+							"name": "Series Newcomer",
+							"slug": "series-newcomer"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 311,
+				"description": "Series Continuation description",
+				"id": 211,
+				"image": { "url": "https://example.com/series-continuation.jpg" },
+				"rating": 4.2,
+				"ratings_count": 1200,
+				"release_date": "2026-04-01",
+				"release_year": 2026,
+				"slug": "series-continuation",
+				"title": "Series Continuation",
+				"users_count": 3400
+			}
+		],
+		"editions": [
+			{
+				"asin": null,
+				"audio_seconds": null,
+				"bookId": 210,
+				"id": 310,
+				"image": { "url": "https://example.com/310.jpg" },
+				"isbn_10": null,
+				"isbn_13": "9999999999310",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 320,
+				"publisher": { "name": "Example Press" },
+				"reading_format": { "format": "Ebook" },
+				"release_date": "2026-04-01",
+				"score": 88,
+				"title": "Series Origin - EPUB",
+				"users_count": 600
+			},
+			{
+				"asin": null,
+				"audio_seconds": null,
+				"bookId": 211,
+				"id": 311,
+				"image": { "url": "https://example.com/311.jpg" },
+				"isbn_10": null,
+				"isbn_13": "9999999999311",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 320,
+				"publisher": { "name": "Example Press" },
+				"reading_format": { "format": "Ebook" },
+				"release_date": "2026-04-01",
+				"score": 88,
+				"title": "Series Continuation - EPUB",
+				"users_count": 600
+			}
+		],
+		"requestLog": [],
+		"searchResults": []
+	}
+}

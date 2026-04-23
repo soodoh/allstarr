@@ -13,10 +13,11 @@ export type FakeServerOptions<TState extends object> = {
   handler: (req: IncomingMessage, body: string, state: TState) => HandlerResult;
 };
 
-export type FakeServer<_TState extends object> = {
+export type FakeServer<TState extends object> = {
   server: Server;
   url: string;
   reset: () => void;
+  seed: (nextState: TState) => void;
   stop: () => Promise<void>;
 };
 
@@ -33,7 +34,8 @@ function readBody(req: IncomingMessage): Promise<string> {
 export function createFakeServer<TState extends object>(
   opts: FakeServerOptions<TState>,
 ): FakeServer<TState> {
-  let state = opts.defaultState();
+  let seedState = opts.defaultState();
+  let state = structuredClone(seedState);
 
   const server = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
@@ -45,8 +47,14 @@ export function createFakeServer<TState extends object>(
         res.writeHead(200).end("OK");
         return;
       }
+      if (url.pathname === "/__seed" && req.method === "POST") {
+        seedState = JSON.parse(body) as TState;
+        state = structuredClone(seedState);
+        res.writeHead(200).end("OK");
+        return;
+      }
       if (url.pathname === "/__reset" && req.method === "POST") {
-        state = opts.defaultState();
+        state = structuredClone(seedState);
         res.writeHead(200).end("OK");
         return;
       }
@@ -72,7 +80,11 @@ export function createFakeServer<TState extends object>(
     server,
     url: `http://localhost:${opts.port}`,
     reset: () => {
-      state = opts.defaultState();
+      state = structuredClone(seedState);
+    },
+    seed: (nextState: TState) => {
+      seedState = structuredClone(nextState);
+      state = structuredClone(seedState);
     },
     stop: () =>
       new Promise<void>((resolve) => {

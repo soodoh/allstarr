@@ -1,0 +1,53 @@
+{
+	"name": "mapped-library",
+	"service": "radarr",
+	"seed": {
+		"apiKey": "radarr-key",
+		"blocklist": [{ "id": 9207, "title": "Radarr rejected release" }],
+		"downloadClients": [
+			{
+				"apiKey": null,
+				"category": "radarr",
+				"enabled": true,
+				"host": "localhost",
+				"id": 9201,
+				"implementation": "SABnzbd",
+				"name": "Radarr SABnzbd",
+				"password": null,
+				"port": 8081,
+				"priority": 2,
+				"protocol": "usenet",
+				"removeCompletedDownloads": true,
+				"settings": { "savePath": "/downloads/radarr" },
+				"tag": null,
+				"urlBase": null,
+				"useSsl": false,
+				"username": null
+			}
+		],
+		"history": [{ "id": 9208, "title": "Dune imported" }],
+		"indexers": [{ "id": 9202, "name": "Radarr Indexer" }],
+		"mediaManagement": { "autoUnmonitorPreviouslyDownloadedMovies": true },
+		"movieFiles": [{ "id": 9205, "movieId": 111, "relativePath": "Dune.2021.mkv" }],
+		"movies": [{ "id": 111, "title": "Dune", "tmdbId": 11, "year": 2021 }],
+		"naming": { "renameMovies": true },
+		"qualityProfiles": [
+			{
+				"categories": [2000],
+				"contentType": "movie",
+				"cutoff": 7,
+				"icon": "film",
+				"id": 9203,
+				"items": [[7], [9]],
+				"language": "en",
+				"minCustomFormatScore": 0,
+				"name": "Radarr UHD",
+				"rootFolderPath": "/movies",
+				"upgradeAllowed": true,
+				"upgradeUntilCustomFormatScore": 0
+			}
+		],
+		"queue": [{ "id": 9209, "title": "Dune queued" }],
+		"rootFolders": [{ "id": 9204, "path": "/movies" }]
+	}
+}

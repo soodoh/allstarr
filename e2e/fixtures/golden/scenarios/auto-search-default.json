@@ -1,0 +1,7 @@
+{
+	"name": "auto-search-default",
+	"services": {
+		"NEWZNAB": "auto-search-default",
+		"QBITTORRENT": "idle"
+	}
+}

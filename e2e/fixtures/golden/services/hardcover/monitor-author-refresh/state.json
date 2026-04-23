@@ -1,0 +1,111 @@
+{
+	"name": "monitor-author-refresh",
+	"service": "hardcover",
+	"seed": {
+		"authors": [
+			{
+				"bio": "Monitor Author bio",
+				"born_year": 1970,
+				"death_year": null,
+				"id": 100,
+				"image": { "url": "https://example.com/monitor-author.jpg" },
+				"name": "Monitor Author",
+				"slug": "monitor-author"
+			}
+		],
+		"books": [
+			{
+				"authorId": 100,
+				"book_series": [],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 100,
+							"image": { "url": "https://example.com/monitor-author.jpg" },
+							"name": "Monitor Author",
+							"slug": "monitor-author"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 300,
+				"description": "Settled Book description",
+				"id": 200,
+				"image": { "url": "https://example.com/settled-book.jpg" },
+				"rating": 4.2,
+				"ratings_count": 1200,
+				"release_date": "2026-04-01",
+				"release_year": 2026,
+				"slug": "settled-book",
+				"title": "Settled Book",
+				"users_count": 3400
+			},
+			{
+				"authorId": 100,
+				"book_series": [],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 100,
+							"image": { "url": "https://example.com/monitor-author.jpg" },
+							"name": "Monitor Author",
+							"slug": "monitor-author"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 301,
+				"description": "Fresh Arrival description",
+				"id": 201,
+				"image": { "url": "https://example.com/fresh-arrival.jpg" },
+				"rating": 4.2,
+				"ratings_count": 1200,
+				"release_date": "2026-04-01",
+				"release_year": 2026,
+				"slug": "fresh-arrival",
+				"title": "Fresh Arrival",
+				"users_count": 3400
+			}
+		],
+		"editions": [
+			{
+				"asin": null,
+				"audio_seconds": null,
+				"bookId": 200,
+				"id": 300,
+				"image": { "url": "https://example.com/300.jpg" },
+				"isbn_10": null,
+				"isbn_13": "9999999999300",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 320,
+				"publisher": { "name": "Example Press" },
+				"reading_format": { "format": "Ebook" },
+				"release_date": "2026-04-01",
+				"score": 88,
+				"title": "Settled Book - EPUB",
+				"users_count": 600
+			},
+			{
+				"asin": null,
+				"audio_seconds": null,
+				"bookId": 201,
+				"id": 301,
+				"image": { "url": "https://example.com/301.jpg" },
+				"isbn_10": null,
+				"isbn_13": "9999999999301",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 320,
+				"publisher": { "name": "Example Press" },
+				"reading_format": { "format": "Ebook" },
+				"release_date": "2026-04-01",
+				"score": 88,
+				"title": "Fresh Arrival - EPUB",
+				"users_count": 600
+			}
+		],
+		"requestLog": [],
+		"searchResults": []
+	}
+}

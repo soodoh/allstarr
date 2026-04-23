@@ -1,0 +1,23 @@
+{
+	"name": "auto-search-rejected",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/rejected.torrent",
+				"guid": "rejected-r1",
+				"magnetUrl": "magnet:?xt=urn:btih:rejected",
+				"peers": 10,
+				"protocol": "torrent",
+				"publishDate": "Fri, 20 Mar 2026 12:00:00 GMT",
+				"seeders": 5,
+				"size": 1000000,
+				"title": "Completely Unrelated Release [AZW3]"
+			}
+		],
+		"searchLog": [],
+		"serverVersion": "1.1.0-captured"
+	}
+}

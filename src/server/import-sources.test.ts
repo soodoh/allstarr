@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const schemaMocks = vi.hoisted(() => ({
+	books: {
+		foreignBookId: "books.foreignBookId",
+		id: "books.id",
+		releaseYear: "books.releaseYear",
+		title: "books.title",
+	},
+	booksAuthors: {
+		authorName: "booksAuthors.authorName",
+		bookId: "booksAuthors.bookId",
+		isPrimary: "booksAuthors.isPrimary",
+	},
 	importProvenance: {
 		sourceId: "importProvenance.sourceId",
 		sourceKey: "importProvenance.sourceKey",
@@ -34,6 +45,16 @@ const schemaMocks = vi.hoisted(() => ({
 		lastSyncStatus: "importSources.lastSyncStatus",
 		updatedAt: "importSources.updatedAt",
 	},
+	movies: {
+		id: "movies.id",
+		title: "movies.title",
+		tmdbId: "movies.tmdbId",
+	},
+	shows: {
+		id: "shows.id",
+		title: "shows.title",
+		tmdbId: "shows.tmdbId",
+	},
 }));
 
 const mocks = vi.hoisted(() => {
@@ -56,11 +77,30 @@ const mocks = vi.hoisted(() => {
 		sourceId: number;
 	}> = [];
 	const provenance: Array<{
-		lastImportedAt: Date;
-		sourceId: number;
 		sourceKey: string;
 		targetId: string;
 		targetType: string;
+	}> = [];
+	const books: Array<{
+		foreignBookId: string | null;
+		id: number;
+		releaseYear: number | null;
+		title: string;
+	}> = [];
+	const booksAuthors: Array<{
+		authorName: string;
+		bookId: number;
+		isPrimary: boolean;
+	}> = [];
+	const movies: Array<{
+		id: number;
+		title: string;
+		tmdbId: number;
+	}> = [];
+	const shows: Array<{
+		id: number;
+		title: string;
+		tmdbId: number;
 	}> = [];
 	const reviewItems: Array<{
 		createdAt: Date;
@@ -91,12 +131,15 @@ const mocks = vi.hoisted(() => {
 
 	return {
 		applyImportPlan,
+		books,
+		booksAuthors,
 		deleteFn,
 		fetchBookshelfSnapshot,
 		fetchRadarrSnapshot,
 		fetchReadarrSnapshot,
 		fetchSonarrSnapshot,
 		insert,
+		movies,
 		nextReviewItemIdRef: {
 			get value() {
 				return nextReviewItemId;
@@ -122,12 +165,13 @@ const mocks = vi.hoisted(() => {
 			},
 		},
 		normalizeImportSnapshot,
-		requireAdmin,
 		provenance,
+		requireAdmin,
 		reviewItems,
 		rows,
 		select,
 		snapshots,
+		shows,
 		update,
 	};
 });
@@ -211,8 +255,12 @@ import {
 
 function resetState() {
 	mocks.rows.splice(0, mocks.rows.length);
-	mocks.provenance.splice(0, mocks.provenance.length);
 	mocks.snapshots.splice(0, mocks.snapshots.length);
+	mocks.provenance.splice(0, mocks.provenance.length);
+	mocks.books.splice(0, mocks.books.length);
+	mocks.booksAuthors.splice(0, mocks.booksAuthors.length);
+	mocks.movies.splice(0, mocks.movies.length);
+	mocks.shows.splice(0, mocks.shows.length);
 	mocks.reviewItems.splice(0, mocks.reviewItems.length);
 	mocks.nextSourceIdRef.value = 1;
 	mocks.nextSnapshotIdRef.value = 1;
@@ -244,67 +292,72 @@ function installDbMocks() {
 				};
 			}
 
-			if (table === schemaMocks.importReviewItems) {
-				return {
-					all: vi.fn(() =>
-						[...mocks.reviewItems].sort(
-							(left, right) =>
-								right.updatedAt.getTime() - left.updatedAt.getTime() ||
-								right.createdAt.getTime() - left.createdAt.getTime() ||
-								right.id - left.id,
-						),
-					),
-					get: vi.fn((condition?: { right: number }) =>
-						condition
-							? mocks.reviewItems.find((row) => row.id === condition.right)
-							: undefined,
-					),
-					where: vi.fn((condition: { right: number }) => ({
-						all: vi.fn(() =>
-							mocks.reviewItems.filter(
-								(row) => row.sourceId === condition.right,
-							),
-						),
-					})),
-				};
-			}
-
 			if (table === schemaMocks.importSnapshots) {
 				return {
-					all: vi.fn(() => [...mocks.snapshots]),
 					where: vi.fn((condition: { right: number }) => ({
-						all: vi.fn(() =>
-							mocks.snapshots.filter((row) => row.sourceId === condition.right),
-						),
+						orderBy: vi.fn(() => ({
+							all: vi.fn(() =>
+								mocks.snapshots.filter(
+									(snapshot) => snapshot.sourceId === condition.right,
+								),
+							),
+						})),
 					})),
 				};
 			}
 
 			if (table === schemaMocks.importProvenance) {
 				return {
-					where: vi.fn((condition: { args?: Array<{ right: unknown }> }) => ({
-						all: vi.fn(() => {
-							const [sourceIdCondition, sourceKeyCondition] =
-								condition.args ?? [];
-							const sourceId =
-								typeof sourceIdCondition?.right === "number"
-									? sourceIdCondition.right
-									: undefined;
-							const sourceKey =
-								typeof sourceKeyCondition?.right === "string"
-									? sourceKeyCondition.right
-									: undefined;
-							return mocks.provenance.filter((row) => {
-								if (sourceId !== undefined && row.sourceId !== sourceId) {
-									return false;
-								}
-								if (sourceKey !== undefined && row.sourceKey !== sourceKey) {
-									return false;
-								}
-								return true;
-							});
-						}),
+					all: vi.fn(() => mocks.provenance),
+				};
+			}
+
+			if (table === schemaMocks.movies) {
+				return {
+					all: vi.fn(() => mocks.movies),
+					where: vi.fn((condition: { right: number }) => ({
+						get: vi.fn(() =>
+							mocks.movies.find((row) => row.id === condition.right),
+						),
 					})),
+				};
+			}
+
+			if (table === schemaMocks.shows) {
+				return {
+					all: vi.fn(() => mocks.shows),
+					where: vi.fn((condition: { right: number }) => ({
+						get: vi.fn(() =>
+							mocks.shows.find((row) => row.id === condition.right),
+						),
+					})),
+				};
+			}
+
+			if (table === schemaMocks.books) {
+				return {
+					all: vi.fn(() => mocks.books),
+					where: vi.fn((condition: { right: number }) => ({
+						get: vi.fn(() =>
+							mocks.books.find((row) => row.id === condition.right),
+						),
+					})),
+				};
+			}
+
+			if (table === schemaMocks.booksAuthors) {
+				return {
+					all: vi.fn(() => mocks.booksAuthors),
+				};
+			}
+
+			if (table === schemaMocks.importReviewItems) {
+				return {
+					get: vi.fn((condition?: { right: number }) =>
+						condition
+							? mocks.reviewItems.find((row) => row.id === condition.right)
+							: undefined,
+					),
 				};
 			}
 
@@ -365,20 +418,6 @@ function installDbMocks() {
 							updatedAt: data.updatedAt as Date,
 						});
 						mocks.nextReviewItemIdRef.value += 1;
-					}),
-				};
-			}
-
-			if (table === schemaMocks.importProvenance) {
-				return {
-					run: vi.fn(() => {
-						mocks.provenance.push({
-							lastImportedAt: data.lastImportedAt as Date,
-							sourceId: data.sourceId as number,
-							sourceKey: data.sourceKey as string,
-							targetId: data.targetId as string,
-							targetType: data.targetType as string,
-						});
 					}),
 				};
 			}
@@ -565,149 +604,77 @@ describe("import source CRUD and refresh", () => {
 		});
 	});
 
-	it("loads the latest snapshot and maps provenance target labels in the plan", async () => {
+	it("delegates apply payloads to the apply engine", async () => {
+		mocks.movies.push({
+			id: 44,
+			title: "The Matrix",
+			tmdbId: 603,
+		});
 		mocks.rows.push({
 			apiKey: "radarr-key",
 			baseUrl: "http://localhost:7878",
 			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 1,
+			id: 7,
 			kind: "radarr",
 			label: "Radarr",
 			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
 			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
 		});
-		mocks.snapshots.push(
-			{
-				fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
-				id: 1,
-				payload: {
-					activity: { blocklist: [], history: [], queue: [] },
-					fetchedAt: "2026-04-21T10:00:00.000Z",
-					kind: "radarr",
-					library: { books: [], movies: [], shows: [] },
-					settings: {
-						items: [
-							{
-								action: "create",
-								payload: { group: "download-client", raw: { name: "Old" } },
-								resourceType: "setting",
-								selectable: true,
-								sourceId: 1,
-								sourceKey: "radarr:1:setting:old",
-								title: "Old",
-								warning: null,
-							},
-						],
-						metadataProfiles: [],
-						qualityProfiles: [],
-					},
-					sourceId: 1,
-					unsupported: [],
-				},
-				sourceId: 1,
-			},
-			{
-				fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-				id: 2,
-				payload: {
-					activity: { blocklist: [], history: [], queue: [] },
-					fetchedAt: "2026-04-21T12:00:00.000Z",
-					kind: "radarr",
-					library: { books: [], movies: [], shows: [] },
-					settings: {
-						items: [
-							{
-								action: "skip",
-								payload: { group: "download-client", raw: { name: "New" } },
-								resourceType: "setting",
-								selectable: false,
-								sourceId: 1,
-								sourceKey: "radarr:1:setting:new",
-								title: "New",
-								warning: "Already imported from this source",
-							},
-						],
-						metadataProfiles: [],
-						qualityProfiles: [],
-					},
-					sourceId: 1,
-					unsupported: [],
-				},
-				sourceId: 1,
-			},
-		);
-		mocks.provenance.push({
-			lastImportedAt: new Date("2026-04-21T12:30:00.000Z"),
-			sourceId: 1,
-			sourceKey: "radarr:1:setting:new",
-			targetId: "201",
-			targetType: "download-profile",
-		});
-
-		const plan = await getImportPlanFn({ data: { sourceId: 1 } });
-
-		expect(plan).toEqual([
-			expect.objectContaining({
-				action: "skip",
-				section: "settings",
-				sourceId: 1,
-				sourceKey: "radarr:1:setting:new",
-				targetId: 201,
-				targetLabel: "Download profile",
-			}),
-		]);
-		expect(plan).not.toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ sourceKey: "radarr:1:setting:old" }),
-			]),
-		);
-	});
-
-	it("serializes review rows with stable dates and source labels", async () => {
-		mocks.rows.push({
-			apiKey: "sonarr-key",
-			baseUrl: "http://localhost:8989",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+		mocks.snapshots.push({
+			fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
 			id: 1,
-			kind: "sonarr",
-			label: "Sonarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-		mocks.reviewItems.push({
-			createdAt: new Date("2026-04-21T01:00:00.000Z"),
-			id: 9,
-			payload: { title: "Unknown Show" },
-			resourceType: "show",
-			sourceId: 1,
-			sourceKey: "sonarr:1:show:55",
-			status: "unresolved",
-			updatedAt: new Date("2026-04-21T02:00:00.000Z"),
-		});
-
-		const rows = await getImportReviewFn({ data: { sourceId: 1 } });
-
-		expect(rows).toEqual([
-			{
-				createdAt: "2026-04-21T01:00:00.000Z",
-				id: 9,
-				payload: { title: "Unknown Show" },
-				resourceType: "show",
-				sourceId: 1,
-				sourceKind: "sonarr",
-				sourceKey: "sonarr:1:show:55",
-				sourceLabel: "Sonarr",
-				status: "unresolved",
-				updatedAt: "2026-04-21T02:00:00.000Z",
+			payload: {
+				activity: { blocklist: [], history: [], queue: [] },
+				fetchedAt: "2026-04-21T10:00:00.000Z",
+				kind: "radarr",
+				library: {
+					books: [],
+					movies: [
+						{
+							payload: {
+								raw: {
+									id: 1,
+									tmdbId: 603,
+									title: "The Matrix",
+									year: 1999,
+								},
+								tmdbId: 603,
+								year: 1999,
+							},
+							resourceType: "movie",
+							sourceId: 7,
+							sourceKey: "radarr:7:movie:1",
+							title: "The Matrix",
+						},
+					],
+					shows: [],
+				},
+				settings: {
+					items: [
+						{
+							payload: {
+								group: "download-client",
+								id: 1,
+								mapped: { name: "SABnzbd Capture", port: 8080 },
+								raw: { name: "SABnzbd Capture" },
+								title: "SABnzbd Capture",
+							},
+							resourceType: "setting",
+							sourceId: 7,
+							sourceKey: "radarr:7:setting:download-client:1",
+							title: "SABnzbd Capture",
+						},
+					],
+					metadataProfiles: [],
+					qualityProfiles: [],
+				},
+				sourceId: 7,
+				unsupported: [],
 			},
-		]);
-	});
-
-	it("delegates apply payloads to the apply engine", async () => {
+			sourceId: 7,
+		});
 		mocks.applyImportPlan.mockResolvedValue({
 			appliedCount: 2,
 			reviewCount: 1,
@@ -719,8 +686,14 @@ describe("import source CRUD and refresh", () => {
 					{
 						action: "create",
 						payload: {},
-						resourceType: "profile",
-						sourceKey: "radarr:7:profile:1",
+						resourceType: "setting",
+						sourceKey: "radarr:7:setting:download-client:1",
+					},
+					{
+						action: "update",
+						payload: {},
+						resourceType: "movie",
+						sourceKey: "radarr:7:movie:1",
 					},
 				],
 				sourceId: 7,
@@ -732,13 +705,267 @@ describe("import source CRUD and refresh", () => {
 			selectedRows: [
 				{
 					action: "create",
-					payload: {},
-					resourceType: "profile",
-					sourceKey: "radarr:7:profile:1",
+					payload: {
+						group: "download-client",
+						id: 1,
+						mapped: { name: "SABnzbd Capture", port: 8080 },
+						raw: { name: "SABnzbd Capture" },
+						title: "SABnzbd Capture",
+					},
+					resourceType: "setting",
+					sourceKey: "radarr:7:setting:download-client:1",
+				},
+				{
+					action: "update",
+					payload: {
+						raw: {
+							id: 1,
+							tmdbId: 603,
+							title: "The Matrix",
+							year: 1999,
+						},
+						targetId: 44,
+						tmdbId: 603,
+						year: 1999,
+					},
+					resourceType: "movie",
+					sourceKey: "radarr:7:movie:1",
 				},
 			],
 			sourceId: 7,
 		});
+	});
+
+	it("builds plan rows from the latest snapshot with mapped target labels", async () => {
+		mocks.rows.push({
+			apiKey: "sonarr-key",
+			baseUrl: "http://localhost:8989",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 1,
+			kind: "sonarr",
+			label: "Sonarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+		});
+		mocks.shows.push({
+			id: 44,
+			title: "Severance",
+			tmdbId: 2022,
+		});
+		mocks.snapshots.push(
+			{
+				fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
+				id: 1,
+				payload: {
+					activity: { blocklist: [], history: [], queue: [] },
+					fetchedAt: "2026-04-21T10:00:00.000Z",
+					kind: "sonarr",
+					library: {
+						books: [],
+						movies: [],
+						shows: [
+							{
+								payload: { tmdbId: 9999, tvdbId: 12345 },
+								resourceType: "show",
+								sourceId: 1,
+								sourceKey: "sonarr:1:show:old",
+								title: "Old Snapshot",
+							},
+						],
+					},
+					settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+					sourceId: 1,
+					unsupported: [],
+				},
+				sourceId: 1,
+			},
+			{
+				fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+				id: 2,
+				payload: {
+					activity: { blocklist: [], history: [], queue: [] },
+					fetchedAt: "2026-04-21T12:00:00.000Z",
+					kind: "sonarr",
+					library: {
+						books: [],
+						movies: [],
+						shows: [
+							{
+								payload: { tmdbId: 2022, tvdbId: 999999 },
+								resourceType: "show",
+								sourceId: 1,
+								sourceKey: "sonarr:1:show:101",
+								title: "Severance",
+							},
+						],
+					},
+					settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+					sourceId: 1,
+					unsupported: [],
+				},
+				sourceId: 1,
+			},
+		);
+
+		const result = await getImportPlanFn({ data: { sourceId: 1 } });
+
+		expect(result).toEqual([
+			expect.objectContaining({
+				action: "update",
+				payload: { targetId: 44, tmdbId: 2022, tvdbId: 999999 },
+				reason: null,
+				resourceType: "show",
+				selectable: true,
+				sourceKey: "sonarr:1:show:101",
+				sourceSummary: "TMDB 2022 | TVDB 999999",
+				target: { id: 44, label: "Severance" },
+				title: "Severance",
+			}),
+		]);
+	});
+
+	it("serializes unresolved rows for review from the latest snapshot", async () => {
+		mocks.rows.push({
+			apiKey: "readarr-key",
+			baseUrl: "http://localhost:8787",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 2,
+			kind: "readarr",
+			label: "Readarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+		});
+		mocks.snapshots.push({
+			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+			id: 3,
+			payload: {
+				activity: { blocklist: [], history: [], queue: [] },
+				fetchedAt: "2026-04-21T12:00:00.000Z",
+				kind: "readarr",
+				library: {
+					books: [
+						{
+							payload: {
+								authorName: "Unknown Author",
+								title: "Unknown Book",
+							},
+							resourceType: "book",
+							sourceId: 2,
+							sourceKey: "readarr:2:book:501",
+							title: "Unknown Book",
+						},
+					],
+					movies: [],
+					shows: [],
+				},
+				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+				sourceId: 2,
+				unsupported: [],
+			},
+			sourceId: 2,
+		});
+
+		const result = await getImportReviewFn({ data: { sourceId: 2 } });
+
+		expect(result).toEqual([
+			expect.objectContaining({
+				action: "unresolved",
+				payload: {
+					authorName: "Unknown Author",
+					title: "Unknown Book",
+				},
+				reason: "No confident book match",
+				resourceType: "book",
+				sourceKey: "readarr:2:book:501",
+				sourceSummary: "Author Unknown Author",
+				status: "unresolved",
+				target: { id: null, label: null },
+				title: "Unknown Book",
+			}),
+		]);
+	});
+
+	it("builds matched Readarr book rows using existing title-author-year fingerprints", async () => {
+		mocks.rows.push({
+			apiKey: "readarr-key",
+			baseUrl: "http://localhost:8787",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 3,
+			kind: "readarr",
+			label: "Readarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+		});
+		mocks.books.push({
+			foreignBookId: "hc-earthsea-1",
+			id: 44,
+			releaseYear: 1968,
+			title: "A Wizard of Earthsea",
+		});
+		mocks.booksAuthors.push({
+			authorName: "Ursula K. Le Guin",
+			bookId: 44,
+			isPrimary: true,
+		});
+		mocks.snapshots.push({
+			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+			id: 4,
+			payload: {
+				activity: { blocklist: [], history: [], queue: [] },
+				fetchedAt: "2026-04-21T12:00:00.000Z",
+				kind: "readarr",
+				library: {
+					books: [
+						{
+							payload: {
+								authorName: "Ursula K. Le Guin",
+								foreignBookId: "13642",
+								title: "A Wizard of Earthsea",
+								year: 1968,
+							},
+							resourceType: "book",
+							sourceId: 3,
+							sourceKey: "readarr:3:book:1",
+							title: "A Wizard of Earthsea",
+						},
+					],
+					movies: [],
+					shows: [],
+				},
+				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+				sourceId: 3,
+				unsupported: [],
+			},
+			sourceId: 3,
+		});
+
+		const result = await getImportPlanFn({ data: { sourceId: 3 } });
+
+		expect(result).toEqual([
+			expect.objectContaining({
+				action: "update",
+				payload: {
+					authorName: "Ursula K. Le Guin",
+					foreignBookId: "13642",
+					targetId: 44,
+					title: "A Wizard of Earthsea",
+					year: 1968,
+				},
+				reason: null,
+				resourceType: "book",
+				selectable: true,
+				sourceKey: "readarr:3:book:1",
+				sourceSummary: "Author Ursula K. Le Guin | Hardcover 13642",
+				target: { id: 44, label: "A Wizard of Earthsea" },
+				title: "A Wizard of Earthsea",
+			}),
+		]);
 	});
 
 	it("updates review item status and payload", async () => {

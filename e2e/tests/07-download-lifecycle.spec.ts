@@ -17,6 +17,11 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
+test.use({
+  fakeServerScenario: "download-lifecycle-default",
+  requiredServices: ["QBITTORRENT"],
+});
+
 /**
  * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
  */
@@ -52,6 +57,22 @@ async function triggerTask(
   await page.waitForTimeout(500);
 }
 
+async function setLifecycleTorrentState(
+  setFakeServiceState: (
+    serviceName: "QBITTORRENT",
+    stateName: string | null,
+    replacements?: Record<string, boolean | number | string>,
+  ) => Promise<void>,
+  stateName: string,
+  hash: string,
+  savePath: string,
+): Promise<void> {
+  await setFakeServiceState("QBITTORRENT", stateName, {
+    HASH: hash,
+    SAVE_PATH: savePath,
+  });
+}
+
 test.describe("Download Lifecycle", () => {
   let bookId: number;
   let authorId: number;
@@ -59,7 +80,7 @@ test.describe("Download Lifecycle", () => {
   let clientId: number;
 
   test.beforeEach(
-    async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
+    async ({ page, appUrl, db, tempDir, checkpoint }) => {
       await ensureAuthenticated(page, appUrl);
 
       // Clean up data from previous tests to prevent interference
@@ -122,12 +143,6 @@ test.describe("Download Lifecycle", () => {
 
       // Checkpoint WAL so bun:sqlite in the app server sees seeded data
       checkpoint();
-
-      // Configure fake qBittorrent
-      await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-        method: "POST",
-        body: JSON.stringify({ version: "v4.6.3" }),
-      });
     },
   );
 
@@ -135,7 +150,7 @@ test.describe("Download Lifecycle", () => {
     page,
     appUrl,
     db,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Seed a tracked download in "queued" state
     seedTrackedDownload(db, {
@@ -149,25 +164,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    // Configure fake qBittorrent to show the torrent as downloading
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-1",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "downloading",
-            size: 5_242_880,
-            downloaded: 2_621_440,
-            dlspeed: 1_048_576,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/downloads",
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-downloading-book",
+      "lifecycle-hash-1",
+      "/downloads",
+    );
 
     // Trigger the refresh-downloads task
     await triggerTask(page, appUrl, "Refresh Downloads");
@@ -184,7 +186,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Create a fake completed download directory with a book file
     const downloadDir = join(
@@ -207,25 +209,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    // Configure fake qBittorrent to show the torrent as completed
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-2",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 524_288,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book-removing",
+      "lifecycle-hash-2",
+      downloadDir,
+    );
 
     // Trigger refresh-downloads
     await triggerTask(page, appUrl, "Refresh Downloads");
@@ -245,7 +234,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     const downloadDir = join(
       tempDir,
@@ -269,24 +258,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-3",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-3",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -310,7 +287,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     const downloadDir = join(
       tempDir,
@@ -331,24 +308,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-4",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-4",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -368,7 +333,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     const downloadDir = join(
       tempDir,
@@ -389,24 +354,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-5",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-5",
+      downloadDir,
+    );
 
     // Navigate to the tasks page first, then capture SSE events while clicking
     // Run — this avoids navigating away (which destroys the EventSource context).
@@ -441,6 +394,7 @@ test.describe("Download Lifecycle", () => {
     db,
     tempDir,
     fakeServers,
+    setFakeServiceState,
   }) => {
     const downloadDir = join(
       tempDir,
@@ -462,24 +416,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-6",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-6",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -499,7 +441,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Enable rename books and set custom naming template
     seedSetting(db, "mediaManagement.ebook.renameBooks", true);
@@ -528,24 +470,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-7",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-7",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -566,7 +496,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Enable hard links
     seedSetting(db, "mediaManagement.ebook.useHardLinks", true);
@@ -591,24 +521,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-8",
-            name: "Lifecycle Author - Lifecycle Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-book",
+      "lifecycle-hash-8",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -634,7 +552,7 @@ test.describe("Download Lifecycle", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     const downloadDir = join(
       tempDir,
@@ -659,24 +577,12 @@ test.describe("Download Lifecycle", () => {
       downloadProfileId: profileId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "lifecycle-hash-audiobook",
-            name: "Lifecycle Author - Lifecycle Book [MP3]",
-            state: "uploading",
-            size: 15_000_000,
-            downloaded: 15_000_000,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setLifecycleTorrentState(
+      setFakeServiceState,
+      "single-completed-audiobook",
+      "lifecycle-hash-audiobook",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 

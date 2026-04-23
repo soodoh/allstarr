@@ -1,0 +1,7 @@
+{
+	"name": "queue-management-default",
+	"services": {
+		"QBITTORRENT": "queue-active",
+		"SABNZBD": "configured"
+	}
+}

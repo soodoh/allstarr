@@ -1,0 +1,24 @@
+{
+	"name": "single-downloading-book",
+	"service": "qbittorrent",
+	"seed": {
+		"addedDownloads": [],
+		"pausedIds": [],
+		"removedIds": [],
+		"resumedIds": [],
+		"torrents": [
+			{
+				"category": "allstarr",
+				"downloaded": 2621440,
+				"dlspeed": 1048576,
+				"hash": "{{HASH}}",
+				"name": "Lifecycle Author - Lifecycle Book [EPUB]",
+				"save_path": "{{SAVE_PATH}}",
+				"size": 5242880,
+				"state": "downloading",
+				"upspeed": 0
+			}
+		],
+		"version": "v4.6.3"
+	}
+}

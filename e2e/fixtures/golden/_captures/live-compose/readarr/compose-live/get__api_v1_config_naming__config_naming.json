@@ -1,0 +1,21 @@
+{
+  "body": {
+    "renameBooks": false,
+    "replaceIllegalCharacters": true,
+    "colonReplacementFormat": 4,
+    "standardBookFormat": "{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}",
+    "authorFolderFormat": "{Author Name}",
+    "includeAuthorName": false,
+    "includeBookTitle": false,
+    "includeQuality": false,
+    "replaceSpaces": false,
+    "id": 1
+  },
+  "contentType": "application/json; charset=utf-8",
+  "headers": {
+    "X-Api-Key": "<redacted>"
+  },
+  "method": "GET",
+  "path": "/api/v1/config/naming",
+  "status": 200
+}

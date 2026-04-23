@@ -17,7 +17,8 @@ type State = {
 	rootFolders: Array<Record<string, unknown>>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
 	return {
 		apiKey: "bookshelf-key",
 		authors: [{ id: 701, authorName: "Ursula K. Le Guin" }],
@@ -40,6 +41,7 @@ function defaultState(): State {
 		queue: [{ id: 504, title: "Earthsea queued" }],
 		qualityProfiles: [{ id: 26, name: "EPUB" }],
 		rootFolders: [{ id: 34, path: "/bookshelf" }],
+		...clonedSeed,
 	};
 }
 
@@ -105,6 +107,13 @@ function handler(
 	}
 }
 
-export default function createBookshelfServer(port: number): FakeServer<State> {
-	return createFakeServer<State>({ port, defaultState, handler });
+export default function createBookshelfServer(
+	port: number,
+	seed?: Partial<State>,
+): FakeServer<State> {
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }

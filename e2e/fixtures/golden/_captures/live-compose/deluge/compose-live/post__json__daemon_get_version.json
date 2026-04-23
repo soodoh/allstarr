@@ -1,0 +1,15 @@
+{
+  "body": {
+    "result": "2.2.0",
+    "error": null,
+    "id": 4
+  },
+  "contentType": "application/json",
+  "headers": {
+    "Content-Type": "application/json",
+    "Cookie": "<redacted>"
+  },
+  "method": "POST",
+  "path": "/json",
+  "status": 200
+}

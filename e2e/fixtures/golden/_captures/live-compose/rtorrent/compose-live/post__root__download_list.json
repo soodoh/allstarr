@@ -1,0 +1,10 @@
+{
+  "body": "<?xml version=\"1.0\"?><methodResponse><params><param><value><array><data><value><string>342E9E4ADDCC71D7577FA776D057C5541E4BEAE3</string></value></data></array></value></param></params></methodResponse>",
+  "contentType": "text/xml",
+  "headers": {
+    "Content-Type": "text/xml"
+  },
+  "method": "POST",
+  "path": "/",
+  "status": 200
+}

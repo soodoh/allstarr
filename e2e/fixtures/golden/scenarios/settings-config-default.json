@@ -1,0 +1,12 @@
+{
+	"name": "settings-config-default",
+	"services": {
+		"DELUGE": "idle",
+		"NEWZNAB": "caps-v1",
+		"NZBGET": "configured",
+		"QBITTORRENT": "idle",
+		"RTORRENT": "idle",
+		"SABNZBD": "configured",
+		"TRANSMISSION": "idle"
+	}
+}

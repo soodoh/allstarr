@@ -1,0 +1,13 @@
+{
+	"name": "idle",
+	"service": "transmission",
+	"seed": {
+		"addedDownloads": [],
+		"removedIds": [],
+		"sessionId": "test-transmission-session-id",
+		"startedIds": [],
+		"stoppedIds": [],
+		"torrents": [],
+		"version": "4.0.0"
+	}
+}

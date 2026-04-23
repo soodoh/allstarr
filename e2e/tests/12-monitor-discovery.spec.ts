@@ -14,9 +14,8 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
-type FakeServerUrls = Partial<Record<Exclude<keyof typeof PORTS, "APP_BASE">, string>>;
-
 test.use({
+	fakeServerScenario: "monitor-discovery-default",
 	requiredServices: ["QBITTORRENT", "NEWZNAB", "HARDCOVER", "TMDB"],
 });
 
@@ -47,288 +46,9 @@ async function triggerTask(
 	}).toPass({ timeout: 30_000 });
 }
 
-function makeHardcoverAuthor(id: number, name: string, slug: string) {
-	return {
-		id,
-		name,
-		slug,
-		bio: `${name} bio`,
-		born_year: 1970,
-		death_year: null,
-		image: { url: `https://example.com/${slug}.jpg` },
-	};
-}
-
-function makeHardcoverBook(input: {
-	authorId: number;
-	authorName: string;
-	authorSlug: string;
-	authorImageUrl?: string;
-	series?: {
-			id: number;
-			name: string;
-			slug: string;
-			isCompleted: boolean;
-			position: string;
-	  };
-		bookId: number;
-		title: string;
-		slug: string;
-		editionId: number;
-}) {
-	return {
-		id: input.bookId,
-		title: input.title,
-		slug: input.slug,
-		description: `${input.title} description`,
-		release_date: "2026-04-01",
-		release_year: 2026,
-		rating: 4.2,
-		ratings_count: 1_200,
-		users_count: 3_400,
-		compilation: false,
-		default_cover_edition_id: input.editionId,
-		image: { url: `https://example.com/${input.slug}.jpg` },
-		authorId: input.authorId,
-		contributions: [
-			{
-				contribution: null,
-				author: {
-					id: input.authorId,
-					name: input.authorName,
-					slug: input.authorSlug,
-					image: {
-						url:
-							input.authorImageUrl ??
-							`https://example.com/${input.authorSlug}.jpg`,
-					},
-				},
-			},
-		],
-		book_series: input.series
-			? [
-					{
-						position: input.series.position,
-						series: {
-							id: input.series.id,
-							name: input.series.name,
-							slug: input.series.slug,
-							is_completed: input.series.isCompleted,
-						},
-					},
-				]
-			: [],
-	};
-}
-
-function makeHardcoverEdition(input: {
-	bookId: number;
-	editionId: number;
-	title: string;
-}) {
-	return {
-		id: input.editionId,
-		bookId: input.bookId,
-		title: input.title,
-		isbn_10: null,
-		isbn_13: `${input.editionId}`.padStart(13, "9"),
-		asin: null,
-		pages: 320,
-		audio_seconds: null,
-		release_date: "2026-04-01",
-		users_count: 600,
-		score: 88,
-		image: { url: `https://example.com/${input.editionId}.jpg` },
-		language: { code2: "en", language: "English" },
-		reading_format: { format: "Ebook" },
-		publisher: { name: "Example Press" },
-	};
-}
-
-function makeTmdbMovieDetail(input: {
-	id: number;
-	title: string;
-	collection?: { id: number; name: string };
-}) {
-	return {
-		id: input.id,
-		title: input.title,
-		original_title: input.title,
-		overview: `${input.title} overview`,
-		poster_path: `/movie-${input.id}.jpg`,
-		backdrop_path: `/movie-${input.id}-backdrop.jpg`,
-		release_date: "2025-07-01",
-		status: "Released",
-		runtime: 130,
-		genres: [{ id: 1, name: "Science Fiction" }],
-		production_companies: [{ id: 1, name: "Example Studio" }],
-		imdb_id: `tt${input.id}`,
-		budget: 100_000_000,
-		revenue: 200_000_000,
-		vote_average: 7.8,
-		belongs_to_collection: input.collection
-			? {
-					id: input.collection.id,
-					name: input.collection.name,
-					poster_path: "/collection.jpg",
-					backdrop_path: "/collection-backdrop.jpg",
-				}
-			: null,
-	};
-}
-
-function makeTmdbShowDetail() {
-	return {
-		id: 7700,
-		name: "Discovery Show",
-		overview: "Discovery Show overview",
-		poster_path: "/show.jpg",
-		backdrop_path: "/show-backdrop.jpg",
-		first_air_date: "2024-01-01",
-		last_air_date: "2026-04-01",
-		status: "Returning Series",
-		type: "Scripted",
-		networks: [{ id: 1, name: "Example Network" }],
-		genres: [{ id: 1, name: "Drama" }],
-		number_of_seasons: 2,
-		number_of_episodes: 3,
-		episode_run_time: [55],
-		seasons: [
-			{
-				id: 7701,
-				season_number: 1,
-				name: "Season 1",
-				overview: "First season",
-				poster_path: "/season-1.jpg",
-				episode_count: 1,
-				air_date: "2024-01-01",
-			},
-			{
-				id: 7702,
-				season_number: 2,
-				name: "Season 2",
-				overview: "Second season",
-				poster_path: "/season-2.jpg",
-				episode_count: 2,
-				air_date: "2026-04-01",
-			},
-		],
-		external_ids: { imdb_id: "tt7700" },
-	};
-}
-
-async function configureTmdbState(
-	fakeServers: FakeServerUrls,
-): Promise<void> {
-	await fetch(`${fakeServers.TMDB}/__control`, {
-		method: "POST",
-		body: JSON.stringify({
-			collectionDetails: {
-				5500: {
-					id: 5500,
-					name: "Discovery Collection",
-					overview: "Collection overview",
-					poster_path: "/collection.jpg",
-					backdrop_path: "/collection-backdrop.jpg",
-					parts: [
-						{
-							id: 5501,
-							title: "Existing Collection Movie",
-							overview: "Existing movie overview",
-							poster_path: "/existing.jpg",
-							backdrop_path: "/existing-backdrop.jpg",
-							release_date: "2022-01-01",
-							adult: false,
-						},
-						{
-							id: 5502,
-							title: "Fresh Collection Movie",
-							overview: "Fresh movie overview",
-							poster_path: "/fresh.jpg",
-							backdrop_path: "/fresh-backdrop.jpg",
-							release_date: "2025-07-01",
-							adult: false,
-						},
-					],
-				},
-			},
-			movieDetails: {
-				5502: makeTmdbMovieDetail({
-					id: 5502,
-					title: "Fresh Collection Movie",
-					collection: { id: 5500, name: "Discovery Collection" },
-				}),
-				5501: makeTmdbMovieDetail({
-					id: 5501,
-					title: "Existing Collection Movie",
-					collection: { id: 5500, name: "Discovery Collection" },
-				}),
-			},
-			showDetails: {
-				7700: makeTmdbShowDetail(),
-			},
-			seasonDetails: {
-				"7700:1": {
-					id: 7701,
-					season_number: 1,
-					name: "Season 1",
-					overview: "First season",
-					poster_path: "/season-1.jpg",
-					episodes: [
-						{
-							id: 8801,
-							episode_number: 1,
-							name: "Pilot",
-							overview: "Pilot overview",
-							air_date: "2024-01-01",
-							runtime: 55,
-							still_path: "/pilot.jpg",
-							vote_average: 7.5,
-						},
-					],
-				},
-				"7700:2": {
-					id: 7702,
-					season_number: 2,
-					name: "Season 2",
-					overview: "Second season",
-					poster_path: "/season-2.jpg",
-					episodes: [
-						{
-							id: 8802,
-							episode_number: 1,
-							name: "A New Start",
-							overview: "Season two premiere",
-							air_date: "2026-04-01",
-							runtime: 56,
-							still_path: "/s2e1.jpg",
-							vote_average: 7.8,
-						},
-						{
-							id: 8803,
-							episode_number: 2,
-							name: "Another Step",
-							overview: "Season two episode two",
-							air_date: "2026-04-08",
-							runtime: 57,
-							still_path: "/s2e2.jpg",
-							vote_average: 7.9,
-						},
-					],
-				},
-			},
-		}),
-	});
-}
-
 test.describe("Monitor discovery", () => {
-	test.beforeEach(async ({ page, appUrl, db, fakeServers }) => {
+	test.beforeEach(async ({ page, appUrl, db }) => {
 		await ensureAuthenticated(page, appUrl);
-
-		await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-			method: "POST",
-			body: JSON.stringify({ version: "v4.6.3" }),
-		});
 
 		db.delete(schema.trackedDownloads).run();
 		db.delete(schema.history).run();
@@ -368,8 +88,9 @@ test.describe("Monitor discovery", () => {
 		page,
 		appUrl,
 		db,
-		fakeServers,
 		checkpoint,
+		fakeServers,
+		setFakeServiceState,
 	}) => {
 		const profile = seedDownloadProfile(db, {
 			name: "Books Profile",
@@ -415,64 +136,8 @@ test.describe("Monitor discovery", () => {
 		});
 		checkpoint();
 
-		await fetch(`${fakeServers.HARDCOVER}/__control`, {
-			method: "POST",
-			body: JSON.stringify({
-				authors: [makeHardcoverAuthor(100, "Monitor Author", "monitor-author")],
-				books: [
-					makeHardcoverBook({
-						authorId: 100,
-						authorName: "Monitor Author",
-						authorSlug: "monitor-author",
-						bookId: 200,
-						title: "Settled Book",
-						slug: "settled-book",
-						editionId: 300,
-					}),
-					makeHardcoverBook({
-						authorId: 100,
-						authorName: "Monitor Author",
-						authorSlug: "monitor-author",
-						bookId: 201,
-						title: "Fresh Arrival",
-						slug: "fresh-arrival",
-						editionId: 301,
-					}),
-				],
-				editions: [
-					makeHardcoverEdition({
-						bookId: 200,
-						editionId: 300,
-						title: "Settled Book - EPUB",
-					}),
-					makeHardcoverEdition({
-						bookId: 201,
-						editionId: 301,
-						title: "Fresh Arrival - EPUB",
-					}),
-				],
-			}),
-		});
-
-		await fetch(`${fakeServers.NEWZNAB}/__control`, {
-			method: "POST",
-			body: JSON.stringify({
-				releases: [
-					{
-						guid: "fresh-arrival-release",
-						title: "Monitor Author - Fresh Arrival [EPUB]",
-						size: 5_242_880,
-						downloadUrl: "http://example.com/fresh-arrival.torrent",
-						magnetUrl: "magnet:?xt=urn:btih:fresh-arrival",
-						publishDate: "Fri, 10 Apr 2026 12:00:00 GMT",
-						seeders: 42,
-						peers: 55,
-						category: "7020",
-						protocol: "torrent",
-					},
-				],
-			}),
-		});
+		await setFakeServiceState("HARDCOVER", "monitor-author-refresh");
+		await setFakeServiceState("NEWZNAB", "monitor-fresh-arrival");
 
 		db.update(schema.authors)
 			.set({ monitorNewBooks: "all" })
@@ -542,8 +207,8 @@ test.describe("Monitor discovery", () => {
 		page,
 		appUrl,
 		db,
-		fakeServers,
 		checkpoint,
+		setFakeServiceState,
 	}) => {
 		const profile = seedDownloadProfile(db, {
 			name: "Series Profile",
@@ -599,61 +264,7 @@ test.describe("Monitor discovery", () => {
 			.run();
 		checkpoint();
 
-		await fetch(`${fakeServers.HARDCOVER}/__control`, {
-			method: "POST",
-			body: JSON.stringify({
-				authors: [
-					makeHardcoverAuthor(110, "Series Keeper", "series-keeper"),
-					makeHardcoverAuthor(111, "Series Newcomer", "series-newcomer"),
-				],
-				books: [
-					makeHardcoverBook({
-						authorId: 110,
-						authorName: "Series Keeper",
-						authorSlug: "series-keeper",
-						bookId: 210,
-						title: "Series Origin",
-						slug: "series-origin",
-						editionId: 310,
-						series: {
-							id: 910,
-							name: "Discovery Saga",
-							slug: "discovery-saga",
-							isCompleted: false,
-							position: "1",
-						},
-					}),
-					makeHardcoverBook({
-						authorId: 111,
-						authorName: "Series Newcomer",
-						authorSlug: "series-newcomer",
-						bookId: 211,
-						title: "Series Continuation",
-						slug: "series-continuation",
-						editionId: 311,
-						series: {
-							id: 910,
-							name: "Discovery Saga",
-							slug: "discovery-saga",
-							isCompleted: false,
-							position: "2",
-						},
-					}),
-				],
-				editions: [
-					makeHardcoverEdition({
-						bookId: 210,
-						editionId: 310,
-						title: "Series Origin - EPUB",
-					}),
-					makeHardcoverEdition({
-						bookId: 211,
-						editionId: 311,
-						title: "Series Continuation - EPUB",
-					}),
-				],
-			}),
-		});
+		await setFakeServiceState("HARDCOVER", "monitor-series-refresh");
 
 		await navigateTo(page, appUrl, "/series");
 		await page.getByRole("button", { name: "Refresh All" }).click();
@@ -703,7 +314,6 @@ test.describe("Monitor discovery", () => {
 		page,
 		appUrl,
 		db,
-		fakeServers,
 		checkpoint,
 	}) => {
 		const movieProfile = seedDownloadProfile(db, {
@@ -766,8 +376,6 @@ test.describe("Monitor discovery", () => {
 			.run();
 		checkpoint();
 
-		await configureTmdbState(fakeServers);
-
 		await navigateTo(page, appUrl, "/movies/collections");
 		await page.getByRole("button", { name: "Refresh All" }).click();
 
@@ -797,7 +405,6 @@ test.describe("Monitor discovery", () => {
 		page,
 		appUrl,
 		db,
-		fakeServers,
 		checkpoint,
 	}) => {
 		const tvProfile = seedDownloadProfile(db, {
@@ -869,8 +476,6 @@ test.describe("Monitor discovery", () => {
 			})
 			.run();
 		checkpoint();
-
-		await configureTmdbState(fakeServers);
 
 		await triggerTask(page, appUrl, "Refresh TMDB Metadata");
 

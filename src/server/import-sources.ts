@@ -2,11 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import {
+	books,
+	booksAuthors,
 	type ImportSource,
 	importProvenance,
 	importReviewItems,
 	importSnapshots,
 	importSources,
+	movies,
+	shows,
 } from "src/db/schema";
 import {
 	applyImportPlanSchema,
@@ -16,55 +20,69 @@ import {
 	resolveImportReviewItemSchema,
 	updateImportSourceSchema,
 } from "src/lib/validators";
+import { z } from "zod";
 import { applyImportPlan } from "./imports/apply";
 import { fetchBookshelfSnapshot } from "./imports/connectors/bookshelf";
 import { fetchRadarrSnapshot } from "./imports/connectors/radarr";
 import { fetchReadarrSnapshot } from "./imports/connectors/readarr";
 import { fetchSonarrSnapshot } from "./imports/connectors/sonarr";
-import type { NormalizedImportSnapshot } from "./imports/normalize";
+import { buildBookFingerprint } from "./imports/match";
 import { normalizeImportSnapshot } from "./imports/normalize";
-import type { ImportPlan, ImportPlanRow } from "./imports/plan";
-import { buildImportPlan } from "./imports/plan";
+import {
+	buildImportPlan,
+	type ImportPlanPayload,
+	type ImportPlanRow,
+} from "./imports/plan";
 import type { ImportSourceKind, RawImportSnapshot } from "./imports/types";
 import { requireAdmin } from "./middleware";
 
-type ImportPlanSectionName = keyof ImportPlan;
+const importSourceIdSchema = z.object({
+	sourceId: z.number(),
+});
 
-type SerializedImportPlanRow = Omit<ImportPlanRow, "targetId"> & {
-	section: ImportPlanSectionName;
-	sourceKind: ImportSourceKind;
-	sourceLabel: string;
-	targetId: number | string | null;
-	targetLabel: string | null;
-};
-
-type SerializedImportReviewRow = {
-	createdAt: string;
-	id: number;
-	payload: Record<string, unknown>;
+type ImportPlanReadRow = {
+	action: string;
+	payload: ImportPlanPayload;
+	reason: string | null;
 	resourceType: string;
-	sourceId: number;
-	sourceKind: ImportSourceKind;
+	selectable: boolean;
 	sourceKey: string;
-	sourceLabel: string;
-	status: string;
-	updatedAt: string;
+	sourceSummary: string;
+	target: {
+		id: number | null;
+		label: string | null;
+	};
+	title: string;
 };
 
-type LatestSnapshotRecord = {
-	fetchedAt: Date | null;
-	id: number;
-	payload: NormalizedImportSnapshot;
-	sourceId: number;
+type ImportReviewReadRow = {
+	action: string;
+	payload: ImportPlanPayload;
+	reason: string | null;
+	resourceType: string;
+	sourceKey: string;
+	sourceSummary: string;
+	status: "ready" | "blocked" | "unresolved";
+	target: {
+		id: number | null;
+		label: string | null;
+	};
+	title: string;
 };
 
-type ImportProvenanceRecord = {
-	lastImportedAt: Date | null;
-	sourceId: number;
-	sourceKey: string;
-	targetId: string;
-	targetType: string;
-};
+function flattenPlanRows(
+	plan: ReturnType<typeof buildImportPlan>,
+): ImportPlanRow[] {
+	return [
+		...plan.settings.items,
+		...plan.qualityProfiles.items,
+		...plan.metadataProfiles.items,
+		...plan.library.items,
+		...plan.activity.items,
+		...plan.unresolved.items,
+		...plan.unsupported.items,
+	];
+}
 
 function toClientImportSource(source: ImportSource) {
 	const { apiKey, ...safeSource } = source;
@@ -72,153 +90,6 @@ function toClientImportSource(source: ImportSource) {
 		...safeSource,
 		hasApiKey: apiKey.trim().length > 0,
 	};
-}
-
-function getTargetLabel(targetType: string): string | null {
-	switch (targetType) {
-		case "download-client":
-			return "Download client";
-		case "download-profile":
-			return "Download profile";
-		case "metadata-profile":
-			return "Metadata profile";
-		case "movie":
-			return "Movie";
-		case "show":
-			return "Show";
-		case "book":
-			return "Book";
-		default:
-			return null;
-	}
-}
-
-function normalizeTargetId(targetId: unknown): number | string | null {
-	if (typeof targetId === "number" && Number.isFinite(targetId)) {
-		return targetId;
-	}
-	if (typeof targetId === "string") {
-		const trimmed = targetId.trim();
-		if (trimmed.length === 0) {
-			return null;
-		}
-		const parsed = Number(trimmed);
-		if (Number.isInteger(parsed)) {
-			return parsed;
-		}
-		return trimmed;
-	}
-	return null;
-}
-
-function toTimestamp(value: Date | null | undefined): number {
-	return value?.getTime() ?? 0;
-}
-
-function getLatestSnapshot(sourceId: number): LatestSnapshotRecord | null {
-	const snapshots = db
-		.select()
-		.from(importSnapshots)
-		.where(eq(importSnapshots.sourceId, sourceId))
-		.all() as LatestSnapshotRecord[];
-
-	return (
-		snapshots
-			.slice()
-			.sort(
-				(left, right) =>
-					toTimestamp(right.fetchedAt) - toTimestamp(left.fetchedAt) ||
-					right.id - left.id,
-			)[0] ?? null
-	);
-}
-
-function getSourceForImport(sourceId: number): ImportSource {
-	const source = db
-		.select()
-		.from(importSources)
-		.where(eq(importSources.id, sourceId))
-		.get();
-
-	if (!source) {
-		throw new Error("Import source not found");
-	}
-
-	return source;
-}
-
-function getProvenanceBySourceKey(
-	sourceId: number,
-): Map<string, ImportProvenanceRecord> {
-	const provenanceRows = db
-		.select()
-		.from(importProvenance)
-		.where(eq(importProvenance.sourceId, sourceId))
-		.all() as ImportProvenanceRecord[];
-
-	return new Map(provenanceRows.map((row) => [row.sourceKey, row]));
-}
-
-function serializeImportPlanRows(args: {
-	plan: ImportPlan;
-	source: ImportSource;
-	provenanceBySourceKey: Map<string, ImportProvenanceRecord>;
-}): SerializedImportPlanRow[] {
-	const rows: SerializedImportPlanRow[] = [];
-	const sections: Array<
-		[ImportPlanSectionName, ImportPlan[ImportPlanSectionName]]
-	> = [
-		["settings", args.plan.settings],
-		["qualityProfiles", args.plan.qualityProfiles],
-		["metadataProfiles", args.plan.metadataProfiles],
-		["library", args.plan.library],
-		["activity", args.plan.activity],
-		["unresolved", args.plan.unresolved],
-		["unsupported", args.plan.unsupported],
-	];
-
-	for (const [section, group] of sections) {
-		for (const row of group.items) {
-			const provenance = args.provenanceBySourceKey.get(row.sourceKey);
-			rows.push({
-				...row,
-				targetId: normalizeTargetId(row.targetId),
-				section,
-				sourceKind: args.source.kind as ImportSourceKind,
-				sourceLabel: args.source.label,
-				targetLabel: provenance ? getTargetLabel(provenance.targetType) : null,
-			});
-		}
-	}
-
-	return rows;
-}
-
-function serializeImportReviewRows(args: {
-	rows: Array<{
-		createdAt: Date;
-		id: number;
-		payload: Record<string, unknown>;
-		resourceType: string;
-		sourceId: number;
-		sourceKey: string;
-		status: string;
-		updatedAt: Date;
-	}>;
-	source: ImportSource;
-}): SerializedImportReviewRow[] {
-	return args.rows.map((row) => ({
-		createdAt: row.createdAt.toISOString(),
-		id: row.id,
-		payload: row.payload,
-		resourceType: row.resourceType,
-		sourceId: row.sourceId,
-		sourceKind: args.source.kind as ImportSourceKind,
-		sourceKey: row.sourceKey,
-		sourceLabel: args.source.label,
-		status: row.status,
-		updatedAt: row.updatedAt.toISOString(),
-	}));
 }
 
 async function fetchImportSourceSnapshot(
@@ -248,6 +119,259 @@ async function fetchImportSourceSnapshot(
 	throw new Error(`Unsupported import source kind: ${source.kind}`);
 }
 
+function getLatestSnapshot(sourceId: number) {
+	return db
+		.select()
+		.from(importSnapshots)
+		.where(eq(importSnapshots.sourceId, sourceId))
+		.orderBy(importSnapshots.fetchedAt)
+		.all()
+		.at(-1);
+}
+
+function getTargetLabel(
+	resourceType: string,
+	targetId: number | null,
+): string | null {
+	if (targetId === null) {
+		return null;
+	}
+
+	if (resourceType === "movie") {
+		return (
+			db
+				.select({ title: movies.title })
+				.from(movies)
+				.where(eq(movies.id, targetId))
+				.get()?.title ?? null
+		);
+	}
+
+	if (resourceType === "show") {
+		return (
+			db
+				.select({ title: shows.title })
+				.from(shows)
+				.where(eq(shows.id, targetId))
+				.get()?.title ?? null
+		);
+	}
+
+	if (resourceType === "book") {
+		return (
+			db
+				.select({ title: books.title })
+				.from(books)
+				.where(eq(books.id, targetId))
+				.get()?.title ?? null
+		);
+	}
+
+	return null;
+}
+
+function formatSourceSummary(row: ImportPlanRow): string {
+	const payload = row.payload ?? {};
+
+	if (row.resourceType === "show") {
+		const tmdbId =
+			typeof payload.tmdbId === "number" ? `TMDB ${payload.tmdbId}` : null;
+		const tvdbId =
+			typeof payload.tvdbId === "number" ? `TVDB ${payload.tvdbId}` : null;
+		return [tmdbId, tvdbId].filter(Boolean).join(" | ") || "Mapped show item";
+	}
+
+	if (row.resourceType === "movie") {
+		return typeof payload.tmdbId === "number"
+			? `TMDB ${payload.tmdbId}`
+			: "Mapped movie item";
+	}
+
+	if (row.resourceType === "book") {
+		const author =
+			typeof payload.authorName === "string"
+				? `Author ${payload.authorName}`
+				: null;
+		const foreignBookId =
+			typeof payload.foreignBookId === "string"
+				? `Hardcover ${payload.foreignBookId}`
+				: null;
+		return (
+			[author, foreignBookId].filter(Boolean).join(" | ") || "Mapped book item"
+		);
+	}
+
+	if (row.resourceType === "profile") {
+		return typeof payload.profileKind === "string"
+			? `${payload.profileKind} profile`
+			: "Profile row";
+	}
+
+	if (row.resourceType === "setting") {
+		return typeof payload.group === "string" ? payload.group : "Setting row";
+	}
+
+	return row.resourceType;
+}
+
+function serializePlanRow(row: ImportPlanRow): ImportPlanReadRow {
+	return {
+		action: row.action,
+		payload:
+			row.targetId === null
+				? row.payload
+				: {
+						...row.payload,
+						targetId: row.targetId,
+					},
+		reason: row.warning,
+		resourceType: row.resourceType,
+		selectable: row.selectable,
+		sourceKey: row.sourceKey,
+		sourceSummary: formatSourceSummary(row),
+		target: {
+			id: row.targetId,
+			label: getTargetLabel(row.resourceType, row.targetId),
+		},
+		title: row.title,
+	};
+}
+
+function serializeReviewRow(row: ImportPlanRow): ImportReviewReadRow {
+	return {
+		action: row.action,
+		payload:
+			row.targetId === null
+				? row.payload
+				: {
+						...row.payload,
+						targetId: row.targetId,
+					},
+		reason: row.warning,
+		resourceType: row.resourceType,
+		sourceKey: row.sourceKey,
+		sourceSummary: formatSourceSummary(row),
+		status: row.action === "unresolved" ? "unresolved" : "blocked",
+		target: {
+			id: row.targetId,
+			label: getTargetLabel(row.resourceType, row.targetId),
+		},
+		title: row.title,
+	};
+}
+
+function loadExistingState() {
+	const moviesByTmdbId = new Map(
+		db
+			.select({ id: movies.id, tmdbId: movies.tmdbId })
+			.from(movies)
+			.all()
+			.map((row) => [row.tmdbId, { id: row.id }] as const),
+	);
+
+	const showsByTmdbId = new Map(
+		db
+			.select({ id: shows.id, tmdbId: shows.tmdbId })
+			.from(shows)
+			.all()
+			.map((row) => [row.tmdbId, { id: row.id }] as const),
+	);
+
+	const booksByForeignBookId = new Map(
+		db
+			.select({
+				foreignBookId: books.foreignBookId,
+				id: books.id,
+				releaseYear: books.releaseYear,
+				title: books.title,
+			})
+			.from(books)
+			.all()
+			.filter(
+				(
+					row,
+				): row is {
+					foreignBookId: string;
+					id: number;
+					releaseYear: number | null;
+					title: string;
+				} =>
+					typeof row.foreignBookId === "string" && row.foreignBookId.length > 0,
+			)
+			.map((row) => [row.foreignBookId, { id: row.id }] as const),
+	);
+
+	const primaryAuthorByBookId = new Map<number, string>();
+	for (const row of db
+		.select({
+			authorName: booksAuthors.authorName,
+			bookId: booksAuthors.bookId,
+			isPrimary: booksAuthors.isPrimary,
+		})
+		.from(booksAuthors)
+		.all()
+		.sort(
+			(left, right) =>
+				Number(right.isPrimary) - Number(left.isPrimary) ||
+				left.bookId - right.bookId,
+		)) {
+		if (!primaryAuthorByBookId.has(row.bookId)) {
+			primaryAuthorByBookId.set(row.bookId, row.authorName);
+		}
+	}
+
+	const bookFingerprintToId = new Map(
+		db
+			.select({
+				id: books.id,
+				releaseYear: books.releaseYear,
+				title: books.title,
+			})
+			.from(books)
+			.all()
+			.map((row) => {
+				const authorName = primaryAuthorByBookId.get(row.id) ?? null;
+				const fingerprint = buildBookFingerprint({
+					authorName,
+					title: row.title,
+					year: row.releaseYear,
+				});
+				return fingerprint.length > 0 ? ([fingerprint, row.id] as const) : null;
+			})
+			.filter((entry): entry is readonly [string, number] => entry !== null),
+	);
+
+	const provenanceBySourceKey = new Map(
+		db
+			.select({
+				sourceKey: importProvenance.sourceKey,
+				targetId: importProvenance.targetId,
+				targetType: importProvenance.targetType,
+			})
+			.from(importProvenance)
+			.all()
+			.map(
+				(row) =>
+					[
+						row.sourceKey,
+						{
+							targetId: Number(row.targetId),
+							targetType: row.targetType,
+						},
+					] as const,
+			)
+			.filter((entry) => Number.isInteger(entry[1].targetId)),
+	);
+
+	return {
+		bookFingerprintToId,
+		booksByForeignBookId,
+		moviesByTmdbId,
+		provenanceBySourceKey,
+		showsByTmdbId,
+	};
+}
+
 export const getImportSourcesFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAdmin();
@@ -259,66 +383,6 @@ export const getImportSourcesFn = createServerFn({ method: "GET" }).handler(
 			.map(toClientImportSource);
 	},
 );
-
-export const getImportPlanFn = createServerFn({ method: "GET" })
-	.inputValidator((data: { sourceId: number }) => data)
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const source = getSourceForImport(data.sourceId);
-		const latestSnapshot = getLatestSnapshot(source.id);
-
-		if (!latestSnapshot) {
-			return [] as SerializedImportPlanRow[];
-		}
-
-		const provenanceBySourceKey = getProvenanceBySourceKey(source.id);
-		const plan = buildImportPlan({
-			snapshots: [latestSnapshot.payload],
-			existingState: {
-				provenanceBySourceKey,
-			},
-		});
-
-		return serializeImportPlanRows({
-			plan,
-			provenanceBySourceKey,
-			source,
-		});
-	});
-
-export const getImportReviewFn = createServerFn({ method: "GET" })
-	.inputValidator((data: { sourceId: number }) => data)
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		const source = getSourceForImport(data.sourceId);
-		const rows = db
-			.select()
-			.from(importReviewItems)
-			.where(eq(importReviewItems.sourceId, source.id))
-			.all() as Array<{
-			createdAt: Date;
-			id: number;
-			payload: Record<string, unknown>;
-			resourceType: string;
-			sourceId: number;
-			sourceKey: string;
-			status: string;
-			updatedAt: Date;
-		}>;
-
-		const sortedRows = rows.slice().sort((left, right) => {
-			return (
-				toTimestamp(right.updatedAt) - toTimestamp(left.updatedAt) ||
-				toTimestamp(right.createdAt) - toTimestamp(left.createdAt) ||
-				right.id - left.id
-			);
-		});
-
-		return serializeImportReviewRows({
-			rows: sortedRows,
-			source,
-		});
-	});
 
 export const createImportSourceFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => createImportSourceSchema.parse(data))
@@ -421,7 +485,126 @@ export const applyImportPlanFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => applyImportPlanSchema.parse(data))
 	.handler(async ({ data }) => {
 		await requireAdmin();
-		return applyImportPlan(data);
+		const source = db
+			.select()
+			.from(importSources)
+			.where(eq(importSources.id, data.sourceId))
+			.get();
+
+		if (!source) {
+			throw new Error("Import source not found");
+		}
+
+		const snapshot = getLatestSnapshot(source.id);
+		if (!snapshot) {
+			throw new Error("Import snapshot not found");
+		}
+
+		const plan = buildImportPlan({
+			snapshots: [
+				snapshot.payload as ReturnType<typeof normalizeImportSnapshot>,
+			],
+			existingState: loadExistingState(),
+		});
+		const planRowsBySourceKey = new Map(
+			flattenPlanRows(plan).map((row) => [row.sourceKey, row] as const),
+		);
+		const selectedRows = data.selectedRows.map((row) => {
+			const canonical = planRowsBySourceKey.get(row.sourceKey);
+			if (!canonical) {
+				throw new Error(`Import plan row not found for ${row.sourceKey}`);
+			}
+
+			return {
+				action: canonical.action,
+				payload:
+					canonical.targetId === null
+						? canonical.payload
+						: {
+								...canonical.payload,
+								targetId: canonical.targetId,
+							},
+				resourceType: canonical.resourceType,
+				sourceKey: canonical.sourceKey,
+			};
+		});
+
+		return applyImportPlan({
+			selectedRows,
+			sourceId: data.sourceId,
+		});
+	});
+
+export const getImportPlanFn = createServerFn({ method: "POST" })
+	.inputValidator((data: unknown) => importSourceIdSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAdmin();
+		const source = db
+			.select()
+			.from(importSources)
+			.where(eq(importSources.id, data.sourceId))
+			.get();
+
+		if (!source) {
+			throw new Error("Import source not found");
+		}
+
+		const snapshot = getLatestSnapshot(source.id);
+		if (!snapshot) {
+			return [] as ImportPlanReadRow[];
+		}
+
+		const plan = buildImportPlan({
+			snapshots: [
+				snapshot.payload as ReturnType<typeof normalizeImportSnapshot>,
+			],
+			existingState: loadExistingState(),
+		});
+
+		return [
+			...plan.settings.items,
+			...plan.qualityProfiles.items,
+			...plan.metadataProfiles.items,
+			...plan.library.items,
+			...plan.activity.items,
+		].map(serializePlanRow);
+	});
+
+export const getImportReviewFn = createServerFn({ method: "POST" })
+	.inputValidator((data: unknown) => importSourceIdSchema.parse(data))
+	.handler(async ({ data }) => {
+		await requireAdmin();
+		const source = db
+			.select()
+			.from(importSources)
+			.where(eq(importSources.id, data.sourceId))
+			.get();
+
+		if (!source) {
+			throw new Error("Import source not found");
+		}
+
+		const snapshot = getLatestSnapshot(source.id);
+		if (!snapshot) {
+			return [] as ImportReviewReadRow[];
+		}
+
+		const plan = buildImportPlan({
+			snapshots: [
+				snapshot.payload as ReturnType<typeof normalizeImportSnapshot>,
+			],
+			existingState: loadExistingState(),
+		});
+
+		return [
+			...plan.unresolved.items,
+			...plan.unsupported.items,
+			...plan.settings.items.filter((row) => !row.selectable),
+			...plan.qualityProfiles.items.filter((row) => !row.selectable),
+			...plan.metadataProfiles.items.filter((row) => !row.selectable),
+			...plan.library.items.filter((row) => !row.selectable),
+			...plan.activity.items.filter((row) => !row.selectable),
+		].map(serializeReviewRow);
 	});
 
 export const resolveImportReviewItemFn = createServerFn({ method: "POST" })

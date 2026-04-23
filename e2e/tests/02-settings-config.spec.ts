@@ -5,6 +5,7 @@ import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
 test.use({
+	fakeServerScenario: "settings-config-default",
 	requiredServices: [
 		"QBITTORRENT",
 		"TRANSMISSION",
@@ -22,16 +23,7 @@ test.describe("Settings and Configuration", () => {
 	});
 
 	test.describe("Download Clients", () => {
-		test("add and test qBittorrent client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "v4.6.3" }),
-			});
-
+		test("add and test qBittorrent client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "qBittorrent" }).click();
@@ -49,16 +41,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test qBittorrent")).toBeVisible();
 		});
 
-		test("add and test Transmission client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.TRANSMISSION}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "4.0.0" }),
-			});
-
+		test("add and test Transmission client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "Transmission" }).click();
@@ -76,16 +59,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test Transmission")).toBeVisible();
 		});
 
-		test("add and test Deluge client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.DELUGE}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "2.1.1" }),
-			});
-
+		test("add and test Deluge client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "Deluge" }).click();
@@ -102,16 +76,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test Deluge")).toBeVisible();
 		});
 
-		test("add and test rTorrent client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.RTORRENT}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "0.9.8" }),
-			});
-
+		test("add and test rTorrent client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "rTorrent" }).click();
@@ -127,16 +92,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test rTorrent")).toBeVisible();
 		});
 
-		test("add and test SABnzbd client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.SABNZBD}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "4.2.1" }),
-			});
-
+		test("add and test SABnzbd client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "SABnzbd" }).click();
@@ -153,16 +109,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test SABnzbd")).toBeVisible();
 		});
 
-		test("add and test NZBGet client", async ({
-			page,
-			appUrl,
-			fakeServers,
-		}) => {
-			await fetch(`${fakeServers.NZBGET}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "21.1" }),
-			});
-
+		test("add and test NZBGet client", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await page.getByRole("button", { name: "Add Client" }).click();
 			await page.getByRole("button", { name: "NZBGet" }).click();
@@ -180,14 +127,9 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test NZBGet")).toBeVisible();
 		});
 
-		test("edit download client", async ({ page, appUrl, db, fakeServers }) => {
+		test("edit download client", async ({ page, appUrl, db }) => {
 			const { seedDownloadClient } = await import("../fixtures/seed-data");
 			seedDownloadClient(db, { name: "Editable qBittorrent" });
-
-			await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ version: "v4.6.3" }),
-			});
 
 			await navigateTo(page, appUrl, "/settings/download-clients");
 			await expect(page.getByText("Editable qBittorrent")).toBeVisible();
@@ -224,12 +166,7 @@ test.describe("Settings and Configuration", () => {
 	});
 
 	test.describe("Indexers", () => {
-		test("add Newznab indexer", async ({ page, appUrl, fakeServers }) => {
-			await fetch(`${fakeServers.NEWZNAB}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ serverVersion: "1.0.0" }),
-			});
-
+		test("add Newznab indexer", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/indexers");
 			await page.getByRole("button", { name: "Add Indexer" }).click();
 			await page.getByRole("button", { name: "Newznab" }).click();
@@ -245,12 +182,7 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test Newznab")).toBeVisible();
 		});
 
-		test("add Torznab indexer", async ({ page, appUrl, fakeServers }) => {
-			await fetch(`${fakeServers.NEWZNAB}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ serverVersion: "1.0.0" }),
-			});
-
+		test("add Torznab indexer", async ({ page, appUrl }) => {
 			await navigateTo(page, appUrl, "/settings/indexers");
 			await page.getByRole("button", { name: "Add Indexer" }).click();
 			await page.getByRole("button", { name: "Torznab" }).click();
@@ -266,12 +198,12 @@ test.describe("Settings and Configuration", () => {
 			await expect(page.getByText("Test Torznab")).toBeVisible();
 		});
 
-		test("test indexer connection", async ({ page, appUrl, fakeServers }) => {
-			await fetch(`${fakeServers.NEWZNAB}/__control`, {
-				method: "POST",
-				body: JSON.stringify({ serverVersion: "2.0.0" }),
-			});
-
+		test("test indexer connection", async ({
+			page,
+			appUrl,
+			setFakeServiceState,
+		}) => {
+			await setFakeServiceState("NEWZNAB", "caps-v2");
 			await navigateTo(page, appUrl, "/settings/indexers");
 			await page.getByRole("button", { name: "Add Indexer" }).click();
 			await page.getByRole("button", { name: "Newznab" }).click();

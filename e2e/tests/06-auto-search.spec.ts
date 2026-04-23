@@ -14,6 +14,8 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
+test.use({ fakeServerScenario: "auto-search-default" });
+
 /**
  * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
  */
@@ -132,45 +134,6 @@ test.describe("Auto-Search", () => {
 
     // Checkpoint WAL so bun:sqlite in the app server sees seeded data
     checkpoint();
-
-    // Configure fake qBittorrent
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({ version: "v4.6.3" }),
-    });
-
-    // Configure fake Newznab with releases matching the book
-    await fetch(`${fakeServers.NEWZNAB}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        releases: [
-          {
-            guid: "auto-r1",
-            title: "Auto Author - Auto Book [EPUB]",
-            size: 5_242_880,
-            downloadUrl: "http://example.com/auto-r1.torrent",
-            magnetUrl: "magnet:?xt=urn:btih:auto1",
-            publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-            seeders: 20,
-            peers: 30,
-            category: "7020",
-            protocol: "torrent",
-          },
-          {
-            guid: "auto-r2",
-            title: "Auto Author - Auto Book [MOBI]",
-            size: 3_145_728,
-            downloadUrl: "http://example.com/auto-r2.torrent",
-            magnetUrl: "magnet:?xt=urn:btih:auto2",
-            publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
-            seeders: 10,
-            peers: 15,
-            category: "7020",
-            protocol: "torrent",
-          },
-        ],
-      }),
-    });
   });
 
   test("wanted books are identified when edition has profile but no files", async ({
@@ -379,27 +342,9 @@ test.describe("Auto-Search", () => {
     page,
     appUrl,
     fakeServers,
+    setFakeServerScenario,
   }) => {
-    // Configure Newznab with releases that will not match any allowed quality
-    await fetch(`${fakeServers.NEWZNAB}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        releases: [
-          {
-            guid: "rejected-r1",
-            title: "Completely Unrelated Release [AZW3]",
-            size: 1_000_000,
-            downloadUrl: "http://example.com/rejected.torrent",
-            magnetUrl: "magnet:?xt=urn:btih:rejected",
-            publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-            seeders: 5,
-            peers: 10,
-            category: "7020",
-            protocol: "torrent",
-          },
-        ],
-      }),
-    });
+    await setFakeServerScenario("auto-search-rejected");
 
     await triggerTask(page, appUrl, "RSS Sync");
 

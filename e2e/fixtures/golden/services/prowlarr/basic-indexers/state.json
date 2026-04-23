@@ -1,0 +1,17 @@
+{
+	"name": "basic-indexers",
+	"service": "prowlarr",
+	"seed": {
+		"apiKey": "test-prowlarr-api-key",
+		"indexers": [
+			{
+				"enable": true,
+				"id": 1,
+				"name": "Prowlarr Books",
+				"privacy": "semiPrivate",
+				"protocol": "torrent"
+			}
+		],
+		"version": "1.12.0"
+	}
+}

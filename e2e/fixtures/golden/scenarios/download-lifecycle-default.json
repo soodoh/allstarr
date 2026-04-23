@@ -1,0 +1,6 @@
+{
+	"name": "download-lifecycle-default",
+	"services": {
+		"QBITTORRENT": "idle"
+	}
+}

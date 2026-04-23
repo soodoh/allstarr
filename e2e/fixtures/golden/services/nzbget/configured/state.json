@@ -1,0 +1,13 @@
+{
+	"name": "configured",
+	"service": "nzbget",
+	"seed": {
+		"addedDownloads": [],
+		"editedQueue": [],
+		"groups": [],
+		"history": [],
+		"password": "nzbget",
+		"username": "nzbget",
+		"version": "21.1"
+	}
+}

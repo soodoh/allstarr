@@ -1,0 +1,7 @@
+{
+	"name": "blocklist-failure-default",
+	"services": {
+		"NEWZNAB": "failure-alt-releases",
+		"QBITTORRENT": "idle"
+	}
+}

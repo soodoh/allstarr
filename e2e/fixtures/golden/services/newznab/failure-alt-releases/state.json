@@ -1,0 +1,35 @@
+{
+	"name": "failure-alt-releases",
+	"service": "newznab",
+	"seed": {
+		"apiKey": "test-newznab-api-key",
+		"releases": [
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/alt-r1.torrent",
+				"guid": "alt-r1",
+				"magnetUrl": "magnet:?xt=urn:btih:alt1",
+				"peers": 30,
+				"protocol": "torrent",
+				"publishDate": "Fri, 20 Mar 2026 12:00:00 GMT",
+				"seeders": 20,
+				"size": 5242880,
+				"title": "Failure Author - Failure Book [EPUB]"
+			},
+			{
+				"category": "7020",
+				"downloadUrl": "http://example.com/alt-r2.torrent",
+				"guid": "alt-r2",
+				"magnetUrl": "magnet:?xt=urn:btih:alt2",
+				"peers": 15,
+				"protocol": "torrent",
+				"publishDate": "Fri, 20 Mar 2026 10:00:00 GMT",
+				"seeders": 10,
+				"size": 3145728,
+				"title": "Failure Author - Failure Book [MOBI]"
+			}
+		],
+		"searchLog": [],
+		"serverVersion": "1.1.0-captured"
+	}
+}

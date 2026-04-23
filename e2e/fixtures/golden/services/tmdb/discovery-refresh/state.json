@@ -1,0 +1,173 @@
+{
+	"name": "discovery-refresh",
+	"service": "tmdb",
+	"seed": {
+		"collectionDetails": {
+			"5500": {
+				"backdrop_path": "/collection-backdrop.jpg",
+				"id": 5500,
+				"name": "Discovery Collection",
+				"overview": "Collection overview",
+				"parts": [
+					{
+						"adult": false,
+						"backdrop_path": "/existing-backdrop.jpg",
+						"id": 5501,
+						"overview": "Existing movie overview",
+						"poster_path": "/existing.jpg",
+						"release_date": "2022-01-01",
+						"title": "Existing Collection Movie"
+					},
+					{
+						"adult": false,
+						"backdrop_path": "/fresh-backdrop.jpg",
+						"id": 5502,
+						"overview": "Fresh movie overview",
+						"poster_path": "/fresh.jpg",
+						"release_date": "2025-07-01",
+						"title": "Fresh Collection Movie"
+					}
+				],
+				"poster_path": "/collection.jpg"
+			}
+		},
+		"movieDetails": {
+			"5501": {
+				"backdrop_path": "/movie-5501-backdrop.jpg",
+				"belongs_to_collection": {
+					"backdrop_path": "/collection-backdrop.jpg",
+					"id": 5500,
+					"name": "Discovery Collection",
+					"poster_path": "/collection.jpg"
+				},
+				"budget": 100000000,
+				"genres": [{ "id": 1, "name": "Science Fiction" }],
+				"id": 5501,
+				"imdb_id": "tt5501",
+				"original_title": "Existing Collection Movie",
+				"overview": "Existing Collection Movie overview",
+				"poster_path": "/movie-5501.jpg",
+				"production_companies": [{ "id": 1, "name": "Example Studio" }],
+				"release_date": "2025-07-01",
+				"revenue": 200000000,
+				"runtime": 130,
+				"status": "Released",
+				"title": "Existing Collection Movie",
+				"vote_average": 7.8
+			},
+			"5502": {
+				"backdrop_path": "/movie-5502-backdrop.jpg",
+				"belongs_to_collection": {
+					"backdrop_path": "/collection-backdrop.jpg",
+					"id": 5500,
+					"name": "Discovery Collection",
+					"poster_path": "/collection.jpg"
+				},
+				"budget": 100000000,
+				"genres": [{ "id": 1, "name": "Science Fiction" }],
+				"id": 5502,
+				"imdb_id": "tt5502",
+				"original_title": "Fresh Collection Movie",
+				"overview": "Fresh Collection Movie overview",
+				"poster_path": "/movie-5502.jpg",
+				"production_companies": [{ "id": 1, "name": "Example Studio" }],
+				"release_date": "2025-07-01",
+				"revenue": 200000000,
+				"runtime": 130,
+				"status": "Released",
+				"title": "Fresh Collection Movie",
+				"vote_average": 7.8
+			}
+		},
+		"requestLog": [],
+		"seasonDetails": {
+			"7700:1": {
+				"episodes": [
+					{
+						"air_date": "2024-01-01",
+						"episode_number": 1,
+						"id": 8801,
+						"name": "Pilot",
+						"overview": "Pilot overview",
+						"runtime": 55,
+						"still_path": "/pilot.jpg",
+						"vote_average": 7.5
+					}
+				],
+				"id": 7701,
+				"name": "Season 1",
+				"overview": "First season",
+				"poster_path": "/season-1.jpg",
+				"season_number": 1
+			},
+			"7700:2": {
+				"episodes": [
+					{
+						"air_date": "2026-04-01",
+						"episode_number": 1,
+						"id": 8802,
+						"name": "A New Start",
+						"overview": "Season two premiere",
+						"runtime": 56,
+						"still_path": "/s2e1.jpg",
+						"vote_average": 7.8
+					},
+					{
+						"air_date": "2026-04-08",
+						"episode_number": 2,
+						"id": 8803,
+						"name": "Another Step",
+						"overview": "Season two episode two",
+						"runtime": 57,
+						"still_path": "/s2e2.jpg",
+						"vote_average": 7.9
+					}
+				],
+				"id": 7702,
+				"name": "Season 2",
+				"overview": "Second season",
+				"poster_path": "/season-2.jpg",
+				"season_number": 2
+			}
+		},
+		"showDetails": {
+			"7700": {
+				"backdrop_path": "/show-backdrop.jpg",
+				"episode_run_time": [55],
+				"external_ids": { "imdb_id": "tt7700" },
+				"first_air_date": "2024-01-01",
+				"genres": [{ "id": 1, "name": "Drama" }],
+				"id": 7700,
+				"last_air_date": "2026-04-01",
+				"name": "Discovery Show",
+				"networks": [{ "id": 1, "name": "Example Network" }],
+				"number_of_episodes": 3,
+				"number_of_seasons": 2,
+				"overview": "Discovery Show overview",
+				"poster_path": "/show.jpg",
+				"seasons": [
+					{
+						"air_date": "2024-01-01",
+						"episode_count": 1,
+						"id": 7701,
+						"name": "Season 1",
+						"overview": "First season",
+						"poster_path": "/season-1.jpg",
+						"season_number": 1
+					},
+					{
+						"air_date": "2026-04-01",
+						"episode_count": 2,
+						"id": 7702,
+						"name": "Season 2",
+						"overview": "Second season",
+						"poster_path": "/season-2.jpg",
+						"season_number": 2
+					}
+				],
+				"status": "Returning Series",
+				"type": "Scripted"
+			}
+		}
+	}
+}

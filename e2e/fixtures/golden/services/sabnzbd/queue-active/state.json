@@ -1,0 +1,22 @@
+{
+	"name": "queue-active",
+	"service": "sabnzbd",
+	"seed": {
+		"addedDownloads": [],
+		"apiKey": "test-sabnzbd-api-key",
+		"historySlots": [],
+		"pausedIds": [],
+		"queueSlots": [
+			{
+				"filename": "Queue Author - Queue Book [MOBI]",
+				"mb": "5.00",
+				"mbleft": "2.50",
+				"nzo_id": "sab-nzo-123",
+				"status": "Downloading"
+			}
+		],
+		"removedIds": [],
+		"resumedIds": [],
+		"version": "4.2.1"
+	}
+}

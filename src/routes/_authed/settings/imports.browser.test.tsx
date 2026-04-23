@@ -6,7 +6,22 @@ import { page } from "vitest/browser";
 const importsRouteMocks = vi.hoisted(() => ({
 	createImportSourceFn: vi.fn(),
 	deleteImportSourceFn: vi.fn(),
+	importPlanQuery: vi.fn(),
+	importReviewQuery: vi.fn(),
 	importSourcesQuery: vi.fn(),
+	planRows: [
+		{
+			action: "update",
+			payload: { targetId: 44, tmdbId: 2022 },
+			reason: null,
+			resourceType: "show",
+			selectable: true,
+			sourceKey: "sonarr:1:show:101",
+			sourceSummary: "TMDB 2022 | TVDB 999999",
+			target: { id: 44, label: "Severance" },
+			title: "Severance",
+		},
+	],
 	refreshImportSourceFn: vi.fn(),
 	deleteMutationState: {
 		isPending: false,
@@ -16,6 +31,19 @@ const importsRouteMocks = vi.hoisted(() => ({
 		isPending: false,
 		variables: null as null | { id: number },
 	},
+	reviewRows: [
+		{
+			action: "unresolved",
+			payload: { authorName: "Unknown Author" },
+			reason: "No confident Hardcover match",
+			resourceType: "book",
+			sourceKey: "readarr:1:book:501",
+			sourceSummary: "Author Unknown Author",
+			status: "unresolved" as const,
+			target: { id: null, label: null },
+			title: "Unknown Book",
+		},
+	],
 	updateImportSourceFn: vi.fn(),
 	sources: [
 		{
@@ -65,6 +93,16 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 			data: importsRouteMocks.sources,
 			status: "success",
 		}),
+		useQuery: (options: { queryKey: unknown[] }) => {
+			const key = options.queryKey;
+			if (key[1] === "plan") {
+				return { data: importsRouteMocks.planRows, status: "success" };
+			}
+			if (key[1] === "review") {
+				return { data: importsRouteMocks.reviewRows, status: "success" };
+			}
+			return { data: [], status: "success" };
+		},
 	};
 });
 
@@ -85,6 +123,8 @@ vi.mock("src/lib/admin-route", () => ({
 }));
 
 vi.mock("src/lib/queries", () => ({
+	importPlanQuery: importsRouteMocks.importPlanQuery,
+	importReviewQuery: importsRouteMocks.importReviewQuery,
 	importSourcesQuery: importsRouteMocks.importSourcesQuery,
 }));
 
@@ -191,17 +231,24 @@ vi.mock("src/components/settings/imports/import-sources-list", () => ({
 }));
 
 vi.mock("src/components/settings/imports/import-plan-table", () => ({
-	default: ({ selectedSourceId }: { selectedSourceId: number | null }) => (
+	default: ({
+		rows,
+		sourceId,
+	}: {
+		rows: Array<{ title: string }>;
+		sourceId: number | null;
+	}) => (
 		<div data-testid="plan-table">
-			selected-source:{selectedSourceId ?? "none"}
+			source:{sourceId ?? "none"} rows:{rows.length} first:
+			{rows[0]?.title ?? "none"}
 		</div>
 	),
 }));
 
 vi.mock("src/components/settings/imports/import-review-panel", () => ({
-	default: ({ selectedSourceId }: { selectedSourceId: number | null }) => (
+	default: ({ rows }: { rows: Array<{ title: string }> }) => (
 		<div data-testid="review-panel">
-			selected-source:{selectedSourceId ?? "none"}
+			rows:{rows.length} first:{rows[0]?.title ?? "none"}
 		</div>
 	),
 }));
@@ -286,6 +333,16 @@ describe("imports settings route", () => {
 		importsRouteMocks.refreshMutationState.variables = null;
 		importsRouteMocks.deleteMutationState.isPending = false;
 		importsRouteMocks.deleteMutationState.variables = null;
+		importsRouteMocks.importPlanQuery.mockImplementation(
+			(sourceId: number | null) => ({
+				queryKey: ["imports", "plan", sourceId ?? 0],
+			}),
+		);
+		importsRouteMocks.importReviewQuery.mockImplementation(
+			(sourceId: number | null) => ({
+				queryKey: ["imports", "review", sourceId ?? 0],
+			}),
+		);
 		importsRouteMocks.importSourcesQuery.mockReturnValue({
 			queryKey: ["imports", "sources"],
 		});
@@ -345,11 +402,11 @@ describe("imports settings route", () => {
 		await page.getByRole("tab", { name: "Plan" }).click();
 		await expect
 			.element(page.getByTestId("plan-table"))
-			.toHaveTextContent("selected-source:2");
+			.toHaveTextContent("source:2 rows:1 first:Severance");
 		await page.getByRole("tab", { name: "Review" }).click();
 		await expect
 			.element(page.getByTestId("review-panel"))
-			.toHaveTextContent("selected-source:2");
+			.toHaveTextContent("rows:1 first:Unknown Book");
 		await page.getByRole("tab", { name: "Sources" }).click();
 
 		await page.getByRole("button", { name: "Refresh Sonarr" }).click();
@@ -440,6 +497,6 @@ describe("imports settings route", () => {
 		await page.getByRole("tab", { name: "Plan" }).click();
 		await expect
 			.element(page.getByTestId("plan-table"))
-			.toHaveTextContent("selected-source:1");
+			.toHaveTextContent("source:1 rows:1 first:Severance");
 	});
 });

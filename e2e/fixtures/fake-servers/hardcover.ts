@@ -76,13 +76,15 @@ type State = {
   requestLog: Array<{ query: string; variables: Record<string, unknown> }>;
 };
 
-function defaultState(): State {
+function defaultState(seed?: Partial<State>): State {
+  const clonedSeed = seed ? structuredClone(seed) : undefined;
   return {
     authors: [],
     books: [],
     editions: [],
     searchResults: [],
     requestLog: [],
+    ...clonedSeed,
   };
 }
 
@@ -313,6 +315,13 @@ function handler(
   return json({ data: {} });
 }
 
-export default function createHardcoverServer(port: number): FakeServer<State> {
-  return createFakeServer<State>({ port, defaultState, handler });
+export default function createHardcoverServer(
+  port: number,
+  seed?: Partial<State>,
+): FakeServer<State> {
+  return createFakeServer<State>({
+    port,
+    defaultState: () => defaultState(seed),
+    handler,
+  });
 }

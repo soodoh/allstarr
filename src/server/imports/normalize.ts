@@ -42,6 +42,11 @@ export type NormalizedImportSnapshot = {
 };
 
 type RawRecord = Record<string, unknown>;
+type RawField = { name?: string; value?: unknown };
+
+function isRecord(value: unknown): value is RawRecord {
+	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 function toRecords(value: unknown): RawRecord[] {
 	if (!Array.isArray(value)) {
@@ -76,6 +81,266 @@ function readNumber(record: RawRecord, keys: string[]): number | null {
 		}
 	}
 	return null;
+}
+
+function readField(record: RawRecord, name: string): unknown {
+	const fields = Array.isArray(record.fields)
+		? (record.fields as RawField[])
+		: [];
+	return fields.find((field) => field?.name === name)?.value;
+}
+
+function readBooleanValue(value: unknown): boolean | null {
+	if (typeof value === "boolean") {
+		return value;
+	}
+	if (typeof value === "number") {
+		return value !== 0;
+	}
+	if (typeof value === "string") {
+		if (value === "true") {
+			return true;
+		}
+		if (value === "false") {
+			return false;
+		}
+	}
+	return null;
+}
+
+function readStringValue(value: unknown): string | null {
+	return typeof value === "string" && value.trim().length > 0
+		? value.trim()
+		: null;
+}
+
+function readNumberValue(value: unknown): number | null {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) {
+			return parsed;
+		}
+	}
+	return null;
+}
+
+function readYearValue(value: unknown): number | null {
+	if (typeof value === "number" && Number.isInteger(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		const match = value.trim().match(/^(\d{4})(?:-|$)/);
+		if (match) {
+			const parsed = Number(match[1]);
+			if (Number.isInteger(parsed)) {
+				return parsed;
+			}
+		}
+	}
+	return null;
+}
+
+function extractAllowedQualityGroups(value: unknown): number[][] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const groups: number[][] = [];
+	for (const item of value) {
+		if (!item || typeof item !== "object") {
+			continue;
+		}
+		const record = item as RawRecord;
+		const nested = extractAllowedQualityGroups(record.items);
+		if (nested.length > 0) {
+			groups.push(...nested);
+			continue;
+		}
+
+		const qualityRecord = isRecord(record.quality) ? record.quality : null;
+		const qualityId = qualityRecord ? readNumber(qualityRecord, ["id"]) : null;
+		const allowed = readBooleanValue(record.allowed);
+		if (qualityId !== null && allowed === true) {
+			groups.push([qualityId]);
+		}
+	}
+
+	return groups;
+}
+
+function inferReadarrContentType(record: RawRecord): "audiobook" | "ebook" {
+	const allowedQualityIds = new Set(
+		extractAllowedQualityGroups(record.items).flat(),
+	);
+	const hasAudio = [10, 11, 12, 13].some((id) => allowedQualityIds.has(id));
+	const hasText = [1, 2, 3, 4].some((id) => allowedQualityIds.has(id));
+	return hasAudio && !hasText ? "audiobook" : "ebook";
+}
+
+function defaultProfileMetadata(
+	kind: ImportSourceKind,
+	record: RawRecord,
+): { categories: number[]; contentType: string; icon: string } {
+	if (kind === "sonarr") {
+		return { categories: [18], contentType: "tv", icon: "tv" };
+	}
+	if (kind === "radarr") {
+		return { categories: [2000], contentType: "movie", icon: "film" };
+	}
+	if (kind === "readarr") {
+		const contentType = inferReadarrContentType(record);
+		return {
+			categories: contentType === "audiobook" ? [3000] : [7020],
+			contentType,
+			icon: "book-open",
+		};
+	}
+	return {
+		categories: [7020],
+		contentType: "ebook",
+		icon: "book-open",
+	};
+}
+
+function firstRootFolderPath(rootFolders: unknown): string {
+	return (
+		toRecords(rootFolders)
+			.map((folder) => readString(folder, ["path"]))
+			.find((value): value is string => Boolean(value)) ?? ""
+	);
+}
+
+function buildMappedDownloadClient(
+	kind: ImportSourceKind,
+	record: RawRecord,
+): RawRecord {
+	const existingHost = readString(record, ["host"]);
+	const existingPort = readNumber(record, ["port"]);
+	if (existingHost !== null && existingPort !== null) {
+		return {
+			...record,
+			enabled:
+				readBooleanValue(record.enabled) ??
+				readBooleanValue(record.enable) ??
+				true,
+		};
+	}
+
+	const categoryFieldName =
+		kind === "sonarr"
+			? "tvCategory"
+			: kind === "radarr"
+				? "movieCategory"
+				: "musicCategory";
+	const settings: RawRecord = {};
+	const savePath =
+		readStringValue(readField(record, "tvDirectory")) ??
+		readStringValue(readField(record, "movieDirectory")) ??
+		readStringValue(readField(record, "directory"));
+	if (savePath) {
+		settings.savePath = savePath;
+	}
+
+	const addPaused = readBooleanValue(readField(record, "addPaused"));
+	if (addPaused !== null) {
+		settings.addPaused = addPaused;
+	}
+
+	const sequentialOrder = readBooleanValue(
+		readField(record, "sequentialOrder"),
+	);
+	if (sequentialOrder !== null) {
+		settings.sequentialOrder = sequentialOrder;
+	}
+
+	const firstAndLastPiecePriority = readBooleanValue(
+		readField(record, "firstAndLast"),
+	);
+	if (firstAndLastPiecePriority !== null) {
+		settings.firstAndLastPiecePriority = firstAndLastPiecePriority;
+	}
+
+	return {
+		apiKey:
+			readStringValue(readField(record, "apiKey")) ??
+			readString(record, ["apiKey"]),
+		category:
+			readStringValue(readField(record, categoryFieldName)) ?? "allstarr",
+		enabled:
+			readBooleanValue(record.enable) ??
+			readBooleanValue(record.enabled) ??
+			true,
+		host:
+			readStringValue(readField(record, "host")) ??
+			readString(record, ["host"]) ??
+			"localhost",
+		implementation:
+			readString(record, ["implementationName", "implementation"]) ?? "Unknown",
+		name: normalizeRecordTitle(record, "download-client"),
+		password:
+			readStringValue(readField(record, "password")) ??
+			readString(record, ["password"]),
+		port:
+			readNumberValue(readField(record, "port")) ??
+			readNumber(record, ["port"]) ??
+			0,
+		priority: readNumber(record, ["priority"]) ?? 1,
+		protocol: readString(record, ["protocol"]) ?? "torrent",
+		removeCompletedDownloads:
+			readBooleanValue(record.removeCompletedDownloads) ?? true,
+		settings: Object.keys(settings).length > 0 ? settings : null,
+		tag:
+			readStringValue(readField(record, "tag")) ?? readString(record, ["tag"]),
+		urlBase:
+			readStringValue(readField(record, "urlBase")) ??
+			readString(record, ["urlBase"]),
+		useSsl:
+			readBooleanValue(readField(record, "useSsl")) ??
+			readBooleanValue(record.useSsl) ??
+			false,
+		username:
+			readStringValue(readField(record, "username")) ??
+			readString(record, ["username"]),
+	};
+}
+
+function buildMappedQualityProfile(args: {
+	kind: ImportSourceKind;
+	record: RawRecord;
+	rootFolders: unknown;
+}): RawRecord {
+	const existingRootFolder = readString(args.record, ["rootFolderPath"]);
+	if (existingRootFolder !== null) {
+		return args.record;
+	}
+
+	const defaults = defaultProfileMetadata(args.kind, args.record);
+	return {
+		categories: defaults.categories,
+		contentType: defaults.contentType,
+		cutoff: readNumber(args.record, ["cutoff"]) ?? 0,
+		icon: defaults.icon,
+		items: extractAllowedQualityGroups(args.record.items),
+		language: readString(args.record, ["language"]) ?? "en",
+		minCustomFormatScore:
+			readNumber(args.record, ["minCustomFormatScore", "minFormatScore"]) ?? 0,
+		name: normalizeRecordTitle(args.record, "quality profile"),
+		rootFolderPath: firstRootFolderPath(args.rootFolders),
+		upgradeAllowed: readBooleanValue(args.record.upgradeAllowed) ?? false,
+		upgradeUntilCustomFormatScore:
+			readNumber(args.record, [
+				"upgradeUntilCustomFormatScore",
+				"minUpgradeFormatScore",
+				"cutoffFormatScore",
+			]) ?? 0,
+	};
+}
+
+function buildMappedMetadataProfile(record: RawRecord): RawRecord {
+	return record;
 }
 
 function slugify(value: string): string {
@@ -188,6 +453,10 @@ function normalizeSettingsItems(args: {
 						group,
 						id,
 						title,
+						mapped:
+							group === "download-client"
+								? buildMappedDownloadClient(kind, record)
+								: record,
 						raw: record,
 					},
 				}),
@@ -205,12 +474,32 @@ function normalizeProfiles(args: {
 	sourceId: number;
 	items: RawRecord[];
 	profileKind: "quality" | "metadata";
+	rootFolders?: unknown;
 }): NormalizedImportItem[] {
-	const { kind, sourceId, items, profileKind } = args;
+	const { kind, sourceId, items, profileKind, rootFolders } = args;
+	const defaultMetadataProfileIds = new Set(
+		profileKind === "metadata"
+			? toRecords(rootFolders)
+					.map((folder) => readNumber(folder, ["defaultMetadataProfileId"]))
+					.filter((id): id is number => id !== null)
+			: [],
+	);
+	const fallbackDefaultMetadataProfile =
+		profileKind === "metadata" &&
+		defaultMetadataProfileIds.size === 0 &&
+		items.length === 1;
 	return items
 		.map((record) => {
 			const id = readNumber(record, ["id"]);
 			const title = normalizeRecordTitle(record, `${profileKind} profile`);
+			const isDefault =
+				profileKind === "metadata"
+					? id !== null
+						? defaultMetadataProfileIds.size > 0
+							? defaultMetadataProfileIds.has(id)
+							: fallbackDefaultMetadataProfile
+						: fallbackDefaultMetadataProfile
+					: true;
 			return createItem({
 				kind,
 				sourceId,
@@ -218,9 +507,18 @@ function normalizeProfiles(args: {
 				identity: `${profileKind}:${id ?? slugify(title)}`,
 				title,
 				payload: {
+					isDefault,
 					profileKind,
 					id,
 					title,
+					mapped:
+						profileKind === "quality"
+							? buildMappedQualityProfile({
+									kind,
+									record,
+									rootFolders,
+								})
+							: buildMappedMetadataProfile(record),
 					raw: record,
 				},
 			});
@@ -303,8 +601,9 @@ function normalizeBooks(args: {
 	kind: ImportSourceKind;
 	sourceId: number;
 	items: RawRecord[];
+	authorsById?: Map<number, string>;
 }): NormalizedImportItem[] {
-	const { kind, sourceId, items } = args;
+	const { authorsById, kind, sourceId, items } = args;
 	return items
 		.map((record, index) => {
 			const sourceRecordId = readNumber(record, ["id", "bookId"]);
@@ -314,6 +613,17 @@ function normalizeBooks(args: {
 				"bookId",
 			]);
 			const title = normalizeRecordTitle(record, `Book ${index + 1}`);
+			const nestedAuthor = isRecord(record.author) ? record.author : null;
+			const authorId = readNumber(record, ["authorId"]);
+			const authorName =
+				readString(record, ["authorName"]) ??
+				(nestedAuthor
+					? readString(nestedAuthor, ["authorName", "name"])
+					: null) ??
+				(authorId !== null ? (authorsById?.get(authorId) ?? null) : null);
+			const year =
+				readNumber(record, ["year", "releaseYear"]) ??
+				readYearValue(record.releaseDate);
 			return createItem({
 				kind,
 				sourceId,
@@ -327,8 +637,8 @@ function normalizeBooks(args: {
 					sourceRecordId,
 					foreignBookId,
 					title,
-					authorName: readString(record, ["authorName"]),
-					year: readNumber(record, ["year", "releaseYear"]),
+					authorName,
+					year,
 					raw: record,
 				},
 			});
@@ -492,12 +802,14 @@ export function normalizeImportSnapshot(args: {
 		sourceId: args.sourceId,
 		items: toRecords(args.snapshot.profiles),
 		profileKind: "quality",
+		rootFolders: args.snapshot.rootFolders,
 	});
 	const metadataProfiles = normalizeProfiles({
 		kind: args.kind,
 		sourceId: args.sourceId,
 		items: toRecords(args.snapshot.settings?.metadataProfiles),
 		profileKind: "metadata",
+		rootFolders: args.snapshot.rootFolders,
 	});
 
 	const movies = normalizeMovies({
@@ -510,7 +822,17 @@ export function normalizeImportSnapshot(args: {
 		sourceId: args.sourceId,
 		items: toRecords(args.snapshot.library?.series),
 	});
+	const authorsById = new Map(
+		toRecords(args.snapshot.library?.authors)
+			.map((record) => {
+				const id = readNumber(record, ["id"]);
+				const authorName = readString(record, ["authorName", "name"]);
+				return id !== null && authorName ? ([id, authorName] as const) : null;
+			})
+			.filter((entry): entry is readonly [number, string] => entry !== null),
+	);
 	const books = normalizeBooks({
+		authorsById,
 		kind: args.kind,
 		sourceId: args.sourceId,
 		items: toRecords(args.snapshot.library?.books),

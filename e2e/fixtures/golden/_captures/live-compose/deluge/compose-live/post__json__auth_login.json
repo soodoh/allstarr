@@ -1,0 +1,14 @@
+{
+  "body": {
+    "result": true,
+    "error": null,
+    "id": 1
+  },
+  "contentType": "application/json",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "method": "POST",
+  "path": "/json",
+  "status": 200
+}

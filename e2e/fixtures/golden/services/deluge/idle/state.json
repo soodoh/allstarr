@@ -1,0 +1,15 @@
+{
+	"name": "idle",
+	"service": "deluge",
+	"seed": {
+		"addedDownloads": [],
+		"connected": false,
+		"hostId": "test-host-id",
+		"password": "deluge",
+		"pausedIds": [],
+		"removedIds": [],
+		"resumedIds": [],
+		"torrents": {},
+		"version": "2.1.1"
+	}
+}

@@ -1,0 +1,165 @@
+{
+	"name": "author-search-brandon",
+	"service": "hardcover",
+	"seed": {
+		"authors": [
+			{
+				"bio": "An American author of epic fantasy and science fiction.",
+				"born_year": 1975,
+				"death_year": null,
+				"id": 100,
+				"image": { "url": "https://example.com/sanderson.jpg" },
+				"name": "Brandon Sanderson",
+				"slug": "brandon-sanderson"
+			}
+		],
+		"books": [
+			{
+				"authorId": 100,
+				"book_series": [
+					{
+						"position": "1",
+						"series": {
+							"id": 10,
+							"is_completed": false,
+							"name": "The Stormlight Archive",
+							"slug": "the-stormlight-archive"
+						}
+					}
+				],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 100,
+							"image": { "url": "https://example.com/sanderson.jpg" },
+							"name": "Brandon Sanderson",
+							"slug": "brandon-sanderson"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 300,
+				"description": "The first book of The Stormlight Archive.",
+				"id": 200,
+				"image": { "url": "https://example.com/wok.jpg" },
+				"rating": 4.5,
+				"ratings_count": 50000,
+				"release_date": "2010-08-31",
+				"release_year": 2010,
+				"slug": "the-way-of-kings",
+				"title": "The Way of Kings",
+				"users_count": 80000
+			},
+			{
+				"authorId": 100,
+				"book_series": [
+					{
+						"position": "1",
+						"series": {
+							"id": 11,
+							"is_completed": true,
+							"name": "Mistborn",
+							"slug": "mistborn"
+						}
+					}
+				],
+				"compilation": false,
+				"contributions": [
+					{
+						"author": {
+							"id": 100,
+							"image": { "url": "https://example.com/sanderson.jpg" },
+							"name": "Brandon Sanderson",
+							"slug": "brandon-sanderson"
+						},
+						"contribution": null
+					}
+				],
+				"default_cover_edition_id": 301,
+				"description": "The first book in the Mistborn series.",
+				"id": 201,
+				"image": { "url": "https://example.com/mistborn.jpg" },
+				"rating": 4.4,
+				"ratings_count": 60000,
+				"release_date": "2006-07-17",
+				"release_year": 2006,
+				"slug": "mistborn-the-final-empire",
+				"title": "Mistborn: The Final Empire",
+				"users_count": 90000
+			}
+		],
+		"editions": [
+			{
+				"asin": "B003P2WO5E",
+				"audio_seconds": null,
+				"bookId": 200,
+				"id": 300,
+				"image": { "url": "https://example.com/wok-hc.jpg" },
+				"isbn_10": "0765326353",
+				"isbn_13": "9780765326355",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 1007,
+				"publisher": { "name": "Tor Books" },
+				"reading_format": { "format": "Hardcover" },
+				"release_date": "2010-08-31",
+				"score": 85,
+				"title": "The Way of Kings (Hardcover)",
+				"users_count": 5000
+			},
+			{
+				"asin": "B002GYI9C4",
+				"audio_seconds": null,
+				"bookId": 201,
+				"id": 301,
+				"image": { "url": "https://example.com/mistborn-pb.jpg" },
+				"isbn_10": "0765311780",
+				"isbn_13": "9780765311788",
+				"language": { "code2": "en", "language": "English" },
+				"pages": 541,
+				"publisher": { "name": "Tor Books" },
+				"reading_format": { "format": "Paperback" },
+				"release_date": "2006-07-17",
+				"score": 90,
+				"title": "Mistborn: The Final Empire (Paperback)",
+				"users_count": 8000
+			},
+			{
+				"asin": null,
+				"audio_seconds": null,
+				"bookId": 200,
+				"id": 302,
+				"image": { "url": "https://example.com/wok-es.jpg" },
+				"isbn_10": null,
+				"isbn_13": "9788466657662",
+				"language": { "code2": "es", "language": "Spanish" },
+				"pages": 1200,
+				"publisher": { "name": "Nova" },
+				"reading_format": { "format": "Paperback" },
+				"release_date": "2013-01-01",
+				"score": 40,
+				"title": "El camino de los reyes",
+				"users_count": 200
+			}
+		],
+		"requestLog": [],
+		"searchResults": [
+			{
+				"coverUrl": "https://example.com/sanderson.jpg",
+				"id": 100,
+				"readers": null,
+				"slug": "brandon-sanderson",
+				"title": "Brandon Sanderson",
+				"type": "author"
+			},
+			{
+				"coverUrl": "https://example.com/wok.jpg",
+				"id": 200,
+				"readers": 80000,
+				"slug": "the-way-of-kings",
+				"title": "The Way of Kings",
+				"type": "book"
+			}
+		]
+	}
+}

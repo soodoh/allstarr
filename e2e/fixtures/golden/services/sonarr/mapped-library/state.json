@@ -1,0 +1,69 @@
+{
+	"name": "mapped-library",
+	"service": "sonarr",
+	"seed": {
+		"apiKey": "sonarr-key",
+		"blocklist": [{ "id": 9107, "title": "Sonarr rejected release" }],
+		"downloadClients": [
+			{
+				"apiKey": null,
+				"category": "sonarr",
+				"enabled": true,
+				"host": "localhost",
+				"id": 9101,
+				"implementation": "qBittorrent",
+				"name": "Sonarr qBittorrent",
+				"password": null,
+				"port": 8080,
+				"priority": 1,
+				"protocol": "torrent",
+				"removeCompletedDownloads": true,
+				"settings": { "watchFolder": "/downloads/sonarr" },
+				"tag": "tv",
+				"urlBase": null,
+				"useSsl": false,
+				"username": null
+			}
+		],
+		"episodes": [
+			{
+				"episodeNumber": 1,
+				"id": 9105,
+				"seasonNumber": 1,
+				"seriesId": 101,
+				"title": "Good News About Hell"
+			}
+		],
+		"history": [{ "id": 9108, "title": "Severance imported" }],
+		"indexers": [{ "id": 9102, "name": "Sonarr Indexer" }],
+		"mediaManagement": { "autoUnmonitorPreviouslyDownloadedEpisodes": true },
+		"naming": { "renameEpisodes": true },
+		"qualityProfiles": [
+			{
+				"categories": [18],
+				"contentType": "tv",
+				"cutoff": 5,
+				"icon": "tv",
+				"id": 9103,
+				"items": [[5], [10]],
+				"language": "en",
+				"minCustomFormatScore": 0,
+				"name": "Sonarr HD",
+				"rootFolderPath": "/tv",
+				"upgradeAllowed": true,
+				"upgradeUntilCustomFormatScore": 0
+			}
+		],
+		"queue": [{ "id": 9109, "title": "Severance queued" }],
+		"rootFolders": [{ "id": 9104, "path": "/tv" }],
+		"series": [
+			{
+				"id": 101,
+				"title": "Severance",
+				"tmdbId": 2022,
+				"tvdbId": 999999,
+				"year": 2022
+			}
+		]
+	}
+}

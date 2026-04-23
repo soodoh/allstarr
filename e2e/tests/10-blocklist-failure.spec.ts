@@ -18,6 +18,11 @@ import {
 } from "../fixtures/seed-data";
 import PORTS from "../ports";
 
+test.use({
+  fakeServerScenario: "blocklist-failure-default",
+  requiredServices: ["QBITTORRENT", "NEWZNAB"],
+});
+
 /**
  * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
  */
@@ -53,6 +58,22 @@ async function triggerTask(
   await page.waitForTimeout(500);
 }
 
+async function setFailureTorrentState(
+  setFakeServiceState: (
+    serviceName: "QBITTORRENT",
+    stateName: string | null,
+    replacements?: Record<string, boolean | number | string>,
+  ) => Promise<void>,
+  stateName: string,
+  hash: string,
+  savePath: string,
+): Promise<void> {
+  await setFakeServiceState("QBITTORRENT", stateName, {
+    HASH: hash,
+    SAVE_PATH: savePath,
+  });
+}
+
 test.describe("Blocklist and Failure Recovery", () => {
   let bookId: number;
   let authorId: number;
@@ -60,7 +81,7 @@ test.describe("Blocklist and Failure Recovery", () => {
   let clientId: number;
 
   test.beforeEach(
-    async ({ page, appUrl, db, tempDir, fakeServers, checkpoint }) => {
+    async ({ page, appUrl, db, tempDir, checkpoint }) => {
       await ensureAuthenticated(page, appUrl);
 
       // Clean up data from previous tests to prevent interference
@@ -142,45 +163,6 @@ test.describe("Blocklist and Failure Recovery", () => {
 
       // Checkpoint WAL so bun:sqlite in the app server sees seeded data
       checkpoint();
-
-      // Configure fake qBittorrent
-      await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-        method: "POST",
-        body: JSON.stringify({ version: "v4.6.3" }),
-      });
-
-      // Configure fake Newznab with alternative releases for re-search
-      await fetch(`${fakeServers.NEWZNAB}/__control`, {
-        method: "POST",
-        body: JSON.stringify({
-          releases: [
-            {
-              guid: "alt-r1",
-              title: "Failure Author - Failure Book [EPUB]",
-              size: 5_242_880,
-              downloadUrl: "http://example.com/alt-r1.torrent",
-              magnetUrl: "magnet:?xt=urn:btih:alt1",
-              publishDate: "Fri, 20 Mar 2026 12:00:00 GMT",
-              seeders: 20,
-              peers: 30,
-              category: "7020",
-              protocol: "torrent",
-            },
-            {
-              guid: "alt-r2",
-              title: "Failure Author - Failure Book [MOBI]",
-              size: 3_145_728,
-              downloadUrl: "http://example.com/alt-r2.torrent",
-              magnetUrl: "magnet:?xt=urn:btih:alt2",
-              publishDate: "Fri, 20 Mar 2026 10:00:00 GMT",
-              seeders: 10,
-              peers: 15,
-              category: "7020",
-              protocol: "torrent",
-            },
-          ],
-        }),
-      });
     },
   );
 
@@ -189,7 +171,7 @@ test.describe("Blocklist and Failure Recovery", () => {
     appUrl,
     db,
     tempDir,
-    fakeServers,
+    setFakeServiceState,
   }) => {
     // Seed a tracked download in downloading state
     seedTrackedDownload(db, {
@@ -215,24 +197,12 @@ test.describe("Blocklist and Failure Recovery", () => {
     // Configure fake qBittorrent to report the torrent as completed (upload state)
     // The import will fail because the file path won't match expectations,
     // triggering the failure handler
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "fail-hash-1",
-            name: "Failure Author - Failure Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: downloadDir,
-          },
-        ],
-      }),
-    });
+    await setFailureTorrentState(
+      setFakeServiceState,
+      "single-completed-failure",
+      "fail-hash-1",
+      downloadDir,
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -252,8 +222,8 @@ test.describe("Blocklist and Failure Recovery", () => {
     page,
     appUrl,
     db,
-    fakeServers,
     checkpoint,
+    setFakeServiceState,
   }) => {
     // Seed a tracked download that will fail import
     seedTrackedDownload(db, {
@@ -269,24 +239,12 @@ test.describe("Blocklist and Failure Recovery", () => {
     });
     checkpoint();
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "fail-hash-2",
-            name: "Failure Author - Failure Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/nonexistent/path/that/will/fail",
-          },
-        ],
-      }),
-    });
+    await setFailureTorrentState(
+      setFakeServiceState,
+      "single-completed-failure",
+      "fail-hash-2",
+      "/nonexistent/path/that/will/fail",
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -305,8 +263,8 @@ test.describe("Blocklist and Failure Recovery", () => {
     page,
     appUrl,
     db,
-    fakeServers,
     checkpoint,
+    setFakeServiceState,
   }) => {
     // Seed a tracked download that will fail
     seedTrackedDownload(db, {
@@ -322,24 +280,12 @@ test.describe("Blocklist and Failure Recovery", () => {
     });
     checkpoint();
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "fail-hash-3",
-            name: "Failure Author - Failure Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/nonexistent/import/path",
-          },
-        ],
-      }),
-    });
+    await setFailureTorrentState(
+      setFakeServiceState,
+      "single-completed-failure",
+      "fail-hash-3",
+      "/nonexistent/import/path",
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -363,6 +309,7 @@ test.describe("Blocklist and Failure Recovery", () => {
     appUrl,
     db,
     fakeServers,
+    setFakeServiceState,
   }) => {
     seedTrackedDownload(db, {
       downloadClientId: clientId,
@@ -376,24 +323,12 @@ test.describe("Blocklist and Failure Recovery", () => {
       outputPath: "/nonexistent/remove/path",
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "fail-hash-4",
-            name: "Failure Author - Failure Book [EPUB]",
-            state: "uploading",
-            size: 5_242_880,
-            downloaded: 5_242_880,
-            dlspeed: 0,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/nonexistent/remove/path",
-          },
-        ],
-      }),
-    });
+    await setFailureTorrentState(
+      setFakeServiceState,
+      "single-completed-failure",
+      "fail-hash-4",
+      "/nonexistent/remove/path",
+    );
 
     await triggerTask(page, appUrl, "Refresh Downloads");
 
@@ -536,6 +471,7 @@ test.describe("Blocklist and Failure Recovery", () => {
     appUrl,
     db,
     fakeServers,
+    setFakeServiceState,
   }) => {
     // Seed a tracked download in the queue
     seedTrackedDownload(db, {
@@ -548,24 +484,12 @@ test.describe("Blocklist and Failure Recovery", () => {
       authorId,
     });
 
-    await fetch(`${fakeServers.QBITTORRENT}/__control`, {
-      method: "POST",
-      body: JSON.stringify({
-        torrents: [
-          {
-            hash: "blocklist-hash-1",
-            name: "Failure Author - Failure Book [EPUB]",
-            state: "downloading",
-            size: 5_242_880,
-            downloaded: 2_621_440,
-            dlspeed: 1_048_576,
-            upspeed: 0,
-            category: "allstarr",
-            save_path: "/downloads",
-          },
-        ],
-      }),
-    });
+    await setFailureTorrentState(
+      setFakeServiceState,
+      "single-downloading-failure",
+      "blocklist-hash-1",
+      "/downloads",
+    );
 
     await navigateTo(page, appUrl, "/activity");
 

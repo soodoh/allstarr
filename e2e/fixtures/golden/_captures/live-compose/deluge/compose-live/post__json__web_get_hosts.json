@@ -1,0 +1,22 @@
+{
+  "body": {
+    "result": [
+      [
+        "5b035a59ac0141c9b87bc50d0f40b73f",
+        "127.0.0.1",
+        58846,
+        "localclient"
+      ]
+    ],
+    "error": null,
+    "id": 2
+  },
+  "contentType": "application/json",
+  "headers": {
+    "Content-Type": "application/json",
+    "Cookie": "<redacted>"
+  },
+  "method": "POST",
+  "path": "/json",
+  "status": 200
+}
