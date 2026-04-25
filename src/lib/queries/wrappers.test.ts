@@ -131,6 +131,7 @@ vi.mock("./blocklist", () => ({}));
 vi.mock("./books", () => ({}));
 vi.mock("./dashboard", () => ({}));
 vi.mock("./history", () => ({}));
+vi.mock("./imports", () => ({}));
 vi.mock("./movies", () => ({}));
 vi.mock("./queue", () => ({}));
 vi.mock("./series", () => ({}));
