@@ -2,28 +2,11 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import { defaultRoles, userAc } from "better-auth/plugins/admin/access";
-import { and, eq } from "drizzle-orm";
 import { db, sqlite } from "src/db";
-import { oidcProviders } from "src/db/schema";
+import { authConfig } from "src/lib/auth-config";
 import { getSettingValue } from "src/server/settings-store";
 
 type DefaultRole = "viewer" | "requester";
-
-function loadOidcProviders() {
-	const rows = db
-		.select()
-		.from(oidcProviders)
-		.where(eq(oidcProviders.enabled, true))
-		.all();
-
-	return rows.map((row) => ({
-		providerId: row.providerId,
-		clientId: row.clientId,
-		clientSecret: row.clientSecret,
-		discoveryUrl: row.discoveryUrl,
-		scopes: row.scopes,
-	}));
-}
 
 function getDefaultRole(): DefaultRole {
 	const role = getSettingValue<string>("auth.defaultRole", "requester");
@@ -31,21 +14,6 @@ function getDefaultRole(): DefaultRole {
 		return role;
 	}
 	return "requester";
-}
-
-function isProviderTrusted(providerId: string): boolean {
-	const provider = db
-		.select()
-		.from(oidcProviders)
-		.where(
-			and(
-				eq(oidcProviders.providerId, providerId),
-				eq(oidcProviders.enabled, true),
-				eq(oidcProviders.trusted, true),
-			),
-		)
-		.get();
-	return !!provider;
 }
 
 type RequestLikeContext = {
@@ -60,7 +28,13 @@ function getRequestUrl(ctx: unknown): string {
 	return request?.url ?? "";
 }
 
-const oidcConfig = loadOidcProviders();
+const oidcConfig = authConfig.oidcProviders.map(
+	({
+		allowAccountCreation: _allowAccountCreation,
+		displayName: _displayName,
+		...provider
+	}) => provider,
+);
 const adminPluginRoles = {
 	...defaultRoles,
 	viewer: userAc,
@@ -111,15 +85,15 @@ export const auth = betterAuth({
 						};
 					}
 
-					// OIDC callback — check if provider is trusted
+					// OIDC callback
 					const callbackMatch = requestUrl.match(
 						/\/oauth2\/callback\/([^/?]+)/,
 					);
 					if (callbackMatch) {
-						const providerId = callbackMatch[1];
+						const providerId = callbackMatch[1] ?? "";
 						if (
-							process.env.DISABLE_REGISTRATION === "true" &&
-							!isProviderTrusted(providerId)
+							authConfig.registrationDisabled &&
+							!authConfig.allowOidcAccountCreation(providerId)
 						) {
 							throw new Error("Registration is disabled");
 						}
@@ -128,8 +102,11 @@ export const auth = betterAuth({
 						};
 					}
 
-					// Email/password signup — check DISABLE_REGISTRATION
-					if (process.env.DISABLE_REGISTRATION === "true") {
+					// Email/password signup
+					if (
+						authConfig.registrationDisabled ||
+						authConfig.emailPasswordRegistrationDisabled
+					) {
 						throw new Error("Registration is disabled");
 					}
 
