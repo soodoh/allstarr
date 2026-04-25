@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 type LoaderData = {
+	emailPasswordRegistrationDisabled: boolean;
 	oidcProviders: Array<{
 		displayName: string;
 		providerId: string;
@@ -91,6 +92,7 @@ describe("login route", () => {
 			loader: () => Promise<LoaderData>;
 		};
 		const registrationStatus: LoaderData = {
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [],
 			registrationDisabled: false,
 		};
@@ -107,6 +109,7 @@ describe("login route", () => {
 		loginRouteMocks.signInEmail.mockResolvedValueOnce({ error: null });
 
 		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
@@ -134,6 +137,7 @@ describe("login route", () => {
 		});
 
 		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
@@ -152,6 +156,7 @@ describe("login route", () => {
 		loginRouteMocks.signInEmail.mockRejectedValueOnce(new Error("boom"));
 
 		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [],
 			registrationDisabled: false,
 		});
@@ -167,6 +172,7 @@ describe("login route", () => {
 
 	it("starts OIDC sign-in when a provider button is clicked", async () => {
 		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [{ displayName: "GitHub", providerId: "github" }],
 			registrationDisabled: false,
 		});
@@ -183,6 +189,7 @@ describe("login route", () => {
 		loginRouteMocks.signInOauth2.mockRejectedValueOnce(new Error("boom"));
 
 		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: false,
 			oidcProviders: [{ displayName: "GitHub", providerId: "github" }],
 			registrationDisabled: false,
 		});
@@ -192,5 +199,17 @@ describe("login route", () => {
 		await expect
 			.poll(() => loginRouteMocks.toastError)
 			.toHaveBeenCalledWith("Failed to sign in with provider");
+	});
+
+	it("hides the register link when email/password registration is disabled", async () => {
+		await renderLoginRoute({
+			emailPasswordRegistrationDisabled: true,
+			oidcProviders: [],
+			registrationDisabled: false,
+		});
+
+		await expect
+			.element(page.getByRole("link", { name: "Register" }))
+			.not.toBeInTheDocument();
 	});
 });
