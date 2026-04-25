@@ -20,6 +20,9 @@
 | `bun run test -- src/routes/_authed/settings/routes.browser.test.tsx src/routes/_authed/settings/general.browser.test.tsx src/routes/_authed/settings/media-management.browser.test.tsx src/routes/_authed/settings/download-clients.browser.test.tsx src/routes/_authed/settings/profiles.browser.test.tsx src/routes/_authed/settings/formats.browser.test.tsx src/routes/_authed/settings/custom-formats.browser.test.tsx src/server/__tests__/settings-store.test.ts src/server/download-clients.test.ts src/server/download-profiles.test.ts` | PASS | 10 files passed, 78 tests passed. |
 | `rg -n "beforeLoad\|redirect\|notFoundComponent\|context\\.session\|role\|requester\|location\\.href\|/requests\|/setup\|/login" src/routes src/components/layout src/server/middleware.ts src/server/setup.ts` | PASS | Completed for Task 6; results highlighted `_authed` auth/setup redirects, requester redirects, admin guards, sidebar role visibility, and related tests used in the auth findings. |
 | `bun run test -- src/routes/_authed.browser.test.tsx src/routes/login.browser.test.tsx src/routes/register.browser.test.tsx src/routes/setup.browser.test.tsx src/routes/__root.test.tsx src/router.test.tsx` | PASS | 6 files passed, 25 tests passed. |
+| `bun run lint` | PASS | `biome check .` checked 712 files. No fixes applied. |
+| `bun run typecheck` | PASS | `tsc --noEmit` completed successfully. |
+| `bun run test` | FAIL | 310 files passed, 2 files failed, 2,564 tests passed. Failed suites: `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts`. Both failed during import before running tests with `Error: Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. |
 
 ## Workflow Findings
 
@@ -167,6 +170,41 @@
 - Recommendation: Keep the existing auth-server hook unit coverage, and add a thin integration or browser-level bootstrap test that submits the setup route through the real sign-up path far enough to verify the created first user has admin-capable state. Keep the current route tests UI-focused, but avoid relying on a mocked `signUp.email` success and button text alone to establish setup-to-admin behavior.
 
 ## Cross-Cutting Test Quality
+
+#### Finding: Shared browser render and e2e fixtures give broad reuse, but e2e setup cost is paid serially
+
+- Category: Maintainability issue
+- Evidence: Browser-mode tests share `renderWithProviders`, `renderHookWithProviders`, and `renderHook`, which consistently wrap components in React Query and tooltip providers with retries disabled (`src/test/render.tsx:11` through `src/test/render.tsx:70`). Vitest is split into node and Chromium browser projects, so `bun run test` exercises both `src/**/*.test.{ts,tsx}` and `src/**/*.browser.test.{ts,tsx}` in one command (`vitest.config.ts:10` through `vitest.config.ts:80`). E2E also has strong fixture reuse: one Playwright fixture starts fake servers, one app server, one worker database, temp directories, app-cache reset, and optional coverage collection (`e2e/fixtures/app.ts:71` through `e2e/fixtures/app.ts:183`). The speed tradeoff is explicit: Playwright e2e runs with `fullyParallel: false` and `workers: 1`, with global setup recreating a template DB via `bun run db:push` before tests (`e2e/playwright.config.ts:3` through `e2e/playwright.config.ts:9`, `e2e/global-setup.ts:33` through `e2e/global-setup.ts:80`).
+- Impact: User Impact Low, Maintenance Cost Medium, Risk Low, Implementation Size Medium.
+- Recommendation: Keep the shared render helper and e2e fixture model, but track e2e wall time before adding more workflow specs. If the suite becomes slow, split scenarios by independent fake-service sets and move toward multiple workers only after the DB/template and port-allocation fixtures can prove isolation.
+
+#### Finding: Fixed waits remain in high-value e2e flows
+
+- Category: Maintainability issue
+- Evidence: The brittle-pattern search found fixed sleeps in shared auth/session helpers and workflow specs: hydration retry sleeps in `fillInput`, a one-second delay before auth-state branching in `ensureAuthenticated`, SSE capture waiting by timeout, and post-task sleeps in download lifecycle, auto-search, disk-scan, and blocklist flows (`e2e/helpers/auth.ts:34` through `e2e/helpers/auth.ts:43`, `e2e/helpers/auth.ts:67` through `e2e/helpers/auth.ts:81`, `e2e/helpers/sse.ts:65`, `e2e/tests/07-download-lifecycle.spec.ts:48` through `e2e/tests/07-download-lifecycle.spec.ts:58`). These are in user-critical paths and add unavoidable time even when the app is already ready.
+- Impact: User Impact Low, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
+- Recommendation: Replace fixed sleeps with observable readiness signals where possible: URL/session-state checks for auth, SSE event predicates for stream capture, and task-status or API-state polling for scheduled tasks. Keep short retry loops only when they assert a concrete condition.
+
+#### Finding: Browser-mode coverage is broad, but some tests couple to DOM structure and test-only attributes
+
+- Category: Maintainability issue
+- Evidence: Browser tests run in Chromium via Vitest browser mode (`vitest.config.ts:67` through `vitest.config.ts:79`) and cover routes, settings, hooks, UI primitives, and components. The cost is that some assertions depend on implementation markup instead of user-facing behavior: `AuthorTable` reads `tbody tr` order and hard-coded image/link selectors before clicking a raw table row (`src/components/bookshelf/authors/author-table.browser.test.tsx:145` through `src/components/bookshelf/authors/author-table.browser.test.tsx:194`), and `EditionsTab` locates cards and buttons with `data-testid` prefixes plus `button[type="button"]` selectors (`src/components/bookshelf/books/editions-tab.browser.test.tsx:190` through `src/components/bookshelf/books/editions-tab.browser.test.tsx:213`). The search also found widespread `data-testid`, `querySelector`, and mocked child components across route/component browser tests.
+- Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Medium.
+- Recommendation: Keep browser-mode tests for meaningful UI behavior, but prefer role/name/label queries and user-level assertions for new tests. Reserve `data-testid` and raw selectors for non-semantic internals such as generated icons or layout primitives, and add small page-object-style helpers only for repeated user workflows.
+
+#### Finding: Golden service fixtures improve e2e realism, but fixture ownership needs guardrails
+
+- Category: Positive finding
+- Evidence: The e2e inventory shows checked-in fake-service servers for download clients, Servarr apps, Hardcover, TMDB, Newznab, and Bookshelf, plus named golden states and scenarios under `e2e/fixtures/golden/**`. The README documents capture/promote workflows and notes that checked-in payload content is intentionally representative for fixture diffs (`e2e/fixtures/golden/README.md:3` through `e2e/fixtures/golden/README.md:133`). Tests also cover golden capture helpers, fake-server manager behavior, and live-compose parity helpers, which reduces the chance that fixture infrastructure silently drifts (`e2e/fixtures/golden/capture.test.ts`, `e2e/fixtures/fake-servers/manager.test.ts`, `e2e/fixtures/fake-servers/compose-live-parity.test.ts`).
+- Impact: User Impact Low, Maintenance Cost Low, Risk Low, Implementation Size Small.
+- Recommendation: Keep golden fixtures as the integration-test source of truth for upstream service contracts. Require scenario updates to include focused fixture-helper test changes or README notes when a captured payload shape changes, so fixture churn remains reviewable.
+
+#### Finding: Full suite verification currently fails before two wrapper test files execute
+
+- Category: Maintainability issue
+- Evidence: `bun run lint` passed and `bun run typecheck` passed, but the requested full `bun run test` did not complete successfully. Vitest reported 310 passed files and 2,564 passed tests, then failed `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts` during suite import with `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. Because both failed suites had `0 test`, this appears to be a test-environment/module-resolution issue rather than an assertion failure in the tested behavior.
+- Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Small.
+- Recommendation: Fix the `bun:` protocol import path for the wrapper/index test environment before relying on full-suite green as the release gate. After the import failure is resolved, rerun `bun run test` and keep the Verification table updated with the actual failing test names if any assertions fail.
 
 ## Ranked Shortlist
 
