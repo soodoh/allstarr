@@ -4,7 +4,7 @@
 
 - Branch: `improvements`
 - Audit date: 2026-04-25
-- Baseline notes:
+- Baseline notes: The audit execution changed only documentation under `docs/superpowers/reports/`. Dependencies were installed with `bun install` before plan execution so local commit hooks could resolve project-local tools. The full test suite was not green at audit time because two wrapper test files failed during import with a `bun:` protocol loader error; targeted workflow tests, lint, and typecheck are recorded below.
 
 ## Executive Summary
 
@@ -263,3 +263,8 @@ These items meet the Task 8 Fix Now criteria: User Impact High, Risk High, or Ma
 - Out of scope: Do not refactor auto-search orchestration, change release scoring, alter download-client provider selection, redesign tracked-download schema beyond what the transaction requires, or implement external client compensation unless the failure contract explicitly requires it.
 
 ## Risks And Open Questions
+
+- The full `bun run test` gate is currently red because `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts` fail during import with a `bun:` protocol loader error. The audit is documentation-only, so this is treated as an existing test-environment/module-resolution issue, but it should be resolved before relying on full-suite verification.
+- The recommended first target needs a precise failure contract for provider-success/database-failure behavior in `grabReleaseFn`: either atomic local persistence after provider success, a recoverable error state, or an explicit compensation path. The follow-up implementation plan should choose one before writing code.
+- Several high-value findings are intentionally tracked after the first target because they touch broader workflow boundaries, especially auto-search orchestration and unmapped-file mapping execution. Those should be planned as separate follow-up specs rather than folded into the first fix.
+- The audit used Context7 documentation for TanStack Router, TanStack Query, and Drizzle ORM as planning context, but no external Servarr parity review was performed. Servarr consistency should be evaluated separately if product parity becomes the primary goal.
