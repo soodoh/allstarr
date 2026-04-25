@@ -16,20 +16,40 @@ function getDefaultRole(): DefaultRole {
 	return "requester";
 }
 
-type RequestLikeContext = {
+type AuthHookContext = {
+	path?: string;
+	params?: {
+		providerId?: string;
+	};
 	request?: Request;
 };
 
 function getRequestPathname(ctx: unknown): string {
-	if (typeof ctx !== "object" || ctx === null || !("request" in ctx)) {
+	if (typeof ctx !== "object" || ctx === null) {
 		return "";
 	}
-	const request = (ctx as RequestLikeContext).request;
+	const hookContext = ctx as AuthHookContext;
+	if (typeof hookContext.path === "string") {
+		return hookContext.path;
+	}
+
+	const request = hookContext.request;
 	if (!request) {
 		return "";
 	}
 
 	return new URL(request.url).pathname;
+}
+
+function getProviderId(ctx: unknown, callbackMatch: RegExpMatchArray): string {
+	if (typeof ctx === "object" && ctx !== null) {
+		const providerId = (ctx as AuthHookContext).params?.providerId;
+		if (typeof providerId === "string") {
+			return providerId;
+		}
+	}
+
+	return callbackMatch[1] ?? "";
 }
 
 const oidcConfig = authConfig.oidcProviders.map(
@@ -94,7 +114,7 @@ export const auth = betterAuth({
 						/\/oauth2\/callback\/([^/]+)$/,
 					);
 					if (callbackMatch) {
-						const providerId = callbackMatch[1] ?? "";
+						const providerId = getProviderId(ctx, callbackMatch);
 						if (
 							authConfig.registrationDisabled &&
 							!authConfig.allowOidcAccountCreation(providerId)

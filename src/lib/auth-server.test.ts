@@ -148,6 +148,20 @@ describe("auth-server", () => {
 			});
 		});
 
+		it("assigns default role to admin-created users with path context when registration is disabled", async () => {
+			mocks.authConfig.registrationDisabled = true;
+			mocks.sqlitePrepareGet.mockReturnValue({ count: 5 });
+			mocks.getSettingValue.mockReturnValue("viewer");
+
+			const result = await beforeCreate(baseUserData, {
+				path: "/admin/create-user",
+			});
+
+			expect(result).toEqual({
+				data: { ...baseUserData, role: "viewer" },
+			});
+		});
+
 		it("preserves an explicit role for admin-created users", async () => {
 			mocks.sqlitePrepareGet.mockReturnValue({ count: 5 });
 			mocks.getSettingValue.mockReturnValue("viewer");
