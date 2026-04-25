@@ -23,7 +23,6 @@ export * from "./movie-download-profiles";
 export * from "./movie-files";
 export * from "./movie-import-list-exclusions";
 export * from "./movies";
-export * from "./oidc-providers";
 export * from "./profile-custom-formats";
 export * from "./scheduled-tasks";
 export * from "./series";
