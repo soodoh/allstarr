@@ -20,12 +20,16 @@ type RequestLikeContext = {
 	request?: Request;
 };
 
-function getRequestUrl(ctx: unknown): string {
+function getRequestPathname(ctx: unknown): string {
 	if (typeof ctx !== "object" || ctx === null || !("request" in ctx)) {
 		return "";
 	}
 	const request = (ctx as RequestLikeContext).request;
-	return request?.url ?? "";
+	if (!request) {
+		return "";
+	}
+
+	return new URL(request.url).pathname;
 }
 
 const oidcConfig = authConfig.oidcProviders.map(
@@ -72,10 +76,10 @@ export const auth = betterAuth({
 						return { data: { ...userData, role: "admin" } };
 					}
 
-					const requestUrl = getRequestUrl(ctx);
+					const requestPathname = getRequestPathname(ctx);
 
 					// Admin-created users get the provided role or default
-					if (requestUrl.includes("/admin/create-user")) {
+					if (requestPathname.endsWith("/admin/create-user")) {
 						const defaultRole = getDefaultRole();
 						return {
 							data: {
@@ -86,8 +90,8 @@ export const auth = betterAuth({
 					}
 
 					// OIDC callback
-					const callbackMatch = requestUrl.match(
-						/\/oauth2\/callback\/([^/?]+)/,
+					const callbackMatch = requestPathname.match(
+						/\/oauth2\/callback\/([^/]+)$/,
 					);
 					if (callbackMatch) {
 						const providerId = callbackMatch[1] ?? "";
