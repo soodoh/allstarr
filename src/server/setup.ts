@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
-import { db, sqlite } from "src/db";
-import { oidcProviders } from "src/db/schema";
+import { sqlite } from "src/db";
+import { authConfig } from "src/lib/auth-config";
 
 /**
  * Check if any users exist in the database.
@@ -21,20 +20,10 @@ export const hasUsersFn = createServerFn({ method: "GET" }).handler(
 export const getRegistrationStatusFn = createServerFn({
 	method: "GET",
 }).handler(async () => {
-	const registrationDisabled = process.env.DISABLE_REGISTRATION === "true";
-
-	// Get enabled OIDC providers (public info only — no secrets)
-	const providers = db
-		.select({
-			providerId: oidcProviders.providerId,
-			displayName: oidcProviders.displayName,
-		})
-		.from(oidcProviders)
-		.where(eq(oidcProviders.enabled, true))
-		.all();
-
 	return {
-		registrationDisabled,
-		oidcProviders: providers,
+		emailPasswordRegistrationDisabled:
+			authConfig.emailPasswordRegistrationDisabled,
+		oidcProviders: authConfig.publicOidcProviders,
+		registrationDisabled: authConfig.registrationDisabled,
 	};
 });
