@@ -22,7 +22,7 @@
 | `bun run test -- src/routes/_authed.browser.test.tsx src/routes/login.browser.test.tsx src/routes/register.browser.test.tsx src/routes/setup.browser.test.tsx src/routes/__root.test.tsx src/router.test.tsx` | PASS | 6 files passed, 25 tests passed. |
 | `bun run lint` | PASS | `biome check .` checked 712 files. No fixes applied. |
 | `bun run typecheck` | PASS | `tsc --noEmit` completed successfully. |
-| `bun run test` | FAIL | 310 files passed, 2 files failed, 2,564 tests passed. Failed suites: `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts`. Both failed during import before running tests with `Error: Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. |
+| `bun run test` | FAIL | 310 files passed, 2 files failed, 2,564 tests passed. Failed suites: `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts`. Both failed during import before running tests with `Error: Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. This audit range is documentation-only, so this appears to be an existing test-environment/module-resolution issue rather than a failure introduced by the audit report. |
 
 ## Workflow Findings
 
@@ -209,7 +209,7 @@
 #### Finding: Full suite verification currently fails before two wrapper test files execute
 
 - Category: Maintainability issue
-- Evidence: `bun run lint` passed and `bun run typecheck` passed, but the requested full `bun run test` did not complete successfully. Vitest reported 310 passed files and 2,564 passed tests, then failed `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts` during suite import with `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. Because both failed suites had `0 test`, this appears to be a test-environment/module-resolution issue rather than an assertion failure in the tested behavior.
+- Evidence: `bun run lint` passed and `bun run typecheck` passed, but the requested full `bun run test` did not complete successfully. Vitest reported 310 passed files and 2,564 passed tests, then failed `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts` during suite import with `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. Because both failed suites had `0 test`, this appears to be a test-environment/module-resolution issue rather than an assertion failure in the tested behavior. This audit range is documentation-only, so the failure is not attributed to the Task 7 report change.
 - Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Small.
 - Recommendation: Fix the `bun:` protocol import path for the wrapper/index test environment before relying on full-suite green as the release gate. After the import failure is resolved, rerun `bun run test` and keep the Verification table updated with the actual failing test names if any assertions fail.
 
