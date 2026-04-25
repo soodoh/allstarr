@@ -185,6 +185,13 @@
 - Impact: User Impact Low, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
 - Recommendation: Replace fixed sleeps with observable readiness signals where possible: URL/session-state checks for auth, SSE event predicates for stream capture, and task-status or API-state polling for scheduled tasks. Keep short retry loops only when they assert a concrete condition.
 
+#### Finding: Test readability varies where setup and assertions expose too much implementation detail
+
+- Category: Maintainability issue
+- Evidence: The helper inventory shows readable shared entry points for common browser rendering and e2e runtime setup (`src/test/render.tsx:50` through `src/test/render.tsx:70`, `e2e/fixtures/app.ts:71` through `e2e/fixtures/app.ts:160`), but the brittle-pattern search also found many tests with local `vi.mock`, `beforeEach`, `data-testid`, and `querySelector` usage. Representative browser tests mix behavior assertions with DOM traversal and selector mechanics, such as `AuthorTable` manually reading `tbody tr` order and hard-coded image/link selectors (`src/components/bookshelf/authors/author-table.browser.test.tsx:145` through `src/components/bookshelf/authors/author-table.browser.test.tsx:194`) and `EditionsTab` selecting cards and buttons by `data-testid` prefixes plus `button[type="button"]` (`src/components/bookshelf/books/editions-tab.browser.test.tsx:190` through `src/components/bookshelf/books/editions-tab.browser.test.tsx:213`). These tests still cover valuable behavior, but the reader must parse markup details before the user intent is clear.
+- Impact: User Impact Low, Maintenance Cost Medium, Risk Low, Implementation Size Small.
+- Recommendation: Preserve the existing shared helpers and add small domain-specific test builders or screen helpers for repeated route/component setups. New tests should make the user workflow obvious first, with raw selectors and mock wiring pushed behind named helpers when they are unavoidable.
+
 #### Finding: Browser-mode coverage is broad, but some tests couple to DOM structure and test-only attributes
 
 - Category: Maintainability issue
