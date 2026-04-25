@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
 	selectGet: vi.fn((): unknown => undefined),
 	insertReturningGet: vi.fn((): unknown => undefined),
 	insertRun: vi.fn(),
+	transactionInsertRun: vi.fn(),
+	transaction: vi.fn((fn: (tx: unknown) => unknown): unknown => fn({})),
 	updateReturningGet: vi.fn((): unknown => undefined),
 	deleteRun: vi.fn(),
 	tokenSetRatio: vi.fn((_a: string, _b: string): number => 100),
@@ -108,6 +110,7 @@ vi.mock("../queue", () => ({
  *   select().from().innerJoin().where().limit().get()
  *   insert().values().returning().get()
  *   insert().values().run()
+ *   transaction((tx) => tx.insert().values().run())
  *   update().set().where().returning().get()
  *   delete().where().run()
  */
@@ -136,6 +139,9 @@ vi.mock("src/db", () => {
 					run: mocks.insertRun,
 				})),
 			})),
+			transaction: vi.fn((fn: (tx: unknown) => unknown) =>
+				mocks.transaction(fn),
+			),
 			update: vi.fn(() => ({
 				set: vi.fn(() => ({
 					where: vi.fn(() => ({
@@ -207,10 +213,21 @@ beforeEach(() => {
 	mocks.selectAll.mockReset();
 	mocks.selectGet.mockReset();
 	mocks.insertReturningGet.mockReset();
+	mocks.transactionInsertRun.mockReset();
+	mocks.transaction.mockReset();
 	mocks.updateReturningGet.mockReset();
 	// Re-apply safe defaults
 	mocks.selectAll.mockReturnValue([]);
 	mocks.selectGet.mockReturnValue(undefined);
+	mocks.transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+		fn({
+			insert: vi.fn(() => ({
+				values: vi.fn(() => ({
+					run: mocks.transactionInsertRun,
+				})),
+			})),
+		}),
+	);
 	mocks.enrichRelease.mockImplementation((r: unknown) => r);
 });
 
@@ -1128,8 +1145,113 @@ describe("grabReleaseFn", () => {
 			},
 		});
 
-		// trackedDownloads insert + history insert = 2 runs
-		expect(mocks.insertRun).toHaveBeenCalledTimes(2);
+		// trackedDownloads insert + history insert = 2 transaction runs
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(2);
+	});
+
+	it("persists tracked download and history in one transaction after provider success", async () => {
+		mocks.canGrabIndexer.mockReturnValue({ allowed: true });
+
+		const client = makeClient({ id: 2, name: "SAB" });
+		mocks.selectGet.mockReturnValueOnce(client); // explicit client
+		mocks.selectGet.mockReturnValueOnce({ tag: null }); // indexer tag
+
+		mocks.getProvider.mockResolvedValueOnce({
+			addDownload: vi.fn().mockResolvedValue("dl-transactional"),
+		});
+
+		const { grabReleaseFn } = await import("../indexers");
+		await grabReleaseFn({
+			data: {
+				guid: "g-transactional",
+				indexerId: 1,
+				indexerSource: "manual",
+				title: "Transactional Release",
+				downloadUrl: "https://example.com/dl",
+				protocol: "torrent",
+				size: 5000,
+				bookId: null,
+				downloadClientId: 2,
+			},
+		});
+
+		expect(mocks.transaction).toHaveBeenCalledTimes(1);
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(2);
+		expect(mocks.insertRun).not.toHaveBeenCalled();
+	});
+
+	it("rejects when tracked download persistence fails after provider success", async () => {
+		mocks.canGrabIndexer.mockReturnValue({ allowed: true });
+
+		const client = makeClient({ id: 2, name: "SAB" });
+		mocks.selectGet.mockReturnValueOnce(client); // explicit client
+		mocks.selectGet.mockReturnValueOnce({ tag: null }); // indexer tag
+
+		mocks.getProvider.mockResolvedValueOnce({
+			addDownload: vi.fn().mockResolvedValue("dl-tracked-failure"),
+		});
+		mocks.transactionInsertRun.mockImplementationOnce(() => {
+			throw new Error("tracked download insert failed");
+		});
+
+		const { grabReleaseFn } = await import("../indexers");
+		await expect(
+			grabReleaseFn({
+				data: {
+					guid: "g-tracked-failure",
+					indexerId: 1,
+					indexerSource: "manual",
+					title: "Tracked Failure Release",
+					downloadUrl: "https://example.com/dl",
+					protocol: "torrent",
+					size: 5000,
+					bookId: null,
+					downloadClientId: 2,
+				},
+			}),
+		).rejects.toThrow("tracked download insert failed");
+
+		expect(mocks.transaction).toHaveBeenCalledTimes(1);
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(1);
+		expect(mocks.insertRun).not.toHaveBeenCalled();
+	});
+
+	it("rejects when history persistence fails after provider success", async () => {
+		mocks.canGrabIndexer.mockReturnValue({ allowed: true });
+
+		const client = makeClient({ id: 2, name: "SAB" });
+		mocks.selectGet.mockReturnValueOnce(client); // explicit client
+		mocks.selectGet.mockReturnValueOnce({ tag: null }); // indexer tag
+
+		mocks.getProvider.mockResolvedValueOnce({
+			addDownload: vi.fn().mockResolvedValue("dl-history-failure"),
+		});
+		mocks.transactionInsertRun
+			.mockImplementationOnce(() => undefined)
+			.mockImplementationOnce(() => {
+				throw new Error("history insert failed");
+			});
+
+		const { grabReleaseFn } = await import("../indexers");
+		await expect(
+			grabReleaseFn({
+				data: {
+					guid: "g-history-failure",
+					indexerId: 1,
+					indexerSource: "manual",
+					title: "History Failure Release",
+					downloadUrl: "https://example.com/dl",
+					protocol: "torrent",
+					size: 5000,
+					bookId: null,
+					downloadClientId: 2,
+				},
+			}),
+		).rejects.toThrow("history insert failed");
+
+		expect(mocks.transaction).toHaveBeenCalledTimes(1);
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(2);
+		expect(mocks.insertRun).not.toHaveBeenCalled();
 	});
 
 	it("combines client and indexer tags", async () => {
@@ -1230,8 +1352,8 @@ describe("grabReleaseFn", () => {
 			},
 		});
 
-		// trackedDownloads insert + history insert = 2 runs
-		expect(mocks.insertRun).toHaveBeenCalledTimes(2);
+		// trackedDownloads insert + history insert = 2 transaction runs
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(2);
 	});
 
 	it("handles bookId with no author gracefully", async () => {
@@ -1295,7 +1417,7 @@ describe("grabReleaseFn", () => {
 		});
 
 		// Only history insert, no tracked download insert
-		expect(mocks.insertRun).toHaveBeenCalledTimes(1);
+		expect(mocks.transactionInsertRun).toHaveBeenCalledTimes(1);
 	});
 });
 
