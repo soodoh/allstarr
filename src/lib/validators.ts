@@ -467,34 +467,3 @@ export const deleteUserSchema = z.object({
 export const updateDefaultRoleSchema = z.object({
 	role: z.enum(["viewer", "requester"]),
 });
-
-// ─── OIDC Providers ───────────────────────────────────────────────────────────
-
-export const createOidcProviderSchema = z.object({
-	providerId: z
-		.string()
-		.min(1)
-		.regex(/^[a-z0-9-]+$/, "Must be lowercase alphanumeric with hyphens"),
-	displayName: z.string().min(1),
-	clientId: z.string().min(1),
-	clientSecret: z.string().min(1),
-	discoveryUrl: z.string().url(),
-	scopes: z.array(z.string()).default(["openid", "profile", "email"]),
-	trusted: z.boolean().default(false),
-	enabled: z.boolean().default(true),
-});
-
-export const updateOidcProviderSchema = z.object({
-	id: z.string(),
-	displayName: z.string().min(1).optional(),
-	clientId: z.string().min(1).optional(),
-	clientSecret: z.string().min(1).optional(),
-	discoveryUrl: z.string().url().optional(),
-	scopes: z.array(z.string()).optional(),
-	trusted: z.boolean().optional(),
-	enabled: z.boolean().optional(),
-});
-
-export const deleteOidcProviderSchema = z.object({
-	id: z.string(),
-});

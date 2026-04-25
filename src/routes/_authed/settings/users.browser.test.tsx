@@ -13,18 +13,6 @@ import { page, userEvent } from "vitest/browser";
 
 type LoaderData = {
 	defaultRole: { defaultRole: string };
-	oidcProviders: Array<{
-		clientId: string;
-		clientSecret: string;
-		createdAt: Date;
-		displayName: string;
-		discoveryUrl: string;
-		enabled: boolean;
-		id: string;
-		providerId: string;
-		scopes: string[];
-		trusted: boolean;
-	}>;
 	registrationStatus: { registrationDisabled: boolean };
 	users: Array<{
 		authMethod: string;
@@ -39,15 +27,12 @@ type LoaderData = {
 };
 
 const usersRouteMocks = vi.hoisted(() => ({
-	createOidcProviderFn: vi.fn(),
 	createUserFn: vi.fn(),
-	deleteOidcProviderFn: vi.fn(),
 	deleteUserFn: vi.fn(),
 	getDefaultRoleFn: vi.fn(),
 	getRegistrationStatusFn: vi.fn(),
 	invalidate: vi.fn(),
 	isAdmin: false,
-	listOidcProvidersFn: vi.fn(),
 	listUsersFn: vi.fn(),
 	setUserRoleFn: vi.fn(),
 	toast: {
@@ -55,7 +40,6 @@ const usersRouteMocks = vi.hoisted(() => ({
 		success: vi.fn(),
 	},
 	updateDefaultRoleFn: vi.fn(),
-	updateOidcProviderFn: vi.fn(),
 }));
 
 const SelectContext = createContext<{
@@ -321,17 +305,6 @@ vi.mock("src/lib/admin-route", () => ({
 	requireAdminBeforeLoad: vi.fn(),
 }));
 
-vi.mock("src/server/oidc-providers", () => ({
-	createOidcProviderFn: (...args: unknown[]) =>
-		usersRouteMocks.createOidcProviderFn(...args),
-	deleteOidcProviderFn: (...args: unknown[]) =>
-		usersRouteMocks.deleteOidcProviderFn(...args),
-	listOidcProvidersFn: (...args: unknown[]) =>
-		usersRouteMocks.listOidcProvidersFn(...args),
-	updateOidcProviderFn: (...args: unknown[]) =>
-		usersRouteMocks.updateOidcProviderFn(...args),
-}));
-
 vi.mock("src/server/setup", () => ({
 	getRegistrationStatusFn: (...args: unknown[]) =>
 		usersRouteMocks.getRegistrationStatusFn(...args),
@@ -353,7 +326,6 @@ import { Route } from "./users";
 function createLoaderData(overrides: Partial<LoaderData> = {}): LoaderData {
 	return {
 		defaultRole: { defaultRole: "viewer" },
-		oidcProviders: [],
 		registrationStatus: { registrationDisabled: true },
 		users: [
 			{
@@ -385,9 +357,7 @@ describe("users route", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		usersRouteMocks.isAdmin = false;
-		usersRouteMocks.createOidcProviderFn.mockResolvedValue(undefined);
 		usersRouteMocks.createUserFn.mockResolvedValue(undefined);
-		usersRouteMocks.deleteOidcProviderFn.mockResolvedValue(undefined);
 		usersRouteMocks.deleteUserFn.mockResolvedValue(undefined);
 		usersRouteMocks.getDefaultRoleFn.mockResolvedValue({
 			defaultRole: "viewer",
@@ -395,11 +365,9 @@ describe("users route", () => {
 		usersRouteMocks.getRegistrationStatusFn.mockResolvedValue({
 			registrationDisabled: true,
 		});
-		usersRouteMocks.listOidcProvidersFn.mockResolvedValue([]);
 		usersRouteMocks.listUsersFn.mockResolvedValue([]);
 		usersRouteMocks.setUserRoleFn.mockResolvedValue(undefined);
 		usersRouteMocks.updateDefaultRoleFn.mockResolvedValue(undefined);
-		usersRouteMocks.updateOidcProviderFn.mockResolvedValue(undefined);
 	});
 
 	it("loads the route data from the backing server functions", async () => {
@@ -418,7 +386,6 @@ describe("users route", () => {
 		usersRouteMocks.getDefaultRoleFn.mockResolvedValueOnce({
 			defaultRole: "requester",
 		});
-		usersRouteMocks.listOidcProvidersFn.mockResolvedValueOnce([{ id: "p1" }]);
 		usersRouteMocks.getRegistrationStatusFn.mockResolvedValueOnce({
 			registrationDisabled: false,
 		});
@@ -433,23 +400,20 @@ describe("users route", () => {
 			}),
 		).resolves.toEqual({
 			defaultRole: { defaultRole: "requester" },
-			oidcProviders: [{ id: "p1" }],
 			registrationStatus: { registrationDisabled: false },
 			users: [{ id: "1" }],
 		});
 
 		expect(usersRouteMocks.listUsersFn).toHaveBeenCalledTimes(1);
 		expect(usersRouteMocks.getDefaultRoleFn).toHaveBeenCalledTimes(1);
-		expect(usersRouteMocks.listOidcProvidersFn).toHaveBeenCalledTimes(1);
 		expect(usersRouteMocks.getRegistrationStatusFn).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the non-admin view with read-only roles and empty provider state", async () => {
+	it("renders the non-admin view with read-only roles and no provider management", async () => {
 		usersRouteMocks.isAdmin = false;
 
 		await renderRoute(
 			createLoaderData({
-				oidcProviders: [],
 				registrationStatus: { registrationDisabled: true },
 			}),
 		);
@@ -464,13 +428,10 @@ describe("users route", () => {
 			)
 			.toBeDisabled();
 		await expect
-			.element(page.getByText("No OIDC providers configured."))
-			.toBeInTheDocument();
-		await expect
-			.element(page.getByRole("button", { name: "Add User" }))
+			.element(page.getByRole("heading", { name: "OIDC Providers" }))
 			.not.toBeInTheDocument();
 		await expect
-			.element(page.getByRole("button", { name: "Add Provider" }))
+			.element(page.getByRole("button", { name: "Add User" }))
 			.not.toBeInTheDocument();
 	});
 
@@ -480,21 +441,6 @@ describe("users route", () => {
 		await renderRoute(
 			createLoaderData({
 				defaultRole: { defaultRole: "viewer" },
-				oidcProviders: [
-					{
-						clientId: "client-1",
-						clientSecret: "secret-1",
-						createdAt: new Date("2025-01-03T00:00:00Z"),
-						displayName: "Authentik",
-						discoveryUrl:
-							"https://auth.example.com/.well-known/openid-configuration",
-						enabled: true,
-						id: "provider-1",
-						providerId: "authentik",
-						scopes: ["openid", "profile"],
-						trusted: false,
-					},
-				],
 			}),
 		);
 
@@ -557,31 +503,9 @@ describe("users route", () => {
 			},
 		});
 		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith("User created");
-
-		const authentikTd = Array.from(document.querySelectorAll("td")).find(
-			(td) => td.textContent?.trim() === "Authentik",
-		) as HTMLElement;
-		const providerRow = page.elementLocator(
-			authentikTd.closest("tr") as HTMLElement,
-		);
-		const providerCheckboxes = providerRow.getByRole("checkbox");
-		await providerCheckboxes.first().click();
-		await providerCheckboxes.nth(1).click();
-		expect(usersRouteMocks.updateOidcProviderFn).toHaveBeenCalledWith({
-			data: { id: "provider-1", trusted: true },
-		});
-		expect(usersRouteMocks.updateOidcProviderFn).toHaveBeenCalledWith({
-			data: { enabled: false, id: "provider-1" },
-		});
-
-		await providerRow.getByRole("button", { name: "Trash" }).click();
-		await page.getByRole("button", { name: "Confirm" }).click();
-		expect(usersRouteMocks.deleteOidcProviderFn).toHaveBeenCalledWith({
-			data: { id: "provider-1" },
-		});
-		expect(usersRouteMocks.toast.success).toHaveBeenCalledWith(
-			"Provider deleted. Restart required.",
-		);
+		await expect
+			.element(page.getByRole("heading", { name: "OIDC Providers" }))
+			.not.toBeInTheDocument();
 
 		expect(usersRouteMocks.invalidate).toHaveBeenCalled();
 	});
@@ -600,32 +524,8 @@ describe("users route", () => {
 		usersRouteMocks.createUserFn.mockRejectedValueOnce(
 			new Error("create user failed"),
 		);
-		usersRouteMocks.updateOidcProviderFn.mockRejectedValue(
-			new Error("provider update failed"),
-		);
-		usersRouteMocks.deleteOidcProviderFn.mockRejectedValueOnce(
-			new Error("provider delete failed"),
-		);
 
-		await renderRoute(
-			createLoaderData({
-				oidcProviders: [
-					{
-						clientId: "client-1",
-						clientSecret: "secret-1",
-						createdAt: new Date("2025-01-03T00:00:00Z"),
-						displayName: "Authentik",
-						discoveryUrl:
-							"https://auth.example.com/.well-known/openid-configuration",
-						enabled: true,
-						id: "provider-1",
-						providerId: "authentik",
-						scopes: ["openid", "profile"],
-						trusted: false,
-					},
-				],
-			}),
-		);
+		await renderRoute(createLoaderData());
 
 		const registrationHeading = page.getByRole("heading", {
 			name: "Registration",
@@ -670,29 +570,5 @@ describe("users route", () => {
 		await expect
 			.poll(() => usersRouteMocks.toast.error)
 			.toHaveBeenCalledWith("create user failed");
-
-		const authentikTd2 = Array.from(document.querySelectorAll("td")).find(
-			(td) => td.textContent?.trim() === "Authentik",
-		) as HTMLElement;
-		const providerRow = page.elementLocator(
-			authentikTd2.closest("tr") as HTMLElement,
-		);
-		const providerCheckboxes = providerRow.getByRole("checkbox");
-		await providerCheckboxes.first().click();
-		await expect
-			.poll(() => usersRouteMocks.toast.error)
-			.toHaveBeenCalledWith("Failed to update provider");
-
-		await providerCheckboxes.nth(1).click();
-		await expect
-			.poll(() => usersRouteMocks.toast.error)
-			.toHaveBeenCalledWith("Failed to update provider");
-
-		await providerRow.getByRole("button", { name: "Trash" }).click();
-		const confirmButtons = page.getByRole("button", { name: "Confirm" });
-		await confirmButtons.last().click();
-		await expect
-			.poll(() => usersRouteMocks.toast.error)
-			.toHaveBeenCalledWith("Failed to delete provider");
 	});
 });
