@@ -234,6 +234,33 @@ describe("auth-server", () => {
 			).rejects.toThrow("Registration is disabled");
 		});
 
+		it("blocks disabled email/password signup when query string includes admin create path", async () => {
+			mocks.authConfig.registrationDisabled = true;
+			mocks.sqlitePrepareGet.mockReturnValue({ count: 5 });
+
+			await expect(
+				beforeCreate(baseUserData, {
+					request: new Request(
+						"http://localhost:3000/api/auth/sign-up/email?next=/admin/create-user",
+					),
+				}),
+			).rejects.toThrow("Registration is disabled");
+		});
+
+		it("blocks disabled email/password signup when query string includes OIDC callback path", async () => {
+			mocks.authConfig.registrationDisabled = true;
+			mocks.authConfig.allowOidcAccountCreation.mockReturnValue(true);
+			mocks.sqlitePrepareGet.mockReturnValue({ count: 5 });
+
+			await expect(
+				beforeCreate(baseUserData, {
+					request: new Request(
+						"http://localhost:3000/api/auth/sign-up/email?next=/oauth2/callback/authentik",
+					),
+				}),
+			).rejects.toThrow("Registration is disabled");
+		});
+
 		it("blocks email/password signup when DISABLE_EMAIL_PASSWORD_REGISTRATION is set", async () => {
 			mocks.authConfig.emailPasswordRegistrationDisabled = true;
 			mocks.sqlitePrepareGet.mockReturnValue({ count: 5 });
