@@ -1,7 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const setupMocks = vi.hoisted(() => ({
-	all: vi.fn(),
+	authConfig: {
+		emailPasswordRegistrationDisabled: true,
+		publicOidcProviders: [{ displayName: "GitHub", providerId: "github" }],
+		registrationDisabled: true,
+	},
 	get: vi.fn(),
 	prepare: vi.fn(),
 }));
@@ -12,45 +16,22 @@ vi.mock("@tanstack/react-start", () => ({
 	}),
 }));
 
-vi.mock("drizzle-orm", () => ({
-	eq: vi.fn((left: unknown, right: unknown) => ({ left, right })),
-}));
-
 vi.mock("src/db", () => ({
-	db: {
-		select: vi.fn(() => ({
-			from: vi.fn(() => ({
-				where: vi.fn(() => ({
-					all: setupMocks.all,
-				})),
-			})),
-		})),
-	},
 	sqlite: {
 		prepare: setupMocks.prepare,
 	},
 }));
 
-vi.mock("src/db/schema", () => ({
-	oidcProviders: {
-		displayName: "oidcProviders.displayName",
-		enabled: "oidcProviders.enabled",
-		providerId: "oidcProviders.providerId",
-	},
+vi.mock("src/lib/auth-config", () => ({
+	authConfig: setupMocks.authConfig,
 }));
 
 import { getRegistrationStatusFn, hasUsersFn } from "./setup";
 
 describe("setup server functions", () => {
-	const originalDisableRegistration = process.env.DISABLE_REGISTRATION;
-
 	beforeEach(() => {
 		vi.clearAllMocks();
 		setupMocks.prepare.mockReturnValue({ get: setupMocks.get });
-	});
-
-	afterEach(() => {
-		process.env.DISABLE_REGISTRATION = originalDisableRegistration;
 	});
 
 	it("reports whether at least one user exists", async () => {
@@ -66,14 +47,11 @@ describe("setup server functions", () => {
 	});
 
 	it("returns registration status and enabled oidc providers", async () => {
-		process.env.DISABLE_REGISTRATION = "true";
-		setupMocks.all.mockReturnValue([
-			{ displayName: "GitHub", providerId: "github" },
-		]);
-
 		await expect(getRegistrationStatusFn()).resolves.toEqual({
-			oidcProviders: [{ displayName: "GitHub", providerId: "github" }],
-			registrationDisabled: true,
+			emailPasswordRegistrationDisabled:
+				setupMocks.authConfig.emailPasswordRegistrationDisabled,
+			oidcProviders: setupMocks.authConfig.publicOidcProviders,
+			registrationDisabled: setupMocks.authConfig.registrationDisabled,
 		});
 	});
 });
