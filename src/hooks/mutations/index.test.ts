@@ -36,6 +36,7 @@ vi.mock("./books", () => ({}));
 vi.mock("./download-clients", () => ({}));
 vi.mock("./download-profiles", () => ({}));
 vi.mock("./import", () => ({}));
+vi.mock("./imports", () => ({}));
 
 vi.mock("./indexer-search", () => ({
 	useGrabRelease,

@@ -16,7 +16,6 @@ import {
 	hardcoverSeriesCompleteQuery,
 	hardcoverSingleBookQuery,
 } from "./hardcover";
-import * as queryBarrel from "./index";
 import {
 	bookReleaseStatusQuery,
 	hasEnabledIndexersQuery,
@@ -60,6 +59,10 @@ vi.mock("src/server/custom-formats", () => ({
 	getProfileCustomFormatsFn: queryModuleMocks.getProfileCustomFormatsFn,
 }));
 
+vi.mock("src/server/blocklist", () => ({}));
+vi.mock("src/server/books", () => ({}));
+vi.mock("src/server/dashboard", () => ({}));
+
 vi.mock("src/server/download-clients", () => ({
 	getDownloadClientsFn: queryModuleMocks.getDownloadClientsFn,
 }));
@@ -72,6 +75,8 @@ vi.mock("src/server/download-profiles", () => ({
 vi.mock("src/server/filesystem", () => ({
 	browseDirectoryFn: queryModuleMocks.browseDirectoryFn,
 }));
+
+vi.mock("src/server/history", () => ({}));
 
 vi.mock("src/server/authors", () => ({
 	getSeriesFromHardcoverFn: queryModuleMocks.getSeriesFromHardcoverFn,
@@ -91,10 +96,16 @@ vi.mock("src/server/indexers", () => ({
 	hasEnabledIndexersFn: queryModuleMocks.hasEnabledIndexersFn,
 }));
 
+vi.mock("src/server/movies", () => ({}));
+vi.mock("src/server/queue", () => ({}));
+vi.mock("src/server/series", () => ({}));
+
 vi.mock("src/server/settings", () => ({
 	getMetadataProfileFn: queryModuleMocks.getMetadataProfileFn,
 	getSettingsFn: queryModuleMocks.getSettingsFn,
 }));
+
+vi.mock("src/server/shows", () => ({}));
 
 vi.mock("src/server/system-status", () => ({
 	getSystemStatusFn: queryModuleMocks.getSystemStatusFn,
@@ -108,6 +119,8 @@ vi.mock("src/server/tmdb/search", () => ({
 	searchTmdbMoviesFn: queryModuleMocks.searchTmdbMoviesFn,
 	searchTmdbShowsFn: queryModuleMocks.searchTmdbShowsFn,
 }));
+
+vi.mock("src/server/unmapped-files", () => ({}));
 
 vi.mock("src/server/user-settings", () => ({
 	getUserSettingsFn: queryModuleMocks.getUserSettingsFn,
@@ -385,7 +398,56 @@ describe("query wrappers", () => {
 		});
 	});
 
-	it("re-exports the targeted query wrappers from the barrel", () => {
+	it("re-exports the targeted query wrappers from the barrel", async () => {
+		vi.resetModules();
+		vi.doMock("./authors", () => ({}));
+		vi.doMock("./blocklist", () => ({}));
+		vi.doMock("./books", () => ({}));
+		vi.doMock("./custom-formats", () => ({
+			customFormatsListQuery,
+			profileCustomFormatsQuery,
+		}));
+		vi.doMock("./dashboard", () => ({}));
+		vi.doMock("./download-clients", () => ({ downloadClientsListQuery }));
+		vi.doMock("./download-profiles", () => ({
+			downloadFormatsListQuery,
+			downloadProfilesListQuery,
+		}));
+		vi.doMock("./filesystem", () => ({ browseDirectoryQuery }));
+		vi.doMock("./hardcover", () => ({
+			hardcoverAuthorQuery,
+			hardcoverBookLanguagesQuery,
+			hardcoverSeriesCompleteQuery,
+			hardcoverSingleBookQuery,
+		}));
+		vi.doMock("./history", () => ({}));
+		vi.doMock("./imports", () => ({}));
+		vi.doMock("./indexers", () => ({
+			bookReleaseStatusQuery,
+			hasEnabledIndexersQuery,
+			indexerStatusesQuery,
+			indexersListQuery,
+			syncedIndexersListQuery,
+		}));
+		vi.doMock("./movies", () => ({}));
+		vi.doMock("./queue", () => ({}));
+		vi.doMock("./series", () => ({}));
+		vi.doMock("./settings", () => ({
+			metadataProfileQuery,
+			settingsMapQuery,
+		}));
+		vi.doMock("./shows", () => ({}));
+		vi.doMock("./system-status", () => ({ systemStatusQuery }));
+		vi.doMock("./tasks", () => ({ scheduledTasksQuery }));
+		vi.doMock("./tmdb", () => ({
+			tmdbSearchMoviesQuery,
+			tmdbSearchShowsQuery,
+		}));
+		vi.doMock("./unmapped-files", () => ({}));
+		vi.doMock("./user-settings", () => ({ userSettingsQuery }));
+
+		const queryBarrel = await import("./index");
+
 		expect(queryBarrel.downloadClientsListQuery).toBe(downloadClientsListQuery);
 		expect(queryBarrel.downloadProfilesListQuery).toBe(
 			downloadProfilesListQuery,
