@@ -1197,40 +1197,40 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		// Track the download
-		if (downloadId) {
-			db.insert(trackedDownloads)
+		db.transaction((tx) => {
+			if (downloadId) {
+				tx.insert(trackedDownloads)
+					.values({
+						downloadClientId: client.id,
+						downloadId,
+						bookId: data.bookId ?? null,
+						authorId,
+						downloadProfileId: profileId,
+						releaseTitle: data.title,
+						protocol: data.protocol,
+						indexerId: data.indexerId,
+						guid: data.guid,
+						state: "queued",
+					})
+					.run();
+			}
+
+			tx.insert(history)
 				.values({
-					downloadClientId: client.id,
-					downloadId,
+					eventType: "bookGrabbed",
 					bookId: data.bookId ?? null,
-					authorId,
-					downloadProfileId: profileId,
-					releaseTitle: data.title,
-					protocol: data.protocol,
-					indexerId: data.indexerId,
-					guid: data.guid,
-					state: "queued",
+					data: {
+						title: data.title,
+						guid: data.guid,
+						indexerId: data.indexerId,
+						downloadClientId: client.id,
+						downloadClientName: client.name,
+						protocol: data.protocol,
+						size: data.size,
+					},
 				})
 				.run();
-		}
-
-		// Record history event
-		db.insert(history)
-			.values({
-				eventType: "bookGrabbed",
-				bookId: data.bookId ?? null,
-				data: {
-					title: data.title,
-					guid: data.guid,
-					indexerId: data.indexerId,
-					downloadClientId: client.id,
-					downloadClientName: client.name,
-					protocol: data.protocol,
-					size: data.size,
-				},
-			})
-			.run();
+		});
 
 		return {
 			success: true,
