@@ -37,7 +37,11 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
 	const navigate = useNavigate();
-	const { registrationDisabled, oidcProviders } = Route.useLoaderData();
+	const {
+		emailPasswordRegistrationDisabled,
+		oidcProviders,
+		registrationDisabled,
+	} = Route.useLoaderData();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -133,7 +137,7 @@ function LoginPage() {
 							</>
 						)}
 
-						{!registrationDisabled && (
+						{!registrationDisabled && !emailPasswordRegistrationDisabled && (
 							<p className="text-sm text-muted-foreground">
 								Don&apos;t have an account?{" "}
 								<Link to="/register" className="text-primary underline">

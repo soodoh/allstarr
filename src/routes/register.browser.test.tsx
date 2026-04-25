@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 type LoaderData = {
+	emailPasswordRegistrationDisabled: boolean;
+	oidcProviders: Array<{
+		displayName: string;
+		providerId: string;
+	}>;
 	registrationDisabled: boolean;
 };
 
@@ -87,6 +92,8 @@ describe("register route", () => {
 			loader: () => Promise<LoaderData>;
 		};
 		const registrationStatus: LoaderData = {
+			emailPasswordRegistrationDisabled: false,
+			oidcProviders: [],
 			registrationDisabled: false,
 		};
 
@@ -99,7 +106,11 @@ describe("register route", () => {
 	});
 
 	it("renders the disabled registration state", async () => {
-		await renderRegisterRoute({ registrationDisabled: true });
+		await renderRegisterRoute({
+			emailPasswordRegistrationDisabled: false,
+			oidcProviders: [],
+			registrationDisabled: true,
+		});
 
 		await expect
 			.element(page.getByText("Registration Disabled"))
@@ -109,10 +120,29 @@ describe("register route", () => {
 			.toHaveAttribute("href", "/login");
 	});
 
+	it("renders the disabled registration state when email/password registration is disabled", async () => {
+		await renderRegisterRoute({
+			emailPasswordRegistrationDisabled: true,
+			oidcProviders: [],
+			registrationDisabled: false,
+		});
+
+		await expect
+			.element(page.getByText("Registration Disabled"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText(/Account registration is currently disabled/))
+			.toBeInTheDocument();
+	});
+
 	it("creates an account, shows a success toast, and navigates home", async () => {
 		registerRouteMocks.signUpEmail.mockResolvedValueOnce({ error: null });
 
-		await renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({
+			emailPasswordRegistrationDisabled: false,
+			oidcProviders: [],
+			registrationDisabled: false,
+		});
 
 		await page.getByLabelText("Name").fill("Ada Lovelace");
 		await page.getByLabelText("Email").fill("ada@example.com");
@@ -139,7 +169,11 @@ describe("register route", () => {
 			error: { message: "Email already in use" },
 		});
 
-		await renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({
+			emailPasswordRegistrationDisabled: false,
+			oidcProviders: [],
+			registrationDisabled: false,
+		});
 
 		await page.getByLabelText("Name").fill("Ada Lovelace");
 		await page.getByLabelText("Email").fill("ada@example.com");
@@ -155,7 +189,11 @@ describe("register route", () => {
 	it("shows a fallback toast when sign-up throws", async () => {
 		registerRouteMocks.signUpEmail.mockRejectedValueOnce(new Error("boom"));
 
-		await renderRegisterRoute({ registrationDisabled: false });
+		await renderRegisterRoute({
+			emailPasswordRegistrationDisabled: false,
+			oidcProviders: [],
+			registrationDisabled: false,
+		});
 
 		await page.getByLabelText("Name").fill("Ada Lovelace");
 		await page.getByLabelText("Email").fill("ada@example.com");

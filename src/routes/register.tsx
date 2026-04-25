@@ -36,13 +36,14 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
 	const navigate = useNavigate();
-	const { registrationDisabled } = Route.useLoaderData();
+	const { emailPasswordRegistrationDisabled, registrationDisabled } =
+		Route.useLoaderData();
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 
-	if (registrationDisabled) {
+	if (registrationDisabled || emailPasswordRegistrationDisabled) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<Card className="w-full max-w-md">
