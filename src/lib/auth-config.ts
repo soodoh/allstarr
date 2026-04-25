@@ -30,7 +30,7 @@ type RequiredProviderEnvKey =
 	| "CLIENT_SECRET"
 	| "DISCOVERY_URL";
 
-const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
+const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"] as const;
 
 const REQUIRED_PROVIDER_ENV_KEYS: RequiredProviderEnvKey[] = [
 	"PROVIDER_ID",
@@ -89,7 +89,7 @@ function parseOidcProviders(env: Env): OidcProviderConfig[] {
 		}
 
 		const missingKeys = REQUIRED_PROVIDER_ENV_KEYS.filter(
-			(key) => env[`${prefix}_${key}`] === undefined,
+			(key) => getRequiredProviderValue(env, prefix, key) === undefined,
 		);
 
 		if (missingKeys.length > 0) {
@@ -100,12 +100,18 @@ function parseOidcProviders(env: Env): OidcProviderConfig[] {
 			);
 		}
 
+		const providerId = requireProviderValue(env, prefix, "PROVIDER_ID");
+		const displayName = requireProviderValue(env, prefix, "DISPLAY_NAME");
+		const clientId = requireProviderValue(env, prefix, "CLIENT_ID");
+		const clientSecret = requireProviderValue(env, prefix, "CLIENT_SECRET");
+		const discoveryUrl = requireProviderValue(env, prefix, "DISCOVERY_URL");
+
 		providers.push({
-			providerId: env[`${prefix}_PROVIDER_ID`] as string,
-			displayName: env[`${prefix}_DISPLAY_NAME`] as string,
-			clientId: env[`${prefix}_CLIENT_ID`] as string,
-			clientSecret: env[`${prefix}_CLIENT_SECRET`] as string,
-			discoveryUrl: env[`${prefix}_DISCOVERY_URL`] as string,
+			providerId,
+			displayName,
+			clientId,
+			clientSecret,
+			discoveryUrl,
 			scopes: parseScopes(env[`${prefix}_SCOPES`]),
 			allowAccountCreation: env[`${prefix}_ALLOW_ACCOUNT_CREATION`] === "true",
 		});
@@ -120,9 +126,33 @@ function isProviderIndexEmpty(env: Env, prefix: string): boolean {
 	);
 }
 
+function getRequiredProviderValue(
+	env: Env,
+	prefix: string,
+	key: RequiredProviderEnvKey,
+): string | undefined {
+	const value = env[`${prefix}_${key}`]?.trim();
+
+	return value === "" ? undefined : value;
+}
+
+function requireProviderValue(
+	env: Env,
+	prefix: string,
+	key: RequiredProviderEnvKey,
+): string {
+	const value = getRequiredProviderValue(env, prefix, key);
+
+	if (value === undefined) {
+		throw new Error(`Expected ${prefix}_${key} to be validated before parsing`);
+	}
+
+	return value;
+}
+
 function parseScopes(scopes: string | undefined): string[] {
 	if (scopes === undefined) {
-		return DEFAULT_OIDC_SCOPES;
+		return [...DEFAULT_OIDC_SCOPES];
 	}
 
 	return scopes
