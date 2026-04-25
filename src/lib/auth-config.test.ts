@@ -42,6 +42,31 @@ describe("parseAuthConfig", () => {
 		]);
 	});
 
+	it("returns a fresh default scopes array for each provider", () => {
+		const config = parseAuthConfig({
+			OIDC_1_PROVIDER_ID: "authentik",
+			OIDC_1_DISPLAY_NAME: "Authentik",
+			OIDC_1_CLIENT_ID: "authentik-client",
+			OIDC_1_CLIENT_SECRET: "authentik-secret",
+			OIDC_1_DISCOVERY_URL:
+				"https://auth.example.com/.well-known/openid-configuration",
+			OIDC_2_PROVIDER_ID: "authelia",
+			OIDC_2_DISPLAY_NAME: "Authelia",
+			OIDC_2_CLIENT_ID: "authelia-client",
+			OIDC_2_CLIENT_SECRET: "authelia-secret",
+			OIDC_2_DISCOVERY_URL:
+				"https://login.example.com/.well-known/openid-configuration",
+		});
+
+		config.oidcProviders[0]?.scopes.push("groups");
+
+		expect(config.oidcProviders[1]?.scopes).toEqual([
+			"openid",
+			"profile",
+			"email",
+		]);
+	});
+
 	it("parses multiple providers and custom scopes", () => {
 		const config = parseAuthConfig({
 			OIDC_1_PROVIDER_ID: "authentik",
@@ -117,6 +142,21 @@ describe("parseAuthConfig", () => {
 			}),
 		).toThrow(
 			"OIDC_1 is missing required environment variables: OIDC_1_DISPLAY_NAME, OIDC_1_CLIENT_SECRET, OIDC_1_DISCOVERY_URL",
+		);
+	});
+
+	it("treats blank required provider values as missing", () => {
+		expect(() =>
+			parseAuthConfig({
+				OIDC_1_PROVIDER_ID: "authentik",
+				OIDC_1_DISPLAY_NAME: "   ",
+				OIDC_1_CLIENT_ID: "client-id",
+				OIDC_1_CLIENT_SECRET: "",
+				OIDC_1_DISCOVERY_URL:
+					"https://auth.example.com/.well-known/openid-configuration",
+			}),
+		).toThrow(
+			"OIDC_1 is missing required environment variables: OIDC_1_DISPLAY_NAME, OIDC_1_CLIENT_SECRET",
 		);
 	});
 });
