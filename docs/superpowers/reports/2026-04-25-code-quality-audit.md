@@ -8,6 +8,12 @@
 
 ## Executive Summary
 
+The codebase is generally healthy: workflow boundaries are often explicit, the main route/server/test paths have substantial coverage, and lint/typecheck are clean. The strongest areas are the protected-route boundary, import plan/apply separation, focused download-refresh integration tests, and reusable browser/e2e fixtures.
+
+The most important quality pattern is that risk rises where orchestration code crosses external side effects, persistence, and UI contracts without one clear owner. That shows up in grab side effects after provider success, unmapped-file mapping rollback, oversized auto-search coordination, generic settings persistence, and a full-suite test-environment failure that weakens release confidence.
+
+The recommended first target is the nontransactional post-provider grab path in `grabReleaseFn`. It is the best starting point because it has user-visible workflow risk, a small implementation surface, existing tests near the behavior, and a concrete outcome: after a provider accepts a download, tracked-download and history persistence should either succeed together or fail through a documented recoverable path.
+
 ## Verification
 
 | Command | Result | Notes |
@@ -39,7 +45,7 @@
 
 #### Finding: Unmapped-file mapping mixes filesystem side effects, database writes, and per-content orchestration
 
-- Category: Maintainability issue
+- Category: Boundary issue
 - Evidence: `src/server/unmapped-files.ts` contains the related-asset planner helpers, filesystem move helpers, rollback helper, request normalization, and all TV/book/movie mapping branches in one server module. Primary file moves happen before the database transaction, then each branch manually records moved paths and rolls them back if the later DB transaction fails (`moveFileToManagedPath` / `movePathToManagedDestination` at `src/server/unmapped-files.ts:383` and `src/server/unmapped-files.ts:439`, rollback at `src/server/unmapped-files.ts:911`, TV transaction and rollback at `src/server/unmapped-files.ts:1130` and `src/server/unmapped-files.ts:1167`, book transaction and rollback at `src/server/unmapped-files.ts:1387` and `src/server/unmapped-files.ts:1423`, movie transaction and rollback at `src/server/unmapped-files.ts:1583` and `src/server/unmapped-files.ts:1623`). Tests do cover rollback paths for movie and TV transaction failures in `src/server/unmapped-files.test.ts`, but the implementation repeats the same move-plan/DB-write/cleanup pattern across content types.
 - Impact: User Impact Medium, Maintenance Cost High, Risk Medium, Implementation Size Medium.
 - Recommendation: Extract a small mapping execution boundary that accepts a content-specific destination/file-record plan, performs moves, runs a supplied DB transaction, and owns rollback/cleanup behavior. Keep the content-specific branches focused on resolving targets, metadata, and destination paths; keep filesystem semantics in one tested executor.
@@ -53,7 +59,7 @@
 
 #### Finding: Import plan/apply boundaries are clearer than the unmapped-file mapping boundary
 
-- Category: Positive finding
+- Category: Maintainability issue
 - Evidence: Import planning is isolated in `src/server/imports/plan.ts`: it flattens normalized snapshots, assigns supported/unresolved/unsupported rows, preserves provenance skips, and sorts each plan section (`src/server/imports/plan.ts:374` through `src/server/imports/plan.ts:455`). Import application is separately responsible for sorting selected rows by dependency order, handling unsupported/unresolved rows as review items, writing provenance, and wrapping selected-row application in one transaction (`src/server/imports/apply.ts:478` through `src/server/imports/apply.ts:612`). Focused tests cover profile section separation, unsupported rows, provenance-based skips, unresolved library rows, transaction rollback, and resolved library provenance in `src/server/imports/plan.test.ts` and `src/server/imports/apply.test.ts`.
 - Impact: User Impact Low, Maintenance Cost Low, Risk Low, Implementation Size Small.
 - Recommendation: Use the import plan/apply split as the model for future unmapped-file refactoring: one layer should produce a deterministic plan, and one layer should execute that plan with transactional and filesystem rollback semantics.
@@ -62,35 +68,35 @@
 
 #### Finding: Auto-search orchestration is oversized and duplicates search/grab behavior across content types
 
-- Category: Maintainability issue
+- Category: Duplication issue
 - Evidence: `src/server/auto-search.ts` contains wanted-item discovery for books, movies, and episodes, query construction, indexer iteration, rate-limit waits, pack handling, release filtering, download-client resolution, tracked-download writes, and history writes in one module. The same synced/manual indexer iteration and error logging appears in a shared `searchIndexers` helper (`src/server/auto-search.ts:782` through `src/server/auto-search.ts:877`) and again inline for book search (`src/server/auto-search.ts:896` through `src/server/auto-search.ts:1010`), with separate movie and episode variants later in the same file. Download dispatch is also repeated for books, movies, and episodes (`src/server/auto-search.ts:2640`, `src/server/auto-search.ts:2805`, and `src/server/auto-search.ts:2882`). `runAutoSearch` coordinates books, then movies, then episodes with sleeps between groups (`src/server/auto-search.ts:2459` through `src/server/auto-search.ts:2518`), so one scheduler path owns several distinct behaviors.
 - Impact: User Impact Medium, Maintenance Cost High, Risk Medium, Implementation Size Medium.
 - Recommendation: Extract content-neutral orchestration boundaries: one indexer-search executor, one download-client resolution/dispatch helper, and one content-specific adapter for wanted-item discovery and history/tracked-download payloads. Keep pack and profile selection logic as pure helpers with focused tests.
 
 #### Finding: Interactive search and download boundaries are clearer, but grab side effects are not transactional
 
-- Category: Maintainability issue
+- Category: Risk issue
 - Evidence: `src/server/indexers.ts` has a clean interactive-search boundary: `searchAllIndexers` applies rate-limit gating, catches per-indexer failures into warnings, enriches releases, and `searchIndexersFn` escalates only when every configured indexer fails (`src/server/indexers.ts:807` through `src/server/indexers.ts:1010`). `grabReleaseFn` resolves explicit, indexer-level, or protocol fallback clients before calling the provider (`src/server/indexers.ts:1063` through `src/server/indexers.ts:1170`), then writes `trackedDownloads` and `history` separately after the external add succeeds (`src/server/indexers.ts:1200` through `src/server/indexers.ts:1238`). If the tracked-download insert succeeds and the history insert fails, or if the first insert fails after the provider accepted the download, the external client and database can diverge. Tests cover rate limiting, client fallback, tag combination, tracked-download creation, and the no-download-id branch (`src/server/__tests__/indexers.test.ts:956` through `src/server/__tests__/indexers.test.ts:1299`), but not compensating behavior for partial DB-write failure after `addDownload`.
-- Impact: User Impact Medium, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
+- Impact: User Impact Medium, Maintenance Cost Medium, Risk High, Implementation Size Small.
 - Recommendation: Wrap post-provider database writes in one transaction and define the failure contract for provider-success/database-failure cases. At minimum, add a regression test that simulates tracked-download or history insert failure after `addDownload` succeeds and documents whether the system should remove the client-side download, mark a recoverable state, or surface a retryable error.
 
 #### Finding: Sync indexer API accepts external payloads without route-level validation
 
-- Category: Maintainability issue
+- Category: Boundary issue
 - Evidence: The Readarr-compatible indexer API authenticates requests and validates path IDs, but `POST /api/v1/indexer` and `PUT /api/v1/indexer/$id` cast `request.json()` directly to `ReadarrIndexerResource` before passing it into `fromReadarrResource` (`src/routes/api/v1/indexer/index.ts:25` through `src/routes/api/v1/indexer/index.ts:42`, `src/routes/api/v1/indexer/$id.ts:68` through `src/routes/api/v1/indexer/$id.ts:81`). Route tests cover listing, creation, invalid IDs, not-found branches, update, and delete (`src/routes/api/v1/indexer/routes.test.ts:86` through `src/routes/api/v1/indexer/routes.test.ts:235`), but they do not cover malformed JSON, invalid implementations/protocols, missing required fields, or mapper failures becoming structured 400 responses.
-- Impact: User Impact Medium, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
+- Impact: User Impact Medium, Maintenance Cost High, Risk Medium, Implementation Size Small.
 - Recommendation: Add a schema parse step at the API boundary and return explicit 400 responses for invalid sync payloads. Keep mapper tests for valid Readarr-resource conversion, but make route tests assert malformed external requests never reach persistence.
 
 #### Finding: Download refresh has a compact integration boundary with focused error handling
 
-- Category: Positive finding
+- Category: Maintainability issue
 - Evidence: `src/server/download-manager.ts` is scoped to active tracked-download reconciliation: it groups active rows by client, resolves one provider per client, skips only the failing client when `getDownloads` throws, imports completed items, invokes failed-download handling on import failure or failed state, optionally removes imported downloads, and emits queue updates (`src/server/download-manager.ts:112` through `src/server/download-manager.ts:258`). `src/server/download-clients/registry.ts` keeps provider loading behind a server-runtime guard and explicit implementation switch, with registry tests covering browser-runtime rejection, all known implementations, and unknown implementations. `src/server/download-manager.test.ts` uses a fake in-memory DB and provider mocks to cover missing clients, disappeared downloads, queued-to-downloading transitions, completed imports, removal failures, provider fetch failures, import failures, failed-download-handler failures, and queue events.
 - Impact: User Impact Low, Maintenance Cost Low, Risk Low, Implementation Size Small.
 - Recommendation: Keep this boundary narrow. If refresh behavior expands, preserve the current fake-DB integration style and add table-driven cases around each new state transition before adding another scheduler responsibility.
 
 #### Finding: Test coverage is broad but fixture complexity is becoming a maintenance risk
 
-- Category: Maintainability issue
+- Category: Test quality issue
 - Evidence: The corrected Task 4 suite passed 8 files and 231 tests, including broad coverage for indexer scoring/search/grab paths and auto-search books, movies, episodes, packs, rate limits, and errors. The cost is high fixture complexity: `src/server/auto-search.test.ts` relies on long `selectAll` call-order switch statements for DB state in rate-limit and error tests (`src/server/auto-search.test.ts:877` through `src/server/auto-search.test.ts:1080`), while `src/server/__tests__/indexers.test.ts` uses chained `mockReturnValueOnce` sequences to model server-function DB flows and provider behavior (`src/server/__tests__/indexers.test.ts:787` through `src/server/__tests__/indexers.test.ts:1553`). These tests catch important regressions, but small query-order changes can break fixtures even when behavior remains correct.
 - Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Medium.
 - Recommendation: Introduce named fixture builders or a lightweight fake repository for indexer/search/download tests, similar to the fake DB shape used in `src/server/download-manager.test.ts`. Prefer assertions on resulting searched/grabbed/error states and provider calls over positional DB-call sequencing where possible.
@@ -99,9 +105,9 @@
 
 #### Finding: Generic settings persistence stores typed UI values through string-oriented route code
 
-- Category: Maintainability issue
+- Category: Boundary issue
 - Evidence: The settings API accepts any key/value pair via `updateSettingSchema` with `value: z.unknown()` and persists it with `JSON.stringify` in `upsertSettingValue` (`src/lib/validators.ts:156` through `src/lib/validators.ts:160`, `src/server/settings.ts:27` through `src/server/settings.ts:32`, `src/server/settings-store.ts:11` through `src/server/settings-store.ts:18`). However, `useUpdateSettings` types every entry as `{ key: string; value: string }` and loops through entries one server call at a time (`src/hooks/mutations/settings.ts:11` through `src/hooks/mutations/settings.ts:28`). Media-management and download-client settings convert booleans and numbers with `String(...)` before saving (`src/routes/_authed/settings/media-management.tsx:680` through `src/routes/_authed/settings/media-management.tsx:737`, `src/routes/_authed/settings/download-clients.tsx:63` through `src/routes/_authed/settings/download-clients.tsx:77`), while `getSettingsFn` returns parsed JSON primitives as `string | number | boolean | null` (`src/server/settings.ts:12` through `src/server/settings.ts:24`). Tests cover parser behavior and route save payloads, but the current contract lets a boolean setting round-trip as the string `"true"` when the UI used `String(true)` before persistence.
-- Impact: User Impact Medium, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
+- Impact: User Impact Medium, Maintenance Cost High, Risk Medium, Implementation Size Small.
 - Recommendation: Define a typed settings registry for known keys, including expected primitive type and validation/coercion. Update `useUpdateSettings` to accept typed values, submit a batch payload, and keep compatibility tests that assert boolean and numeric settings round-trip as booleans/numbers, not strings.
 
 #### Finding: Settings forms repeat local form-state and validation scaffolding across large components
@@ -127,7 +133,7 @@
 
 #### Finding: Server-side validation exists for durable entities, but generic settings keys lack per-key validation
 
-- Category: Maintainability issue
+- Category: Boundary issue
 - Evidence: Durable settings entities use zod input validators at the server-function boundary: download clients parse create/update/test payloads before persistence or provider checks (`src/server/download-clients.ts:21` through `src/server/download-clients.ts:63`), download profiles parse create/update payloads and validate root folders exist (`src/server/download-profiles.ts:28` through `src/server/download-profiles.ts:63`), and validators define required profile fields, content-type enums, format constraints, and download-client port/implementation constraints (`src/lib/validators.ts:6` through `src/lib/validators.ts:149`, `src/lib/validators.ts:220` through `src/lib/validators.ts:260`). Generic settings updates only require a non-empty key and unknown value (`src/lib/validators.ts:156` through `src/lib/validators.ts:160`), while media-management validates only two book naming templates on the client (`src/routes/_authed/settings/media-management.tsx:302` through `src/routes/_authed/settings/media-management.tsx:320`, `src/routes/_authed/settings/media-management.tsx:837` through `src/routes/_authed/settings/media-management.tsx:844`). This leaves server-side acceptance of invalid chmod strings, negative cleanup values, unknown enum values, or misspelled setting keys to later consumers.
 - Impact: User Impact Medium, Maintenance Cost Medium, Risk Medium, Implementation Size Medium.
 - Recommendation: Add per-key schemas for settings namespaces before broad UI refactoring. Validate media-management numeric/enumerated fields and naming templates on the server, reject unknown keys, and add tests beside `src/server/__tests__/settings-store.test.ts` or `src/server/settings.test.ts` for invalid key/type/value cases.
@@ -143,7 +149,7 @@
 
 #### Finding: Protected route ownership follows TanStack Router auth-guard guidance
 
-- Category: Positive finding
+- Category: Maintainability issue
 - Evidence: `src/routes/_authed.tsx` uses a pathless layout route as the protected boundary, checks setup state before session lookup, redirects unauthenticated users to `/login` with `search: { redirect: location.href }`, redirects requester users away from non-request pages, and returns `{ session }` for child route context (`src/routes/_authed.tsx:10` through `src/routes/_authed.tsx:36`). Context7 TanStack Router guidance recommends a pathless authenticated layout route with `beforeLoad`, redirecting unauthenticated users before protected route rendering, preserving `location.href`, and returning auth data through route context. The route context is then consumed by role helpers with `useRouteContext({ from: "/_authed" })` (`src/hooks/use-role.ts:3` through `src/hooks/use-role.ts:9`), and `AppLayout` is only mounted inside the authed route component (`src/routes/_authed.tsx:39` through `src/routes/_authed.tsx:48`, `src/components/layout/app-layout.tsx:11` through `src/components/layout/app-layout.tsx:27`). Browser tests assert setup redirection, login redirection with the requested href, requester redirection, successful session return, and layout/SSE rendering (`src/routes/_authed.browser.test.tsx:56` through `src/routes/_authed.browser.test.tsx:135`).
 - Impact: User Impact Low, Maintenance Cost Low, Risk Low, Implementation Size Small.
 - Recommendation: Keep `_authed` as the single owner for protected layout/session context. When adding new protected route groups, place them under `_authed` by default and prefer context-derived role checks over duplicate session fetches.
@@ -180,7 +186,7 @@
 
 #### Finding: Fixed waits remain in high-value e2e flows
 
-- Category: Maintainability issue
+- Category: Test quality issue
 - Evidence: The brittle-pattern search found fixed sleeps in shared auth/session helpers and workflow specs: hydration retry sleeps in `fillInput`, a one-second delay before auth-state branching in `ensureAuthenticated`, SSE capture waiting by timeout, and post-task sleeps in download lifecycle, auto-search, disk-scan, and blocklist flows (`e2e/helpers/auth.ts:34` through `e2e/helpers/auth.ts:43`, `e2e/helpers/auth.ts:67` through `e2e/helpers/auth.ts:81`, `e2e/helpers/sse.ts:65`, `e2e/tests/07-download-lifecycle.spec.ts:48` through `e2e/tests/07-download-lifecycle.spec.ts:58`). These are in user-critical paths and add unavoidable time even when the app is already ready.
 - Impact: User Impact Low, Maintenance Cost Medium, Risk Medium, Implementation Size Small.
 - Recommendation: Replace fixed sleeps with observable readiness signals where possible: URL/session-state checks for auth, SSE event predicates for stream capture, and task-status or API-state polling for scheduled tasks. Keep short retry loops only when they assert a concrete condition.
@@ -194,34 +200,62 @@
 
 #### Finding: Browser-mode coverage is broad, but some tests couple to DOM structure and test-only attributes
 
-- Category: Maintainability issue
+- Category: Test quality issue
 - Evidence: Browser tests run in Chromium via Vitest browser mode (`vitest.config.ts:67` through `vitest.config.ts:79`) and cover routes, settings, hooks, UI primitives, and components. The cost is that some assertions depend on implementation markup instead of user-facing behavior: `AuthorTable` reads `tbody tr` order and hard-coded image/link selectors before clicking a raw table row (`src/components/bookshelf/authors/author-table.browser.test.tsx:145` through `src/components/bookshelf/authors/author-table.browser.test.tsx:194`), and `EditionsTab` locates cards and buttons with `data-testid` prefixes plus `button[type="button"]` selectors (`src/components/bookshelf/books/editions-tab.browser.test.tsx:190` through `src/components/bookshelf/books/editions-tab.browser.test.tsx:213`). The search also found widespread `data-testid`, `querySelector`, and mocked child components across route/component browser tests.
 - Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Medium.
 - Recommendation: Keep browser-mode tests for meaningful UI behavior, but prefer role/name/label queries and user-level assertions for new tests. Reserve `data-testid` and raw selectors for non-semantic internals such as generated icons or layout primitives, and add small page-object-style helpers only for repeated user workflows.
 
 #### Finding: Golden service fixtures improve e2e realism, but fixture ownership needs guardrails
 
-- Category: Positive finding
+- Category: Maintainability issue
 - Evidence: The e2e inventory shows checked-in fake-service servers for download clients, Servarr apps, Hardcover, TMDB, Newznab, and Bookshelf, plus named golden states and scenarios under `e2e/fixtures/golden/**`. The README documents capture/promote workflows and notes that checked-in payload content is intentionally representative for fixture diffs (`e2e/fixtures/golden/README.md:3` through `e2e/fixtures/golden/README.md:133`). Tests also cover golden capture helpers, fake-server manager behavior, and live-compose parity helpers, which reduces the chance that fixture infrastructure silently drifts (`e2e/fixtures/golden/capture.test.ts`, `e2e/fixtures/fake-servers/manager.test.ts`, `e2e/fixtures/fake-servers/compose-live-parity.test.ts`).
 - Impact: User Impact Low, Maintenance Cost Low, Risk Low, Implementation Size Small.
 - Recommendation: Keep golden fixtures as the integration-test source of truth for upstream service contracts. Require scenario updates to include focused fixture-helper test changes or README notes when a captured payload shape changes, so fixture churn remains reviewable.
 
 #### Finding: Full suite verification currently fails before two wrapper test files execute
 
-- Category: Maintainability issue
+- Category: Test quality issue
 - Evidence: `bun run lint` passed and `bun run typecheck` passed, but the requested full `bun run test` did not complete successfully. Vitest reported 310 passed files and 2,564 passed tests, then failed `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts` during suite import with `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'`. Because both failed suites had `0 test`, this appears to be a test-environment/module-resolution issue rather than an assertion failure in the tested behavior. This audit range is documentation-only, so the failure is not attributed to the Task 7 report change.
-- Impact: User Impact Low, Maintenance Cost High, Risk Medium, Implementation Size Small.
+- Impact: User Impact Low, Maintenance Cost High, Risk High, Implementation Size Small.
 - Recommendation: Fix the `bun:` protocol import path for the wrapper/index test environment before relying on full-suite green as the release gate. After the import failure is resolved, rerun `bun run test` and keep the Verification table updated with the actual failing test names if any assertions fail.
 
 ## Ranked Shortlist
 
 | Rank | Finding | Category | User Impact | Maintenance Cost | Risk | Implementation Size | Recommendation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Interactive search and download boundaries are clearer, but grab side effects are not transactional | Risk issue | Medium | Medium | High | Small | Wrap post-provider tracked-download and history writes in one transaction, and add a regression test for provider-success/database-failure behavior in `grabReleaseFn`. |
+| 2 | Full suite verification currently fails before two wrapper test files execute | Test quality issue | Low | High | High | Small | Resolve the `bun:` protocol import failure for `src/hooks/mutations/index.test.ts` and `src/lib/queries/wrappers.test.ts`, then rerun `bun run test` to restore full-suite release-gate confidence. |
+| 3 | Generic settings persistence stores typed UI values through string-oriented route code | Boundary issue | Medium | High | Medium | Small | Add a typed settings registry and update settings mutation tests so booleans and numbers round-trip as typed primitives instead of stringified UI values. |
+| 4 | Sync indexer API accepts external payloads without route-level validation | Boundary issue | Medium | High | Medium | Small | Parse sync indexer create/update payloads at the route boundary and assert malformed external requests return structured 400 responses without reaching persistence. |
+| 5 | Unmapped-file mapping mixes filesystem side effects, database writes, and per-content orchestration | Boundary issue | Medium | High | Medium | Medium | Extract a tested mapping executor that owns file moves, DB transaction execution, and rollback while leaving content-specific planning in the existing branches. |
+| 6 | Auto-search orchestration is oversized and duplicates search/grab behavior across content types | Duplication issue | Medium | High | Medium | Medium | Extract a content-neutral indexer-search executor and download-dispatch helper with focused tests before changing scheduler behavior. |
+| 7 | Server-side validation exists for durable entities, but generic settings keys lack per-key validation | Boundary issue | Medium | Medium | Medium | Medium | Add per-key settings schemas for media-management settings, reject unknown or invalid keys server-side, and cover invalid key/type/value cases in settings server tests. |
+| 8 | Test coverage is broad but fixture complexity is becoming a maintenance risk | Test quality issue | Low | High | Medium | Medium | Introduce named fixture builders or a lightweight fake repository for indexer/search/download tests so assertions target behavior instead of DB call order. |
+| 9 | Fixed waits remain in high-value e2e flows | Test quality issue | Low | Medium | Medium | Small | Replace fixed waits in auth/session, SSE, and scheduled-task flows with observable readiness predicates or polling helpers. |
 
 ## Fix Now
 
+- Interactive search and download boundaries are clearer, but grab side effects are not transactional.
+- Full suite verification currently fails before two wrapper test files execute.
+- Generic settings persistence stores typed UI values through string-oriented route code.
+- Sync indexer API accepts external payloads without route-level validation.
+- Unmapped-file mapping mixes filesystem side effects, database writes, and per-content orchestration.
+- Auto-search orchestration is oversized and duplicates search/grab behavior across content types.
+- Test coverage is broad but fixture complexity is becoming a maintenance risk.
+
 ## Track Later
 
+- Server-side validation exists for durable entities, but generic settings keys lack per-key validation.
+- Fixed waits remain in high-value e2e flows.
+
 ## Recommended First Implementation Target
+
+### Target: Interactive search and download boundaries are clearer, but grab side effects are not transactional
+
+- Why first: This target has the best risk-to-size ratio in the audit. The external provider can accept a download before local `trackedDownloads` and `history` writes complete, so a partial database failure can leave the user-facing queue, history, and external client out of sync. The owner files and existing tests are narrow enough to plan without a broad rewrite, and the fix can preserve the current search/download boundaries while tightening the persistence contract.
+- Owner files: `src/server/indexers.ts`, `src/server/__tests__/indexers.test.ts`, `src/db/schema/tracked-downloads.ts`
+- Expected behavior after fix: When `grabReleaseFn` receives a successful provider `addDownload` response with a download ID, the tracked-download row and history row are persisted atomically; if either persistence step fails, the function follows one documented failure path and tests prove the database is not left half-updated.
+- Minimum tests: `bun run test -- src/server/__tests__/indexers.test.ts`, with new or updated tests covering `grabReleaseFn` provider success followed by tracked-download insert failure, history insert failure, and the existing successful tracked-download/history creation path.
+- Out of scope: Do not refactor auto-search orchestration, change release scoring, alter download-client provider selection, redesign tracked-download schema beyond what the transaction requires, or implement external client compensation unless the failure contract explicitly requires it.
 
 ## Risks And Open Questions
