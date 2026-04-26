@@ -420,6 +420,30 @@ describe("scheduler/index", () => {
 			);
 		});
 
+		it("should mark unsuccessful handler results as failed job runs", async () => {
+			const mod = await freshModule();
+
+			const handler = vi
+				.fn()
+				.mockResolvedValue({ success: false, message: "bad" });
+			mocks.getTask.mockReturnValue({
+				id: "task-bad",
+				name: "Bad Task",
+				handler,
+			});
+
+			await mod.runTaskNow("task-bad");
+
+			expect(mocks.updateSet).toHaveBeenCalledWith(
+				expect.objectContaining({
+					lastResult: "error",
+					lastMessage: "bad",
+				}),
+			);
+			expect(mocks.failJobRun).toHaveBeenCalledWith(55, "bad");
+			expect(mocks.completeJobRun).not.toHaveBeenCalled();
+		});
+
 		it("should update DB, fail the job run, and log when handler throws", async () => {
 			const mod = await freshModule();
 
