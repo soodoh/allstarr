@@ -99,6 +99,39 @@ async function runFailedDownloadHandler(
 	}
 }
 
+function claimImport(td: TrackedDownload): boolean {
+	if (td.state === "importPending") {
+		return true;
+	}
+
+	try {
+		markTrackedDownloadImportPending(td.id);
+		return true;
+	} catch (error) {
+		logWarn(
+			"download-manager",
+			`Failed to claim import for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+		return false;
+	}
+}
+
+async function importTrackedDownload(td: TrackedDownload): Promise<boolean> {
+	try {
+		await importCompletedDownload(td.id);
+		return true;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown error";
+		logError(
+			"download-manager",
+			`Import failed for "${td.releaseTitle}": ${message}`,
+			error,
+		);
+		markTrackedDownloadFailed(td.id, message);
+		return false;
+	}
+}
+
 export async function refreshDownloads(): Promise<TaskResult> {
 	const tracked = db
 		.select()
@@ -135,17 +168,18 @@ export async function refreshDownloads(): Promise<TaskResult> {
 			for (const td of downloads) {
 				if (td.state === "queued" || td.state === "downloading") {
 					markTrackedDownloadRemoved(td.id, "Download client deleted");
-				} else {
-					db.update(trackedDownloads)
-						.set({
-							state: "removed",
-							message: "Download client deleted",
-							updatedAt: new Date(),
-						})
-						.where(eq(trackedDownloads.id, td.id))
-						.run();
+					stats.removed += 1;
+				} else if (
+					enableCompletedHandling &&
+					(td.state === "completed" || td.state === "importPending")
+				) {
+					if (!claimImport(td)) {
+						continue;
+					}
+					if (!(await importTrackedDownload(td))) {
+						stats.failed += 1;
+					}
 				}
-				stats.removed += 1;
 			}
 			continue;
 		}
@@ -186,20 +220,10 @@ export async function refreshDownloads(): Promise<TaskResult> {
 				stats,
 			);
 			if (action === "import" && enableCompletedHandling) {
-				try {
-					if (td.state !== "importPending") {
-						markTrackedDownloadImportPending(td.id);
-					}
-					await importCompletedDownload(td.id);
-				} catch (error) {
-					const message =
-						error instanceof Error ? error.message : "Unknown error";
-					logError(
-						"download-manager",
-						`Import failed for "${td.releaseTitle}": ${message}`,
-						error,
-					);
-					markTrackedDownloadFailed(td.id, message);
+				if (!claimImport(td)) {
+					continue;
+				}
+				if (!(await importTrackedDownload(td))) {
 					stats.failed += 1;
 					await runFailedDownloadHandler(td.id, provider, config);
 					continue;
