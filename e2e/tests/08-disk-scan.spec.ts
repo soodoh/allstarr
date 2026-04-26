@@ -1,50 +1,14 @@
 import { mkdirSync, writeFileSync, unlinkSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
-import navigateTo from "../helpers/navigation";
+import { triggerScheduledTask } from "../helpers/tasks";
 import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
   seedBook,
   seedDownloadProfile,
 } from "../fixtures/seed-data";
-
-/**
- * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
- */
-async function triggerTask(
-  page: Page,
-  appUrl: string,
-  taskName: string,
-): Promise<void> {
-  // Reset server caches + clear stale running-task state before triggering
-  await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
-    /* best-effort */
-  });
-
-  await navigateTo(page, appUrl, "/system/tasks");
-
-  const row = page.getByRole("row").filter({ hasText: taskName });
-  await expect(row).toBeVisible({ timeout: 10_000 });
-
-  // Wait for the Run button to be enabled
-  const runBtn = row.getByRole("button").last();
-  await expect(runBtn).toBeEnabled({ timeout: 5000 });
-  await runBtn.click();
-
-  // Wait for the task to start running, then wait for it to finish
-  await expect(async () => {
-    const status = await row
-      .getByText(/Running|Success|Error/)
-      .first()
-      .textContent();
-    expect(status).not.toBe("Running");
-  }).toPass({ timeout: 30_000 });
-
-  await page.waitForTimeout(500);
-}
 
 test.describe("Disk Scan", () => {
   let bookId: number;
@@ -104,7 +68,7 @@ test.describe("Disk Scan", () => {
     writeFileSync(join(bookDir, "book.epub"), "dummy epub content");
 
     // Trigger the rescan-folders task
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     // Verify bookFiles entry was created in DB
     const files = db.select().from(schema.bookFiles).all();
@@ -126,7 +90,7 @@ test.describe("Disk Scan", () => {
     mkdirSync(bookDir, { recursive: true });
     writeFileSync(join(bookDir, "book.epub"), "epub content for quality");
 
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const files = db.select().from(schema.bookFiles).all();
     const bookFile = files.find((f) => f.bookId === bookId);
@@ -152,7 +116,7 @@ test.describe("Disk Scan", () => {
     writeFileSync(join(bookDir, "book.epub"), "epub content");
     writeFileSync(join(bookDir, "book.mobi"), "mobi content");
 
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const files = db
       .select()
@@ -177,7 +141,7 @@ test.describe("Disk Scan", () => {
     mkdirSync(unknownDir, { recursive: true });
     writeFileSync(join(unknownDir, "book.epub"), "unmatched content");
 
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     // No bookFiles should be created for unknown authors
     const files = db.select().from(schema.bookFiles).all();
@@ -196,7 +160,7 @@ test.describe("Disk Scan", () => {
     writeFileSync(filePath, "file to be removed");
 
     // First scan — file is added
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const filesAfterAdd = db.select().from(schema.bookFiles).all();
     expect(filesAfterAdd.length).toBeGreaterThanOrEqual(1);
@@ -205,7 +169,7 @@ test.describe("Disk Scan", () => {
     unlinkSync(filePath);
 
     // Re-scan — file should be removed from DB
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const filesAfterRemoval = db
       .select()
@@ -227,7 +191,7 @@ test.describe("Disk Scan", () => {
     writeFileSync(filePath, "original content");
 
     // First scan
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const filesAfterFirst = db.select().from(schema.bookFiles).all();
     expect(filesAfterFirst.length).toBeGreaterThanOrEqual(1);
@@ -244,7 +208,7 @@ test.describe("Disk Scan", () => {
     expect(newStat.size).not.toBe(originalSize);
 
     // Re-scan — size should be updated
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     const filesAfterUpdate = db.select().from(schema.bookFiles).all();
     expect(filesAfterUpdate.length).toBeGreaterThanOrEqual(1);
@@ -263,7 +227,7 @@ test.describe("Disk Scan", () => {
     writeFileSync(filePath, "history test content");
 
     // Scan to add the file
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     // Verify fileAdded history entry
     const addedEntries = db
@@ -276,7 +240,7 @@ test.describe("Disk Scan", () => {
 
     // Delete the file and re-scan
     unlinkSync(filePath);
-    await triggerTask(page, appUrl, "Rescan Folders");
+    await triggerScheduledTask(page, appUrl, "Rescan Folders");
 
     // Verify fileRemoved history entry
     const removedEntries = db

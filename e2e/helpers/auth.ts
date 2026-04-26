@@ -1,4 +1,4 @@
-import type { Page, Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export const TEST_USER = {
   name: "Test User",
@@ -29,17 +29,11 @@ async function waitForHydration(page: Page): Promise<void> {
 
 /**
  * Fill an input and verify the value took effect.
- * Retries if React hydration wipes the value (SSR race condition).
  */
 async function fillInput(locator: Locator, value: string): Promise<void> {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    await locator.fill(value);
-    const actual = await locator.inputValue();
-    if (actual === value) {
-      return;
-    }
-    await locator.page().waitForTimeout(500);
-  }
+  await expect(locator).toBeEditable({ timeout: 10_000 });
+  await locator.fill(value);
+  await expect(locator).toHaveValue(value, { timeout: 5_000 });
 }
 
 async function submitAccountForm(page: Page): Promise<void> {
@@ -70,7 +64,7 @@ export async function ensureAuthenticated(
 ): Promise<void> {
   await page.goto(`${baseUrl}/`);
   await page.waitForLoadState("load");
-  await page.waitForTimeout(1000);
+  await waitForHydration(page);
 
   const currentUrl = page.url();
 

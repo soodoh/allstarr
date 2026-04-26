@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
 import captureSSEEvents from "../helpers/sse";
+import { triggerScheduledTask } from "../helpers/tasks";
 import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
@@ -21,41 +21,6 @@ test.use({
   fakeServerScenario: "download-lifecycle-default",
   requiredServices: ["QBITTORRENT"],
 });
-
-/**
- * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
- */
-async function triggerTask(
-  page: Page,
-  appUrl: string,
-  taskName: string,
-): Promise<void> {
-  // Reset server caches + clear stale running-task state before triggering
-  await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
-    /* best-effort */
-  });
-
-  await navigateTo(page, appUrl, "/system/tasks");
-
-  const row = page.getByRole("row").filter({ hasText: taskName });
-  await expect(row).toBeVisible({ timeout: 10_000 });
-
-  // Wait for the Run button to be enabled
-  const runBtn = row.getByRole("button").last();
-  await expect(runBtn).toBeEnabled({ timeout: 5000 });
-  await runBtn.click();
-
-  // Wait for the task to start running, then wait for it to finish
-  await expect(async () => {
-    const status = await row
-      .getByText(/Running|Success|Error/)
-      .first()
-      .textContent();
-    expect(status).not.toBe("Running");
-  }).toPass({ timeout: 30_000 });
-
-  await page.waitForTimeout(500);
-}
 
 async function setLifecycleTorrentState(
   setFakeServiceState: (
@@ -172,7 +137,7 @@ test.describe("Download Lifecycle", () => {
     );
 
     // Trigger the refresh-downloads task
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify the tracked download state was updated to "downloading"
     const tracked = db.select().from(schema.trackedDownloads).all();
@@ -217,7 +182,7 @@ test.describe("Download Lifecycle", () => {
     );
 
     // Trigger refresh-downloads
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify tracked download reached "imported" state
     await expect(async () => {
@@ -265,7 +230,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify bookFiles entry was created
     await expect(async () => {
@@ -315,7 +280,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify history entries were created
     await expect(async () => {
@@ -381,7 +346,10 @@ test.describe("Download Lifecycle", () => {
           expect(isRunning).toBe(false);
         }).toPass({ timeout: 30_000 });
       },
-      10_000,
+      {
+        timeoutMs: 10_000,
+        until: (events) => events.length > 0,
+      },
     );
 
     // Should have received at least one event (queueUpdated or queueProgress)
@@ -423,7 +391,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Wait for the import + removal to complete
     await expect(async () => {
@@ -477,7 +445,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify the file was renamed according to the template
     await expect(async () => {
@@ -528,7 +496,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify the file was imported
     await expect(async () => {
@@ -584,7 +552,7 @@ test.describe("Download Lifecycle", () => {
       downloadDir,
     );
 
-    await triggerTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
     // Verify all 3 files were imported with correct part numbers
     await expect(async () => {

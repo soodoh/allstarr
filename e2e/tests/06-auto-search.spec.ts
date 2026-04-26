@@ -1,7 +1,6 @@
-import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
-import navigateTo from "../helpers/navigation";
+import { triggerScheduledTask } from "../helpers/tasks";
 import * as schema from "../../src/db/schema";
 import {
   seedAuthor,
@@ -15,41 +14,6 @@ import {
 import PORTS from "../ports";
 
 test.use({ fakeServerScenario: "auto-search-default" });
-
-/**
- * Helper: trigger a scheduled task via the System > Tasks UI page and wait for completion.
- */
-async function triggerTask(
-  page: Page,
-  appUrl: string,
-  taskName: string,
-): Promise<void> {
-  // Reset server caches + clear stale running-task state before triggering
-  await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
-    /* best-effort */
-  });
-
-  await navigateTo(page, appUrl, "/system/tasks");
-
-  const row = page.getByRole("row").filter({ hasText: taskName });
-  await expect(row).toBeVisible({ timeout: 10_000 });
-
-  // Wait for the Run button to be enabled
-  const runBtn = row.getByRole("button").last();
-  await expect(runBtn).toBeEnabled({ timeout: 5000 });
-  await runBtn.click();
-
-  // Wait for the task to start running, then wait for it to finish
-  await expect(async () => {
-    const status = await row
-      .getByText(/Running|Success|Error/)
-      .first()
-      .textContent();
-    expect(status).not.toBe("Running");
-  }).toPass({ timeout: 30_000 });
-
-  await page.waitForTimeout(500);
-}
 
 test.describe("Auto-Search", () => {
   let bookId: number;
@@ -159,7 +123,7 @@ test.describe("Auto-Search", () => {
     fakeServers,
   }) => {
     // Trigger RSS sync task via the UI
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Verify the fake qBittorrent received a download
     const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
@@ -198,7 +162,7 @@ test.describe("Auto-Search", () => {
       .run();
     checkpoint();
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Should NOT have grabbed anything since file is at cutoff
     const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
@@ -242,7 +206,7 @@ test.describe("Auto-Search", () => {
       .run();
     checkpoint();
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Should have grabbed an upgrade since current file is below cutoff
     const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
@@ -271,7 +235,7 @@ test.describe("Auto-Search", () => {
       })
       .run();
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Should NOT have grabbed because upgrades are disabled
     const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
@@ -294,7 +258,7 @@ test.describe("Auto-Search", () => {
       indexer: "Auto Indexer",
     });
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // The auto-search should have skipped the blocklisted release
     // and grabbed the next best one (MOBI)
@@ -329,7 +293,7 @@ test.describe("Auto-Search", () => {
     });
     checkpoint();
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Both indexers should have been queried (both point to same fake server)
     const newznabState = await fetch(`${fakeServers.NEWZNAB}/__state`).then(
@@ -346,7 +310,7 @@ test.describe("Auto-Search", () => {
   }) => {
     await setFakeServerScenario("auto-search-rejected");
 
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Should not have grabbed anything (title does not match book)
     const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
@@ -382,7 +346,7 @@ test.describe("Auto-Search", () => {
 
     // RSS sync groups 2+ wanted books from the same author into one author-level
     // search before falling back to per-book queries.
-    await triggerTask(page, appUrl, "RSS Sync");
+    await triggerScheduledTask(page, appUrl, "RSS Sync");
 
     // Verify the indexer received a single author-level search request.
     const newznabState = await fetch(`${fakeServers.NEWZNAB}/__state`).then(
