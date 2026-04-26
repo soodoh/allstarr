@@ -90,6 +90,7 @@ beforeEach(() => {
 	mocks.getAllTasks.mockReturnValue([]);
 	mocks.selectAll.mockReturnValue([]);
 	mocks.acquireJobRun.mockReturnValue({ id: 55 });
+	mocks.markStaleJobRuns.mockReturnValue([]);
 });
 
 /**
@@ -123,6 +124,25 @@ describe("scheduler/index", () => {
 			);
 		});
 
+		it("should clear progress for stale scheduled runs during startup recovery", async () => {
+			const mod = await freshModule();
+			mocks.markStaleJobRuns.mockReturnValue([
+				{
+					sourceType: "scheduled",
+					jobType: "stale-task",
+				},
+				{
+					sourceType: "command",
+					jobType: "refresh-book",
+				},
+			]);
+
+			mod.ensureSchedulerStarted();
+
+			expect(mocks.updateSet).toHaveBeenCalledWith({ progress: null });
+			expect(mocks.updateRun).toHaveBeenCalledOnce();
+		});
+
 		it("should be idempotent — second call is a no-op", async () => {
 			const mod = await freshModule();
 
@@ -133,6 +153,39 @@ describe("scheduler/index", () => {
 			mod.ensureSchedulerStarted();
 
 			expect(mocks.markStaleJobRuns).toHaveBeenCalledOnce();
+			expect(mocks.setTaskExecutor).toHaveBeenCalledOnce();
+			expect(mocks.logInfo).toHaveBeenCalledOnce();
+		});
+
+		it("should allow retrying startup when stale recovery fails", async () => {
+			const mod = await freshModule();
+			const error = new Error("database unavailable");
+			mocks.markStaleJobRuns.mockImplementationOnce(() => {
+				throw error;
+			});
+
+			expect(() => mod.ensureSchedulerStarted()).toThrow(error);
+
+			mod.ensureSchedulerStarted();
+
+			expect(mocks.markStaleJobRuns).toHaveBeenCalledTimes(2);
+			expect(mocks.setTaskExecutor).toHaveBeenCalledOnce();
+			expect(mocks.logInfo).toHaveBeenCalledOnce();
+		});
+
+		it("should allow retrying startup when task seeding fails", async () => {
+			const mod = await freshModule();
+			const error = new Error("seed failed");
+			mocks.selectAll.mockImplementationOnce(() => {
+				throw error;
+			});
+
+			expect(() => mod.ensureSchedulerStarted()).toThrow(error);
+
+			mocks.selectAll.mockReturnValue([]);
+			mod.ensureSchedulerStarted();
+
+			expect(mocks.markStaleJobRuns).toHaveBeenCalledTimes(2);
 			expect(mocks.setTaskExecutor).toHaveBeenCalledOnce();
 			expect(mocks.logInfo).toHaveBeenCalledOnce();
 		});
@@ -383,6 +436,33 @@ describe("scheduler/index", () => {
 
 			expect(handler).not.toHaveBeenCalled();
 			expect(mocks.logError).not.toHaveBeenCalled();
+		});
+
+		it("should recover stale scheduled runs before acquiring a task run", async () => {
+			const mod = await freshModule();
+
+			const handler = vi
+				.fn()
+				.mockResolvedValue({ success: true, message: "recovered" });
+			mocks.getTask.mockReturnValue({
+				id: "stale-task",
+				name: "Stale Task",
+				handler,
+			});
+			mocks.markStaleJobRuns.mockReturnValue([
+				{
+					sourceType: "scheduled",
+					jobType: "stale-task",
+				},
+			]);
+
+			await mod.runTaskNow("stale-task");
+
+			expect(mocks.markStaleJobRuns.mock.invocationCallOrder[0]).toBeLessThan(
+				mocks.acquireJobRun.mock.invocationCallOrder[0],
+			);
+			expect(mocks.updateSet).toHaveBeenCalledWith({ progress: null });
+			expect(handler).toHaveBeenCalledOnce();
 		});
 
 		it("should acquire a job run, call handler, update DB, emit event, and complete the run on success", async () => {

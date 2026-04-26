@@ -145,10 +145,11 @@ export function failJobRun(jobRunId: number, error: string): void {
 		.run();
 }
 
-export function markStaleJobRuns(now = new Date()): void {
+export function markStaleJobRuns(now = new Date()): JobRun[] {
 	const staleBefore = new Date(now.getTime() - JOB_STALE_AFTER_MS);
 
-	db.update(jobRuns)
+	return db
+		.update(jobRuns)
 		.set({
 			status: "stale",
 			error: "Job heartbeat expired before completion.",
@@ -161,7 +162,8 @@ export function markStaleJobRuns(now = new Date()): void {
 				lt(jobRuns.lastHeartbeatAt, staleBefore),
 			),
 		)
-		.run();
+		.returning()
+		.all();
 }
 
 export function listActiveJobRuns(): JobRun[] {

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
 	clearTaskTimer: vi.fn(),
 	emit: vi.fn(),
 	get: vi.fn(),
-	isTaskRunning: vi.fn(),
+	listActiveJobRuns: vi.fn(),
 	requireAdmin: vi.fn(),
 	requireAuth: vi.fn(),
 	rescheduleTask: vi.fn(),
@@ -65,8 +65,8 @@ vi.mock("./middleware", () => ({
 	requireAuth: mocks.requireAuth,
 }));
 
-vi.mock("./scheduler/state", () => ({
-	isTaskRunning: mocks.isTaskRunning,
+vi.mock("./job-runs", () => ({
+	listActiveJobRuns: mocks.listActiveJobRuns,
 }));
 
 vi.mock("./scheduler/timers", () => ({
@@ -88,7 +88,7 @@ describe("tasks server functions", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.all.mockReturnValue([]);
-		mocks.isTaskRunning.mockReturnValue(false);
+		mocks.listActiveJobRuns.mockReturnValue([]);
 	});
 
 	describe("getScheduledTasksFn", () => {
@@ -113,7 +113,6 @@ describe("tasks server functions", () => {
 					progress: null,
 				},
 			]);
-			mocks.isTaskRunning.mockReturnValue(false);
 
 			const result = await getScheduledTasksFn();
 
@@ -135,7 +134,7 @@ describe("tasks server functions", () => {
 					progress: null,
 				},
 			]);
-			expect(mocks.isTaskRunning).toHaveBeenCalledWith("refresh-metadata");
+			expect(mocks.listActiveJobRuns).toHaveBeenCalledTimes(1);
 		});
 
 		it("sets nextExecution to null when task is disabled", async () => {
@@ -181,7 +180,7 @@ describe("tasks server functions", () => {
 			expect(result[0].lastExecution).toBeNull();
 		});
 
-		it("reflects isRunning from scheduler state", async () => {
+		it("reflects isRunning from active scheduled job runs", async () => {
 			mocks.all.mockReturnValue([
 				{
 					enabled: true,
@@ -196,12 +195,48 @@ describe("tasks server functions", () => {
 					progress: "50%",
 				},
 			]);
-			mocks.isTaskRunning.mockReturnValue(true);
+			mocks.listActiveJobRuns.mockReturnValue([
+				{
+					sourceType: "scheduled",
+					jobType: "refresh-metadata",
+				},
+			]);
 
 			const result = await getScheduledTasksFn();
 
 			expect(result[0].isRunning).toBe(true);
 			expect(result[0].progress).toBe("50%");
+		});
+
+		it("ignores active non-scheduled job runs for isRunning", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "metadata",
+					id: "refresh-metadata",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Refresh Metadata",
+					progress: null,
+				},
+			]);
+			mocks.listActiveJobRuns.mockReturnValue([
+				{
+					sourceType: "command",
+					jobType: "refresh-metadata",
+				},
+				{
+					sourceType: "scheduled",
+					jobType: "other-task",
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(false);
 		});
 	});
 
