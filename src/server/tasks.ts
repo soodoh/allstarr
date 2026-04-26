@@ -56,12 +56,12 @@ function isActiveStatus(status: string): boolean {
 }
 
 function getRunTimestamp(run: VisibleScheduledJobRun): number {
-	return (
-		run.updatedAt?.getTime() ??
-		run.finishedAt?.getTime() ??
-		run.startedAt?.getTime() ??
-		run.createdAt?.getTime() ??
-		0
+	return Math.max(
+		run.updatedAt?.getTime() ?? 0,
+		run.finishedAt?.getTime() ?? 0,
+		run.lastHeartbeatAt?.getTime() ?? 0,
+		run.startedAt?.getTime() ?? 0,
+		run.createdAt?.getTime() ?? 0,
 	);
 }
 
@@ -81,6 +81,25 @@ function shouldUseRun(
 	}
 
 	return getRunTimestamp(next) > getRunTimestamp(current);
+}
+
+function shouldDisplayRunForTask(
+	run: VisibleScheduledJobRun | undefined,
+	lastExecution: Date | null,
+): run is VisibleScheduledJobRun {
+	if (!run) {
+		return false;
+	}
+
+	if (isActiveStatus(run.status)) {
+		return true;
+	}
+
+	if (run.status !== "stale") {
+		return false;
+	}
+
+	return !lastExecution || getRunTimestamp(run) > lastExecution.getTime();
 }
 
 export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
@@ -103,7 +122,13 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 		}
 
 		return tasks.map((task): ScheduledTask => {
-			const visibleRun = visibleScheduledRunsByTaskId.get(task.id);
+			const selectedRun = visibleScheduledRunsByTaskId.get(task.id);
+			const visibleRun = shouldDisplayRunForTask(
+				selectedRun,
+				task.lastExecution,
+			)
+				? selectedRun
+				: undefined;
 			const lastExec = task.lastExecution ? task.lastExecution.getTime() : null;
 			const nextExec =
 				lastExec && task.enabled

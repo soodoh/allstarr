@@ -280,7 +280,7 @@ describe("tasks server functions", () => {
 			expect(result[0].isRunning).toBe(false);
 		});
 
-		it("surfaces stale persisted scheduled run state for task display", async () => {
+		it("surfaces stale persisted scheduled run state when the task has no newer execution", async () => {
 			mocks.all.mockReturnValue([
 				{
 					enabled: true,
@@ -302,6 +302,7 @@ describe("tasks server functions", () => {
 					progress: null,
 					sourceType: "scheduled",
 					status: "stale",
+					finishedAt: new Date("2026-04-09T10:01:00.000Z"),
 					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
 				},
 			]);
@@ -313,6 +314,42 @@ describe("tasks server functions", () => {
 				"Job heartbeat expired before completion.",
 			);
 			expect(result[0].runStatus).toBe("stale");
+		});
+
+		it("does not surface stale persisted run state after a newer successful task execution", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "cleanup-cache",
+					interval: 3600,
+					lastDuration: 1500,
+					lastExecution: new Date("2026-04-09T10:05:00.000Z"),
+					lastMessage: "Cleanup completed",
+					lastResult: "success",
+					name: "Cleanup Cache",
+					progress: null,
+				},
+			]);
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
+				{
+					error: "Job heartbeat expired before completion.",
+					finishedAt: new Date("2026-04-09T10:01:00.000Z"),
+					jobType: "cleanup-cache",
+					lastHeartbeatAt: new Date("2026-04-09T10:00:00.000Z"),
+					progress: null,
+					sourceType: "scheduled",
+					status: "stale",
+					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(false);
+			expect(result[0].progress).toBeNull();
+			expect(result[0].runStatus).toBeNull();
+			expect(result[0].lastResult).toBe("success");
 		});
 
 		it("prefers active scheduled run state over stale state for the same task", async () => {
