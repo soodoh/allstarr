@@ -6,15 +6,18 @@ const mocks = vi.hoisted(() => {
 	const selectResults: unknown[][] = [];
 	const insertValues: Array<Record<string, unknown>> = [];
 	const updateSets: Array<Record<string, unknown>> = [];
+	const updateReturningResults: unknown[][] = [];
 
 	return {
 		insertValues,
 		selectResults,
 		updateSets,
+		updateReturningResults,
 		clear() {
 			selectResults.length = 0;
 			insertValues.length = 0;
 			updateSets.length = 0;
+			updateReturningResults.length = 0;
 		},
 	};
 });
@@ -59,7 +62,12 @@ vi.mock("src/db", () => ({
 				mocks.updateSets.push(values);
 
 				return {
-					where: vi.fn(() => ({ run: vi.fn() })),
+					where: vi.fn(() => ({
+						run: vi.fn(),
+						returning: vi.fn(() => ({
+							all: vi.fn(() => mocks.updateReturningResults.shift() ?? []),
+						})),
+					})),
 				};
 			}),
 		})),
@@ -211,7 +219,16 @@ describe("job-runs service", () => {
 	});
 
 	it("marks running jobs stale after the heartbeat window expires", () => {
-		markStaleJobRuns(now);
+		mocks.updateReturningResults.push([
+			{
+				id: 7,
+				sourceType: "scheduled",
+				jobType: "refresh-downloads",
+				status: "stale",
+			},
+		]);
+
+		const staleRuns = markStaleJobRuns(now);
 
 		expect(mocks.updateSets).toEqual([
 			{
@@ -233,6 +250,14 @@ describe("job-runs service", () => {
 			jobRuns.lastHeartbeatAt,
 			new Date("2026-04-26T11:55:00.000Z"),
 		);
+		expect(staleRuns).toEqual([
+			{
+				id: 7,
+				sourceType: "scheduled",
+				jobType: "refresh-downloads",
+				status: "stale",
+			},
+		]);
 	});
 
 	it("lists queued and running job runs", () => {

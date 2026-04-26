@@ -4,8 +4,8 @@ import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { z } from "zod";
 import { eventBus } from "./event-bus";
+import { listActiveJobRuns } from "./job-runs";
 import { requireAdmin, requireAuth } from "./middleware";
-import { isTaskRunning } from "./scheduler/state";
 import { clearTaskTimer, rescheduleTask } from "./scheduler/timers";
 
 export type ScheduledTask = {
@@ -28,6 +28,11 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 		await requireAuth();
 
 		const tasks = db.select().from(scheduledTasks).all();
+		const runningScheduledTaskIds = new Set(
+			listActiveJobRuns()
+				.filter((run) => run.sourceType === "scheduled")
+				.map((run) => run.jobType),
+		);
 
 		return tasks.map((task): ScheduledTask => {
 			const lastExec = task.lastExecution ? task.lastExecution.getTime() : null;
@@ -48,7 +53,7 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 				lastMessage: task.lastMessage,
 				nextExecution: nextExec,
 				enabled: task.enabled,
-				isRunning: isTaskRunning(task.id),
+				isRunning: runningScheduledTaskIds.has(task.id),
 				progress: task.progress ?? null,
 				group: task.group,
 			};

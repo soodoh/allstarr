@@ -28,6 +28,21 @@ import "./tasks/refresh-series-metadata";
 let started = false;
 const timers = getTimers();
 
+function recoverStaleScheduledRuns(): void {
+	const staleRuns = markStaleJobRuns();
+
+	for (const run of staleRuns) {
+		if (run.sourceType !== "scheduled") {
+			continue;
+		}
+
+		db.update(scheduledTasks)
+			.set({ progress: null })
+			.where(eq(scheduledTasks.id, run.jobType))
+			.run();
+	}
+}
+
 function seedTasksIfNeeded(): void {
 	const existing = db.select().from(scheduledTasks).all();
 	const existingIds = new Set(existing.map((t) => t.id));
@@ -52,6 +67,8 @@ async function executeTask(taskId: string): Promise<void> {
 	if (!task) {
 		return;
 	}
+
+	recoverStaleScheduledRuns();
 
 	let run: ReturnType<typeof acquireJobRun>;
 	try {
@@ -169,12 +186,12 @@ export function ensureSchedulerStarted(): void {
 	if (started) {
 		return;
 	}
-	started = true;
 
-	markStaleJobRuns();
-	setTaskExecutor((taskId) => void executeTask(taskId));
+	recoverStaleScheduledRuns();
 	seedTasksIfNeeded();
+	setTaskExecutor((taskId) => void executeTask(taskId));
 	startTimers();
+	started = true;
 	logInfo("scheduler", `Started with ${timers.size} task(s)`);
 }
 
