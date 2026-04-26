@@ -23,6 +23,11 @@ import {
 	syncedIndexers,
 	trackedDownloads,
 } from "src/db/schema";
+import { dispatchAutoSearchDownload } from "./auto-search-download-dispatch";
+import {
+	type EnabledIndexers,
+	searchEnabledIndexers,
+} from "./auto-search-indexer-search";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 import { anyIndexerAvailable, canQueryIndexer } from "./indexer-rate-limiter";
@@ -49,6 +54,9 @@ type AutoSearchOptions = {
 	maxBooks?: number;
 	bookIds?: number[];
 };
+
+type HistoryInsert = typeof history.$inferInsert;
+type TrackedDownloadInsert = typeof trackedDownloads.$inferInsert;
 
 type SearchDetail = {
 	bookId: number;
@@ -774,11 +782,6 @@ function buildEpisodeSearchQueries(episode: WantedEpisode): string[] {
 
 // ─── Per-book search + grab ─────────────────────────────────────────────────
 
-type EnabledIndexers = {
-	manual: Array<typeof indexers.$inferSelect>;
-	synced: Array<typeof syncedIndexers.$inferSelect>;
-};
-
 /** Search all indexers for a given query (extracted to reduce duplication) */
 async function searchIndexers(
 	ixs: EnabledIndexers,
@@ -788,92 +791,20 @@ async function searchIndexers(
 	contentType?: "book" | "tv",
 	logPrefix = "[auto-search]",
 ): Promise<IndexerRelease[]> {
-	const allReleases: IndexerRelease[] = [];
-
-	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-	for (const synced of syncedWithKey) {
-		const gate = canQueryIndexer("synced", synced.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				logInfo(logPrefix, `Indexer "${synced.name}" skipped: ${gate.reason}`);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: synced.baseUrl,
-					apiPath: synced.apiPath ?? "/api",
-					apiKey: synced.apiKey ?? "",
-				},
-				query,
-				categories,
-				bookParams,
-				{ indexerType: "synced", indexerId: synced.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease(
-						{
-							...r,
-							indexer: r.indexer || synced.name,
-							allstarrIndexerId: synced.id,
-							indexerSource: "synced" as const,
-						},
-						contentType,
-					),
-				),
-			);
-		} catch (error) {
-			logError(logPrefix, `Indexer "${synced.name}" failed`, error);
-		}
-	}
-
-	for (const ix of ixs.manual) {
-		const gate = canQueryIndexer("manual", ix.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				logInfo(logPrefix, `Indexer "${ix.name}" skipped: ${gate.reason}`);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: ix.baseUrl,
-					apiPath: ix.apiPath ?? "/api",
-					apiKey: ix.apiKey,
-				},
-				query,
-				categories,
-				bookParams,
-				{ indexerType: "manual", indexerId: ix.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease(
-						{
-							...r,
-							indexer: r.indexer || ix.name,
-							allstarrIndexerId: ix.id,
-							indexerSource: "manual" as const,
-						},
-						contentType,
-					),
-				),
-			);
-		} catch (error) {
-			logError(logPrefix, "Manual indexer failed", error);
-		}
-	}
-
-	return allReleases;
+	return searchEnabledIndexers({
+		bookParams,
+		canQueryIndexer,
+		categories,
+		contentType,
+		enabledIndexers: ixs,
+		enrichRelease,
+		logError,
+		logInfo,
+		logPrefix,
+		query,
+		searchNewznab,
+		sleep,
+	});
 }
 
 function getEnabledIndexers(): EnabledIndexers {
@@ -916,87 +847,20 @@ async function searchAndGrabForBook(
 	// Derive categories from profiles
 	const categories = getCategoriesForProfiles(book.profiles);
 
-	// Search indexers sequentially with rate limiter gating
-	const allReleases: IndexerRelease[] = [];
-
-	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-	for (const synced of syncedWithKey) {
-		// Rate limiter gate — automatic searches enforce daily caps
-		const gate = canQueryIndexer("synced", synced.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				logInfo("rss-sync", `Indexer "${synced.name}" skipped: ${gate.reason}`);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: synced.baseUrl,
-					apiPath: synced.apiPath ?? "/api",
-					apiKey: synced.apiKey ?? "",
-				},
-				query,
-				categories,
-				bookParams,
-				{ indexerType: "synced", indexerId: synced.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease({
-						...r,
-						indexer: r.indexer || synced.name,
-						allstarrIndexerId: synced.id,
-						indexerSource: "synced" as const,
-					}),
-				),
-			);
-		} catch (error) {
-			logError("rss-sync", `Indexer "${synced.name}" failed`, error);
-		}
-	}
-
-	for (const ix of ixs.manual) {
-		// Rate limiter gate — automatic searches enforce daily caps
-		const gate = canQueryIndexer("manual", ix.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				logInfo("rss-sync", `Indexer "${ix.name}" skipped: ${gate.reason}`);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: ix.baseUrl,
-					apiPath: ix.apiPath ?? "/api",
-					apiKey: ix.apiKey,
-				},
-				query,
-				categories,
-				bookParams,
-				{ indexerType: "manual", indexerId: ix.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease({
-						...r,
-						indexer: r.indexer || ix.name,
-						allstarrIndexerId: ix.id,
-						indexerSource: "manual" as const,
-					}),
-				),
-			);
-		} catch (error) {
-			logError("rss-sync", "Manual indexer failed", error);
-		}
-	}
+	const allReleases = await searchEnabledIndexers({
+		bookParams,
+		canQueryIndexer,
+		categories,
+		contentType: "book",
+		enabledIndexers: ixs,
+		enrichRelease,
+		logError,
+		logInfo,
+		logPrefix: "rss-sync",
+		query,
+		searchNewznab,
+		sleep,
+	});
 
 	detail.searched = true;
 
@@ -1339,7 +1203,7 @@ async function searchAndGrabForMovie(
 				{
 					baseUrl: ix.baseUrl,
 					apiPath: ix.apiPath ?? "/api",
-					apiKey: ix.apiKey,
+					apiKey: ix.apiKey ?? "",
 				},
 				query,
 				categories,
@@ -1531,7 +1395,7 @@ async function searchAndGrabForEpisode(
 					{
 						baseUrl: ix.baseUrl,
 						apiPath: ix.apiPath ?? "/api",
-						apiKey: ix.apiKey,
+						apiKey: ix.apiKey ?? "",
 					},
 					query,
 					categories,
@@ -2807,59 +2671,13 @@ async function grabReleaseForMovie(
 	movie: WantedMovie,
 	profileId: number,
 ): Promise<boolean> {
-	const resolved = resolveDownloadClient(release);
-	if (!resolved) {
-		logWarn(
-			"auto-search",
-			`No enabled ${release.protocol} download client for "${release.title}"`,
-		);
-		return false;
-	}
-
-	const { client, combinedTag } = resolved;
-
-	const provider = await getProvider(client.implementation);
-	const config: ConnectionConfig = {
-		implementation: client.implementation as ConnectionConfig["implementation"],
-		host: client.host,
-		port: client.port,
-		useSsl: client.useSsl,
-		urlBase: client.urlBase,
-		username: client.username,
-		password: client.password,
-		apiKey: client.apiKey,
-		category: client.category,
-		tag: client.tag,
-		settings: client.settings as Record<string, unknown> | null,
-	};
-
-	const downloadId = await provider.addDownload(config, {
-		url: release.downloadUrl,
-		torrentData: null,
-		nzbData: null,
-		category: null,
-		tag: combinedTag,
-		savePath: null,
-	});
-
-	if (downloadId) {
-		db.insert(trackedDownloads)
-			.values({
-				downloadClientId: client.id,
-				downloadId,
-				movieId: movie.id,
-				downloadProfileId: profileId,
-				releaseTitle: release.title,
-				protocol: release.protocol,
-				indexerId: release.allstarrIndexerId,
-				guid: release.guid,
-				state: "queued",
-			})
-			.run();
-	}
-
-	db.insert(history)
-		.values({
+	return dispatchAutoSearchDownload<
+		IndexerRelease,
+		TrackedDownloadInsert,
+		HistoryInsert
+	>({
+		getProvider,
+		history: ({ client, release }) => ({
 			eventType: "movieGrabbed",
 			movieId: movie.id,
 			data: {
@@ -2873,10 +2691,28 @@ async function grabReleaseForMovie(
 				quality: release.quality.name,
 				source: "autoSearch",
 			},
-		})
-		.run();
-
-	return true;
+		}),
+		insertHistory: (value) => {
+			db.insert(history).values(value).run();
+		},
+		insertTrackedDownload: (value) => {
+			db.insert(trackedDownloads).values(value).run();
+		},
+		logWarn,
+		release,
+		resolveDownloadClient,
+		trackedDownload: ({ client, downloadId, release }) => ({
+			downloadClientId: client.id,
+			downloadId,
+			movieId: movie.id,
+			downloadProfileId: profileId,
+			releaseTitle: release.title,
+			protocol: release.protocol,
+			indexerId: release.allstarrIndexerId,
+			guid: release.guid,
+			state: "queued",
+		}),
+	});
 }
 
 async function grabReleaseForEpisode(
@@ -2884,60 +2720,13 @@ async function grabReleaseForEpisode(
 	episode: WantedEpisode,
 	profileId: number,
 ): Promise<boolean> {
-	const resolved = resolveDownloadClient(release);
-	if (!resolved) {
-		logWarn(
-			"auto-search",
-			`No enabled ${release.protocol} download client for "${release.title}"`,
-		);
-		return false;
-	}
-
-	const { client, combinedTag } = resolved;
-
-	const provider = await getProvider(client.implementation);
-	const config: ConnectionConfig = {
-		implementation: client.implementation as ConnectionConfig["implementation"],
-		host: client.host,
-		port: client.port,
-		useSsl: client.useSsl,
-		urlBase: client.urlBase,
-		username: client.username,
-		password: client.password,
-		apiKey: client.apiKey,
-		category: client.category,
-		tag: client.tag,
-		settings: client.settings as Record<string, unknown> | null,
-	};
-
-	const downloadId = await provider.addDownload(config, {
-		url: release.downloadUrl,
-		torrentData: null,
-		nzbData: null,
-		category: null,
-		tag: combinedTag,
-		savePath: null,
-	});
-
-	if (downloadId) {
-		db.insert(trackedDownloads)
-			.values({
-				downloadClientId: client.id,
-				downloadId,
-				showId: episode.showId,
-				episodeId: episode.id,
-				downloadProfileId: profileId,
-				releaseTitle: release.title,
-				protocol: release.protocol,
-				indexerId: release.allstarrIndexerId,
-				guid: release.guid,
-				state: "queued",
-			})
-			.run();
-	}
-
-	db.insert(history)
-		.values({
+	return dispatchAutoSearchDownload<
+		IndexerRelease,
+		TrackedDownloadInsert,
+		HistoryInsert
+	>({
+		getProvider,
+		history: ({ client, release }) => ({
 			eventType: "episodeGrabbed",
 			showId: episode.showId,
 			episodeId: episode.id,
@@ -2952,8 +2741,27 @@ async function grabReleaseForEpisode(
 				quality: release.quality.name,
 				source: "autoSearch",
 			},
-		})
-		.run();
-
-	return true;
+		}),
+		insertHistory: (value) => {
+			db.insert(history).values(value).run();
+		},
+		insertTrackedDownload: (value) => {
+			db.insert(trackedDownloads).values(value).run();
+		},
+		logWarn,
+		release,
+		resolveDownloadClient,
+		trackedDownload: ({ client, downloadId, release }) => ({
+			downloadClientId: client.id,
+			downloadId,
+			showId: episode.showId,
+			episodeId: episode.id,
+			downloadProfileId: profileId,
+			releaseTitle: release.title,
+			protocol: release.protocol,
+			indexerId: release.allstarrIndexerId,
+			guid: release.guid,
+			state: "queued",
+		}),
+	});
 }
