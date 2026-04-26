@@ -1,6 +1,13 @@
 import type { NewSyncedIndexer, SyncedIndexer } from "src/db/schema";
 import { CATEGORY_MAP } from "src/lib/categories";
 
+export type {
+	ReadarrField,
+	ReadarrIndexerResource,
+} from "src/server/synced-indexers/resource-schema";
+
+import type { ReadarrIndexerResource } from "src/server/synced-indexers/resource-schema";
+
 /**
  * Normalise a categories value from Prowlarr into a plain number[].
  * Prowlarr may send either plain IDs [7020] or objects [{id:7020,name:"Books/EBook"}].
@@ -21,29 +28,6 @@ function normaliseCategoryIds(raw: unknown): number[] {
 		})
 		.filter((id): id is number => id !== null);
 }
-
-export type ReadarrField = {
-	name: string;
-	value: unknown;
-};
-
-export type ReadarrIndexerResource = {
-	id?: number;
-	name: string;
-	implementation: string;
-	implementationName?: string;
-	configContract: string;
-	infoLink?: string;
-	fields: ReadarrField[];
-	enableRss: boolean;
-	enableAutomaticSearch: boolean;
-	enableInteractiveSearch: boolean;
-	supportsRss?: boolean;
-	supportsSearch?: boolean;
-	protocol: string;
-	priority: number;
-	tags?: number[];
-};
 
 /**
  * Converts a DB row to a Readarr-style indexer resource that Prowlarr expects.
