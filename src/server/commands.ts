@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { activeAdhocCommands } from "src/db/schema";
 import { eventBus } from "./event-bus";
+import { listActiveJobRuns } from "./job-runs";
 import { logError } from "./logger";
 import { requireAuth } from "./middleware";
-import { isTaskRunning } from "./scheduler/state";
 
 export type CommandHandler = (
 	body: Record<string, unknown>,
@@ -48,7 +48,11 @@ function checkDuplicate(
 }
 
 function checkBatchOverlap(batchTaskId: string): void {
-	if (isTaskRunning(batchTaskId)) {
+	const hasActiveBatchRun = listActiveJobRuns().some(
+		(run) => run.sourceType === "scheduled" && run.jobType === batchTaskId,
+	);
+
+	if (hasActiveBatchRun) {
 		throw new Error(
 			"A batch metadata refresh is already running. Wait for it to complete or check the Tasks page for progress.",
 		);
