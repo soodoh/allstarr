@@ -135,7 +135,10 @@ export async function searchEnabledIndexers<
 					{
 						baseUrl: indexer.baseUrl,
 						apiPath: indexer.apiPath ?? "/api",
-						apiKey: indexer.apiKey ?? "",
+						apiKey:
+							group.source === "manual"
+								? (indexer.apiKey as string)
+								: (indexer.apiKey ?? ""),
 					},
 					query,
 					categories,

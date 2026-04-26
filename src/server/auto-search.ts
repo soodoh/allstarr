@@ -1203,7 +1203,7 @@ async function searchAndGrabForMovie(
 				{
 					baseUrl: ix.baseUrl,
 					apiPath: ix.apiPath ?? "/api",
-					apiKey: ix.apiKey ?? "",
+					apiKey: ix.apiKey as string,
 				},
 				query,
 				categories,
@@ -1395,7 +1395,7 @@ async function searchAndGrabForEpisode(
 					{
 						baseUrl: ix.baseUrl,
 						apiPath: ix.apiPath ?? "/api",
-						apiKey: ix.apiKey ?? "",
+						apiKey: ix.apiKey as string,
 					},
 					query,
 					categories,

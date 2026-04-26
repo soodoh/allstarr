@@ -139,4 +139,116 @@ describe("searchEnabledIndexers", () => {
 			expect.any(Error),
 		);
 	});
+
+	it("skips synced indexers without api keys", async () => {
+		const searchNewznab = vi.fn();
+
+		const releases = await searchEnabledIndexers({
+			canQueryIndexer: () => ({ allowed: true }),
+			categories: [7020],
+			enabledIndexers: {
+				manual: [],
+				synced: [
+					{
+						id: 1,
+						name: "Synced",
+						baseUrl: "https://synced.example",
+						apiPath: "/api",
+						apiKey: null,
+					},
+				],
+			},
+			enrichRelease: (release) => release,
+			logError: vi.fn(),
+			logInfo: vi.fn(),
+			query: "Author Book",
+			searchNewznab,
+			sleep: vi.fn(),
+		});
+
+		expect(releases).toEqual([]);
+		expect(searchNewznab).not.toHaveBeenCalled();
+	});
+
+	it("waits for pacing gates before querying the indexer", async () => {
+		const sleep = vi.fn();
+		const searchNewznab = vi.fn().mockResolvedValueOnce([
+			{
+				title: "Manual Release",
+				guid: "manual-guid",
+				protocol: "usenet",
+				size: 200,
+				downloadUrl: "https://example.com/manual.nzb",
+				quality: { id: 1, name: "EPUB", weight: 1 },
+			},
+		]);
+
+		await searchEnabledIndexers({
+			canQueryIndexer: () => ({
+				allowed: false,
+				reason: "pacing",
+				waitMs: 250,
+			}),
+			categories: [7020],
+			enabledIndexers: {
+				manual: [
+					{
+						id: 2,
+						name: "Manual",
+						baseUrl: "https://manual.example",
+						apiPath: "/api",
+						apiKey: "manual-key",
+					},
+				],
+				synced: [],
+			},
+			enrichRelease: (release) => release,
+			logError: vi.fn(),
+			logInfo: vi.fn(),
+			query: "Author Book",
+			searchNewznab,
+			sleep,
+		});
+
+		expect(sleep).toHaveBeenCalledWith(250);
+		expect(searchNewznab).toHaveBeenCalledOnce();
+	});
+
+	it("logs and skips non-pacing blocked indexers", async () => {
+		const logInfo = vi.fn();
+		const searchNewznab = vi.fn();
+
+		const releases = await searchEnabledIndexers({
+			canQueryIndexer: () => ({
+				allowed: false,
+				reason: "daily_query_limit",
+			}),
+			categories: [7020],
+			enabledIndexers: {
+				manual: [
+					{
+						id: 2,
+						name: "Manual",
+						baseUrl: "https://manual.example",
+						apiPath: "/api",
+						apiKey: "manual-key",
+					},
+				],
+				synced: [],
+			},
+			enrichRelease: (release) => release,
+			logError: vi.fn(),
+			logInfo,
+			query: "Author Book",
+			searchNewznab,
+			sleep: vi.fn(),
+		});
+
+		expect(releases).toEqual([]);
+		expect(logInfo).toHaveBeenCalledWith(
+			"rss-sync",
+			'Indexer "Manual" skipped: daily_query_limit',
+		);
+		expect(searchNewznab).not.toHaveBeenCalled();
+	});
 });
