@@ -2,9 +2,15 @@ import { eq } from "drizzle-orm";
 import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { eventBus } from "../event-bus";
+import {
+	acquireJobRun,
+	completeJobRun,
+	failJobRun,
+	markStaleJobRuns,
+	updateJobRunProgress,
+} from "../job-runs";
 import { logError, logInfo } from "../logger";
 import { getAllTasks, getTask } from "./registry";
-import { isTaskRunning, markTaskComplete, markTaskRunning } from "./state";
 import { getTimers, setTaskExecutor } from "./timers";
 import "./tasks/check-health";
 import "./tasks/housekeeping";
@@ -42,20 +48,34 @@ function seedTasksIfNeeded(): void {
 }
 
 async function executeTask(taskId: string): Promise<void> {
-	if (isTaskRunning(taskId)) {
-		return;
-	}
-
 	const task = getTask(taskId);
 	if (!task) {
 		return;
 	}
 
-	markTaskRunning(taskId);
+	let run: ReturnType<typeof acquireJobRun>;
+	try {
+		run = acquireJobRun({
+			sourceType: "scheduled",
+			jobType: task.id,
+			displayName: task.name,
+		});
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.message === "This task is already running."
+		) {
+			return;
+		}
+
+		throw error;
+	}
+
 	const start = Date.now();
 
 	try {
 		const updateProgress = (message: string): void => {
+			updateJobRunProgress(run.id, message);
 			db.update(scheduledTasks)
 				.set({ progress: message })
 				.where(eq(scheduledTasks.id, taskId))
@@ -77,6 +97,7 @@ async function executeTask(taskId: string): Promise<void> {
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
 
+		completeJobRun(run.id, result as Record<string, unknown>);
 		logInfo("scheduler", `${task.name}: ${result.message} (${duration}ms)`);
 		eventBus.emit({ type: "taskUpdated", taskId });
 	} catch (error) {
@@ -94,10 +115,9 @@ async function executeTask(taskId: string): Promise<void> {
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
 
+		failJobRun(run.id, message);
 		logError("scheduler", `${task.name} failed: ${message}`, error);
 		eventBus.emit({ type: "taskUpdated", taskId });
-	} finally {
-		markTaskComplete(taskId);
 	}
 }
 
@@ -147,6 +167,7 @@ export function ensureSchedulerStarted(): void {
 	}
 	started = true;
 
+	markStaleJobRuns();
 	setTaskExecutor((taskId) => void executeTask(taskId));
 	seedTasksIfNeeded();
 	startTimers();
