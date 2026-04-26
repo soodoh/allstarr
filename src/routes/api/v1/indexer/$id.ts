@@ -4,11 +4,14 @@ import { db } from "src/db";
 import { syncedIndexers } from "src/db/schema";
 import requireApiKey from "src/server/api-key-auth";
 import { summarizeIndexerResource } from "src/server/synced-indexers/logging";
-import type { ReadarrIndexerResource } from "src/server/synced-indexers/mapper";
 import {
 	fromReadarrResource,
 	toReadarrResource,
 } from "src/server/synced-indexers/mapper";
+import {
+	invalidIndexerPayloadResponse,
+	parseReadarrIndexerResourceRequest,
+} from "src/server/synced-indexers/resource-schema";
 
 export const Route = createFileRoute("/api/v1/indexer/$id")({
 	server: {
@@ -65,12 +68,26 @@ export const Route = createFileRoute("/api/v1/indexer/$id")({
 					return Response.json({ message: "Not Found" }, { status: 404 });
 				}
 
-				const body = (await request.json()) as ReadarrIndexerResource;
+				const parsed = await parseReadarrIndexerResourceRequest(request);
+				if (!parsed.success) {
+					return parsed.response;
+				}
+
+				const body = parsed.data;
 				console.info(
 					`[Sync API] PUT /indexer/${id} → updating "${body.name}" (${body.implementation}, protocol=${body.protocol})`,
 					summarizeIndexerResource(body),
 				);
-				const data = fromReadarrResource(body);
+				let data: ReturnType<typeof fromReadarrResource>;
+				try {
+					data = fromReadarrResource(body);
+				} catch (error) {
+					const message =
+						error instanceof Error
+							? error.message
+							: "Unable to map indexer payload";
+					return invalidIndexerPayloadResponse([message]);
+				}
 
 				const [updated] = await db
 					.update(syncedIndexers)
