@@ -6,13 +6,16 @@ const mocks = vi.hoisted(() => ({
 	logError: vi.fn(),
 	getAllTasks: vi.fn(),
 	getTask: vi.fn(),
-	isTaskRunning: vi.fn(),
-	markTaskRunning: vi.fn(),
-	markTaskComplete: vi.fn(),
+	acquireJobRun: vi.fn(),
+	completeJobRun: vi.fn(),
+	failJobRun: vi.fn(),
+	markStaleJobRuns: vi.fn(),
+	updateJobRunProgress: vi.fn(),
 	getTimers: vi.fn(),
 	setTaskExecutor: vi.fn(),
 	selectAll: vi.fn(),
 	insertRun: vi.fn(),
+	updateSet: vi.fn(),
 	updateRun: vi.fn(),
 }));
 
@@ -32,7 +35,7 @@ vi.mock("src/db", () => ({
 			})),
 		})),
 		update: vi.fn(() => ({
-			set: vi.fn(() => ({
+			set: mocks.updateSet.mockImplementation(() => ({
 				where: vi.fn(() => ({
 					run: mocks.updateRun,
 				})),
@@ -52,10 +55,12 @@ vi.mock("./registry", () => ({
 	getAllTasks: mocks.getAllTasks,
 	getTask: mocks.getTask,
 }));
-vi.mock("./state", () => ({
-	isTaskRunning: mocks.isTaskRunning,
-	markTaskRunning: mocks.markTaskRunning,
-	markTaskComplete: mocks.markTaskComplete,
+vi.mock("../job-runs", () => ({
+	acquireJobRun: mocks.acquireJobRun,
+	completeJobRun: mocks.completeJobRun,
+	failJobRun: mocks.failJobRun,
+	markStaleJobRuns: mocks.markStaleJobRuns,
+	updateJobRunProgress: mocks.updateJobRunProgress,
 }));
 vi.mock("./timers", () => ({
 	getTimers: mocks.getTimers,
@@ -77,12 +82,6 @@ vi.mock("./tasks/refresh-series-metadata", () => ({}));
 // Shared fake timer map used by getTimers mock
 const fakeTimers = new Map<string, ReturnType<typeof setInterval>>();
 
-function assertExists<T>(
-	value: T | null | undefined,
-): asserts value is NonNullable<T> {
-	expect(value).toBeDefined();
-}
-
 beforeEach(() => {
 	vi.clearAllMocks();
 	fakeTimers.clear();
@@ -90,7 +89,7 @@ beforeEach(() => {
 	// Defaults
 	mocks.getAllTasks.mockReturnValue([]);
 	mocks.selectAll.mockReturnValue([]);
-	mocks.isTaskRunning.mockReturnValue(false);
+	mocks.acquireJobRun.mockReturnValue({ id: 55 });
 });
 
 /**
@@ -113,6 +112,10 @@ describe("scheduler/index", () => {
 
 			mod.ensureSchedulerStarted();
 
+			expect(mocks.markStaleJobRuns).toHaveBeenCalledOnce();
+			expect(mocks.markStaleJobRuns.mock.invocationCallOrder[0]).toBeLessThan(
+				mocks.setTaskExecutor.mock.invocationCallOrder[0],
+			);
 			expect(mocks.setTaskExecutor).toHaveBeenCalledOnce();
 			expect(mocks.logInfo).toHaveBeenCalledWith(
 				"scheduler",
@@ -129,7 +132,7 @@ describe("scheduler/index", () => {
 			mod.ensureSchedulerStarted();
 			mod.ensureSchedulerStarted();
 
-			// setTaskExecutor and logInfo should only be called once
+			expect(mocks.markStaleJobRuns).toHaveBeenCalledOnce();
 			expect(mocks.setTaskExecutor).toHaveBeenCalledOnce();
 			expect(mocks.logInfo).toHaveBeenCalledOnce();
 		});
@@ -289,7 +292,11 @@ describe("scheduler/index", () => {
 			// After 7 seconds the timeout fires and executes the task
 			await vi.advanceTimersByTimeAsync(7_000);
 
-			expect(mocks.markTaskRunning).toHaveBeenCalledWith("task-1");
+			expect(mocks.acquireJobRun).toHaveBeenCalledWith({
+				sourceType: "scheduled",
+				jobType: "task-1",
+				displayName: "Task 1",
+			});
 		});
 
 		it("should fire the task after the timeout then set up an interval", async () => {
@@ -349,14 +356,17 @@ describe("scheduler/index", () => {
 
 			await mod.runTaskNow("my-task");
 
-			expect(mocks.markTaskRunning).toHaveBeenCalledWith("my-task");
+			expect(mocks.acquireJobRun).toHaveBeenCalledWith({
+				sourceType: "scheduled",
+				jobType: "my-task",
+				displayName: "My Task",
+			});
 			expect(handler).toHaveBeenCalledOnce();
-			expect(mocks.markTaskComplete).toHaveBeenCalledWith("my-task");
 		});
 	});
 
 	describe("executeTask (via runTaskNow)", () => {
-		it("should skip execution when the task is already running", async () => {
+		it("should skip execution when job run acquisition reports an active run", async () => {
 			const mod = await freshModule();
 
 			const handler = vi.fn();
@@ -365,15 +375,17 @@ describe("scheduler/index", () => {
 				name: "Busy Task",
 				handler,
 			});
-			mocks.isTaskRunning.mockReturnValue(true);
+			mocks.acquireJobRun.mockImplementation(() => {
+				throw new Error("This task is already running.");
+			});
 
 			await mod.runTaskNow("busy-task");
 
 			expect(handler).not.toHaveBeenCalled();
-			expect(mocks.markTaskRunning).not.toHaveBeenCalled();
+			expect(mocks.logError).not.toHaveBeenCalled();
 		});
 
-		it("should mark running, call handler, update DB, emit event, and mark complete on success", async () => {
+		it("should acquire a job run, call handler, update DB, emit event, and complete the run on success", async () => {
 			const mod = await freshModule();
 
 			const handler = vi
@@ -387,9 +399,17 @@ describe("scheduler/index", () => {
 
 			await mod.runTaskNow("task-ok");
 
-			expect(mocks.markTaskRunning).toHaveBeenCalledWith("task-ok");
+			expect(mocks.acquireJobRun).toHaveBeenCalledWith({
+				sourceType: "scheduled",
+				jobType: "task-ok",
+				displayName: "OK Task",
+			});
 			expect(handler).toHaveBeenCalledOnce();
 			expect(mocks.updateRun).toHaveBeenCalled();
+			expect(mocks.completeJobRun).toHaveBeenCalledWith(55, {
+				success: true,
+				message: "All good",
+			});
 			expect(mocks.emit).toHaveBeenCalledWith({
 				type: "taskUpdated",
 				taskId: "task-ok",
@@ -398,10 +418,9 @@ describe("scheduler/index", () => {
 				"scheduler",
 				expect.stringContaining("OK Task"),
 			);
-			expect(mocks.markTaskComplete).toHaveBeenCalledWith("task-ok");
 		});
 
-		it("should update DB with error details and log when handler throws", async () => {
+		it("should update DB, fail the job run, and log when handler throws", async () => {
 			const mod = await freshModule();
 
 			const error = new Error("Something broke");
@@ -414,8 +433,8 @@ describe("scheduler/index", () => {
 
 			await mod.runTaskNow("task-fail");
 
-			expect(mocks.markTaskRunning).toHaveBeenCalledWith("task-fail");
 			expect(mocks.updateRun).toHaveBeenCalled();
+			expect(mocks.failJobRun).toHaveBeenCalledWith(55, "Something broke");
 			expect(mocks.logError).toHaveBeenCalledWith(
 				"scheduler",
 				expect.stringContaining("Fail Task failed: Something broke"),
@@ -425,7 +444,6 @@ describe("scheduler/index", () => {
 				type: "taskUpdated",
 				taskId: "task-fail",
 			});
-			expect(mocks.markTaskComplete).toHaveBeenCalledWith("task-fail");
 		});
 
 		it("should handle non-Error thrown values gracefully", async () => {
@@ -445,31 +463,33 @@ describe("scheduler/index", () => {
 				expect.stringContaining("Unknown error"),
 				"string error",
 			);
-			expect(mocks.markTaskComplete).toHaveBeenCalledWith("task-str");
+			expect(mocks.failJobRun).toHaveBeenCalledWith(55, "Unknown error");
 		});
 
-		it("should always call markTaskComplete even on handler error", async () => {
+		it("should not fail a job run when acquisition throws a duplicate-run error", async () => {
 			const mod = await freshModule();
 
-			const handler = vi.fn().mockRejectedValue(new Error("boom"));
+			const handler = vi.fn();
 			mocks.getTask.mockReturnValue({
-				id: "task-err",
-				name: "Err Task",
+				id: "task-duplicate",
+				name: "Duplicate Task",
 				handler,
 			});
+			mocks.acquireJobRun.mockImplementation(() => {
+				throw new Error("This task is already running.");
+			});
 
-			await mod.runTaskNow("task-err");
+			await mod.runTaskNow("task-duplicate");
 
-			// markTaskComplete must be called regardless
-			expect(mocks.markTaskComplete).toHaveBeenCalledWith("task-err");
+			expect(mocks.failJobRun).not.toHaveBeenCalled();
+			expect(mocks.completeJobRun).not.toHaveBeenCalled();
 		});
 
-		it("should pass an updateProgress callback to the handler", async () => {
+		it("should update job run progress, scheduled task progress, and emit events from the progress callback", async () => {
 			const mod = await freshModule();
 
-			let capturedCallback: ((msg: string) => void) | undefined;
 			const handler = vi.fn().mockImplementation((cb) => {
-				capturedCallback = cb;
+				cb("50% complete");
 				return Promise.resolve({ success: true, message: "done" });
 			});
 
@@ -481,11 +501,13 @@ describe("scheduler/index", () => {
 
 			await mod.runTaskNow("task-progress");
 
-			assertExists(capturedCallback);
-
-			// Calling the progress callback should update DB and emit event
-			capturedCallback("50% complete");
-
+			expect(mocks.updateJobRunProgress).toHaveBeenCalledWith(
+				55,
+				"50% complete",
+			);
+			expect(mocks.updateSet).toHaveBeenCalledWith({
+				progress: "50% complete",
+			});
 			expect(mocks.updateRun).toHaveBeenCalled();
 			expect(mocks.emit).toHaveBeenCalledWith({
 				type: "taskUpdated",
