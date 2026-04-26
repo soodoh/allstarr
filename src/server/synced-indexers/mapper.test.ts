@@ -59,6 +59,16 @@ describe("toReadarrResource", () => {
 		expect(result.tags).toEqual([]);
 	});
 
+	it("normalizes configContract from implementation for outgoing resources", () => {
+		const result = toReadarrResource({
+			...baseRow,
+			configContract: "LegacySettings",
+			implementation: "Torznab",
+		});
+
+		expect(result.configContract).toBe("TorznabSettings");
+	});
+
 	it("parses JSON categories and maps to objects with names", () => {
 		const result = toReadarrResource(baseRow);
 		const categoriesField = result.fields.find((f) => f.name === "categories");

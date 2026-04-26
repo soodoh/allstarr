@@ -1,135 +1,27 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import navigateTo from "./navigation";
+import captureSSEEvents from "./sse";
 
-type SerializedNode = {
-	t?: number;
-	s?: string | number;
-	a?: SerializedNode[];
-	p?: {
-		k?: Array<string | SerializedNode>;
-		v?: SerializedNode[];
-	};
-};
-
-type ScheduledTaskRefetch = {
-	id: string;
-	lastExecution: string | null;
-	lastResult: string | null;
+type CapturedEvent = {
+	type: string;
+	data: string;
 };
 
 function taskNameToId(taskName: string): string {
 	return taskName.toLowerCase().replaceAll(/\W+/g, "-").replaceAll(/^-|-$/g, "");
 }
 
-function isServerFunctionResponse(
-	appUrl: string,
-	method: "GET" | "POST",
-	startedAt: number,
-) {
-	return (response: Response): boolean => {
-		const request = response.request();
-		return (
-			request.method() === method &&
-			response.url().startsWith(`${appUrl}/_serverFn/`) &&
-			request.timing().startTime >= startedAt
-		);
-	};
-}
-
-function readSerializedString(node: SerializedNode | undefined): string | null {
-	return node?.t === 1 && typeof node.s === "string" ? node.s : null;
-}
-
-function readNullableSerializedString(
-	node: SerializedNode | undefined,
-): string | null {
-	if (node?.t === 2 && node.s === 0) {
-		return null;
-	}
-	return readSerializedString(node);
-}
-
-function readTaskFromSerializedNode(
-	node: SerializedNode,
+export function isTaskUpdatedEventForTask(
+	event: CapturedEvent,
 	taskId: string,
-): ScheduledTaskRefetch | null {
-	const keys = node.p?.k;
-	const values = node.p?.v;
-	if (!keys || !values) {
-		return null;
-	}
-
-	const idIndex = keys.indexOf("id");
-	const lastExecutionIndex = keys.indexOf("lastExecution");
-	const lastResultIndex = keys.indexOf("lastResult");
-	if (idIndex === -1 || lastExecutionIndex === -1 || lastResultIndex === -1) {
-		return null;
-	}
-
-	const id = readSerializedString(values[idIndex]);
-	if (id !== taskId) {
-		return null;
-	}
-
-	return {
-		id,
-		lastExecution: readNullableSerializedString(values[lastExecutionIndex]),
-		lastResult: readNullableSerializedString(values[lastResultIndex]),
-	};
-}
-
-function findTaskInSerializedResponse(
-	node: SerializedNode | SerializedNode[] | null,
-	taskId: string,
-): ScheduledTaskRefetch | null {
-	if (!node || typeof node !== "object") {
-		return null;
-	}
-
-	if (Array.isArray(node)) {
-		for (const child of node) {
-			const task = findTaskInSerializedResponse(child, taskId);
-			if (task) {
-				return task;
-			}
-		}
-		return null;
-	}
-
-	const task = readTaskFromSerializedNode(node, taskId);
-	if (task) {
-		return task;
-	}
-
-	for (const child of [...(node.a ?? []), ...(node.p?.v ?? [])]) {
-		const task = findTaskInSerializedResponse(child, taskId);
-		if (task) {
-			return task;
-		}
-	}
-
-	return null;
-}
-
-async function responseHasFreshTaskResult(
-	response: Response,
-	appUrl: string,
-	responseStartedAt: number,
-	taskStartedAt: number,
-	taskId: string,
-	expectedResult: "success" | "error",
-): Promise<boolean> {
-	if (!isServerFunctionResponse(appUrl, "GET", responseStartedAt)(response)) {
+): boolean {
+	if (event.type !== "taskUpdated") {
 		return false;
 	}
 
 	try {
-		const payload = JSON.parse(await response.text()) as SerializedNode;
-		const task = findTaskInSerializedResponse(payload, taskId);
-		if (!task?.lastExecution || task.lastResult !== expectedResult) {
-			return false;
-		}
-		return new Date(task.lastExecution).getTime() >= taskStartedAt - 1000;
+		const data = JSON.parse(event.data) as { taskId?: unknown };
+		return data.taskId === taskId;
 	} catch {
 		return false;
 	}
@@ -142,6 +34,7 @@ export async function triggerScheduledTask(
 	options: { expectedStatus?: "Success" | "Error" } = {},
 ): Promise<void> {
 	const expectedStatus = options.expectedStatus ?? "Success";
+	const taskId = taskNameToId(taskName);
 
 	await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
 		/* best-effort reset for stale running-task state */
@@ -154,37 +47,36 @@ export async function triggerScheduledTask(
 
 	const runButton = row.getByRole("button").last();
 	await expect(runButton).toBeEnabled({ timeout: 5_000 });
-	const taskId = taskNameToId(taskName);
-	const clickStartedAt = Date.now();
-	const taskResponse = page.waitForResponse(
-		(response) => {
-			const request = response.request();
-			return (
-				isServerFunctionResponse(appUrl, "POST", clickStartedAt)(response) &&
-				(request.postData() ?? "").includes(taskId)
+
+	const events = await captureSSEEvents(
+		page,
+		appUrl,
+		["taskUpdated"],
+		async () => {
+			const clickStartedAt = Date.now();
+			const taskResponse = page.waitForResponse(
+				(response) => {
+					const request = response.request();
+					return (
+						request.method() === "POST" &&
+						response.url().startsWith(`${appUrl}/_serverFn/`) &&
+						request.timing().startTime >= clickStartedAt &&
+						(request.postData() ?? "").includes(taskId)
+					);
+				},
+				{ timeout: 30_000 },
 			);
+
+			await runButton.click();
+			const response = await taskResponse;
+			expect(response.ok()).toBe(true);
 		},
-		{ timeout: 30_000 },
-	);
-	const tasksRefetch = page.waitForResponse(
-		(refetchResponse) =>
-			responseHasFreshTaskResult(
-				refetchResponse,
-				appUrl,
-				clickStartedAt,
-				clickStartedAt,
-				taskId,
-				expectedStatus === "Success" ? "success" : "error",
-			),
-		{ timeout: 30_000 },
+		{ timeoutMs: 30_000 },
 	);
 
-	await runButton.click();
-	const response = await taskResponse;
-	expect(response.ok()).toBe(true);
-	const refetchResponse = await tasksRefetch;
-	expect(refetchResponse.ok()).toBe(true);
-
+	expect(events.some((event) => isTaskUpdatedEventForTask(event, taskId))).toBe(
+		true,
+	);
 	await expect(row.getByText(expectedStatus).first()).toBeVisible({
 		timeout: 5_000,
 	});

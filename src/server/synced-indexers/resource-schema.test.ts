@@ -57,6 +57,28 @@ describe("readarrIndexerResourceSchema", () => {
 		}
 	});
 
+	it("rejects an implementation with a mismatched config contract", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			fields: [{ name: "baseUrl", value: "https://example.com" }],
+			implementation: "Torznab",
+			name: "Invalid Indexer",
+			protocol: "torrent",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "Torznab indexers must use TorznabSettings",
+						path: ["configContract"],
+					}),
+				]),
+			);
+		}
+	});
+
 	it("rejects fields missing a value key", () => {
 		const result = readarrIndexerResourceSchema.safeParse({
 			configContract: "NewznabSettings",

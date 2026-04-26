@@ -41,6 +41,12 @@ function toReadarrProtocol(
 	return protocol === "torrent" ? "torrent" : "usenet";
 }
 
+function toReadarrConfigContract(
+	implementation: ReadarrIndexerResource["implementation"],
+): ReadarrIndexerResource["configContract"] {
+	return implementation === "Torznab" ? "TorznabSettings" : "NewznabSettings";
+}
+
 /**
  * Converts a DB row to a Readarr-style indexer resource that Prowlarr expects.
  */
@@ -66,7 +72,7 @@ export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
 		name: row.name,
 		implementation,
 		implementationName: implementation,
-		configContract: row.configContract,
+		configContract: toReadarrConfigContract(implementation),
 		infoLink: "",
 		fields: [
 			{ name: "baseUrl", value: row.baseUrl },
