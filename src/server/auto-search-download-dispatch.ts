@@ -1,6 +1,6 @@
 import type {
 	ConnectionConfig,
-	DownloadClientProvider,
+	DownloadRequest,
 } from "./download-clients/types";
 import type { IndexerRelease } from "./indexers/types";
 
@@ -34,8 +34,19 @@ type ResolvedDownloadClient = {
 
 type DispatchContext<TRelease extends DispatchRelease> = {
 	client: DownloadClientRow;
-	downloadId: string;
 	release: TRelease;
+};
+
+type TrackedDownloadContext<TRelease extends DispatchRelease> =
+	DispatchContext<TRelease> & {
+		downloadId: string;
+	};
+
+type DownloadProvider = {
+	addDownload(
+		config: ConnectionConfig,
+		download: DownloadRequest,
+	): Promise<string | null>;
 };
 
 export type DispatchAutoSearchDownloadOptions<
@@ -43,9 +54,7 @@ export type DispatchAutoSearchDownloadOptions<
 	TTracked,
 	THistory,
 > = {
-	getProvider: (
-		implementation: string,
-	) => Promise<Pick<DownloadClientProvider, "addDownload">>;
+	getProvider: (implementation: string) => Promise<DownloadProvider>;
 	history: (context: DispatchContext<TRelease>) => THistory;
 	insertHistory: (history: THistory) => void;
 	insertTrackedDownload: (trackedDownload: TTracked) => void;
@@ -54,7 +63,7 @@ export type DispatchAutoSearchDownloadOptions<
 	resolveDownloadClient: (
 		release: TRelease,
 	) => ResolvedDownloadClient | null | Promise<ResolvedDownloadClient | null>;
-	trackedDownload: (context: DispatchContext<TRelease>) => TTracked;
+	trackedDownload: (context: TrackedDownloadContext<TRelease>) => TTracked;
 };
 
 function buildConnectionConfig(client: DownloadClientRow): ConnectionConfig {
@@ -110,10 +119,10 @@ export async function dispatchAutoSearchDownload<
 		tag: combinedTag,
 		savePath: null,
 	});
-	const context = { client, downloadId, release };
+	const context = { client, release };
 
 	if (downloadId) {
-		insertTrackedDownload(trackedDownload(context));
+		insertTrackedDownload(trackedDownload({ ...context, downloadId }));
 	}
 
 	insertHistory(history(context));
