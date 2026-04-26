@@ -14,6 +14,13 @@ import { logError, logWarn } from "./logger";
 import { fetchQueueItems } from "./queue";
 import type { TaskResult } from "./scheduler/registry";
 import getMediaSetting from "./settings-reader";
+import {
+	markTrackedDownloadCompleted,
+	markTrackedDownloadDownloading,
+	markTrackedDownloadFailed,
+	markTrackedDownloadImportPending,
+	markTrackedDownloadRemoved,
+} from "./tracked-download-state";
 
 const ACTIVE_STATES = ["queued", "downloading", "completed", "importPending"];
 
@@ -35,14 +42,7 @@ function reconcileTrackedDownload(
 			item.isCompleted &&
 			(td.state === "queued" || td.state === "downloading")
 		) {
-			db.update(trackedDownloads)
-				.set({
-					state: "completed",
-					outputPath: item.outputPath,
-					updatedAt: new Date(),
-				})
-				.where(eq(trackedDownloads.id, td.id))
-				.run();
+			markTrackedDownloadCompleted(td.id, item.outputPath);
 			stats.completed += 1;
 			eventBus.emit({
 				type: "downloadCompleted",
@@ -52,21 +52,11 @@ function reconcileTrackedDownload(
 			return "import";
 		}
 		if (!item.isCompleted && td.state === "queued") {
-			db.update(trackedDownloads)
-				.set({ state: "downloading", updatedAt: new Date() })
-				.where(eq(trackedDownloads.id, td.id))
-				.run();
+			markTrackedDownloadDownloading(td.id);
 			stats.updated += 1;
 		}
 	} else if (td.state === "queued" || td.state === "downloading") {
-		db.update(trackedDownloads)
-			.set({
-				state: "removed",
-				message: "Disappeared from download client",
-				updatedAt: new Date(),
-			})
-			.where(eq(trackedDownloads.id, td.id))
-			.run();
+		markTrackedDownloadRemoved(td.id, "Disappeared from download client");
 		stats.removed += 1;
 	}
 
@@ -143,14 +133,18 @@ export async function refreshDownloads(): Promise<TaskResult> {
 
 		if (!client) {
 			for (const td of downloads) {
-				db.update(trackedDownloads)
-					.set({
-						state: "removed",
-						message: "Download client deleted",
-						updatedAt: new Date(),
-					})
-					.where(eq(trackedDownloads.id, td.id))
-					.run();
+				if (td.state === "queued" || td.state === "downloading") {
+					markTrackedDownloadRemoved(td.id, "Download client deleted");
+				} else {
+					db.update(trackedDownloads)
+						.set({
+							state: "removed",
+							message: "Download client deleted",
+							updatedAt: new Date(),
+						})
+						.where(eq(trackedDownloads.id, td.id))
+						.run();
+				}
 				stats.removed += 1;
 			}
 			continue;
@@ -193,13 +187,19 @@ export async function refreshDownloads(): Promise<TaskResult> {
 			);
 			if (action === "import" && enableCompletedHandling) {
 				try {
+					if (td.state !== "importPending") {
+						markTrackedDownloadImportPending(td.id);
+					}
 					await importCompletedDownload(td.id);
 				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
 					logError(
 						"download-manager",
-						`Import failed for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Import failed for "${td.releaseTitle}": ${message}`,
 						error,
 					);
+					markTrackedDownloadFailed(td.id, message);
 					stats.failed += 1;
 					await runFailedDownloadHandler(td.id, provider, config);
 					continue;

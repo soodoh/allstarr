@@ -150,6 +150,43 @@ function setupRefreshDownloadsTest({
 	const handleFailedDownload = vi.fn().mockResolvedValue(undefined);
 	const logError = vi.fn();
 	const logWarn = vi.fn();
+	const findTrackedRow = (id: number) => {
+		const row = trackedRows.find((trackedRow) => trackedRow.id === id);
+		if (!row) {
+			throw new Error(`Tracked download ${id} not found.`);
+		}
+		return row;
+	};
+	const markTrackedDownloadCompleted = vi.fn(
+		(id: number, outputPath: string | null) => {
+			const row = findTrackedRow(id);
+			row.state = "completed";
+			row.outputPath = outputPath;
+			row.updatedAt = new Date();
+		},
+	);
+	const markTrackedDownloadDownloading = vi.fn((id: number) => {
+		const row = findTrackedRow(id);
+		row.state = "downloading";
+		row.updatedAt = new Date();
+	});
+	const markTrackedDownloadFailed = vi.fn((id: number, message: string) => {
+		const row = findTrackedRow(id);
+		row.state = "failed";
+		row.message = message;
+		row.updatedAt = new Date();
+	});
+	const markTrackedDownloadImportPending = vi.fn((id: number) => {
+		const row = findTrackedRow(id);
+		row.state = "importPending";
+		row.updatedAt = new Date();
+	});
+	const markTrackedDownloadRemoved = vi.fn((id: number, message: string) => {
+		const row = findTrackedRow(id);
+		row.state = "removed";
+		row.message = message;
+		row.updatedAt = new Date();
+	});
 
 	vi.doMock("drizzle-orm", () => ({
 		eq: (dbColumn: { name: string }, value: unknown) => ({
@@ -193,6 +230,13 @@ function setupRefreshDownloadsTest({
 		logError,
 		logWarn,
 	}));
+	vi.doMock("./tracked-download-state", () => ({
+		markTrackedDownloadCompleted,
+		markTrackedDownloadDownloading,
+		markTrackedDownloadFailed,
+		markTrackedDownloadImportPending,
+		markTrackedDownloadRemoved,
+	}));
 
 	return {
 		db,
@@ -203,6 +247,11 @@ function setupRefreshDownloadsTest({
 		handleFailedDownload,
 		logError,
 		logWarn,
+		markTrackedDownloadCompleted,
+		markTrackedDownloadDownloading,
+		markTrackedDownloadFailed,
+		markTrackedDownloadImportPending,
+		markTrackedDownloadRemoved,
 		provider,
 	};
 }
@@ -284,11 +333,15 @@ describe("refreshDownloads", () => {
 				updatedAt: new Date(),
 			},
 		];
-		const { eventEmit, getProvider, fetchQueueItems } =
-			setupRefreshDownloadsTest({
-				trackedRows,
-				clientRows: [],
-			});
+		const {
+			eventEmit,
+			getProvider,
+			fetchQueueItems,
+			markTrackedDownloadRemoved,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [],
+		});
 
 		const { refreshDownloads } = await import("./download-manager");
 		await expect(refreshDownloads()).resolves.toEqual({
@@ -298,6 +351,10 @@ describe("refreshDownloads", () => {
 
 		expect(trackedRows[0].state).toBe("removed");
 		expect(trackedRows[0].message).toBe("Download client deleted");
+		expect(markTrackedDownloadRemoved).toHaveBeenCalledWith(
+			1,
+			"Download client deleted",
+		);
 		expect(getProvider).not.toHaveBeenCalled();
 		expect(fetchQueueItems).not.toHaveBeenCalled();
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
@@ -324,32 +381,36 @@ describe("refreshDownloads", () => {
 				updatedAt: new Date(),
 			},
 		];
-		const { eventEmit, fetchQueueItems, getProvider } =
-			setupRefreshDownloadsTest({
-				trackedRows,
-				clientRows: [
-					{
-						id: 7,
-						name: "Test qBittorrent",
-						implementation: "qBittorrent",
-						host: "localhost",
-						port: 8080,
-						useSsl: false,
-						urlBase: null,
-						username: null,
-						password: null,
-						apiKey: null,
-						category: "allstarr",
-						tag: null,
-						settings: null,
-						removeCompletedDownloads: true,
-					},
-				],
-				provider: {
-					getDownloads: vi.fn().mockResolvedValue([]),
-					removeDownload: vi.fn(),
+		const {
+			eventEmit,
+			fetchQueueItems,
+			getProvider,
+			markTrackedDownloadRemoved,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
 				},
-			});
+			],
+			provider: {
+				getDownloads: vi.fn().mockResolvedValue([]),
+				removeDownload: vi.fn(),
+			},
+		});
 
 		const { refreshDownloads } = await import("./download-manager");
 		await expect(refreshDownloads()).resolves.toEqual({
@@ -359,6 +420,10 @@ describe("refreshDownloads", () => {
 
 		expect(trackedRows[0].state).toBe("removed");
 		expect(trackedRows[0].message).toBe("Disappeared from download client");
+		expect(markTrackedDownloadRemoved).toHaveBeenCalledWith(
+			1,
+			"Disappeared from download client",
+		);
 		expect(getProvider).toHaveBeenCalledWith("qBittorrent");
 		expect(fetchQueueItems).not.toHaveBeenCalled();
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
@@ -402,29 +467,33 @@ describe("refreshDownloads", () => {
 			]),
 			removeDownload: vi.fn(),
 		};
-		const { eventEmit, importCompletedDownload, getProvider } =
-			setupRefreshDownloadsTest({
-				trackedRows,
-				clientRows: [
-					{
-						id: 7,
-						name: "Test qBittorrent",
-						implementation: "qBittorrent",
-						host: "localhost",
-						port: 8080,
-						useSsl: false,
-						urlBase: null,
-						username: null,
-						password: null,
-						apiKey: null,
-						category: "allstarr",
-						tag: null,
-						settings: null,
-						removeCompletedDownloads: true,
-					},
-				],
-				provider,
-			});
+		const {
+			eventEmit,
+			importCompletedDownload,
+			getProvider,
+			markTrackedDownloadDownloading,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
+				},
+			],
+			provider,
+		});
 
 		const { refreshDownloads } = await import("./download-manager");
 		await expect(refreshDownloads()).resolves.toEqual({
@@ -433,6 +502,7 @@ describe("refreshDownloads", () => {
 		});
 
 		expect(trackedRows[0].state).toBe("downloading");
+		expect(markTrackedDownloadDownloading).toHaveBeenCalledWith(1);
 		expect(getProvider).toHaveBeenCalledWith("qBittorrent");
 		expect(importCompletedDownload).not.toHaveBeenCalled();
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
@@ -476,7 +546,12 @@ describe("refreshDownloads", () => {
 			]),
 			removeDownload: vi.fn(),
 		};
-		const { eventEmit, importCompletedDownload } = setupRefreshDownloadsTest({
+		const {
+			eventEmit,
+			importCompletedDownload,
+			markTrackedDownloadCompleted,
+			markTrackedDownloadImportPending,
+		} = setupRefreshDownloadsTest({
 			trackedRows,
 			clientRows: [
 				{
@@ -510,6 +585,19 @@ describe("refreshDownloads", () => {
 		});
 
 		expect(trackedRows[0].state).toBe("imported");
+		expect(markTrackedDownloadCompleted).toHaveBeenCalledWith(
+			1,
+			"/downloads/completed-downloading-book",
+		);
+		expect(markTrackedDownloadImportPending).toHaveBeenCalledWith(1);
+		expect(
+			markTrackedDownloadCompleted.mock.invocationCallOrder[0],
+		).toBeLessThan(
+			markTrackedDownloadImportPending.mock.invocationCallOrder[0],
+		);
+		expect(
+			markTrackedDownloadImportPending.mock.invocationCallOrder[0],
+		).toBeLessThan(importCompletedDownload.mock.invocationCallOrder[0]);
 		expect(importCompletedDownload).toHaveBeenCalledWith(1);
 		expect(provider.removeDownload).not.toHaveBeenCalled();
 		expect(eventEmit).toHaveBeenCalledWith({
@@ -909,6 +997,132 @@ describe("refreshDownloads", () => {
 		);
 	});
 
+	it("retries importPending downloads without marking import pending again", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Import Pending Book [EPUB]",
+				protocol: "torrent",
+				state: "importPending",
+				outputPath: "/downloads/import-pending",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const { importCompletedDownload, markTrackedDownloadImportPending } =
+			setupRefreshDownloadsTest({
+				trackedRows,
+				clientRows: [
+					{
+						id: 7,
+						name: "Test qBittorrent",
+						implementation: "qBittorrent",
+						host: "localhost",
+						port: 8080,
+						useSsl: false,
+						urlBase: null,
+						username: null,
+						password: null,
+						apiKey: null,
+						category: "allstarr",
+						tag: null,
+						settings: null,
+						removeCompletedDownloads: true,
+					},
+				],
+			});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: true,
+			message: "Checked 1 downloads, no changes",
+		});
+
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(markTrackedDownloadImportPending).not.toHaveBeenCalled();
+	});
+
+	it("does not remove completed downloads from the client unless refreshed state is imported", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Still Importing Book [EPUB]",
+				protocol: "torrent",
+				state: "queued",
+				outputPath: "/downloads/still-importing",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const provider = {
+			getDownloads: vi.fn().mockResolvedValue([
+				{
+					id: "download-1",
+					name: "Still Importing Book [EPUB]",
+					status: "completed",
+					size: 100,
+					downloaded: 100,
+					uploadSpeed: 0,
+					downloadSpeed: 0,
+					category: null,
+					outputPath: "/downloads/still-importing",
+					isCompleted: true,
+				},
+			]),
+			removeDownload: vi.fn(),
+		};
+		const { importCompletedDownload } = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
+				},
+			],
+			provider,
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: true,
+			message: "Processed 1 downloads: 1 completed",
+		});
+
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(provider.removeDownload).not.toHaveBeenCalled();
+		expect(trackedRows[0].state).toBe("importPending");
+	});
+
 	it("records an import failure when importing a completed download throws", async () => {
 		const trackedRows: FakeTrackedDownloadRow[] = [
 			{
@@ -947,29 +1161,33 @@ describe("refreshDownloads", () => {
 			]),
 			removeDownload: vi.fn(),
 		};
-		const { eventEmit, handleFailedDownload, importCompletedDownload } =
-			setupRefreshDownloadsTest({
-				trackedRows,
-				clientRows: [
-					{
-						id: 7,
-						name: "Test qBittorrent",
-						implementation: "qBittorrent",
-						host: "localhost",
-						port: 8080,
-						useSsl: false,
-						urlBase: null,
-						username: null,
-						password: null,
-						apiKey: null,
-						category: "allstarr",
-						tag: null,
-						settings: null,
-						removeCompletedDownloads: true,
-					},
-				],
-				provider,
-			});
+		const {
+			eventEmit,
+			handleFailedDownload,
+			importCompletedDownload,
+			markTrackedDownloadFailed,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
+				},
+			],
+			provider,
+		});
 
 		importCompletedDownload.mockRejectedValue(new Error("import exploded"));
 
@@ -980,6 +1198,10 @@ describe("refreshDownloads", () => {
 		});
 
 		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(markTrackedDownloadFailed).toHaveBeenCalledWith(
+			1,
+			"import exploded",
+		);
 		expect(handleFailedDownload).toHaveBeenCalledTimes(1);
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
 	});
