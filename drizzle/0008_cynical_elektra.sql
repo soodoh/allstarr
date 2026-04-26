@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `job_runs_active_dedupe_unique_idx` ON `job_runs` (`source_type`,`job_type`,`dedupe_key`,`dedupe_value`) WHERE "job_runs"."status" IN ('queued', 'running');
