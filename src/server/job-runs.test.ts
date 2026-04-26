@@ -246,3 +246,80 @@ describe("job-runs service", () => {
 		expect(inArray).toHaveBeenCalledWith(jobRuns.status, ["queued", "running"]);
 	});
 });
+
+describe("job-runs service with real sqlite constraints", () => {
+	afterEach(() => {
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db");
+		vi.doUnmock("src/db/schema");
+		vi.resetModules();
+	});
+
+	it("maps active job run unique constraint conflicts to the duplicate task error", async () => {
+		vi.resetModules();
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db/schema");
+
+		const [{ default: Database }, { drizzle }, schema] = await Promise.all([
+			import("better-sqlite3"),
+			import("drizzle-orm/better-sqlite3"),
+			import("src/db/schema"),
+		]);
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE job_runs (
+				id integer PRIMARY KEY AUTOINCREMENT,
+				source_type text NOT NULL,
+				job_type text NOT NULL,
+				display_name text NOT NULL,
+				dedupe_key text,
+				dedupe_value text,
+				status text DEFAULT 'queued' NOT NULL,
+				progress text,
+				attempt integer DEFAULT 1 NOT NULL,
+				result text,
+				error text,
+				metadata text,
+				started_at integer,
+				last_heartbeat_at integer,
+				finished_at integer,
+				created_at integer NOT NULL,
+				updated_at integer NOT NULL
+			)
+		`);
+		sqlite.exec(`
+			CREATE UNIQUE INDEX job_runs_active_dedupe_unique_idx
+			ON job_runs (source_type, job_type, dedupe_key, dedupe_value)
+			WHERE status IN ('queued', 'running')
+		`);
+		const db = drizzle({ client: sqlite, schema });
+		const constrainedDb = Object.assign(db, {
+			select: () => ({
+				from: () => ({
+					where: () => ({
+						all: () => [],
+					}),
+				}),
+			}),
+		});
+
+		vi.doMock("src/db", () => ({ db: constrainedDb, sqlite }));
+		const { acquireJobRun } = await import("./job-runs");
+
+		acquireJobRun({
+			sourceType: "scheduled",
+			jobType: "refresh-downloads",
+			displayName: "Refresh Downloads",
+		});
+
+		expect(() =>
+			acquireJobRun({
+				sourceType: "scheduled",
+				jobType: "refresh-downloads",
+				displayName: "Refresh Downloads",
+			}),
+		).toThrow("This task is already running.");
+
+		sqlite.close();
+	});
+});

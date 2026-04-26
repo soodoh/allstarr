@@ -27,6 +27,23 @@ export type AcquireJobRunInput = {
 
 type JobRun = typeof jobRuns.$inferSelect;
 
+function isActiveJobRunUniqueConstraintError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+
+	const code =
+		"code" in error && typeof error.code === "string" ? error.code : undefined;
+
+	return (
+		code === "SQLITE_CONSTRAINT_UNIQUE" ||
+		error.message.includes("job_runs_active_dedupe_unique_idx") ||
+		error.message.includes(
+			"UNIQUE constraint failed: job_runs.source_type, job_runs.job_type, job_runs.dedupe_key, job_runs.dedupe_value",
+		)
+	);
+}
+
 export function acquireJobRun(input: AcquireJobRunInput): JobRun {
 	const dedupeKey = input.dedupeKey ?? input.jobType;
 	const dedupeValue = input.dedupeValue ?? input.jobType;
@@ -50,22 +67,30 @@ export function acquireJobRun(input: AcquireJobRunInput): JobRun {
 
 	const now = new Date();
 
-	return db
-		.insert(jobRuns)
-		.values({
-			sourceType: input.sourceType,
-			jobType: input.jobType,
-			displayName: input.displayName,
-			dedupeKey,
-			dedupeValue,
-			status: "running",
-			metadata: input.metadata ?? null,
-			startedAt: now,
-			lastHeartbeatAt: now,
-			updatedAt: now,
-		})
-		.returning()
-		.get();
+	try {
+		return db
+			.insert(jobRuns)
+			.values({
+				sourceType: input.sourceType,
+				jobType: input.jobType,
+				displayName: input.displayName,
+				dedupeKey,
+				dedupeValue,
+				status: "running",
+				metadata: input.metadata ?? null,
+				startedAt: now,
+				lastHeartbeatAt: now,
+				updatedAt: now,
+			})
+			.returning()
+			.get();
+	} catch (error) {
+		if (isActiveJobRunUniqueConstraintError(error)) {
+			throw new Error("This task is already running.");
+		}
+
+		throw error;
+	}
 }
 
 export function heartbeatJobRun(jobRunId: number): void {
