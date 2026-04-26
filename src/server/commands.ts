@@ -5,6 +5,8 @@ import {
 	acquireJobRun,
 	completeJobRun,
 	failJobRun,
+	heartbeatJobRun,
+	JOB_HEARTBEAT_INTERVAL_MS,
 	listActiveJobRuns,
 	updateJobRunProgress,
 } from "./job-runs";
@@ -57,6 +59,10 @@ async function doWork(
 		updateJobRunProgress(commandId, progress);
 		eventBus.emit({ type: "commandProgress", commandId, progress });
 	};
+	const heartbeatInterval = setInterval(
+		() => heartbeatJobRun(commandId),
+		JOB_HEARTBEAT_INTERVAL_MS,
+	);
 
 	try {
 		const result = await handler(body, updateProgress, setTitle);
@@ -79,6 +85,8 @@ async function doWork(
 			error: message,
 			title,
 		});
+	} finally {
+		clearInterval(heartbeatInterval);
 	}
 }
 

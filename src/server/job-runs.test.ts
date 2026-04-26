@@ -203,6 +203,10 @@ describe("job-runs service", () => {
 				updatedAt: now,
 			},
 		]);
+		expect(and).toHaveBeenCalledWith(
+			{ type: "eq", left: jobRuns.id, right: 10 },
+			{ type: "eq", left: jobRuns.status, right: "running" },
+		);
 	});
 
 	it("marks a job run failed with an error", () => {
@@ -217,6 +221,10 @@ describe("job-runs service", () => {
 				updatedAt: now,
 			},
 		]);
+		expect(and).toHaveBeenCalledWith(
+			{ type: "eq", left: jobRuns.id, right: 10 },
+			{ type: "eq", left: jobRuns.status, right: "running" },
+		);
 	});
 
 	it("marks running jobs stale after the heartbeat window expires", () => {

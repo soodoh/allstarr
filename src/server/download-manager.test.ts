@@ -408,6 +408,48 @@ describe("refreshDownloads", () => {
 		expect(trackedRows[0].message).toBeNull();
 	});
 
+	it("reports missing-client imports that mark rows failed without throwing", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Missing Client Failed Book [EPUB]",
+				protocol: "torrent",
+				state: "completed",
+				outputPath: "/downloads/missing-client-failed",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const { importCompletedDownload, handleFailedDownload } =
+			setupRefreshDownloadsTest({
+				trackedRows,
+				clientRows: [],
+			});
+		importCompletedDownload.mockImplementation(async () => {
+			trackedRows[0].state = "failed";
+			trackedRows[0].message = "Import failed";
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: false,
+			message: "Processed 1 downloads: 1 import failures",
+		});
+
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(handleFailedDownload).not.toHaveBeenCalled();
+		expect(trackedRows[0].state).toBe("failed");
+	});
+
 	it("retries missing-client importPending downloads without claiming import again", async () => {
 		const trackedRows: FakeTrackedDownloadRow[] = [
 			{

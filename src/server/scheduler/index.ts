@@ -6,6 +6,8 @@ import {
 	acquireJobRun,
 	completeJobRun,
 	failJobRun,
+	heartbeatJobRun,
+	JOB_HEARTBEAT_INTERVAL_MS,
 	listActiveJobRuns,
 	markStaleJobRuns,
 	updateJobRunProgress,
@@ -107,6 +109,10 @@ async function executeTask(taskId: string): Promise<void> {
 	}
 
 	const start = Date.now();
+	const heartbeatInterval = setInterval(
+		() => heartbeatJobRun(run.id),
+		JOB_HEARTBEAT_INTERVAL_MS,
+	);
 
 	try {
 		const updateProgress = (message: string): void => {
@@ -157,6 +163,8 @@ async function executeTask(taskId: string): Promise<void> {
 		failJobRun(run.id, message);
 		logError("scheduler", `${task.name} failed: ${message}`, error);
 		eventBus.emit({ type: "taskUpdated", taskId });
+	} finally {
+		clearInterval(heartbeatInterval);
 	}
 }
 

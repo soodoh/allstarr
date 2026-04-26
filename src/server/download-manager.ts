@@ -190,6 +190,10 @@ export async function refreshDownloads(): Promise<TaskResult> {
 					}
 					if (!(await importTrackedDownload(td))) {
 						stats.failed += 1;
+						continue;
+					}
+					if (getTrackedDownloadState(td.id) === "failed") {
+						stats.failed += 1;
 					}
 				}
 			}
