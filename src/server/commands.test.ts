@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const commandsMocks = vi.hoisted(() => ({
-	activeRows: vi.fn(),
-	deleteRun: vi.fn(),
+	acquireJobRun: vi.fn(),
+	completeJobRun: vi.fn(),
 	emit: vi.fn(),
-	insertGet: vi.fn(),
+	failJobRun: vi.fn(),
 	listActiveJobRuns: vi.fn(),
 	logError: vi.fn(),
 	requireAuth: vi.fn(),
-	selectDuplicates: vi.fn(),
-	updateRun: vi.fn(),
+	rejectDbUse: vi.fn(() => {
+		throw new Error("commands.ts should route command state through job-runs");
+	}),
+	updateJobRunProgress: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -18,40 +20,8 @@ vi.mock("@tanstack/react-start", () => ({
 	}),
 }));
 
-vi.mock("drizzle-orm", () => ({
-	eq: vi.fn((left: unknown, right: unknown) => ({ left, right })),
-}));
-
 vi.mock("src/db", () => ({
-	db: {
-		delete: vi.fn(() => ({
-			where: vi.fn(() => ({
-				run: commandsMocks.deleteRun,
-			})),
-		})),
-		insert: vi.fn(() => ({
-			values: vi.fn(() => ({
-				returning: vi.fn(() => ({
-					get: commandsMocks.insertGet,
-				})),
-			})),
-		})),
-		select: vi.fn(() => ({
-			from: vi.fn(() => ({
-				all: commandsMocks.activeRows,
-				where: vi.fn(() => ({
-					all: commandsMocks.selectDuplicates,
-				})),
-			})),
-		})),
-		update: vi.fn(() => ({
-			set: vi.fn(() => ({
-				where: vi.fn(() => ({
-					run: commandsMocks.updateRun,
-				})),
-			})),
-		})),
-	},
+	db: new Proxy({}, { get: () => commandsMocks.rejectDbUse }),
 }));
 
 vi.mock("src/db/schema", () => ({
@@ -77,7 +47,11 @@ vi.mock("./middleware", () => ({
 }));
 
 vi.mock("./job-runs", () => ({
+	acquireJobRun: commandsMocks.acquireJobRun,
+	completeJobRun: commandsMocks.completeJobRun,
+	failJobRun: commandsMocks.failJobRun,
 	listActiveJobRuns: commandsMocks.listActiveJobRuns,
+	updateJobRunProgress: commandsMocks.updateJobRunProgress,
 }));
 
 import { getActiveCommandsFn, submitCommand } from "./commands";
@@ -85,28 +59,35 @@ import { getActiveCommandsFn, submitCommand } from "./commands";
 describe("commands server helpers", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		commandsMocks.activeRows.mockReturnValue([]);
-		commandsMocks.insertGet.mockReturnValue({ id: 42 });
+		commandsMocks.acquireJobRun.mockReturnValue({ id: 42 });
 		commandsMocks.listActiveJobRuns.mockReturnValue([]);
-		commandsMocks.selectDuplicates.mockReturnValue([]);
 	});
 
 	it("rejects duplicate commands that share the dedupe key value", () => {
-		commandsMocks.selectDuplicates.mockReturnValue([
-			{ body: { mediaId: 7 }, id: 1 },
-		]);
+		const handler = vi.fn(async () => ({}));
+		commandsMocks.acquireJobRun.mockImplementation(() => {
+			throw new Error("This task is already running.");
+		});
 
 		expect(() =>
 			submitCommand({
 				body: { mediaId: 7 },
 				commandType: "refreshBook",
 				dedupeKey: "mediaId",
-				handler: vi.fn(async () => ({})),
+				handler,
 				name: "Refresh book",
 			}),
 		).toThrowError("This task is already running.");
 
-		expect(commandsMocks.insertGet).not.toHaveBeenCalled();
+		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
+			sourceType: "command",
+			jobType: "refreshBook",
+			displayName: "Refresh book",
+			dedupeKey: "mediaId",
+			dedupeValue: "7",
+			metadata: { body: { mediaId: 7 } },
+		});
+		expect(handler).not.toHaveBeenCalled();
 	});
 
 	it("rejects commands when a conflicting batch task is already running", () => {
@@ -125,10 +106,33 @@ describe("commands server helpers", () => {
 			}),
 		).toThrowError("A batch metadata refresh is already running.");
 
-		expect(commandsMocks.insertGet).not.toHaveBeenCalled();
+		expect(commandsMocks.acquireJobRun).not.toHaveBeenCalled();
 	});
 
-	it("updates progress, emits completion, and clears finished commands", async () => {
+	it("acquires a command job run with an undefined dedupe value when the body omits the dedupe key", () => {
+		const handler = vi.fn(async () => ({}));
+
+		expect(
+			submitCommand({
+				body: {},
+				commandType: "refreshBook",
+				dedupeKey: "mediaId",
+				handler,
+				name: "Refresh book",
+			}),
+		).toEqual({ commandId: 42 });
+
+		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
+			sourceType: "command",
+			jobType: "refreshBook",
+			displayName: "Refresh book",
+			dedupeKey: "mediaId",
+			dedupeValue: undefined,
+			metadata: { body: {} },
+		});
+	});
+
+	it("updates job-run progress and emits completion for finished commands", async () => {
 		const handler = vi.fn(
 			async (
 				body: Record<string, unknown>,
@@ -151,6 +155,15 @@ describe("commands server helpers", () => {
 			}),
 		).toEqual({ commandId: 42 });
 
+		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
+			sourceType: "command",
+			jobType: "refreshBook",
+			displayName: "Refresh book",
+			dedupeKey: "mediaId",
+			dedupeValue: "99",
+			metadata: { body: { mediaId: 99 } },
+		});
+
 		await vi.waitFor(() => {
 			expect(commandsMocks.emit).toHaveBeenCalledWith({
 				commandId: 42,
@@ -166,12 +179,16 @@ describe("commands server helpers", () => {
 			});
 		});
 
-		expect(commandsMocks.updateRun).toHaveBeenCalledTimes(1);
-		expect(commandsMocks.deleteRun).toHaveBeenCalledTimes(1);
+		expect(commandsMocks.updateJobRunProgress).toHaveBeenCalledWith(
+			42,
+			"Refreshing — for 99",
+		);
+		expect(commandsMocks.completeJobRun).toHaveBeenCalledWith(42, { ok: true });
+		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
 		expect(commandsMocks.logError).not.toHaveBeenCalled();
 	});
 
-	it("logs and emits failures before cleaning up failed commands", async () => {
+	it("logs, fails the job run, and emits failures for failed commands", async () => {
 		const boom = new Error("boom");
 		const handler = vi.fn(
 			async (
@@ -207,17 +224,27 @@ describe("commands server helpers", () => {
 			});
 		});
 
-		expect(commandsMocks.deleteRun).toHaveBeenCalledTimes(1);
+		expect(commandsMocks.failJobRun).toHaveBeenCalledWith(42, "boom");
+		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
 	});
 
 	it("returns active commands for authenticated requests", async () => {
-		commandsMocks.activeRows.mockReturnValue([
+		commandsMocks.listActiveJobRuns.mockReturnValue([
 			{
-				body: { mediaId: 5 },
-				commandType: "refreshBook",
+				displayName: "Refresh book",
 				id: 5,
-				name: "Refresh book",
+				jobType: "refreshBook",
+				metadata: { body: { mediaId: 5 } },
 				progress: "working",
+				sourceType: "command",
+			},
+			{
+				displayName: "Scheduled refresh",
+				id: 6,
+				jobType: "metadata-refresh",
+				metadata: { body: { mediaId: 9 } },
+				progress: "queued",
+				sourceType: "scheduled",
 			},
 		]);
 

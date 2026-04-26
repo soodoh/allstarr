@@ -1,9 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
-import { db } from "src/db";
-import { activeAdhocCommands } from "src/db/schema";
 import { eventBus } from "./event-bus";
-import { listActiveJobRuns } from "./job-runs";
+import {
+	acquireJobRun,
+	completeJobRun,
+	failJobRun,
+	listActiveJobRuns,
+	updateJobRunProgress,
+} from "./job-runs";
 import { logError } from "./logger";
 import { requireAuth } from "./middleware";
 
@@ -23,29 +26,6 @@ type SubmitCommandOptions = {
 	batchTaskId?: string;
 	handler: CommandHandler;
 };
-
-function checkDuplicate(
-	commandType: string,
-	dedupeKey: string,
-	body: Record<string, unknown>,
-): void {
-	const dedupeValue = body[dedupeKey];
-	if (dedupeValue === undefined) {
-		return;
-	}
-
-	const existing = db
-		.select({ id: activeAdhocCommands.id, body: activeAdhocCommands.body })
-		.from(activeAdhocCommands)
-		.where(eq(activeAdhocCommands.commandType, commandType))
-		.all();
-
-	for (const row of existing) {
-		if ((row.body as Record<string, unknown>)[dedupeKey] === dedupeValue) {
-			throw new Error("This task is already running.");
-		}
-	}
-}
 
 function checkBatchOverlap(batchTaskId: string): void {
 	const hasActiveBatchRun = listActiveJobRuns().some(
@@ -73,15 +53,13 @@ async function doWork(
 
 	const updateProgress = (message: string): void => {
 		const progress = title ? `${title} — ${message}` : message;
-		db.update(activeAdhocCommands)
-			.set({ progress })
-			.where(eq(activeAdhocCommands.id, commandId))
-			.run();
+		updateJobRunProgress(commandId, progress);
 		eventBus.emit({ type: "commandProgress", commandId, progress });
 	};
 
 	try {
 		const result = await handler(body, updateProgress, setTitle);
+		completeJobRun(commandId, result);
 		eventBus.emit({
 			type: "commandCompleted",
 			commandId,
@@ -92,6 +70,7 @@ async function doWork(
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		logError("command", `${commandType} #${commandId} failed`, error);
+		failJobRun(commandId, message);
 		eventBus.emit({
 			type: "commandFailed",
 			commandId,
@@ -99,10 +78,6 @@ async function doWork(
 			error: message,
 			title,
 		});
-	} finally {
-		db.delete(activeAdhocCommands)
-			.where(eq(activeAdhocCommands.id, commandId))
-			.run();
 	}
 }
 
@@ -111,21 +86,19 @@ export function submitCommand(opts: SubmitCommandOptions): {
 } {
 	const { commandType, name, body, dedupeKey, batchTaskId, handler } = opts;
 
-	checkDuplicate(commandType, dedupeKey, body);
 	if (batchTaskId) {
 		checkBatchOverlap(batchTaskId);
 	}
 
-	const row = db
-		.insert(activeAdhocCommands)
-		.values({
-			commandType,
-			name,
-			body,
-			startedAt: new Date().toISOString(),
-		})
-		.returning()
-		.get();
+	const dedupeValue = body[dedupeKey];
+	const row = acquireJobRun({
+		sourceType: "command",
+		jobType: commandType,
+		displayName: name,
+		dedupeKey,
+		dedupeValue: dedupeValue === undefined ? undefined : String(dedupeValue),
+		metadata: { body },
+	});
 
 	// Fire and forget — intentionally not awaited
 	void doWork(row.id, commandType, handler, body).catch((error) =>
@@ -139,10 +112,28 @@ export function submitCommand(opts: SubmitCommandOptions): {
 export const getActiveCommandsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAuth();
-		const rows = db.select().from(activeAdhocCommands).all();
-		return rows.map((row) => ({
-			...row,
-			body: row.body as Record<string, never>,
-		}));
+		const rows = listActiveJobRuns().filter(
+			(row) => row.sourceType === "command",
+		);
+
+		return rows.map((row) => {
+			const metadata =
+				row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+			const body =
+				"body" in metadata &&
+				metadata.body !== null &&
+				typeof metadata.body === "object" &&
+				!Array.isArray(metadata.body)
+					? (metadata.body as Record<string, never>)
+					: {};
+
+			return {
+				id: row.id,
+				commandType: row.jobType,
+				name: row.displayName,
+				progress: row.progress,
+				body,
+			};
+		});
 	},
 );
