@@ -1,5 +1,6 @@
 import {
 	buildDownloadClient,
+	buildManualIndexer,
 	buildRelease,
 	buildSyncedIndexer,
 } from "src/server/auto-search-test-fixtures";
@@ -886,47 +887,34 @@ describe("indexer rate limiting", () => {
 			reason: "dailyCap",
 		});
 
+		const manualIndexer = buildManualIndexer({
+			id: 1,
+			name: "LimitedIndexer",
+			baseUrl: "http://ix",
+			apiKey: "key1",
+			priority: 1,
+		});
 		const profile = makeProfile();
-		const callIdx = { n: 0 };
+		const wantedBook = {
+			id: 10,
+			title: "Test Book",
+			lastSearchedAt: null,
+			authorId: 1,
+			authorName: "Author",
+			authorMonitored: true,
+		};
+		const editionProfile = { editionId: 100, profileId: profile.id };
+		const selectAllResults = [
+			[manualIndexer],
+			[],
+			[wantedBook],
+			[editionProfile],
+			[profile],
+			[],
+			[], // no existing files
+		];
 		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 1,
-							name: "LimitedIndexer",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 2:
-					return [];
-				case 3:
-					return [
-						{
-							id: 10,
-							title: "Test Book",
-							lastSearchedAt: null,
-							authorId: 1,
-							authorName: "Author",
-							authorMonitored: true,
-						},
-					];
-				case 4:
-					return [{ editionId: 100, profileId: profile.id }];
-				case 5:
-					return [profile];
-				case 6:
-					return [];
-				case 7:
-					return []; // no existing files
-				default:
-					return [];
-			}
+			return selectAllResults.shift() ?? [];
 		});
 
 		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
