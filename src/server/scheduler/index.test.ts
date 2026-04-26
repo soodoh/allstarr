@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 	acquireJobRun: vi.fn(),
 	completeJobRun: vi.fn(),
 	failJobRun: vi.fn(),
+	listActiveJobRuns: vi.fn(),
 	markStaleJobRuns: vi.fn(),
 	updateJobRunProgress: vi.fn(),
 	getTimers: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock("../job-runs", () => ({
 	acquireJobRun: mocks.acquireJobRun,
 	completeJobRun: mocks.completeJobRun,
 	failJobRun: mocks.failJobRun,
+	listActiveJobRuns: mocks.listActiveJobRuns,
 	markStaleJobRuns: mocks.markStaleJobRuns,
 	updateJobRunProgress: mocks.updateJobRunProgress,
 }));
@@ -90,6 +92,7 @@ beforeEach(() => {
 	mocks.getAllTasks.mockReturnValue([]);
 	mocks.selectAll.mockReturnValue([]);
 	mocks.acquireJobRun.mockReturnValue({ id: 55 });
+	mocks.listActiveJobRuns.mockReturnValue([]);
 	mocks.markStaleJobRuns.mockReturnValue([]);
 });
 
@@ -435,6 +438,32 @@ describe("scheduler/index", () => {
 			await mod.runTaskNow("busy-task");
 
 			expect(handler).not.toHaveBeenCalled();
+			expect(mocks.logError).not.toHaveBeenCalled();
+		});
+
+		it("should skip execution when an active command run overlaps the scheduled task", async () => {
+			const mod = await freshModule();
+
+			const handler = vi.fn();
+			mocks.getTask.mockReturnValue({
+				id: "metadata-refresh",
+				name: "Metadata Refresh",
+				handler,
+			});
+			mocks.listActiveJobRuns.mockReturnValue([
+				{
+					id: 99,
+					sourceType: "command",
+					jobType: "refreshBook",
+					metadata: { batchTaskId: "metadata-refresh" },
+				},
+			]);
+
+			await mod.runTaskNow("metadata-refresh");
+
+			expect(mocks.acquireJobRun).not.toHaveBeenCalled();
+			expect(handler).not.toHaveBeenCalled();
+			expect(mocks.failJobRun).not.toHaveBeenCalled();
 			expect(mocks.logError).not.toHaveBeenCalled();
 		});
 

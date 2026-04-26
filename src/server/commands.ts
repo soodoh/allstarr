@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { eventBus } from "./event-bus";
 import {
@@ -96,8 +97,8 @@ export function submitCommand(opts: SubmitCommandOptions): {
 		jobType: commandType,
 		displayName: name,
 		dedupeKey,
-		dedupeValue: dedupeValue === undefined ? undefined : String(dedupeValue),
-		metadata: { body },
+		dedupeValue: dedupeValue === undefined ? randomUUID() : String(dedupeValue),
+		metadata: { body, batchTaskId },
 	});
 
 	// Fire and forget — intentionally not awaited
