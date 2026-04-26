@@ -116,6 +116,16 @@ function claimImport(td: TrackedDownload): boolean {
 	}
 }
 
+function getTrackedDownloadState(id: number): string | null {
+	const refreshed = db
+		.select({ state: trackedDownloads.state })
+		.from(trackedDownloads)
+		.where(eq(trackedDownloads.id, id))
+		.get();
+
+	return refreshed?.state ?? null;
+}
+
 async function importTrackedDownload(td: TrackedDownload): Promise<boolean> {
 	try {
 		await importCompletedDownload(td.id);
@@ -127,7 +137,9 @@ async function importTrackedDownload(td: TrackedDownload): Promise<boolean> {
 			`Import failed for "${td.releaseTitle}": ${message}`,
 			error,
 		);
-		markTrackedDownloadFailed(td.id, message);
+		if (getTrackedDownloadState(td.id) !== "failed") {
+			markTrackedDownloadFailed(td.id, message);
+		}
 		return false;
 	}
 }

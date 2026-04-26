@@ -172,6 +172,11 @@ function setupRefreshDownloadsTest({
 	});
 	const markTrackedDownloadFailed = vi.fn((id: number, message: string) => {
 		const row = findTrackedRow(id);
+		if (row.state === "failed") {
+			throw new Error(
+				`Cannot transition tracked download ${id} from failed to failed.`,
+			);
+		}
 		row.state = "failed";
 		row.message = message;
 		row.updatedAt = new Date();
@@ -1373,6 +1378,90 @@ describe("refreshDownloads", () => {
 			1,
 			"import exploded",
 		);
+		expect(handleFailedDownload).toHaveBeenCalledTimes(1);
+		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
+	});
+
+	it("does not mark failed twice when import already failed the tracked download before throwing", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Import Failure Book [EPUB]",
+				protocol: "torrent",
+				state: "queued",
+				outputPath: "/downloads/import-failure",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const provider = {
+			getDownloads: vi.fn().mockResolvedValue([
+				{
+					id: "download-1",
+					name: "Import Failure Book [EPUB]",
+					status: "completed",
+					size: 100,
+					downloaded: 100,
+					uploadSpeed: 0,
+					downloadSpeed: 0,
+					category: null,
+					outputPath: "/downloads/import-failure",
+					isCompleted: true,
+				},
+			]),
+			removeDownload: vi.fn(),
+		};
+		const {
+			eventEmit,
+			handleFailedDownload,
+			importCompletedDownload,
+			markTrackedDownloadFailed,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
+				},
+			],
+			provider,
+		});
+
+		importCompletedDownload.mockImplementation(async () => {
+			trackedRows[0].state = "failed";
+			trackedRows[0].message = "permission denied";
+			throw new Error("permission denied");
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: false,
+			message: "Processed 1 downloads: 1 completed, 1 import failures",
+		});
+
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(markTrackedDownloadFailed).not.toHaveBeenCalled();
 		expect(handleFailedDownload).toHaveBeenCalledTimes(1);
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
 	});
