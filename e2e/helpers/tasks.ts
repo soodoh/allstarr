@@ -8,14 +8,14 @@ function taskNameToId(taskName: string): string {
 function isServerFunctionResponse(
 	appUrl: string,
 	method: "GET" | "POST",
-	getClickStartedAt: () => number,
+	startedAt: number,
 ) {
 	return (response: Response): boolean => {
 		const request = response.request();
 		return (
 			request.method() === method &&
 			response.url().startsWith(`${appUrl}/_serverFn/`) &&
-			request.timing().startTime >= getClickStartedAt()
+			request.timing().startTime >= startedAt
 		);
 	};
 }
@@ -45,14 +45,10 @@ export async function triggerScheduledTask(
 		(response) => {
 			const request = response.request();
 			return (
-				isServerFunctionResponse(appUrl, "POST", () => clickStartedAt)(response) &&
+				isServerFunctionResponse(appUrl, "POST", clickStartedAt)(response) &&
 				(request.postData() ?? "").includes(taskId)
 			);
 		},
-		{ timeout: 30_000 },
-	);
-	const tasksRefetch = page.waitForResponse(
-		isServerFunctionResponse(appUrl, "GET", () => clickStartedAt),
 		{ timeout: 30_000 },
 	);
 
@@ -60,6 +56,11 @@ export async function triggerScheduledTask(
 	await runButton.click();
 	const response = await taskResponse;
 	expect(response.ok()).toBe(true);
+	const refetchStartedAt = Date.now();
+	const tasksRefetch = page.waitForResponse(
+		isServerFunctionResponse(appUrl, "GET", refetchStartedAt),
+		{ timeout: 30_000 },
+	);
 	const refetchResponse = await tasksRefetch;
 	expect(refetchResponse.ok()).toBe(true);
 
