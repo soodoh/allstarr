@@ -34,7 +34,7 @@ function movePathToManagedDestination(
 	kind: MappingMoveKind,
 ): void {
 	if (!fs.existsSync(from)) {
-		return;
+		throw new Error(`Rollback source does not exist: ${from}`);
 	}
 	const parent = path.dirname(to);
 	if (!fs.existsSync(parent)) {
