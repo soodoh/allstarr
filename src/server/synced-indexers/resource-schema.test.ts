@@ -21,6 +21,17 @@ describe("readarrIndexerResourceSchema", () => {
 		expect(result.success).toBe(true);
 	});
 
+	it("accepts Prowlarr payloads that omit mapper-defaulted fields", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "TorznabSettings",
+			fields: [{ name: "baseUrl", value: "https://example.com" }],
+			implementation: "Torznab",
+			name: "Valid Indexer",
+		});
+
+		expect(result.success).toBe(true);
+	});
+
 	it("rejects a Torznab payload with a non-torrent protocol", () => {
 		const result = readarrIndexerResourceSchema.safeParse({
 			configContract: "TorznabSettings",
@@ -65,6 +76,66 @@ describe("readarrIndexerResourceSchema", () => {
 				expect.arrayContaining([
 					expect.objectContaining({
 						path: ["fields", 0, "value"],
+					}),
+				]),
+			);
+		}
+	});
+
+	it("rejects a baseUrl field with a non-string value", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			enableRss: true,
+			fields: [{ name: "baseUrl", value: {} }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			priority: 25,
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "baseUrl must be a non-empty string",
+						path: ["fields", 0, "value"],
+					}),
+				]),
+			);
+		}
+	});
+
+	it("rejects optional string fields with non-string values", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			enableRss: true,
+			fields: [
+				{ name: "baseUrl", value: "https://example.com" },
+				{ name: "apiPath", value: 123 },
+				{ name: "apiKey", value: false },
+			],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			priority: 25,
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "apiPath must be a string",
+						path: ["fields", 1, "value"],
+					}),
+					expect.objectContaining({
+						message: "apiKey must be a string",
+						path: ["fields", 2, "value"],
 					}),
 				]),
 			);

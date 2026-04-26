@@ -24,6 +24,50 @@ const readarrFieldSchema = z
 		value: field.value,
 	}));
 
+function findFieldIndex(
+	fields: Array<{ name: string; value: unknown }>,
+	name: string,
+): number {
+	return fields.findIndex((field) => field.name === name);
+}
+
+function requireStringField(
+	fields: Array<{ name: string; value: unknown }>,
+	context: z.RefinementCtx,
+	name: string,
+	options: { required?: boolean; nonEmpty?: boolean } = {},
+): void {
+	const index = findFieldIndex(fields, name);
+	if (index === -1) {
+		if (options.required) {
+			context.addIssue({
+				code: "custom",
+				message: `${name} is required`,
+				path: ["fields"],
+			});
+		}
+		return;
+	}
+
+	const value = fields[index]?.value;
+	if (typeof value !== "string") {
+		context.addIssue({
+			code: "custom",
+			message: `${name} must be ${options.nonEmpty ? "a non-empty string" : "a string"}`,
+			path: ["fields", index, "value"],
+		});
+		return;
+	}
+
+	if (options.nonEmpty && value.trim().length === 0) {
+		context.addIssue({
+			code: "custom",
+			message: `${name} must be a non-empty string`,
+			path: ["fields", index, "value"],
+		});
+	}
+}
+
 export const readarrIndexerResourceSchema = z
 	.object({
 		id: z.number().int().optional(),
@@ -33,25 +77,24 @@ export const readarrIndexerResourceSchema = z
 		configContract: z.string().trim().min(1, "configContract is required"),
 		infoLink: z.string().optional(),
 		fields: z.array(readarrFieldSchema),
-		enableRss: z.boolean(),
-		enableAutomaticSearch: z.boolean(),
-		enableInteractiveSearch: z.boolean(),
+		enableRss: z.boolean().optional(),
+		enableAutomaticSearch: z.boolean().optional(),
+		enableInteractiveSearch: z.boolean().optional(),
 		supportsRss: z.boolean().optional(),
 		supportsSearch: z.boolean().optional(),
-		protocol: z.enum(["usenet", "torrent"]),
-		priority: z.number().int(),
+		protocol: z.enum(["usenet", "torrent"]).optional(),
+		priority: z.number().int().optional(),
 		tags: z.array(z.number().int()).optional(),
 	})
 	.superRefine((body, context) => {
-		if (!body.fields.some((field) => field.name === "baseUrl")) {
-			context.addIssue({
-				code: "custom",
-				message: "baseUrl is required",
-				path: ["fields"],
-			});
-		}
+		requireStringField(body.fields, context, "baseUrl", {
+			required: true,
+			nonEmpty: true,
+		});
+		requireStringField(body.fields, context, "apiPath");
+		requireStringField(body.fields, context, "apiKey");
 
-		if (body.implementation === "Torznab" && body.protocol !== "torrent") {
+		if (body.implementation === "Torznab" && body.protocol === "usenet") {
 			context.addIssue({
 				code: "custom",
 				message: "Torznab indexers must use torrent protocol",
@@ -59,7 +102,7 @@ export const readarrIndexerResourceSchema = z
 			});
 		}
 
-		if (body.implementation === "Newznab" && body.protocol !== "usenet") {
+		if (body.implementation === "Newznab" && body.protocol === "torrent") {
 			context.addIssue({
 				code: "custom",
 				message: "Newznab indexers must use usenet protocol",
