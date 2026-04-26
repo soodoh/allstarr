@@ -1,3 +1,7 @@
+import {
+	buildDownloadClient,
+	buildRelease,
+} from "src/server/auto-search-test-fixtures";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IndexerRelease } from "../indexers/types";
 import { ReleaseType } from "../indexers/types";
@@ -973,6 +977,32 @@ describe("getBookReleaseStatusFn", () => {
 describe("grabReleaseFn", () => {
 	it("calls requireAuth", async () => {
 		mocks.canGrabIndexer.mockReturnValue({ allowed: true });
+		const release = buildRelease({
+			allstarrIndexerId: 7,
+			guid: "grab-guid",
+			title: "Grabbed Release",
+		});
+		const syncedIndexerRow = {
+			downloadClientId: null,
+			tag: null,
+		};
+		const downloadClient = buildDownloadClient({
+			id: 3,
+			name: "Primary Client",
+			protocol: release.protocol,
+		});
+		const requestPayload = {
+			guid: release.guid,
+			indexerId: release.allstarrIndexerId,
+			indexerSource: "synced",
+			title: release.title,
+			downloadUrl: release.downloadUrl,
+			protocol: release.protocol,
+			size: release.size,
+			bookId: 42,
+			downloadClientId: null,
+		};
+
 		// resolveGrabClient: no explicit downloadClientId so we go through indexer lookup
 		// 1. indexerRow lookup → no downloadClientId
 		// 2. fallback via .all() → returns [client]
@@ -980,13 +1010,12 @@ describe("grabReleaseFn", () => {
 		// 4. booksAuthors lookup → { authorId: 7 }
 		// 5. authorDownloadProfiles lookup → { downloadProfileId: 3 }
 		mocks.selectGet
-			.mockReturnValueOnce({ downloadClientId: null }) // 1. indexer lookup
-			.mockReturnValueOnce({ tag: null }) // 3. indexer tag
+			.mockReturnValueOnce(syncedIndexerRow) // 1. indexer lookup
+			.mockReturnValueOnce({ tag: syncedIndexerRow.tag }) // 3. indexer tag
 			.mockReturnValueOnce({ authorId: 7 }) // 4. booksAuthors
 			.mockReturnValueOnce({ downloadProfileId: 3 }); // 5. authorDownloadProfiles
 
-		const client = makeClient();
-		mocks.selectAll.mockReturnValueOnce([client]); // 2. fallback client list
+		mocks.selectAll.mockReturnValueOnce([downloadClient]); // 2. fallback client list
 
 		mocks.getProvider.mockResolvedValueOnce({
 			addDownload: vi.fn().mockResolvedValue("dl-123"),
@@ -994,17 +1023,7 @@ describe("grabReleaseFn", () => {
 
 		const { grabReleaseFn } = await import("../indexers");
 		await grabReleaseFn({
-			data: {
-				guid: "release-guid",
-				indexerId: 1,
-				indexerSource: "manual",
-				title: "Test Release",
-				downloadUrl: "https://example.com/dl",
-				protocol: "torrent",
-				size: 1000,
-				bookId: 42,
-				downloadClientId: null,
-			},
+			data: requestPayload,
 		});
 
 		expect(mocks.requireAuth).toHaveBeenCalledTimes(1);

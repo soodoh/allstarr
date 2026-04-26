@@ -1,3 +1,9 @@
+import {
+	buildDownloadClient,
+	buildManualIndexer,
+	buildRelease,
+	buildSyncedIndexer,
+} from "src/server/auto-search-test-fixtures";
 import { requireValue } from "src/test/require-value";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -2608,7 +2614,19 @@ describe("release filtering edge cases", () => {
 
 describe("synced indexer paths", () => {
 	it("uses synced indexers with API key for book search", async () => {
-		const release = makeRelease({ guid: "synced-guid" });
+		const release = buildRelease({
+			guid: "network-failure-guid",
+			title: "Network Failure Release",
+		});
+		const manualIndexer = buildManualIndexer({
+			id: 10,
+			name: "Manual Failure",
+		});
+		const syncedIndexer = buildSyncedIndexer({
+			id: 11,
+			name: "Synced Success",
+		});
+		const downloadClient = buildDownloadClient({ id: 20, name: "SABnzbd" });
 
 		const mockProvider = { addDownload: vi.fn(async () => "dl-sync") };
 		mocks.getProvider.mockResolvedValue(mockProvider);
@@ -2619,26 +2637,9 @@ describe("synced indexer paths", () => {
 			const cycle = ((getCallIdx.n - 1) % 3) + 1;
 			switch (cycle) {
 				case 1:
-					return { downloadClientId: 5 };
+					return { downloadClientId: downloadClient.id };
 				case 2:
-					return {
-						id: 5,
-						name: "SABnzbd",
-						implementation: "sabnzbd",
-						host: "localhost",
-						port: 8080,
-						useSsl: false,
-						urlBase: "",
-						username: "",
-						password: "",
-						apiKey: "abc",
-						category: "books",
-						tag: null,
-						protocol: "usenet",
-						enabled: true,
-						priority: 1,
-						settings: null,
-					};
+					return downloadClient;
 				case 3:
 					return { tag: null };
 				default:
@@ -2653,20 +2654,10 @@ describe("synced indexer paths", () => {
 			switch (callIdx.n) {
 				// getEnabledIndexers: manual
 				case 1:
-					return [];
+					return [manualIndexer];
 				// getEnabledIndexers: synced
 				case 2:
-					return [
-						{
-							id: 10,
-							name: "SyncedIx",
-							baseUrl: "http://synced",
-							apiPath: "/api",
-							apiKey: "synced-key",
-							enableRss: true,
-							priority: 1,
-						},
-					];
+					return [syncedIndexer];
 				// getWantedBooks
 				case 3:
 					return [
@@ -2696,7 +2687,9 @@ describe("synced indexer paths", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.searchNewznab
+			.mockRejectedValueOnce(new Error("Manual indexer network failure"))
+			.mockResolvedValueOnce([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({
