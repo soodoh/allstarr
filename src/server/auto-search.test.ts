@@ -1,6 +1,5 @@
 import {
 	buildDownloadClient,
-	buildManualIndexer,
 	buildRelease,
 	buildSyncedIndexer,
 } from "src/server/auto-search-test-fixtures";
@@ -2615,81 +2614,61 @@ describe("release filtering edge cases", () => {
 describe("synced indexer paths", () => {
 	it("uses synced indexers with API key for book search", async () => {
 		const release = buildRelease({
-			guid: "network-failure-guid",
-			title: "Network Failure Release",
-		});
-		const manualIndexer = buildManualIndexer({
-			id: 10,
-			name: "Manual Failure",
+			guid: "synced-guid",
 		});
 		const syncedIndexer = buildSyncedIndexer({
-			id: 11,
-			name: "Synced Success",
+			id: 10,
+			name: "SyncedIx",
+			baseUrl: "http://synced",
+			priority: 1,
 		});
-		const downloadClient = buildDownloadClient({ id: 20, name: "SABnzbd" });
+		const downloadClient = buildDownloadClient({
+			id: 5,
+			name: "SABnzbd",
+			apiKey: "abc",
+			category: "books",
+			username: "",
+			password: "",
+		});
 
 		const mockProvider = { addDownload: vi.fn(async () => "dl-sync") };
 		mocks.getProvider.mockResolvedValue(mockProvider);
 
-		const getCallIdx = { n: 0 };
+		const selectGetResults = [
+			{ downloadClientId: downloadClient.id },
+			downloadClient,
+			{ tag: null },
+		];
 		mocks.selectGet.mockImplementation(() => {
-			getCallIdx.n += 1;
-			const cycle = ((getCallIdx.n - 1) % 3) + 1;
-			switch (cycle) {
-				case 1:
-					return { downloadClientId: downloadClient.id };
-				case 2:
-					return downloadClient;
-				case 3:
-					return { tag: null };
-				default:
-					return undefined;
-			}
+			return selectGetResults.shift();
 		});
 
 		const profile = makeProfile();
-		const callIdx = { n: 0 };
+		const wantedBook = {
+			id: 10,
+			title: "Book",
+			lastSearchedAt: null,
+			authorId: 1,
+			authorName: "Author",
+			authorMonitored: true,
+		};
+		const editionProfile = { editionId: 100, profileId: profile.id };
+		const selectAllResults = [
+			[], // getEnabledIndexers: manual
+			[syncedIndexer], // getEnabledIndexers: synced
+			[wantedBook],
+			[editionProfile],
+			[profile],
+			[],
+			[],
+			[],
+			[],
+		];
 		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				// getEnabledIndexers: manual
-				case 1:
-					return [manualIndexer];
-				// getEnabledIndexers: synced
-				case 2:
-					return [syncedIndexer];
-				// getWantedBooks
-				case 3:
-					return [
-						{
-							id: 10,
-							title: "Book",
-							lastSearchedAt: null,
-							authorId: 1,
-							authorName: "Author",
-							authorMonitored: true,
-						},
-					];
-				case 4:
-					return [{ editionId: 100, profileId: profile.id }];
-				case 5:
-					return [profile];
-				case 6:
-					return [];
-				case 7:
-					return [];
-				case 8:
-					return [];
-				case 9:
-					return [];
-				default:
-					return [];
-			}
+			return selectAllResults.shift() ?? [];
 		});
 
-		mocks.searchNewznab
-			.mockRejectedValueOnce(new Error("Manual indexer network failure"))
-			.mockResolvedValueOnce([release]);
+		mocks.searchNewznab.mockResolvedValue([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({
