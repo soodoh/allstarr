@@ -64,43 +64,47 @@ export default async function captureSSEEvents(
     return globalWindow.__allstarrSseCapture?.ready === true;
   });
 
-  // Perform the action while SSE is listening
-  await action();
+  let events: CapturedEvent[] = [];
 
-  if (options.until) {
-    await page.waitForFunction(
-      (predicateText) => {
-        const globalWindow = window as typeof window & {
-          __allstarrSseCapture?: {
-            events: CapturedEvent[];
+  try {
+    // Perform the action while SSE is listening
+    await action();
+
+    if (options.until) {
+      await page.waitForFunction(
+        (predicateText) => {
+          const globalWindow = window as typeof window & {
+            __allstarrSseCapture?: {
+              events: CapturedEvent[];
+            };
           };
-        };
-        const predicate = new Function(
-          "events",
-          `return (${predicateText})(events);`,
-        ) as (events: CapturedEvent[]) => boolean;
-        return predicate(globalWindow.__allstarrSseCapture?.events ?? []);
-      },
-      options.until.toString(),
-      { timeout: timeoutMs },
-    );
-  }
-
-  const events = await page.evaluate(() => {
-    const globalWindow = window as typeof window & {
-      __allstarrSseCapture?: {
-        es: EventSource;
-        events: CapturedEvent[];
-      };
-    };
-    const capture = globalWindow.__allstarrSseCapture;
-    if (!capture) {
-      return [];
+          const predicate = new Function(
+            "events",
+            `return (${predicateText})(events);`,
+          ) as (events: CapturedEvent[]) => boolean;
+          return predicate(globalWindow.__allstarrSseCapture?.events ?? []);
+        },
+        options.until.toString(),
+        { timeout: timeoutMs },
+      );
     }
-    capture.es.close();
-    delete globalWindow.__allstarrSseCapture;
-    return capture.events;
-  });
+  } finally {
+    events = await page.evaluate(() => {
+      const globalWindow = window as typeof window & {
+        __allstarrSseCapture?: {
+          es: EventSource;
+          events: CapturedEvent[];
+        };
+      };
+      const capture = globalWindow.__allstarrSseCapture;
+      if (!capture) {
+        return [];
+      }
+      capture.es.close();
+      delete globalWindow.__allstarrSseCapture;
+      return capture.events;
+    });
+  }
 
   return events;
 }
