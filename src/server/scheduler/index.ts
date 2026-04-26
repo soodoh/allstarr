@@ -97,7 +97,11 @@ async function executeTask(taskId: string): Promise<void> {
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
 
-		completeJobRun(run.id, result as Record<string, unknown>);
+		if (result.success) {
+			completeJobRun(run.id, result as Record<string, unknown>);
+		} else {
+			failJobRun(run.id, result.message);
+		}
 		logInfo("scheduler", `${task.name}: ${result.message} (${duration}ms)`);
 		eventBus.emit({ type: "taskUpdated", taskId });
 	} catch (error) {
