@@ -211,7 +211,9 @@ test.describe("Blocklist and Failure Recovery", () => {
       "/nonexistent/path/that/will/fail",
     );
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads", {
+      expectedStatus: "Error",
+    });
 
     // Verify blocklist entry was created automatically
     await expect(async () => {
