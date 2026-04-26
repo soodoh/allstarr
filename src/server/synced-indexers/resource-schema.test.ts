@@ -42,4 +42,29 @@ describe("readarrIndexerResourceSchema", () => {
 			);
 		}
 	});
+
+	it("rejects fields missing a value key", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			enableRss: true,
+			fields: [{ name: "baseUrl" }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			priority: 25,
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						path: ["fields", 0, "value"],
+					}),
+				]),
+			);
+		}
+	});
 });

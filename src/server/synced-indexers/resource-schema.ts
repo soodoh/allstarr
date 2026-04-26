@@ -5,10 +5,24 @@ export type ValidationErrorBody = {
 	errors: string[];
 };
 
-const readarrFieldSchema = z.object({
-	name: z.string().min(1, "field name is required"),
-	value: z.unknown(),
-});
+const readarrFieldSchema = z
+	.object({
+		name: z.string().min(1, "field name is required"),
+	})
+	.passthrough()
+	.superRefine((field, context) => {
+		if (!Object.hasOwn(field, "value")) {
+			context.addIssue({
+				code: "custom",
+				message: "field value is required",
+				path: ["value"],
+			});
+		}
+	})
+	.transform((field) => ({
+		name: field.name,
+		value: field.value,
+	}));
 
 export const readarrIndexerResourceSchema = z
 	.object({
