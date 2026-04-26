@@ -15,8 +15,13 @@ export default async function captureSSEEvents(
   baseUrl: string,
   eventTypes: string[],
   action: () => Promise<void>,
-  timeoutMs = 5000,
+  options: {
+    timeoutMs?: number;
+    until?: (events: CapturedEvent[]) => boolean;
+  } = {},
 ): Promise<CapturedEvent[]> {
+  const timeoutMs = options.timeoutMs ?? 5000;
+
   await page.evaluate(
     ({ url, types }) => {
       const globalWindow = window as typeof window & {
@@ -62,7 +67,24 @@ export default async function captureSSEEvents(
   // Perform the action while SSE is listening
   await action();
 
-  await page.waitForTimeout(timeoutMs);
+  if (options.until) {
+    await page.waitForFunction(
+      (predicateText) => {
+        const globalWindow = window as typeof window & {
+          __allstarrSseCapture?: {
+            events: CapturedEvent[];
+          };
+        };
+        const predicate = new Function(
+          "events",
+          `return (${predicateText})(events);`,
+        ) as (events: CapturedEvent[]) => boolean;
+        return predicate(globalWindow.__allstarrSseCapture?.events ?? []);
+      },
+      options.until.toString(),
+      { timeout: timeoutMs },
+    );
+  }
 
   const events = await page.evaluate(() => {
     const globalWindow = window as typeof window & {
