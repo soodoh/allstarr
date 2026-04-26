@@ -360,6 +360,91 @@ describe("refreshDownloads", () => {
 		expect(eventEmit).toHaveBeenCalledWith({ type: "queueUpdated" });
 	});
 
+	it("retries completed downloads instead of removing them when the tracked client is missing", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Missing Client Completed Book [EPUB]",
+				protocol: "torrent",
+				state: "completed",
+				outputPath: "/downloads/missing-client-completed",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const {
+			importCompletedDownload,
+			markTrackedDownloadImportPending,
+			markTrackedDownloadRemoved,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [],
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: true,
+			message: "Checked 1 downloads, no changes",
+		});
+
+		expect(markTrackedDownloadRemoved).not.toHaveBeenCalled();
+		expect(markTrackedDownloadImportPending).toHaveBeenCalledWith(1);
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(trackedRows[0].state).toBe("importPending");
+		expect(trackedRows[0].message).toBeNull();
+	});
+
+	it("retries missing-client importPending downloads without claiming import again", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Missing Client Pending Book [EPUB]",
+				protocol: "torrent",
+				state: "importPending",
+				outputPath: "/downloads/missing-client-pending",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const {
+			importCompletedDownload,
+			markTrackedDownloadImportPending,
+			markTrackedDownloadRemoved,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [],
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: true,
+			message: "Checked 1 downloads, no changes",
+		});
+
+		expect(markTrackedDownloadRemoved).not.toHaveBeenCalled();
+		expect(markTrackedDownloadImportPending).not.toHaveBeenCalled();
+		expect(importCompletedDownload).toHaveBeenCalledWith(1);
+		expect(trackedRows[0].state).toBe("importPending");
+	});
+
 	it("marks queued downloads removed when they disappear from an existing client", async () => {
 		const trackedRows: FakeTrackedDownloadRow[] = [
 			{
@@ -1049,6 +1134,92 @@ describe("refreshDownloads", () => {
 
 		expect(importCompletedDownload).toHaveBeenCalledWith(1);
 		expect(markTrackedDownloadImportPending).not.toHaveBeenCalled();
+	});
+
+	it("skips import without failing the row when claiming import pending fails", async () => {
+		const trackedRows: FakeTrackedDownloadRow[] = [
+			{
+				id: 1,
+				downloadClientId: 7,
+				downloadId: "download-1",
+				bookId: 42,
+				authorId: 9,
+				downloadProfileId: 5,
+				showId: null,
+				episodeId: null,
+				movieId: null,
+				releaseTitle: "Claim Race Book [EPUB]",
+				protocol: "torrent",
+				state: "queued",
+				outputPath: "/downloads/claim-race",
+				message: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
+		];
+		const provider = {
+			getDownloads: vi.fn().mockResolvedValue([
+				{
+					id: "download-1",
+					name: "Claim Race Book [EPUB]",
+					status: "completed",
+					size: 100,
+					downloaded: 100,
+					uploadSpeed: 0,
+					downloadSpeed: 0,
+					category: null,
+					outputPath: "/downloads/claim-race",
+					isCompleted: true,
+				},
+			]),
+			removeDownload: vi.fn(),
+		};
+		const {
+			handleFailedDownload,
+			importCompletedDownload,
+			logWarn,
+			markTrackedDownloadFailed,
+			markTrackedDownloadImportPending,
+		} = setupRefreshDownloadsTest({
+			trackedRows,
+			clientRows: [
+				{
+					id: 7,
+					name: "Test qBittorrent",
+					implementation: "qBittorrent",
+					host: "localhost",
+					port: 8080,
+					useSsl: false,
+					urlBase: null,
+					username: null,
+					password: null,
+					apiKey: null,
+					category: "allstarr",
+					tag: null,
+					settings: null,
+					removeCompletedDownloads: true,
+				},
+			],
+			provider,
+		});
+		markTrackedDownloadImportPending.mockImplementation(() => {
+			throw new Error("Tracked download 1 changed state before transition.");
+		});
+
+		const { refreshDownloads } = await import("./download-manager");
+		await expect(refreshDownloads()).resolves.toEqual({
+			success: true,
+			message: "Processed 1 downloads: 1 completed",
+		});
+
+		expect(importCompletedDownload).not.toHaveBeenCalled();
+		expect(markTrackedDownloadFailed).not.toHaveBeenCalled();
+		expect(handleFailedDownload).not.toHaveBeenCalled();
+		expect(logWarn).toHaveBeenCalledWith(
+			"download-manager",
+			'Failed to claim import for "Claim Race Book [EPUB]": Tracked download 1 changed state before transition.',
+		);
+		expect(trackedRows[0].state).toBe("completed");
 	});
 
 	it("does not remove completed downloads from the client unless refreshed state is imported", async () => {
