@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
 	emit: vi.fn(),
 	get: vi.fn(),
 	listActiveJobRuns: vi.fn(),
+	listVisibleScheduledJobRuns: vi.fn(),
 	requireAdmin: vi.fn(),
 	requireAuth: vi.fn(),
 	rescheduleTask: vi.fn(),
@@ -67,6 +68,8 @@ vi.mock("./middleware", () => ({
 
 vi.mock("./job-runs", () => ({
 	listActiveJobRuns: mocks.listActiveJobRuns,
+	listVisibleScheduledJobRuns: mocks.listVisibleScheduledJobRuns,
+	NON_TERMINAL_JOB_STATUSES: ["queued", "running"],
 }));
 
 vi.mock("./scheduler/timers", () => ({
@@ -89,6 +92,7 @@ describe("tasks server functions", () => {
 		vi.clearAllMocks();
 		mocks.all.mockReturnValue([]);
 		mocks.listActiveJobRuns.mockReturnValue([]);
+		mocks.listVisibleScheduledJobRuns.mockReturnValue([]);
 	});
 
 	describe("getScheduledTasksFn", () => {
@@ -135,7 +139,7 @@ describe("tasks server functions", () => {
 					runStatus: null,
 				},
 			]);
-			expect(mocks.listActiveJobRuns).toHaveBeenCalledTimes(1);
+			expect(mocks.listVisibleScheduledJobRuns).toHaveBeenCalledTimes(1);
 		});
 
 		it("sets nextExecution to null when task is disabled", async () => {
@@ -196,12 +200,13 @@ describe("tasks server functions", () => {
 					progress: "scheduled row progress",
 				},
 			]);
-			mocks.listActiveJobRuns.mockReturnValue([
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
 				{
 					jobType: "refresh-metadata",
 					progress: "active run progress",
 					sourceType: "scheduled",
 					status: "running",
+					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
 				},
 			]);
 
@@ -227,12 +232,13 @@ describe("tasks server functions", () => {
 					progress: "scheduled row progress",
 				},
 			]);
-			mocks.listActiveJobRuns.mockReturnValue([
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
 				{
 					jobType: "refresh-metadata",
 					progress: null,
 					sourceType: "scheduled",
 					status: "queued",
+					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
 				},
 			]);
 
@@ -258,7 +264,7 @@ describe("tasks server functions", () => {
 					progress: null,
 				},
 			]);
-			mocks.listActiveJobRuns.mockReturnValue([
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
 				{
 					sourceType: "command",
 					jobType: "refresh-metadata",
@@ -272,6 +278,82 @@ describe("tasks server functions", () => {
 			const result = await getScheduledTasksFn();
 
 			expect(result[0].isRunning).toBe(false);
+		});
+
+		it("surfaces stale persisted scheduled run state for task display", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "cleanup-cache",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Cleanup Cache",
+					progress: "scheduled row progress",
+				},
+			]);
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
+				{
+					error: "Job heartbeat expired before completion.",
+					jobType: "cleanup-cache",
+					progress: null,
+					sourceType: "scheduled",
+					status: "stale",
+					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(false);
+			expect(result[0].progress).toBe(
+				"Job heartbeat expired before completion.",
+			);
+			expect(result[0].runStatus).toBe("stale");
+		});
+
+		it("prefers active scheduled run state over stale state for the same task", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "cleanup-cache",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Cleanup Cache",
+					progress: null,
+				},
+			]);
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
+				{
+					error: "Job heartbeat expired before completion.",
+					jobType: "cleanup-cache",
+					progress: null,
+					sourceType: "scheduled",
+					status: "stale",
+					updatedAt: new Date("2026-04-09T10:02:00.000Z"),
+				},
+				{
+					error: null,
+					jobType: "cleanup-cache",
+					progress: "running again",
+					sourceType: "scheduled",
+					status: "running",
+					updatedAt: new Date("2026-04-09T10:01:00.000Z"),
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(true);
+			expect(result[0].progress).toBe("running again");
+			expect(result[0].runStatus).toBe("running");
 		});
 	});
 
