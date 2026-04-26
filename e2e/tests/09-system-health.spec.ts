@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/app";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
@@ -17,6 +18,12 @@ function isFfprobeInstalled(): boolean {
   } catch {
     return false;
   }
+}
+
+const taskResultStatus = /Running|Success|Error|Stale/;
+
+function getTaskRow(page: Page, taskName: string) {
+  return page.getByRole("row").filter({ hasText: taskName });
 }
 
 test.describe("System Health", () => {
@@ -338,5 +345,53 @@ test.describe("System Health", () => {
     await expect(healthRow.getByText(/Success|Error/).first()).toBeVisible({
       timeout: 10_000,
     });
+  });
+
+  test("manual task result remains visible after page reload", async ({
+    page,
+    appUrl,
+  }) => {
+    await fetch(`${appUrl}/api/__test-reset`, { method: "POST" }).catch(() => {
+      // Best-effort reset for stale running-task state.
+    });
+
+    await navigateTo(page, appUrl, "/system/tasks");
+
+    const taskRow = getTaskRow(page, "Refresh Downloads");
+    await expect(taskRow).toBeVisible({ timeout: 10_000 });
+
+    const runButton = taskRow.getByRole("button").last();
+    await expect(runButton).toBeEnabled({ timeout: 5_000 });
+
+    const clickedAt = Date.now();
+    const taskResponse = page.waitForResponse(
+      (response) => {
+        const request = response.request();
+        return (
+          request.method() === "POST" &&
+          response.url().startsWith(`${appUrl}/_serverFn/`) &&
+          request.timing().startTime >= clickedAt &&
+          (request.postData() ?? "").includes("refresh-downloads")
+        );
+      },
+      { timeout: 30_000 },
+    );
+
+    await runButton.click();
+    const response = await taskResponse;
+    expect(response.ok()).toBe(true);
+
+    await expect(taskRow.getByText(taskResultStatus).first()).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.reload();
+    await page.waitForLoadState("load");
+
+    const reloadedTaskRow = getTaskRow(page, "Refresh Downloads");
+    await expect(reloadedTaskRow).toBeVisible({ timeout: 10_000 });
+    await expect(
+      reloadedTaskRow.getByText(taskResultStatus).first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
