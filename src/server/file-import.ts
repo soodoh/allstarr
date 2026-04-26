@@ -29,6 +29,10 @@ import { matchFormat } from "./indexers/format-parser";
 import { logError, logInfo, logWarn } from "./logger";
 import { probeAudioFile, probeEbookFile } from "./media-probe";
 import getMediaSetting from "./settings-reader";
+import {
+	markTrackedDownloadFailed,
+	markTrackedDownloadImported,
+} from "./tracked-download-state";
 
 type ImportResult = {
 	bookFileId: number | null;
@@ -486,10 +490,7 @@ async function importFiles(
 }
 
 function markFailed(id: number, message: string): void {
-	db.update(trackedDownloads)
-		.set({ state: "failed", message, updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, id))
-		.run();
+	markTrackedDownloadFailed(id, message);
 	logWarn("file-import", `Failed: ${message}`);
 }
 
@@ -727,10 +728,7 @@ async function importEpisodePackDownload(
 		})
 		.run();
 
-	db.update(trackedDownloads)
-		.set({ state: "imported", updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, td.id))
-		.run();
+	markTrackedDownloadImported(td.id);
 
 	logInfo(
 		"file-import",
@@ -891,10 +889,7 @@ async function importBookPackDownload(
 		})
 		.run();
 
-	db.update(trackedDownloads)
-		.set({ state: "imported", updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, td.id))
-		.run();
+	markTrackedDownloadImported(td.id);
 
 	eventBus.emit({
 		type: "importCompleted",
@@ -926,6 +921,26 @@ export async function importCompletedDownload(
 		.where(eq(trackedDownloads.id, td.id))
 		.run();
 
+	try {
+		await importCompletedTrackedDownload(td);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown error";
+		try {
+			markTrackedDownloadFailed(td.id, message);
+		} catch (markError) {
+			logError(
+				"file-import",
+				`Failed to mark tracked download ${td.id} failed: ${markError instanceof Error ? markError.message : "Unknown error"}`,
+				markError,
+			);
+		}
+		throw error;
+	}
+}
+
+async function importCompletedTrackedDownload(
+	td: typeof trackedDownloads.$inferSelect,
+): Promise<void> {
 	// Pack download detection — parent ID set but item ID null
 	const isEpisodePack = td.showId && !td.episodeId;
 	const isBookPack = td.authorId && !td.bookId;
@@ -1095,10 +1110,7 @@ export async function importCompletedDownload(
 		})
 		.run();
 
-	db.update(trackedDownloads)
-		.set({ state: "imported", updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, td.id))
-		.run();
+	markTrackedDownloadImported(td.id);
 
 	eventBus.emit({ type: "importCompleted", bookId: td.bookId, bookTitle });
 
