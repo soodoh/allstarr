@@ -136,7 +136,7 @@ function MetadataSettingsPage() {
 			{ key: "metadata.tmdb.language", value: tmdbLanguage },
 			{
 				key: "metadata.tmdb.includeAdult",
-				value: String(tmdbIncludeAdult),
+				value: tmdbIncludeAdult,
 			},
 			{
 				key: "metadata.tmdb.region",

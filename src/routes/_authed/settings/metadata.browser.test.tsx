@@ -369,7 +369,7 @@ describe("metadata route", () => {
 
 		expect(metadataRouteMocks.settingsMutate.mutate).toHaveBeenCalledWith([
 			{ key: "metadata.tmdb.language", value: "fr" },
-			{ key: "metadata.tmdb.includeAdult", value: "true" },
+			{ key: "metadata.tmdb.includeAdult", value: true },
 			{ key: "metadata.tmdb.region", value: "" },
 		]);
 	});

@@ -341,10 +341,10 @@ describe("download clients route", () => {
 		).toHaveBeenCalledWith([
 			{
 				key: "downloadClient.enableCompletedDownloadHandling",
-				value: "false",
+				value: false,
 			},
-			{ key: "downloadClient.redownloadFailed", value: "true" },
-			{ key: "downloadClient.removeFailed", value: "true" },
+			{ key: "downloadClient.redownloadFailed", value: true },
+			{ key: "downloadClient.removeFailed", value: true },
 		]);
 	});
 

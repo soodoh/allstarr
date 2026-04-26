@@ -1043,10 +1043,10 @@ describe("settings routes", () => {
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{
 				key: "downloadClient.enableCompletedDownloadHandling",
-				value: "true",
+				value: true,
 			},
-			{ key: "downloadClient.redownloadFailed", value: "true" },
-			{ key: "downloadClient.removeFailed", value: "true" },
+			{ key: "downloadClient.redownloadFailed", value: true },
+			{ key: "downloadClient.removeFailed", value: true },
 		]);
 
 		await page.getByRole("button", { name: "Add Client" }).click();
@@ -1154,7 +1154,7 @@ describe("settings routes", () => {
 		await page.getByRole("button", { name: "Save TMDB Settings" }).click();
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{ key: "metadata.tmdb.language", value: "en" },
-			{ key: "metadata.tmdb.includeAdult", value: "false" },
+			{ key: "metadata.tmdb.includeAdult", value: false },
 			{ key: "metadata.tmdb.region", value: "" },
 		]);
 	});

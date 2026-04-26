@@ -553,8 +553,8 @@ describe("media-management route", () => {
 					key: "naming.movie.movieFile",
 					value: "{Movie Title} ({Year}) - Remastered",
 				},
-				{ key: "mediaManagement.movie.renameBooks", value: "true" },
-				{ key: "mediaManagement.movie.useHardLinks", value: "true" },
+				{ key: "mediaManagement.movie.renameBooks", value: true },
+				{ key: "mediaManagement.movie.useHardLinks", value: true },
 			]),
 		);
 	});
@@ -628,11 +628,11 @@ describe("media-management route", () => {
 			expect.arrayContaining([
 				{
 					key: "mediaManagement.movie.skipFreeSpaceCheck",
-					value: "true",
+					value: true,
 				},
 				{
 					key: "mediaManagement.movie.minimumFreeSpace",
-					value: "100",
+					value: 100,
 				},
 			]),
 		);
@@ -774,7 +774,7 @@ describe("media-management route", () => {
 					value: "doNotPrefer",
 				},
 				{ key: "mediaManagement.tv.changeFileDate", value: "releaseDate" },
-				{ key: "mediaManagement.tv.minimumFreeSpace", value: "250" },
+				{ key: "mediaManagement.tv.minimumFreeSpace", value: 250 },
 			]),
 		);
 	});

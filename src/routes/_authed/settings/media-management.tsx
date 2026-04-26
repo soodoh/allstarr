@@ -29,6 +29,7 @@ import {
 import { useUpdateSettings } from "src/hooks/mutations";
 import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { downloadProfilesListQuery, settingsMapQuery } from "src/lib/queries";
+import type { UpdateSettingInput } from "src/lib/settings-registry";
 
 export const Route = createFileRoute("/_authed/settings/media-management")({
 	beforeLoad: requireAdminBeforeLoad,
@@ -678,12 +679,12 @@ function RootFoldersSection({
 function buildMediaManagementSaveEntries(
 	ct: ContentType,
 	mm: MediaManagementSettings,
-): Array<{ key: string; value: string }> {
+): UpdateSettingInput[] {
 	return [
-		{ key: `mediaManagement.${ct}.renameBooks`, value: String(mm.renameFiles) },
+		{ key: `mediaManagement.${ct}.renameBooks`, value: mm.renameFiles },
 		{
 			key: `mediaManagement.${ct}.replaceIllegalCharacters`,
-			value: String(mm.replaceIllegalCharacters),
+			value: mm.replaceIllegalCharacters,
 		},
 		{
 			key: `mediaManagement.${ct}.extraFileExtensions`,
@@ -691,27 +692,27 @@ function buildMediaManagementSaveEntries(
 		},
 		{
 			key: `mediaManagement.${ct}.createEmptyAuthorFolders`,
-			value: String(mm.createEmptyFolders),
+			value: mm.createEmptyFolders,
 		},
 		{
 			key: `mediaManagement.${ct}.deleteEmptyAuthorFolders`,
-			value: String(mm.deleteEmptyFolders),
+			value: mm.deleteEmptyFolders,
 		},
 		{
 			key: `mediaManagement.${ct}.useHardLinks`,
-			value: String(mm.useHardLinks),
+			value: mm.useHardLinks,
 		},
 		{
 			key: `mediaManagement.${ct}.skipFreeSpaceCheck`,
-			value: String(mm.skipFreeSpaceCheck),
+			value: mm.skipFreeSpaceCheck,
 		},
 		{
 			key: `mediaManagement.${ct}.minimumFreeSpace`,
-			value: String(mm.minimumFreeSpace),
+			value: mm.minimumFreeSpace,
 		},
 		{
 			key: `mediaManagement.${ct}.importExtraFiles`,
-			value: String(mm.importExtraFiles),
+			value: mm.importExtraFiles,
 		},
 		{
 			key: `mediaManagement.${ct}.propersAndRepacks`,
@@ -719,17 +720,17 @@ function buildMediaManagementSaveEntries(
 		},
 		{
 			key: `mediaManagement.${ct}.ignoreDeletedBooks`,
-			value: String(mm.ignoreDeletedItems),
+			value: mm.ignoreDeletedItems,
 		},
 		{ key: `mediaManagement.${ct}.changeFileDate`, value: mm.changeFileDate },
 		{ key: `mediaManagement.${ct}.recyclingBin`, value: mm.recyclingBin },
 		{
 			key: `mediaManagement.${ct}.recyclingBinCleanup`,
-			value: String(mm.recyclingBinCleanup),
+			value: mm.recyclingBinCleanup,
 		},
 		{
 			key: `mediaManagement.${ct}.setPermissions`,
-			value: String(mm.setPermissions),
+			value: mm.setPermissions,
 		},
 		{ key: `mediaManagement.${ct}.fileChmod`, value: mm.fileChmod },
 		{ key: `mediaManagement.${ct}.folderChmod`, value: mm.folderChmod },
@@ -786,7 +787,7 @@ function MediaManagementPage() {
 
 	const handleSaveBook = () => {
 		const s = state.book;
-		const entries = [
+		const entries: UpdateSettingInput[] = [
 			// Ebook naming
 			{ key: "naming.book.ebook.bookFile", value: s.ebookBookFile },
 			{ key: "naming.book.ebook.authorFolder", value: s.ebookAuthorFolder },
@@ -803,7 +804,7 @@ function MediaManagementPage() {
 
 	const handleSaveTv = () => {
 		const s = state.tv;
-		const entries = [
+		const entries: UpdateSettingInput[] = [
 			{ key: "naming.tv.standardEpisode", value: s.standardEpisode },
 			{ key: "naming.tv.dailyEpisode", value: s.dailyEpisode },
 			{ key: "naming.tv.animeEpisode", value: s.animeEpisode },
@@ -816,7 +817,7 @@ function MediaManagementPage() {
 
 	const handleSaveMovie = () => {
 		const s = state.movie;
-		const entries = [
+		const entries: UpdateSettingInput[] = [
 			{ key: "naming.movie.movieFile", value: s.movieFile },
 			{ key: "naming.movie.movieFolder", value: s.movieFolder },
 			...buildMediaManagementSaveEntries("movie", s),
