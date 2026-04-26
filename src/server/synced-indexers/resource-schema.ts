@@ -7,7 +7,7 @@ export type ValidationErrorBody = {
 
 const readarrFieldSchema = z
 	.object({
-		name: z.string().min(1, "field name is required"),
+		name: z.string().trim().min(1, "field name is required"),
 	})
 	.passthrough()
 	.superRefine((field, context) => {
@@ -27,10 +27,10 @@ const readarrFieldSchema = z
 export const readarrIndexerResourceSchema = z
 	.object({
 		id: z.number().int().optional(),
-		name: z.string().min(1, "name is required"),
+		name: z.string().trim().min(1, "name is required"),
 		implementation: z.enum(["Newznab", "Torznab"]),
 		implementationName: z.string().optional(),
-		configContract: z.string().min(1, "configContract is required"),
+		configContract: z.string().trim().min(1, "configContract is required"),
 		infoLink: z.string().optional(),
 		fields: z.array(readarrFieldSchema),
 		enableRss: z.boolean(),
@@ -68,31 +68,19 @@ export const readarrIndexerResourceSchema = z
 		}
 	});
 
-export type ReadarrField = {
-	name: string;
-	value: unknown;
-};
-
-export type ReadarrIndexerResource = {
-	id?: number;
-	name: string;
-	implementation: string;
-	implementationName?: string;
-	configContract: string;
-	infoLink?: string;
-	fields: ReadarrField[];
-	enableRss: boolean;
-	enableAutomaticSearch: boolean;
-	enableInteractiveSearch: boolean;
-	supportsRss?: boolean;
-	supportsSearch?: boolean;
-	protocol?: string;
-	priority: number;
-	tags?: number[];
-};
+export type ReadarrField = z.infer<typeof readarrFieldSchema>;
+export type ReadarrIndexerResource = z.infer<
+	typeof readarrIndexerResourceSchema
+>;
 
 export function formatIndexerPayloadError(error: z.ZodError): string[] {
-	return error.issues.map((issue) => issue.message);
+	return error.issues.map((issue) => {
+		if (issue.path.length === 0) {
+			return issue.message;
+		}
+
+		return `${issue.path.join(".")}: ${issue.message}`;
+	});
 }
 
 export function invalidIndexerPayloadResponse(errors: string[]): Response {

@@ -29,10 +29,24 @@ function normaliseCategoryIds(raw: unknown): number[] {
 		.filter((id): id is number => id !== null);
 }
 
+function toReadarrImplementation(
+	implementation: string,
+): ReadarrIndexerResource["implementation"] {
+	return implementation === "Torznab" ? "Torznab" : "Newznab";
+}
+
+function toReadarrProtocol(
+	protocol: string,
+): ReadarrIndexerResource["protocol"] {
+	return protocol === "torrent" ? "torrent" : "usenet";
+}
+
 /**
  * Converts a DB row to a Readarr-style indexer resource that Prowlarr expects.
  */
 export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
+	const implementation = toReadarrImplementation(row.implementation);
+
 	const categoryIds = (() => {
 		try {
 			return JSON.parse(row.categories ?? "[]") as number[];
@@ -50,8 +64,8 @@ export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
 	return {
 		id: row.id,
 		name: row.name,
-		implementation: row.implementation,
-		implementationName: row.implementation,
+		implementation,
+		implementationName: implementation,
 		configContract: row.configContract,
 		infoLink: "",
 		fields: [
@@ -65,7 +79,7 @@ export function toReadarrResource(row: SyncedIndexer): ReadarrIndexerResource {
 		enableInteractiveSearch: row.enableInteractiveSearch,
 		supportsRss: true,
 		supportsSearch: true,
-		protocol: row.protocol,
+		protocol: toReadarrProtocol(row.protocol),
 		priority: row.priority,
 		tags: [],
 	};
