@@ -17,11 +17,13 @@ describe("executeMappingWithRollback", () => {
 	it("runs moves before the transaction and returns the transaction result", () => {
 		const fs = createFsMock();
 		const moved: MappingMoveOperation[] = [];
+		const events: string[] = [];
 
 		const result = executeMappingWithRollback({
 			fs,
 			logLabel: "test move",
 			move: ({ recordMove }) => {
+				events.push("move");
 				recordMove({
 					from: "/source/book.epub",
 					to: "/dest/book.epub",
@@ -29,7 +31,10 @@ describe("executeMappingWithRollback", () => {
 				});
 				fs.renameSync("/source/book.epub", "/dest/book.epub");
 			},
-			runTransaction: () => "mapped",
+			runTransaction: () => {
+				events.push("transaction");
+				return "mapped";
+			},
 		});
 
 		moved.push({
@@ -43,6 +48,7 @@ describe("executeMappingWithRollback", () => {
 			"/dest/book.epub",
 		);
 		expect(fs.renameSync).toHaveBeenCalledTimes(1);
+		expect(events).toEqual(["move", "transaction"]);
 		expect(moved).toHaveLength(1);
 	});
 
