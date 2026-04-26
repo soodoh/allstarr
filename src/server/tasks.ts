@@ -4,7 +4,7 @@ import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { z } from "zod";
 import { eventBus } from "./event-bus";
-import { listActiveJobRuns } from "./job-runs";
+import { type JobRunStatus, listActiveJobRuns } from "./job-runs";
 import { requireAdmin, requireAuth } from "./middleware";
 import { clearTaskTimer, rescheduleTask } from "./scheduler/timers";
 
@@ -20,21 +20,40 @@ export type ScheduledTask = {
 	enabled: boolean;
 	isRunning: boolean;
 	progress: string | null;
+	runStatus: JobRunStatus | null;
 	group: string;
 };
+
+const JOB_RUN_STATUSES = new Set<string>([
+	"queued",
+	"running",
+	"succeeded",
+	"failed",
+	"cancelled",
+	"stale",
+]);
+
+function toJobRunStatus(
+	status: string | null | undefined,
+): JobRunStatus | null {
+	return status && JOB_RUN_STATUSES.has(status)
+		? (status as JobRunStatus)
+		: null;
+}
 
 export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAuth();
 
 		const tasks = db.select().from(scheduledTasks).all();
-		const runningScheduledTaskIds = new Set(
+		const activeScheduledRunsByTaskId = new Map(
 			listActiveJobRuns()
 				.filter((run) => run.sourceType === "scheduled")
-				.map((run) => run.jobType),
+				.map((run) => [run.jobType, run]),
 		);
 
 		return tasks.map((task): ScheduledTask => {
+			const activeRun = activeScheduledRunsByTaskId.get(task.id);
 			const lastExec = task.lastExecution ? task.lastExecution.getTime() : null;
 			const nextExec =
 				lastExec && task.enabled
@@ -53,8 +72,9 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 				lastMessage: task.lastMessage,
 				nextExecution: nextExec,
 				enabled: task.enabled,
-				isRunning: runningScheduledTaskIds.has(task.id),
-				progress: task.progress ?? null,
+				isRunning: activeRun !== undefined,
+				progress: activeRun?.progress ?? task.progress ?? null,
+				runStatus: toJobRunStatus(activeRun?.status),
 				group: task.group,
 			};
 		});

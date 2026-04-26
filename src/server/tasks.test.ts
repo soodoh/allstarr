@@ -132,6 +132,7 @@ describe("tasks server functions", () => {
 						lastExec.getTime() + 3600 * 1000,
 					).toISOString(),
 					progress: null,
+					runStatus: null,
 				},
 			]);
 			expect(mocks.listActiveJobRuns).toHaveBeenCalledTimes(1);
@@ -180,7 +181,7 @@ describe("tasks server functions", () => {
 			expect(result[0].lastExecution).toBeNull();
 		});
 
-		it("reflects isRunning from active scheduled job runs", async () => {
+		it("reflects isRunning, progress, and status from matching active scheduled job runs", async () => {
 			mocks.all.mockReturnValue([
 				{
 					enabled: true,
@@ -192,20 +193,54 @@ describe("tasks server functions", () => {
 					lastMessage: null,
 					lastResult: null,
 					name: "Refresh Metadata",
-					progress: "50%",
+					progress: "scheduled row progress",
 				},
 			]);
 			mocks.listActiveJobRuns.mockReturnValue([
 				{
-					sourceType: "scheduled",
 					jobType: "refresh-metadata",
+					progress: "active run progress",
+					sourceType: "scheduled",
+					status: "running",
 				},
 			]);
 
 			const result = await getScheduledTasksFn();
 
 			expect(result[0].isRunning).toBe(true);
-			expect(result[0].progress).toBe("50%");
+			expect(result[0].progress).toBe("active run progress");
+			expect(result[0].runStatus).toBe("running");
+		});
+
+		it("falls back to scheduled task progress when an active run has no progress", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "metadata",
+					id: "refresh-metadata",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Refresh Metadata",
+					progress: "scheduled row progress",
+				},
+			]);
+			mocks.listActiveJobRuns.mockReturnValue([
+				{
+					jobType: "refresh-metadata",
+					progress: null,
+					sourceType: "scheduled",
+					status: "queued",
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(true);
+			expect(result[0].progress).toBe("scheduled row progress");
+			expect(result[0].runStatus).toBe("queued");
 		});
 
 		it("ignores active non-scheduled job runs for isRunning", async () => {
