@@ -4,7 +4,11 @@ import { db } from "src/db";
 import { scheduledTasks } from "src/db/schema";
 import { z } from "zod";
 import { eventBus } from "./event-bus";
-import { type JobRunStatus, listActiveJobRuns } from "./job-runs";
+import {
+	type JobRunStatus,
+	listVisibleScheduledJobRuns,
+	NON_TERMINAL_JOB_STATUSES,
+} from "./job-runs";
 import { requireAdmin, requireAuth } from "./middleware";
 import { clearTaskTimer, rescheduleTask } from "./scheduler/timers";
 
@@ -41,19 +45,65 @@ function toJobRunStatus(
 		: null;
 }
 
+type VisibleScheduledJobRun = ReturnType<
+	typeof listVisibleScheduledJobRuns
+>[number];
+
+function isActiveStatus(status: string): boolean {
+	return NON_TERMINAL_JOB_STATUSES.includes(
+		status as (typeof NON_TERMINAL_JOB_STATUSES)[number],
+	);
+}
+
+function getRunTimestamp(run: VisibleScheduledJobRun): number {
+	return (
+		run.updatedAt?.getTime() ??
+		run.finishedAt?.getTime() ??
+		run.startedAt?.getTime() ??
+		run.createdAt?.getTime() ??
+		0
+	);
+}
+
+function shouldUseRun(
+	current: VisibleScheduledJobRun | undefined,
+	next: VisibleScheduledJobRun,
+): boolean {
+	if (!current) {
+		return true;
+	}
+
+	const currentIsActive = isActiveStatus(current.status);
+	const nextIsActive = isActiveStatus(next.status);
+
+	if (currentIsActive !== nextIsActive) {
+		return nextIsActive;
+	}
+
+	return getRunTimestamp(next) > getRunTimestamp(current);
+}
+
 export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAuth();
 
 		const tasks = db.select().from(scheduledTasks).all();
-		const activeScheduledRunsByTaskId = new Map(
-			listActiveJobRuns()
-				.filter((run) => run.sourceType === "scheduled")
-				.map((run) => [run.jobType, run]),
-		);
+		const visibleScheduledRunsByTaskId = new Map<
+			string,
+			VisibleScheduledJobRun
+		>();
+		for (const run of listVisibleScheduledJobRuns()) {
+			if (run.sourceType !== "scheduled") {
+				continue;
+			}
+			const currentRun = visibleScheduledRunsByTaskId.get(run.jobType);
+			if (shouldUseRun(currentRun, run)) {
+				visibleScheduledRunsByTaskId.set(run.jobType, run);
+			}
+		}
 
 		return tasks.map((task): ScheduledTask => {
-			const activeRun = activeScheduledRunsByTaskId.get(task.id);
+			const visibleRun = visibleScheduledRunsByTaskId.get(task.id);
 			const lastExec = task.lastExecution ? task.lastExecution.getTime() : null;
 			const nextExec =
 				lastExec && task.enabled
@@ -72,9 +122,11 @@ export const getScheduledTasksFn = createServerFn({ method: "GET" }).handler(
 				lastMessage: task.lastMessage,
 				nextExecution: nextExec,
 				enabled: task.enabled,
-				isRunning: activeRun !== undefined,
-				progress: activeRun?.progress ?? task.progress ?? null,
-				runStatus: toJobRunStatus(activeRun?.status),
+				isRunning:
+					visibleRun !== undefined && isActiveStatus(visibleRun.status),
+				progress:
+					visibleRun?.progress ?? visibleRun?.error ?? task.progress ?? null,
+				runStatus: toJobRunStatus(visibleRun?.status),
 				group: task.group,
 			};
 		});

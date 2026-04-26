@@ -82,6 +82,7 @@ import {
 	JOB_HEARTBEAT_INTERVAL_MS,
 	JOB_STALE_AFTER_MS,
 	listActiveJobRuns,
+	listVisibleScheduledJobRuns,
 	markStaleJobRuns,
 	NON_TERMINAL_JOB_STATUSES,
 	updateJobRunProgress,
@@ -269,6 +270,30 @@ describe("job-runs service", () => {
 
 		expect(listActiveJobRuns()).toEqual(activeRuns);
 		expect(inArray).toHaveBeenCalledWith(jobRuns.status, ["queued", "running"]);
+	});
+
+	it("lists visible scheduled job runs including stale runs", () => {
+		const visibleRuns = [
+			{ id: 1, sourceType: "scheduled", status: "queued" },
+			{ id: 2, sourceType: "scheduled", status: "running" },
+			{ id: 3, sourceType: "scheduled", status: "stale" },
+		];
+		mocks.selectResults.push(visibleRuns);
+
+		expect(listVisibleScheduledJobRuns()).toEqual(visibleRuns);
+		expect(and).toHaveBeenCalledWith(
+			{ type: "eq", left: jobRuns.sourceType, right: "scheduled" },
+			{
+				type: "inArray",
+				left: jobRuns.status,
+				values: ["queued", "running", "stale"],
+			},
+		);
+		expect(inArray).toHaveBeenCalledWith(jobRuns.status, [
+			"queued",
+			"running",
+			"stale",
+		]);
 	});
 });
 

@@ -173,3 +173,16 @@ export function listActiveJobRuns(): JobRun[] {
 		.where(inArray(jobRuns.status, [...NON_TERMINAL_JOB_STATUSES]))
 		.all();
 }
+
+export function listVisibleScheduledJobRuns(): JobRun[] {
+	return db
+		.select()
+		.from(jobRuns)
+		.where(
+			and(
+				eq(jobRuns.sourceType, "scheduled"),
+				inArray(jobRuns.status, [...NON_TERMINAL_JOB_STATUSES, "stale"]),
+			),
+		)
+		.all();
+}
