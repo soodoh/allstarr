@@ -20,7 +20,8 @@ function isFfprobeInstalled(): boolean {
   }
 }
 
-const taskResultStatus = /Running|Success|Error|Stale/;
+const taskVisibleStatus = /Running|Success|Error|Stale/;
+const taskTerminalStatus = /Success|Error/;
 
 function getTaskRow(page: Page, taskName: string) {
   return page.getByRole("row").filter({ hasText: taskName });
@@ -381,7 +382,7 @@ test.describe("System Health", () => {
     const response = await taskResponse;
     expect(response.ok()).toBe(true);
 
-    await expect(taskRow.getByText(taskResultStatus).first()).toBeVisible({
+    await expect(taskRow.getByText(taskVisibleStatus).first()).toBeVisible({
       timeout: 10_000,
     });
 
@@ -391,7 +392,7 @@ test.describe("System Health", () => {
     const reloadedTaskRow = getTaskRow(page, "Refresh Downloads");
     await expect(reloadedTaskRow).toBeVisible({ timeout: 10_000 });
     await expect(
-      reloadedTaskRow.getByText(taskResultStatus).first(),
+      reloadedTaskRow.getByText(taskTerminalStatus).first(),
     ).toBeVisible({ timeout: 10_000 });
   });
 });
