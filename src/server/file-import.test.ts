@@ -35,6 +35,9 @@ const mocks = vi.hoisted(() => ({
 	matchFormat: vi.fn(),
 	// settings reader
 	getMediaSetting: vi.fn(),
+	// tracked download state helpers
+	markTrackedDownloadFailed: vi.fn(),
+	markTrackedDownloadImported: vi.fn(),
 }));
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
@@ -158,6 +161,11 @@ vi.mock("./settings-reader", () => ({
 	default: mocks.getMediaSetting,
 }));
 
+vi.mock("./tracked-download-state", () => ({
+	markTrackedDownloadFailed: mocks.markTrackedDownloadFailed,
+	markTrackedDownloadImported: mocks.markTrackedDownloadImported,
+}));
+
 // ─── Import after mocks ──────────────────────────────────────────────────────
 
 import { importCompletedDownload } from "./file-import";
@@ -258,6 +266,14 @@ function queueAlls(...returns: unknown[]) {
 	}
 }
 
+function expectMarkedFailed(message: unknown, id = 1) {
+	expect(mocks.markTrackedDownloadFailed).toHaveBeenCalledWith(id, message);
+}
+
+function expectMarkedImported(id = 1) {
+	expect(mocks.markTrackedDownloadImported).toHaveBeenCalledWith(id);
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("importCompletedDownload", () => {
@@ -277,12 +293,7 @@ describe("importCompletedDownload", () => {
 		expect(mocks.dbSet).toHaveBeenCalledWith(
 			expect.objectContaining({ state: "importPending" }),
 		);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Download output path not set",
-			}),
-		);
+		expectMarkedFailed("Download output path not set");
 	});
 
 	it("marks failed when source dir not found", async () => {
@@ -294,12 +305,7 @@ describe("importCompletedDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Download output path not found",
-			}),
-		);
+		expectMarkedFailed("Download output path not found");
 	});
 
 	it("marks failed when no book files found in download", async () => {
@@ -313,12 +319,7 @@ describe("importCompletedDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No book files found in download",
-			}),
-		);
+		expectMarkedFailed("No book files found in download");
 	});
 
 	it("marks failed when no root folder configured", async () => {
@@ -337,12 +338,7 @@ describe("importCompletedDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No root folder configured in download profiles",
-			}),
-		);
+		expectMarkedFailed("No root folder configured in download profiles");
 	});
 
 	it("marks failed when insufficient disk space", async () => {
@@ -362,12 +358,36 @@ describe("importCompletedDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: expect.stringContaining("Insufficient free space"),
-			}),
+		expectMarkedFailed(expect.stringContaining("Insufficient free space"));
+	});
+
+	it("marks failed and rethrows the original error when import throws", async () => {
+		const td = makeTd();
+		const error = new Error("permission denied");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
 		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "my-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.mkdirSync.mockImplementation(() => {
+			throw error;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expectMarkedFailed("permission denied");
 	});
 
 	it("imports ebook files successfully", async () => {
@@ -399,9 +419,7 @@ describe("importCompletedDownload", () => {
 		expect(mocks.mkdirSync).toHaveBeenCalledWith(expect.any(String), {
 			recursive: true,
 		});
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 		expect(mocks.emit).toHaveBeenCalledWith(
 			expect.objectContaining({ type: "importCompleted" }),
 		);
@@ -438,9 +456,7 @@ describe("importCompletedDownload", () => {
 		await importCompletedDownload(1);
 
 		expect(mocks.probeAudioFile).toHaveBeenCalledTimes(2);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 	});
 
 	it("probes ebook metadata after import", async () => {
@@ -734,9 +750,7 @@ describe("importCompletedDownload", () => {
 		await importCompletedDownload(1);
 
 		expect(mocks.statfsSync).not.toHaveBeenCalled();
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 	});
 
 	it("marks failed when all file imports fail", async () => {
@@ -770,12 +784,7 @@ describe("importCompletedDownload", () => {
 			expect.stringContaining("Failed to import"),
 			expect.any(Error),
 		);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "All file imports failed",
-			}),
-		);
+		expectMarkedFailed("All file imports failed");
 	});
 });
 
@@ -794,12 +803,7 @@ describe("pack detection and delegation", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No video files found in episode pack download",
-			}),
-		);
+		expectMarkedFailed("No video files found in episode pack download");
 	});
 
 	it("delegates to book pack import when authorId set but no bookId", async () => {
@@ -814,12 +818,7 @@ describe("pack detection and delegation", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No book files found in book pack download",
-			}),
-		);
+		expectMarkedFailed("No book files found in book pack download");
 	});
 });
 
@@ -834,12 +833,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Missing output path or author ID for book pack",
-			}),
-		);
+		expectMarkedFailed("Missing output path or author ID for book pack");
 	});
 
 	it("marks failed when author not found", async () => {
@@ -859,12 +853,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Author 200 not found",
-			}),
-		);
+		expectMarkedFailed("Author 200 not found");
 	});
 
 	it("marks failed when no root folder for book pack", async () => {
@@ -886,12 +875,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No root folder configured in download profiles",
-			}),
-		);
+		expectMarkedFailed("No root folder configured in download profiles");
 	});
 
 	it("imports matched books from pack successfully", async () => {
@@ -937,9 +921,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 		expect(mocks.emit).toHaveBeenCalledWith(
 			expect.objectContaining({
 				type: "importCompleted",
@@ -992,9 +974,7 @@ describe("importBookPackDownload", () => {
 			"/downloads/pack/Author - Title.mp3",
 			expect.stringContaining("Pack - Pack Author - Title.mp3"),
 		);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 	});
 
 	it("renames single-file audio pack imports without a part suffix", async () => {
@@ -1075,12 +1055,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No book files matched or imported from pack",
-			}),
-		);
+		expectMarkedFailed("No book files matched or imported from pack");
 	});
 
 	it("marks failed when mapBookFiles returns empty", async () => {
@@ -1105,12 +1080,7 @@ describe("importBookPackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No book files could be parsed from pack",
-			}),
-		);
+		expectMarkedFailed("No book files could be parsed from pack");
 	});
 });
 
@@ -1132,12 +1102,7 @@ describe("importEpisodePackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Missing output path or show ID for episode pack",
-			}),
-		);
+		expectMarkedFailed("Missing output path or show ID for episode pack");
 	});
 
 	it("marks failed when show not found", async () => {
@@ -1152,12 +1117,7 @@ describe("importEpisodePackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "Show 500 not found",
-			}),
-		);
+		expectMarkedFailed("Show 500 not found");
 	});
 
 	it("marks failed when no root folder for TV", async () => {
@@ -1179,12 +1139,7 @@ describe("importEpisodePackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No root folder configured for TV download profiles",
-			}),
-		);
+		expectMarkedFailed("No root folder configured for TV download profiles");
 	});
 
 	it("imports episode files from pack", async () => {
@@ -1231,9 +1186,7 @@ describe("importEpisodePackDownload", () => {
 
 		// useHardLinks defaults to true
 		expect(mocks.linkSync).toHaveBeenCalledTimes(2);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 		expect(mocks.logInfo).toHaveBeenCalledWith(
 			"file-import",
 			expect.stringContaining('Imported 2 episode(s) from pack for "My Show"'),
@@ -1272,12 +1225,7 @@ describe("importEpisodePackDownload", () => {
 		await importCompletedDownload(1);
 
 		expect(mocks.copyFileSync).not.toHaveBeenCalled();
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No episode files matched or imported from pack",
-			}),
-		);
+		expectMarkedFailed("No episode files matched or imported from pack");
 	});
 
 	it("marks failed when mapTvFiles returns empty", async () => {
@@ -1302,12 +1250,7 @@ describe("importEpisodePackDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({
-				state: "failed",
-				message: "No files matched S##E## pattern in episode pack",
-			}),
-		);
+		expectMarkedFailed("No files matched S##E## pattern in episode pack");
 	});
 });
 
@@ -1390,9 +1333,7 @@ describe("edge cases", () => {
 			"file-import",
 			"Could not check free space, proceeding anyway",
 		);
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 	});
 
 	it("handles resolveSourceDir with file path (uses dirname)", async () => {
@@ -1420,9 +1361,7 @@ describe("edge cases", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "imported" }),
-		);
+		expectMarkedImported();
 	});
 
 	it("scans directories recursively for book files", async () => {
