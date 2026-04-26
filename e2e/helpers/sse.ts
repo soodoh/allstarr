@@ -57,16 +57,16 @@ export default async function captureSSEEvents(
     { url: baseUrl, types: eventTypes },
   );
 
-  await page.waitForFunction(() => {
-    const globalWindow = window as typeof window & {
-      __allstarrSseCapture?: { ready: boolean };
-    };
-    return globalWindow.__allstarrSseCapture?.ready === true;
-  });
-
   let events: CapturedEvent[] = [];
 
   try {
+    await page.waitForFunction(() => {
+      const globalWindow = window as typeof window & {
+        __allstarrSseCapture?: { ready: boolean };
+      };
+      return globalWindow.__allstarrSseCapture?.ready === true;
+    });
+
     // Perform the action while SSE is listening
     await action();
 
