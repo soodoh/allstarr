@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 function createFsMock() {
 	return {
 		copyFileSync: vi.fn(),
-		existsSync: vi.fn(() => true),
+		existsSync: vi.fn((_target: string) => true),
 		mkdirSync: vi.fn(),
 		renameSync: vi.fn(),
 		rmSync: vi.fn(),
@@ -111,6 +111,75 @@ describe("executeMappingWithRollback", () => {
 			"/source/book.epub",
 		);
 		expect(fs.unlinkSync).toHaveBeenCalledWith("/dest/book.epub");
+	});
+
+	it("logs rollback failures when the rollback source is missing", () => {
+		const fs = createFsMock();
+		fs.existsSync.mockImplementation((target) => target !== "/dest/book.epub");
+		const logWarn = vi.fn();
+
+		expect(() =>
+			executeMappingWithRollback({
+				fs,
+				logLabel: "test move",
+				logWarn,
+				move: ({ recordMove }) => {
+					recordMove({
+						from: "/source/book.epub",
+						to: "/dest/book.epub",
+						kind: "file",
+					});
+				},
+				runTransaction: () => {
+					throw new Error("insert failed");
+				},
+			}),
+		).toThrow("insert failed");
+
+		expect(fs.renameSync).not.toHaveBeenCalled();
+		expect(logWarn).toHaveBeenCalledWith(
+			"unmapped-files",
+			expect.stringContaining("Failed to roll back test move"),
+		);
+	});
+
+	it("does not use file fallback when rolling back a directory across devices", () => {
+		const fs = createFsMock();
+		const exdevError = new Error("cross-device link");
+		Object.assign(exdevError, { code: "EXDEV" });
+		fs.renameSync.mockImplementation(() => {
+			throw exdevError;
+		});
+		const logWarn = vi.fn();
+
+		expect(() =>
+			executeMappingWithRollback({
+				fs,
+				logLabel: "test move",
+				logWarn,
+				move: ({ recordMove }) => {
+					recordMove({
+						from: "/source/extras",
+						to: "/dest/extras",
+						kind: "directory",
+					});
+				},
+				runTransaction: () => {
+					throw new Error("insert failed");
+				},
+			}),
+		).toThrow("insert failed");
+
+		expect(fs.renameSync).toHaveBeenCalledWith(
+			"/dest/extras",
+			"/source/extras",
+		);
+		expect(fs.copyFileSync).not.toHaveBeenCalled();
+		expect(fs.unlinkSync).not.toHaveBeenCalled();
+		expect(logWarn).toHaveBeenCalledWith(
+			"unmapped-files",
+			expect.stringContaining("Failed to roll back test move"),
+		);
 	});
 
 	it("logs rollback failures without masking the original error", () => {
