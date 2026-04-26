@@ -74,7 +74,7 @@ export const readarrIndexerResourceSchema = z
 		name: z.string().trim().min(1, "name is required"),
 		implementation: z.enum(["Newznab", "Torznab"]),
 		implementationName: z.string().optional(),
-		configContract: z.string().trim().min(1, "configContract is required"),
+		configContract: z.enum(["NewznabSettings", "TorznabSettings"]),
 		infoLink: z.string().optional(),
 		fields: z.array(readarrFieldSchema),
 		enableRss: z.boolean().optional(),
@@ -93,6 +93,28 @@ export const readarrIndexerResourceSchema = z
 		});
 		requireStringField(body.fields, context, "apiPath");
 		requireStringField(body.fields, context, "apiKey");
+
+		if (
+			body.implementation === "Torznab" &&
+			body.configContract !== "TorznabSettings"
+		) {
+			context.addIssue({
+				code: "custom",
+				message: "Torznab indexers must use TorznabSettings",
+				path: ["configContract"],
+			});
+		}
+
+		if (
+			body.implementation === "Newznab" &&
+			body.configContract !== "NewznabSettings"
+		) {
+			context.addIssue({
+				code: "custom",
+				message: "Newznab indexers must use NewznabSettings",
+				path: ["configContract"],
+			});
+		}
 
 		if (body.implementation === "Torznab" && body.protocol === "usenet") {
 			context.addIssue({

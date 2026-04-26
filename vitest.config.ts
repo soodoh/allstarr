@@ -11,7 +11,11 @@ export default defineConfig({
 			{
 				extends: true,
 				test: {
-					include: ["src/**/*.test.{ts,tsx}", "e2e/fixtures/**/*.test.ts"],
+					include: [
+						"src/**/*.test.{ts,tsx}",
+						"e2e/fixtures/**/*.test.ts",
+						"e2e/helpers/**/*.test.ts",
+					],
 					exclude: [
 						"**/node_modules/**",
 						"**/.worktrees/**",
