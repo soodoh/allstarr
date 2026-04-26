@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 	acquireJobRun: vi.fn(),
 	completeJobRun: vi.fn(),
 	failJobRun: vi.fn(),
+	heartbeatJobRun: vi.fn(),
 	listActiveJobRuns: vi.fn(),
 	markStaleJobRuns: vi.fn(),
 	updateJobRunProgress: vi.fn(),
@@ -60,6 +61,8 @@ vi.mock("../job-runs", () => ({
 	acquireJobRun: mocks.acquireJobRun,
 	completeJobRun: mocks.completeJobRun,
 	failJobRun: mocks.failJobRun,
+	heartbeatJobRun: mocks.heartbeatJobRun,
+	JOB_HEARTBEAT_INTERVAL_MS: 10_000,
 	listActiveJobRuns: mocks.listActiveJobRuns,
 	markStaleJobRuns: mocks.markStaleJobRuns,
 	updateJobRunProgress: mocks.updateJobRunProgress,
@@ -527,6 +530,39 @@ describe("scheduler/index", () => {
 				"scheduler",
 				expect.stringContaining("OK Task"),
 			);
+		});
+
+		it("should heartbeat active no-progress task runs and clear the interval", async () => {
+			vi.useFakeTimers();
+			const mod = await freshModule();
+			let resolveHandler: () => void = () => {
+				throw new Error("handler promise was not initialized");
+			};
+			const handler = vi.fn(
+				() =>
+					new Promise<{ success: true; message: string }>((resolve) => {
+						resolveHandler = () => resolve({ success: true, message: "done" });
+					}),
+			);
+			mocks.getTask.mockReturnValue({
+				id: "task-heartbeat",
+				name: "Heartbeat Task",
+				handler,
+			});
+
+			const taskPromise = mod.runTaskNow("task-heartbeat");
+
+			expect(handler).toHaveBeenCalledOnce();
+			vi.advanceTimersByTime(9_999);
+			expect(mocks.heartbeatJobRun).not.toHaveBeenCalled();
+			vi.advanceTimersByTime(1);
+			expect(mocks.heartbeatJobRun).toHaveBeenCalledWith(55);
+
+			resolveHandler();
+			await taskPromise;
+
+			expect(vi.getTimerCount()).toBe(0);
+			vi.useRealTimers();
 		});
 
 		it("should mark unsuccessful handler results as failed job runs", async () => {

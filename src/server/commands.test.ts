@@ -5,6 +5,7 @@ const commandsMocks = vi.hoisted(() => ({
 	completeJobRun: vi.fn(),
 	emit: vi.fn(),
 	failJobRun: vi.fn(),
+	heartbeatJobRun: vi.fn(),
 	listActiveJobRuns: vi.fn(),
 	logError: vi.fn(),
 	requireAuth: vi.fn(),
@@ -50,6 +51,8 @@ vi.mock("./job-runs", () => ({
 	acquireJobRun: commandsMocks.acquireJobRun,
 	completeJobRun: commandsMocks.completeJobRun,
 	failJobRun: commandsMocks.failJobRun,
+	heartbeatJobRun: commandsMocks.heartbeatJobRun,
+	JOB_HEARTBEAT_INTERVAL_MS: 10_000,
 	listActiveJobRuns: commandsMocks.listActiveJobRuns,
 	updateJobRunProgress: commandsMocks.updateJobRunProgress,
 }));
@@ -210,6 +213,43 @@ describe("commands server helpers", () => {
 		expect(commandsMocks.logError).not.toHaveBeenCalled();
 	});
 
+	it("heartbeats active no-progress commands and clears the interval", async () => {
+		vi.useFakeTimers();
+		let resolveHandler: () => void = () => {
+			throw new Error("handler promise was not initialized");
+		};
+		const handler = vi.fn(
+			() =>
+				new Promise<Record<string, unknown>>((resolve) => {
+					resolveHandler = () => resolve({ ok: true });
+				}),
+		);
+
+		submitCommand({
+			body: { mediaId: 99 },
+			commandType: "refreshBook",
+			dedupeKey: "mediaId",
+			handler,
+			name: "Refresh book",
+		});
+
+		expect(handler).toHaveBeenCalledOnce();
+		vi.advanceTimersByTime(9_999);
+		expect(commandsMocks.heartbeatJobRun).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(commandsMocks.heartbeatJobRun).toHaveBeenCalledWith(42);
+
+		resolveHandler();
+		await vi.waitFor(() => {
+			expect(commandsMocks.completeJobRun).toHaveBeenCalledWith(42, {
+				ok: true,
+			});
+		});
+
+		expect(vi.getTimerCount()).toBe(0);
+		vi.useRealTimers();
+	});
+
 	it("logs, fails the job run, and emits failures for failed commands", async () => {
 		const boom = new Error("boom");
 		const handler = vi.fn(
@@ -290,6 +330,8 @@ describe("commands server helpers with real job-run acquisition", () => {
 			acquireJobRun: commandsMocks.acquireJobRun,
 			completeJobRun: commandsMocks.completeJobRun,
 			failJobRun: commandsMocks.failJobRun,
+			heartbeatJobRun: commandsMocks.heartbeatJobRun,
+			JOB_HEARTBEAT_INTERVAL_MS: 10_000,
 			listActiveJobRuns: commandsMocks.listActiveJobRuns,
 			updateJobRunProgress: commandsMocks.updateJobRunProgress,
 		}));

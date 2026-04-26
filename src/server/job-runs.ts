@@ -126,7 +126,7 @@ export function completeJobRun(
 			lastHeartbeatAt: now,
 			updatedAt: now,
 		})
-		.where(eq(jobRuns.id, jobRunId))
+		.where(and(eq(jobRuns.id, jobRunId), eq(jobRuns.status, "running")))
 		.run();
 }
 
@@ -141,7 +141,7 @@ export function failJobRun(jobRunId: number, error: string): void {
 			lastHeartbeatAt: now,
 			updatedAt: now,
 		})
-		.where(eq(jobRuns.id, jobRunId))
+		.where(and(eq(jobRuns.id, jobRunId), eq(jobRuns.status, "running")))
 		.run();
 }
 
