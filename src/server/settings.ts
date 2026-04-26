@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "src/db";
 import { settings } from "src/db/schema";
+import { buildSettingsMap } from "src/lib/settings-registry";
 import { metadataProfileSchema, updateSettingSchema } from "src/lib/validators";
 import { getMetadataProfile } from "./metadata-profile";
 import { requireAdmin, requireAuth } from "./middleware";
 import { upsertSettingValue } from "./settings-store";
-import { parseStoredSettingValue } from "./settings-value";
 
 export type { MetadataProfile } from "./metadata-profile";
 
@@ -13,14 +13,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
 	async () => {
 		await requireAdmin();
 		const rows = db.select().from(settings).all();
-		const map: Record<string, string | number | boolean | null> = {};
-		for (const row of rows) {
-			map[row.key] = parseStoredSettingValue<string | number | boolean | null>(
-				row.value,
-				null,
-			);
-		}
-		return map;
+		return buildSettingsMap(rows);
 	},
 );
 

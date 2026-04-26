@@ -7,6 +7,7 @@ import {
 	resolveImportReviewItemSchema,
 	updateDownloadProfileSchema,
 	updateImportSourceSchema,
+	updateSettingSchema,
 } from "./validators";
 
 function validProfile(overrides: Record<string, unknown> = {}) {
@@ -151,5 +152,54 @@ describe("import source validators", () => {
 		});
 
 		expect(result.payload).toBeUndefined();
+	});
+});
+
+describe("updateSettingSchema", () => {
+	it("accepts typed values for known setting keys", () => {
+		expect(
+			updateSettingSchema.parse({
+				key: "downloadClient.enableCompletedDownloadHandling",
+				value: false,
+			}),
+		).toEqual({
+			key: "downloadClient.enableCompletedDownloadHandling",
+			value: false,
+		});
+
+		expect(
+			updateSettingSchema.parse({
+				key: "mediaManagement.book.minimumFreeSpace",
+				value: 250,
+			}),
+		).toEqual({
+			key: "mediaManagement.book.minimumFreeSpace",
+			value: 250,
+		});
+	});
+
+	it("rejects unknown setting keys", () => {
+		expect(() =>
+			updateSettingSchema.parse({
+				key: "general.theme",
+				value: "dark",
+			}),
+		).toThrow();
+	});
+
+	it("rejects values that do not match the key schema", () => {
+		expect(() =>
+			updateSettingSchema.parse({
+				key: "downloadClient.enableCompletedDownloadHandling",
+				value: "false",
+			}),
+		).toThrow();
+
+		expect(() =>
+			updateSettingSchema.parse({
+				key: "mediaManagement.book.minimumFreeSpace",
+				value: "250",
+			}),
+		).toThrow();
 	});
 });

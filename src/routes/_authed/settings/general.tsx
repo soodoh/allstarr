@@ -25,6 +25,7 @@ import {
 import { useRegenerateApiKey, useUpdateSettings } from "src/hooks/mutations";
 import { requireAdminBeforeLoad } from "src/lib/admin-route";
 import { settingsMapQuery } from "src/lib/queries";
+import type { KnownSettingValue } from "src/lib/settings-registry";
 
 export const Route = createFileRoute("/_authed/settings/general")({
 	beforeLoad: requireAdminBeforeLoad,
@@ -32,6 +33,14 @@ export const Route = createFileRoute("/_authed/settings/general")({
 		context.queryClient.ensureQueryData(settingsMapQuery()),
 	component: GeneralSettingsPage,
 });
+
+type LogLevel = KnownSettingValue<"general.logLevel">;
+
+const LOG_LEVELS: LogLevel[] = ["trace", "debug", "info", "warn", "error"];
+
+function isLogLevel(value: string): value is LogLevel {
+	return LOG_LEVELS.includes(value as LogLevel);
+}
 
 function ApiKeyCard({
 	apiKey,
@@ -91,8 +100,8 @@ function GeneralSettingsPage() {
 	const updateSettings = useUpdateSettings();
 	const regenerateApiKey = useRegenerateApiKey();
 
-	const [logLevel, setLogLevel] = useState(
-		(settings["general.logLevel"] as string) || "info",
+	const [logLevel, setLogLevel] = useState<LogLevel>(
+		(settings["general.logLevel"] as LogLevel | undefined) ?? "info",
 	);
 	const [apiKey, setApiKey] = useState(
 		(settings["general.apiKey"] as string | undefined) ?? "",
@@ -115,7 +124,14 @@ function GeneralSettingsPage() {
 					<CardContent>
 						<div className="space-y-2">
 							<Label>Log Level</Label>
-							<Select value={logLevel} onValueChange={setLogLevel}>
+							<Select
+								value={logLevel}
+								onValueChange={(value) => {
+									if (isLogLevel(value)) {
+										setLogLevel(value);
+									}
+								}}
+							>
 								<SelectTrigger className="w-48">
 									<SelectValue />
 								</SelectTrigger>

@@ -92,13 +92,13 @@ function DownloadClientsPage() {
 		updateSettings.mutate([
 			{
 				key: "downloadClient.enableCompletedDownloadHandling",
-				value: String(enableCompleted),
+				value: enableCompleted,
 			},
 			{
 				key: "downloadClient.redownloadFailed",
-				value: String(redownloadFailed),
+				value: redownloadFailed,
 			},
-			{ key: "downloadClient.removeFailed", value: String(removeFailed) },
+			{ key: "downloadClient.removeFailed", value: removeFailed },
 		]);
 	};
 

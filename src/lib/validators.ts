@@ -1,5 +1,6 @@
 import { TABLE_IDS } from "src/lib/table-column-defaults";
 import { z } from "zod";
+import { settingUpdateSchema } from "./settings-registry";
 
 const monitorNewItemsEnum = z.enum(["all", "none", "new"]);
 
@@ -154,10 +155,7 @@ export const browseDirectorySchema = z.object({
 });
 
 // Settings
-export const updateSettingSchema = z.object({
-	key: z.string().min(1),
-	value: z.unknown(),
-});
+export const updateSettingSchema = z.unknown().pipe(settingUpdateSchema);
 
 // Metadata Profile
 export const metadataProfileSchema = z.object({

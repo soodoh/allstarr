@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const settingsMocks = vi.hoisted(() => ({
 	all: vi.fn(),
+	buildSettingsMap: vi.fn((rows: Array<{ key: string; value: unknown }>) =>
+		Object.fromEntries(rows.map((row) => [row.key, row.value])),
+	),
 	getMetadataProfile: vi.fn(),
 	metadataProfileParse: vi.fn((data: unknown) => data),
-	parseStoredSettingValue: vi.fn((value: unknown) => value),
 	randomUUID: vi.fn(() => "generated-api-key"),
 	requireAdmin: vi.fn(),
 	requireAuth: vi.fn(),
@@ -47,6 +49,10 @@ vi.mock("src/lib/validators", () => ({
 	},
 }));
 
+vi.mock("src/lib/settings-registry", () => ({
+	buildSettingsMap: settingsMocks.buildSettingsMap,
+}));
+
 vi.mock("./metadata-profile", () => ({
 	getMetadataProfile: settingsMocks.getMetadataProfile,
 }));
@@ -58,10 +64,6 @@ vi.mock("./middleware", () => ({
 
 vi.mock("./settings-store", () => ({
 	upsertSettingValue: settingsMocks.upsertSettingValue,
-}));
-
-vi.mock("./settings-value", () => ({
-	parseStoredSettingValue: settingsMocks.parseStoredSettingValue,
 }));
 
 import {
@@ -83,25 +85,24 @@ describe("settings server functions", () => {
 			{ key: "general.enabled", value: "true" },
 			{ key: "general.pageSize", value: "50" },
 		]);
-		settingsMocks.parseStoredSettingValue
-			.mockReturnValueOnce(true)
-			.mockReturnValueOnce(50);
-
-		await expect(getSettingsFn()).resolves.toEqual({
+		settingsMocks.buildSettingsMap.mockReturnValueOnce({
+			"downloadClient.enableCompletedDownloadHandling": true,
 			"general.enabled": true,
 			"general.pageSize": 50,
+			"mediaManagement.book.minimumFreeSpace": 100,
+		});
+
+		await expect(getSettingsFn()).resolves.toEqual({
+			"downloadClient.enableCompletedDownloadHandling": true,
+			"general.enabled": true,
+			"general.pageSize": 50,
+			"mediaManagement.book.minimumFreeSpace": 100,
 		});
 		expect(settingsMocks.requireAdmin).toHaveBeenCalledTimes(1);
-		expect(settingsMocks.parseStoredSettingValue).toHaveBeenNthCalledWith(
-			1,
-			"true",
-			null,
-		);
-		expect(settingsMocks.parseStoredSettingValue).toHaveBeenNthCalledWith(
-			2,
-			"50",
-			null,
-		);
+		expect(settingsMocks.buildSettingsMap).toHaveBeenCalledWith([
+			{ key: "general.enabled", value: "true" },
+			{ key: "general.pageSize", value: "50" },
+		]);
 	});
 
 	it("validates and upserts individual settings", async () => {

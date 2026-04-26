@@ -1,14 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "src/lib/query-keys";
+import type { UpdateSettingInput } from "src/lib/settings-registry";
 import type { MetadataProfile } from "src/server/settings";
 import {
 	regenerateApiKeyFn,
 	updateMetadataProfileFn,
 	updateSettingFn,
 } from "src/server/settings";
-
-type SettingEntry = { key: string; value: string };
 
 /**
  * Batches multiple setting updates into a single mutation.
@@ -17,7 +16,7 @@ type SettingEntry = { key: string; value: string };
 export function useUpdateSettings() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async (entries: SettingEntry[]) => {
+		mutationFn: async (entries: UpdateSettingInput[]) => {
 			for (const entry of entries) {
 				await updateSettingFn({ data: entry });
 			}
