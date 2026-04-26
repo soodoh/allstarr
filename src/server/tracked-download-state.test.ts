@@ -105,6 +105,26 @@ describe("tracked download state transitions", () => {
 		});
 	});
 
+	it("transitions a queued tracked download to failed with message", () => {
+		const now = new Date("2026-01-02T03:04:05.000Z");
+		vi.setSystemTime(now);
+		const rows: TrackedDownloadRow[] = [
+			{ id: 10, state: "queued", message: null },
+		];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		markTrackedDownloadFailed(10, "Download rejected");
+
+		expect(rows[0]).toMatchObject({
+			id: 10,
+			state: "failed",
+			message: "Download rejected",
+			updatedAt: now,
+		});
+		expect(mocks.defaultDb.update).toHaveBeenCalled();
+	});
+
 	it("transitions a completed tracked download to import pending", () => {
 		const rows: TrackedDownloadRow[] = [{ id: 3, state: "completed" }];
 		const fakeDb = createFakeDb(rows);
