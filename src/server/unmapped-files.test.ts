@@ -67,6 +67,7 @@ const mocks = vi.hoisted(() => {
 	);
 	const renameSync = vi.fn();
 	const copyFileSync = vi.fn();
+	const existsSync = vi.fn(() => true);
 	const mkdirSync = vi.fn();
 	const readdirSync = vi.fn(() => []);
 	const rmSync = vi.fn();
@@ -110,6 +111,7 @@ const mocks = vi.hoisted(() => {
 		deleteFn,
 		eq,
 		eventBusEmit,
+		existsSync,
 		getRootFolderPaths,
 		copyFileSync,
 		insert,
@@ -227,6 +229,7 @@ vi.mock("src/server/middleware", () => ({
 vi.mock("node:fs", () => ({
 	default: {
 		copyFileSync: mocks.copyFileSync,
+		existsSync: mocks.existsSync,
 		mkdirSync: mocks.mkdirSync,
 		readdirSync: mocks.readdirSync,
 		renameSync: mocks.renameSync,
@@ -234,6 +237,7 @@ vi.mock("node:fs", () => ({
 		unlinkSync: mocks.unlinkSync,
 	},
 	copyFileSync: mocks.copyFileSync,
+	existsSync: mocks.existsSync,
 	mkdirSync: mocks.mkdirSync,
 	readdirSync: mocks.readdirSync,
 	renameSync: mocks.renameSync,
@@ -417,6 +421,7 @@ function useDefaultMocks() {
 	mocks.requireAdmin.mockResolvedValue({ user: { id: 1, role: "admin" } });
 	mocks.buildBookAuthorFolderName.mockImplementation(() => "Isaac Asimov");
 	mocks.buildBookFolderName.mockImplementation(() => "Foundation (1951)");
+	mocks.existsSync.mockImplementation(() => true);
 	mocks.transaction.mockImplementation(
 		(
 			fn: (tx: {

@@ -26,7 +26,6 @@ import {
 	buildManagedMovieDestination,
 } from "src/server/file-import";
 import {
-	type AssetOperation,
 	assignImportAssets,
 	buildAssetOperations,
 	type ImportAssetRow,
@@ -36,6 +35,10 @@ import {
 } from "src/server/import-assets";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
+import {
+	executeMappingWithRollback,
+	type MappingMoveOperation,
+} from "src/server/unmapped-file-mapping-executor";
 import { z } from "zod";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -908,23 +911,6 @@ function toIssue({
 	};
 }
 
-function rollbackMovedPaths(
-	fs: typeof import("node:fs"),
-	movedPaths: AssetOperation[],
-	logLabel: string,
-): void {
-	for (const moved of [...movedPaths].reverse()) {
-		try {
-			movePathToManagedDestination(fs, moved.to, moved.from, moved.kind);
-		} catch (rollbackError) {
-			logWarn(
-				"unmapped-files",
-				`Failed to roll back ${logLabel} for ${moved.from}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-			);
-		}
-	}
-}
-
 function createImportResult({
 	failures,
 	mappedCount,
@@ -1036,7 +1022,6 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					sourcePath: file.path,
 					useSeasonFolder: Boolean(episode.useSeasonFolder),
 				});
-				const movedFiles: AssetOperation[] = [];
 				const movedSidecarIds: number[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
 				let assetOperations:
@@ -1044,127 +1029,145 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					| undefined;
 
 				try {
-					moveFileToManagedPath(fs, file.path, managedEpisodePath);
-					movedFiles.push({
-						from: file.path,
-						kind: "file",
-						to: managedEpisodePath,
-					});
-					const usedDestPaths = new Set([managedEpisodePath]);
-
-					if (normalized.moveRelatedFiles && row.assets.length > 0) {
-						plannedAssetRow = buildImportAssetPlan({
-							contentType: "tv",
-							destinationPathByRowId: new Map([
-								[String(row.unmappedFileId), managedEpisodePath],
-							]),
-							filesByRowId: new Map([
-								[String(row.unmappedFileId), { path: file.path }],
-							]),
-							requestedAssetsByRowId: new Map([
-								[String(row.unmappedFileId), row.assets],
-							]),
-						}).get(String(row.unmappedFileId));
-
-						if (plannedAssetRow) {
-							assetOperations = buildAssetOperations({
-								row: plannedAssetRow,
-								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
-							});
-
-							for (const move of assetOperations.moves) {
-								movePathToManagedDestination(fs, move.from, move.to, move.kind);
-								movedFiles.push(move);
-							}
-						}
-					} else if (normalized.moveRelatedFiles) {
-						const candidates = db
-							.select()
-							.from(unmappedFiles)
-							.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
-							.all();
-						const relatedSidecars = candidates.filter(
-							(candidate) =>
-								candidate.id !== file.id &&
-								!mappedIds.has(candidate.id) &&
-								isRelatedTvSidecar(file.path, candidate.path),
-						);
-						const sidecarCollisionCounts = new Map<string, number>();
-
-						for (const candidate of relatedSidecars) {
-							const collisionKey = buildTvSidecarCollisionKey(
-								managedEpisodePath,
-								file.path,
-								candidate.path,
-							);
-							sidecarCollisionCounts.set(
-								collisionKey,
-								(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
-							);
-						}
-
-						for (const candidate of relatedSidecars) {
-							const collisionKey = buildTvSidecarCollisionKey(
-								managedEpisodePath,
-								file.path,
-								candidate.path,
-							);
-							const sidecarDest = buildManagedTvSidecarPath(
-								managedEpisodePath,
-								file.path,
-								candidate.path,
-								usedDestPaths,
-								(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
-							);
-							moveFileToManagedPath(fs, candidate.path, sidecarDest);
-							movedFiles.push({
-								from: candidate.path,
+					executeMappingWithRollback({
+						fs,
+						logLabel: "TV file move",
+						move: ({
+							recordMove,
+						}: {
+							recordMove: (operation: MappingMoveOperation) => void;
+						}) => {
+							moveFileToManagedPath(fs, file.path, managedEpisodePath);
+							recordMove({
+								from: file.path,
 								kind: "file",
-								to: sidecarDest,
+								to: managedEpisodePath,
 							});
-							usedDestPaths.add(sidecarDest);
-							movedSidecarIds.push(candidate.id);
-						}
-					}
+							const usedDestPaths = new Set([managedEpisodePath]);
 
-					db.transaction((tx) => {
-						tx.insert(episodeFiles)
-							.values({
-								episodeId: row.entityId,
-								path: managedEpisodePath,
-								size: file.size,
-								quality: file.quality,
-								downloadProfileId: data.downloadProfileId,
-								duration,
-								codec,
-								container,
-							})
-							.run();
+							if (normalized.moveRelatedFiles && row.assets.length > 0) {
+								plannedAssetRow = buildImportAssetPlan({
+									contentType: "tv",
+									destinationPathByRowId: new Map([
+										[String(row.unmappedFileId), managedEpisodePath],
+									]),
+									filesByRowId: new Map([
+										[String(row.unmappedFileId), { path: file.path }],
+									]),
+									requestedAssetsByRowId: new Map([
+										[String(row.unmappedFileId), row.assets],
+									]),
+								}).get(String(row.unmappedFileId));
 
-						tx.insert(history)
-							.values({
-								eventType: "episodeFileAdded",
-								episodeId: row.entityId,
-								data: {
-									path: managedEpisodePath,
-									size: file.size,
-									quality: file.quality?.quality?.name ?? "Unknown",
-									source: "unmappedFileMapping",
-								},
-							})
-							.run();
+								if (plannedAssetRow) {
+									assetOperations = buildAssetOperations({
+										row: plannedAssetRow,
+										deleteDeselectedAssets:
+											normalized.deleteDeselectedRelatedFiles,
+									});
 
-						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
-						for (const sidecarId of movedSidecarIds) {
-							tx.delete(unmappedFiles)
-								.where(eq(unmappedFiles.id, sidecarId))
-								.run();
-						}
+									for (const move of assetOperations.moves) {
+										movePathToManagedDestination(
+											fs,
+											move.from,
+											move.to,
+											move.kind,
+										);
+										recordMove(move);
+									}
+								}
+							} else if (normalized.moveRelatedFiles) {
+								const candidates = db
+									.select()
+									.from(unmappedFiles)
+									.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
+									.all();
+								const relatedSidecars = candidates.filter(
+									(candidate) =>
+										candidate.id !== file.id &&
+										!mappedIds.has(candidate.id) &&
+										isRelatedTvSidecar(file.path, candidate.path),
+								);
+								const sidecarCollisionCounts = new Map<string, number>();
+
+								for (const candidate of relatedSidecars) {
+									const collisionKey = buildTvSidecarCollisionKey(
+										managedEpisodePath,
+										file.path,
+										candidate.path,
+									);
+									sidecarCollisionCounts.set(
+										collisionKey,
+										(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
+									);
+								}
+
+								for (const candidate of relatedSidecars) {
+									const collisionKey = buildTvSidecarCollisionKey(
+										managedEpisodePath,
+										file.path,
+										candidate.path,
+									);
+									const sidecarDest = buildManagedTvSidecarPath(
+										managedEpisodePath,
+										file.path,
+										candidate.path,
+										usedDestPaths,
+										(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
+									);
+									moveFileToManagedPath(fs, candidate.path, sidecarDest);
+									recordMove({
+										from: candidate.path,
+										kind: "file",
+										to: sidecarDest,
+									});
+									usedDestPaths.add(sidecarDest);
+									movedSidecarIds.push(candidate.id);
+								}
+							}
+						},
+						runTransaction: () => {
+							db.transaction((tx) => {
+								tx.insert(episodeFiles)
+									.values({
+										episodeId: row.entityId,
+										path: managedEpisodePath,
+										size: file.size,
+										quality: file.quality,
+										downloadProfileId: data.downloadProfileId,
+										duration,
+										codec,
+										container,
+									})
+									.run();
+
+								tx.insert(history)
+									.values({
+										eventType: "episodeFileAdded",
+										episodeId: row.entityId,
+										data: {
+											path: managedEpisodePath,
+											size: file.size,
+											quality: file.quality?.quality?.name ?? "Unknown",
+											source: "unmappedFileMapping",
+										},
+									})
+									.run();
+
+								tx.delete(unmappedFiles)
+									.where(eq(unmappedFiles.id, file.id))
+									.run();
+								for (const sidecarId of movedSidecarIds) {
+									tx.delete(unmappedFiles)
+										.where(eq(unmappedFiles.id, sidecarId))
+										.run();
+								}
+							});
+						},
 					});
 
 					mappedCount++;
 				} catch (error) {
-					rollbackMovedPaths(fs, movedFiles, "TV file move");
 					failures.push(toIssue({ error, file, row }));
 					continue;
 				}
@@ -1343,84 +1346,101 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					bookFolderName,
 					path.basename(file.path),
 				);
-				const movedPaths: AssetOperation[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
 				let assetOperations:
 					| ReturnType<typeof buildAssetOperations>
 					| undefined;
 
 				try {
-					moveFileToManagedPath(fs, file.path, destPath);
-					movedPaths.push({
-						from: file.path,
-						to: destPath,
-						kind: "file",
-					});
-
-					if (normalized.moveRelatedFiles && row.assets.length > 0) {
-						plannedAssetRow = buildImportAssetPlan({
-							contentType:
-								profile.contentType === "audiobook" ? "audiobook" : "book",
-							destinationPathByRowId: new Map([
-								[String(row.unmappedFileId), destPath],
-							]),
-							filesByRowId: new Map([
-								[String(row.unmappedFileId), { path: file.path }],
-							]),
-							requestedAssetsByRowId: new Map([
-								[String(row.unmappedFileId), row.assets],
-							]),
-						}).get(String(row.unmappedFileId));
-
-						if (plannedAssetRow) {
-							assetOperations = buildAssetOperations({
-								row: plannedAssetRow,
-								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
+					executeMappingWithRollback({
+						fs,
+						logLabel: "file move",
+						move: ({
+							recordMove,
+						}: {
+							recordMove: (operation: MappingMoveOperation) => void;
+						}) => {
+							moveFileToManagedPath(fs, file.path, destPath);
+							recordMove({
+								from: file.path,
+								to: destPath,
+								kind: "file",
 							});
-							for (const move of assetOperations.moves) {
-								movePathToManagedDestination(fs, move.from, move.to, move.kind);
-								movedPaths.push(move);
+
+							if (normalized.moveRelatedFiles && row.assets.length > 0) {
+								plannedAssetRow = buildImportAssetPlan({
+									contentType:
+										profile.contentType === "audiobook" ? "audiobook" : "book",
+									destinationPathByRowId: new Map([
+										[String(row.unmappedFileId), destPath],
+									]),
+									filesByRowId: new Map([
+										[String(row.unmappedFileId), { path: file.path }],
+									]),
+									requestedAssetsByRowId: new Map([
+										[String(row.unmappedFileId), row.assets],
+									]),
+								}).get(String(row.unmappedFileId));
+
+								if (plannedAssetRow) {
+									assetOperations = buildAssetOperations({
+										row: plannedAssetRow,
+										deleteDeselectedAssets:
+											normalized.deleteDeselectedRelatedFiles,
+									});
+									for (const move of assetOperations.moves) {
+										movePathToManagedDestination(
+											fs,
+											move.from,
+											move.to,
+											move.kind,
+										);
+										recordMove(move);
+									}
+								}
 							}
-						}
-					}
+						},
+						runTransaction: () => {
+							db.transaction((tx) => {
+								tx.insert(bookFiles)
+									.values({
+										bookId: row.entityId,
+										path: destPath,
+										size: file.size,
+										quality: file.quality,
+										downloadProfileId: data.downloadProfileId,
+										duration,
+										bitrate,
+										sampleRate,
+										channels,
+										codec,
+										pageCount,
+										language,
+										part,
+										partCount,
+									})
+									.run();
 
-					db.transaction((tx) => {
-						tx.insert(bookFiles)
-							.values({
-								bookId: row.entityId,
-								path: destPath,
-								size: file.size,
-								quality: file.quality,
-								downloadProfileId: data.downloadProfileId,
-								duration,
-								bitrate,
-								sampleRate,
-								channels,
-								codec,
-								pageCount,
-								language,
-								part,
-								partCount,
-							})
-							.run();
+								tx.insert(history)
+									.values({
+										eventType: "bookFileAdded",
+										bookId: row.entityId,
+										data: {
+											path: destPath,
+											size: file.size,
+											quality: file.quality?.quality?.name ?? "Unknown",
+											source: "unmappedFileMapping",
+										},
+									})
+									.run();
 
-						tx.insert(history)
-							.values({
-								eventType: "bookFileAdded",
-								bookId: row.entityId,
-								data: {
-									path: destPath,
-									size: file.size,
-									quality: file.quality?.quality?.name ?? "Unknown",
-									source: "unmappedFileMapping",
-								},
-							})
-							.run();
-
-						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+								tx.delete(unmappedFiles)
+									.where(eq(unmappedFiles.id, file.id))
+									.run();
+							});
+						},
 					});
 				} catch (error) {
-					rollbackMovedPaths(fs, movedPaths, "file move");
 					failures.push(toIssue({ error, file, row }));
 					continue;
 				}
@@ -1489,7 +1509,6 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					movieYear: movie.year,
 					sourcePath: file.path,
 				});
-				const movedFiles: AssetOperation[] = [];
 				const movedSidecarIds: number[] = [];
 				let plannedAssetRow: ImportAssetRow | undefined;
 				let assetOperations:
@@ -1497,130 +1516,148 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					| undefined;
 
 				try {
-					moveFileToManagedPath(fs, file.path, destPath);
-					movedFiles.push({
-						from: file.path,
-						kind: "file",
-						to: destPath,
-					});
-					const usedDestPaths = new Set([destPath]);
-
-					if (normalized.moveRelatedFiles && row.assets.length > 0) {
-						plannedAssetRow = buildImportAssetPlan({
-							contentType: "movie",
-							destinationPathByRowId: new Map([
-								[String(row.unmappedFileId), destPath],
-							]),
-							filesByRowId: new Map([
-								[String(row.unmappedFileId), { path: file.path }],
-							]),
-							requestedAssetsByRowId: new Map([
-								[String(row.unmappedFileId), row.assets],
-							]),
-						}).get(String(row.unmappedFileId));
-
-						if (plannedAssetRow) {
-							assetOperations = buildAssetOperations({
-								row: plannedAssetRow,
-								deleteDeselectedAssets: normalized.deleteDeselectedRelatedFiles,
-							});
-
-							for (const move of assetOperations.moves) {
-								movePathToManagedDestination(fs, move.from, move.to, move.kind);
-								movedFiles.push(move);
-							}
-						}
-					} else if (normalized.moveRelatedFiles) {
-						const candidates = db
-							.select()
-							.from(unmappedFiles)
-							.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
-							.all();
-						const relatedSidecars = candidates.filter(
-							(candidate) =>
-								candidate.id !== file.id &&
-								!mappedFileIds.has(candidate.id) &&
-								isRelatedMovieSidecar(file.path, candidate.path),
-						);
-						const sidecarCollisionCounts = new Map<string, number>();
-
-						for (const candidate of relatedSidecars) {
-							const collisionKey = buildMovieSidecarCollisionKey(
-								destPath,
-								file.path,
-								candidate.path,
-							);
-							sidecarCollisionCounts.set(
-								collisionKey,
-								(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
-							);
-						}
-
-						for (const candidate of relatedSidecars) {
-							const collisionKey = buildMovieSidecarCollisionKey(
-								destPath,
-								file.path,
-								candidate.path,
-							);
-							const sidecarDest = buildManagedMovieSidecarPath(
-								destPath,
-								file.path,
-								candidate.path,
-								usedDestPaths,
-								(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
-							);
-							moveFileToManagedPath(fs, candidate.path, sidecarDest);
-							movedFiles.push({
-								from: candidate.path,
+					executeMappingWithRollback({
+						fs,
+						logLabel: "movie file move",
+						move: ({
+							recordMove,
+						}: {
+							recordMove: (operation: MappingMoveOperation) => void;
+						}) => {
+							moveFileToManagedPath(fs, file.path, destPath);
+							recordMove({
+								from: file.path,
 								kind: "file",
-								to: sidecarDest,
+								to: destPath,
 							});
-							usedDestPaths.add(sidecarDest);
-							movedSidecarIds.push(candidate.id);
-						}
-					}
+							const usedDestPaths = new Set([destPath]);
 
-					db.transaction((tx) => {
-						tx.insert(movieFiles)
-							.values({
-								movieId: row.entityId,
-								path: destPath,
-								size: file.size,
-								quality: file.quality,
-								downloadProfileId: data.downloadProfileId,
-								duration,
-								codec,
-								container,
-							})
-							.run();
+							if (normalized.moveRelatedFiles && row.assets.length > 0) {
+								plannedAssetRow = buildImportAssetPlan({
+									contentType: "movie",
+									destinationPathByRowId: new Map([
+										[String(row.unmappedFileId), destPath],
+									]),
+									filesByRowId: new Map([
+										[String(row.unmappedFileId), { path: file.path }],
+									]),
+									requestedAssetsByRowId: new Map([
+										[String(row.unmappedFileId), row.assets],
+									]),
+								}).get(String(row.unmappedFileId));
 
-						tx.update(movies)
-							.set({ path: path.dirname(destPath) })
-							.where(eq(movies.id, row.entityId))
-							.run();
+								if (plannedAssetRow) {
+									assetOperations = buildAssetOperations({
+										row: plannedAssetRow,
+										deleteDeselectedAssets:
+											normalized.deleteDeselectedRelatedFiles,
+									});
 
-						tx.insert(history)
-							.values({
-								eventType: "movieFileAdded",
-								movieId: row.entityId,
-								data: {
-									path: destPath,
-									size: file.size,
-									quality: file.quality?.quality?.name ?? "Unknown",
-									source: "unmappedFileMapping",
-								},
-							})
-							.run();
+									for (const move of assetOperations.moves) {
+										movePathToManagedDestination(
+											fs,
+											move.from,
+											move.to,
+											move.kind,
+										);
+										recordMove(move);
+									}
+								}
+							} else if (normalized.moveRelatedFiles) {
+								const candidates = db
+									.select()
+									.from(unmappedFiles)
+									.where(eq(unmappedFiles.rootFolderPath, file.rootFolderPath))
+									.all();
+								const relatedSidecars = candidates.filter(
+									(candidate) =>
+										candidate.id !== file.id &&
+										!mappedFileIds.has(candidate.id) &&
+										isRelatedMovieSidecar(file.path, candidate.path),
+								);
+								const sidecarCollisionCounts = new Map<string, number>();
 
-						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
-						for (const sidecarId of movedSidecarIds) {
-							tx.delete(unmappedFiles)
-								.where(eq(unmappedFiles.id, sidecarId))
-								.run();
-						}
+								for (const candidate of relatedSidecars) {
+									const collisionKey = buildMovieSidecarCollisionKey(
+										destPath,
+										file.path,
+										candidate.path,
+									);
+									sidecarCollisionCounts.set(
+										collisionKey,
+										(sidecarCollisionCounts.get(collisionKey) ?? 0) + 1,
+									);
+								}
+
+								for (const candidate of relatedSidecars) {
+									const collisionKey = buildMovieSidecarCollisionKey(
+										destPath,
+										file.path,
+										candidate.path,
+									);
+									const sidecarDest = buildManagedMovieSidecarPath(
+										destPath,
+										file.path,
+										candidate.path,
+										usedDestPaths,
+										(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
+									);
+									moveFileToManagedPath(fs, candidate.path, sidecarDest);
+									recordMove({
+										from: candidate.path,
+										kind: "file",
+										to: sidecarDest,
+									});
+									usedDestPaths.add(sidecarDest);
+									movedSidecarIds.push(candidate.id);
+								}
+							}
+						},
+						runTransaction: () => {
+							db.transaction((tx) => {
+								tx.insert(movieFiles)
+									.values({
+										movieId: row.entityId,
+										path: destPath,
+										size: file.size,
+										quality: file.quality,
+										downloadProfileId: data.downloadProfileId,
+										duration,
+										codec,
+										container,
+									})
+									.run();
+
+								tx.update(movies)
+									.set({ path: path.dirname(destPath) })
+									.where(eq(movies.id, row.entityId))
+									.run();
+
+								tx.insert(history)
+									.values({
+										eventType: "movieFileAdded",
+										movieId: row.entityId,
+										data: {
+											path: destPath,
+											size: file.size,
+											quality: file.quality?.quality?.name ?? "Unknown",
+											source: "unmappedFileMapping",
+										},
+									})
+									.run();
+
+								tx.delete(unmappedFiles)
+									.where(eq(unmappedFiles.id, file.id))
+									.run();
+								for (const sidecarId of movedSidecarIds) {
+									tx.delete(unmappedFiles)
+										.where(eq(unmappedFiles.id, sidecarId))
+										.run();
+								}
+							});
+						},
 					});
 				} catch (error) {
-					rollbackMovedPaths(fs, movedFiles, "movie file move");
 					failures.push(toIssue({ error, file, row }));
 					continue;
 				}
