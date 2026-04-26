@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readarrIndexerResourceSchema } from "./resource-schema";
+import {
+	formatIndexerPayloadError,
+	readarrIndexerResourceSchema,
+} from "./resource-schema";
 
 describe("readarrIndexerResourceSchema", () => {
 	it("accepts a valid Newznab payload with a baseUrl field", () => {
@@ -64,6 +67,52 @@ describe("readarrIndexerResourceSchema", () => {
 						path: ["fields", 0, "value"],
 					}),
 				]),
+			);
+		}
+	});
+
+	it("rejects whitespace-only required strings", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: " ",
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			enableRss: true,
+			fields: [{ name: " ", value: "https://example.com" }],
+			implementation: "Newznab",
+			name: " ",
+			priority: 25,
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ path: ["name"] }),
+					expect.objectContaining({ path: ["configContract"] }),
+					expect.objectContaining({ path: ["fields", 0, "name"] }),
+				]),
+			);
+		}
+	});
+
+	it("formats payload errors with issue paths", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			enableRss: true,
+			fields: [{ name: "baseUrl" }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			priority: 25,
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(formatIndexerPayloadError(result.error)).toContain(
+				"fields.0.value: field value is required",
 			);
 		}
 	});

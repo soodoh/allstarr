@@ -191,9 +191,11 @@ describe("synced indexer api routes", () => {
 		});
 
 		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({
+		const json = await response.json();
+		expect(json).toMatchObject({
 			message: "Invalid indexer payload",
 		});
+		expect(json.errors).toEqual([expect.any(String)]);
 		expect(syncApiMocks.fromReadarrResource).not.toHaveBeenCalled();
 		expect(syncApiMocks.db.insert).not.toHaveBeenCalled();
 	});
@@ -223,9 +225,11 @@ describe("synced indexer api routes", () => {
 		});
 
 		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({
+		const json = await response.json();
+		expect(json).toMatchObject({
 			message: "Invalid indexer payload",
 		});
+		expect(json.errors).toEqual(expect.arrayContaining([expect.any(String)]));
 		expect(syncApiMocks.fromReadarrResource).not.toHaveBeenCalled();
 		expect(syncApiMocks.db.insert).not.toHaveBeenCalled();
 	});
@@ -383,9 +387,11 @@ describe("synced indexer api routes", () => {
 		});
 
 		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({
+		const json = await response.json();
+		expect(json).toMatchObject({
 			message: "Invalid indexer payload",
 		});
+		expect(json.errors).toEqual(expect.arrayContaining([expect.any(String)]));
 		expect(syncApiMocks.fromReadarrResource).not.toHaveBeenCalled();
 		expect(syncApiMocks.db.update).not.toHaveBeenCalled();
 	});

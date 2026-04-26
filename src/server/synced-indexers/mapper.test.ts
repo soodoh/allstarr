@@ -188,7 +188,7 @@ describe("fromReadarrResource", () => {
 			...baseBody,
 			implementation: "Torznab",
 			configContract: "TorznabSettings",
-			protocol: undefined as unknown as string,
+			protocol: undefined as unknown as ReadarrIndexerResource["protocol"],
 		};
 		const result = fromReadarrResource(body);
 		expect(result.protocol).toBe("torrent");
@@ -198,7 +198,7 @@ describe("fromReadarrResource", () => {
 		const body: ReadarrIndexerResource = {
 			...baseBody,
 			implementation: "Newznab",
-			protocol: undefined as unknown as string,
+			protocol: undefined as unknown as ReadarrIndexerResource["protocol"],
 		};
 		const result = fromReadarrResource(body);
 		expect(result.protocol).toBe("usenet");
