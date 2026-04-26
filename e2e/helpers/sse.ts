@@ -17,6 +17,7 @@ export default async function captureSSEEvents(
   action: () => Promise<void>,
   options: {
     timeoutMs?: number;
+    /** Stringified and executed in the browser context; do not close over test variables. */
     until?: (events: CapturedEvent[]) => boolean;
   } = {},
 ): Promise<CapturedEvent[]> {
@@ -60,12 +61,15 @@ export default async function captureSSEEvents(
   let events: CapturedEvent[] = [];
 
   try {
-    await page.waitForFunction(() => {
-      const globalWindow = window as typeof window & {
-        __allstarrSseCapture?: { ready: boolean };
-      };
-      return globalWindow.__allstarrSseCapture?.ready === true;
-    });
+    await page.waitForFunction(
+      () => {
+        const globalWindow = window as typeof window & {
+          __allstarrSseCapture?: { ready: boolean };
+        };
+        return globalWindow.__allstarrSseCapture?.ready === true;
+      },
+      { timeout: timeoutMs },
+    );
 
     // Perform the action while SSE is listening
     await action();

@@ -252,7 +252,9 @@ test.describe("Blocklist and Failure Recovery", () => {
       "/nonexistent/import/path",
     );
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads", {
+      expectedStatus: "Error",
+    });
 
     // With redownloadFailed enabled, auto-search should have run and
     // potentially grabbed an alternative release
@@ -295,7 +297,9 @@ test.describe("Blocklist and Failure Recovery", () => {
       "/nonexistent/remove/path",
     );
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+    await triggerScheduledTask(page, appUrl, "Refresh Downloads", {
+      expectedStatus: "Error",
+    });
 
     // Verify fake qBittorrent received the removal command
     await expect(async () => {
