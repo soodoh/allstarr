@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "src/db";
 import { trackedDownloads } from "src/db/schema";
 
@@ -16,6 +16,9 @@ export type TrackedDownloadState = (typeof trackedDownloadStates)[number];
 
 export type TrackedDownloadStateDb = Pick<typeof db, "select" | "update">;
 type TrackedDownloadStateUpdate = Partial<typeof trackedDownloads.$inferInsert>;
+type RunResultWithChanges = {
+	changes: number;
+};
 
 const allowedTransitions: Record<
 	TrackedDownloadState,
@@ -36,6 +39,15 @@ function assertTrackedDownloadState(
 	if (!trackedDownloadStates.includes(state as TrackedDownloadState)) {
 		throw new Error(`Unknown tracked download state ${state}.`);
 	}
+}
+
+function hasRunChanges(result: unknown): result is RunResultWithChanges {
+	return (
+		typeof result === "object" &&
+		result !== null &&
+		"changes" in result &&
+		typeof result.changes === "number"
+	);
 }
 
 function transitionTrackedDownload(
@@ -62,10 +74,20 @@ function transitionTrackedDownload(
 		);
 	}
 
-	tx.update(trackedDownloads)
+	const result: unknown = tx
+		.update(trackedDownloads)
 		.set({ ...values, state: nextState, updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, id))
+		.where(
+			and(
+				eq(trackedDownloads.id, id),
+				eq(trackedDownloads.state, trackedDownload.state),
+			),
+		)
 		.run();
+
+	if (hasRunChanges(result) && result.changes === 0) {
+		throw new Error(`Tracked download ${id} changed state before transition.`);
+	}
 }
 
 export function markTrackedDownloadDownloading(
@@ -77,7 +99,7 @@ export function markTrackedDownloadDownloading(
 
 export function markTrackedDownloadCompleted(
 	id: number,
-	outputPath: string,
+	outputPath: string | null,
 	tx?: TrackedDownloadStateDb,
 ): void {
 	transitionTrackedDownload(id, "completed", { outputPath }, tx);

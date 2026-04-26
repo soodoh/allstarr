@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+	and: vi.fn((...conditions: unknown[]) => ({ conditions, op: "and" })),
 	defaultDb: {
 		select: vi.fn(),
 		update: vi.fn(),
 	},
+	eq: vi.fn((left: unknown, right: unknown) => ({ left, op: "eq", right })),
+}));
+
+vi.mock("drizzle-orm", () => ({
+	and: mocks.and,
+	eq: mocks.eq,
 }));
 
 vi.mock("src/db", () => ({
@@ -32,28 +39,43 @@ type TrackedDownloadRow = {
 type FakeDb = {
 	select: ReturnType<typeof vi.fn>;
 	update: ReturnType<typeof vi.fn>;
+	whereArgs: unknown[];
 };
 
 type DbMethod = () => unknown;
 
-function createFakeDb(rows: TrackedDownloadRow[]): FakeDb {
+function createFakeDb(rows: TrackedDownloadRow[], runResult?: unknown): FakeDb {
+	const whereArgs: unknown[] = [];
+
 	return {
 		select: vi.fn(() => ({
 			from: vi.fn(() => ({
-				where: vi.fn(() => ({
+				where: vi.fn((_whereArg: unknown) => ({
 					get: vi.fn(() => rows[0]),
 				})),
 			})),
 		})),
 		update: vi.fn(() => ({
 			set: vi.fn((values: Partial<TrackedDownloadRow>) => ({
-				where: vi.fn(() => ({
+				where: vi.fn((whereArg: unknown) => ({
 					run: vi.fn(() => {
-						Object.assign(rows[0] ?? {}, values);
+						whereArgs.push(whereArg);
+						if (
+							!(
+								typeof runResult === "object" &&
+								runResult !== null &&
+								"changes" in runResult &&
+								runResult.changes === 0
+							)
+						) {
+							Object.assign(rows[0] ?? {}, values);
+						}
+						return runResult;
 					}),
 				})),
 			})),
 		})),
+		whereArgs,
 	};
 }
 
@@ -64,7 +86,7 @@ function useDefaultDb(fakeDb: FakeDb): void {
 
 afterEach(() => {
 	vi.useRealTimers();
-	vi.resetAllMocks();
+	vi.clearAllMocks();
 });
 
 describe("tracked download state transitions", () => {
@@ -101,6 +123,25 @@ describe("tracked download state transitions", () => {
 			id: 2,
 			state: "completed",
 			outputPath: "/downloads/book.epub",
+			updatedAt: now,
+		});
+	});
+
+	it("transitions a queued tracked download to completed with null output path", () => {
+		const now = new Date("2026-01-02T03:04:05.000Z");
+		vi.setSystemTime(now);
+		const rows: TrackedDownloadRow[] = [
+			{ id: 11, state: "queued", outputPath: "/downloads/old.epub" },
+		];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		markTrackedDownloadCompleted(11, null);
+
+		expect(rows[0]).toMatchObject({
+			id: 11,
+			state: "completed",
+			outputPath: null,
 			updatedAt: now,
 		});
 	});
@@ -218,5 +259,36 @@ describe("tracked download state transitions", () => {
 		expect(tx.update).toHaveBeenCalled();
 		expect(mocks.defaultDb.select).not.toHaveBeenCalled();
 		expect(mocks.defaultDb.update).not.toHaveBeenCalled();
+	});
+
+	it("guards updates with the observed current state", () => {
+		const rows: TrackedDownloadRow[] = [{ id: 12, state: "queued" }];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		markTrackedDownloadDownloading(12);
+
+		expect(mocks.and).toHaveBeenCalledWith(
+			{ left: expect.anything(), op: "eq", right: 12 },
+			{ left: expect.anything(), op: "eq", right: "queued" },
+		);
+		expect(fakeDb.whereArgs.at(-1)).toEqual({
+			conditions: [
+				{ left: expect.anything(), op: "eq", right: 12 },
+				{ left: expect.anything(), op: "eq", right: "queued" },
+			],
+			op: "and",
+		});
+	});
+
+	it("throws when the guarded update does not change a row", () => {
+		const rows: TrackedDownloadRow[] = [{ id: 13, state: "queued" }];
+		const fakeDb = createFakeDb(rows, { changes: 0 });
+		useDefaultDb(fakeDb);
+
+		expect(() => markTrackedDownloadDownloading(13)).toThrow(
+			"Tracked download 13 changed state before transition.",
+		);
+		expect(rows[0]?.state).toBe("queued");
 	});
 });
