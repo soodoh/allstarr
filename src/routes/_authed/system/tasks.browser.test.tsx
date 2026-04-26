@@ -238,6 +238,7 @@ describe("system tasks route", () => {
 					name: "RSS Sync",
 					nextExecution: "2025-04-08T12:00:30.000Z",
 					progress: "Scanning feeds",
+					runStatus: "running",
 				},
 				{
 					enabled: true,
@@ -252,6 +253,7 @@ describe("system tasks route", () => {
 					name: "Refresh Metadata",
 					nextExecution: null,
 					progress: null,
+					runStatus: null,
 				},
 				{
 					enabled: false,
@@ -266,6 +268,7 @@ describe("system tasks route", () => {
 					name: "Move Files",
 					nextExecution: "2025-04-08T14:00:00.000Z",
 					progress: null,
+					runStatus: null,
 				},
 				{
 					enabled: true,
@@ -280,6 +283,7 @@ describe("system tasks route", () => {
 					name: "Cleanup Cache",
 					nextExecution: "2025-04-10T12:00:00.000Z",
 					progress: null,
+					runStatus: null,
 				},
 				{
 					enabled: true,
@@ -294,6 +298,7 @@ describe("system tasks route", () => {
 					name: "Custom Task",
 					nextExecution: "2025-04-08T12:30:00.000Z",
 					progress: null,
+					runStatus: null,
 				},
 			],
 		});
@@ -392,6 +397,7 @@ describe("system tasks route", () => {
 					name: "Queued Task",
 					nextExecution: null,
 					progress: null,
+					runStatus: null,
 				},
 			],
 		});
@@ -403,5 +409,35 @@ describe("system tasks route", () => {
 
 		expect(container.querySelector(".h-8.w-8.cursor-pointer")).toBeDisabled();
 		expect(container.querySelector(".animate-spin")).not.toBeNull();
+	});
+
+	it("renders a stale badge for stale persisted run state", async () => {
+		tasksRouteMocks.useSuspenseQuery.mockReturnValue({
+			data: [
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "task-stale",
+					interval: 3600,
+					isRunning: true,
+					lastDuration: null,
+					lastExecution: "2025-04-08T11:00:00.000Z",
+					lastMessage: null,
+					lastResult: null,
+					name: "Recoverable Task",
+					nextExecution: "2025-04-08T12:00:00.000Z",
+					progress: "Heartbeat expired",
+					runStatus: "stale",
+				},
+			],
+		});
+
+		const routeConfig = Route as unknown as {
+			component: () => JSX.Element;
+		};
+		await renderWithProviders(routeConfig.component());
+
+		await expect.element(page.getByText("Stale")).toBeInTheDocument();
+		await expect.element(page.getByText("Running")).not.toBeInTheDocument();
 	});
 });

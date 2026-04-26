@@ -1,6 +1,13 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle, Clock, Loader2, Play, XCircle } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCircle,
+	Clock,
+	Loader2,
+	Play,
+	XCircle,
+} from "lucide-react";
 import { TableSkeleton } from "src/components/shared/loading-skeleton";
 import PageHeader from "src/components/shared/page-header";
 import { Badge } from "src/components/ui/badge";
@@ -97,6 +104,15 @@ function formatRelativeTime(isoString: string): string {
 }
 
 function StatusBadge({ task }: { task: ScheduledTask }) {
+	if (task.runStatus === "stale") {
+		return (
+			<Badge variant="destructive" className="gap-1">
+				<AlertTriangle className="h-3 w-3" />
+				Stale
+			</Badge>
+		);
+	}
+
 	if (task.isRunning) {
 		return (
 			<Badge variant="outline" className="gap-1">
