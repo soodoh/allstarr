@@ -10,9 +10,11 @@ export type MappingMoveOperation = {
 };
 
 type MappingFs = {
+	copyFileSync: (from: string, to: string) => unknown;
 	existsSync: (target: string) => boolean;
 	mkdirSync: (target: string, options?: { recursive?: boolean }) => unknown;
 	renameSync: (from: string, to: string) => unknown;
+	unlinkSync: (target: string) => unknown;
 };
 
 type ExecuteMappingInput<TResult> = {
@@ -29,7 +31,7 @@ function movePathToManagedDestination(
 	fs: MappingFs,
 	from: string,
 	to: string,
-	_kind: MappingMoveKind,
+	kind: MappingMoveKind,
 ): void {
 	if (!fs.existsSync(from)) {
 		return;
@@ -38,7 +40,32 @@ function movePathToManagedDestination(
 	if (!fs.existsSync(parent)) {
 		fs.mkdirSync(parent, { recursive: true });
 	}
-	fs.renameSync(from, to);
+
+	try {
+		fs.renameSync(from, to);
+		return;
+	} catch (error) {
+		if (
+			kind === "directory" ||
+			!(error instanceof Error) ||
+			!("code" in error) ||
+			error.code !== "EXDEV"
+		) {
+			throw error;
+		}
+	}
+
+	fs.copyFileSync(from, to);
+	try {
+		fs.unlinkSync(from);
+	} catch (error) {
+		try {
+			fs.unlinkSync(to);
+		} catch {
+			// Ignore cleanup failures so the original unlink error is preserved.
+		}
+		throw error;
+	}
 }
 
 function rollbackMovedPaths({

@@ -1,22 +1,20 @@
-import {
-	executeMappingWithRollback,
-	type MappingMoveOperation,
-} from "src/server/unmapped-file-mapping-executor";
+import { executeMappingWithRollback } from "src/server/unmapped-file-mapping-executor";
 import { describe, expect, it, vi } from "vitest";
 
 function createFsMock() {
 	return {
-		renameSync: vi.fn(),
-		mkdirSync: vi.fn(),
+		copyFileSync: vi.fn(),
 		existsSync: vi.fn(() => true),
+		mkdirSync: vi.fn(),
+		renameSync: vi.fn(),
 		rmSync: vi.fn(),
+		unlinkSync: vi.fn(),
 	};
 }
 
 describe("executeMappingWithRollback", () => {
 	it("runs moves before the transaction and returns the transaction result", () => {
 		const fs = createFsMock();
-		const moved: MappingMoveOperation[] = [];
 		const events: string[] = [];
 
 		const result = executeMappingWithRollback({
@@ -37,11 +35,6 @@ describe("executeMappingWithRollback", () => {
 			},
 		});
 
-		moved.push({
-			from: "/source/book.epub",
-			to: "/dest/book.epub",
-			kind: "file",
-		});
 		expect(result).toBe("mapped");
 		expect(fs.renameSync).toHaveBeenCalledWith(
 			"/source/book.epub",
@@ -49,7 +42,6 @@ describe("executeMappingWithRollback", () => {
 		);
 		expect(fs.renameSync).toHaveBeenCalledTimes(1);
 		expect(events).toEqual(["move", "transaction"]);
-		expect(moved).toHaveLength(1);
 	});
 
 	it("rolls back recorded moves in reverse order when the transaction fails", () => {
@@ -87,6 +79,38 @@ describe("executeMappingWithRollback", () => {
 			"/dest/book.epub",
 			"/source/book.epub",
 		);
+	});
+
+	it("falls back to copy and unlink when rolling back a file across devices", () => {
+		const fs = createFsMock();
+		const exdevError = new Error("cross-device link");
+		Object.assign(exdevError, { code: "EXDEV" });
+		fs.renameSync.mockImplementation(() => {
+			throw exdevError;
+		});
+
+		expect(() =>
+			executeMappingWithRollback({
+				fs,
+				logLabel: "test move",
+				move: ({ recordMove }) => {
+					recordMove({
+						from: "/source/book.epub",
+						to: "/dest/book.epub",
+						kind: "file",
+					});
+				},
+				runTransaction: () => {
+					throw new Error("insert failed");
+				},
+			}),
+		).toThrow("insert failed");
+
+		expect(fs.copyFileSync).toHaveBeenCalledWith(
+			"/dest/book.epub",
+			"/source/book.epub",
+		);
+		expect(fs.unlinkSync).toHaveBeenCalledWith("/dest/book.epub");
 	});
 
 	it("logs rollback failures without masking the original error", () => {
