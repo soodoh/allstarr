@@ -155,7 +155,7 @@ export async function triggerScheduledTask(
 	const runButton = row.getByRole("button").last();
 	await expect(runButton).toBeEnabled({ timeout: 5_000 });
 	const taskId = taskNameToId(taskName);
-	let clickStartedAt = Number.POSITIVE_INFINITY;
+	const clickStartedAt = Date.now();
 	const taskResponse = page.waitForResponse(
 		(response) => {
 			const request = response.request();
@@ -166,34 +166,22 @@ export async function triggerScheduledTask(
 		},
 		{ timeout: 30_000 },
 	);
-
-	clickStartedAt = Date.now();
-	await runButton.click();
-	const response = await taskResponse;
-	expect(response.ok()).toBe(true);
-	const postTiming = response.request().timing();
-	const postResponseAt =
-		postTiming.responseEnd !== -1
-			? postTiming.startTime + postTiming.responseEnd
-			: postTiming.responseStart !== -1
-				? postTiming.startTime + postTiming.responseStart
-				: Date.now();
-	// The invalidated tasks query can start in the same browser tick as the
-	// mutation response; keep the cutoff tied to the POST response timing, not
-	// the helper's later Date.now() observation.
-	const refetchStartedAt = postResponseAt - 250;
 	const tasksRefetch = page.waitForResponse(
 		(refetchResponse) =>
 			responseHasFreshTaskResult(
 				refetchResponse,
 				appUrl,
-				refetchStartedAt,
+				clickStartedAt,
 				clickStartedAt,
 				taskId,
 				expectedStatus === "Success" ? "success" : "error",
-		),
+			),
 		{ timeout: 30_000 },
 	);
+
+	await runButton.click();
+	const response = await taskResponse;
+	expect(response.ok()).toBe(true);
 	const refetchResponse = await tasksRefetch;
 	expect(refetchResponse.ok()).toBe(true);
 

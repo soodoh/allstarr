@@ -171,6 +171,39 @@ describe("synced indexer api routes", () => {
 		});
 	});
 
+	it("creates a synced indexer from mapper-defaulted Prowlarr payloads", async () => {
+		const body = {
+			configContract: "TorznabSettings",
+			fields: [{ name: "baseUrl", value: "https://example.com" }],
+			implementation: "Torznab",
+			name: "Created Indexer",
+		};
+		syncApiMocks.returningInsert.mockResolvedValue([
+			{ id: 8, implementation: "Torznab", name: "Created Indexer" },
+		]);
+
+		const handler = (
+			IndexerListRoute as unknown as {
+				server: {
+					handlers: {
+						POST: (input: { request: Request }) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.POST;
+
+		const response = await handler({
+			request: new Request("https://example.com/api/v1/indexer", {
+				body: JSON.stringify(body),
+				headers: { "content-type": "application/json" },
+				method: "POST",
+			}),
+		});
+
+		expect(syncApiMocks.fromReadarrResource).toHaveBeenCalledWith(body);
+		expect(response.status).toBe(201);
+	});
+
 	it("rejects malformed JSON when creating a synced indexer", async () => {
 		const handler = (
 			IndexerListRoute as unknown as {
