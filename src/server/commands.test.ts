@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const commandsMocks = vi.hoisted(() => ({
 	acquireJobRun: vi.fn(),
@@ -85,7 +85,7 @@ describe("commands server helpers", () => {
 			displayName: "Refresh book",
 			dedupeKey: "mediaId",
 			dedupeValue: "7",
-			metadata: { body: { mediaId: 7 } },
+			metadata: { body: { mediaId: 7 }, batchTaskId: undefined },
 		});
 		expect(handler).not.toHaveBeenCalled();
 	});
@@ -127,8 +127,30 @@ describe("commands server helpers", () => {
 			jobType: "refreshBook",
 			displayName: "Refresh book",
 			dedupeKey: "mediaId",
-			dedupeValue: undefined,
-			metadata: { body: {} },
+			dedupeValue: expect.any(String),
+			metadata: { body: {}, batchTaskId: undefined },
+		});
+	});
+
+	it("stores batch task overlap metadata on command job runs", () => {
+		const handler = vi.fn(async () => ({}));
+
+		submitCommand({
+			batchTaskId: "metadata-refresh",
+			body: { mediaId: 21 },
+			commandType: "refreshBook",
+			dedupeKey: "mediaId",
+			handler,
+			name: "Refresh book",
+		});
+
+		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
+			sourceType: "command",
+			jobType: "refreshBook",
+			displayName: "Refresh book",
+			dedupeKey: "mediaId",
+			dedupeValue: "21",
+			metadata: { body: { mediaId: 21 }, batchTaskId: "metadata-refresh" },
 		});
 	});
 
@@ -161,7 +183,7 @@ describe("commands server helpers", () => {
 			displayName: "Refresh book",
 			dedupeKey: "mediaId",
 			dedupeValue: "99",
-			metadata: { body: { mediaId: 99 } },
+			metadata: { body: { mediaId: 99 }, batchTaskId: undefined },
 		});
 
 		await vi.waitFor(() => {
@@ -259,5 +281,88 @@ describe("commands server helpers", () => {
 		]);
 
 		expect(commandsMocks.requireAuth).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("commands server helpers with real job-run acquisition", () => {
+	afterEach(() => {
+		vi.doMock("./job-runs", () => ({
+			acquireJobRun: commandsMocks.acquireJobRun,
+			completeJobRun: commandsMocks.completeJobRun,
+			failJobRun: commandsMocks.failJobRun,
+			listActiveJobRuns: commandsMocks.listActiveJobRuns,
+			updateJobRunProgress: commandsMocks.updateJobRunProgress,
+		}));
+		vi.doMock("src/db", () => ({
+			db: new Proxy({}, { get: () => commandsMocks.rejectDbUse }),
+		}));
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db/schema");
+		vi.resetModules();
+	});
+
+	it("allows same-type commands with missing dedupe values to run concurrently", async () => {
+		vi.resetModules();
+		vi.doUnmock("./job-runs");
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db/schema");
+
+		const [{ default: Database }, { drizzle }, schema] = await Promise.all([
+			import("better-sqlite3"),
+			import("drizzle-orm/better-sqlite3"),
+			import("src/db/schema"),
+		]);
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE job_runs (
+				id integer PRIMARY KEY AUTOINCREMENT,
+				source_type text NOT NULL,
+				job_type text NOT NULL,
+				display_name text NOT NULL,
+				dedupe_key text,
+				dedupe_value text,
+				status text DEFAULT 'queued' NOT NULL,
+				progress text,
+				attempt integer DEFAULT 1 NOT NULL,
+				result text,
+				error text,
+				metadata text,
+				started_at integer,
+				last_heartbeat_at integer,
+				finished_at integer,
+				created_at integer NOT NULL,
+				updated_at integer NOT NULL
+			)
+		`);
+		sqlite.exec(`
+			CREATE UNIQUE INDEX job_runs_active_dedupe_unique_idx
+			ON job_runs (source_type, job_type, dedupe_key, dedupe_value)
+			WHERE status IN ('queued', 'running')
+		`);
+		const db = drizzle({ client: sqlite, schema });
+
+		vi.doMock("src/db", () => ({ db, sqlite }));
+		const { submitCommand } = await import("./commands");
+		const handler = vi.fn(() => new Promise<Record<string, unknown>>(() => {}));
+
+		const first = submitCommand({
+			body: {},
+			commandType: "refreshBook",
+			dedupeKey: "mediaId",
+			handler,
+			name: "Refresh book",
+		});
+		const second = submitCommand({
+			body: {},
+			commandType: "refreshBook",
+			dedupeKey: "mediaId",
+			handler,
+			name: "Refresh book",
+		});
+
+		expect(first.commandId).not.toBe(second.commandId);
+		expect(handler).toHaveBeenCalledTimes(2);
+
+		sqlite.close();
 	});
 });

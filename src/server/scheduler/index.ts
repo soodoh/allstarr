@@ -6,6 +6,7 @@ import {
 	acquireJobRun,
 	completeJobRun,
 	failJobRun,
+	listActiveJobRuns,
 	markStaleJobRuns,
 	updateJobRunProgress,
 } from "../job-runs";
@@ -43,6 +44,19 @@ function recoverStaleScheduledRuns(): void {
 	}
 }
 
+function hasActiveCommandOverlap(taskId: string): boolean {
+	return listActiveJobRuns().some((run) => {
+		if (run.sourceType !== "command") {
+			return false;
+		}
+
+		const metadata =
+			run.metadata && typeof run.metadata === "object" ? run.metadata : {};
+
+		return "batchTaskId" in metadata && metadata.batchTaskId === taskId;
+	});
+}
+
 function seedTasksIfNeeded(): void {
 	const existing = db.select().from(scheduledTasks).all();
 	const existingIds = new Set(existing.map((t) => t.id));
@@ -69,6 +83,10 @@ async function executeTask(taskId: string): Promise<void> {
 	}
 
 	recoverStaleScheduledRuns();
+
+	if (hasActiveCommandOverlap(task.id)) {
+		return;
+	}
 
 	let run: ReturnType<typeof acquireJobRun>;
 	try {
