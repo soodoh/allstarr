@@ -5,7 +5,7 @@ const commandsMocks = vi.hoisted(() => ({
 	deleteRun: vi.fn(),
 	emit: vi.fn(),
 	insertGet: vi.fn(),
-	isTaskRunning: vi.fn(),
+	listActiveJobRuns: vi.fn(),
 	logError: vi.fn(),
 	requireAuth: vi.fn(),
 	selectDuplicates: vi.fn(),
@@ -76,8 +76,8 @@ vi.mock("./middleware", () => ({
 	requireAuth: commandsMocks.requireAuth,
 }));
 
-vi.mock("./scheduler/state", () => ({
-	isTaskRunning: commandsMocks.isTaskRunning,
+vi.mock("./job-runs", () => ({
+	listActiveJobRuns: commandsMocks.listActiveJobRuns,
 }));
 
 import { getActiveCommandsFn, submitCommand } from "./commands";
@@ -87,7 +87,7 @@ describe("commands server helpers", () => {
 		vi.clearAllMocks();
 		commandsMocks.activeRows.mockReturnValue([]);
 		commandsMocks.insertGet.mockReturnValue({ id: 42 });
-		commandsMocks.isTaskRunning.mockReturnValue(false);
+		commandsMocks.listActiveJobRuns.mockReturnValue([]);
 		commandsMocks.selectDuplicates.mockReturnValue([]);
 	});
 
@@ -110,7 +110,9 @@ describe("commands server helpers", () => {
 	});
 
 	it("rejects commands when a conflicting batch task is already running", () => {
-		commandsMocks.isTaskRunning.mockReturnValue(true);
+		commandsMocks.listActiveJobRuns.mockReturnValue([
+			{ sourceType: "scheduled", jobType: "metadata-refresh" },
+		]);
 
 		expect(() =>
 			submitCommand({
@@ -122,6 +124,8 @@ describe("commands server helpers", () => {
 				name: "Refresh book",
 			}),
 		).toThrowError("A batch metadata refresh is already running.");
+
+		expect(commandsMocks.insertGet).not.toHaveBeenCalled();
 	});
 
 	it("updates progress, emits completion, and clears finished commands", async () => {
