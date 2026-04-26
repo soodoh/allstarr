@@ -68,6 +68,7 @@ export default async function captureSSEEvents(
         };
         return globalWindow.__allstarrSseCapture?.ready === true;
       },
+      undefined,
       { timeout: timeoutMs },
     );
 
