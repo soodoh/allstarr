@@ -11,13 +11,15 @@ vi.mock("@unpic/react", () => ({
 
 import OptimizedImage from "./optimized-image";
 
+const TEST_IMAGE_SRC = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+
 describe("OptimizedImage", () => {
 	it("renders the remote image when a source is available", async () => {
 		renderWithProviders(
 			<OptimizedImage
 				alt="Dune cover"
 				height={300}
-				src="https://example.com/dune.jpg"
+				src={TEST_IMAGE_SRC}
 				type="book"
 				width={200}
 			/>,
@@ -25,7 +27,7 @@ describe("OptimizedImage", () => {
 
 		await expect
 			.element(page.getByAltText("Dune cover"))
-			.toHaveAttribute("src", "https://example.com/dune.jpg");
+			.toHaveAttribute("src", TEST_IMAGE_SRC);
 		await expect.element(page.getByText("No cover")).not.toBeInTheDocument();
 	});
 
@@ -35,7 +37,7 @@ describe("OptimizedImage", () => {
 				alt="Featured poster"
 				height={300}
 				priority
-				src="https://example.com/featured.jpg"
+				src={TEST_IMAGE_SRC}
 				type="movie"
 				width={200}
 			/>,
@@ -71,7 +73,7 @@ describe("OptimizedImage", () => {
 			<OptimizedImage
 				alt="Broken poster"
 				height={300}
-				src="https://example.com/broken.jpg"
+				src={TEST_IMAGE_SRC}
 				type="movie"
 				width={200}
 			/>,
