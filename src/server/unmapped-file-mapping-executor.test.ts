@@ -81,6 +81,54 @@ describe("executeMappingWithRollback", () => {
 		);
 	});
 
+	it("rolls back completed earlier moves when a later move fails", () => {
+		const fs = createFsMock();
+		fs.renameSync.mockImplementation((from: string, to: string) => {
+			if (from === "/source/book.srt" && to === "/dest/book.srt") {
+				throw new Error("sidecar move failed");
+			}
+		});
+
+		expect(() =>
+			executeMappingWithRollback({
+				fs,
+				logLabel: "test move",
+				move: ({ recordMove }) => {
+					fs.renameSync("/source/book.epub", "/dest/book.epub");
+					recordMove({
+						from: "/source/book.epub",
+						to: "/dest/book.epub",
+						kind: "file",
+					});
+
+					fs.renameSync("/source/book.srt", "/dest/book.srt");
+					recordMove({
+						from: "/source/book.srt",
+						to: "/dest/book.srt",
+						kind: "file",
+					});
+				},
+				runTransaction: () => "mapped",
+			}),
+		).toThrow("sidecar move failed");
+
+		expect(fs.renameSync).toHaveBeenNthCalledWith(
+			1,
+			"/source/book.epub",
+			"/dest/book.epub",
+		);
+		expect(fs.renameSync).toHaveBeenNthCalledWith(
+			2,
+			"/source/book.srt",
+			"/dest/book.srt",
+		);
+		expect(fs.renameSync).toHaveBeenNthCalledWith(
+			3,
+			"/dest/book.epub",
+			"/source/book.epub",
+		);
+	});
+
 	it("falls back to copy and unlink when rolling back a file across devices", () => {
 		const fs = createFsMock();
 		const exdevError = new Error("cross-device link");
