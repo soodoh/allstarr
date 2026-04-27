@@ -1217,6 +1217,99 @@ describe("error handling", () => {
 		expect(result.details[0].error).toBe("Provider down");
 		expect(result.outcomes.download_dispatch_failed).toBe(1);
 	});
+
+	it("records download dispatch failure when book provider resolution throws", async () => {
+		const release = makeRelease();
+		const providerError = new Error("Provider registry down");
+		mocks.getProvider.mockRejectedValue(providerError);
+		const getCallIdx = { n: 0 };
+		mocks.selectGet.mockImplementation(() => {
+			getCallIdx.n += 1;
+			switch (getCallIdx.n) {
+				case 1:
+					return { downloadClientId: 5 };
+				case 2:
+					return {
+						id: 5,
+						name: "SABnzbd",
+						implementation: "sabnzbd",
+						host: "localhost",
+						port: 8080,
+						useSsl: false,
+						urlBase: "",
+						username: "",
+						password: "",
+						apiKey: "abc",
+						category: "books",
+						tag: null,
+						protocol: "usenet",
+						enabled: true,
+						priority: 1,
+						settings: null,
+					};
+				case 3:
+					return { tag: null };
+				default:
+					return undefined;
+			}
+		});
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Test Book",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "Author",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
+
+		expect(result.errors).toBe(1);
+		expect(result.details[0].error).toBe("Provider registry down");
+		expect(result.outcomes.download_dispatch_failed).toBe(1);
+	});
 });
 
 describe("grab helper — no download client", () => {
@@ -2657,6 +2750,99 @@ describe("pack handling — author-level search", () => {
 
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("does not suppress same-guid fallback grabs after author pack no-client outcomes", async () => {
+		const packRelease = makeRelease({
+			guid: "author-pack-no-client",
+			title: "AuthorX Complete Works",
+			releaseType: 3,
+		});
+		const fallbackRelease = makeRelease({
+			guid: packRelease.guid,
+			title: "AuthorX Book A",
+			releaseType: 0,
+		});
+		mocks.getReleaseTypeRank.mockReturnValueOnce(3).mockReturnValue(0);
+		mocks.selectGet.mockReturnValue(undefined);
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 11,
+							title: "Book B",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [{ editionId: 101, profileId: profile.id }];
+				case 9:
+					return [profile];
+				case 10:
+					return [];
+				case 11:
+					return [];
+				case 12:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab
+			.mockResolvedValueOnce([packRelease])
+			.mockResolvedValue([fallbackRelease]);
+		mocks.dedupeAndScoreReleases.mockImplementation((releases) => releases);
+
+		const result = await runAutoSearch({
+			bookIds: [10, 11],
+			delayBetweenBooks: 0,
+		});
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBe(1);
+		expect(mocks.logWarn).toHaveBeenCalledWith(
+			"rss-sync",
+			expect.stringContaining(fallbackRelease.title),
+		);
 	});
 
 	it("does not suppress same-guid grabs in unrelated later author groups", async () => {
@@ -4235,6 +4421,89 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.episodeDetails).toBeDefined();
 		expect(result.outcomes.no_matching_releases).toBe(3);
+		expect(result.outcomes.fallback_used).toBe(1);
+		expect(result.outcomes.pack_search_failed).toBe(0);
+	});
+
+	it("records show pack search failure before season fallback", async () => {
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [];
+				case 4:
+					return [];
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Multi Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Multi Season Show",
+							seasonNumber: 2,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab
+			.mockRejectedValueOnce(new Error("show pack failed"))
+			.mockResolvedValue([]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.outcomes.pack_search_failed).toBe(1);
+		expect(result.outcomes.fallback_used).toBe(1);
+		expect(result.outcomes.indexer_failed).toBe(1);
 	});
 
 	it("records no matching releases for season-level searches with zero releases", async () => {
@@ -4497,6 +4766,106 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("does not suppress same-guid fallback grabs after season pack no-client outcomes", async () => {
+		const packRelease = makeRelease({
+			guid: "season-pack-no-client",
+			title: "Single.Season.Show.S01",
+			releaseType: 2,
+		});
+		const fallbackRelease = makeRelease({
+			guid: packRelease.guid,
+			title: "Single.Season.Show.S01E01",
+			releaseType: 0,
+		});
+		mocks.getReleaseTypeRank.mockReturnValueOnce(2).mockReturnValue(0);
+		mocks.selectGet.mockReturnValue(undefined);
+
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [];
+				case 4:
+					return [];
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 2,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				case 14:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab
+			.mockResolvedValueOnce([packRelease])
+			.mockResolvedValue([fallbackRelease]);
+		mocks.dedupeAndScoreReleases.mockImplementation((releases) => releases);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBe(1);
+		expect(mocks.logWarn).toHaveBeenCalledWith(
+			"auto-search",
+			expect.stringContaining(fallbackRelease.title),
+		);
 	});
 
 	it("does not suppress same-guid grabs in unrelated later shows", async () => {

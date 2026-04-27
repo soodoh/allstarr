@@ -142,6 +142,30 @@ describe("dispatchAutoSearchDownload", () => {
 		expect(recordOutcome).toHaveBeenCalledWith("download_dispatch_failed");
 	});
 
+	it("records dispatch failure before preserving provider resolution errors", async () => {
+		const providerError = new Error("provider registry unavailable");
+		const recordOutcome = vi.fn();
+
+		await expect(
+			dispatchAutoSearchDownload({
+				getProvider: vi.fn().mockRejectedValue(providerError),
+				insertHistory: vi.fn(),
+				insertTrackedDownload: vi.fn(),
+				logWarn: vi.fn(),
+				onOutcome: recordOutcome,
+				release: createRelease(),
+				resolveDownloadClient: () => ({
+					client: createClient(),
+					combinedTag: "client-tag,indexer-tag",
+				}),
+				trackedDownload: ({ downloadId }) => ({ downloadId }),
+				history: ({ release }) => ({ eventType: "bookGrabbed", release }),
+			}),
+		).rejects.toBe(providerError);
+
+		expect(recordOutcome).toHaveBeenCalledWith("download_dispatch_failed");
+	});
+
 	it("records history without tracking when provider accepts without a download id", async () => {
 		const provider = {
 			addDownload: vi.fn().mockResolvedValue(null),

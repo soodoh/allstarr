@@ -30,6 +30,7 @@ import {
 } from "./auto-search-indexer-search";
 import {
 	type AutoSearchOutcomeCounts,
+	type AutoSearchOutcomeReason,
 	type AutoSearchOutcomeRecorder,
 	createAutoSearchOutcomeCounts,
 	createAutoSearchOutcomeRecorder,
@@ -63,6 +64,10 @@ type AutoSearchOptions = {
 
 type HistoryInsert = typeof history.$inferInsert;
 type TrackedDownloadInsert = typeof trackedDownloads.$inferInsert;
+type GuidDedupeOutcomeReason = Extract<
+	AutoSearchOutcomeReason,
+	"download_client_unavailable" | "download_dispatch_failed"
+>;
 
 type SearchDetail = {
 	bookId: number;
@@ -856,11 +861,30 @@ function createPackFailureTrackingRecorder(
 	};
 }
 
+function recordOutcomeOnceForGuid(
+	reason: GuidDedupeOutcomeReason,
+	guid: string,
+	recordedOutcomeGuids: Set<string> | undefined,
+	onOutcome?: AutoSearchOutcomeRecorder,
+): void {
+	if (!recordedOutcomeGuids) {
+		onOutcome?.(reason);
+		return;
+	}
+
+	const key = `${reason}:${guid}`;
+	if (recordedOutcomeGuids.has(key)) {
+		return;
+	}
+	recordedOutcomeGuids.add(key);
+	onOutcome?.(reason);
+}
+
 async function searchAndGrabForBook(
 	book: WantedBook,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<SearchDetail> {
 	const detail: SearchDetail = {
 		bookId: book.id,
@@ -911,7 +935,7 @@ async function searchAndGrabForBook(
 		scored,
 		book,
 		onOutcome,
-		attemptedGrabGuids,
+		recordedOutcomeGuids,
 	);
 
 	if (grabbedTitles.length > 0) {
@@ -929,7 +953,7 @@ async function grabPerProfile(
 	scored: IndexerRelease[],
 	book: WantedBook,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -951,9 +975,6 @@ async function grabPerProfile(
 			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
 			.filter(Boolean),
 	);
-	for (const guid of attemptedGrabGuids ?? []) {
-		grabbedGuids.add(guid);
-	}
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
@@ -976,10 +997,15 @@ async function grabPerProfile(
 			continue;
 		}
 
-		attemptedGrabGuids?.add(bestRelease.guid);
-		grabbedGuids.add(bestRelease.guid);
-		const grabbed = await grabRelease(bestRelease, book, profile.id, onOutcome);
+		const grabbed = await grabRelease(
+			bestRelease,
+			book,
+			profile.id,
+			onOutcome,
+			recordedOutcomeGuids,
+		);
 		if (grabbed) {
+			grabbedGuids.add(bestRelease.guid);
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			logInfo(
@@ -1001,10 +1027,16 @@ async function grabReleaseForBookPack(
 	bookId: number | undefined,
 	profileId: number,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		onOutcome?.("download_client_unavailable");
+		recordOutcomeOnceForGuid(
+			"download_client_unavailable",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		logWarn(
 			"auto-search",
 			`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -1014,7 +1046,6 @@ async function grabReleaseForBookPack(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -1031,6 +1062,7 @@ async function grabReleaseForBookPack(
 
 	let downloadId: string | null;
 	try {
+		const provider = await getProvider(client.implementation);
 		downloadId = await provider.addDownload(config, {
 			url: release.downloadUrl,
 			torrentData: null,
@@ -1040,7 +1072,12 @@ async function grabReleaseForBookPack(
 			savePath: null,
 		});
 	} catch (error) {
-		onOutcome?.("download_dispatch_failed");
+		recordOutcomeOnceForGuid(
+			"download_dispatch_failed",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		throw error;
 	}
 
@@ -1089,12 +1126,9 @@ async function grabPerProfileForBooks(
 	wantedBooks: WantedBook[],
 	packContext: PackContext,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
-	for (const guid of attemptedGrabGuids ?? []) {
-		grabbedGuids.add(guid);
-	}
 	let grabbed = false;
 
 	// Collect blocklisted titles for the author's books
@@ -1128,16 +1162,16 @@ async function grabPerProfileForBooks(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			attemptedGrabGuids?.add(best.guid);
-			grabbedGuids.add(best.guid);
 			const result = await grabReleaseForBookPack(
 				best,
 				book.authorId,
 				isPack ? undefined : book.id,
 				profile.id,
 				onOutcome,
+				recordedOutcomeGuids,
 			);
 			if (result) {
+				grabbedGuids.add(best.guid);
 				grabbed = true;
 				logInfo(
 					"auto-search",
@@ -1155,7 +1189,7 @@ async function searchAndGrabForAuthor(
 	wantedBooks: WantedBook[],
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const cleanName = cleanSearchTerm(authorName);
 	const query = `"${cleanName}"`;
@@ -1192,7 +1226,7 @@ async function searchAndGrabForAuthor(
 		wantedBooks,
 		packContext,
 		onOutcome,
-		attemptedGrabGuids,
+		recordedOutcomeGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -1409,7 +1443,7 @@ async function searchAndGrabForEpisode(
 	episode: WantedEpisode,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<EpisodeSearchDetail> {
 	const detail: EpisodeSearchDetail = {
 		episodeId: episode.id,
@@ -1532,7 +1566,7 @@ async function searchAndGrabForEpisode(
 		scored,
 		episode,
 		onOutcome,
-		attemptedGrabGuids,
+		recordedOutcomeGuids,
 	);
 
 	if (grabbedTitles.length > 0) {
@@ -1550,7 +1584,7 @@ async function grabPerProfileForEpisode(
 	scored: IndexerRelease[],
 	episode: WantedEpisode,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -1575,9 +1609,6 @@ async function grabPerProfileForEpisode(
 			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
 			.filter(Boolean),
 	);
-	for (const guid of attemptedGrabGuids ?? []) {
-		grabbedGuids.add(guid);
-	}
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
@@ -1600,15 +1631,15 @@ async function grabPerProfileForEpisode(
 			continue;
 		}
 
-		attemptedGrabGuids?.add(bestRelease.guid);
-		grabbedGuids.add(bestRelease.guid);
 		const grabbed = await grabReleaseForEpisode(
 			bestRelease,
 			episode,
 			profile.id,
 			onOutcome,
+			recordedOutcomeGuids,
 		);
 		if (grabbed) {
+			grabbedGuids.add(bestRelease.guid);
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			logInfo(
@@ -1649,10 +1680,16 @@ async function grabReleaseForEpisodePack(
 	episodeId: number | undefined,
 	profileId: number,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
-		onOutcome?.("download_client_unavailable");
+		recordOutcomeOnceForGuid(
+			"download_client_unavailable",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		logWarn(
 			"auto-search",
 			`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -1662,7 +1699,6 @@ async function grabReleaseForEpisodePack(
 
 	const { client, combinedTag } = resolved;
 
-	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -1679,6 +1715,7 @@ async function grabReleaseForEpisodePack(
 
 	let downloadId: string | null;
 	try {
+		const provider = await getProvider(client.implementation);
 		downloadId = await provider.addDownload(config, {
 			url: release.downloadUrl,
 			torrentData: null,
@@ -1688,7 +1725,12 @@ async function grabReleaseForEpisodePack(
 			savePath: null,
 		});
 	} catch (error) {
-		onOutcome?.("download_dispatch_failed");
+		recordOutcomeOnceForGuid(
+			"download_dispatch_failed",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		throw error;
 	}
 
@@ -1737,12 +1779,9 @@ async function grabPerProfileForEpisodes(
 	wantedEpisodes: WantedEpisode[],
 	packContext: PackContext,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
-	for (const guid of attemptedGrabGuids ?? []) {
-		grabbedGuids.add(guid);
-	}
 	let grabbed = false;
 
 	// Collect blocklisted titles for the show (all episodes share the same show)
@@ -1775,16 +1814,16 @@ async function grabPerProfileForEpisodes(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			attemptedGrabGuids?.add(best.guid);
-			grabbedGuids.add(best.guid);
 			const result = await grabReleaseForEpisodePack(
 				best,
 				ep.showId,
 				isPack ? undefined : ep.id,
 				profile.id,
 				onOutcome,
+				recordedOutcomeGuids,
 			);
 			if (result) {
+				grabbedGuids.add(best.guid);
 				grabbed = true;
 				logInfo(
 					"auto-search",
@@ -1804,7 +1843,7 @@ async function searchAndGrabForSeason(
 	allSeasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}" S${padNumber(seasonNumber)}`;
@@ -1836,7 +1875,7 @@ async function searchAndGrabForSeason(
 		wantedEpisodes,
 		packContext,
 		onOutcome,
-		attemptedGrabGuids,
+		recordedOutcomeGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -1850,10 +1889,11 @@ async function searchAndGrabForShow(
 	seasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids?: Set<string>,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}"`;
+	const packOutcome = createPackFailureTrackingRecorder(onOutcome);
 	const allProfiles = [...seasonMap.values()]
 		.flat()
 		.flatMap((ep) => ep.profiles);
@@ -1866,9 +1906,12 @@ async function searchAndGrabForShow(
 		undefined,
 		"tv",
 		"[auto-search:show]",
-		onOutcome,
+		packOutcome.record,
 	);
 	if (allReleases.length === 0) {
+		if (packOutcome.hadIndexerFailure()) {
+			onOutcome?.("pack_search_failed");
+		}
 		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
@@ -1881,7 +1924,7 @@ async function searchAndGrabForShow(
 		allEpisodes,
 		packContext,
 		onOutcome,
-		attemptedGrabGuids,
+		recordedOutcomeGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -2121,7 +2164,7 @@ async function processIndividualBooks(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids: Set<string>,
+	recordedOutcomeGuids: Set<string>,
 ): Promise<void> {
 	for (let i = 0; i < booksToSearch.length; i += 1) {
 		if (
@@ -2140,7 +2183,7 @@ async function processIndividualBooks(
 				book,
 				ixs,
 				onOutcome,
-				attemptedGrabGuids,
+				recordedOutcomeGuids,
 			);
 			if (detail.searched) {
 				result.searched += 1;
@@ -2196,7 +2239,7 @@ async function processWantedBooks(
 
 	let isFirstGroup = true;
 	for (const [authorName, authorBooks] of booksByAuthor) {
-		const attemptedGrabGuids = new Set<string>();
+		const recordedOutcomeGuids = new Set<string>();
 		if (
 			!anyIndexerAvailable(
 				ixs.manual.map((m) => m.id),
@@ -2220,7 +2263,7 @@ async function processWantedBooks(
 					authorBooks,
 					ixs,
 					onOutcome,
-					attemptedGrabGuids,
+					recordedOutcomeGuids,
 				);
 				recordBookDetails(authorBooks, packResult, result);
 				if (packResult.grabbed) {
@@ -2245,7 +2288,7 @@ async function processWantedBooks(
 			result,
 			delay,
 			onOutcome,
-			attemptedGrabGuids,
+			recordedOutcomeGuids,
 		);
 	}
 }
@@ -2345,7 +2388,7 @@ async function processSeasonEpisodes(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids: Set<string>,
+	recordedOutcomeGuids: Set<string>,
 ): Promise<void> {
 	if (seasonEpisodes.length >= 2) {
 		try {
@@ -2356,7 +2399,7 @@ async function processSeasonEpisodes(
 				seasonMap,
 				ixs,
 				onOutcome,
-				attemptedGrabGuids,
+				recordedOutcomeGuids,
 			);
 			recordEpisodeDetails(seasonEpisodes, seasonResult, result);
 			if (seasonResult.grabbed) {
@@ -2391,7 +2434,7 @@ async function processSeasonEpisodes(
 				episode,
 				ixs,
 				onOutcome,
-				attemptedGrabGuids,
+				recordedOutcomeGuids,
 			);
 			if (detail.searched) {
 				result.searched += 1;
@@ -2452,7 +2495,7 @@ async function processWantedEpisodes(
 
 	let isFirstShow = true;
 	for (const [showId, seasonMap] of episodesByShow) {
-		const attemptedGrabGuids = new Set<string>();
+		const recordedOutcomeGuids = new Set<string>();
 		if (
 			!anyIndexerAvailable(
 				ixs.manual.map((m) => m.id),
@@ -2481,7 +2524,7 @@ async function processWantedEpisodes(
 					seasonMap,
 					ixs,
 					onOutcome,
-					attemptedGrabGuids,
+					recordedOutcomeGuids,
 				);
 				recordEpisodeDetails(
 					[...seasonMap.values()].flat(),
@@ -2492,12 +2535,14 @@ async function processWantedEpisodes(
 					continue;
 				}
 			} catch (error) {
+				onOutcome("pack_search_failed");
 				logError(
 					"auto-search",
 					`Error in show-level search for "${show.title}"`,
 					error,
 				);
 			}
+			onOutcome("fallback_used");
 			await sleep(delay);
 		}
 
@@ -2526,7 +2571,7 @@ async function processWantedEpisodes(
 				result,
 				delay,
 				onOutcome,
-				attemptedGrabGuids,
+				recordedOutcomeGuids,
 			);
 		}
 	}
@@ -2738,6 +2783,7 @@ async function grabRelease(
 	book: WantedBook,
 	profileId: number,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<boolean> {
 	let client: typeof downloadClients.$inferSelect | undefined;
 
@@ -2769,7 +2815,12 @@ async function grabRelease(
 			.filter((c) => c.protocol === release.protocol);
 
 		if (matchingClients.length === 0) {
-			onOutcome?.("download_client_unavailable");
+			recordOutcomeOnceForGuid(
+				"download_client_unavailable",
+				release.guid,
+				recordedOutcomeGuids,
+				onOutcome,
+			);
 			logWarn(
 				"rss-sync",
 				`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -2787,7 +2838,6 @@ async function grabRelease(
 	const combinedTag =
 		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
 
-	const provider = await getProvider(client.implementation);
 	const config: ConnectionConfig = {
 		implementation: client.implementation as ConnectionConfig["implementation"],
 		host: client.host,
@@ -2804,6 +2854,7 @@ async function grabRelease(
 
 	let downloadId: string | null;
 	try {
+		const provider = await getProvider(client.implementation);
 		downloadId = await provider.addDownload(config, {
 			url: release.downloadUrl,
 			torrentData: null,
@@ -2813,7 +2864,12 @@ async function grabRelease(
 			savePath: null,
 		});
 	} catch (error) {
-		onOutcome?.("download_dispatch_failed");
+		recordOutcomeOnceForGuid(
+			"download_dispatch_failed",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		throw error;
 	}
 
@@ -2962,6 +3018,7 @@ async function grabReleaseForEpisode(
 	episode: WantedEpisode,
 	profileId: number,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
 ): Promise<boolean> {
 	return dispatchAutoSearchDownload<
 		IndexerRelease,
@@ -2993,6 +3050,7 @@ async function grabReleaseForEpisode(
 		},
 		logWarn,
 		onOutcome,
+		recordedOutcomeGuids,
 		release,
 		resolveDownloadClient,
 		trackedDownload: ({ client, downloadId, release }) => ({

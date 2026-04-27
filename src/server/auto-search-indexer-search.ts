@@ -86,9 +86,7 @@ async function waitOrSkipBlockedIndexer(
 		return true;
 	}
 
-	if (gate.reason !== "pacing") {
-		onOutcome?.("indexer_skipped");
-	}
+	onOutcome?.("indexer_skipped");
 	logInfo(logPrefix, `Indexer "${indexer.name}" skipped: ${gate.reason}`);
 	return false;
 }
