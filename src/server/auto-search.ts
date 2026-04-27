@@ -107,7 +107,6 @@ type AutoSearchResult = {
 type SearchCountResult = {
 	searched: number;
 	grabbed: number;
-	outcomes: AutoSearchOutcomeCounts;
 };
 
 type EditionProfileTarget = {
@@ -1131,6 +1130,7 @@ async function searchAndGrabForAuthor(
 	);
 
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
 
@@ -1138,7 +1138,11 @@ async function searchAndGrabForAuthor(
 	const packContext: PackContext = {
 		wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
 	};
-	return grabPerProfileForBooks(scored, wantedBooks, packContext);
+	const result = await grabPerProfileForBooks(scored, wantedBooks, packContext);
+	if (!result.grabbed) {
+		onOutcome?.("no_matching_releases");
+	}
+	return result;
 }
 
 // ─── Per-movie search + grab ────────────────────────────────────────────────
@@ -1739,12 +1743,21 @@ async function searchAndGrabForSeason(
 		onOutcome,
 	);
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
 
 	const scored = dedupeAndScoreReleases(allReleases, null, null);
 	const packContext = buildPackContextFromSeasons(allSeasonMap);
-	return grabPerProfileForEpisodes(scored, wantedEpisodes, packContext);
+	const result = await grabPerProfileForEpisodes(
+		scored,
+		wantedEpisodes,
+		packContext,
+	);
+	if (!result.grabbed) {
+		onOutcome?.("no_matching_releases");
+	}
+	return result;
 }
 
 /** Search at the show level (just show name) for multi-season packs */
@@ -1771,13 +1784,22 @@ async function searchAndGrabForShow(
 		onOutcome,
 	);
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
 
 	const scored = dedupeAndScoreReleases(allReleases, null, null);
 	const packContext = buildPackContextFromSeasons(seasonMap);
 	const allEpisodes = [...seasonMap.values()].flat();
-	return grabPerProfileForEpisodes(scored, allEpisodes, packContext);
+	const result = await grabPerProfileForEpisodes(
+		scored,
+		allEpisodes,
+		packContext,
+	);
+	if (!result.grabbed) {
+		onOutcome?.("no_matching_releases");
+	}
+	return result;
 }
 
 // ─── Movie search ───────────────────────────────────────────────────────────
@@ -1785,23 +1807,21 @@ async function searchAndGrabForShow(
 export async function searchForMovie(
 	movieId: number,
 ): Promise<SearchCountResult> {
-	const outcomes = createAutoSearchOutcomeCounts();
-	const recordOutcome = createAutoSearchOutcomeRecorder(outcomes);
 	const wantedMovies = getWantedMovies([movieId]);
 	if (wantedMovies.length === 0) {
-		return { searched: 0, grabbed: 0, outcomes };
+		return { searched: 0, grabbed: 0 };
 	}
 
 	const ixs = getEnabledIndexers();
 	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-		return { searched: 0, grabbed: 0, outcomes };
+		return { searched: 0, grabbed: 0 };
 	}
 
 	let searched = 0;
 	let grabbed = 0;
 
 	for (const movie of wantedMovies) {
-		const detail = await searchAndGrabForMovie(movie, ixs, recordOutcome);
+		const detail = await searchAndGrabForMovie(movie, ixs);
 		if (detail.searched) {
 			searched += 1;
 		}
@@ -1810,7 +1830,7 @@ export async function searchForMovie(
 		}
 	}
 
-	return { searched, grabbed, outcomes };
+	return { searched, grabbed };
 }
 
 // ─── Book/Author search ─────────────────────────────────────────────────────

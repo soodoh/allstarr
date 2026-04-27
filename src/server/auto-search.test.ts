@@ -430,7 +430,7 @@ describe("searchForMovie", () => {
 	it("returns zero counts when no wanted movies", async () => {
 		mocks.selectAll.mockReturnValue([]);
 		const result = await searchForMovie(1);
-		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
+		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 });
 
@@ -1426,7 +1426,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
+		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 
 	it("searches and grabs a release for a wanted movie", async () => {
@@ -1486,7 +1486,7 @@ describe("searchForMovie", () => {
 
 		expect(result.searched).toBe(1);
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.no_matching_releases).toBe(1);
+		expect(result).toEqual({ searched: 1, grabbed: 0 });
 	});
 
 	it("skips movie with active tracked download", async () => {
@@ -1510,7 +1510,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
+		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 
 	it("skips movie with existing files when upgrade not allowed", async () => {
@@ -1540,7 +1540,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
+		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 
 	it("includes movie for upgrade when below cutoff", async () => {
@@ -1656,7 +1656,7 @@ describe("searchForMovie", () => {
 		mocks.selectAll.mockReturnValue([]);
 
 		const result = await searchForMovie(99);
-		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
+		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 });
 
@@ -2025,6 +2025,65 @@ describe("runAutoSearch — movies and episodes integration", () => {
 		expect(movieDetails.length).toBeGreaterThanOrEqual(1);
 	});
 
+	it("records no matching releases for movie searches in full auto-search", async () => {
+		const movieProfile = makeProfile({ id: 10, name: "MovieProfile" });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				// getEnabledIndexers: manual
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				// getEnabledIndexers: synced
+				case 2:
+					return [];
+				// getWantedBooks: none
+				case 3:
+					return [];
+				// getWantedMovies: monitoredMovies
+				case 4:
+					return [
+						{ id: 5, title: "Auto Movie", year: 2024, lastSearchedAt: null },
+					];
+				// getWantedMovies: profileRows
+				case 5:
+					return [{ profileId: movieProfile.id }];
+				// getWantedMovies: profileList
+				case 6:
+					return [movieProfile];
+				// getWantedMovies: activeDownloads
+				case 7:
+					return [];
+				// getWantedMovies: existingFiles
+				case 8:
+					return [];
+				// getWantedEpisodes
+				case 9:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValue([]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.searched).toBe(1);
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(1);
+	});
+
 	it("records movie search error gracefully", async () => {
 		mocks.searchNewznab.mockResolvedValue([makeRelease()]);
 		mocks.dedupeAndScoreReleases.mockImplementation(() => {
@@ -2345,6 +2404,89 @@ describe("pack handling — author-level search", () => {
 		expect(mocks.searchNewznab.mock.calls.length).toBeGreaterThanOrEqual(2);
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("records no matching releases when author search releases are not grabbed", async () => {
+		const release = makeRelease({
+			guid: "blocked-author-pack",
+			title: "AuthorX Complete Works",
+			releaseType: 3,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(3);
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 11,
+							title: "Book B",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [{ editionId: 101, profileId: profile.id }];
+				case 9:
+					return [profile];
+				case 10:
+					return [];
+				case 11:
+					return [];
+				// searchAndGrabForAuthor: blocklist for books
+				case 12:
+					return [{ sourceTitle: release.title }];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({
+			bookIds: [10, 11],
+			delayBetweenBooks: 0,
+		});
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(3);
 	});
 });
 
@@ -3710,6 +3852,268 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		// Episodes should be searched
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.episodeDetails).toBeDefined();
+		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("records no matching releases for season-level searches with zero releases", async () => {
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				// getEnabledIndexers: manual
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				// getEnabledIndexers: synced
+				case 2:
+					return [];
+				// getWantedBooks: none
+				case 3:
+					return [];
+				// getWantedMovies: none
+				case 4:
+					return [];
+				// getWantedEpisodes: 2 episodes in the same season
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 2,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValue([]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("records no matching releases when show-level releases are not grabbed", async () => {
+		const release = makeRelease({
+			guid: "blocked-show-pack",
+			title: "Multi.Season.Show.Complete",
+			releaseType: 3,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(3);
+
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [];
+				case 4:
+					return [];
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Multi Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Multi Season Show",
+							seasonNumber: 2,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				// grabPerProfileForEpisodes: blocklist for show
+				case 14:
+					return [{ sourceTitle: release.title }];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("records no matching releases when season-level releases are not grabbed", async () => {
+		const release = makeRelease({
+			guid: "blocked-season-pack",
+			title: "Single.Season.Show.S01",
+			releaseType: 2,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(2);
+
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [];
+				case 4:
+					return [];
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 2,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				// grabPerProfileForEpisodes: blocklist for show
+				case 14:
+					return [{ sourceTitle: release.title }];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(3);
 	});
 
 	it("records episode errors gracefully in full auto-search", async () => {
