@@ -1698,38 +1698,46 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 						}
 					}
 
-					db.insert(episodeFiles)
-						.values({
-							episodeId: row.entityId,
-							path: file.path,
-							size: file.size,
-							quality: file.quality,
-							downloadProfileId: data.downloadProfileId,
-							duration,
-							codec,
-							container,
-						})
-						.run();
-
-					db.insert(history)
-						.values({
-							eventType: "episodeFileAdded",
-							episodeId: row.entityId,
-							data: {
+					db.transaction((tx) => {
+						tx.insert(episodeFiles)
+							.values({
+								episodeId: row.entityId,
 								path: file.path,
 								size: file.size,
-								quality: file.quality?.quality?.name ?? "Unknown",
-								source: "unmappedFileMapping",
-							},
-						})
-						.run();
+								quality: file.quality,
+								downloadProfileId: data.downloadProfileId,
+								duration,
+								codec,
+								container,
+							})
+							.run();
+
+						tx.insert(history)
+							.values({
+								eventType: "episodeFileAdded",
+								episodeId: row.entityId,
+								data: {
+									path: file.path,
+									size: file.size,
+									quality: file.quality?.quality?.name ?? "Unknown",
+									source: "unmappedFileMapping",
+								},
+							})
+							.run();
+
+						tx.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
+					});
 				} catch (error) {
 					failures.push(toIssue({ error, file, row }));
 					continue;
 				}
 			}
 
-			if (row.entityType !== "book" && row.entityType !== "movie") {
+			if (
+				row.entityType !== "book" &&
+				row.entityType !== "movie" &&
+				row.entityType !== "episode"
+			) {
 				try {
 					db.delete(unmappedFiles).where(eq(unmappedFiles.id, file.id)).run();
 				} catch (error) {

@@ -44,6 +44,22 @@ type ImportResult = {
 	destPath: string;
 } | null;
 
+function recordHistoryCleanup(
+	result: unknown,
+	sideEffects: FileSideEffectRecorder,
+): void {
+	const id =
+		typeof result === "object" && result !== null && "lastInsertRowid" in result
+			? Number((result as { lastInsertRowid: unknown }).lastInsertRowid)
+			: null;
+	if (!id || !Number.isSafeInteger(id)) {
+		return;
+	}
+	sideEffects.recordCleanup(`history ${id}`, () => {
+		db.delete(history).where(eq(history.id, id)).run();
+	});
+}
+
 export function buildManagedEpisodeDestination({
 	rootFolderPath,
 	showTitle,
@@ -818,7 +834,8 @@ async function importEpisodePackDownload(
 		return;
 	}
 
-	db.insert(history)
+	const insertedHistory = db
+		.insert(history)
 		.values({
 			eventType: "episodePackImported",
 			showId: td.showId,
@@ -829,6 +846,7 @@ async function importEpisodePackDownload(
 			},
 		})
 		.run();
+	recordHistoryCleanup(insertedHistory, sideEffects);
 
 	markTrackedDownloadImported(td.id);
 
@@ -981,7 +999,8 @@ async function importBookPackDownload(
 		return;
 	}
 
-	db.insert(history)
+	const insertedHistory = db
+		.insert(history)
 		.values({
 			eventType: "bookPackImported",
 			authorId: td.authorId,
@@ -992,6 +1011,7 @@ async function importBookPackDownload(
 			},
 		})
 		.run();
+	recordHistoryCleanup(insertedHistory, sideEffects);
 
 	markTrackedDownloadImported(td.id);
 
@@ -1180,7 +1200,8 @@ async function importCompletedTrackedDownload(
 		return;
 	}
 
-	db.insert(history)
+	const insertedHistory = db
+		.insert(history)
 		.values({
 			eventType: "bookImported",
 			bookId: td.bookId,
@@ -1193,6 +1214,7 @@ async function importCompletedTrackedDownload(
 			},
 		})
 		.run();
+	recordHistoryCleanup(insertedHistory, sideEffects);
 
 	markTrackedDownloadImported(td.id);
 

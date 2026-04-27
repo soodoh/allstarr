@@ -2090,6 +2090,61 @@ describe("server/unmapped-files", () => {
 			});
 		});
 
+		it("uses a transaction for generic episode DB writes so history failures leave the unmapped row", async () => {
+			const profile = { id: 5, name: "TV" };
+			const file = {
+				id: 1,
+				path: "/media/tv/ep01.mkv",
+				size: 4000000,
+				quality: { quality: { name: "720p" } },
+			};
+			const historyError = new Error("history insert failed");
+
+			const profileChain = createSelectChain(profile);
+			const fileChain = createSelectChain(file);
+
+			let selectIndex = 0;
+			mocks.select.mockImplementation(() => {
+				selectIndex++;
+				if (selectIndex === 1) return profileChain;
+				return fileChain;
+			});
+
+			const episodeInsertChain = createInsertChain();
+			const historyInsertChain = createInsertChain();
+			historyInsertChain.run.mockImplementation(() => {
+				throw historyError;
+			});
+			mocks.insert.mockImplementation((table) => {
+				if (table === schemaMocks.history) return historyInsertChain;
+				return episodeInsertChain;
+			});
+
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			const result = await mapUnmappedFileFn({
+				data: { ...baseData, entityType: "episode" },
+			});
+
+			expect(mocks.transaction).toHaveBeenCalledTimes(1);
+			expect(episodeInsertChain.run).toHaveBeenCalledTimes(1);
+			expect(historyInsertChain.run).toHaveBeenCalledTimes(1);
+			expect(deleteChain.run).not.toHaveBeenCalled();
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					expect.objectContaining({
+						message: "history insert failed",
+						unmappedFileId: 1,
+					}),
+				],
+				warnings: [],
+			});
+		});
+
 		it("maps tv rows to managed episode destinations", async () => {
 			const profile = {
 				id: 5,

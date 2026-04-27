@@ -133,7 +133,7 @@ vi.mock("src/db/schema", () => ({
 		episodeNumber: "episodes.episodeNumber",
 		hasFile: "episodes.hasFile",
 	},
-	history: {},
+	history: { id: "history.id" },
 	seasons: { id: "seasons.id", seasonNumber: "seasons.seasonNumber" },
 	showDownloadProfiles: {
 		showId: "showDownloadProfiles.showId",
@@ -615,6 +615,51 @@ describe("importCompletedDownload", () => {
 		expect(mocks.unlinkSync).toHaveBeenCalledWith(
 			expect.stringContaining("linked-book.epub"),
 		);
+		expectMarkedFailed("state transition failed");
+	});
+
+	it("cleans up import history when tracked finalization fails after a normal import", async () => {
+		const td = makeTd();
+		const error = new Error("state transition failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+			{ id: 44 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "history-cleanup-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.markTrackedDownloadImported.mockImplementation(() => {
+			throw error;
+		});
+		mocks.dbRun.mockImplementationOnce(() => ({ lastInsertRowid: 7001 }));
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "history.id" }),
+		);
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "bookFiles.id" }),
+		);
+		const deletedTables = mocks.dbDelete.mock.calls.map(([table]) => table);
+		const historyDeleteIndex = deletedTables.findIndex(
+			(table) => (table as { id?: unknown }).id === "history.id",
+		);
+		const bookFileDeleteIndex = deletedTables.findIndex(
+			(table) => (table as { id?: unknown }).id === "bookFiles.id",
+		);
+		expect(historyDeleteIndex).toBeLessThan(bookFileDeleteIndex);
 		expectMarkedFailed("state transition failed");
 	});
 
@@ -1621,6 +1666,59 @@ describe("importEpisodePackDownload", () => {
 			expect.stringContaining("show.S01E03.mkv"),
 		);
 		expectMarkedFailed("history unavailable");
+	});
+
+	it("cleans up episode pack history when tracked finalization fails", async () => {
+		const error = new Error("state transition failed");
+		queueGets(
+			makeTvTd(),
+			{
+				id: 500,
+				title: "My Show",
+				year: 2024,
+				useSeasonFolder: true,
+			},
+			{ downloadProfileId: 300 },
+			{ rootFolderPath: "/tv-library" },
+			{ id: 804 },
+		);
+		mocks.statSync.mockReturnValue({ size: 4096, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "show.S01E04.mkv", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.mapTvFiles.mockReturnValue([
+			{
+				path: "/downloads/tv-pack/show.S01E04.mkv",
+				season: 1,
+				episode: 4,
+			},
+		]);
+		queueAlls([{ id: 604, seasonNumber: 1, episodeNumber: 4, hasFile: false }]);
+		mocks.markTrackedDownloadImported.mockImplementation(() => {
+			throw error;
+		});
+		mocks.dbRun
+			.mockImplementationOnce(() => undefined)
+			.mockImplementationOnce(() => ({ lastInsertRowid: 7002 }));
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		const deletedTables = mocks.dbDelete.mock.calls.map(([table]) => table);
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "history.id" }),
+		);
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "episodeFiles.id" }),
+		);
+		const historyDeleteIndex = deletedTables.findIndex(
+			(table) => (table as { id?: unknown }).id === "history.id",
+		);
+		const episodeFileDeleteIndex = deletedTables.findIndex(
+			(table) => (table as { id?: unknown }).id === "episodeFiles.id",
+		);
+		expect(historyDeleteIndex).toBeLessThan(episodeFileDeleteIndex);
+		expectMarkedFailed("state transition failed");
 	});
 
 	it("skips episodes that already have files", async () => {
