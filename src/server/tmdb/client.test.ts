@@ -36,6 +36,7 @@ beforeEach(async () => {
 
 afterEach(() => {
 	vi.unstubAllEnvs();
+	vi.useRealTimers();
 });
 
 describe("tmdbFetch", () => {
@@ -159,6 +160,30 @@ describe("tmdbFetch", () => {
 			await expect(tmdbFetch("/movie/999")).rejects.toThrow(
 				"TMDB API error: 404 Not Found",
 			);
+		});
+
+		it("throws a timeout error when the request is aborted", async () => {
+			vi.useFakeTimers();
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockImplementation((_url, init) => {
+					return new Promise<Response>((_resolve, reject) => {
+						init?.signal?.addEventListener(
+							"abort",
+							() => {
+								reject(init.signal?.reason);
+							},
+							{ once: true },
+						);
+					});
+				}),
+			);
+
+			const promise = expect(tmdbFetch("/movie/123")).rejects.toThrow(
+				"TMDB API request timed out.",
+			);
+			await vi.advanceTimersByTimeAsync(30_000);
+			await promise;
 		});
 	});
 });

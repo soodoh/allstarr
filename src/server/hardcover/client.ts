@@ -1,4 +1,5 @@
 import { ApiRateLimitError, createApiFetcher } from "../api-cache";
+import { fetchWithExternalTimeout } from "../external-request-policy";
 
 const HARDCOVER_GRAPHQL_URL =
 	process.env.HARDCOVER_GRAPHQL_URL || "https://api.hardcover.app/v1/graphql";
@@ -27,50 +28,43 @@ export async function hardcoverFetch<T>(
 	const cacheKey = query + JSON.stringify(variables);
 
 	return hardcover.fetch<T>(cacheKey, async () => {
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-		try {
-			const response = await fetch(HARDCOVER_GRAPHQL_URL, {
+		const response = await fetchWithExternalTimeout(
+			HARDCOVER_GRAPHQL_URL,
+			{
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: authorization,
 				},
 				body: JSON.stringify({ query, variables }),
-				signal: controller.signal,
 				cache: "no-store",
-			});
-			if (response.status === 429) {
-				throw new ApiRateLimitError("Hardcover rate limit");
-			}
-			const rawText = await response.text();
-			let body: { data?: T; errors?: Array<{ message: string }> };
-			try {
-				body = JSON.parse(rawText);
-			} catch {
-				throw new Error(
-					`Hardcover API returned non-JSON (status ${response.status})`,
-				);
-			}
-			if (!response.ok) {
-				throw new Error(
-					`Hardcover API request failed (status ${response.status}).`,
-				);
-			}
-			if (body.errors && body.errors.length > 0) {
-				throw new Error(body.errors[0]?.message || "Hardcover API error.");
-			}
-			if (!body.data) {
-				throw new Error("No data in Hardcover API response.");
-			}
-			return body.data;
-		} catch (error) {
-			if (error instanceof Error && error.name === "AbortError") {
-				throw new Error("Hardcover API request timed out.", { cause: error });
-			}
-			throw error;
-		} finally {
-			clearTimeout(timeoutId);
+			},
+			REQUEST_TIMEOUT_MS,
+			"Hardcover API request timed out.",
+		);
+		if (response.status === 429) {
+			throw new ApiRateLimitError("Hardcover rate limit");
 		}
+		const rawText = await response.text();
+		let body: { data?: T; errors?: Array<{ message: string }> };
+		try {
+			body = JSON.parse(rawText);
+		} catch {
+			throw new Error(
+				`Hardcover API returned non-JSON (status ${response.status})`,
+			);
+		}
+		if (!response.ok) {
+			throw new Error(
+				`Hardcover API request failed (status ${response.status}).`,
+			);
+		}
+		if (body.errors && body.errors.length > 0) {
+			throw new Error(body.errors[0]?.message || "Hardcover API error.");
+		}
+		if (!body.data) {
+			throw new Error("No data in Hardcover API response.");
+		}
+		return body.data;
 	});
 }

@@ -1,9 +1,11 @@
 import { ApiRateLimitError, createApiFetcher } from "../api-cache";
+import { fetchWithExternalTimeout } from "../external-request-policy";
 import getMediaSetting from "../settings-reader";
 
 export { TMDB_IMAGE_BASE } from "./types";
 
 const DEFAULT_TMDB_API_BASE = "https://api.themoviedb.org/3";
+const REQUEST_TIMEOUT_MS = 30_000;
 
 function getTmdbApiKey(): string {
 	return process.env.TMDB_TOKEN ?? "";
@@ -45,7 +47,12 @@ export async function tmdbFetch<T>(
 
 	const cacheKey = url.toString();
 	return tmdb.fetch<T>(cacheKey, async () => {
-		const response = await fetch(cacheKey);
+		const response = await fetchWithExternalTimeout(
+			cacheKey,
+			{},
+			REQUEST_TIMEOUT_MS,
+			"TMDB API request timed out.",
+		);
 		if (response.status === 429) {
 			throw new ApiRateLimitError("TMDB rate limit");
 		}

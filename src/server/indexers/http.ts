@@ -1,6 +1,11 @@
 import { XMLParser } from "fast-xml-parser";
 import { fetchWithTimeout } from "../download-clients/http";
 import {
+	parseRetryAfterHeader,
+	resolveRetryDelayMs,
+	sleep,
+} from "../external-request-policy";
+import {
 	recordQuery,
 	reportRateLimited,
 	reportSuccess,
@@ -199,32 +204,8 @@ function cleanQueryTitle(title: string): string {
 	return cleaned || title;
 }
 
-/** Parse Retry-After header value into milliseconds. */
-function parseRetryAfter(res: Response): number {
-	const header = res.headers.get("Retry-After");
-	if (!header) {
-		return 0;
-	}
-	const seconds = Number(header);
-	if (!Number.isNaN(seconds)) {
-		return seconds * 1000;
-	}
-	// RFC 7231 HTTP-date format
-	const date = new Date(header).getTime();
-	if (!Number.isNaN(date)) {
-		return Math.max(0, date - Date.now());
-	}
-	return 0;
-}
-
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 2000;
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
-}
 
 /** Fetch with automatic retry on 429 (Too Many Requests). */
 async function fetchWithRetry(
@@ -241,16 +222,22 @@ async function fetchWithRetry(
 			}
 			return res;
 		}
-		const retryAfter = parseRetryAfter(res);
+		const retryAfter = parseRetryAfterHeader(res);
+		const retryAfterDelay =
+			retryAfter !== undefined && retryAfter > 0 ? retryAfter : undefined;
 		if (indexerIdentity) {
 			reportRateLimited(
 				indexerIdentity.indexerType,
 				indexerIdentity.indexerId,
-				retryAfter || undefined,
+				retryAfterDelay,
 			);
 		}
-		const backoff = retryAfter || BASE_BACKOFF_MS * 2 ** attempt;
-		const capped = Math.min(backoff, 30_000);
+		const capped = resolveRetryDelayMs({
+			attempt,
+			baseDelayMs: BASE_BACKOFF_MS,
+			retryAfterMs: retryAfterDelay,
+			maxDelayMs: 30_000,
+		});
 		logInfo(
 			"indexer",
 			`429 rate-limited, retrying in ${Math.round(capped / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,

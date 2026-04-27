@@ -29,6 +29,7 @@ beforeEach(async () => {
 
 afterEach(() => {
 	vi.unstubAllEnvs();
+	vi.useRealTimers();
 });
 
 describe("hardcoverFetch", () => {
@@ -227,18 +228,27 @@ describe("hardcoverFetch", () => {
 		});
 
 		it("throws a timeout error when the request is aborted", async () => {
+			vi.useFakeTimers();
 			vi.stubGlobal(
 				"fetch",
-				vi.fn().mockImplementation(() => {
-					const error = new Error("The operation was aborted");
-					error.name = "AbortError";
-					return Promise.reject(error);
+				vi.fn().mockImplementation((_url, init) => {
+					return new Promise<Response>((_resolve, reject) => {
+						init?.signal?.addEventListener(
+							"abort",
+							() => {
+								reject(init.signal?.reason);
+							},
+							{ once: true },
+						);
+					});
 				}),
 			);
 
-			await expect(hardcoverFetch("{ books { id } }", {})).rejects.toThrow(
-				"Hardcover API request timed out.",
-			);
+			const promise = expect(
+				hardcoverFetch("{ books { id } }", {}),
+			).rejects.toThrow("Hardcover API request timed out.");
+			await vi.advanceTimersByTimeAsync(30_000);
+			await promise;
 		});
 
 		it("uses default GraphQL errors message when error message is empty", async () => {
