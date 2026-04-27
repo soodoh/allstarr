@@ -1089,6 +1089,9 @@ async function grabPerProfileForBooks(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+			if (isPack) {
+				grabbedGuids.add(best.guid);
+			}
 			const result = await grabReleaseForBookPack(
 				best,
 				book.authorId,
@@ -1097,7 +1100,9 @@ async function grabPerProfileForBooks(
 				onOutcome,
 			);
 			if (result) {
-				grabbedGuids.add(best.guid);
+				if (!isPack) {
+					grabbedGuids.add(best.guid);
+				}
 				grabbed = true;
 				logInfo(
 					"auto-search",
@@ -1712,6 +1717,9 @@ async function grabPerProfileForEpisodes(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
+			if (isPack) {
+				grabbedGuids.add(best.guid);
+			}
 			const result = await grabReleaseForEpisodePack(
 				best,
 				ep.showId,
@@ -1720,7 +1728,9 @@ async function grabPerProfileForEpisodes(
 				onOutcome,
 			);
 			if (result) {
-				grabbedGuids.add(best.guid);
+				if (!isPack) {
+					grabbedGuids.add(best.guid);
+				}
 				grabbed = true;
 				logInfo(
 					"auto-search",
