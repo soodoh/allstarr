@@ -320,6 +320,16 @@ describe("runAutoSearch", () => {
 			details: [],
 			movieDetails: [],
 			episodeDetails: [],
+			outcomes: {
+				indexer_failed: 0,
+				indexer_skipped: 0,
+				all_indexers_exhausted: 0,
+				download_client_unavailable: 0,
+				download_dispatch_failed: 0,
+				pack_search_failed: 0,
+				fallback_used: 0,
+				no_matching_releases: 0,
+			},
 		});
 		expect(mocks.logInfo).toHaveBeenCalledWith(
 			"auto-search",
@@ -420,7 +430,7 @@ describe("searchForMovie", () => {
 	it("returns zero counts when no wanted movies", async () => {
 		mocks.selectAll.mockReturnValue([]);
 		const result = await searchForMovie(1);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
+		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
 	});
 });
 
@@ -922,6 +932,8 @@ describe("indexer rate limiting", () => {
 		// The search is marked searched but no releases found because the indexer was skipped
 		expect(result.searched).toBe(1);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.indexer_skipped).toBe(1);
+		expect(result.outcomes.no_matching_releases).toBe(1);
 		expect(mocks.searchNewznab).not.toHaveBeenCalled();
 	});
 
@@ -988,9 +1000,10 @@ describe("indexer rate limiting", () => {
 			}
 		});
 
-		await runAutoSearch({ bookIds: [10, 11] });
+		const result = await runAutoSearch({ bookIds: [10, 11] });
 
 		// Should stop before searching any books since indexers are exhausted
+		expect(result.outcomes.all_indexers_exhausted).toBe(1);
 		expect(mocks.searchNewznab).not.toHaveBeenCalled();
 	});
 });
@@ -1047,6 +1060,8 @@ describe("error handling", () => {
 		// The search should proceed (error is caught per-indexer), book is searched with 0 releases
 		expect(result.searched).toBe(1);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.indexer_failed).toBe(1);
+		expect(result.outcomes.no_matching_releases).toBe(1);
 		expect(mocks.logError).toHaveBeenCalled();
 	});
 
@@ -1173,6 +1188,8 @@ describe("grab helper — no download client", () => {
 		// Searched but could not grab because no download client
 		expect(result.searched).toBe(1);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBe(1);
+		expect(result.outcomes.no_matching_releases).toBe(1);
 		expect(mocks.logWarn).toHaveBeenCalled();
 	});
 });
@@ -1409,7 +1426,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
+		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
 	});
 
 	it("searches and grabs a release for a wanted movie", async () => {
@@ -1469,6 +1486,7 @@ describe("searchForMovie", () => {
 
 		expect(result.searched).toBe(1);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.no_matching_releases).toBe(1);
 	});
 
 	it("skips movie with active tracked download", async () => {
@@ -1492,7 +1510,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
+		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
 	});
 
 	it("skips movie with existing files when upgrade not allowed", async () => {
@@ -1522,7 +1540,7 @@ describe("searchForMovie", () => {
 		});
 
 		const result = await searchForMovie(5);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
+		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
 	});
 
 	it("includes movie for upgrade when below cutoff", async () => {
@@ -1638,7 +1656,7 @@ describe("searchForMovie", () => {
 		mocks.selectAll.mockReturnValue([]);
 
 		const result = await searchForMovie(99);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
+		expect(result).toMatchObject({ searched: 0, grabbed: 0 });
 	});
 });
 
