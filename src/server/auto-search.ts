@@ -1011,14 +1011,20 @@ async function grabReleaseForBookPack(
 		settings: client.settings as Record<string, unknown> | null,
 	};
 
-	const downloadId = await provider.addDownload(config, {
-		url: release.downloadUrl,
-		torrentData: null,
-		nzbData: null,
-		category: null,
-		tag: combinedTag,
-		savePath: null,
-	});
+	let downloadId: string | null;
+	try {
+		downloadId = await provider.addDownload(config, {
+			url: release.downloadUrl,
+			torrentData: null,
+			nzbData: null,
+			category: null,
+			tag: combinedTag,
+			savePath: null,
+		});
+	} catch (error) {
+		onOutcome?.("download_dispatch_failed");
+		throw error;
+	}
 
 	if (downloadId) {
 		db.insert(trackedDownloads)
@@ -1649,14 +1655,20 @@ async function grabReleaseForEpisodePack(
 		settings: client.settings as Record<string, unknown> | null,
 	};
 
-	const downloadId = await provider.addDownload(config, {
-		url: release.downloadUrl,
-		torrentData: null,
-		nzbData: null,
-		category: null,
-		tag: combinedTag,
-		savePath: null,
-	});
+	let downloadId: string | null;
+	try {
+		downloadId = await provider.addDownload(config, {
+			url: release.downloadUrl,
+			torrentData: null,
+			nzbData: null,
+			category: null,
+			tag: combinedTag,
+			savePath: null,
+		});
+	} catch (error) {
+		onOutcome?.("download_dispatch_failed");
+		throw error;
+	}
 
 	if (downloadId) {
 		db.insert(trackedDownloads)
@@ -2145,7 +2157,6 @@ async function processWantedBooks(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	// Group books by primary author
 	const booksByAuthor = new Map<string, WantedBook[]>();
@@ -2159,6 +2170,7 @@ async function processWantedBooks(
 
 	let isFirstGroup = true;
 	for (const [authorName, authorBooks] of booksByAuthor) {
+		const attemptedGrabGuids = new Set<string>();
 		if (
 			!anyIndexerAvailable(
 				ixs.manual.map((m) => m.id),
@@ -2392,7 +2404,6 @@ async function processWantedEpisodes(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
-	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
 	for (const ep of wantedEpisodes) {
@@ -2411,6 +2422,7 @@ async function processWantedEpisodes(
 
 	let isFirstShow = true;
 	for (const [showId, seasonMap] of episodesByShow) {
+		const attemptedGrabGuids = new Set<string>();
 		if (
 			!anyIndexerAvailable(
 				ixs.manual.map((m) => m.id),
@@ -2505,8 +2517,6 @@ export async function runAutoSearch(
 		outcomes: createAutoSearchOutcomeCounts(),
 	};
 	const recordOutcome = createAutoSearchOutcomeRecorder(result.outcomes);
-	const attemptedBookGrabGuids = new Set<string>();
-	const attemptedEpisodeGrabGuids = new Set<string>();
 
 	const ixs = getEnabledIndexers();
 
@@ -2534,7 +2544,6 @@ export async function runAutoSearch(
 		result,
 		delayBetweenBooks,
 		recordOutcome,
-		attemptedBookGrabGuids,
 	);
 
 	// ── Movies & Episodes (full auto-search only, not book-specific) ───────
@@ -2569,7 +2578,6 @@ export async function runAutoSearch(
 			result,
 			delayBetweenBooks,
 			recordOutcome,
-			attemptedEpisodeGrabGuids,
 		);
 	}
 
@@ -2764,14 +2772,20 @@ async function grabRelease(
 		settings: client.settings as Record<string, unknown> | null,
 	};
 
-	const downloadId = await provider.addDownload(config, {
-		url: release.downloadUrl,
-		torrentData: null,
-		nzbData: null,
-		category: null,
-		tag: combinedTag,
-		savePath: null,
-	});
+	let downloadId: string | null;
+	try {
+		downloadId = await provider.addDownload(config, {
+			url: release.downloadUrl,
+			torrentData: null,
+			nzbData: null,
+			category: null,
+			tag: combinedTag,
+			savePath: null,
+		});
+	} catch (error) {
+		onOutcome?.("download_dispatch_failed");
+		throw error;
+	}
 
 	// Track the download
 	if (downloadId) {
