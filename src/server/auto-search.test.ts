@@ -636,7 +636,7 @@ describe("findBestReleaseForProfile (via runAutoSearch)", () => {
 					return [];
 			}
 		});
-		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
@@ -759,7 +759,7 @@ describe("findBestReleaseForProfile (via runAutoSearch)", () => {
 					return [];
 			}
 		});
-		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
@@ -1180,7 +1180,7 @@ describe("grab helper — no download client", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
@@ -2477,7 +2477,7 @@ describe("pack handling — author-level search", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.searchNewznab.mockResolvedValue([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({
@@ -2564,7 +2564,7 @@ describe("pack handling — author-level search", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.searchNewznab.mockResolvedValue([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({
@@ -4105,7 +4105,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.searchNewznab.mockResolvedValue([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
@@ -4194,7 +4194,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.searchNewznab.mockResolvedValue([release]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
@@ -4208,6 +4208,11 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 			guid: "season-pack-no-client",
 			title: "Single.Season.Show.S01",
 			releaseType: 2,
+		});
+		const fallbackRelease = makeRelease({
+			guid: release.guid,
+			title: "Single.Season.Show.S01E01",
+			releaseType: 0,
 		});
 		mocks.getReleaseTypeRank.mockReturnValue(2);
 		mocks.selectGet.mockReturnValue(undefined);
@@ -4288,8 +4293,10 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
-		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.dedupeAndScoreReleases
+			.mockReturnValueOnce([release])
+			.mockReturnValue([fallbackRelease]);
 
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
 

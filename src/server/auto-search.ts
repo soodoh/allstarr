@@ -842,6 +842,7 @@ async function searchAndGrabForBook(
 	book: WantedBook,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<SearchDetail> {
 	const detail: SearchDetail = {
 		bookId: book.id,
@@ -888,7 +889,12 @@ async function searchAndGrabForBook(
 	// Score, deduplicate, and grab per profile
 	const bookInfo = { title: book.title, authorName: book.authorName };
 	const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
-	const grabbedTitles = await grabPerProfile(scored, book, onOutcome);
+	const grabbedTitles = await grabPerProfile(
+		scored,
+		book,
+		onOutcome,
+		attemptedGrabGuids,
+	);
 
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
@@ -905,6 +911,7 @@ async function grabPerProfile(
 	scored: IndexerRelease[],
 	book: WantedBook,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -926,6 +933,9 @@ async function grabPerProfile(
 			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
 			.filter(Boolean),
 	);
+	for (const guid of attemptedGrabGuids ?? []) {
+		grabbedGuids.add(guid);
+	}
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
@@ -948,11 +958,12 @@ async function grabPerProfile(
 			continue;
 		}
 
+		attemptedGrabGuids?.add(bestRelease.guid);
+		grabbedGuids.add(bestRelease.guid);
 		const grabbed = await grabRelease(bestRelease, book, profile.id, onOutcome);
 		if (grabbed) {
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
-			grabbedGuids.add(bestRelease.guid);
 			logInfo(
 				"rss-sync",
 				`Grabbed "${bestRelease.title}" for "${book.title}" (profile: ${profile.name})`,
@@ -1054,8 +1065,12 @@ async function grabPerProfileForBooks(
 	wantedBooks: WantedBook[],
 	packContext: PackContext,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
+	for (const guid of attemptedGrabGuids ?? []) {
+		grabbedGuids.add(guid);
+	}
 	let grabbed = false;
 
 	// Collect blocklisted titles for the author's books
@@ -1089,9 +1104,8 @@ async function grabPerProfileForBooks(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			if (isPack) {
-				grabbedGuids.add(best.guid);
-			}
+			attemptedGrabGuids?.add(best.guid);
+			grabbedGuids.add(best.guid);
 			const result = await grabReleaseForBookPack(
 				best,
 				book.authorId,
@@ -1100,9 +1114,6 @@ async function grabPerProfileForBooks(
 				onOutcome,
 			);
 			if (result) {
-				if (!isPack) {
-					grabbedGuids.add(best.guid);
-				}
 				grabbed = true;
 				logInfo(
 					"auto-search",
@@ -1120,6 +1131,7 @@ async function searchAndGrabForAuthor(
 	wantedBooks: WantedBook[],
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const cleanName = cleanSearchTerm(authorName);
 	const query = `"${cleanName}"`;
@@ -1152,6 +1164,7 @@ async function searchAndGrabForAuthor(
 		wantedBooks,
 		packContext,
 		onOutcome,
+		attemptedGrabGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -1368,6 +1381,7 @@ async function searchAndGrabForEpisode(
 	episode: WantedEpisode,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<EpisodeSearchDetail> {
 	const detail: EpisodeSearchDetail = {
 		episodeId: episode.id,
@@ -1490,6 +1504,7 @@ async function searchAndGrabForEpisode(
 		scored,
 		episode,
 		onOutcome,
+		attemptedGrabGuids,
 	);
 
 	if (grabbedTitles.length > 0) {
@@ -1507,6 +1522,7 @@ async function grabPerProfileForEpisode(
 	scored: IndexerRelease[],
 	episode: WantedEpisode,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -1531,6 +1547,9 @@ async function grabPerProfileForEpisode(
 			.map((h) => (h.data as Record<string, unknown>)?.guid as string)
 			.filter(Boolean),
 	);
+	for (const guid of attemptedGrabGuids ?? []) {
+		grabbedGuids.add(guid);
+	}
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
@@ -1553,6 +1572,8 @@ async function grabPerProfileForEpisode(
 			continue;
 		}
 
+		attemptedGrabGuids?.add(bestRelease.guid);
+		grabbedGuids.add(bestRelease.guid);
 		const grabbed = await grabReleaseForEpisode(
 			bestRelease,
 			episode,
@@ -1562,7 +1583,6 @@ async function grabPerProfileForEpisode(
 		if (grabbed) {
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
-			grabbedGuids.add(bestRelease.guid);
 			logInfo(
 				"auto-search",
 				`Grabbed "${bestRelease.title}" for "${episode.showTitle}" S${padNumber(episode.seasonNumber)}E${padNumber(episode.episodeNumber)} (profile: ${profile.name})`,
@@ -1683,8 +1703,12 @@ async function grabPerProfileForEpisodes(
 	wantedEpisodes: WantedEpisode[],
 	packContext: PackContext,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
+	for (const guid of attemptedGrabGuids ?? []) {
+		grabbedGuids.add(guid);
+	}
 	let grabbed = false;
 
 	// Collect blocklisted titles for the show (all episodes share the same show)
@@ -1717,9 +1741,8 @@ async function grabPerProfileForEpisodes(
 			}
 
 			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			if (isPack) {
-				grabbedGuids.add(best.guid);
-			}
+			attemptedGrabGuids?.add(best.guid);
+			grabbedGuids.add(best.guid);
 			const result = await grabReleaseForEpisodePack(
 				best,
 				ep.showId,
@@ -1728,9 +1751,6 @@ async function grabPerProfileForEpisodes(
 				onOutcome,
 			);
 			if (result) {
-				if (!isPack) {
-					grabbedGuids.add(best.guid);
-				}
 				grabbed = true;
 				logInfo(
 					"auto-search",
@@ -1750,6 +1770,7 @@ async function searchAndGrabForSeason(
 	allSeasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}" S${padNumber(seasonNumber)}`;
@@ -1777,6 +1798,7 @@ async function searchAndGrabForSeason(
 		wantedEpisodes,
 		packContext,
 		onOutcome,
+		attemptedGrabGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -1790,6 +1812,7 @@ async function searchAndGrabForShow(
 	seasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
 	onOutcome?: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids?: Set<string>,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}"`;
@@ -1820,6 +1843,7 @@ async function searchAndGrabForShow(
 		allEpisodes,
 		packContext,
 		onOutcome,
+		attemptedGrabGuids,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -2059,6 +2083,7 @@ async function processIndividualBooks(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	for (let i = 0; i < booksToSearch.length; i += 1) {
 		if (
@@ -2073,7 +2098,12 @@ async function processIndividualBooks(
 
 		const book = booksToSearch[i];
 		try {
-			const detail = await searchAndGrabForBook(book, ixs, onOutcome);
+			const detail = await searchAndGrabForBook(
+				book,
+				ixs,
+				onOutcome,
+				attemptedGrabGuids,
+			);
 			if (detail.searched) {
 				result.searched += 1;
 			}
@@ -2115,6 +2145,7 @@ async function processWantedBooks(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	// Group books by primary author
 	const booksByAuthor = new Map<string, WantedBook[]>();
@@ -2151,6 +2182,7 @@ async function processWantedBooks(
 					authorBooks,
 					ixs,
 					onOutcome,
+					attemptedGrabGuids,
 				);
 				recordBookDetails(authorBooks, packResult, result);
 				if (packResult.grabbed) {
@@ -2167,7 +2199,14 @@ async function processWantedBooks(
 		}
 
 		// Fallback to individual book search
-		await processIndividualBooks(authorBooks, ixs, result, delay, onOutcome);
+		await processIndividualBooks(
+			authorBooks,
+			ixs,
+			result,
+			delay,
+			onOutcome,
+			attemptedGrabGuids,
+		);
 	}
 }
 
@@ -2266,6 +2305,7 @@ async function processSeasonEpisodes(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	if (seasonEpisodes.length >= 2) {
 		try {
@@ -2276,6 +2316,7 @@ async function processSeasonEpisodes(
 				seasonMap,
 				ixs,
 				onOutcome,
+				attemptedGrabGuids,
 			);
 			recordEpisodeDetails(seasonEpisodes, seasonResult, result);
 			if (seasonResult.grabbed) {
@@ -2304,7 +2345,12 @@ async function processSeasonEpisodes(
 		}
 		const episode = seasonEpisodes[i];
 		try {
-			const detail = await searchAndGrabForEpisode(episode, ixs, onOutcome);
+			const detail = await searchAndGrabForEpisode(
+				episode,
+				ixs,
+				onOutcome,
+				attemptedGrabGuids,
+			);
 			if (detail.searched) {
 				result.searched += 1;
 			}
@@ -2346,6 +2392,7 @@ async function processWantedEpisodes(
 	result: AutoSearchResult,
 	delay: number,
 	onOutcome: AutoSearchOutcomeRecorder,
+	attemptedGrabGuids: Set<string>,
 ): Promise<void> {
 	const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
 	for (const ep of wantedEpisodes) {
@@ -2392,6 +2439,7 @@ async function processWantedEpisodes(
 					seasonMap,
 					ixs,
 					onOutcome,
+					attemptedGrabGuids,
 				);
 				recordEpisodeDetails(
 					[...seasonMap.values()].flat(),
@@ -2436,6 +2484,7 @@ async function processWantedEpisodes(
 				result,
 				delay,
 				onOutcome,
+				attemptedGrabGuids,
 			);
 		}
 	}
@@ -2456,6 +2505,8 @@ export async function runAutoSearch(
 		outcomes: createAutoSearchOutcomeCounts(),
 	};
 	const recordOutcome = createAutoSearchOutcomeRecorder(result.outcomes);
+	const attemptedBookGrabGuids = new Set<string>();
+	const attemptedEpisodeGrabGuids = new Set<string>();
 
 	const ixs = getEnabledIndexers();
 
@@ -2483,6 +2534,7 @@ export async function runAutoSearch(
 		result,
 		delayBetweenBooks,
 		recordOutcome,
+		attemptedBookGrabGuids,
 	);
 
 	// ── Movies & Episodes (full auto-search only, not book-specific) ───────
@@ -2517,6 +2569,7 @@ export async function runAutoSearch(
 			result,
 			delayBetweenBooks,
 			recordOutcome,
+			attemptedEpisodeGrabGuids,
 		);
 	}
 
