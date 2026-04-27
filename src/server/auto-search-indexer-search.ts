@@ -1,3 +1,4 @@
+import type { AutoSearchOutcomeRecorder } from "./auto-search-outcomes";
 import type { BookSearchParams } from "./indexers/http";
 import type { IndexerRelease } from "./indexers/types";
 
@@ -66,6 +67,7 @@ export type SearchEnabledIndexersOptions<
 	logError: (prefix: string, message: string, error: unknown) => void;
 	logInfo: (prefix: string, message: string) => void;
 	logPrefix?: string;
+	onOutcome?: AutoSearchOutcomeRecorder;
 	query: string;
 	searchNewznab: SearchNewznab<TRelease>;
 	sleep: (ms: number) => Promise<void> | void;
@@ -77,12 +79,16 @@ async function waitOrSkipBlockedIndexer(
 	logInfo: (prefix: string, message: string) => void,
 	logPrefix: string,
 	sleep: (ms: number) => Promise<void> | void,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	if (gate.reason === "pacing" && gate.waitMs) {
 		await sleep(gate.waitMs);
 		return true;
 	}
 
+	if (gate.reason !== "pacing") {
+		onOutcome?.("indexer_skipped");
+	}
 	logInfo(logPrefix, `Indexer "${indexer.name}" skipped: ${gate.reason}`);
 	return false;
 }
@@ -100,6 +106,7 @@ export async function searchEnabledIndexers<
 	logError,
 	logInfo,
 	logPrefix = "rss-sync",
+	onOutcome,
 	query,
 	searchNewznab,
 	sleep,
@@ -124,6 +131,7 @@ export async function searchEnabledIndexers<
 					logInfo,
 					logPrefix,
 					sleep,
+					onOutcome,
 				);
 				if (!shouldQuery) {
 					continue;
@@ -159,6 +167,7 @@ export async function searchEnabledIndexers<
 					),
 				);
 			} catch (error) {
+				onOutcome?.("indexer_failed");
 				logError(logPrefix, `Indexer "${indexer.name}" failed`, error);
 			}
 		}

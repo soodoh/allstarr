@@ -91,6 +91,7 @@ describe("searchEnabledIndexers", () => {
 			])
 			.mockRejectedValueOnce(new Error("manual failed"));
 		const logError = vi.fn();
+		const recordOutcome = vi.fn();
 
 		const releases = await searchEnabledIndexers({
 			bookParams: { author: "Author", title: "Book" },
@@ -120,6 +121,7 @@ describe("searchEnabledIndexers", () => {
 			enrichRelease: (release) => release,
 			logError,
 			logInfo: vi.fn(),
+			onOutcome: recordOutcome,
 			query: "Author Book",
 			searchNewznab,
 			sleep: vi.fn(),
@@ -138,6 +140,7 @@ describe("searchEnabledIndexers", () => {
 			expect.stringContaining("Manual"),
 			expect.any(Error),
 		);
+		expect(recordOutcome).toHaveBeenCalledWith("indexer_failed");
 	});
 
 	it("skips synced indexers without api keys", async () => {
@@ -216,6 +219,7 @@ describe("searchEnabledIndexers", () => {
 
 	it("logs and skips non-pacing blocked indexers", async () => {
 		const logInfo = vi.fn();
+		const recordOutcome = vi.fn();
 		const searchNewznab = vi.fn();
 
 		const releases = await searchEnabledIndexers({
@@ -239,6 +243,7 @@ describe("searchEnabledIndexers", () => {
 			enrichRelease: (release) => release,
 			logError: vi.fn(),
 			logInfo,
+			onOutcome: recordOutcome,
 			query: "Author Book",
 			searchNewznab,
 			sleep: vi.fn(),
@@ -249,6 +254,48 @@ describe("searchEnabledIndexers", () => {
 			"rss-sync",
 			'Indexer "Manual" skipped: daily_query_limit',
 		);
+		expect(recordOutcome).toHaveBeenCalledWith("indexer_skipped");
+		expect(searchNewznab).not.toHaveBeenCalled();
+	});
+
+	it("logs and skips pacing gates without wait time without recording skipped outcomes", async () => {
+		const logInfo = vi.fn();
+		const recordOutcome = vi.fn();
+		const searchNewznab = vi.fn();
+
+		const releases = await searchEnabledIndexers({
+			canQueryIndexer: () => ({
+				allowed: false,
+				reason: "pacing",
+			}),
+			categories: [7020],
+			enabledIndexers: {
+				manual: [
+					{
+						id: 2,
+						name: "Manual",
+						baseUrl: "https://manual.example",
+						apiPath: "/api",
+						apiKey: "manual-key",
+					},
+				],
+				synced: [],
+			},
+			enrichRelease: (release) => release,
+			logError: vi.fn(),
+			logInfo,
+			onOutcome: recordOutcome,
+			query: "Author Book",
+			searchNewznab,
+			sleep: vi.fn(),
+		});
+
+		expect(releases).toEqual([]);
+		expect(logInfo).toHaveBeenCalledWith(
+			"rss-sync",
+			'Indexer "Manual" skipped: pacing',
+		);
+		expect(recordOutcome).not.toHaveBeenCalledWith("indexer_skipped");
 		expect(searchNewznab).not.toHaveBeenCalled();
 	});
 });
