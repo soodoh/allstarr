@@ -1468,6 +1468,63 @@ describe("server/unmapped-files", () => {
 			expect(historyInsertChain.run).toHaveBeenCalledTimes(1);
 		});
 
+		it("rolls back the book move when the mapping transaction fails before DB writes", async () => {
+			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.epub",
+				size: 5000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({
+				book,
+				file,
+				profile,
+			});
+
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.transaction.mockImplementationOnce(() => {
+				throw new Error("transaction failed");
+			});
+
+			const result = await mapUnmappedFileFn({ data: baseData });
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "book",
+						message: "transaction failed",
+						sourcePath: "/downloads/Foundation.epub",
+						unmappedFileId: 1,
+					},
+				],
+				warnings: [],
+			});
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/downloads/Foundation.epub",
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/Isaac Asimov/Foundation (1951)/Foundation.epub",
+				"/downloads/Foundation.epub",
+			);
+			expect(mocks.insert).not.toHaveBeenCalled();
+			expect(mocks.update).not.toHaveBeenCalled();
+			expect(mocks.deleteFn).not.toHaveBeenCalled();
+		});
+
 		it("falls back to copy and unlink when rename hits EXDEV", async () => {
 			const profile = { id: 5, name: "Ebooks", rootFolderPath: "/library" };
 			const file = {
@@ -1805,6 +1862,71 @@ describe("server/unmapped-files", () => {
 				"/library/movies/Film (1999)/film.mkv",
 				"/media/movies/film.mkv",
 			);
+		});
+
+		it("rolls back the movie move when the mapping transaction fails before DB writes", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const file = {
+				id: 1,
+				path: "/media/movies/film.mkv",
+				size: 8000000,
+				quality: null,
+			};
+			const movie = {
+				id: 10,
+				title: "Film",
+				year: 1999,
+			};
+
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
+			});
+
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.transaction.mockImplementationOnce(() => {
+				throw new Error("transaction failed");
+			});
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 0,
+				failedCount: 1,
+				failures: [
+					{
+						entityType: "movie",
+						message: "transaction failed",
+						sourcePath: "/media/movies/film.mkv",
+						unmappedFileId: 1,
+					},
+				],
+				warnings: [],
+			});
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/media/movies/film.mkv",
+				"/library/movies/Film (1999)/film.mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/library/movies/Film (1999)/film.mkv",
+				"/media/movies/film.mkv",
+			);
+			expect(mocks.insert).not.toHaveBeenCalled();
+			expect(mocks.update).not.toHaveBeenCalled();
+			expect(mocks.deleteFn).not.toHaveBeenCalled();
 		});
 
 		it("moves related movie sidecars when enabled and leaves unrelated files behind", async () => {
@@ -2385,6 +2507,9 @@ describe("server/unmapped-files", () => {
 				"/library/tv/Severance (2022)/Season 01/Severance S01E01.mkv",
 				"/incoming/Severance.S01E01.mkv",
 			);
+			expect(mocks.insert).not.toHaveBeenCalled();
+			expect(mocks.update).not.toHaveBeenCalled();
+			expect(mocks.deleteFn).not.toHaveBeenCalled();
 		});
 
 		it("continues after a row failure and returns per-row failures", async () => {
