@@ -89,12 +89,14 @@ describe("dispatchAutoSearchDownload", () => {
 		const insertTrackedDownload = vi.fn();
 		const insertHistory = vi.fn();
 		const logWarn = vi.fn();
+		const recordOutcome = vi.fn();
 
 		const result = await dispatchAutoSearchDownload({
 			getProvider,
 			insertHistory,
 			insertTrackedDownload,
 			logWarn,
+			onOutcome: recordOutcome,
 			release: createRelease(),
 			resolveDownloadClient: () => null,
 			trackedDownload: ({ downloadId }) => ({ downloadId }),
@@ -106,10 +108,38 @@ describe("dispatchAutoSearchDownload", () => {
 			"auto-search",
 			expect.stringContaining("No enabled usenet download client"),
 		);
+		expect(recordOutcome).toHaveBeenCalledWith("download_client_unavailable");
 		expect(getProvider).not.toHaveBeenCalled();
 		expect(provider.addDownload).not.toHaveBeenCalled();
 		expect(insertTrackedDownload).not.toHaveBeenCalled();
 		expect(insertHistory).not.toHaveBeenCalled();
+	});
+
+	it("records dispatch failure before preserving provider errors", async () => {
+		const providerError = new Error("client rejected release");
+		const provider = {
+			addDownload: vi.fn().mockRejectedValue(providerError),
+		};
+		const recordOutcome = vi.fn();
+
+		await expect(
+			dispatchAutoSearchDownload({
+				getProvider: vi.fn().mockResolvedValue(provider),
+				insertHistory: vi.fn(),
+				insertTrackedDownload: vi.fn(),
+				logWarn: vi.fn(),
+				onOutcome: recordOutcome,
+				release: createRelease(),
+				resolveDownloadClient: () => ({
+					client: createClient(),
+					combinedTag: "client-tag,indexer-tag",
+				}),
+				trackedDownload: ({ downloadId }) => ({ downloadId }),
+				history: ({ release }) => ({ eventType: "bookGrabbed", release }),
+			}),
+		).rejects.toThrow("client rejected release");
+
+		expect(recordOutcome).toHaveBeenCalledWith("download_dispatch_failed");
 	});
 
 	it("records history without tracking when provider accepts without a download id", async () => {
