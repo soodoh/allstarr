@@ -24,6 +24,10 @@ import {
 	sanitizePath,
 } from "./book-paths";
 import { eventBus } from "./event-bus";
+import {
+	createFileSideEffectRecorder,
+	type FileSideEffectRecorder,
+} from "./file-side-effects";
 import { mapBookFiles, mapTvFiles } from "./import-mapping";
 import { matchFormat } from "./indexers/format-parser";
 import { logError, logInfo, logWarn } from "./logger";
@@ -192,6 +196,81 @@ function scanForBookFiles(
 	return results;
 }
 
+function createDestinationFile(
+	sourcePath: string,
+	destPath: string,
+	useHardLinks: boolean,
+): void {
+	if (fs.existsSync(destPath)) {
+		throw new Error(`Destination already exists: ${destPath}`);
+	}
+	if (useHardLinks) {
+		try {
+			fs.linkSync(sourcePath, destPath);
+			return;
+		} catch {
+			if (fs.existsSync(destPath)) {
+				throw new Error(`Destination already exists: ${destPath}`);
+			}
+			copyFileExclusive(sourcePath, destPath);
+			return;
+		}
+	}
+	copyFileExclusive(sourcePath, destPath);
+}
+
+function copyFileExclusive(sourcePath: string, destPath: string): void {
+	let sourceFd: number | null = null;
+	let destFd: number | null = null;
+	let createdDest = false;
+	let primaryError: unknown = null;
+	try {
+		sourceFd = fs.openSync(sourcePath, "r");
+		destFd = fs.openSync(destPath, "wx");
+		createdDest = true;
+		const buffer = Buffer.allocUnsafe(1024 * 1024);
+		let bytesRead = fs.readSync(sourceFd, buffer, 0, buffer.length, null);
+		while (bytesRead > 0) {
+			let bytesWritten = 0;
+			while (bytesWritten < bytesRead) {
+				bytesWritten += fs.writeSync(
+					destFd,
+					buffer,
+					bytesWritten,
+					bytesRead - bytesWritten,
+				);
+			}
+			bytesRead = fs.readSync(sourceFd, buffer, 0, buffer.length, null);
+		}
+	} catch (error) {
+		primaryError = error;
+	}
+	if (destFd !== null) {
+		try {
+			fs.closeSync(destFd);
+		} catch (error) {
+			primaryError ??= error;
+		}
+	}
+	if (sourceFd !== null) {
+		try {
+			fs.closeSync(sourceFd);
+		} catch (error) {
+			primaryError ??= error;
+		}
+	}
+	if (primaryError) {
+		if (createdDest) {
+			try {
+				fs.unlinkSync(destPath);
+			} catch {
+				// Best effort cleanup for a partial exclusive copy.
+			}
+		}
+		throw primaryError;
+	}
+}
+
 function importFile(
 	filePath: string,
 	destDir: string,
@@ -201,19 +280,13 @@ function importFile(
 	fileChmod: string,
 	part: number | null,
 	partCount: number | null,
+	sideEffects: FileSideEffectRecorder,
 ): ImportResult {
 	const filename = path.basename(filePath);
 	const destPath = path.join(destDir, filename);
 	try {
-		if (useHardLinks) {
-			try {
-				fs.linkSync(filePath, destPath);
-			} catch {
-				fs.copyFileSync(filePath, destPath);
-			}
-		} else {
-			fs.copyFileSync(filePath, destPath);
-		}
+		createDestinationFile(filePath, destPath, useHardLinks);
+		sideEffects.recordCreatedFile(destPath);
 		if (applyPermissions && fileChmod) {
 			fs.chmodSync(destPath, Number.parseInt(fileChmod, 8));
 		}
@@ -238,10 +311,20 @@ function importFile(
 				})
 				.returning({ id: bookFiles.id })
 				.get();
+			sideEffects.recordCleanup(`bookFiles ${inserted.id}`, () => {
+				db.delete(bookFiles).where(eq(bookFiles.id, inserted.id)).run();
+			});
 			return { bookFileId: inserted.id, destPath };
 		}
 		return { bookFileId: null, destPath };
 	} catch (error) {
+		const cleanupFailure = sideEffects.rollbackCreatedFile(destPath);
+		if (cleanupFailure) {
+			logWarn(
+				"file-import",
+				`Failed to clean up imported file ${cleanupFailure.path}: ${cleanupFailure.error instanceof Error ? cleanupFailure.error.message : "Unknown error"}`,
+			);
+		}
 		logError(
 			"file-import",
 			`Failed to import ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -332,18 +415,12 @@ function importRenamedFile(
 	cfg: ImportSettings,
 	part: number | null,
 	partCount: number | null,
+	sideEffects: FileSideEffectRecorder,
 ): ImportResult {
 	const destPath = path.join(destDir, newName);
 	try {
-		if (cfg.useHardLinks) {
-			try {
-				fs.linkSync(filePath, destPath);
-			} catch {
-				fs.copyFileSync(filePath, destPath);
-			}
-		} else {
-			fs.copyFileSync(filePath, destPath);
-		}
+		createDestinationFile(filePath, destPath, cfg.useHardLinks);
+		sideEffects.recordCreatedFile(destPath);
 		if (cfg.applyPermissions && cfg.fileChmod) {
 			fs.chmodSync(destPath, Number.parseInt(cfg.fileChmod, 8));
 		}
@@ -368,10 +445,20 @@ function importRenamedFile(
 				})
 				.returning({ id: bookFiles.id })
 				.get();
+			sideEffects.recordCleanup(`bookFiles ${inserted.id}`, () => {
+				db.delete(bookFiles).where(eq(bookFiles.id, inserted.id)).run();
+			});
 			return { bookFileId: inserted.id, destPath };
 		}
 		return { bookFileId: null, destPath };
 	} catch (error) {
+		const cleanupFailure = sideEffects.rollbackCreatedFile(destPath);
+		if (cleanupFailure) {
+			logWarn(
+				"file-import",
+				`Failed to clean up imported file ${cleanupFailure.path}: ${cleanupFailure.error instanceof Error ? cleanupFailure.error.message : "Unknown error"}`,
+			);
+		}
 		logError(
 			"file-import",
 			`Failed to import ${path.basename(filePath)}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -401,6 +488,7 @@ async function importFiles(
 	namingVars: Record<string, string>,
 	cfg: ImportSettings,
 	mediaType: MediaType,
+	sideEffects: FileSideEffectRecorder,
 ): Promise<number> {
 	const sorted = [...files].toSorted((a, b) =>
 		naturalCompare(path.basename(a), path.basename(b)),
@@ -441,6 +529,7 @@ async function importFiles(
 				cfg,
 				part,
 				partCount,
+				sideEffects,
 			);
 		} else {
 			result = importFile(
@@ -452,6 +541,7 @@ async function importFiles(
 				cfg.fileChmod,
 				part,
 				partCount,
+				sideEffects,
 			);
 		}
 
@@ -558,19 +648,13 @@ function importEpisodeFile(
 	destDir: string,
 	episodeId: number,
 	cfg: ImportSettings,
+	sideEffects: FileSideEffectRecorder,
 ): { destPath: string; fileId: number } | null {
 	const filename = path.basename(filePath);
 	const destPath = path.join(destDir, filename);
 	try {
-		if (cfg.useHardLinks) {
-			try {
-				fs.linkSync(filePath, destPath);
-			} catch {
-				fs.copyFileSync(filePath, destPath);
-			}
-		} else {
-			fs.copyFileSync(filePath, destPath);
-		}
+		createDestinationFile(filePath, destPath, cfg.useHardLinks);
+		sideEffects.recordCreatedFile(destPath);
 		if (cfg.applyPermissions && cfg.fileChmod) {
 			fs.chmodSync(destPath, Number.parseInt(cfg.fileChmod, 8));
 		}
@@ -595,9 +679,19 @@ function importEpisodeFile(
 			})
 			.returning({ id: episodeFiles.id })
 			.get();
+		sideEffects.recordCleanup(`episodeFiles ${inserted.id}`, () => {
+			db.delete(episodeFiles).where(eq(episodeFiles.id, inserted.id)).run();
+		});
 
 		return { destPath, fileId: inserted.id };
 	} catch (error) {
+		const cleanupFailure = sideEffects.rollbackCreatedFile(destPath);
+		if (cleanupFailure) {
+			logWarn(
+				"file-import",
+				`Failed to clean up imported file ${cleanupFailure.path}: ${cleanupFailure.error instanceof Error ? cleanupFailure.error.message : "Unknown error"}`,
+			);
+		}
 		logError(
 			"file-import",
 			`Failed to import episode file ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -609,6 +703,7 @@ function importEpisodeFile(
 
 async function importEpisodePackDownload(
 	td: typeof trackedDownloads.$inferSelect,
+	sideEffects: FileSideEffectRecorder,
 ): Promise<void> {
 	if (!td.outputPath || !td.showId) {
 		markFailed(td.id, "Missing output path or show ID for episode pack");
@@ -702,13 +797,19 @@ async function importEpisodePackDownload(
 			fs.chmodSync(destDir, Number.parseInt(cfg.folderChmod, 8));
 		}
 
-		const result = importEpisodeFile(mf.path, destDir, ep.id, cfg);
+		const result = importEpisodeFile(mf.path, destDir, ep.id, cfg, sideEffects);
 		if (result) {
 			importedCount += 1;
 			db.update(episodes)
 				.set({ hasFile: true })
 				.where(eq(episodes.id, ep.id))
 				.run();
+			sideEffects.recordCleanup(`episodes ${ep.id} hasFile`, () => {
+				db.update(episodes)
+					.set({ hasFile: false })
+					.where(eq(episodes.id, ep.id))
+					.run();
+			});
 		}
 	}
 
@@ -739,6 +840,7 @@ async function importEpisodePackDownload(
 
 async function importBookPackDownload(
 	td: typeof trackedDownloads.$inferSelect,
+	sideEffects: FileSideEffectRecorder,
 ): Promise<void> {
 	if (!td.outputPath || !td.authorId) {
 		markFailed(td.id, "Missing output path or author ID for book pack");
@@ -866,6 +968,7 @@ async function importBookPackDownload(
 			namingVars,
 			cfg,
 			mediaType,
+			sideEffects,
 		);
 		if (imported > 0) {
 			importedCount += 1;
@@ -907,6 +1010,7 @@ async function importBookPackDownload(
 export async function importCompletedDownload(
 	trackedDownloadId: number,
 ): Promise<void> {
+	const sideEffects = createFileSideEffectRecorder();
 	const td = db
 		.select()
 		.from(trackedDownloads)
@@ -920,8 +1024,16 @@ export async function importCompletedDownload(
 	claimTrackedDownloadImport(td.id);
 
 	try {
-		await importCompletedTrackedDownload(td);
+		await importCompletedTrackedDownload(td, sideEffects);
+		sideEffects.commit();
 	} catch (error) {
+		const cleanupFailures = sideEffects.cleanup();
+		for (const failure of cleanupFailures) {
+			logWarn(
+				"file-import",
+				`Failed to clean up imported file ${failure.path}: ${failure.error instanceof Error ? failure.error.message : "Unknown error"}`,
+			);
+		}
 		const message = error instanceof Error ? error.message : "Unknown error";
 		try {
 			markTrackedDownloadFailed(td.id, message);
@@ -938,17 +1050,18 @@ export async function importCompletedDownload(
 
 async function importCompletedTrackedDownload(
 	td: typeof trackedDownloads.$inferSelect,
+	sideEffects: FileSideEffectRecorder,
 ): Promise<void> {
 	// Pack download detection — parent ID set but item ID null
 	const isEpisodePack = td.showId && !td.episodeId;
 	const isBookPack = td.authorId && !td.bookId;
 
 	if (isEpisodePack) {
-		await importEpisodePackDownload(td);
+		await importEpisodePackDownload(td, sideEffects);
 		return;
 	}
 	if (isBookPack) {
-		await importBookPackDownload(td);
+		await importBookPackDownload(td, sideEffects);
 		return;
 	}
 
@@ -1047,6 +1160,7 @@ async function importCompletedTrackedDownload(
 			namingVars,
 			cfg,
 			"ebook",
+			sideEffects,
 		);
 	}
 	if (audioFiles.length > 0) {
@@ -1057,41 +1171,13 @@ async function importCompletedTrackedDownload(
 			namingVars,
 			cfg,
 			"audio",
+			sideEffects,
 		);
 	}
 
 	if (importedCount === 0) {
 		markFailed(td.id, "All file imports failed");
 		return;
-	}
-
-	// Clean up old book files on upgrade
-	if (existingFiles.length > 0) {
-		for (const oldFile of existingFiles) {
-			const recyclingBin = getMediaSetting(
-				"mediaManagement.book.recyclingBin",
-				"",
-			);
-			try {
-				if (recyclingBin) {
-					fs.mkdirSync(recyclingBin, { recursive: true });
-					const recycleDest = path.join(
-						recyclingBin,
-						path.basename(oldFile.path),
-					);
-					fs.renameSync(oldFile.path, recycleDest);
-				} else {
-					fs.unlinkSync(oldFile.path);
-				}
-			} catch {
-				// File may already be gone
-			}
-			db.delete(bookFiles).where(eq(bookFiles.id, oldFile.id)).run();
-		}
-		logInfo(
-			"file-import",
-			`Cleaned up ${existingFiles.length} old file(s) for "${bookTitle}"`,
-		);
 	}
 
 	db.insert(history)
@@ -1109,6 +1195,38 @@ async function importCompletedTrackedDownload(
 		.run();
 
 	markTrackedDownloadImported(td.id);
+
+	// Clean up old book files on upgrade after the replacement import is final.
+	if (existingFiles.length > 0) {
+		for (const oldFile of existingFiles) {
+			const recyclingBin = getMediaSetting(
+				"mediaManagement.book.recyclingBin",
+				"",
+			);
+			try {
+				db.delete(bookFiles).where(eq(bookFiles.id, oldFile.id)).run();
+				if (recyclingBin) {
+					fs.mkdirSync(recyclingBin, { recursive: true });
+					const recycleDest = path.join(
+						recyclingBin,
+						path.basename(oldFile.path),
+					);
+					fs.renameSync(oldFile.path, recycleDest);
+				} else {
+					fs.unlinkSync(oldFile.path);
+				}
+			} catch (error) {
+				logWarn(
+					"file-import",
+					`Failed to clean up old file ${oldFile.path}: ${error instanceof Error ? error.message : "Unknown error"}`,
+				);
+			}
+		}
+		logInfo(
+			"file-import",
+			`Cleaned up ${existingFiles.length} old file(s) for "${bookTitle}"`,
+		);
+	}
 
 	eventBus.emit({ type: "importCompleted", bookId: td.bookId, bookTitle });
 
