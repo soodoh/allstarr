@@ -1,3 +1,5 @@
+import { resolveRetryDelayMs, sleep } from "./external-request-policy";
+
 type CacheEntry = {
 	data: unknown;
 	expires: number;
@@ -88,9 +90,7 @@ export function createApiFetcher(options: ApiFetcherOptions): ApiFetcher {
 		if (requestTimestamps.length >= options.rateLimit.maxRequests) {
 			const oldest = requestTimestamps[0];
 			const waitTime = options.rateLimit.windowMs - (now - oldest) + 100;
-			await new Promise<void>((resolve) => {
-				setTimeout(resolve, waitTime);
-			});
+			await sleep(waitTime);
 		}
 		requestTimestamps.push(Date.now());
 	}
@@ -106,10 +106,11 @@ export function createApiFetcher(options: ApiFetcherOptions): ApiFetcher {
 						"status" in error &&
 						(error as { status: number }).status === 429);
 				if (isRateLimit && attempt < options.retry.maxRetries) {
-					const delay = options.retry.baseDelayMs * 2 ** attempt;
-					await new Promise<void>((resolve) => {
-						setTimeout(resolve, delay);
+					const delay = resolveRetryDelayMs({
+						attempt,
+						baseDelayMs: options.retry.baseDelayMs,
 					});
+					await sleep(delay);
 					continue;
 				}
 				throw error;

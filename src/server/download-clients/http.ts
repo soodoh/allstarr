@@ -1,3 +1,5 @@
+import { fetchWithExternalTimeout } from "../external-request-policy";
+
 export function buildBaseUrl(
 	host: string,
 	port: number,
@@ -21,20 +23,10 @@ export async function fetchWithTimeout(
 	options: RequestInit,
 	timeoutMs = 10_000,
 ): Promise<Response> {
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-	try {
-		const response = await fetch(url, {
-			...options,
-			signal: controller.signal,
-		});
-		return response;
-	} catch (error) {
-		if (error instanceof Error && error.name === "AbortError") {
-			throw new Error("Connection timed out.", { cause: error });
-		}
-		throw error;
-	} finally {
-		clearTimeout(timeoutId);
-	}
+	return fetchWithExternalTimeout(
+		url,
+		options,
+		timeoutMs,
+		"Connection timed out.",
+	);
 }

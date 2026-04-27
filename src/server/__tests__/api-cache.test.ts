@@ -348,4 +348,45 @@ describe("createApiFetcher — retry", () => {
 		expect(result).toBe("success");
 		expect(fetchFn).toHaveBeenCalledTimes(3);
 	});
+
+	it("uses the shared external request policy for retry delays", async () => {
+		vi.useRealTimers();
+		vi.resetModules();
+		const resolveRetryDelayMs = vi.fn().mockReturnValue(0);
+		const sleep = vi.fn().mockResolvedValue(undefined);
+		vi.doMock("../external-request-policy", async (importOriginal) => {
+			const actual =
+				await importOriginal<typeof import("../external-request-policy")>();
+			return {
+				...actual,
+				resolveRetryDelayMs,
+				sleep,
+			};
+		});
+		const {
+			ApiRateLimitError: MockedApiRateLimitError,
+			createApiFetcher: createMockedApiFetcher,
+		} = await import("../api-cache");
+		const fetcher = createMockedApiFetcher({
+			name: "test",
+			cache: { ttlMs: 60_000, maxEntries: 100 },
+			rateLimit: { maxRequests: 1000, windowMs: 1000 },
+			retry: { maxRetries: 1, baseDelayMs: 250 },
+		});
+		const fetchFn = vi
+			.fn()
+			.mockRejectedValueOnce(new MockedApiRateLimitError())
+			.mockResolvedValueOnce("success");
+
+		await expect(fetcher.fetch("key", fetchFn)).resolves.toBe("success");
+
+		expect(resolveRetryDelayMs).toHaveBeenCalledWith({
+			attempt: 0,
+			baseDelayMs: 250,
+		});
+		expect(sleep).toHaveBeenCalledWith(0);
+		expect(fetchFn).toHaveBeenCalledTimes(2);
+		vi.doUnmock("../external-request-policy");
+		vi.resetModules();
+	});
 });
