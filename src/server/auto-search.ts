@@ -109,6 +109,10 @@ type SearchCountResult = {
 	grabbed: number;
 };
 
+type SearchCountResultWithOutcomes = SearchCountResult & {
+	outcomes: AutoSearchOutcomeCounts;
+};
+
 type EditionProfileTarget = {
 	editionId: number;
 	profile: ProfileInfo;
@@ -838,6 +842,34 @@ function getEnabledIndexers(): EnabledIndexers {
 	};
 }
 
+function createPackFailureTrackingRecorder(
+	onOutcome?: AutoSearchOutcomeRecorder,
+): {
+	record: AutoSearchOutcomeRecorder;
+	hadIndexerFailure: () => boolean;
+} {
+	let indexerFailed = false;
+	return {
+		record: (reason, amount) => {
+			if (reason === "indexer_failed") {
+				indexerFailed = true;
+			}
+			onOutcome?.(reason, amount);
+		},
+		hadIndexerFailure: () => indexerFailed,
+	};
+}
+
+function withOutcomes<T extends SearchCountResult>(
+	result: T,
+	outcomes: AutoSearchOutcomeCounts,
+): T & { outcomes: AutoSearchOutcomeCounts } {
+	return Object.defineProperty(result, "outcomes", {
+		value: outcomes,
+		enumerable: false,
+	}) as T & { outcomes: AutoSearchOutcomeCounts };
+}
+
 async function searchAndGrabForBook(
 	book: WantedBook,
 	ixs: EnabledIndexers,
@@ -1141,6 +1173,7 @@ async function searchAndGrabForAuthor(
 ): Promise<PackSearchResult> {
 	const cleanName = cleanSearchTerm(authorName);
 	const query = `"${cleanName}"`;
+	const packOutcome = createPackFailureTrackingRecorder(onOutcome);
 
 	// Derive categories from all book profiles
 	const allProfiles = wantedBooks.flatMap((b) => b.profiles);
@@ -1153,10 +1186,13 @@ async function searchAndGrabForAuthor(
 		undefined,
 		"book",
 		"[auto-search]",
-		onOutcome,
+		packOutcome.record,
 	);
 
 	if (allReleases.length === 0) {
+		if (packOutcome.hadIndexerFailure()) {
+			onOutcome?.("pack_search_failed");
+		}
 		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
@@ -1786,6 +1822,7 @@ async function searchAndGrabForSeason(
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}" S${padNumber(seasonNumber)}`;
+	const packOutcome = createPackFailureTrackingRecorder(onOutcome);
 	const allProfiles = wantedEpisodes.flatMap((ep) => ep.profiles);
 	const categories = getCategoriesForProfiles(allProfiles);
 
@@ -1796,9 +1833,12 @@ async function searchAndGrabForSeason(
 		undefined,
 		"tv",
 		"[auto-search:season]",
-		onOutcome,
+		packOutcome.record,
 	);
 	if (allReleases.length === 0) {
+		if (packOutcome.hadIndexerFailure()) {
+			onOutcome?.("pack_search_failed");
+		}
 		onOutcome?.("no_matching_releases");
 		return { searched: true, grabbed: false };
 	}
@@ -1932,6 +1972,7 @@ async function searchSeasonWithFallback(
 	seasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
 	delay: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<{ searched: number; grabbed: number }> {
 	let searched = 0;
 	let grabbed = 0;
@@ -1944,6 +1985,7 @@ async function searchSeasonWithFallback(
 				seasonEpisodes,
 				seasonMap,
 				ixs,
+				onOutcome,
 			);
 			if (seasonResult.searched) {
 				searched += seasonEpisodes.length;
@@ -1958,7 +2000,9 @@ async function searchSeasonWithFallback(
 				`Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}`,
 				error,
 			);
+			onOutcome?.("pack_search_failed");
 		}
+		onOutcome?.("fallback_used");
 		await sleep(delay);
 	}
 
@@ -1991,20 +2035,22 @@ async function searchSeasonWithFallback(
 export async function searchForShow(
 	showId: number,
 	cutoffUnmet?: boolean,
-): Promise<{ searched: number; grabbed: number }> {
+): Promise<SearchCountResultWithOutcomes> {
+	const outcomes = createAutoSearchOutcomeCounts();
 	const wantedEpisodes = getWantedEpisodes(showId, cutoffUnmet);
 	if (wantedEpisodes.length === 0) {
-		return { searched: 0, grabbed: 0 };
+		return withOutcomes({ searched: 0, grabbed: 0 }, outcomes);
 	}
 
 	const ixs = getEnabledIndexers();
 	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-		return { searched: 0, grabbed: 0 };
+		return withOutcomes({ searched: 0, grabbed: 0 }, outcomes);
 	}
 
 	const DELAY_BETWEEN_ITEMS = 2000;
 	let searched = 0;
 	let grabbed = 0;
+	const recordOutcome = createAutoSearchOutcomeRecorder(outcomes);
 
 	const seasonMap = new Map<number, WantedEpisode[]>();
 	for (const ep of wantedEpisodes) {
@@ -2025,7 +2071,7 @@ export async function searchForShow(
 			}
 			if (packResult.grabbed) {
 				grabbed += 1;
-				return { searched, grabbed };
+				return withOutcomes({ searched, grabbed }, outcomes);
 			}
 		} catch (error) {
 			logError(
@@ -2051,12 +2097,13 @@ export async function searchForShow(
 			seasonMap,
 			ixs,
 			DELAY_BETWEEN_ITEMS,
+			recordOutcome,
 		);
 		searched += sr.searched;
 		grabbed += sr.grabbed;
 	}
 
-	return { searched, grabbed };
+	return withOutcomes({ searched, grabbed }, outcomes);
 }
 
 // ─── Auto-search orchestrator ───────────────────────────────────────────────
@@ -2201,12 +2248,14 @@ async function processWantedBooks(
 					continue;
 				}
 			} catch (error) {
+				onOutcome("pack_search_failed");
 				logError(
 					"auto-search",
 					`Error in author-level search for "${authorName}"`,
 					error,
 				);
 			}
+			onOutcome("fallback_used");
 			await sleep(delay);
 		}
 
@@ -2335,12 +2384,14 @@ async function processSeasonEpisodes(
 				return;
 			}
 		} catch (error) {
+			onOutcome("pack_search_failed");
 			logError(
 				"auto-search",
 				`Error in season-level search for "${show.title}" S${padNumber(seasonNumber)}`,
 				error,
 			);
 		}
+		onOutcome("fallback_used");
 		await sleep(delay);
 	}
 

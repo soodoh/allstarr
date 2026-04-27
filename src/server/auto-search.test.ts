@@ -1968,6 +1968,7 @@ describe("searchForShow", () => {
 
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.fallback_used).toBe(1);
 		// searchNewznab should be called multiple times (season + individual episodes)
 		expect(mocks.searchNewznab).toHaveBeenCalled();
 	});
@@ -2501,6 +2502,80 @@ describe("pack handling — author-level search", () => {
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
+		expect(result.outcomes.fallback_used).toBe(1);
+	});
+
+	it("records author pack failure before individual fallback", async () => {
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 11,
+							title: "Book B",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [{ editionId: 101, profileId: profile.id }];
+				case 9:
+					return [profile];
+				case 10:
+					return [];
+				case 11:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab
+			.mockRejectedValueOnce(new Error("author search failed"))
+			.mockResolvedValue([]);
+
+		const result = await runAutoSearch({
+			bookIds: [10, 11],
+			delayBetweenBooks: 0,
+		});
+
+		expect(result.outcomes.pack_search_failed).toBe(1);
+		expect(result.outcomes.fallback_used).toBe(1);
 	});
 
 	it("records no matching releases when author search releases are not grabbed", async () => {
