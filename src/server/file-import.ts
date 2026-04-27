@@ -30,6 +30,7 @@ import { logError, logInfo, logWarn } from "./logger";
 import { probeAudioFile, probeEbookFile } from "./media-probe";
 import getMediaSetting from "./settings-reader";
 import {
+	claimTrackedDownloadImport,
 	markTrackedDownloadFailed,
 	markTrackedDownloadImported,
 } from "./tracked-download-state";
@@ -916,10 +917,7 @@ export async function importCompletedDownload(
 		throw new Error(`Tracked download ${trackedDownloadId} not found`);
 	}
 
-	db.update(trackedDownloads)
-		.set({ state: "importPending", updatedAt: new Date() })
-		.where(eq(trackedDownloads.id, td.id))
-		.run();
+	claimTrackedDownloadImport(td.id);
 
 	try {
 		await importCompletedTrackedDownload(td);

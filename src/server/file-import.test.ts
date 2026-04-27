@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
 	// settings reader
 	getMediaSetting: vi.fn(),
 	// tracked download state helpers
+	claimTrackedDownloadImport: vi.fn(),
 	markTrackedDownloadFailed: vi.fn(),
 	markTrackedDownloadImported: vi.fn(),
 }));
@@ -162,6 +163,7 @@ vi.mock("./settings-reader", () => ({
 }));
 
 vi.mock("./tracked-download-state", () => ({
+	claimTrackedDownloadImport: mocks.claimTrackedDownloadImport,
 	markTrackedDownloadFailed: mocks.markTrackedDownloadFailed,
 	markTrackedDownloadImported: mocks.markTrackedDownloadImported,
 }));
@@ -274,6 +276,10 @@ function expectMarkedImported(id = 1) {
 	expect(mocks.markTrackedDownloadImported).toHaveBeenCalledWith(id);
 }
 
+function expectClaimedForImport(id = 1) {
+	expect(mocks.claimTrackedDownloadImport).toHaveBeenCalledWith(id);
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("importCompletedDownload", () => {
@@ -290,9 +296,7 @@ describe("importCompletedDownload", () => {
 
 		await importCompletedDownload(1);
 
-		expect(mocks.dbSet).toHaveBeenCalledWith(
-			expect.objectContaining({ state: "importPending" }),
-		);
+		expectClaimedForImport();
 		expectMarkedFailed("Download output path not set");
 	});
 

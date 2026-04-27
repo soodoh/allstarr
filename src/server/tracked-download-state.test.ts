@@ -20,6 +20,7 @@ vi.mock("src/db", () => ({
 
 import type { TrackedDownloadStateDb } from "./tracked-download-state";
 import {
+	claimTrackedDownloadImport,
 	markTrackedDownloadCompleted,
 	markTrackedDownloadDownloading,
 	markTrackedDownloadFailed,
@@ -175,6 +176,45 @@ describe("tracked download state transitions", () => {
 
 		expect(rows[0]?.state).toBe("importPending");
 		expect(rows[0]?.updatedAt).toBeInstanceOf(Date);
+	});
+
+	it("claims a completed tracked download for import", () => {
+		const rows: TrackedDownloadRow[] = [{ id: 14, state: "completed" }];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		claimTrackedDownloadImport(14);
+
+		expect(rows[0]?.state).toBe("importPending");
+		expect(rows[0]?.updatedAt).toBeInstanceOf(Date);
+	});
+
+	it("treats an already import-pending tracked download as an existing import claim", () => {
+		const rows: TrackedDownloadRow[] = [{ id: 15, state: "importPending" }];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		claimTrackedDownloadImport(15);
+
+		expect(rows[0]?.state).toBe("importPending");
+		expect(mocks.defaultDb.update).not.toHaveBeenCalled();
+	});
+
+	it("rejects import claims from terminal states without changing persisted state", () => {
+		const rows: TrackedDownloadRow[] = [
+			{ id: 16, message: "previous failure", state: "failed" },
+		];
+		const fakeDb = createFakeDb(rows);
+		useDefaultDb(fakeDb);
+
+		expect(() => claimTrackedDownloadImport(16)).toThrow(
+			"Cannot claim tracked download",
+		);
+		expect(rows[0]).toMatchObject({
+			message: "previous failure",
+			state: "failed",
+		});
+		expect(mocks.defaultDb.update).not.toHaveBeenCalled();
 	});
 
 	it("rejects queued to imported", () => {
