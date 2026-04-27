@@ -5,11 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	// node:fs
 	readdirSync: vi.fn(),
+	existsSync: vi.fn(),
 	statSync: vi.fn(),
 	statfsSync: vi.fn(),
 	mkdirSync: vi.fn(),
 	linkSync: vi.fn(),
 	copyFileSync: vi.fn(),
+	openSync: vi.fn(),
+	readSync: vi.fn(),
+	writeSync: vi.fn(),
+	closeSync: vi.fn(),
 	chmodSync: vi.fn(),
 	renameSync: vi.fn(),
 	unlinkSync: vi.fn(),
@@ -19,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 	dbRun: vi.fn(),
 	dbSet: vi.fn(),
 	dbValues: vi.fn(),
+	dbDelete: vi.fn(),
 	// logger
 	logInfo: vi.fn(),
 	logWarn: vi.fn(),
@@ -46,11 +52,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock("node:fs", () => ({
 	default: {
 		readdirSync: mocks.readdirSync,
+		existsSync: mocks.existsSync,
 		statSync: mocks.statSync,
 		statfsSync: mocks.statfsSync,
 		mkdirSync: mocks.mkdirSync,
 		linkSync: mocks.linkSync,
 		copyFileSync: mocks.copyFileSync,
+		openSync: mocks.openSync,
+		readSync: mocks.readSync,
+		writeSync: mocks.writeSync,
+		closeSync: mocks.closeSync,
 		chmodSync: mocks.chmodSync,
 		renameSync: mocks.renameSync,
 		unlinkSync: mocks.unlinkSync,
@@ -78,6 +89,12 @@ vi.mock("src/db", () => {
 			if (prop === "run") return mocks.dbRun;
 			if (prop === "set") return mocks.dbSet;
 			if (prop === "values") return mocks.dbValues;
+			if (prop === "delete") {
+				return (...args: unknown[]) => {
+					mocks.dbDelete(...args);
+					return new Proxy({}, handler);
+				};
+			}
 			// Everything else is a chaining method -> return a fn that returns the proxy
 			return (..._args: unknown[]) => new Proxy({}, handler);
 		},
@@ -182,6 +199,10 @@ beforeEach(() => {
 
 	// Default: statSync returns file info
 	mocks.statSync.mockReturnValue({ size: 1024, isDirectory: () => false });
+	mocks.existsSync.mockReturnValue(false);
+	mocks.openSync.mockReturnValue(11);
+	mocks.readSync.mockReturnValueOnce(8).mockReturnValue(0);
+	mocks.writeSync.mockReturnValue(8);
 
 	// Default: settings return defaults
 	mocks.getMediaSetting.mockImplementation(
@@ -394,6 +415,296 @@ describe("importCompletedDownload", () => {
 		expectMarkedFailed("permission denied");
 	});
 
+	it("cleans up a copied destination file when history finalization fails", async () => {
+		const td = makeTd();
+		const error = new Error("history unavailable");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+			{ id: 41 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "my-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.useHardLinks") return false;
+				return defaultValue;
+			},
+		);
+		mocks.dbRun.mockImplementationOnce(() => {
+			throw error;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expect(mocks.openSync).toHaveBeenCalledWith(
+			expect.stringContaining("my-book.epub"),
+			"wx",
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("my-book.epub"),
+		);
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "bookFiles.id" }),
+		);
+		expectMarkedFailed("history unavailable");
+	});
+
+	it("refuses a pre-existing destination without deleting it", async () => {
+		const td = makeTd();
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "existing-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.existsSync.mockImplementation((filePath: string) =>
+			filePath.includes("existing-book.epub"),
+		);
+
+		await importCompletedDownload(1);
+
+		expect(mocks.linkSync).not.toHaveBeenCalled();
+		expect(mocks.copyFileSync).not.toHaveBeenCalled();
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith(
+			expect.stringContaining("existing-book.epub"),
+		);
+		expectMarkedFailed("All file imports failed");
+		expect(mocks.markTrackedDownloadImported).not.toHaveBeenCalled();
+	});
+
+	it("does not overwrite when a destination appears during copy fallback", async () => {
+		const td = makeTd();
+		const error = Object.assign(new Error("EEXIST"), { code: "EEXIST" });
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "race-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.linkSync.mockImplementation(() => {
+			throw new Error("EXDEV");
+		});
+		mocks.openSync.mockImplementation((filePath: string, flags: string) => {
+			if (filePath.includes("race-book.epub") && flags === "wx") {
+				throw error;
+			}
+			return 11;
+		});
+
+		await importCompletedDownload(1);
+
+		expect(mocks.copyFileSync).not.toHaveBeenCalled();
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith(
+			expect.stringContaining("race-book.epub"),
+		);
+		expectMarkedFailed("All file imports failed");
+	});
+
+	it("removes a partially-created destination when exclusive copy close fails", async () => {
+		const td = makeTd();
+		const error = new Error("close failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "close-fail.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.useHardLinks") return false;
+				return defaultValue;
+			},
+		);
+		mocks.openSync.mockImplementation((_filePath: string, flags: string) =>
+			flags === "wx" ? 11 : 10,
+		);
+		mocks.closeSync.mockImplementation((fd: number) => {
+			if (fd === 11) {
+				throw error;
+			}
+		});
+
+		await importCompletedDownload(1);
+
+		expect(mocks.openSync).toHaveBeenCalledWith(
+			expect.stringContaining("close-fail.epub"),
+			"wx",
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("close-fail.epub"),
+		);
+		expectMarkedFailed("All file imports failed");
+	});
+
+	it("cleans up a linked destination file when tracked finalization fails", async () => {
+		const td = makeTd();
+		const error = new Error("state transition failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+			{ id: 42 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "linked-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.markTrackedDownloadImported.mockImplementation(() => {
+			throw error;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expect(mocks.linkSync).toHaveBeenCalledWith(
+			"/downloads/test-book/linked-book.epub",
+			expect.stringContaining("linked-book.epub"),
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("linked-book.epub"),
+		);
+		expectMarkedFailed("state transition failed");
+	});
+
+	it("keeps the destination file when inserted row cleanup fails during rollback", async () => {
+		const td = makeTd();
+		const rowDeleteError = new Error("row delete failed");
+		const finalizationError = new Error("state transition failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+			{ id: 43 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "row-cleanup-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.dbRun
+			.mockImplementationOnce(() => undefined)
+			.mockImplementationOnce(() => {
+				throw rowDeleteError;
+			});
+		mocks.markTrackedDownloadImported.mockImplementation(() => {
+			throw finalizationError;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(finalizationError);
+
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "bookFiles.id" }),
+		);
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith(
+			expect.stringContaining("row-cleanup-book.epub"),
+		);
+		expectMarkedFailed("state transition failed");
+	});
+
+	it("cleans up a destination file when chmod fails inside a swallowed file import", async () => {
+		const td = makeTd();
+		const error = new Error("chmod denied");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "chmod-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.setPermissions") return true;
+				return defaultValue;
+			},
+		);
+		mocks.chmodSync.mockImplementation((filePath: string) => {
+			if (filePath.includes("chmod-book.epub")) {
+				throw error;
+			}
+		});
+
+		await importCompletedDownload(1);
+
+		expect(mocks.linkSync).toHaveBeenCalledWith(
+			"/downloads/test-book/chmod-book.epub",
+			expect.stringContaining("chmod-book.epub"),
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("chmod-book.epub"),
+		);
+		expectMarkedFailed("All file imports failed");
+		expect(mocks.markTrackedDownloadImported).not.toHaveBeenCalled();
+	});
+
 	it("imports ebook files successfully", async () => {
 		const td = makeTd();
 		queueGets(
@@ -554,6 +865,71 @@ describe("importCompletedDownload", () => {
 		expect(mocks.unlinkSync).toHaveBeenCalledWith("/library/old/old.epub");
 	});
 
+	it("does not remove an old replacement file before import finalization succeeds", async () => {
+		const td = makeTd();
+		const error = new Error("history unavailable");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Replacement Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "Replacement Book", releaseYear: 2024 },
+			{ id: 62 },
+		);
+		queueAlls([{ id: 12, path: "/library/old/old.epub" }]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "replacement.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.dbRun.mockImplementationOnce(() => {
+			throw error;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith("/library/old/old.epub");
+	});
+
+	it("does not roll back the new file or fail the download when old-file DB cleanup fails after finalization", async () => {
+		const td = makeTd();
+		const error = new Error("old file delete failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Replacement Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "Replacement Book", releaseYear: 2024 },
+			{ id: 63 },
+		);
+		queueAlls([{ id: 13, path: "/library/old/old.epub" }]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "replacement.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.dbRun
+			.mockImplementationOnce(() => undefined)
+			.mockImplementationOnce(() => {
+				throw error;
+			});
+
+		await importCompletedDownload(1);
+
+		expectMarkedImported();
+		expect(mocks.markTrackedDownloadFailed).not.toHaveBeenCalled();
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith("/library/old/old.epub");
+		expect(mocks.unlinkSync).not.toHaveBeenCalledWith(
+			expect.stringContaining("replacement.epub"),
+		);
+		expect(mocks.logWarn).toHaveBeenCalledWith(
+			"file-import",
+			"Failed to clean up old file /library/old/old.epub: old file delete failed",
+		);
+	});
+
 	it("uses hard links when configured", async () => {
 		const td = makeTd();
 		queueGets(
@@ -616,7 +992,11 @@ describe("importCompletedDownload", () => {
 		await importCompletedDownload(1);
 
 		expect(mocks.linkSync).toHaveBeenCalled();
-		expect(mocks.copyFileSync).toHaveBeenCalled();
+		expect(mocks.openSync).toHaveBeenCalledWith(
+			expect.stringContaining("book.epub"),
+			"wx",
+		);
+		expect(mocks.copyFileSync).not.toHaveBeenCalled();
 	});
 
 	it("applies file and folder permissions when configured", async () => {
@@ -1195,6 +1575,52 @@ describe("importEpisodePackDownload", () => {
 			"file-import",
 			expect.stringContaining('Imported 2 episode(s) from pack for "My Show"'),
 		);
+	});
+
+	it("restores episode hasFile when episode pack finalization fails after import", async () => {
+		const error = new Error("history unavailable");
+		queueGets(
+			makeTvTd(),
+			{
+				id: 500,
+				title: "My Show",
+				year: 2024,
+				useSeasonFolder: true,
+			},
+			{ downloadProfileId: 300 },
+			{ rootFolderPath: "/tv-library" },
+			{ id: 803 },
+		);
+		mocks.statSync.mockReturnValue({ size: 4096, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "show.S01E03.mkv", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.mapTvFiles.mockReturnValue([
+			{
+				path: "/downloads/tv-pack/show.S01E03.mkv",
+				season: 1,
+				episode: 3,
+			},
+		]);
+		queueAlls([{ id: 603, seasonNumber: 1, episodeNumber: 3, hasFile: false }]);
+		mocks.dbRun
+			.mockImplementationOnce(() => undefined)
+			.mockImplementationOnce(() => {
+				throw error;
+			});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(error);
+
+		expect(mocks.dbSet).toHaveBeenCalledWith({ hasFile: true });
+		expect(mocks.dbSet).toHaveBeenCalledWith({ hasFile: false });
+		expect(mocks.dbDelete).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "episodeFiles.id" }),
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("show.S01E03.mkv"),
+		);
+		expectMarkedFailed("history unavailable");
 	});
 
 	it("skips episodes that already have files", async () => {
