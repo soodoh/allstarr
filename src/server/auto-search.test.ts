@@ -2488,6 +2488,93 @@ describe("pack handling — author-level search", () => {
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
 	});
+
+	it("records unavailable download clients for author-level pack grabs", async () => {
+		const release = makeRelease({
+			guid: "author-pack-no-client",
+			title: "AuthorX Complete Works",
+			releaseType: 3,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(3);
+		mocks.selectGet.mockReturnValue(undefined);
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 11,
+							title: "Book B",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [{ editionId: 101, profileId: profile.id }];
+				case 9:
+					return [profile];
+				case 10:
+					return [];
+				case 11:
+					return [];
+				// searchAndGrabForAuthor: blocklist for books
+				case 12:
+					return [];
+				// grabReleaseForBookPack: downloadClients.all()
+				case 13:
+				case 14:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({
+			bookIds: [10, 11],
+			delayBetweenBooks: 0,
+		});
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBeGreaterThan(0);
+	});
 });
 
 // ─── Release filtering edge cases ─────────────────────────────────────────
@@ -4114,6 +4201,100 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
+	});
+
+	it("records unavailable download clients for season-level pack grabs", async () => {
+		const release = makeRelease({
+			guid: "season-pack-no-client",
+			title: "Single.Season.Show.S01",
+			releaseType: 2,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(2);
+		mocks.selectGet.mockReturnValue(undefined);
+
+		const profile = makeProfile({ id: 20 });
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [];
+				case 4:
+					return [];
+				case 5:
+					return [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+						{
+							id: 101,
+							showId: 1,
+							showTitle: "Single Season Show",
+							seasonNumber: 1,
+							episodeNumber: 2,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					];
+				case 6:
+					return [{ profileId: profile.id }];
+				case 7:
+					return [profile];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				case 10:
+					return [{ profileId: profile.id }];
+				case 11:
+					return [profile];
+				case 12:
+					return [];
+				case 13:
+					return [];
+				// grabPerProfileForEpisodes: blocklist for show
+				case 14:
+					return [];
+				// grabReleaseForEpisodePack: downloadClients.all()
+				case 15:
+				case 16:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBeGreaterThan(0);
 	});
 
 	it("records episode errors gracefully in full auto-search", async () => {
