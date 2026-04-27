@@ -28,6 +28,12 @@ import {
 	type EnabledIndexers,
 	searchEnabledIndexers,
 } from "./auto-search-indexer-search";
+import {
+	type AutoSearchOutcomeCounts,
+	type AutoSearchOutcomeRecorder,
+	createAutoSearchOutcomeCounts,
+	createAutoSearchOutcomeRecorder,
+} from "./auto-search-outcomes";
 import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
 import { anyIndexerAvailable, canQueryIndexer } from "./indexer-rate-limiter";
@@ -95,6 +101,13 @@ type AutoSearchResult = {
 	details: SearchDetail[];
 	movieDetails?: MovieSearchDetail[];
 	episodeDetails?: EpisodeSearchDetail[];
+	outcomes: AutoSearchOutcomeCounts;
+};
+
+type SearchCountResult = {
+	searched: number;
+	grabbed: number;
+	outcomes: AutoSearchOutcomeCounts;
 };
 
 type EditionProfileTarget = {
@@ -790,6 +803,7 @@ async function searchIndexers(
 	bookParams?: { author: string; title: string },
 	contentType?: "book" | "tv",
 	logPrefix = "[auto-search]",
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<IndexerRelease[]> {
 	return searchEnabledIndexers({
 		bookParams,
@@ -801,6 +815,7 @@ async function searchIndexers(
 		logError,
 		logInfo,
 		logPrefix,
+		onOutcome,
 		query,
 		searchNewznab,
 		sleep,
@@ -827,6 +842,7 @@ function getEnabledIndexers(): EnabledIndexers {
 async function searchAndGrabForBook(
 	book: WantedBook,
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<SearchDetail> {
 	const detail: SearchDetail = {
 		bookId: book.id,
@@ -857,6 +873,7 @@ async function searchAndGrabForBook(
 		logError,
 		logInfo,
 		logPrefix: "rss-sync",
+		onOutcome,
 		query,
 		searchNewznab,
 		sleep,
@@ -865,17 +882,20 @@ async function searchAndGrabForBook(
 	detail.searched = true;
 
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return detail;
 	}
 
 	// Score, deduplicate, and grab per profile
 	const bookInfo = { title: book.title, authorName: book.authorName };
 	const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
-	const grabbedTitles = await grabPerProfile(scored, book);
+	const grabbedTitles = await grabPerProfile(scored, book, onOutcome);
 
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
+	} else {
+		onOutcome?.("no_matching_releases");
 	}
 
 	return detail;
@@ -885,6 +905,7 @@ async function searchAndGrabForBook(
 async function grabPerProfile(
 	scored: IndexerRelease[],
 	book: WantedBook,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -928,7 +949,7 @@ async function grabPerProfile(
 			continue;
 		}
 
-		const grabbed = await grabRelease(bestRelease, book, profile.id);
+		const grabbed = await grabRelease(bestRelease, book, profile.id, onOutcome);
 		if (grabbed) {
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
@@ -1090,6 +1111,7 @@ async function searchAndGrabForAuthor(
 	authorName: string,
 	wantedBooks: WantedBook[],
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<PackSearchResult> {
 	const cleanName = cleanSearchTerm(authorName);
 	const query = `"${cleanName}"`;
@@ -1105,6 +1127,7 @@ async function searchAndGrabForAuthor(
 		undefined,
 		"book",
 		"[auto-search]",
+		onOutcome,
 	);
 
 	if (allReleases.length === 0) {
@@ -1123,6 +1146,7 @@ async function searchAndGrabForAuthor(
 async function searchAndGrabForMovie(
 	movie: WantedMovie,
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<MovieSearchDetail> {
 	const detail: MovieSearchDetail = {
 		movieId: movie.id,
@@ -1144,6 +1168,7 @@ async function searchAndGrabForMovie(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
+				onOutcome?.("indexer_skipped");
 				logInfo(
 					"auto-search",
 					`Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
@@ -1175,6 +1200,7 @@ async function searchAndGrabForMovie(
 				),
 			);
 		} catch (error) {
+			onOutcome?.("indexer_failed");
 			logError(
 				"auto-search",
 				`Indexer "${synced.name}" failed for movie`,
@@ -1190,6 +1216,7 @@ async function searchAndGrabForMovie(
 			if (gate.reason === "pacing" && gate.waitMs) {
 				await sleep(gate.waitMs);
 			} else {
+				onOutcome?.("indexer_skipped");
 				logInfo(
 					"auto-search",
 					`Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
@@ -1221,6 +1248,7 @@ async function searchAndGrabForMovie(
 				),
 			);
 		} catch (error) {
+			onOutcome?.("indexer_failed");
 			logError("auto-search", "Manual indexer failed for movie", error);
 		}
 	}
@@ -1228,15 +1256,18 @@ async function searchAndGrabForMovie(
 	detail.searched = true;
 
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return detail;
 	}
 
 	const scored = dedupeAndScoreReleases(allReleases, null, null);
-	const grabbedTitles = await grabPerProfileForMovie(scored, movie);
+	const grabbedTitles = await grabPerProfileForMovie(scored, movie, onOutcome);
 
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
+	} else {
+		onOutcome?.("no_matching_releases");
 	}
 
 	return detail;
@@ -1246,6 +1277,7 @@ async function searchAndGrabForMovie(
 async function grabPerProfileForMovie(
 	scored: IndexerRelease[],
 	movie: WantedMovie,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -1292,7 +1324,12 @@ async function grabPerProfileForMovie(
 			continue;
 		}
 
-		const grabbed = await grabReleaseForMovie(bestRelease, movie, profile.id);
+		const grabbed = await grabReleaseForMovie(
+			bestRelease,
+			movie,
+			profile.id,
+			onOutcome,
+		);
 		if (grabbed) {
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
@@ -1312,6 +1349,7 @@ async function grabPerProfileForMovie(
 async function searchAndGrabForEpisode(
 	episode: WantedEpisode,
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<EpisodeSearchDetail> {
 	const detail: EpisodeSearchDetail = {
 		episodeId: episode.id,
@@ -1336,6 +1374,7 @@ async function searchAndGrabForEpisode(
 				if (gate.reason === "pacing" && gate.waitMs) {
 					await sleep(gate.waitMs);
 				} else {
+					onOutcome?.("indexer_skipped");
 					logInfo(
 						"auto-search",
 						`Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
@@ -1367,6 +1406,7 @@ async function searchAndGrabForEpisode(
 					),
 				);
 			} catch (error) {
+				onOutcome?.("indexer_failed");
 				logError(
 					"auto-search",
 					`Indexer "${synced.name}" failed for episode`,
@@ -1382,6 +1422,7 @@ async function searchAndGrabForEpisode(
 				if (gate.reason === "pacing" && gate.waitMs) {
 					await sleep(gate.waitMs);
 				} else {
+					onOutcome?.("indexer_skipped");
 					logInfo(
 						"auto-search",
 						`Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
@@ -1413,6 +1454,7 @@ async function searchAndGrabForEpisode(
 					),
 				);
 			} catch (error) {
+				onOutcome?.("indexer_failed");
 				logError("auto-search", "Manual indexer failed for episode", error);
 			}
 		}
@@ -1421,15 +1463,22 @@ async function searchAndGrabForEpisode(
 	detail.searched = true;
 
 	if (allReleases.length === 0) {
+		onOutcome?.("no_matching_releases");
 		return detail;
 	}
 
 	const scored = dedupeAndScoreReleases(allReleases, null, null);
-	const grabbedTitles = await grabPerProfileForEpisode(scored, episode);
+	const grabbedTitles = await grabPerProfileForEpisode(
+		scored,
+		episode,
+		onOutcome,
+	);
 
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
+	} else {
+		onOutcome?.("no_matching_releases");
 	}
 
 	return detail;
@@ -1439,6 +1488,7 @@ async function searchAndGrabForEpisode(
 async function grabPerProfileForEpisode(
 	scored: IndexerRelease[],
 	episode: WantedEpisode,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<string[]> {
 	const blocklistedTitles = new Set(
 		db
@@ -1489,6 +1539,7 @@ async function grabPerProfileForEpisode(
 			bestRelease,
 			episode,
 			profile.id,
+			onOutcome,
 		);
 		if (grabbed) {
 			satisfiedProfiles.add(profile.id);
@@ -1671,6 +1722,7 @@ async function searchAndGrabForSeason(
 	wantedEpisodes: WantedEpisode[],
 	allSeasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}" S${padNumber(seasonNumber)}`;
@@ -1684,6 +1736,7 @@ async function searchAndGrabForSeason(
 		undefined,
 		"tv",
 		"[auto-search:season]",
+		onOutcome,
 	);
 	if (allReleases.length === 0) {
 		return { searched: true, grabbed: false };
@@ -1699,6 +1752,7 @@ async function searchAndGrabForShow(
 	show: { id: number; title: string },
 	seasonMap: Map<number, WantedEpisode[]>,
 	ixs: EnabledIndexers,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<PackSearchResult> {
 	const showName = cleanSearchTerm(show.title);
 	const query = `"${showName}"`;
@@ -1714,6 +1768,7 @@ async function searchAndGrabForShow(
 		undefined,
 		"tv",
 		"[auto-search:show]",
+		onOutcome,
 	);
 	if (allReleases.length === 0) {
 		return { searched: true, grabbed: false };
@@ -1729,22 +1784,24 @@ async function searchAndGrabForShow(
 
 export async function searchForMovie(
 	movieId: number,
-): Promise<{ searched: number; grabbed: number }> {
+): Promise<SearchCountResult> {
+	const outcomes = createAutoSearchOutcomeCounts();
+	const recordOutcome = createAutoSearchOutcomeRecorder(outcomes);
 	const wantedMovies = getWantedMovies([movieId]);
 	if (wantedMovies.length === 0) {
-		return { searched: 0, grabbed: 0 };
+		return { searched: 0, grabbed: 0, outcomes };
 	}
 
 	const ixs = getEnabledIndexers();
 	if (ixs.manual.length === 0 && ixs.synced.length === 0) {
-		return { searched: 0, grabbed: 0 };
+		return { searched: 0, grabbed: 0, outcomes };
 	}
 
 	let searched = 0;
 	let grabbed = 0;
 
 	for (const movie of wantedMovies) {
-		const detail = await searchAndGrabForMovie(movie, ixs);
+		const detail = await searchAndGrabForMovie(movie, ixs, recordOutcome);
 		if (detail.searched) {
 			searched += 1;
 		}
@@ -1753,7 +1810,7 @@ export async function searchForMovie(
 		}
 	}
 
-	return { searched, grabbed };
+	return { searched, grabbed, outcomes };
 }
 
 // ─── Book/Author search ─────────────────────────────────────────────────────
@@ -1956,6 +2013,7 @@ async function processIndividualBooks(
 	ixs: EnabledIndexers,
 	result: AutoSearchResult,
 	delay: number,
+	onOutcome: AutoSearchOutcomeRecorder,
 ): Promise<void> {
 	for (let i = 0; i < booksToSearch.length; i += 1) {
 		if (
@@ -1964,12 +2022,13 @@ async function processIndividualBooks(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
+			onOutcome("all_indexers_exhausted");
 			break;
 		}
 
 		const book = booksToSearch[i];
 		try {
-			const detail = await searchAndGrabForBook(book, ixs);
+			const detail = await searchAndGrabForBook(book, ixs, onOutcome);
 			if (detail.searched) {
 				result.searched += 1;
 			}
@@ -2010,6 +2069,7 @@ async function processWantedBooks(
 	ixs: EnabledIndexers,
 	result: AutoSearchResult,
 	delay: number,
+	onOutcome: AutoSearchOutcomeRecorder,
 ): Promise<void> {
 	// Group books by primary author
 	const booksByAuthor = new Map<string, WantedBook[]>();
@@ -2029,6 +2089,7 @@ async function processWantedBooks(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
+			onOutcome("all_indexers_exhausted");
 			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
@@ -2044,6 +2105,7 @@ async function processWantedBooks(
 					authorName,
 					authorBooks,
 					ixs,
+					onOutcome,
 				);
 				recordBookDetails(authorBooks, packResult, result);
 				if (packResult.grabbed) {
@@ -2060,7 +2122,7 @@ async function processWantedBooks(
 		}
 
 		// Fallback to individual book search
-		await processIndividualBooks(authorBooks, ixs, result, delay);
+		await processIndividualBooks(authorBooks, ixs, result, delay, onOutcome);
 	}
 }
 
@@ -2070,6 +2132,7 @@ async function processWantedMovies(
 	ixs: EnabledIndexers,
 	result: AutoSearchResult,
 	delay: number,
+	onOutcome: AutoSearchOutcomeRecorder,
 ): Promise<void> {
 	for (let i = 0; i < wantedMovies.length; i += 1) {
 		if (
@@ -2078,6 +2141,7 @@ async function processWantedMovies(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
+			onOutcome("all_indexers_exhausted");
 			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
@@ -2085,7 +2149,7 @@ async function processWantedMovies(
 		const movie = wantedMovies[i];
 
 		try {
-			const detail = await searchAndGrabForMovie(movie, ixs);
+			const detail = await searchAndGrabForMovie(movie, ixs, onOutcome);
 			if (detail.searched) {
 				result.searched += 1;
 			}
@@ -2156,6 +2220,7 @@ async function processSeasonEpisodes(
 	ixs: EnabledIndexers,
 	result: AutoSearchResult,
 	delay: number,
+	onOutcome: AutoSearchOutcomeRecorder,
 ): Promise<void> {
 	if (seasonEpisodes.length >= 2) {
 		try {
@@ -2165,6 +2230,7 @@ async function processSeasonEpisodes(
 				seasonEpisodes,
 				seasonMap,
 				ixs,
+				onOutcome,
 			);
 			recordEpisodeDetails(seasonEpisodes, seasonResult, result);
 			if (seasonResult.grabbed) {
@@ -2188,11 +2254,12 @@ async function processSeasonEpisodes(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
+			onOutcome("all_indexers_exhausted");
 			break;
 		}
 		const episode = seasonEpisodes[i];
 		try {
-			const detail = await searchAndGrabForEpisode(episode, ixs);
+			const detail = await searchAndGrabForEpisode(episode, ixs, onOutcome);
 			if (detail.searched) {
 				result.searched += 1;
 			}
@@ -2233,6 +2300,7 @@ async function processWantedEpisodes(
 	ixs: EnabledIndexers,
 	result: AutoSearchResult,
 	delay: number,
+	onOutcome: AutoSearchOutcomeRecorder,
 ): Promise<void> {
 	const episodesByShow = new Map<number, Map<number, WantedEpisode[]>>();
 	for (const ep of wantedEpisodes) {
@@ -2257,6 +2325,7 @@ async function processWantedEpisodes(
 				ixs.synced.map((s) => s.id),
 			)
 		) {
+			onOutcome("all_indexers_exhausted");
 			logInfo("auto-search", "All indexers exhausted, stopping cycle early");
 			break;
 		}
@@ -2273,7 +2342,12 @@ async function processWantedEpisodes(
 		// Multiple seasons → show-level search first
 		if (seasonMap.size > 1) {
 			try {
-				const packResult = await searchAndGrabForShow(show, seasonMap, ixs);
+				const packResult = await searchAndGrabForShow(
+					show,
+					seasonMap,
+					ixs,
+					onOutcome,
+				);
 				recordEpisodeDetails(
 					[...seasonMap.values()].flat(),
 					packResult,
@@ -2301,6 +2375,7 @@ async function processWantedEpisodes(
 					ixs.synced.map((s) => s.id),
 				)
 			) {
+				onOutcome("all_indexers_exhausted");
 				break;
 			}
 			if (!isFirstSeason) {
@@ -2315,6 +2390,7 @@ async function processWantedEpisodes(
 				ixs,
 				result,
 				delay,
+				onOutcome,
 			);
 		}
 	}
@@ -2332,7 +2408,9 @@ export async function runAutoSearch(
 		details: [],
 		movieDetails: [],
 		episodeDetails: [],
+		outcomes: createAutoSearchOutcomeCounts(),
 	};
+	const recordOutcome = createAutoSearchOutcomeRecorder(result.outcomes);
 
 	const ixs = getEnabledIndexers();
 
@@ -2354,7 +2432,13 @@ export async function runAutoSearch(
 		wantedBooks = wantedBooks.slice(0, maxBooks);
 	}
 
-	await processWantedBooks(wantedBooks, ixs, result, delayBetweenBooks);
+	await processWantedBooks(
+		wantedBooks,
+		ixs,
+		result,
+		delayBetweenBooks,
+		recordOutcome,
+	);
 
 	// ── Movies & Episodes (full auto-search only, not book-specific) ───────
 	if (!bookIds) {
@@ -2366,7 +2450,13 @@ export async function runAutoSearch(
 			getWantedMovies(),
 			(m) => m.lastSearchedAt,
 		);
-		await processWantedMovies(wantedMovies, ixs, result, delayBetweenBooks);
+		await processWantedMovies(
+			wantedMovies,
+			ixs,
+			result,
+			delayBetweenBooks,
+			recordOutcome,
+		);
 
 		const wantedEpisodes = sortBySearchPriority(
 			getWantedEpisodes(),
@@ -2376,7 +2466,13 @@ export async function runAutoSearch(
 			await sleep(delayBetweenBooks);
 		}
 
-		await processWantedEpisodes(wantedEpisodes, ixs, result, delayBetweenBooks);
+		await processWantedEpisodes(
+			wantedEpisodes,
+			ixs,
+			result,
+			delayBetweenBooks,
+			recordOutcome,
+		);
 	}
 
 	return result;
@@ -2505,6 +2601,7 @@ async function grabRelease(
 	release: IndexerRelease,
 	book: WantedBook,
 	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	let client: typeof downloadClients.$inferSelect | undefined;
 
@@ -2536,6 +2633,7 @@ async function grabRelease(
 			.filter((c) => c.protocol === release.protocol);
 
 		if (matchingClients.length === 0) {
+			onOutcome?.("download_client_unavailable");
 			logWarn(
 				"rss-sync",
 				`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -2670,6 +2768,7 @@ async function grabReleaseForMovie(
 	release: IndexerRelease,
 	movie: WantedMovie,
 	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	return dispatchAutoSearchDownload<
 		IndexerRelease,
@@ -2699,6 +2798,7 @@ async function grabReleaseForMovie(
 			db.insert(trackedDownloads).values(value).run();
 		},
 		logWarn,
+		onOutcome,
 		release,
 		resolveDownloadClient,
 		trackedDownload: ({ client, downloadId, release }) => ({
@@ -2719,6 +2819,7 @@ async function grabReleaseForEpisode(
 	release: IndexerRelease,
 	episode: WantedEpisode,
 	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	return dispatchAutoSearchDownload<
 		IndexerRelease,
@@ -2749,6 +2850,7 @@ async function grabReleaseForEpisode(
 			db.insert(trackedDownloads).values(value).run();
 		},
 		logWarn,
+		onOutcome,
 		release,
 		resolveDownloadClient,
 		trackedDownload: ({ client, downloadId, release }) => ({
