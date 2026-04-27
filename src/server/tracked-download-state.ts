@@ -112,6 +112,35 @@ export function markTrackedDownloadImportPending(
 	transitionTrackedDownload(id, "importPending", {}, tx);
 }
 
+export function claimTrackedDownloadImport(
+	id: number,
+	tx: TrackedDownloadStateDb = db,
+): void {
+	const trackedDownload = tx
+		.select({ state: trackedDownloads.state })
+		.from(trackedDownloads)
+		.where(eq(trackedDownloads.id, id))
+		.get();
+
+	if (!trackedDownload) {
+		throw new Error(`Tracked download ${id} not found.`);
+	}
+
+	assertTrackedDownloadState(trackedDownload.state);
+
+	if (trackedDownload.state === "importPending") {
+		return;
+	}
+
+	if (trackedDownload.state !== "completed") {
+		throw new Error(
+			`Cannot claim tracked download ${id} from ${trackedDownload.state}.`,
+		);
+	}
+
+	transitionTrackedDownload(id, "importPending", {}, tx);
+}
+
 export function markTrackedDownloadImported(
 	id: number,
 	tx?: TrackedDownloadStateDb,
