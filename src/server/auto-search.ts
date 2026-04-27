@@ -971,9 +971,11 @@ async function grabReleaseForBookPack(
 	authorId: number | null,
 	bookId: number | undefined,
 	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
+		onOutcome?.("download_client_unavailable");
 		logWarn(
 			"auto-search",
 			`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -1051,6 +1053,7 @@ async function grabPerProfileForBooks(
 	scored: IndexerRelease[],
 	wantedBooks: WantedBook[],
 	packContext: PackContext,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
 	let grabbed = false;
@@ -1091,6 +1094,7 @@ async function grabPerProfileForBooks(
 				book.authorId,
 				isPack ? undefined : book.id,
 				profile.id,
+				onOutcome,
 			);
 			if (result) {
 				grabbedGuids.add(best.guid);
@@ -1138,7 +1142,12 @@ async function searchAndGrabForAuthor(
 	const packContext: PackContext = {
 		wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
 	};
-	const result = await grabPerProfileForBooks(scored, wantedBooks, packContext);
+	const result = await grabPerProfileForBooks(
+		scored,
+		wantedBooks,
+		packContext,
+		onOutcome,
+	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
 	}
@@ -1586,9 +1595,11 @@ async function grabReleaseForEpisodePack(
 	showId: number,
 	episodeId: number | undefined,
 	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<boolean> {
 	const resolved = resolveDownloadClient(release);
 	if (!resolved) {
+		onOutcome?.("download_client_unavailable");
 		logWarn(
 			"auto-search",
 			`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -1666,6 +1677,7 @@ async function grabPerProfileForEpisodes(
 	scored: IndexerRelease[],
 	wantedEpisodes: WantedEpisode[],
 	packContext: PackContext,
+	onOutcome?: AutoSearchOutcomeRecorder,
 ): Promise<PackSearchResult> {
 	const grabbedGuids = new Set<string>();
 	let grabbed = false;
@@ -1705,6 +1717,7 @@ async function grabPerProfileForEpisodes(
 				ep.showId,
 				isPack ? undefined : ep.id,
 				profile.id,
+				onOutcome,
 			);
 			if (result) {
 				grabbedGuids.add(best.guid);
@@ -1753,6 +1766,7 @@ async function searchAndGrabForSeason(
 		scored,
 		wantedEpisodes,
 		packContext,
+		onOutcome,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
@@ -1795,6 +1809,7 @@ async function searchAndGrabForShow(
 		scored,
 		allEpisodes,
 		packContext,
+		onOutcome,
 	);
 	if (!result.grabbed) {
 		onOutcome?.("no_matching_releases");
