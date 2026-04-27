@@ -444,12 +444,12 @@ describe("scheduler/index", () => {
 			expect(mocks.logError).not.toHaveBeenCalled();
 		});
 
-		it("should skip execution when an active command run overlaps the scheduled task", async () => {
+		it("should skip a scheduled task when a command declares the same batch task overlap", async () => {
 			const mod = await freshModule();
 
 			const handler = vi.fn();
 			mocks.getTask.mockReturnValue({
-				id: "metadata-refresh",
+				id: "refresh-metadata",
 				name: "Metadata Refresh",
 				handler,
 			});
@@ -458,12 +458,13 @@ describe("scheduler/index", () => {
 					id: 99,
 					sourceType: "command",
 					jobType: "refreshBook",
-					metadata: { batchTaskId: "metadata-refresh" },
+					metadata: { batchTaskId: "refresh-metadata" },
 				},
 			]);
 
-			await mod.runTaskNow("metadata-refresh");
+			await mod.runTaskNow("refresh-metadata");
 
+			expect(mocks.listActiveJobRuns).toHaveBeenCalledOnce();
 			expect(mocks.acquireJobRun).not.toHaveBeenCalled();
 			expect(handler).not.toHaveBeenCalled();
 			expect(mocks.failJobRun).not.toHaveBeenCalled();

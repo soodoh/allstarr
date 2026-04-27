@@ -93,22 +93,24 @@ describe("commands server helpers", () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it("rejects commands when a conflicting batch task is already running", () => {
+	it("rejects a command when a matching scheduled batch task is active", () => {
 		commandsMocks.listActiveJobRuns.mockReturnValue([
-			{ sourceType: "scheduled", jobType: "metadata-refresh" },
+			{ sourceType: "scheduled", jobType: "refresh-metadata" },
 		]);
+		const handler = vi.fn(async () => ({}));
 
 		expect(() =>
 			submitCommand({
-				batchTaskId: "metadata-refresh",
+				batchTaskId: "refresh-metadata",
 				body: { mediaId: 7 },
 				commandType: "refreshBook",
 				dedupeKey: "mediaId",
-				handler: vi.fn(async () => ({})),
+				handler,
 				name: "Refresh book",
 			}),
 		).toThrowError("A batch metadata refresh is already running.");
 
+		expect(handler).not.toHaveBeenCalled();
 		expect(commandsMocks.acquireJobRun).not.toHaveBeenCalled();
 	});
 
