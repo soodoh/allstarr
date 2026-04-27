@@ -1121,6 +1121,102 @@ describe("error handling", () => {
 		expect(result.errors).toBe(1);
 		expect(result.details[0].error).toBe("Unexpected parse error");
 	});
+
+	it("records download dispatch failure when book provider add throws", async () => {
+		const release = makeRelease();
+		mocks.getProvider.mockResolvedValue({
+			addDownload: vi.fn(async () => {
+				throw new Error("Provider down");
+			}),
+		});
+		const getCallIdx = { n: 0 };
+		mocks.selectGet.mockImplementation(() => {
+			getCallIdx.n += 1;
+			switch (getCallIdx.n) {
+				case 1:
+					return { downloadClientId: 5 };
+				case 2:
+					return {
+						id: 5,
+						name: "SABnzbd",
+						implementation: "sabnzbd",
+						host: "localhost",
+						port: 8080,
+						useSsl: false,
+						urlBase: "",
+						username: "",
+						password: "",
+						apiKey: "abc",
+						category: "books",
+						tag: null,
+						protocol: "usenet",
+						enabled: true,
+						priority: 1,
+						settings: null,
+					};
+				case 3:
+					return { tag: null };
+				default:
+					return undefined;
+			}
+		});
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Test Book",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "Author",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [];
+				case 9:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
+
+		expect(result.errors).toBe(1);
+		expect(result.details[0].error).toBe("Provider down");
+		expect(result.outcomes.download_dispatch_failed).toBe(1);
+	});
 });
 
 describe("grab helper — no download client", () => {
@@ -2489,7 +2585,7 @@ describe("pack handling — author-level search", () => {
 		expect(result.outcomes.no_matching_releases).toBe(3);
 	});
 
-	it("records unavailable download clients for author-level pack grabs", async () => {
+	it("does not suppress same-guid grabs in unrelated later author groups", async () => {
 		const release = makeRelease({
 			guid: "author-pack-no-client",
 			title: "AuthorX Complete Works",
@@ -2497,6 +2593,137 @@ describe("pack handling — author-level search", () => {
 		});
 		mocks.getReleaseTypeRank.mockReturnValue(3);
 		mocks.selectGet.mockReturnValue(undefined);
+
+		const profile = makeProfile();
+		const callIdx = { n: 0 };
+		mocks.selectAll.mockImplementation(() => {
+			callIdx.n += 1;
+			switch (callIdx.n) {
+				case 1:
+					return [
+						{
+							id: 1,
+							name: "ix",
+							baseUrl: "http://ix",
+							apiPath: "/api",
+							apiKey: "key1",
+							enableRss: true,
+							priority: 1,
+						},
+					];
+				case 2:
+					return [];
+				case 3:
+					return [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 11,
+							title: "Book B",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "AuthorX",
+							authorMonitored: true,
+						},
+						{
+							id: 12,
+							title: "Book C",
+							lastSearchedAt: null,
+							authorId: 2,
+							authorName: "AuthorY",
+							authorMonitored: true,
+						},
+					];
+				case 4:
+					return [{ editionId: 100, profileId: profile.id }];
+				case 5:
+					return [profile];
+				case 6:
+					return [];
+				case 7:
+					return [];
+				case 8:
+					return [{ editionId: 101, profileId: profile.id }];
+				case 9:
+					return [profile];
+				case 10:
+					return [];
+				case 11:
+					return [];
+				case 12:
+					return [{ editionId: 102, profileId: profile.id }];
+				case 13:
+					return [profile];
+				case 14:
+					return [];
+				case 15:
+					return [];
+				default:
+					return [];
+			}
+		});
+
+		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
+
+		const result = await runAutoSearch({
+			bookIds: [10, 11, 12],
+			delayBetweenBooks: 0,
+		});
+
+		expect(result.grabbed).toBe(0);
+		expect(result.outcomes.download_client_unavailable).toBe(2);
+	});
+
+	it("records download dispatch failures for author-level pack grabs", async () => {
+		const release = makeRelease({
+			guid: "author-pack-dispatch-fails",
+			title: "AuthorX Complete Works",
+			releaseType: 3,
+		});
+		mocks.getReleaseTypeRank.mockReturnValue(3);
+		mocks.getProvider.mockResolvedValue({
+			addDownload: vi.fn(async () => {
+				throw new Error("Provider down");
+			}),
+		});
+		const getCallIdx = { n: 0 };
+		mocks.selectGet.mockImplementation(() => {
+			getCallIdx.n += 1;
+			switch (getCallIdx.n) {
+				case 1:
+					return { downloadClientId: 5 };
+				case 2:
+					return {
+						id: 5,
+						name: "SABnzbd",
+						implementation: "sabnzbd",
+						host: "localhost",
+						port: 8080,
+						useSsl: false,
+						urlBase: "",
+						username: "",
+						password: "",
+						apiKey: "abc",
+						category: "books",
+						tag: null,
+						protocol: "usenet",
+						enabled: true,
+						priority: 1,
+						settings: null,
+					};
+				case 3:
+					return { tag: null };
+				default:
+					return undefined;
+			}
+		});
 
 		const profile = makeProfile();
 		const callIdx = { n: 0 };
@@ -2552,19 +2779,12 @@ describe("pack handling — author-level search", () => {
 					return [];
 				case 11:
 					return [];
-				// searchAndGrabForAuthor: blocklist for books
-				case 12:
-					return [];
-				// grabReleaseForBookPack: downloadClients.all()
-				case 13:
-				case 14:
-					return [];
 				default:
 					return [];
 			}
 		});
 
-		mocks.searchNewznab.mockResolvedValue([release]);
+		mocks.searchNewznab.mockResolvedValueOnce([release]).mockResolvedValue([]);
 		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
 
 		const result = await runAutoSearch({
@@ -2573,7 +2793,8 @@ describe("pack handling — author-level search", () => {
 		});
 
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.download_client_unavailable).toBe(1);
+		expect(result.outcomes.download_dispatch_failed).toBe(1);
+		expect(mocks.logError).toHaveBeenCalled();
 	});
 });
 
@@ -4203,7 +4424,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		expect(result.outcomes.no_matching_releases).toBe(3);
 	});
 
-	it("records unavailable download clients for season-level pack grabs", async () => {
+	it("does not suppress same-guid grabs in unrelated later shows", async () => {
 		const release = makeRelease({
 			guid: "season-pack-no-client",
 			title: "Single.Season.Show.S01",
@@ -4264,6 +4485,17 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 							airDate: null,
 							lastSearchedAt: null,
 						},
+						{
+							id: 102,
+							showId: 2,
+							showTitle: "Other Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
 					];
 				case 6:
 					return [{ profileId: profile.id }];
@@ -4281,12 +4513,13 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 					return [];
 				case 13:
 					return [];
-				// grabPerProfileForEpisodes: blocklist for show
 				case 14:
-					return [];
-				// grabReleaseForEpisodePack: downloadClients.all()
+					return [{ profileId: profile.id }];
 				case 15:
+					return [profile];
 				case 16:
+					return [];
+				case 17:
 					return [];
 				default:
 					return [];
@@ -4301,7 +4534,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
 
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.download_client_unavailable).toBe(1);
+		expect(result.outcomes.download_client_unavailable).toBe(2);
 	});
 
 	it("records episode errors gracefully in full auto-search", async () => {
