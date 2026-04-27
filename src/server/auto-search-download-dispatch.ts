@@ -1,4 +1,7 @@
-import type { AutoSearchOutcomeRecorder } from "./auto-search-outcomes";
+import type {
+	AutoSearchOutcomeReason,
+	AutoSearchOutcomeRecorder,
+} from "./auto-search-outcomes";
 import type {
 	ConnectionConfig,
 	DownloadRequest,
@@ -50,6 +53,11 @@ type DownloadProvider = {
 	): Promise<string | null>;
 };
 
+type GuidDedupeOutcomeReason = Extract<
+	AutoSearchOutcomeReason,
+	"download_client_unavailable" | "download_dispatch_failed"
+>;
+
 export type DispatchAutoSearchDownloadOptions<
 	TRelease extends DispatchRelease,
 	TTracked,
@@ -61,6 +69,7 @@ export type DispatchAutoSearchDownloadOptions<
 	insertTrackedDownload: (trackedDownload: TTracked) => void;
 	logWarn: (prefix: string, message: string) => void;
 	onOutcome?: AutoSearchOutcomeRecorder;
+	recordedOutcomeGuids?: Set<string>;
 	release: TRelease;
 	resolveDownloadClient: (
 		release: TRelease,
@@ -84,6 +93,25 @@ function buildConnectionConfig(client: DownloadClientRow): ConnectionConfig {
 	};
 }
 
+function recordOutcomeOnceForGuid(
+	reason: GuidDedupeOutcomeReason,
+	guid: string,
+	recordedOutcomeGuids: Set<string> | undefined,
+	onOutcome?: AutoSearchOutcomeRecorder,
+): void {
+	if (!recordedOutcomeGuids) {
+		onOutcome?.(reason);
+		return;
+	}
+
+	const key = `${reason}:${guid}`;
+	if (recordedOutcomeGuids.has(key)) {
+		return;
+	}
+	recordedOutcomeGuids.add(key);
+	onOutcome?.(reason);
+}
+
 export async function dispatchAutoSearchDownload<
 	TRelease extends DispatchRelease,
 	TTracked,
@@ -95,6 +123,7 @@ export async function dispatchAutoSearchDownload<
 	insertTrackedDownload,
 	logWarn,
 	onOutcome,
+	recordedOutcomeGuids,
 	release,
 	resolveDownloadClient,
 	trackedDownload,
@@ -105,7 +134,12 @@ export async function dispatchAutoSearchDownload<
 >): Promise<boolean> {
 	const resolved = await resolveDownloadClient(release);
 	if (!resolved) {
-		onOutcome?.("download_client_unavailable");
+		recordOutcomeOnceForGuid(
+			"download_client_unavailable",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		logWarn(
 			"auto-search",
 			`No enabled ${release.protocol} download client for "${release.title}"`,
@@ -114,9 +148,9 @@ export async function dispatchAutoSearchDownload<
 	}
 
 	const { client, combinedTag } = resolved;
-	const provider = await getProvider(client.implementation);
 	let downloadId: string | null;
 	try {
+		const provider = await getProvider(client.implementation);
 		downloadId = await provider.addDownload(buildConnectionConfig(client), {
 			url: release.downloadUrl,
 			torrentData: null,
@@ -126,7 +160,12 @@ export async function dispatchAutoSearchDownload<
 			savePath: null,
 		});
 	} catch (error) {
-		onOutcome?.("download_dispatch_failed");
+		recordOutcomeOnceForGuid(
+			"download_dispatch_failed",
+			release.guid,
+			recordedOutcomeGuids,
+			onOutcome,
+		);
 		throw error;
 	}
 	const context = { client, release };

@@ -258,7 +258,7 @@ describe("searchEnabledIndexers", () => {
 		expect(searchNewznab).not.toHaveBeenCalled();
 	});
 
-	it("logs and skips pacing gates without wait time without recording skipped outcomes", async () => {
+	it("logs and skips pacing gates without wait time and records skipped outcomes", async () => {
 		const logInfo = vi.fn();
 		const recordOutcome = vi.fn();
 		const searchNewznab = vi.fn();
@@ -295,7 +295,7 @@ describe("searchEnabledIndexers", () => {
 			"rss-sync",
 			'Indexer "Manual" skipped: pacing',
 		);
-		expect(recordOutcome).not.toHaveBeenCalledWith("indexer_skipped");
+		expect(recordOutcome).toHaveBeenCalledWith("indexer_skipped");
 		expect(searchNewznab).not.toHaveBeenCalled();
 	});
 });
