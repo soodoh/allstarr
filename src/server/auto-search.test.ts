@@ -2573,7 +2573,7 @@ describe("pack handling — author-level search", () => {
 		});
 
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.download_client_unavailable).toBeGreaterThan(0);
+		expect(result.outcomes.download_client_unavailable).toBe(1);
 	});
 });
 
@@ -4294,7 +4294,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 		const result = await runAutoSearch({ delayBetweenBooks: 0 });
 
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.download_client_unavailable).toBeGreaterThan(0);
+		expect(result.outcomes.download_client_unavailable).toBe(1);
 	});
 
 	it("records episode errors gracefully in full auto-search", async () => {
