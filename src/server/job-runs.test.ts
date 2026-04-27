@@ -380,4 +380,135 @@ describe("job-runs service with real sqlite constraints", () => {
 
 		sqlite.close();
 	});
+
+	it("does not let terminal job runs block a new acquisition with the same dedupe identity", async () => {
+		vi.resetModules();
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db/schema");
+
+		const [{ default: Database }, { drizzle }, schema] = await Promise.all([
+			import("better-sqlite3"),
+			import("drizzle-orm/better-sqlite3"),
+			import("src/db/schema"),
+		]);
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE job_runs (
+				id integer PRIMARY KEY AUTOINCREMENT,
+				source_type text NOT NULL,
+				job_type text NOT NULL,
+				display_name text NOT NULL,
+				dedupe_key text,
+				dedupe_value text,
+				status text DEFAULT 'queued' NOT NULL,
+				progress text,
+				attempt integer DEFAULT 1 NOT NULL,
+				result text,
+				error text,
+				metadata text,
+				started_at integer,
+				last_heartbeat_at integer,
+				finished_at integer,
+				created_at integer NOT NULL,
+				updated_at integer NOT NULL
+			)
+		`);
+		sqlite.exec(`
+			CREATE UNIQUE INDEX job_runs_active_dedupe_unique_idx
+			ON job_runs (source_type, job_type, dedupe_key, dedupe_value)
+			WHERE status IN ('queued', 'running')
+		`);
+		const db = drizzle({ client: sqlite, schema });
+
+		vi.doMock("src/db", () => ({ db, sqlite }));
+		const { acquireJobRun, completeJobRun } = await import("./job-runs");
+
+		const first = acquireJobRun({
+			sourceType: "scheduled",
+			jobType: "refresh-downloads",
+			displayName: "Refresh Downloads",
+		});
+		completeJobRun(first.id, { success: true });
+
+		const second = acquireJobRun({
+			sourceType: "scheduled",
+			jobType: "refresh-downloads",
+			displayName: "Refresh Downloads",
+		});
+
+		expect(second.id).not.toBe(first.id);
+		expect(second.status).toBe("running");
+
+		sqlite.close();
+	});
+
+	it("does not update terminal job runs after completion", async () => {
+		vi.resetModules();
+		vi.doUnmock("drizzle-orm");
+		vi.doUnmock("src/db/schema");
+
+		const [{ default: Database }, { drizzle }, { eq: actualEq }, schema] =
+			await Promise.all([
+				import("better-sqlite3"),
+				import("drizzle-orm/better-sqlite3"),
+				import("drizzle-orm"),
+				import("src/db/schema"),
+			]);
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE job_runs (
+				id integer PRIMARY KEY AUTOINCREMENT,
+				source_type text NOT NULL,
+				job_type text NOT NULL,
+				display_name text NOT NULL,
+				dedupe_key text,
+				dedupe_value text,
+				status text DEFAULT 'queued' NOT NULL,
+				progress text,
+				attempt integer DEFAULT 1 NOT NULL,
+				result text,
+				error text,
+				metadata text,
+				started_at integer,
+				last_heartbeat_at integer,
+				finished_at integer,
+				created_at integer NOT NULL,
+				updated_at integer NOT NULL
+			)
+		`);
+		sqlite.exec(`
+			CREATE UNIQUE INDEX job_runs_active_dedupe_unique_idx
+			ON job_runs (source_type, job_type, dedupe_key, dedupe_value)
+			WHERE status IN ('queued', 'running')
+		`);
+		const db = drizzle({ client: sqlite, schema });
+
+		vi.doMock("src/db", () => ({ db, sqlite }));
+		const { acquireJobRun, completeJobRun, failJobRun, listActiveJobRuns } =
+			await import("./job-runs");
+
+		const run = acquireJobRun({
+			sourceType: "command",
+			jobType: "import",
+			displayName: "Import",
+			dedupeKey: "path",
+			dedupeValue: "/media/book.epub",
+		});
+
+		completeJobRun(run.id, { imported: 1 });
+		failJobRun(run.id, "late failure");
+
+		expect(
+			listActiveJobRuns().filter((activeRun) => activeRun.id === run.id),
+		).toEqual([]);
+		const persisted = db
+			.select()
+			.from(schema.jobRuns)
+			.where(actualEq(schema.jobRuns.id, run.id))
+			.get();
+		expect(persisted?.status).toBe("succeeded");
+		expect(persisted?.error).toBeNull();
+
+		sqlite.close();
+	});
 });
