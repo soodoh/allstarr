@@ -1968,7 +1968,6 @@ describe("searchForShow", () => {
 
 		expect(result.searched).toBeGreaterThanOrEqual(2);
 		expect(result.grabbed).toBe(0);
-		expect(result.outcomes.fallback_used).toBe(1);
 		// searchNewznab should be called multiple times (season + individual episodes)
 		expect(mocks.searchNewznab).toHaveBeenCalled();
 	});
@@ -4319,6 +4318,7 @@ describe("runAutoSearch — episodes in full auto-search", () => {
 
 		expect(result.grabbed).toBe(0);
 		expect(result.outcomes.no_matching_releases).toBe(3);
+		expect(result.outcomes.fallback_used).toBe(1);
 	});
 
 	it("records no matching releases when show-level releases are not grabbed", async () => {
