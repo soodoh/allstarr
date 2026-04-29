@@ -1,3 +1,4 @@
+import { formatDiagnosticLine, timeDiagnosticOperation } from "../../helpers/diagnostics";
 import PORTS from "../../ports";
 import {
 	loadGoldenScenario,
@@ -38,6 +39,12 @@ type ManagedServer = FakeServer<Record<string, unknown>>;
 type ManagedServerFactory = (seed?: Record<string, unknown>) => ManagedServer;
 type GoldenReplacements = Record<string, boolean | number | string>;
 type ServicePorts = Partial<Record<ServiceName, number>>;
+type FakeServerManagerOptions = {
+	ports?: ServicePorts;
+	scenarioName?: string;
+	readinessTimeoutMs?: number;
+	readinessIntervalMs?: number;
+};
 
 const SERVICE_DIRECTORIES: Record<ServiceName, string> = {
 	QBITTORRENT: "qbittorrent",
@@ -56,20 +63,55 @@ const SERVICE_DIRECTORIES: Record<ServiceName, string> = {
 	BOOKSHELF: "bookshelf",
 };
 
-async function waitForServer(url: string): Promise<void> {
-	for (let attempt = 0; attempt < 50; attempt += 1) {
+async function waitForServer(
+	serviceName: ServiceName,
+	url: string,
+	options?: { timeoutMs?: number; intervalMs?: number },
+): Promise<void> {
+	const timeoutMs = options?.timeoutMs ?? 5_000;
+	const intervalMs = options?.intervalMs ?? 100;
+	const endpoint = "/__state";
+	const startedAt = Date.now();
+	let attempts = 0;
+	let lastError = "not ready";
+
+	while (Date.now() - startedAt < timeoutMs) {
+		attempts += 1;
 		try {
-			const response = await fetch(`${url}/__state`);
+			const response = await fetch(`${url}${endpoint}`);
 			if (response.ok) {
+				console.info(
+					formatDiagnosticLine({
+						scope: "fake-service",
+						event: "ready",
+						status: "ok",
+						elapsedMs: Date.now() - startedAt,
+						fields: { service: serviceName, url, endpoint, attempts },
+					}),
+				);
 				return;
 			}
-		} catch {
-			// Server is still starting.
+			lastError = `${response.status} ${response.statusText}`;
+		} catch (error) {
+			lastError = error instanceof Error ? error.message : String(error);
 		}
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
 
-	throw new Error(`Fake server at ${url} did not start in time`);
+	const elapsedMs = Date.now() - startedAt;
+	console.info(
+		formatDiagnosticLine({
+			scope: "fake-service",
+			event: "ready",
+			status: "error",
+			elapsedMs,
+			fields: { service: serviceName, url, endpoint, attempts, error: lastError },
+		}),
+	);
+
+	throw new Error(
+		`Fake service ${serviceName} at ${url}${endpoint} did not become ready after ${attempts} attempts in ${elapsedMs}ms: ${lastError}`,
+	);
 }
 
 function applyReplacements(
@@ -183,78 +225,162 @@ export type FakeServerManager = ReturnType<typeof createFakeServerManager>;
 
 export function createFakeServerManager(
 	requiredServices: ServiceName[],
-	options?: { ports?: ServicePorts; scenarioName?: string },
+	options?: FakeServerManagerOptions,
 ) {
 	const names = [...new Set(requiredServices)];
 	const running = new Map<ServiceName, ManagedServer>();
 	const defaultSeeds = new Map<ServiceName, Record<string, unknown>>();
 	const factories = buildFactories(options?.ports ?? {});
 
-	async function postJson(url: string, path: string, body: unknown): Promise<void> {
-		const response = await fetch(`${url}${path}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
-		});
-		if (!response.ok) {
-			throw new Error(
-				`Failed to POST ${path} to ${url}: ${response.status} ${response.statusText}`,
-			);
-		}
+	async function postJson(
+		url: string,
+		path: string,
+		body: unknown,
+		fields?: Record<string, boolean | number | string | null | undefined>,
+	): Promise<void> {
+		await timeDiagnosticOperation(
+			{
+				scope: "fake-service",
+				event: "post-json",
+				fields: { url, path, ...fields },
+			},
+			async () => {
+				const response = await fetch(`${url}${path}`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(body),
+				});
+				if (!response.ok) {
+					throw new Error(
+						`Failed to POST ${path} to ${url}: ${response.status} ${response.statusText}`,
+					);
+				}
+			},
+		);
 	}
 
 	async function applyScenarioState(scenarioName: string): Promise<void> {
-		const scenario = loadGoldenScenario(scenarioName);
+		await timeDiagnosticOperation(
+			{
+				scope: "fake-service",
+				event: "apply-scenario",
+				fields: { scenarioName, runningServiceCount: running.size },
+			},
+			async () => {
+				const scenario = loadGoldenScenario(scenarioName);
 
-		for (const name of names) {
-			const server = running.get(name);
-			if (!server) {
-				continue;
-			}
-
-			const stateName = scenario.services[name];
-			if (stateName) {
-				const seed = loadGoldenServiceState(
-					SERVICE_DIRECTORIES[name],
-					stateName,
-				).seed;
-				await postJson(server.url, "/__seed", seed);
-				continue;
-			}
-
-			const defaultSeed = defaultSeeds.get(name);
-			if (!defaultSeed) {
-				throw new Error(`Missing default seed for fake service ${name}`);
-			}
-			await postJson(server.url, "/__seed", defaultSeed);
-		}
-	}
-
-	return {
-		async start(): Promise<void> {
-			for (const name of names) {
-				if (!running.has(name)) {
-					running.set(name, factories[name]());
-				}
-			}
-
-			await Promise.all([...running.values()].map((server) => waitForServer(server.url)));
-
-			for (const name of names) {
-				if (!defaultSeeds.has(name)) {
+				for (const name of names) {
 					const server = running.get(name);
 					if (!server) {
 						continue;
 					}
-					const defaultSeed = await fetch(`${server.url}/__state`).then((response) =>
-						response.json(),
-					);
-					defaultSeeds.set(name, defaultSeed);
-				}
-			}
 
-			if (options?.scenarioName) {
-				await applyScenarioState(options.scenarioName);
+					const stateName = scenario.services[name];
+					if (stateName) {
+						const seed = loadGoldenServiceState(
+							SERVICE_DIRECTORIES[name],
+							stateName,
+						).seed;
+						await postJson(server.url, "/__seed", seed, {
+							service: name,
+							scenarioName,
+							stateName,
+						});
+						continue;
+					}
+
+					const defaultSeed = defaultSeeds.get(name);
+					if (!defaultSeed) {
+						throw new Error(`Missing default seed for fake service ${name}`);
+					}
+					await postJson(server.url, "/__seed", defaultSeed, {
+						service: name,
+						scenarioName,
+						stateName: "default",
+					});
+				}
+			},
+		);
+	}
+
+	async function resetService(name: ServiceName, server: ManagedServer): Promise<void> {
+		await timeDiagnosticOperation(
+			{
+				scope: "fake-service",
+				event: "reset",
+				fields: { service: name, url: server.url, path: "/__reset" },
+			},
+			async () => {
+				const response = await fetch(`${server.url}/__reset`, { method: "POST" });
+				if (!response.ok) {
+					throw new Error(
+						`Failed to reset fake service ${name}: POST /__reset returned ${response.status} ${response.statusText}`,
+					);
+				}
+			},
+		);
+	}
+
+	return {
+		async start(): Promise<void> {
+			try {
+				await timeDiagnosticOperation(
+					{
+						scope: "fake-service",
+						event: "start-all",
+						fields: { runningServiceCount: names.length },
+					},
+					async () => {
+						for (const name of names) {
+							if (!running.has(name)) {
+								running.set(name, factories[name]());
+							}
+						}
+
+						await Promise.all(
+							[...running.entries()].map(([name, server]) =>
+								waitForServer(name, server.url, {
+									timeoutMs: options?.readinessTimeoutMs,
+									intervalMs: options?.readinessIntervalMs,
+								}),
+							),
+						);
+
+						for (const name of names) {
+							if (!defaultSeeds.has(name)) {
+								const server = running.get(name);
+								if (!server) {
+									continue;
+								}
+								const defaultSeed = await timeDiagnosticOperation(
+									{
+										scope: "fake-service",
+										event: "read-default-state",
+										fields: { service: name, url: server.url, endpoint: "/__state" },
+									},
+									async () => {
+										const response = await fetch(`${server.url}/__state`);
+										if (!response.ok) {
+											throw new Error(
+												`Failed to read default state for fake service ${name}: ${response.status} ${response.statusText}`,
+											);
+										}
+										return response.json() as Promise<Record<string, unknown>>;
+									},
+								);
+								defaultSeeds.set(name, defaultSeed);
+							}
+						}
+
+						if (options?.scenarioName) {
+							await applyScenarioState(options.scenarioName);
+						}
+					},
+				);
+			} catch (error) {
+				await Promise.allSettled([...running.values()].map((server) => server.stop()));
+				running.clear();
+				throw error;
 			}
 		},
 
@@ -265,10 +391,19 @@ export function createFakeServerManager(
 		},
 
 		async reset(): Promise<void> {
-			await Promise.all(
-				[...running.values()].map((server) =>
-					fetch(`${server.url}/__reset`, { method: "POST" }),
-				),
+			await timeDiagnosticOperation(
+				{
+					scope: "fake-service",
+					event: "reset-all",
+					fields: { runningServiceCount: running.size },
+				},
+				async () => {
+					await Promise.all(
+						[...running.entries()].map(([name, server]) =>
+							resetService(name, server),
+						),
+					);
+				},
 			);
 		},
 
@@ -281,34 +416,56 @@ export function createFakeServerManager(
 			stateName: string | null,
 			replacements?: GoldenReplacements,
 		): Promise<void> {
-			const server = running.get(serviceName);
-			if (!server) {
-				throw new Error(`Fake service ${serviceName} is not running`);
-			}
+			await timeDiagnosticOperation(
+				{
+					scope: "fake-service",
+					event: "set-service-state",
+					fields: { service: serviceName, stateName: stateName ?? "default" },
+				},
+				async () => {
+					const server = running.get(serviceName);
+					if (!server) {
+						throw new Error(`Fake service ${serviceName} is not running`);
+					}
 
-			if (!stateName) {
-				const defaultSeed = defaultSeeds.get(serviceName);
-				if (!defaultSeed) {
-					throw new Error(`Missing default seed for fake service ${serviceName}`);
-				}
-				await postJson(server.url, "/__seed", defaultSeed);
-				return;
-			}
+					if (!stateName) {
+						const defaultSeed = defaultSeeds.get(serviceName);
+						if (!defaultSeed) {
+							throw new Error(`Missing default seed for fake service ${serviceName}`);
+						}
+						await postJson(server.url, "/__seed", defaultSeed, {
+							service: serviceName,
+							stateName: "default",
+						});
+						return;
+					}
 
-			const seed = loadGoldenServiceState(
-				SERVICE_DIRECTORIES[serviceName],
-				stateName,
-			).seed;
-			await postJson(
-				server.url,
-				"/__seed",
-				applyReplacements(seed, replacements),
+					const seed = loadGoldenServiceState(
+						SERVICE_DIRECTORIES[serviceName],
+						stateName,
+					).seed;
+					await postJson(
+						server.url,
+						"/__seed",
+						applyReplacements(seed, replacements),
+						{ service: serviceName, stateName },
+					);
+				},
 			);
 		},
 
 		async stop(): Promise<void> {
-			await Promise.all([...running.values()].map((server) => server.stop()));
-			running.clear();
+			await timeDiagnosticOperation(
+				{
+					scope: "fake-service",
+					event: "stop-all",
+					fields: { runningServiceCount: running.size },
+				},
+				async () => {
+					await Promise.all([...running.values()].map((server) => server.stop()));
+					running.clear();
+				},
+			);
 		},
 	};
 }

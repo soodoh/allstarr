@@ -75,6 +75,28 @@ describe("createFakeServerManager", () => {
 		}
 	});
 
+	it("reports fake-service readiness failures with service, endpoint, and attempts", async () => {
+		const manager = createFakeServerManager(["QBITTORRENT"], {
+			ports: { QBITTORRENT: 9 },
+			readinessTimeoutMs: 20,
+			readinessIntervalMs: 1,
+		});
+
+		await expect(manager.start()).rejects.toThrow(
+			/Fake service QBITTORRENT at http:\/\/localhost:9\/__state did not become ready/,
+		);
+	});
+
+	it("keeps reset scoped to running services after diagnostics are added", async () => {
+		const manager = createFakeServerManager(["QBITTORRENT"]);
+		try {
+			await manager.start();
+			await expect(manager.reset()).resolves.toBeUndefined();
+		} finally {
+			await manager.stop();
+		}
+	});
+
 	it("can swap the running services to a different immutable scenario", async () => {
 		const manager = createFakeServerManager(
 			["QBITTORRENT", "NEWZNAB", "SABNZBD"],
