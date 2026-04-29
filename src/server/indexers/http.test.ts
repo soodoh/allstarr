@@ -34,6 +34,7 @@ import {
 import { searchNewznab, testNewznab } from "./http";
 
 afterEach(() => {
+	vi.clearAllMocks();
 	vi.resetModules();
 	vi.restoreAllMocks();
 	vi.useRealTimers();
@@ -547,7 +548,7 @@ describe("newznab HTTP client", () => {
 			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledWith(
 				"manual",
 				42,
-				undefined,
+				2000,
 			);
 			expect(vi.mocked(reportSuccess)).toHaveBeenCalledWith("manual", 42);
 		} finally {
@@ -685,9 +686,40 @@ describe("newznab HTTP client", () => {
 			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledWith(
 				"manual",
 				7,
-				undefined,
+				2000,
 			);
 			expect(vi.mocked(reportSuccess)).toHaveBeenCalledWith("manual", 7);
+		} finally {
+			await server.stop();
+		}
+	});
+
+	it("returns the final 429 response after retry exhaustion", async () => {
+		const server = await startHttpTestServer(async (_request, response) => {
+			response.statusCode = 429;
+			response.statusMessage = "Too Many Requests";
+			response.setHeader("Retry-After", "0");
+			response.end("retry later");
+		});
+
+		try {
+			await expect(
+				searchNewznab(
+					{
+						baseUrl: server.baseUrl,
+						apiPath: "/api",
+						apiKey: "test-newznab-api-key",
+					},
+					"retry exhaustion",
+					[7020],
+					undefined,
+					{ indexerType: "manual", indexerId: 42 },
+				),
+			).rejects.toThrow("Newznab search returned HTTP 429: Too Many Requests");
+
+			expect(server.requests).toHaveLength(4);
+			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledTimes(3);
+			expect(vi.mocked(reportSuccess)).not.toHaveBeenCalled();
 		} finally {
 			await server.stop();
 		}
