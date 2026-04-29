@@ -153,17 +153,70 @@ describe("hardcoverFetch", () => {
 			expect(result).toStrictEqual({ book: { id: 42, title: "Dune" } });
 		});
 
+		it("retries Hardcover 429 responses before parsing data", async () => {
+			vi.useFakeTimers();
+			vi.stubGlobal("fetch", vi.fn());
+			vi.mocked(globalThis.fetch)
+				.mockResolvedValueOnce(
+					new Response("rate limited", {
+						status: 429,
+					}),
+				)
+				.mockResolvedValueOnce(
+					new Response(JSON.stringify({ data: { books: [] } }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+
+			const promise = hardcoverFetch<{ books: unknown[] }>(
+				"{ books { id } }",
+				{},
+			);
+			const expectation = expect(promise).resolves.toEqual({ books: [] });
+			await vi.advanceTimersByTimeAsync(2000);
+			await expectation;
+			expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+		});
+
 		it("throws ApiRateLimitError on 429 response", async () => {
-			const mockResponse = {
-				ok: false,
-				status: 429,
-				text: vi.fn().mockResolvedValue("rate limited"),
-			};
-			vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse));
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockResolvedValue(
+					new Response("rate limited", {
+						status: 429,
+						headers: { "Retry-After": "0" },
+					}),
+				),
+			);
 
 			await expect(hardcoverFetch("{ books { id } }", {})).rejects.toThrow(
 				"Hardcover rate limit",
 			);
+		});
+
+		it("does not duplicate persistent rate-limit retries through the cache fetcher", async () => {
+			vi.useFakeTimers();
+			vi.doUnmock("../api-cache");
+			vi.resetModules();
+			vi.stubEnv("HARDCOVER_TOKEN", "test-token");
+			const { hardcoverFetch: realHardcoverFetch } = await import("./client");
+			const fetchMock = vi.fn().mockResolvedValue(
+				new Response("rate limited", {
+					status: 429,
+					headers: { "Retry-After": "0" },
+				}),
+			);
+			vi.stubGlobal("fetch", fetchMock);
+
+			const promise = realHardcoverFetch("{ books { id } }", {});
+			const expectation = expect(promise).rejects.toThrow(
+				"Hardcover rate limit",
+			);
+			await vi.advanceTimersByTimeAsync(70_000);
+			await expectation;
+
+			expect(fetchMock).toHaveBeenCalledTimes(4);
 		});
 
 		it("throws on non-JSON responses", async () => {
