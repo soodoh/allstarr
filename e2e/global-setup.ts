@@ -2,12 +2,47 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import Database from "better-sqlite3";
-import { timeDiagnosticOperation } from "./helpers/diagnostics";
+import {
+	redactDiagnosticValue,
+	timeDiagnosticOperation,
+} from "./helpers/diagnostics";
 import PORTS from "./ports";
 
 const PROJECT_ROOT = join(import.meta.dirname, "..");
 const TEMPLATE_DB_PATH = join(PROJECT_ROOT, "data", "test-template.db");
 const STATE_FILE = join(import.meta.dirname, ".test-state.json");
+
+type ExecFileSyncError = Error & {
+	status?: number | null;
+	stdout?: Buffer | string;
+	stderr?: Buffer | string;
+};
+
+function outputSnippet(output: unknown): string | undefined {
+	if (output == null) {
+		return undefined;
+	}
+	const text = Buffer.isBuffer(output) ? output.toString("utf8") : String(output);
+	return redactDiagnosticValue("output", text) || undefined;
+}
+
+function dbPushError(error: unknown): Error {
+	if (!(error instanceof Error)) {
+		return new Error(String(error));
+	}
+	const execError = error as ExecFileSyncError;
+	const stdout = outputSnippet(execError.stdout);
+	const stderr = outputSnippet(execError.stderr);
+	const details = [
+		"db:push failed",
+		typeof execError.status === "number" ? `status=${execError.status}` : undefined,
+		stdout ? `stdout=${stdout}` : undefined,
+		stderr ? `stderr=${stderr}` : undefined,
+	]
+		.filter(Boolean)
+		.join(" ");
+	return new Error(details, { cause: error });
+}
 
 async function killPortListeners(): Promise<{
   scannedPorts: number;
@@ -76,11 +111,15 @@ async function globalSetup(): Promise<void> {
       fields: { command: "bun run db:push", templateDbPath: TEMPLATE_DB_PATH },
     },
     async () => {
-      execFileSync("bun", ["run", "db:push"], {
-        cwd: PROJECT_ROOT,
-        stdio: "pipe",
-        env: { ...process.env, DATABASE_URL: TEMPLATE_DB_PATH },
-      });
+			try {
+				execFileSync("bun", ["run", "db:push"], {
+					cwd: PROJECT_ROOT,
+					stdio: "pipe",
+					env: { ...process.env, DATABASE_URL: TEMPLATE_DB_PATH },
+				});
+			} catch (error) {
+				throw dbPushError(error);
+			}
     },
   );
 

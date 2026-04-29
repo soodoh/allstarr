@@ -23,9 +23,16 @@ describe("e2e diagnostics", () => {
 
 	it("redacts secret-like field values", () => {
 		expect(redactDiagnosticValue("apiKey", "super-secret")).toBe("[redacted]");
+		expect(redactDiagnosticValue("output", "token=super-secret status=401")).toBe(
+			"token=[redacted] status=401",
+		);
 		expect(redactDiagnosticValue("url", "http://127.0.0.1:3000/login")).toBe(
 			"http://127.0.0.1:3000/login",
 		);
+	});
+
+	it("bounds long field values", () => {
+		expect(redactDiagnosticValue("error", "a".repeat(600))).toHaveLength(501);
 	});
 
 	it("keeps a bounded in-memory event buffer", () => {
