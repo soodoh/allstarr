@@ -18,6 +18,8 @@ Useful commands:
 - `bun run lint`
 - `bun run db:migrate`
 
+Testing guidance: see [`docs/testing.md`](docs/testing.md) for which layer should own new regression coverage.
+
 ## Authentication Configuration
 
 Allstarr supports email/password login by default. Production OIDC providers are configured with environment variables such as `OIDC_1_PROVIDER_ID`, `OIDC_1_CLIENT_ID`, `OIDC_1_CLIENT_SECRET`, and `OIDC_1_DISCOVERY_URL`. Additional providers use `OIDC_2_*`, `OIDC_3_*`, and so on.
