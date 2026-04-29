@@ -15,6 +15,7 @@ export default defineConfig({
 						"src/**/*.test.{ts,tsx}",
 						"e2e/fixtures/**/*.test.ts",
 						"e2e/helpers/**/*.test.ts",
+						"scripts/**/*.test.ts",
 					],
 					exclude: [
 						"**/node_modules/**",
