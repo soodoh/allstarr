@@ -254,20 +254,20 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 	const resetStartedAt = Date.now();
 	try {
-		const response = await fetch(`${appServer.url}/api/__test-reset`, {
+		const resetResponse = await fetch(`${appServer.url}/api/__test-reset`, {
 			method: "POST",
 		});
 		recordDiagnostic({
 			scope: "app",
 			event: "test-reset",
-			status: response.ok ? "ok" : "info",
+			status: resetResponse.ok ? "ok" : "info",
 			elapsedMs: Date.now() - resetStartedAt,
 			fields: {
 				testTitle: testInfo.title,
 				workerIndex: testInfo.workerIndex,
 				path: "/api/__test-reset",
-				statusCode: response.status,
-				statusText: response.statusText,
+				statusCode: resetResponse.status,
+				statusText: resetResponse.statusText,
 			},
 		});
 	} catch (error) {
@@ -285,19 +285,36 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 		});
 	}
 
-	await timeDiagnosticOperation(
-		{
-			scope: "fake-service",
-			event: "reset-all-for-test",
-			fields: { testTitle: testInfo.title },
-		},
-		async () => serviceManager.reset(),
-		{
-			log: (line) => {
-				console.info(line);
+	const fakeResetStartedAt = Date.now();
+	try {
+		await serviceManager.reset();
+		recordDiagnostic(
+			{
+				scope: "fake-service",
+				event: "reset-all",
+				status: "ok",
+				elapsedMs: Date.now() - fakeResetStartedAt,
+				fields: {
+					testTitle: testInfo.title,
+					workerIndex: testInfo.workerIndex,
+				},
 			},
-		},
-	);
+			{ print: false },
+		);
+	} catch (error) {
+		recordDiagnostic({
+			scope: "fake-service",
+			event: "reset-all",
+			status: "error",
+			elapsedMs: Date.now() - fakeResetStartedAt,
+			fields: {
+				testTitle: testInfo.title,
+				workerIndex: testInfo.workerIndex,
+				error: error instanceof Error ? error.message : String(error),
+			},
+		});
+		throw error;
+	}
 });
 
 // Client-side JS coverage collection via CDP

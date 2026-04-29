@@ -14,6 +14,9 @@ type DiagnosticTimerOptions = {
 };
 
 const SECRET_FIELD_PATTERN = /api[-_]?key|secret|token|password|cookie|authorization/i;
+const SECRET_VALUE_PATTERN =
+	/(api[-_]?key|secret|token|password|cookie|authorization)(\s*[=:]\s*)([^&\s]+)/gi;
+const MAX_FIELD_VALUE_LENGTH = 500;
 
 export function redactDiagnosticValue(key: string, value: unknown): string {
 	if (value == null) {
@@ -22,7 +25,13 @@ export function redactDiagnosticValue(key: string, value: unknown): string {
 	if (SECRET_FIELD_PATTERN.test(key)) {
 		return "[redacted]";
 	}
-	return String(value).replaceAll(/\s+/g, " ");
+	const redacted = String(value)
+		.replaceAll(/\s+/g, " ")
+		.replace(SECRET_VALUE_PATTERN, "$1$2[redacted]");
+	if (redacted.length <= MAX_FIELD_VALUE_LENGTH) {
+		return redacted;
+	}
+	return `${redacted.slice(0, MAX_FIELD_VALUE_LENGTH)}…`;
 }
 
 export function formatDiagnosticLine(event: DiagnosticEvent): string {
