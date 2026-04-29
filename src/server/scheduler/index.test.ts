@@ -109,6 +109,26 @@ async function freshModule() {
 	return (await import("./index")) as typeof import("./index");
 }
 
+function getTaskUpdatedEventOrder(taskId: string): number {
+	const eventCallIndex = mocks.emit.mock.calls.findIndex(
+		([event]) =>
+			event !== null &&
+			typeof event === "object" &&
+			"type" in event &&
+			event.type === "taskUpdated" &&
+			"taskId" in event &&
+			event.taskId === taskId,
+	);
+	expect(eventCallIndex).toBeGreaterThanOrEqual(0);
+
+	const eventCallOrder = mocks.emit.mock.invocationCallOrder[eventCallIndex];
+	if (eventCallOrder === undefined) {
+		throw new Error(`taskUpdated event was not emitted for ${taskId}`);
+	}
+
+	return eventCallOrder;
+}
+
 describe("scheduler/index", () => {
 	describe("ensureSchedulerStarted", () => {
 		it("should seed tasks, start timers, and log on first call", async () => {
@@ -568,6 +588,9 @@ describe("scheduler/index", () => {
 				type: "taskUpdated",
 				taskId: "task-ok",
 			});
+			expect(mocks.completeJobRun.mock.invocationCallOrder[0]).toBeLessThan(
+				getTaskUpdatedEventOrder("task-ok"),
+			);
 			expect(mocks.logInfo).toHaveBeenCalledWith(
 				"scheduler",
 				expect.stringContaining("OK Task"),
@@ -628,6 +651,9 @@ describe("scheduler/index", () => {
 				}),
 			);
 			expect(mocks.failJobRun).toHaveBeenCalledWith(55, "bad");
+			expect(mocks.failJobRun.mock.invocationCallOrder[0]).toBeLessThan(
+				getTaskUpdatedEventOrder("task-bad"),
+			);
 			expect(mocks.completeJobRun).not.toHaveBeenCalled();
 		});
 
@@ -655,6 +681,9 @@ describe("scheduler/index", () => {
 				type: "taskUpdated",
 				taskId: "task-fail",
 			});
+			expect(mocks.failJobRun.mock.invocationCallOrder[0]).toBeLessThan(
+				getTaskUpdatedEventOrder("task-fail"),
+			);
 		});
 
 		it("should handle non-Error thrown values gracefully", async () => {
