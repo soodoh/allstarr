@@ -26,6 +26,18 @@ let tmdbFetch: typeof import("./client").tmdbFetch;
 
 beforeEach(async () => {
 	vi.resetModules();
+	vi.doMock("../api-cache", () => ({
+		ApiRateLimitError: class extends Error {
+			readonly status = 429;
+			constructor(msg: string) {
+				super(msg);
+				this.name = "ApiRateLimitError";
+			}
+		},
+		createApiFetcher: () => ({
+			fetch: mocks.fetchFn,
+		}),
+	}));
 	mocks.fetchFn.mockReset();
 	mocks.getMediaSetting.mockReset();
 	mocks.getMediaSetting.mockReturnValue("en");

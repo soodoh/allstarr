@@ -21,6 +21,18 @@ let hardcoverFetch: typeof import("./client").hardcoverFetch;
 
 beforeEach(async () => {
 	vi.resetModules();
+	vi.doMock("../api-cache", () => ({
+		ApiRateLimitError: class extends Error {
+			readonly status = 429;
+			constructor(msg: string) {
+				super(msg);
+				this.name = "ApiRateLimitError";
+			}
+		},
+		createApiFetcher: () => ({
+			fetch: mocks.fetchFn,
+		}),
+	}));
 	mocks.fetchFn.mockReset();
 
 	const mod = await import("./client");
