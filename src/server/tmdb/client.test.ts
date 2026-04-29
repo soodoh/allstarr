@@ -176,6 +176,29 @@ describe("tmdbFetch", () => {
 			await expect(tmdbFetch("/movie/123")).rejects.toThrow("TMDB rate limit");
 		});
 
+		it("does not duplicate persistent rate-limit retries through the cache fetcher", async () => {
+			vi.doUnmock("../api-cache");
+			vi.resetModules();
+			vi.stubEnv("TMDB_TOKEN", "test-api-key");
+			const { clearTmdbCache, tmdbFetch: realTmdbFetch } = await import(
+				"./client"
+			);
+			const fetchMock = vi.fn().mockResolvedValue(
+				new Response("rate limited", {
+					status: 429,
+					headers: { "Retry-After": "0" },
+				}),
+			);
+			vi.stubGlobal("fetch", fetchMock);
+
+			await expect(realTmdbFetch("/movie/123")).rejects.toThrow(
+				"TMDB rate limit",
+			);
+
+			expect(fetchMock).toHaveBeenCalledTimes(4);
+			clearTmdbCache();
+		});
+
 		it("throws on non-OK responses", async () => {
 			const mockResponse = {
 				ok: false,

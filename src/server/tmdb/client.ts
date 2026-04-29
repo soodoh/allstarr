@@ -19,7 +19,7 @@ const tmdb = createApiFetcher({
 	name: "tmdb",
 	cache: { ttlMs: 5 * 60 * 1000, maxEntries: 500 },
 	rateLimit: { maxRequests: 40, windowMs: 10_000 },
-	retry: { maxRetries: 3, baseDelayMs: 2000 },
+	retry: { maxRetries: 0, baseDelayMs: 2000 },
 });
 
 export function clearTmdbCache(): void {
