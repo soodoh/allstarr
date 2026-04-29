@@ -111,6 +111,7 @@ describe("commands server helpers", () => {
 		).toThrowError("A batch metadata refresh is already running.");
 
 		expect(handler).not.toHaveBeenCalled();
+		expect(commandsMocks.listActiveJobRuns).toHaveBeenCalledOnce();
 		expect(commandsMocks.acquireJobRun).not.toHaveBeenCalled();
 	});
 
@@ -157,6 +158,9 @@ describe("commands server helpers", () => {
 			dedupeValue: "21",
 			metadata: { body: { mediaId: 21 }, batchTaskId: "metadata-refresh" },
 		});
+		expect(
+			commandsMocks.listActiveJobRuns.mock.invocationCallOrder[0],
+		).toBeLessThan(commandsMocks.acquireJobRun.mock.invocationCallOrder[0]);
 	});
 
 	it("updates job-run progress and emits completion for finished commands", async () => {
@@ -211,6 +215,18 @@ describe("commands server helpers", () => {
 			"Refreshing — for 99",
 		);
 		expect(commandsMocks.completeJobRun).toHaveBeenCalledWith(42, { ok: true });
+		const completionEventCall = commandsMocks.emit.mock.calls.findIndex(
+			([event]) =>
+				event &&
+				typeof event === "object" &&
+				"type" in event &&
+				event.type === "commandCompleted",
+		);
+		expect(
+			commandsMocks.completeJobRun.mock.invocationCallOrder[0],
+		).toBeLessThan(
+			commandsMocks.emit.mock.invocationCallOrder[completionEventCall],
+		);
 		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
 		expect(commandsMocks.logError).not.toHaveBeenCalled();
 	});
@@ -289,7 +305,50 @@ describe("commands server helpers", () => {
 		});
 
 		expect(commandsMocks.failJobRun).toHaveBeenCalledWith(42, "boom");
+		const failureEventCall = commandsMocks.emit.mock.calls.findIndex(
+			([event]) =>
+				event &&
+				typeof event === "object" &&
+				"type" in event &&
+				event.type === "commandFailed",
+		);
+		expect(commandsMocks.failJobRun.mock.invocationCallOrder[0]).toBeLessThan(
+			commandsMocks.emit.mock.invocationCallOrder[failureEventCall],
+		);
 		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
+	});
+
+	it("clears heartbeat intervals after failed commands", async () => {
+		vi.useFakeTimers();
+		let rejectHandler: () => void = () => {
+			throw new Error("handler promise was not initialized");
+		};
+		const handler = vi.fn(
+			() =>
+				new Promise<Record<string, unknown>>((_resolve, reject) => {
+					rejectHandler = () => reject(new Error("boom"));
+				}),
+		);
+
+		submitCommand({
+			body: { mediaId: 99 },
+			commandType: "refreshBook",
+			dedupeKey: "mediaId",
+			handler,
+			name: "Refresh book",
+		});
+
+		expect(handler).toHaveBeenCalledOnce();
+		vi.advanceTimersByTime(10_000);
+		expect(commandsMocks.heartbeatJobRun).toHaveBeenCalledWith(42);
+
+		rejectHandler();
+		await vi.waitFor(() => {
+			expect(commandsMocks.failJobRun).toHaveBeenCalledWith(42, "boom");
+		});
+
+		expect(vi.getTimerCount()).toBe(0);
+		vi.useRealTimers();
 	});
 
 	it("returns active commands for authenticated requests", async () => {
