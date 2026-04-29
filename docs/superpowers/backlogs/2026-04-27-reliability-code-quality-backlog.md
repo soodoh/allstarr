@@ -173,6 +173,7 @@ This audit pass removes items that have since been implemented (scheduler/job-ru
 **Theme:** Test and CI confidence
 **Size:** S
 **Risk:** low
+**Plan:** `docs/plans/2026-04-29-coverage-threshold-signal-quality.md`
 
 **Problem:** Coverage is enforced in two places with different meanings, and the merged e2e threshold numbers are lower than the repository-wide testing guidance. This can make it unclear whether a coverage failure points to missing unit/browser coverage, missing e2e workflow coverage, or expected exclusions from generated and infrastructure code.
 
