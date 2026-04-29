@@ -37,6 +37,6 @@ Use the smallest test layer that can prove the behavior. Prefer fast, determinis
 
 ```bash
 bun run test -- e2e/fixtures/fake-servers/manager.test.ts e2e/helpers/tasks.test.ts src/components/unmapped-files/mapping-dialog.browser.test.tsx
-bun run test:e2e -- e2e/tests/11-unmapped-files.spec.ts
+bun run build && bun run test:e2e -- e2e/tests/11-unmapped-files.spec.ts
 bun run typecheck
 ```
