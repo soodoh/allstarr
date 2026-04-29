@@ -1,5 +1,5 @@
 import { ApiRateLimitError, createApiFetcher } from "../api-cache";
-import { fetchWithExternalTimeout } from "../external-request-policy";
+import { fetchWithExternalPolicy } from "../external-request-policy";
 import getMediaSetting from "../settings-reader";
 
 export { TMDB_IMAGE_BASE } from "./types";
@@ -47,11 +47,18 @@ export async function tmdbFetch<T>(
 
 	const cacheKey = url.toString();
 	return tmdb.fetch<T>(cacheKey, async () => {
-		const response = await fetchWithExternalTimeout(
+		const response = await fetchWithExternalPolicy(
 			cacheKey,
 			{},
-			REQUEST_TIMEOUT_MS,
-			"TMDB API request timed out.",
+			{
+				timeoutMs: REQUEST_TIMEOUT_MS,
+				timeoutMessage: "TMDB API request timed out.",
+				retry: {
+					maxRetries: 3,
+					baseDelayMs: 2000,
+					retryStatuses: [429, 502, 503, 504],
+				},
+			},
 		);
 		if (response.status === 429) {
 			throw new ApiRateLimitError("TMDB rate limit");
