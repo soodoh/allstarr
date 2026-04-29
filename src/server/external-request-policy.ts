@@ -10,12 +10,14 @@ export type ExternalRequestRetryOptions = {
 	baseDelayMs: number;
 	maxDelayMs?: number;
 	retryStatuses?: number[];
+	ignoreNonPositiveRetryAfter?: boolean;
 };
 
 export type ExternalRequestAttemptInfo = {
 	attempt: number;
 	status?: number;
 	delayMs?: number;
+	retryAfterMs?: number;
 	response?: Response;
 };
 
@@ -173,7 +175,13 @@ export async function fetchWithExternalPolicy(
 			return response;
 		}
 
-		const retryAfterMs = parseRetryAfterHeader(response);
+		const parsedRetryAfterMs = parseRetryAfterHeader(response);
+		const retryAfterMs =
+			policy.retry?.ignoreNonPositiveRetryAfter &&
+			parsedRetryAfterMs !== undefined &&
+			parsedRetryAfterMs <= 0
+				? undefined
+				: parsedRetryAfterMs;
 		const delayMs = resolveRetryDelayMs({
 			attempt,
 			baseDelayMs: policy.retry?.baseDelayMs ?? 0,
@@ -184,6 +192,7 @@ export async function fetchWithExternalPolicy(
 			attempt,
 			status: response.status,
 			delayMs,
+			retryAfterMs: parsedRetryAfterMs,
 			response,
 		});
 		await sleep(delayMs);

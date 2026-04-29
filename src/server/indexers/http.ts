@@ -218,13 +218,14 @@ async function fetchWithRetry(
 			baseDelayMs: BASE_BACKOFF_MS,
 			maxDelayMs: 30_000,
 			retryStatuses: [429],
+			ignoreNonPositiveRetryAfter: true,
 		},
-		onRetry: ({ attempt, delayMs }) => {
+		onRetry: ({ attempt, delayMs, retryAfterMs }) => {
 			if (indexerIdentity) {
 				reportRateLimited(
 					indexerIdentity.indexerType,
 					indexerIdentity.indexerId,
-					delayMs && delayMs > 0 ? delayMs : undefined,
+					retryAfterMs && retryAfterMs > 0 ? retryAfterMs : undefined,
 				);
 			}
 			logInfo(
