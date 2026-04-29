@@ -138,13 +138,40 @@ describe("tmdbFetch", () => {
 			expect(fetchUrl).toContain("https://api.themoviedb.org/3/movie/123");
 		});
 
+		it("retries TMDB 429 responses before returning data", async () => {
+			vi.useFakeTimers();
+			vi.stubGlobal("fetch", vi.fn());
+			vi.mocked(globalThis.fetch)
+				.mockResolvedValueOnce(
+					new Response("limited", {
+						status: 429,
+					}),
+				)
+				.mockResolvedValueOnce(
+					new Response(JSON.stringify({ results: [] }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+
+			const promise = tmdbFetch<{ results: unknown[] }>("/search/movie", {
+				query: "Alien",
+			});
+			await vi.advanceTimersByTimeAsync(2000);
+			await expect(promise).resolves.toEqual({ results: [] });
+			expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+		});
+
 		it("throws ApiRateLimitError on 429 response", async () => {
-			const mockResponse = {
-				ok: false,
-				status: 429,
-				statusText: "Too Many Requests",
-			};
-			vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse));
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockResolvedValue(
+					new Response("rate limited", {
+						status: 429,
+						headers: { "Retry-After": "0" },
+					}),
+				),
+			);
 
 			await expect(tmdbFetch("/movie/123")).rejects.toThrow("TMDB rate limit");
 		});
