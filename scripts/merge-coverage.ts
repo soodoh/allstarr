@@ -1,11 +1,42 @@
 import { CoverageReport } from "monocart-coverage-reports";
 
-const thresholds: Record<string, number> = {
+export const coverageThresholds = {
 	lines: 80,
 	statements: 75,
 	functions: 75,
 	branches: 45,
+} as const;
+
+type CoverageMetric = keyof typeof coverageThresholds;
+
+type CoverageSummary = Partial<Record<CoverageMetric, { pct: number }>>;
+
+export type ThresholdReportEntry = {
+	metric: CoverageMetric;
+	actual: number;
+	threshold: number;
+	passed: boolean;
 };
+
+export function buildThresholdReport(
+	summary: CoverageSummary,
+	thresholds: typeof coverageThresholds,
+): ThresholdReportEntry[] {
+	return Object.entries(thresholds).map(([metric, threshold]) => {
+		const coverageMetric = metric as CoverageMetric;
+		const actual = summary[coverageMetric]?.pct ?? 0;
+		return {
+			metric: coverageMetric,
+			actual,
+			threshold,
+			passed: actual >= threshold,
+		};
+	});
+}
+
+export function isThresholdReportPassing(report: ThresholdReportEntry[]): boolean {
+	return report.every((entry) => entry.passed);
+}
 
 async function mergeCoverage(): Promise<void> {
 	console.log("Merging coverage from unit + e2e...\n");
@@ -17,25 +48,20 @@ async function mergeCoverage(): Promise<void> {
 	});
 
 	const result = await mcr.generate();
-	const summary = result.summary as Record<
-		string,
-		{ pct: number } | undefined
-	>;
+	const report = buildThresholdReport(
+		(result?.summary as CoverageSummary | undefined) ?? {},
+		coverageThresholds,
+	);
 
 	console.log("\n--- Merged Coverage Thresholds ---");
-	let failed = false;
-	for (const [metric, threshold] of Object.entries(thresholds)) {
-		const actual = summary[metric]?.pct ?? 0;
-		const status = actual >= threshold ? "PASS" : "FAIL";
+	for (const entry of report) {
+		const status = entry.passed ? "PASS" : "FAIL";
 		console.log(
-			`  ${metric}: ${actual.toFixed(2)}% (threshold: ${threshold}%) [${status}]`,
+			`  ${entry.metric}: ${entry.actual.toFixed(2)}% (threshold: ${entry.threshold}%) [${status}]`,
 		);
-		if (actual < threshold) {
-			failed = true;
-		}
 	}
 
-	if (failed) {
+	if (!isThresholdReportPassing(report)) {
 		console.error("\nMerged coverage thresholds not met.");
 		process.exit(1);
 	}
@@ -43,4 +69,6 @@ async function mergeCoverage(): Promise<void> {
 	console.log("\nAll merged coverage thresholds passed.");
 }
 
-mergeCoverage();
+if (import.meta.main) {
+	void mergeCoverage();
+}
