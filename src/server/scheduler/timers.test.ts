@@ -90,6 +90,26 @@ describe("scheduler/timers", () => {
 			}
 		});
 
+		it("replaces a pending timer with one active interval per task", () => {
+			const executor = vi.fn();
+			setTaskExecutor(executor);
+
+			rescheduleTask("timer-single-active", 10_000);
+			const firstTimer = getTimers().get("timer-single-active");
+			expect(getTimers().size).toBe(1);
+
+			rescheduleTask("timer-single-active", 1000);
+			const replacementTimer = getTimers().get("timer-single-active");
+
+			expect(getTimers().size).toBe(1);
+			expect(replacementTimer).toBeDefined();
+			expect(replacementTimer).not.toBe(firstTimer);
+
+			vi.advanceTimersByTime(1000);
+			expect(executor).toHaveBeenCalledTimes(1);
+			expect(executor).toHaveBeenCalledWith("timer-single-active");
+		});
+
 		it("should support multiple tasks with independent timers", () => {
 			const executor = vi.fn();
 			setTaskExecutor(executor);
@@ -125,6 +145,20 @@ describe("scheduler/timers", () => {
 
 			// No additional calls after clearing
 			expect(executor).toHaveBeenCalledTimes(2);
+		});
+
+		it("clearTaskTimer removes the task timer and prevents future executor calls", () => {
+			const executor = vi.fn();
+			setTaskExecutor(executor);
+			rescheduleTask("timer-clear-invariant", 1000);
+
+			expect(getTimers().has("timer-clear-invariant")).toBe(true);
+
+			clearTaskTimer("timer-clear-invariant");
+			vi.advanceTimersByTime(5000);
+
+			expect(getTimers().has("timer-clear-invariant")).toBe(false);
+			expect(executor).not.toHaveBeenCalled();
 		});
 
 		it("should remove the task from the timers map", () => {
