@@ -33,6 +33,22 @@ Use the smallest test layer that can prove the behavior. Prefer fast, determinis
 - Do not increase Playwright retries to hide flakes; add diagnostics or smaller-layer coverage instead.
 - Do not lower coverage thresholds. If a threshold failure is noisy, improve the signal or add targeted coverage.
 
+## Coverage threshold signals
+
+Coverage has two complementary gates:
+
+- `bun run test:coverage` runs the Vitest Node and browser projects with Monocart instrumentation. Treat failures here as missing unit/browser/helper coverage for source files included by `vitest.config.ts`.
+- `bun run test:coverage:merged` merges `coverage/unit/raw` and `coverage/e2e/raw`, then checks the merged e2e-aware thresholds. Treat failures here as a workflow coverage signal: first confirm both raw input directories are present and non-empty, then add the smallest useful regression test at the owning layer.
+
+The merged threshold numbers are intentionally lower than the unit/browser guidance because they combine different raw inputs and include e2e instrumentation limits. Do not lower either gate to fix noise. If the signal is confusing, improve diagnostics or revisit exclusions.
+
+When a coverage failure occurs in CI:
+
+1. Check whether the failed command was `test:coverage` or `test:coverage:merged`.
+2. For merged failures, read the `Coverage inputs` lines to confirm unit/browser and e2e raw reports were both merged.
+3. Use the uncovered file and `Layer ownership` table above to choose the smallest test layer that proves the missing behavior.
+4. Audit exclusions in `vitest.config.ts` only when a source file is permanently untestable at that layer; do not exclude high-risk code just to restore percentages.
+
 ## E2E flake diagnostics
 
 Playwright e2e runs emit `[e2e]` diagnostic lines for global setup, app startup, fake-service readiness, per-test reset, scenario seeding, and teardown. When a test fails, inspect diagnostics in this order:
