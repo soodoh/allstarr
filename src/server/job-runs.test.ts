@@ -303,6 +303,90 @@ describe("job-runs service", () => {
 			"stale",
 		]);
 	});
+
+	describe("job-run lifecycle invariants", () => {
+		it("treats only queued and running as active dedupe blockers", () => {
+			expect(NON_TERMINAL_JOB_STATUSES).toEqual(["queued", "running"]);
+
+			mocks.selectResults.push([{ id: 1, status: "queued" }]);
+
+			expect(() =>
+				acquireJobRun({
+					sourceType: "scheduled",
+					jobType: "refresh-downloads",
+					displayName: "Refresh Downloads",
+				}),
+			).toThrow("This task is already running.");
+			expect(inArray).toHaveBeenCalledWith(
+				jobRuns.status,
+				NON_TERMINAL_JOB_STATUSES,
+			);
+			expect(mocks.insertValues).toEqual([]);
+		});
+
+		it("terminal updates only apply while the run is still running", () => {
+			completeJobRun(10, { ok: true });
+			failJobRun(11, "boom");
+
+			expect(and).toHaveBeenCalledWith(
+				{ type: "eq", left: jobRuns.id, right: 10 },
+				{ type: "eq", left: jobRuns.status, right: "running" },
+			);
+			expect(and).toHaveBeenCalledWith(
+				{ type: "eq", left: jobRuns.id, right: 11 },
+				{ type: "eq", left: jobRuns.status, right: "running" },
+			);
+		});
+
+		it("refreshes heartbeat timestamps for heartbeats and progress updates", () => {
+			heartbeatJobRun(10);
+			updateJobRunProgress(10, "Scanning files");
+
+			expect(mocks.updateSets).toEqual([
+				{ lastHeartbeatAt: now, updatedAt: now },
+				{
+					progress: "Scanning files",
+					lastHeartbeatAt: now,
+					updatedAt: now,
+				},
+			]);
+		});
+
+		it("marks only expired running jobs as stale", () => {
+			markStaleJobRuns(now);
+
+			expect(and).toHaveBeenCalledWith(
+				{ type: "eq", left: jobRuns.status, right: "running" },
+				{
+					type: "lt",
+					left: jobRuns.lastHeartbeatAt,
+					right: new Date("2026-04-26T11:55:00.000Z"),
+				},
+			);
+		});
+
+		it("lists active runs with the same status set used for duplicate acquisition", () => {
+			mocks.selectResults.push([], []);
+
+			acquireJobRun({
+				sourceType: "command",
+				jobType: "refresh-book",
+				displayName: "Refresh Book",
+			});
+			listActiveJobRuns();
+
+			expect(inArray).toHaveBeenNthCalledWith(
+				1,
+				jobRuns.status,
+				NON_TERMINAL_JOB_STATUSES,
+			);
+			expect(inArray).toHaveBeenNthCalledWith(
+				2,
+				jobRuns.status,
+				NON_TERMINAL_JOB_STATUSES,
+			);
+		});
+	});
 });
 
 describe("job-runs service with real sqlite constraints", () => {
