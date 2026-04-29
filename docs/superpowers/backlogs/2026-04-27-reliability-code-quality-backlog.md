@@ -156,6 +156,7 @@ This audit pass removes items that have since been implemented (scheduler/job-ru
 **Theme:** Test and CI confidence
 **Size:** M
 **Risk:** low
+**Plan:** `docs/plans/2026-04-28-targeted-test-ownership.md`
 
 **Problem:** The test suite has unit tests, Vitest browser tests, Playwright e2e tests, fake-server fixture tests, golden parity tests, and helper tests, but ownership by layer is implicit. Without a written boundary, new coverage can land in a slower or broader layer than needed, while integration-heavy behavior can be under-tested because it looks covered by lower-level unit tests.
 
