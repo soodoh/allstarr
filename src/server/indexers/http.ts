@@ -1,10 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { fetchWithTimeout } from "../download-clients/http";
-import {
-	parseRetryAfterHeader,
-	resolveRetryDelayMs,
-	sleep,
-} from "../external-request-policy";
+import { fetchWithExternalPolicy } from "../external-request-policy";
 import {
 	recordQuery,
 	reportRateLimited,
@@ -214,38 +210,34 @@ async function fetchWithRetry(
 	timeoutMs: number,
 	indexerIdentity?: { indexerType: "manual" | "synced"; indexerId: number },
 ): Promise<Response> {
-	for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-		const res = await fetchWithTimeout(url, options, timeoutMs);
-		if (res.status !== 429 || attempt === MAX_RETRIES) {
-			if (res.ok && indexerIdentity) {
+	return fetchWithExternalPolicy(url, options, {
+		timeoutMs,
+		timeoutMessage: "Connection timed out.",
+		retry: {
+			maxRetries: MAX_RETRIES,
+			baseDelayMs: BASE_BACKOFF_MS,
+			maxDelayMs: 30_000,
+			retryStatuses: [429],
+		},
+		onRetry: ({ attempt, delayMs }) => {
+			if (indexerIdentity) {
+				reportRateLimited(
+					indexerIdentity.indexerType,
+					indexerIdentity.indexerId,
+					delayMs && delayMs > 0 ? delayMs : undefined,
+				);
+			}
+			logInfo(
+				"indexer",
+				`429 rate-limited, retrying in ${Math.round((delayMs ?? 0) / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
+			);
+		},
+		onSuccess: () => {
+			if (indexerIdentity) {
 				reportSuccess(indexerIdentity.indexerType, indexerIdentity.indexerId);
 			}
-			return res;
-		}
-		const retryAfter = parseRetryAfterHeader(res);
-		const retryAfterDelay =
-			retryAfter !== undefined && retryAfter > 0 ? retryAfter : undefined;
-		if (indexerIdentity) {
-			reportRateLimited(
-				indexerIdentity.indexerType,
-				indexerIdentity.indexerId,
-				retryAfterDelay,
-			);
-		}
-		const capped = resolveRetryDelayMs({
-			attempt,
-			baseDelayMs: BASE_BACKOFF_MS,
-			retryAfterMs: retryAfterDelay,
-			maxDelayMs: 30_000,
-		});
-		logInfo(
-			"indexer",
-			`429 rate-limited, retrying in ${Math.round(capped / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
-		);
-		await sleep(capped);
-	}
-	// Unreachable, but satisfies TypeScript
-	throw new Error("Exhausted retries after 429");
+		},
+	});
 }
 
 /** Fetch a single Newznab/Torznab feed URL and parse the XML into results. */
