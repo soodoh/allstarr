@@ -467,11 +467,13 @@ describe("scheduler/index", () => {
 			expect(mocks.listActiveJobRuns).toHaveBeenCalledOnce();
 			expect(mocks.acquireJobRun).not.toHaveBeenCalled();
 			expect(handler).not.toHaveBeenCalled();
+			expect(mocks.updateSet).not.toHaveBeenCalled();
+			expect(mocks.updateRun).not.toHaveBeenCalled();
 			expect(mocks.failJobRun).not.toHaveBeenCalled();
 			expect(mocks.logError).not.toHaveBeenCalled();
 		});
 
-		it("should recover stale scheduled runs before acquiring a task run", async () => {
+		it("should recover stale scheduled runs before checking overlap or acquiring a task run", async () => {
 			const mod = await freshModule();
 
 			const handler = vi
@@ -492,10 +494,49 @@ describe("scheduler/index", () => {
 			await mod.runTaskNow("stale-task");
 
 			expect(mocks.markStaleJobRuns.mock.invocationCallOrder[0]).toBeLessThan(
+				mocks.listActiveJobRuns.mock.invocationCallOrder[0],
+			);
+			expect(mocks.markStaleJobRuns.mock.invocationCallOrder[0]).toBeLessThan(
 				mocks.acquireJobRun.mock.invocationCallOrder[0],
 			);
 			expect(mocks.updateSet).toHaveBeenCalledWith({ progress: null });
 			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("should clear progress for stale scheduled runs but not stale command runs", async () => {
+			const mod = await freshModule();
+
+			mocks.getTask.mockReturnValue({
+				id: "mixed-stale-task",
+				name: "Mixed Stale Task",
+				handler: vi.fn().mockResolvedValue({
+					success: true,
+					message: "stale runs recovered",
+				}),
+			});
+			mocks.markStaleJobRuns.mockReturnValue([
+				{
+					sourceType: "command",
+					jobType: "refresh-book",
+				},
+				{
+					sourceType: "scheduled",
+					jobType: "mixed-stale-task",
+				},
+			]);
+
+			await mod.runTaskNow("mixed-stale-task");
+
+			expect(
+				mocks.updateSet.mock.calls.filter(
+					([value]) =>
+						value &&
+						typeof value === "object" &&
+						Object.keys(value).length === 1 &&
+						"progress" in value &&
+						value.progress === null,
+				),
+			).toHaveLength(1);
 		});
 
 		it("should acquire a job run, call handler, update DB, emit event, and complete the run on success", async () => {
