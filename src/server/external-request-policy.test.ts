@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createAbortTimeoutError,
+	fetchWithExternalPolicy,
 	fetchWithExternalTimeout,
 	parseRetryAfterHeader,
 	resolveRetryDelayMs,
@@ -130,5 +131,101 @@ describe("external request policy", () => {
 		callerController.abort(callerAbortError);
 		await vi.advanceTimersByTimeAsync(1000);
 		await promise;
+	});
+
+	it("returns a successful response without retrying", async () => {
+		const response = new Response("ok", { status: 200 });
+		const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response);
+
+		await expect(
+			fetchWithExternalPolicy(
+				"http://example.test",
+				{},
+				{
+					timeoutMs: 1000,
+					timeoutMessage: "Request timed out.",
+				},
+			),
+		).resolves.toBe(response);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("retries 429 responses using Retry-After before returning success", async () => {
+		vi.useFakeTimers();
+		vi.spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(
+				new Response("rate limited", {
+					status: 429,
+					headers: { "Retry-After": "2" },
+				}),
+			)
+			.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+		const promise = fetchWithExternalPolicy(
+			"http://example.test",
+			{},
+			{
+				timeoutMs: 1000,
+				timeoutMessage: "Request timed out.",
+				retry: { maxRetries: 1, baseDelayMs: 50, retryStatuses: [429] },
+			},
+		);
+
+		await vi.advanceTimersByTimeAsync(2000);
+		const response = await promise;
+		expect(response.status).toBe(200);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+	});
+
+	it("returns the final retryable response after retry exhaustion", async () => {
+		vi.useFakeTimers();
+		vi.spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(new Response("limited", { status: 429 }))
+			.mockResolvedValueOnce(new Response("still limited", { status: 429 }));
+
+		const promise = fetchWithExternalPolicy(
+			"http://example.test",
+			{},
+			{
+				timeoutMs: 1000,
+				timeoutMessage: "Request timed out.",
+				retry: { maxRetries: 1, baseDelayMs: 50, retryStatuses: [429] },
+			},
+		);
+
+		await vi.advanceTimersByTimeAsync(50);
+		const response = await promise;
+		expect(response.status).toBe(429);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+	});
+
+	it("calls retry hooks for rate-limit and recovery", async () => {
+		vi.useFakeTimers();
+		const onRetry = vi.fn();
+		const onSuccess = vi.fn();
+		vi.spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(new Response("limited", { status: 429 }))
+			.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+		const promise = fetchWithExternalPolicy(
+			"http://example.test",
+			{},
+			{
+				timeoutMs: 1000,
+				timeoutMessage: "Request timed out.",
+				retry: { maxRetries: 1, baseDelayMs: 50, retryStatuses: [429] },
+				onRetry,
+				onSuccess,
+			},
+		);
+
+		await vi.advanceTimersByTimeAsync(50);
+		await promise;
+		expect(onRetry).toHaveBeenCalledWith(
+			expect.objectContaining({ attempt: 0, status: 429, delayMs: 50 }),
+		);
+		expect(onSuccess).toHaveBeenCalledWith(
+			expect.objectContaining({ attempt: 1, status: 200 }),
+		);
 	});
 });
