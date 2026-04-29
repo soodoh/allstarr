@@ -8,6 +8,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import {
+	createDiagnosticBuffer,
+	formatDiagnosticLine,
+	timeDiagnosticOperation,
+	type DiagnosticEvent,
+} from "../helpers/diagnostics";
 import { createAppServerSpawnConfig } from "./app-runtime";
 import {
 	ALL_REQUIRED_SERVICES,
@@ -46,26 +52,69 @@ type AppFixtures = {
   checkpoint: () => void;
 };
 
+const diagnosticBuffer = createDiagnosticBuffer(300);
+
+function recordDiagnostic(event: DiagnosticEvent, options?: { print?: boolean }): void {
+	diagnosticBuffer.record(event);
+	if (options?.print ?? true) {
+		console.info(formatDiagnosticLine(event));
+	}
+}
+
+function recordProcessOutput(stream: "stderr" | "stdout", chunk: Buffer): void {
+	for (const line of chunk.toString().split(/\r?\n/)) {
+		const output = line.trim();
+		if (!output) {
+			continue;
+		}
+		recordDiagnostic(
+			{
+				scope: "app",
+				event: "process-output",
+				status: "info",
+				fields: { stream, output: output.slice(0, 500) },
+			},
+			{ print: false },
+		);
+	}
+}
+
 async function waitForServer(url: string, timeoutMs: number): Promise<void> {
   const start = Date.now();
+	const endpoint = "/login";
+	let attempts = 0;
+	let lastError = "not ready";
   while (Date.now() - start < timeoutMs) {
+		attempts += 1;
     try {
       const res = await fetch(`${url}/login`);
       if (res.ok) {
+				recordDiagnostic({
+					scope: "app",
+					event: "ready",
+					status: "ok",
+					elapsedMs: Date.now() - start,
+					fields: { url, endpoint, attempts },
+				});
         return;
       }
-    } catch {
-      // Server not ready yet
+			lastError = `${res.status} ${res.statusText}`;
+    } catch (error) {
+			lastError = error instanceof Error ? error.message : String(error);
     }
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 500);
     });
   }
+	const elapsedMs = Date.now() - start;
+	recordDiagnostic({
+		scope: "app",
+		event: "ready",
+		status: "error",
+		elapsedMs,
+		fields: { url, endpoint, attempts, error: lastError },
+	});
   throw new Error(`Server at ${url} did not start within ${timeoutMs}ms`);
-}
-
-function noop(): void {
-  // Intentional no-op for catch handlers
 }
 
 export const test = base.extend<AppFixtures, WorkerFixtures>({
@@ -100,14 +149,56 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 				},
 			});
 
+			recordDiagnostic({
+				scope: "app",
+				event: "spawn",
+				status: "info",
+				fields: {
+					workerIndex: workerInfo.workerIndex,
+					command: spawnConfig.command,
+					argsCount: spawnConfig.args.length,
+					url: spawnConfig.url,
+					dbFile: dbHandle.dbPath.split("/").at(-1),
+				},
+			});
+
 			const proc = spawn(spawnConfig.command, spawnConfig.args, {
 				env: spawnConfig.env,
 				cwd: spawnConfig.cwd,
 				stdio: "pipe",
 			});
+			proc.stdout?.on("data", (chunk: Buffer) => recordProcessOutput("stdout", chunk));
+			proc.stderr?.on("data", (chunk: Buffer) => recordProcessOutput("stderr", chunk));
 
-			await waitForServer(spawnConfig.url, 60_000);
-			await use({ url: spawnConfig.url, dbHandle, proc });
+			try {
+				await timeDiagnosticOperation(
+					{
+						scope: "app",
+						event: "startup",
+						fields: { workerIndex: workerInfo.workerIndex, url: spawnConfig.url },
+					},
+					async () => waitForServer(spawnConfig.url, 60_000),
+					{
+						log: (line) => {
+							console.info(line);
+						},
+					},
+				);
+				await use({ url: spawnConfig.url, dbHandle, proc });
+			} catch (error) {
+				proc.kill();
+				dbHandle.cleanup();
+				const diagnostics = diagnosticBuffer.toText();
+				throw new Error(
+					[
+						error instanceof Error ? error.message : String(error),
+						diagnostics ? "Recent e2e diagnostics:" : undefined,
+						diagnostics || undefined,
+					]
+						.filter(Boolean)
+						.join("\n"),
+				);
+			}
 			proc.kill();
 			dbHandle.cleanup();
 		},
@@ -160,12 +251,53 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 });
 
 // Reset fake servers and app caches before each test
-test.beforeEach(async ({ appServer, serviceManager }) => {
-	await fetch(`${appServer.url}/api/__test-reset`, {
-		method: "POST",
-	}).catch(noop);
+test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
+	const resetStartedAt = Date.now();
+	try {
+		const response = await fetch(`${appServer.url}/api/__test-reset`, {
+			method: "POST",
+		});
+		recordDiagnostic({
+			scope: "app",
+			event: "test-reset",
+			status: response.ok ? "ok" : "info",
+			elapsedMs: Date.now() - resetStartedAt,
+			fields: {
+				testTitle: testInfo.title,
+				workerIndex: testInfo.workerIndex,
+				path: "/api/__test-reset",
+				statusCode: response.status,
+				statusText: response.statusText,
+			},
+		});
+	} catch (error) {
+		recordDiagnostic({
+			scope: "app",
+			event: "test-reset",
+			status: "error",
+			elapsedMs: Date.now() - resetStartedAt,
+			fields: {
+				testTitle: testInfo.title,
+				workerIndex: testInfo.workerIndex,
+				path: "/api/__test-reset",
+				error: error instanceof Error ? error.message : String(error),
+			},
+		});
+	}
 
-	await serviceManager.reset();
+	await timeDiagnosticOperation(
+		{
+			scope: "fake-service",
+			event: "reset-all-for-test",
+			fields: { testTitle: testInfo.title },
+		},
+		async () => serviceManager.reset(),
+		{
+			log: (line) => {
+				console.info(line);
+			},
+		},
+	);
 });
 
 // Client-side JS coverage collection via CDP
@@ -180,6 +312,16 @@ test.afterEach(async ({ page }, testInfo) => {
 		const coverage = await page.coverage.stopJSCoverage();
 		await addCoverageReport(coverage, testInfo);
 	}
+});
+
+test.afterEach(async ({}, testInfo) => {
+	if (testInfo.status !== testInfo.expectedStatus) {
+		await testInfo.attach("e2e-diagnostics", {
+			body: diagnosticBuffer.toText() || "No e2e diagnostics captured.",
+			contentType: "text/plain",
+		});
+	}
+	diagnosticBuffer.clear();
 });
 
 export { expect } from "@playwright/test";
