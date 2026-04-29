@@ -2,9 +2,9 @@
 
 ## Summary
 
-This backlog ranks reliability and code-quality improvements for Allstarr. Items are based on repository evidence from server workflows, external integrations, tests/CI, and operational runtime paths.
+This backlog ranks reliability and code-quality improvements for Allstarr. Items are based on repository evidence from server workflows, tests/CI, and operational runtime paths.
 
-This audit pass includes Runtime reliability, Code maintainability, Test and CI confidence, and Operational quality items.
+This audit pass removes items that have since been implemented (scheduler/job-run lifecycle invariants, tracked download import claims, unmapped mapping rollback verification, shared external request policy, and auto-search outcome accounting) and refreshes the remaining items against the current codebase.
 
 ## Ranking Rubric
 
@@ -15,119 +15,39 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 ## Recommended First Tranche
 
-1. Harden scheduler and job-run lifecycle invariants.
-2. Make tracked download state transitions explicit.
-3. Strengthen import and file-move atomicity.
-4. Verify unmapped file mapping rollback for all media types.
-5. Centralize external HTTP timeout, retry, and rate-limit behavior.
+1. Strengthen import and file-move atomicity.
+2. Clarify SQLite transaction boundaries for mixed async and side-effecting workflows.
+3. Split auto-search into planning, indexer search, and download dispatch boundaries.
+4. Define import module phase boundaries.
+5. Separate unmapped file mapping service boundaries.
 
 ## Backlog
 
-### P0-1: Harden scheduler and job-run lifecycle invariants
-
-**Theme:** Runtime reliability
-**Size:** M
-**Risk:** medium
-
-**Problem:** Scheduler tasks and ad-hoc commands depend on active job-run rows, heartbeat intervals, dedupe identities, timer state, and startup stale-run recovery. The current implementation has several cooperating lifecycle entry points, so a future change can easily make startup recovery, duplicate suppression, heartbeat expiry, command overlap, or completion semantics diverge.
-
-**Evidence:** `src/server/scheduler/index.ts` starts timers, recovers stale scheduled runs, heartbeats active scheduled work, and clears scheduled task progress. `src/server/commands.ts` fire-and-forgets command handlers while heartbeating and completing job runs. `src/server/job-runs.ts` owns active dedupe checks, stale detection, and terminal status updates. `src/server/scheduler/timers.ts` stores timeout and interval handles in one shared map. Tests exist in `src/server/job-runs.test.ts`, `src/server/scheduler/index.test.ts`, `src/server/scheduler/timers.test.ts`, and `src/server/commands.test.ts`. Recent commits include `feat(reliability): persist scheduler run lifecycle`, `fix(reliability): recover stale scheduled runs consistently`, `feat(reliability): persist command run lifecycle`, and `fix(reliability): heartbeat active job runs`.
-
-**Impact:** Operators can see stale or incorrect task state, a later execution can be blocked by a bad active row, or the task page can misreport the status of long-running scheduled work and commands after crashes or restarts.
-
-**Suggested implementation:** Write explicit lifecycle invariants for scheduled runs and command runs, then encode them in a small shared test matrix covering acquire, heartbeat, progress, success, failure, stale recovery, duplicate acquisition, startup retry, and command-vs-batch overlap. Keep production behavior unchanged unless the tests expose an actual gap.
-
-**Verification plan:** Run `bun run test -- src/server/job-runs.test.ts src/server/scheduler/index.test.ts src/server/scheduler/timers.test.ts src/server/commands.test.ts` plus `bun run typecheck`.
-
-### P0-2: Make tracked download state transitions explicit
-
-**Theme:** Runtime reliability
-**Size:** M
-**Risk:** medium
-
-**Problem:** Tracked download state transitions are centralized, but not every caller uses the same boundary. `download-manager` claims imports through the transition helper, while `file-import` also writes `importPending` directly before importing. That split makes it harder to prove which path owns the transition from `completed` to `importPending` and how retries behave after crashes.
-
-**Evidence:** `src/server/tracked-download-state.ts` defines allowed states and optimistic transition checks. `src/server/download-manager.ts` reconciles queued, downloading, completed, importPending, removed, and failed rows and retries completed/importPending imports. `src/server/file-import.ts` directly updates `trackedDownloads.state` to `importPending` in `importCompletedDownload` before delegating to import logic. Tests exist in `src/server/tracked-download-state.test.ts`, `src/server/download-manager.test.ts`, and `src/server/file-import.test.ts`. Recent commits include `feat(downloads): add tracked download transitions`, `fix(downloads): guard tracked download transitions`, and `feat(downloads): harden refresh state transitions`.
-
-**Impact:** A download can be marked failed, imported, or pending by competing paths in ways that are hard to reason about, especially when refresh runs overlap with import retry or when the server restarts during import.
-
-**Suggested implementation:** Route all tracked download state changes through the transition helper or a documented import-claim helper. Add tests that cover completed-to-importPending claims, importPending retries, failed-state idempotency, removed downloads, direct import entry points, and stale row refresh checks.
-
-**Verification plan:** Run `bun run test -- src/server/tracked-download-state.test.ts src/server/download-manager.test.ts src/server/file-import.test.ts` plus `bun run typecheck`.
-
-### P0-3: Strengthen import and file-move atomicity
+### P0-1: Strengthen import and file-move atomicity
 
 **Theme:** Runtime reliability
 **Size:** L
 **Risk:** high
 
-**Problem:** Completed download import performs filesystem copies, hard links, chmods, old-file cleanup, history writes, file table inserts, and tracked download completion across multiple steps. Filesystem side effects cannot be rolled back by SQLite, and the current code interleaves file writes with database writes, so partial failure can leave files on disk without matching rows or rows pointing at files that were not fully imported.
+**Problem:** Completed download import now records created-file side effects and cleans them up on several failure paths, but import still performs filesystem copies, hard links, chmods, old-file cleanup, history writes, file table inserts, and tracked download finalization across multiple steps. Filesystem side effects cannot be rolled back by SQLite, and the current code still interleaves file writes with database writes, so remaining partial-failure cases need an explicit apply/finalize model.
 
-**Evidence:** `src/server/file-import.ts` copies or hard-links files in `importFile`, imports episode and book pack files, removes old book files during upgrades, writes `history`, and marks tracked downloads imported or failed. `importCompletedDownload` wraps error marking but does not wrap the whole import in one SQLite transaction, and filesystem writes occur outside any database transaction boundary. Tests in `src/server/file-import.test.ts` cover many import outcomes through mocked filesystem and database calls, but the implementation still spans non-atomic disk and SQLite side effects.
+**Evidence:** `src/server/file-import.ts` copies or hard-links files in `importFile`, records created files through `createFileSideEffectRecorder`, imports episode and book pack files, removes old book files during upgrades, writes `history`, and marks tracked downloads imported or failed. `importCompletedDownload` now claims imports through `claimTrackedDownloadImport` and runs side-effect cleanup on thrown errors, but it still does not define a single database transaction/apply boundary for the import operation and filesystem work remains outside SQLite rollback. Tests in `src/server/file-import.test.ts` cover cleanup on chmod failures, finalization failures, old-file cleanup failures, and pack imports, but the workflow still spans non-atomic disk and SQLite side effects.
 
 **Impact:** A crash, permission error, disk-full condition, or database failure during import can create orphaned files, missing history, deleted old files without a replacement row, or tracked downloads that need manual repair.
 
-**Suggested implementation:** Introduce an import apply phase that stages file operations, performs database writes in a clear transaction where possible, and records compensating cleanup for file operations that have already happened. Add focused failure-injection tests for copy failure, chmod failure, DB insert failure after copy, old-file cleanup failure, and tracked-download finalization failure.
+**Suggested implementation:** Introduce an import apply/finalize phase that stages file operations, performs related database writes in a clear transaction where possible, and makes compensating cleanup semantics explicit for every file operation that has already happened. Preserve the existing side-effect recorder, but make its boundaries part of a typed import plan so finalization failures, row cleanup failures, and old-file replacement cleanup have documented behavior. Add focused failure-injection tests for DB insert failure after copy, history write failure after file creation, row cleanup failure, old-file cleanup/recycle failure, and tracked-download finalization failure.
 
 **Verification plan:** Run `bun run test -- src/server/file-import.test.ts src/server/download-manager.test.ts` plus `bun run typecheck`.
 
-### P0-4: Verify unmapped file mapping rollback for all media types
-
-**Theme:** Runtime reliability
-**Size:** L
-**Risk:** high
-
-**Problem:** Unmapped file mapping moves media and related assets before or around database writes, and relies on rollback-style move tracking for managed file paths. The code has different branches for book, movie, and episode mappings, plus sidecar asset handling, so a missed rollback path could leave files moved while unmapped rows remain or database rows point to the wrong destination.
-
-**Evidence:** `src/server/unmapped-files.ts` moves files with `moveFileToManagedPath` and `movePathToManagedDestination`, records move operations, then performs `db.transaction((tx) => ...)` inserts/deletes for episode, book, and movie file rows. The same module handles related sidecars, asset deletions, directory pruning, and fallback branches that delete `unmappedFiles` outside the book/movie transactional branches. Tests in `src/server/unmapped-files.test.ts` mock filesystem operations and database transactions.
-
-**Impact:** A failed mapping can break library consistency by moving or deleting files without matching database changes, leaving duplicate mapped files, or hiding files from the unmapped list even though import did not complete.
-
-**Suggested implementation:** Make rollback behavior explicit as a reusable mapping operation runner with a typed plan, side-effect log, transaction callback, and compensating rollback. Add failure-injection tests for each entity type and sidecar path: move succeeds then transaction fails, transaction succeeds then cleanup fails, sidecar move fails, and unmapped-row deletion fails.
-
-**Verification plan:** Run `bun run test -- src/server/unmapped-files.test.ts` plus `bun run typecheck`.
-
-### P1-1: Centralize external HTTP timeout, retry, and rate-limit behavior
+### P1-1: Clarify SQLite transaction boundaries for mixed async and side-effecting workflows
 
 **Theme:** Runtime reliability
 **Size:** M
 **Risk:** medium
 
-**Problem:** External integrations implement retry, timeout, and rate-limit handling in different layers with different behavior. Indexer HTTP retries 429 responses with `Retry-After` handling and an explicit timeout. Hardcover uses `createApiFetcher` plus an abort timeout. TMDB uses `createApiFetcher` without the same local request timeout. Download-client HTTP has its own timeout wrapper. These differences make it hard to reason about whether transient network errors, 429s, and hung requests fail consistently.
+**Problem:** SQLite transaction usage is localized but not consistently documented for workflows that include async functions, external side effects, filesystem moves, or follow-up cleanup. Some code uses `db.transaction(async (tx) => ...)` for import plan application, while unmapped mapping now uses an explicit rollback executor around filesystem moves plus transaction callbacks. Download import still uses compensating side-effect cleanup without a transaction facade. Without clear boundaries, future changes can accidentally put long-running external work inside a transaction or move database writes outside the intended atomic section.
 
-**Evidence:** `src/server/api-cache.ts` implements cache, rate limiting, and retry only for thrown rate-limit errors. `src/server/indexers/http.ts` has a separate `fetchWithRetry` for 429 responses and request timeouts. `src/server/hardcover/client.ts` adds `REQUEST_TIMEOUT_MS` and converts 429 to `ApiRateLimitError`. `src/server/tmdb/client.ts` uses `createApiFetcher` and converts 429 to `ApiRateLimitError` but does not apply the same abort timeout wrapper. `src/server/download-clients/http.ts` has a separate fetch timeout helper.
-
-**Impact:** External outages can produce inconsistent hangs, retries, logs, and rate-limit behavior. Operators may see some workflows recover from transient 429s while others fail immediately or wait indefinitely.
-
-**Suggested implementation:** Define a shared external request policy for timeout, retryable status codes, `Retry-After`, abort behavior, and structured logging. Migrate one integration at a time behind the policy, starting with TMDB/Hardcover and indexer HTTP, while preserving existing cache and rate-limit semantics.
-
-**Verification plan:** Run `bun run test -- src/server/__tests__/api-cache.test.ts src/server/indexers/http.test.ts src/server/hardcover/client.test.ts src/server/tmdb/client.test.ts src/server/download-clients/http.test.ts` plus `bun run typecheck`.
-
-### P1-2: Make auto-search partial-failure accounting explicit
-
-**Theme:** Runtime reliability
-**Size:** M
-**Risk:** medium
-
-**Problem:** Auto-search intentionally continues through partial failures, but failure accounting differs by layer. Per-indexer failures in `searchEnabledIndexers` are logged and omitted from results, broader book/movie/episode failures increment `result.errors`, and pack-level failures may only log before falling back. That behavior is useful, but the final result does not clearly distinguish no matches, skipped indexers, rate-limit exhaustion, all-indexer failure, failed download dispatch, and fallback success.
-
-**Evidence:** `src/server/auto-search-indexer-search.ts` catches per-indexer errors and returns successful releases from other indexers. `src/server/auto-search.ts` increments `result.errors` in individual search loops, logs pack-level failures, stops early when `anyIndexerAvailable` reports exhaustion, and inserts tracked downloads/history during grab paths. `src/server/auto-search-download-dispatch.ts` returns `false` when no download client is available but otherwise inserts tracked download and history as separate side effects. Tests exist in `src/server/auto-search.test.ts`, `src/server/auto-search-indexer-search.test.ts`, and `src/server/auto-search-download-dispatch.test.ts`.
-
-**Impact:** A scheduled auto-search run can look like a clean no-op even when all indexers failed, a download client was unavailable, or pack search failed and fallback only partially completed. This makes retry and operator diagnosis harder.
-
-**Suggested implementation:** Add structured partial-failure counters and reason codes to the auto-search result, including indexer failures, rate-limit skips, download dispatch failures, pack fallback failures, and successful fallback counts. Keep existing tolerant behavior, but make the outcome observable and testable.
-
-**Verification plan:** Run `bun run test -- src/server/auto-search.test.ts src/server/auto-search-indexer-search.test.ts src/server/auto-search-download-dispatch.test.ts` plus `bun run typecheck`.
-
-### P1-3: Clarify SQLite transaction boundaries for mixed async and side-effecting workflows
-
-**Theme:** Runtime reliability
-**Size:** M
-**Risk:** medium
-
-**Problem:** SQLite transaction usage is localized but not consistently documented for workflows that include async functions, external side effects, filesystem moves, or follow-up cleanup. Some code uses `db.transaction(async (tx) => ...)` for import plan application, while other workflows call `db.transaction((tx) => ...)` around database writes after filesystem side effects. Without clear boundaries, future changes can accidentally put long-running external work inside a transaction or move database writes outside the intended atomic section.
-
-**Evidence:** `src/server/imports/apply.ts` runs `db.transaction(async (tx) => ...)` while looping through selected rows and calling async helper functions that currently perform database writes. `src/server/unmapped-files.ts` uses `db.transaction((tx) => ...)` after moving files to managed destinations. `src/server/file-import.ts` performs multiple database writes and filesystem operations without a single transaction boundary. `src/server/indexers.ts`, `src/server/import.ts`, and other server modules also use `db.transaction(` in different styles, as shown by the runtime hotspot search. Tests exist for `src/server/imports/apply.test.ts`, `src/server/unmapped-files.test.ts`, and `src/server/file-import.test.ts`.
+**Evidence:** `src/server/imports/apply.ts` runs `db.transaction(async (tx) => ...)` while looping through selected rows and calling async helper functions that currently perform database writes. `src/server/unmapped-files.ts` uses `executeMappingWithRollback` and `db.transaction((tx) => ...)` after moving files to managed destinations. `src/server/file-import.ts` performs multiple database writes and filesystem operations with side-effect cleanup but without a single transaction boundary. `src/server/indexers.ts`, `src/server/import.ts`, and other server modules also use `db.transaction(` in different styles, as shown by the runtime hotspot search. Tests exist for `src/server/imports/apply.test.ts`, `src/server/unmapped-files.test.ts`, and `src/server/file-import.test.ts`.
 
 **Impact:** Transaction scope drift can cause lock contention, partial persistence, unclear rollback expectations, and future regressions when reliability fixes add new side effects to existing workflows.
 
@@ -135,7 +55,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- src/server/imports/apply.test.ts src/server/unmapped-files.test.ts src/server/file-import.test.ts` plus `bun run typecheck`.
 
-### P1-4: Split auto-search into planning, indexer search, and download dispatch boundaries
+### P1-2: Split auto-search into planning, indexer search, and download dispatch boundaries
 
 **Theme:** Code maintainability
 **Size:** L
@@ -143,7 +63,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Problem:** Auto-search coordinates wanted-item selection, profile evaluation, search query construction, indexer orchestration, custom-format scoring, pack fallback behavior, download-client resolution, tracked-download inserts, and history writes from one large service module. Some boundaries already exist, but `src/server/auto-search.ts` still owns planning, indexer calls, candidate selection, and side-effect dispatch for books, movies, episodes, seasons, authors, and shows.
 
-**Evidence:** `src/server/auto-search.ts` is 2,767 lines and contains target loaders such as `getWantedBooks`, `getWantedMovies`, and `getWantedEpisodes`; orchestration functions such as `searchAndGrabForBook`, `searchAndGrabForMovie`, `searchAndGrabForEpisode`, `searchAndGrabForSeason`, and `runAutoSearch`; candidate scoring functions such as `findBestReleaseForProfile`; and grab helpers such as `grabRelease`, `grabReleaseForMovie`, and `grabReleaseForEpisode`. Smaller boundary modules already exist in `src/server/auto-search-indexer-search.ts` and `src/server/auto-search-download-dispatch.ts`, which shows the intended split is only partial.
+**Evidence:** `src/server/auto-search.ts` is 3,069 lines and contains target loaders such as `getWantedBooks`, `getWantedMovies`, and `getWantedEpisodes`; orchestration functions such as `searchAndGrabForBook`, `searchAndGrabForMovie`, `searchAndGrabForEpisode`, `searchAndGrabForSeason`, and `runAutoSearch`; candidate scoring functions such as `findBestReleaseForProfile`; and grab helpers such as `grabRelease`, `grabReleaseForMovie`, and `grabReleaseForEpisode`. Smaller boundary modules already exist in `src/server/auto-search-indexer-search.ts`, `src/server/auto-search-download-dispatch.ts`, and `src/server/auto-search-outcomes.ts`, which shows the intended split is useful but still partial.
 
 **Impact:** Search reliability fixes can cross unrelated concerns and become hard to review. A change to candidate planning can accidentally affect download dispatch, history writes, pack fallback, or per-media behavior, increasing regression risk in scheduled and manual search workflows.
 
@@ -151,7 +71,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- src/server/auto-search.test.ts src/server/auto-search-indexer-search.test.ts src/server/auto-search-download-dispatch.test.ts` plus `bun run typecheck`.
 
-### P1-5: Define import module phase boundaries
+### P1-3: Define import module phase boundaries
 
 **Theme:** Code maintainability
 **Size:** L
@@ -167,15 +87,15 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- src/server/__tests__/import.test.ts src/server/books.test.ts src/server/search.test.ts` plus `bun run typecheck`.
 
-### P1-6: Separate unmapped file mapping service boundaries
+### P1-4: Separate unmapped file mapping service boundaries
 
 **Theme:** Code maintainability
 **Size:** L
 **Risk:** high
 
-**Problem:** Unmapped file mapping currently combines path inference, media probing, related-asset planning, filesystem moves, rollback execution, database inserts/deletes, library search, TV suggestions, and rescan entry points in one large server module. The mapping executor is already extracted, but the service boundary around mapping plans and per-media apply logic remains broad.
+**Problem:** Unmapped file mapping currently combines path inference, media probing, related-asset planning, filesystem moves, rollback execution, database inserts/deletes, library search, TV suggestions, and rescan entry points in one large server module. The rollback executor is already extracted and covered by tests, but the service boundary around mapping plans, asset planning, and per-media apply logic remains broad.
 
-**Evidence:** `src/server/unmapped-files.ts` is 2,073 lines and includes path helpers such as `buildManagedTvEpisodePath`, `buildManagedMovieSidecarPath`, `resolveManagedRootFolder`, `buildImportAssetPlan`, and `normalizeImportRows`; server functions such as `mapUnmappedFileFn`, `previewUnmappedImportAssetsFn`, `suggestUnmappedTvMappingsFn`, `rescanAllRootFoldersFn`, `rescanRootFolderFn`, and `searchLibraryFn`; and separate book, movie, and episode branches inside `mapUnmappedFileFn`. `src/server/unmapped-file-mapping-executor.ts` already isolates rollback mechanics, but not mapping plan construction or per-media persistence.
+**Evidence:** `src/server/unmapped-files.ts` is 2,081 lines and includes path helpers such as `buildManagedTvEpisodePath`, `buildManagedMovieSidecarPath`, `resolveManagedRootFolder`, `buildImportAssetPlan`, and `normalizeImportRows`; server functions such as `mapUnmappedFileFn`, `previewUnmappedImportAssetsFn`, `suggestUnmappedTvMappingsFn`, `rescanAllRootFoldersFn`, `rescanRootFolderFn`, and `searchLibraryFn`; and separate book, movie, and episode branches inside `mapUnmappedFileFn`. `src/server/unmapped-file-mapping-executor.ts` already isolates rollback mechanics, but not mapping plan construction or per-media persistence.
 
 **Impact:** Related-file and mapping changes can accidentally alter library search, rescan behavior, or another media type's persistence path. The larger the mapping function stays, the harder it is to test row-level partial failure, asset warnings, and rollback behavior without broad fixture setup.
 
@@ -183,7 +103,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- src/server/unmapped-files.test.ts src/server/unmapped-file-mapping-executor.test.ts src/server/import-assets.test.ts` plus `bun run typecheck`.
 
-### P1-7: Extract route view-models from large route files
+### P1-5: Extract route view-models from large route files
 
 **Theme:** Code maintainability
 **Size:** M
@@ -199,7 +119,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- 'src/routes/_authed/authors/$authorId.browser.test.tsx' src/server/books.test.ts src/server/search.test.ts` plus `bun run typecheck`.
 
-### P1-8: Create shared media/profile primitives where duplication creates risk
+### P1-6: Create shared media/profile primitives where duplication creates risk
 
 **Theme:** Code maintainability
 **Size:** M
@@ -215,7 +135,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run focused tests for touched primitives and call sites, including `bun run test -- src/server/books.test.ts src/server/shows.test.ts src/server/unmapped-files.test.ts` plus any affected browser tests, then `bun run typecheck`.
 
-### P1-9: Add e2e flake diagnostics without increasing retries
+### P1-7: Add e2e flake diagnostics without increasing retries
 
 **Theme:** Test and CI confidence
 **Size:** M
@@ -231,7 +151,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test:e2e` and confirm normal output includes setup/readiness timing without excessive noise. Intentionally point one fake-service port to an unavailable listener in a local branch and confirm the failure identifies the service and endpoint before reverting the experiment.
 
-### P1-10: Define targeted test ownership by layer
+### P1-8: Define targeted test ownership by layer
 
 **Theme:** Test and CI confidence
 **Size:** M
@@ -247,7 +167,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- e2e/fixtures/fake-servers/manager.test.ts e2e/helpers/tasks.test.ts src/components/unmapped-files/mapping-dialog.browser.test.tsx`, then run `bun run test:e2e -- e2e/tests/11-unmapped-files.spec.ts` for a workflow-level smoke check after the ownership guide is added.
 
-### P1-11: Improve coverage threshold signal quality
+### P1-9: Improve coverage threshold signal quality
 
 **Theme:** Test and CI confidence
 **Size:** S
@@ -263,7 +183,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test:coverage:full` and confirm the output still checks merged thresholds while making it clear which raw inputs were merged and which threshold failed if coverage regresses.
 
-### P1-12: Reduce CI dependency and browser install cost
+### P1-10: Reduce CI dependency and browser install cost
 
 **Theme:** Test and CI confidence
 **Size:** M
@@ -279,7 +199,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run the CI workflow on a branch and compare GitHub Actions job durations before and after caching. Confirm `bun install --frozen-lockfile`, unit/browser coverage, e2e coverage, merged coverage, and Docker verify still run as separate required checks.
 
-### P1-13: Add golden fixture drift checks
+### P1-11: Add golden fixture drift checks
 
 **Theme:** Test and CI confidence
 **Size:** M
@@ -295,7 +215,7 @@ This audit pass includes Runtime reliability, Code maintainability, Test and CI 
 
 **Verification plan:** Run `bun run test -- e2e/fixtures/golden/capture.test.ts e2e/fixtures/golden/compose-live.test.ts e2e/fixtures/fake-servers/compose-live-parity.test.ts e2e/fixtures/fake-servers/manager.test.ts` and confirm a deliberately broken scenario reference fails before reverting it.
 
-### P1-14: Standardize browser and e2e helper consistency
+### P1-12: Standardize browser and e2e helper consistency
 
 **Theme:** Test and CI confidence
 **Size:** S
