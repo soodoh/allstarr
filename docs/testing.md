@@ -33,6 +33,19 @@ Use the smallest test layer that can prove the behavior. Prefer fast, determinis
 - Do not increase Playwright retries to hide flakes; add diagnostics or smaller-layer coverage instead.
 - Do not lower coverage thresholds. If a threshold failure is noisy, improve the signal or add targeted coverage.
 
+## E2E flake diagnostics
+
+Playwright e2e runs emit `[e2e]` diagnostic lines for global setup, app startup, fake-service readiness, per-test reset, scenario seeding, and teardown. When a test fails, inspect diagnostics in this order:
+
+1. Check the Playwright trace and failure screenshot.
+2. Check the `e2e-diagnostics` attachment for the failed test.
+3. Look for `[e2e] status=error` lines and note `scope`, `event`, `elapsedMs`, `service`, `endpoint`, and `attempts`.
+4. If startup failed, inspect app stdout/stderr snippets in the thrown error.
+5. If fake-service readiness failed, verify the service name, port, and `/__state` endpoint from the diagnostic line.
+6. If reset failed, treat it as fixture contamination until proven otherwise; do not increase retries before identifying why reset failed.
+
+Retries stay at one retry. Add targeted diagnostics or fix the underlying wait/reset condition instead of raising retry count.
+
 ## Commands
 
 ```bash
