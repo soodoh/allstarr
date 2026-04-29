@@ -5,6 +5,28 @@ export type RetryDelayInput = {
 	maxDelayMs?: number;
 };
 
+export type ExternalRequestRetryOptions = {
+	maxRetries: number;
+	baseDelayMs: number;
+	maxDelayMs?: number;
+	retryStatuses?: number[];
+};
+
+export type ExternalRequestAttemptInfo = {
+	attempt: number;
+	status?: number;
+	delayMs?: number;
+	response?: Response;
+};
+
+export type ExternalRequestPolicyOptions = {
+	timeoutMs: number;
+	timeoutMessage: string;
+	retry?: ExternalRequestRetryOptions;
+	onRetry?: (info: ExternalRequestAttemptInfo) => void;
+	onSuccess?: (info: ExternalRequestAttemptInfo) => void;
+};
+
 export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
@@ -40,6 +62,20 @@ export function createAbortTimeoutError(
 	cause: unknown,
 ): Error {
 	return new Error(message, { cause });
+}
+
+function shouldRetryResponse(
+	response: Response,
+	attempt: number,
+	retry?: ExternalRequestRetryOptions,
+): boolean {
+	if (!retry || attempt >= retry.maxRetries) {
+		return false;
+	}
+
+	return (retry.retryStatuses ?? [429, 502, 503, 504]).includes(
+		response.status,
+	);
 }
 
 function getAbortReason(signal: AbortSignal): unknown {
@@ -110,5 +146,46 @@ export async function fetchWithExternalTimeout(
 		clearTimeout(timeoutId);
 		cleanupCallerAbort?.();
 		cleanupTimeoutAbort?.();
+	}
+}
+
+export async function fetchWithExternalPolicy(
+	url: string,
+	options: RequestInit,
+	policy: ExternalRequestPolicyOptions,
+): Promise<Response> {
+	for (let attempt = 0; ; attempt += 1) {
+		const response = await fetchWithExternalTimeout(
+			url,
+			options,
+			policy.timeoutMs,
+			policy.timeoutMessage,
+		);
+
+		if (!shouldRetryResponse(response, attempt, policy.retry)) {
+			if (response.ok) {
+				policy.onSuccess?.({
+					attempt,
+					status: response.status,
+					response,
+				});
+			}
+			return response;
+		}
+
+		const retryAfterMs = parseRetryAfterHeader(response);
+		const delayMs = resolveRetryDelayMs({
+			attempt,
+			baseDelayMs: policy.retry?.baseDelayMs ?? 0,
+			retryAfterMs,
+			maxDelayMs: policy.retry?.maxDelayMs,
+		});
+		policy.onRetry?.({
+			attempt,
+			status: response.status,
+			delayMs,
+			response,
+		});
+		await sleep(delayMs);
 	}
 }
