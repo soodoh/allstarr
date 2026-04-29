@@ -228,4 +228,39 @@ describe("external request policy", () => {
 			expect.objectContaining({ attempt: 1, status: 200 }),
 		);
 	});
+
+	it("can treat non-positive Retry-After values as absent", async () => {
+		vi.useFakeTimers();
+		const onRetry = vi.fn();
+		vi.spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(
+				new Response("limited", {
+					status: 429,
+					headers: { "Retry-After": "0" },
+				}),
+			)
+			.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+		const promise = fetchWithExternalPolicy(
+			"http://example.test",
+			{},
+			{
+				timeoutMs: 1000,
+				timeoutMessage: "Request timed out.",
+				retry: {
+					maxRetries: 1,
+					baseDelayMs: 50,
+					retryStatuses: [429],
+					ignoreNonPositiveRetryAfter: true,
+				},
+				onRetry,
+			},
+		);
+
+		await vi.advanceTimersByTimeAsync(50);
+		await expect(promise).resolves.toHaveProperty("status", 200);
+		expect(onRetry).toHaveBeenCalledWith(
+			expect.objectContaining({ delayMs: 50, retryAfterMs: 0 }),
+		);
+	});
 });

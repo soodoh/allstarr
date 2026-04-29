@@ -548,7 +548,7 @@ describe("newznab HTTP client", () => {
 			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledWith(
 				"manual",
 				42,
-				2000,
+				undefined,
 			);
 			expect(vi.mocked(reportSuccess)).toHaveBeenCalledWith("manual", 42);
 		} finally {
@@ -686,7 +686,7 @@ describe("newznab HTTP client", () => {
 			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledWith(
 				"manual",
 				7,
-				2000,
+				undefined,
 			);
 			expect(vi.mocked(reportSuccess)).toHaveBeenCalledWith("manual", 7);
 		} finally {
@@ -698,12 +698,12 @@ describe("newznab HTTP client", () => {
 		const server = await startHttpTestServer(async (_request, response) => {
 			response.statusCode = 429;
 			response.statusMessage = "Too Many Requests";
-			response.setHeader("Retry-After", "0");
+			response.setHeader("Retry-After", "0.001");
 			response.end("retry later");
 		});
 
 		try {
-			await expect(
+			const resultPromise = expect(
 				searchNewznab(
 					{
 						baseUrl: server.baseUrl,
@@ -716,6 +716,7 @@ describe("newznab HTTP client", () => {
 					{ indexerType: "manual", indexerId: 42 },
 				),
 			).rejects.toThrow("Newznab search returned HTTP 429: Too Many Requests");
+			await resultPromise;
 
 			expect(server.requests).toHaveLength(4);
 			expect(vi.mocked(reportRateLimited)).toHaveBeenCalledTimes(3);
