@@ -1,8 +1,11 @@
 pre-commit:
   commands:
     check:
-      glob: "src/**/*.{js,jsx,ts,tsx,css,html,json}"
-      staged: true
+      glob:
+        - "src/*.{js,jsx,ts,tsx,css,html,json}"
+        - "src/**/*.{js,jsx,ts,tsx,css,html,json}"
+      exclude:
+        - "src/routeTree.gen.ts"
       run: bunx biome check --write {staged_files}
       stage_fixed: true
 
