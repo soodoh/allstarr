@@ -1,11 +1,11 @@
 {
-  "body": [],
-  "contentType": "application/json",
-  "headers": {
-    "Cookie": "<redacted>",
-    "Host": "localhost:8081"
-  },
-  "method": "GET",
-  "path": "/api/v2/torrents/info?hashes=all",
-  "status": 200
+	"body": [],
+	"contentType": "application/json",
+	"headers": {
+		"Cookie": "<redacted>",
+		"Host": "localhost:8081"
+	},
+	"method": "GET",
+	"path": "/api/v2/torrents/info?hashes=all",
+	"status": 200
 }

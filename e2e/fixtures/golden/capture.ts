@@ -50,10 +50,7 @@ function redactSecretsInString(value: string): string {
 	}
 
 	return redacted
-		.replaceAll(
-			SESSION_VALUE_PATTERN,
-			(_, key: string) => `${key}=<redacted>`,
-		)
+		.replaceAll(SESSION_VALUE_PATTERN, (_, key: string) => `${key}=<redacted>`)
 		.replaceAll(
 			BASIC_AUTH_PATTERN,
 			(_, protocol: string) => `${protocol}<redacted>:<redacted>@`,

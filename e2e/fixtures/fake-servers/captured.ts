@@ -14,10 +14,7 @@ export function buildCapturedPathKey(method: string, path: string): string {
 	return `${method.toUpperCase()} ${path}`;
 }
 
-export function buildCapturedNamedKey(
-	family: string,
-	name: string,
-): string {
+export function buildCapturedNamedKey(family: string, name: string): string {
 	return `${family}:${name}`;
 }
 

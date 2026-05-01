@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-	captureFileNameForEndpoint,
 	type CaptureFilePayload,
+	captureFileNameForEndpoint,
 } from "../golden/capture";
 import { buildComposeLiveCaptureConfigs } from "../golden/compose-live";
 import { createFakeServerManager, type ServiceName } from "./manager";
@@ -69,9 +69,7 @@ function requireServiceUrl(
 }
 
 describe("compose-live fake server parity", () => {
-	let manager:
-		| ReturnType<typeof createFakeServerManager>
-		| undefined;
+	let manager: ReturnType<typeof createFakeServerManager> | undefined;
 
 	afterEach(async () => {
 		if (manager) {
@@ -81,18 +79,21 @@ describe("compose-live fake server parity", () => {
 	});
 
 	it("replays every checked-in compose-live capture payload", async () => {
-		manager = createFakeServerManager([
-			"DELUGE",
-			"NZBGET",
-			"PROWLARR",
-			"QBITTORRENT",
-			"RADARR",
-			"READARR",
-			"RTORRENT",
-			"SABNZBD",
-			"SONARR",
-			"TRANSMISSION",
-		], { ports: PARITY_PORTS });
+		manager = createFakeServerManager(
+			[
+				"DELUGE",
+				"NZBGET",
+				"PROWLARR",
+				"QBITTORRENT",
+				"RADARR",
+				"READARR",
+				"RTORRENT",
+				"SABNZBD",
+				"SONARR",
+				"TRANSMISSION",
+			],
+			{ ports: PARITY_PORTS },
+		);
 		await manager.start();
 
 		for (const [captureService, serviceName] of Object.entries(

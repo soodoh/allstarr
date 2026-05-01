@@ -1,62 +1,62 @@
 {
-  "body": [
-    {
-      "seriesId": 1,
-      "seasonNumber": 1,
-      "relativePath": "Season 1/The.Office.US.S01E01.720p.WEB-DL-GRP.mkv",
-      "path": "/data/capture/library/tv/The Office (US)/Season 1/The.Office.US.S01E01.720p.WEB-DL-GRP.mkv",
-      "size": 2812,
-      "dateAdded": "2026-04-23T19:44:33Z",
-      "releaseGroup": "GRP",
-      "languages": [
-        {
-          "id": 1,
-          "name": "English"
-        }
-      ],
-      "quality": {
-        "quality": {
-          "id": 8,
-          "name": "WEBDL-480p",
-          "source": "web",
-          "resolution": 480
-        },
-        "revision": {
-          "version": 1,
-          "real": 0,
-          "isRepack": false
-        }
-      },
-      "customFormats": [],
-      "customFormatScore": 0,
-      "indexerFlags": 0,
-      "releaseType": "singleEpisode",
-      "mediaInfo": {
-        "audioBitrate": 0,
-        "audioChannels": 2,
-        "audioCodec": "AAC",
-        "audioLanguages": "",
-        "audioStreamCount": 1,
-        "videoBitDepth": 8,
-        "videoBitrate": 0,
-        "videoCodec": "x264",
-        "videoFps": 25,
-        "videoDynamicRange": "",
-        "videoDynamicRangeType": "",
-        "resolution": "640x360",
-        "runTime": "0:01",
-        "scanType": "Progressive",
-        "subtitles": ""
-      },
-      "qualityCutoffNotMet": true,
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v3/episodefile?seriesId=1",
-  "status": 200
+	"body": [
+		{
+			"seriesId": 1,
+			"seasonNumber": 1,
+			"relativePath": "Season 1/The.Office.US.S01E01.720p.WEB-DL-GRP.mkv",
+			"path": "/data/capture/library/tv/The Office (US)/Season 1/The.Office.US.S01E01.720p.WEB-DL-GRP.mkv",
+			"size": 2812,
+			"dateAdded": "2026-04-23T19:44:33Z",
+			"releaseGroup": "GRP",
+			"languages": [
+				{
+					"id": 1,
+					"name": "English"
+				}
+			],
+			"quality": {
+				"quality": {
+					"id": 8,
+					"name": "WEBDL-480p",
+					"source": "web",
+					"resolution": 480
+				},
+				"revision": {
+					"version": 1,
+					"real": 0,
+					"isRepack": false
+				}
+			},
+			"customFormats": [],
+			"customFormatScore": 0,
+			"indexerFlags": 0,
+			"releaseType": "singleEpisode",
+			"mediaInfo": {
+				"audioBitrate": 0,
+				"audioChannels": 2,
+				"audioCodec": "AAC",
+				"audioLanguages": "",
+				"audioStreamCount": 1,
+				"videoBitDepth": 8,
+				"videoBitrate": 0,
+				"videoCodec": "x264",
+				"videoFps": 25,
+				"videoDynamicRange": "",
+				"videoDynamicRangeType": "",
+				"resolution": "640x360",
+				"runTime": "0:01",
+				"scanType": "Progressive",
+				"subtitles": ""
+			},
+			"qualityCutoffNotMet": true,
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v3/episodefile?seriesId=1",
+	"status": 200
 }

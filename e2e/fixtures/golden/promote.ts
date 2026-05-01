@@ -58,9 +58,7 @@ function suffixAfterLastDoubleUnderscore(fileName: string): string {
 	return marker >= 0 ? name.slice(marker + 2) : name;
 }
 
-function captureBody(
-	payload: CaptureFilePayload,
-): CapturedResponse {
+function captureBody(payload: CaptureFilePayload): CapturedResponse {
 	return {
 		body: payload.body,
 		contentType: payload.contentType,
@@ -247,9 +245,12 @@ export function promoteComposeLiveFixtures(args: PromotionArgs): void {
 			promotion.stateName,
 			"state.json",
 		);
-		mkdirSync(join(args.serviceRoot, promotion.targetService, promotion.stateName), {
-			recursive: true,
-		});
+		mkdirSync(
+			join(args.serviceRoot, promotion.targetService, promotion.stateName),
+			{
+				recursive: true,
+			},
+		);
 
 		const existingState = existsSync(outputPath)
 			? (JSON.parse(readFileSync(outputPath, "utf8")) as GoldenServiceStateFile)

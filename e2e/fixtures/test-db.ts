@@ -1,64 +1,64 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import {
-  copyFileSync,
-  unlinkSync,
-  existsSync,
-  readFileSync,
-  mkdirSync,
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	unlinkSync,
 } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
+import Database from "better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../src/db/schema";
 
 const STATE_FILE = join(import.meta.dirname, "..", ".test-state.json");
 
 type TestDbHandle = {
-  db: BetterSQLite3Database<typeof schema>;
-  dbPath: string;
-  close: () => void;
-  cleanup: () => void;
-  /** Force a WAL checkpoint so writes are visible to other processes (bun:sqlite). */
-  checkpoint: () => void;
+	db: BetterSQLite3Database<typeof schema>;
+	dbPath: string;
+	close: () => void;
+	cleanup: () => void;
+	/** Force a WAL checkpoint so writes are visible to other processes (bun:sqlite). */
+	checkpoint: () => void;
 };
 
 export function getTestState(): {
-  templateDbPath: string;
+	templateDbPath: string;
 } {
-  return JSON.parse(readFileSync(STATE_FILE, "utf8"));
+	return JSON.parse(readFileSync(STATE_FILE, "utf8"));
 }
 
 export function createTestDb(suiteId: string): TestDbHandle {
-  const { templateDbPath } = getTestState();
-  const dbPath = join(
-    import.meta.dirname,
-    "..",
-    "..",
-    "data",
-    `test-${suiteId}-${Date.now()}.db`,
-  );
-  mkdirSync(dirname(dbPath), { recursive: true });
-  copyFileSync(templateDbPath, dbPath);
+	const { templateDbPath } = getTestState();
+	const dbPath = join(
+		import.meta.dirname,
+		"..",
+		"..",
+		"data",
+		`test-${suiteId}-${Date.now()}.db`,
+	);
+	mkdirSync(dirname(dbPath), { recursive: true });
+	copyFileSync(templateDbPath, dbPath);
 
-  const sqlite = new Database(dbPath);
-  // Use DELETE journal mode instead of WAL — WAL has cross-driver visibility
-  // issues between better-sqlite3 (test) and bun:sqlite (app server).
-  sqlite.pragma("journal_mode = DELETE");
-  sqlite.pragma("foreign_keys = ON");
-  const db = drizzle(sqlite, { schema });
+	const sqlite = new Database(dbPath);
+	// Use DELETE journal mode instead of WAL — WAL has cross-driver visibility
+	// issues between better-sqlite3 (test) and bun:sqlite (app server).
+	sqlite.pragma("journal_mode = DELETE");
+	sqlite.pragma("foreign_keys = ON");
+	const db = drizzle(sqlite, { schema });
 
-  return {
-    db,
-    dbPath,
-    close: () => sqlite.close(),
-    cleanup: () => {
-      sqlite.close();
-      if (existsSync(dbPath)) {
-        unlinkSync(dbPath);
-      }
-    },
-    checkpoint: () => {
-      sqlite.pragma("wal_checkpoint(TRUNCATE)");
-    },
-  };
+	return {
+		db,
+		dbPath,
+		close: () => sqlite.close(),
+		cleanup: () => {
+			sqlite.close();
+			if (existsSync(dbPath)) {
+				unlinkSync(dbPath);
+			}
+		},
+		checkpoint: () => {
+			sqlite.pragma("wal_checkpoint(TRUNCATE)");
+		},
+	};
 }

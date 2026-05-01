@@ -1,153 +1,153 @@
 {
-  "body": [
-    {
-      "enable": true,
-      "protocol": "torrent",
-      "priority": 1,
-      "removeCompletedDownloads": false,
-      "removeFailedDownloads": false,
-      "name": "Transmission Capture",
-      "fields": [
-        {
-          "order": 0,
-          "name": "host",
-          "label": "Host",
-          "value": "transmission-capture",
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 1,
-          "name": "port",
-          "label": "Port",
-          "value": 9091,
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 2,
-          "name": "useSsl",
-          "label": "Use SSL",
-          "helpText": "Use secure connection when connecting to Transmission",
-          "value": false,
-          "type": "checkbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 3,
-          "name": "urlBase",
-          "label": "Url Base",
-          "helpText": "Adds a prefix to the transmission rpc url, eg http://[host]:[port]/[urlBase]/rpc, defaults to '/transmission/'",
-          "value": "/transmission/",
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 4,
-          "name": "username",
-          "label": "Username",
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 5,
-          "name": "password",
-          "label": "Password",
-          "type": "password",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 6,
-          "name": "musicCategory",
-          "label": "Category",
-          "helpText": "Adding a category specific to Readarr avoids conflicts with unrelated non-Readarr downloads. Using a category is optional, but strongly recommended.. Creates a [category] subdirectory in the output directory.",
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 7,
-          "name": "tvDirectory",
-          "label": "Directory",
-          "helpText": "Optional location to put downloads in, leave blank to use the default Transmission location",
-          "value": "/data/capture/downloads/torrents",
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 8,
-          "name": "recentTvPriority",
-          "label": "Recent Priority",
-          "helpText": "Priority to use when grabbing books released within the last 14 days",
-          "value": 0,
-          "type": "select",
-          "advanced": false,
-          "selectOptions": [
-            {
-              "value": 0,
-              "name": "Last",
-              "order": 0
-            },
-            {
-              "value": 1,
-              "name": "First",
-              "order": 1
-            }
-          ],
-          "isFloat": false
-        },
-        {
-          "order": 9,
-          "name": "olderTvPriority",
-          "label": "Older Priority",
-          "helpText": "Priority to use when grabbing books released over 14 days ago",
-          "value": 0,
-          "type": "select",
-          "advanced": false,
-          "selectOptions": [
-            {
-              "value": 0,
-              "name": "Last",
-              "order": 0
-            },
-            {
-              "value": 1,
-              "name": "First",
-              "order": 1
-            }
-          ],
-          "isFloat": false
-        },
-        {
-          "order": 10,
-          "name": "addPaused",
-          "label": "Add Paused",
-          "value": false,
-          "type": "checkbox",
-          "advanced": false,
-          "isFloat": false
-        }
-      ],
-      "implementationName": "Transmission",
-      "implementation": "Transmission",
-      "configContract": "TransmissionSettings",
-      "infoLink": "https://wiki.servarr.com/readarr/supported#transmission",
-      "tags": [],
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/downloadclient",
-  "status": 200
+	"body": [
+		{
+			"enable": true,
+			"protocol": "torrent",
+			"priority": 1,
+			"removeCompletedDownloads": false,
+			"removeFailedDownloads": false,
+			"name": "Transmission Capture",
+			"fields": [
+				{
+					"order": 0,
+					"name": "host",
+					"label": "Host",
+					"value": "transmission-capture",
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 1,
+					"name": "port",
+					"label": "Port",
+					"value": 9091,
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 2,
+					"name": "useSsl",
+					"label": "Use SSL",
+					"helpText": "Use secure connection when connecting to Transmission",
+					"value": false,
+					"type": "checkbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 3,
+					"name": "urlBase",
+					"label": "Url Base",
+					"helpText": "Adds a prefix to the transmission rpc url, eg http://[host]:[port]/[urlBase]/rpc, defaults to '/transmission/'",
+					"value": "/transmission/",
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 4,
+					"name": "username",
+					"label": "Username",
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 5,
+					"name": "password",
+					"label": "Password",
+					"type": "password",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 6,
+					"name": "musicCategory",
+					"label": "Category",
+					"helpText": "Adding a category specific to Readarr avoids conflicts with unrelated non-Readarr downloads. Using a category is optional, but strongly recommended.. Creates a [category] subdirectory in the output directory.",
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 7,
+					"name": "tvDirectory",
+					"label": "Directory",
+					"helpText": "Optional location to put downloads in, leave blank to use the default Transmission location",
+					"value": "/data/capture/downloads/torrents",
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 8,
+					"name": "recentTvPriority",
+					"label": "Recent Priority",
+					"helpText": "Priority to use when grabbing books released within the last 14 days",
+					"value": 0,
+					"type": "select",
+					"advanced": false,
+					"selectOptions": [
+						{
+							"value": 0,
+							"name": "Last",
+							"order": 0
+						},
+						{
+							"value": 1,
+							"name": "First",
+							"order": 1
+						}
+					],
+					"isFloat": false
+				},
+				{
+					"order": 9,
+					"name": "olderTvPriority",
+					"label": "Older Priority",
+					"helpText": "Priority to use when grabbing books released over 14 days ago",
+					"value": 0,
+					"type": "select",
+					"advanced": false,
+					"selectOptions": [
+						{
+							"value": 0,
+							"name": "Last",
+							"order": 0
+						},
+						{
+							"value": 1,
+							"name": "First",
+							"order": 1
+						}
+					],
+					"isFloat": false
+				},
+				{
+					"order": 10,
+					"name": "addPaused",
+					"label": "Add Paused",
+					"value": false,
+					"type": "checkbox",
+					"advanced": false,
+					"isFloat": false
+				}
+			],
+			"implementationName": "Transmission",
+			"implementation": "Transmission",
+			"configContract": "TransmissionSettings",
+			"infoLink": "https://wiki.servarr.com/readarr/supported#transmission",
+			"tags": [],
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/downloadclient",
+	"status": 200
 }

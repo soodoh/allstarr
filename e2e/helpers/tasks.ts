@@ -8,7 +8,10 @@ type CapturedEvent = {
 };
 
 function taskNameToId(taskName: string): string {
-	return taskName.toLowerCase().replaceAll(/\W+/g, "-").replaceAll(/^-|-$/g, "");
+	return taskName
+		.toLowerCase()
+		.replaceAll(/\W+/g, "-")
+		.replaceAll(/^-|-$/g, "");
 }
 
 export function isTaskUpdatedEventForTask(

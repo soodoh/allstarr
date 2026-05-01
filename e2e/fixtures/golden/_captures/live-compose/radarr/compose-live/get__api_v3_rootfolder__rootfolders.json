@@ -1,18 +1,18 @@
 {
-  "body": [
-    {
-      "path": "/data/capture/library/movies",
-      "accessible": true,
-      "freeSpace": 212277301248,
-      "unmappedFolders": [],
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v3/rootfolder",
-  "status": 200
+	"body": [
+		{
+			"path": "/data/capture/library/movies",
+			"accessible": true,
+			"freeSpace": 212277301248,
+			"unmappedFolders": [],
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v3/rootfolder",
+	"status": 200
 }

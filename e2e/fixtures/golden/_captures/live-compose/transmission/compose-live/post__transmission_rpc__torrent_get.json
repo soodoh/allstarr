@@ -1,25 +1,25 @@
 {
-  "body": {
-    "arguments": {
-      "torrents": [
-        {
-          "downloadDir": "/data/capture/downloads/torrents",
-          "hashString": "342e9e4addcc71d7577fa776d057c5541e4beae3",
-          "id": 1,
-          "name": "The.Matrix.1999.1080p.WEB-DL-GRP.mkv",
-          "percentDone": 1,
-          "status": 6
-        }
-      ]
-    },
-    "result": "success"
-  },
-  "contentType": "application/json; charset=UTF-8",
-  "headers": {
-    "Content-Type": "application/json",
-    "X-Transmission-Session-Id": "<redacted>"
-  },
-  "method": "POST",
-  "path": "/transmission/rpc",
-  "status": 200
+	"body": {
+		"arguments": {
+			"torrents": [
+				{
+					"downloadDir": "/data/capture/downloads/torrents",
+					"hashString": "342e9e4addcc71d7577fa776d057c5541e4beae3",
+					"id": 1,
+					"name": "The.Matrix.1999.1080p.WEB-DL-GRP.mkv",
+					"percentDone": 1,
+					"status": 6
+				}
+			]
+		},
+		"result": "success"
+	},
+	"contentType": "application/json; charset=UTF-8",
+	"headers": {
+		"Content-Type": "application/json",
+		"X-Transmission-Session-Id": "<redacted>"
+	},
+	"method": "POST",
+	"path": "/transmission/rpc",
+	"status": 200
 }

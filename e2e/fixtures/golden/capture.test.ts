@@ -1,14 +1,20 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { startHttpTestServer } from "../../../src/server/__tests__/helpers/http-test-server";
 import {
 	captureFixtureSet,
 	parseCaptureCliArgs,
 	scrubSecrets,
 } from "./capture";
 import { promoteComposeLiveFixtures } from "./promote";
-import { startHttpTestServer } from "../../../src/server/__tests__/helpers/http-test-server";
 
 const tempDirs: string[] = [];
 const servers: Array<{ stop: () => Promise<void> }> = [];
@@ -35,22 +41,22 @@ describe("golden capture helpers", () => {
 					{
 						name: "Dune",
 						password: "secret",
-					settings: {
-						cookie: "SID=123",
-						token: "hardcover-token",
+						settings: {
+							cookie: "SID=123",
+							token: "hardcover-token",
+						},
 					},
-				},
-				{
-					name: "apiKey",
-					privacy: "apiKey",
-					value: "servarr-key",
-				},
-				{
-					"session-id": "transmission-session",
-				},
-			],
-		}),
-	).toEqual({
+					{
+						name: "apiKey",
+						privacy: "apiKey",
+						value: "servarr-key",
+					},
+					{
+						"session-id": "transmission-session",
+					},
+				],
+			}),
+		).toEqual({
 			apiKey: "<redacted>",
 			headers: {
 				Authorization: "<redacted>",
@@ -80,14 +86,12 @@ describe("golden capture helpers", () => {
 	it("redacts secrets embedded in query strings, cookies, and basic-auth urls", () => {
 		expect(
 			scrubSecrets({
-				body:
-					'http://127.0.0.1:9696/1/download?apikey=abc123&amp;token=xyz&SId=ignored',
+				body: "http://127.0.0.1:9696/1/download?apikey=abc123&amp;token=xyz&SId=ignored",
 				path: "/api?t=search&apikey=abc123&password=hunter2",
 				url: "http://nzbget:tegbzn6789@127.0.0.1:26789",
 			}),
 		).toEqual({
-			body:
-				"http://127.0.0.1:9696/1/download?apikey=<redacted>&amp;token=<redacted>&SId=<redacted>",
+			body: "http://127.0.0.1:9696/1/download?apikey=<redacted>&amp;token=<redacted>&SId=<redacted>",
 			path: "/api?t=search&apikey=<redacted>&password=<redacted>",
 			url: "http://<redacted>:<redacted>@127.0.0.1:26789",
 		});
@@ -226,7 +230,7 @@ describe("golden capture helpers", () => {
 
 		expect(JSON.parse(readFileSync(authFile, "utf8"))).toEqual({
 			body: {
-				echo: "{\"method\":\"auth.login\",\"params\":[\"deluge\"]}",
+				echo: '{"method":"auth.login","params":["deluge"]}',
 			},
 			contentType: "application/json",
 			headers: {},
@@ -236,8 +240,7 @@ describe("golden capture helpers", () => {
 		});
 		expect(JSON.parse(readFileSync(statusFile, "utf8"))).toEqual({
 			body: {
-				echo:
-					"{\"method\":\"core.get_torrents_status\",\"params\":[{},[\"name\"]]}",
+				echo: '{"method":"core.get_torrents_status","params":[{},["name"]]}',
 			},
 			contentType: "application/json",
 			headers: {},
@@ -259,7 +262,9 @@ describe("golden capture helpers", () => {
 		});
 		servers.push(server);
 
-		const outputDir = mkdtempSync(join(tmpdir(), "golden-capture-secret-paths-"));
+		const outputDir = mkdtempSync(
+			join(tmpdir(), "golden-capture-secret-paths-"),
+		);
 		tempDirs.push(outputDir);
 
 		await captureFixtureSet({

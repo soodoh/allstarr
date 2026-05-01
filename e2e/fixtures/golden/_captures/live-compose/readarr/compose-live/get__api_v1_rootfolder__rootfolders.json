@@ -1,28 +1,28 @@
 {
-  "body": [
-    {
-      "name": "Books",
-      "path": "/data/capture/library/books",
-      "defaultMetadataProfileId": 1,
-      "defaultQualityProfileId": 1,
-      "defaultMonitorOption": "all",
-      "defaultNewItemMonitorOption": "all",
-      "defaultTags": [],
-      "isCalibreLibrary": false,
-      "port": 0,
-      "outputProfile": "default",
-      "useSsl": false,
-      "accessible": true,
-      "freeSpace": 212277182464,
-      "totalSpace": 994662584320,
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/rootfolder",
-  "status": 200
+	"body": [
+		{
+			"name": "Books",
+			"path": "/data/capture/library/books",
+			"defaultMetadataProfileId": 1,
+			"defaultQualityProfileId": 1,
+			"defaultMonitorOption": "all",
+			"defaultNewItemMonitorOption": "all",
+			"defaultTags": [],
+			"isCalibreLibrary": false,
+			"port": 0,
+			"outputProfile": "default",
+			"useSsl": false,
+			"accessible": true,
+			"freeSpace": 212277182464,
+			"totalSpace": 994662584320,
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/rootfolder",
+	"status": 200
 }

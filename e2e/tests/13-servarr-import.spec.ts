@@ -1,15 +1,22 @@
 import type { Page } from "@playwright/test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
-import { test, expect } from "../fixtures/app";
+import { expect, test } from "../fixtures/app";
+import type { ServiceName } from "../fixtures/fake-servers/manager";
 import { seedAuthor, seedBook } from "../fixtures/seed-data";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import type { ServiceName } from "../fixtures/fake-servers/manager";
 
 test.use({
 	fakeServerScenario: "imports-all-sources-mapped",
-	requiredServices: ["HARDCOVER", "TMDB", "SONARR", "RADARR", "READARR", "BOOKSHELF"],
+	requiredServices: [
+		"HARDCOVER",
+		"TMDB",
+		"SONARR",
+		"RADARR",
+		"READARR",
+		"BOOKSHELF",
+	],
 });
 
 type SupportedPlanAssertion = {
@@ -50,7 +57,9 @@ async function addImportSource(args: {
 	const { page, apiKey, baseUrl, kind, label } = args;
 
 	await page.getByRole("button", { name: "Add source" }).click();
-	await expect(page.getByRole("heading", { name: "Add Import Source" })).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Add Import Source" }),
+	).toBeVisible();
 
 	const sourceType = page.getByRole("combobox", { name: "Source Type" });
 	await sourceType.click();
@@ -61,7 +70,9 @@ async function addImportSource(args: {
 	await page.getByLabel("API Key").fill(apiKey);
 	await page.getByRole("button", { name: "Create Source" }).click();
 
-	await expect(page.getByRole("heading", { name: "Add Import Source" })).not.toBeVisible({ timeout: 10_000 });
+	await expect(
+		page.getByRole("heading", { name: "Add Import Source" }),
+	).not.toBeVisible({ timeout: 10_000 });
 	await expect(page.getByText(label)).toBeVisible({ timeout: 10_000 });
 }
 
@@ -254,7 +265,9 @@ test.describe("Servarr imports", () => {
 			.toBe("synced");
 
 		const sources = db.select().from(schema.importSources).all();
-		const sourceIds = Object.fromEntries(sources.map((source) => [source.label, source.id]));
+		const sourceIds = Object.fromEntries(
+			sources.map((source) => [source.label, source.id]),
+		);
 
 		const flows: SourceFlow[] = [
 			{
@@ -584,11 +597,17 @@ test.describe("Servarr imports", () => {
 			await expect(planRow(page, flow.visibleRows[0].title)).toBeVisible();
 			await assertPlanRows(page, flow.visibleRows);
 
-			await page.getByRole("tabpanel", { name: "Plan" }).getByRole("button", {
-				name: "Apply Selected",
-			}).click();
+			await page
+				.getByRole("tabpanel", { name: "Plan" })
+				.getByRole("button", {
+					name: "Apply Selected",
+				})
+				.click();
 
-			const resolvedProvenance = new Map<string, typeof schema.importProvenance.$inferSelect>();
+			const resolvedProvenance = new Map<
+				string,
+				typeof schema.importProvenance.$inferSelect
+			>();
 			for (const provenance of flow.expectedProvenance) {
 				const expected = {
 					sourceId: sourceIds[flow.label],

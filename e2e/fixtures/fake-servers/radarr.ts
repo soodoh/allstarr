@@ -2,8 +2,8 @@ import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
 import {
 	buildCapturedPathKey,
-	getCapturedResponse,
 	type CapturedReplayState,
+	getCapturedResponse,
 } from "./captured";
 
 type State = CapturedReplayState & {
