@@ -1,65 +1,63 @@
 {
-  "body": [
-    {
-      "id": 1,
-      "title": "A Wizard of Earthsea",
-      "authorTitle": "le guin, ursula k. A Wizard of Earthsea",
-      "seriesTitle": "Earthsea Cycle #1",
-      "disambiguation": "50th Anniversary Edition",
-      "overview": "Ged learns the true names of power on Earthsea.",
-      "authorId": 1,
-      "foreignBookId": "13642",
-      "foreignEditionId": "328497",
-      "titleSlug": "13642",
-      "monitored": true,
-      "anyEditionOk": true,
-      "ratings": {
-        "votes": 180000,
-        "value": 4.1,
-        "popularity": 738000
-      },
-      "releaseDate": "1968-01-01T00:00:00Z",
-      "pageCount": 320,
-      "genres": [
-        "Fantasy"
-      ],
-      "author": null,
-      "images": [
-        {
-          "url": "/api/v1/mediacover/book/1/cover.jpg",
-          "coverType": "cover",
-          "extension": ".jpg",
-          "remoteUrl": "https://images.example.test/books/328497.jpg"
-        }
-      ],
-      "links": [
-        {
-          "url": "https://www.goodreads.com/book/show/13642.A_Wizard_of_Earthsea",
-          "name": "Goodreads Book"
-        }
-      ],
-      "statistics": {
-        "bookFileCount": 1,
-        "bookCount": 1,
-        "totalBookCount": 1,
-        "sizeOnDisk": 2048,
-        "percentOfBooks": 100
-      },
-      "added": "2026-04-23T12:00:00Z",
-      "addOptions": {
-        "addType": "automatic",
-        "searchForNewBook": false
-      },
-      "remoteCover": null,
-      "lastSearchTime": null,
-      "editions": null
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/book",
-  "status": 200
+	"body": [
+		{
+			"id": 1,
+			"title": "A Wizard of Earthsea",
+			"authorTitle": "le guin, ursula k. A Wizard of Earthsea",
+			"seriesTitle": "Earthsea Cycle #1",
+			"disambiguation": "50th Anniversary Edition",
+			"overview": "Ged learns the true names of power on Earthsea.",
+			"authorId": 1,
+			"foreignBookId": "13642",
+			"foreignEditionId": "328497",
+			"titleSlug": "13642",
+			"monitored": true,
+			"anyEditionOk": true,
+			"ratings": {
+				"votes": 180000,
+				"value": 4.1,
+				"popularity": 738000
+			},
+			"releaseDate": "1968-01-01T00:00:00Z",
+			"pageCount": 320,
+			"genres": ["Fantasy"],
+			"author": null,
+			"images": [
+				{
+					"url": "/api/v1/mediacover/book/1/cover.jpg",
+					"coverType": "cover",
+					"extension": ".jpg",
+					"remoteUrl": "https://images.example.test/books/328497.jpg"
+				}
+			],
+			"links": [
+				{
+					"url": "https://www.goodreads.com/book/show/13642.A_Wizard_of_Earthsea",
+					"name": "Goodreads Book"
+				}
+			],
+			"statistics": {
+				"bookFileCount": 1,
+				"bookCount": 1,
+				"totalBookCount": 1,
+				"sizeOnDisk": 2048,
+				"percentOfBooks": 100
+			},
+			"added": "2026-04-23T12:00:00Z",
+			"addOptions": {
+				"addType": "automatic",
+				"searchForNewBook": false
+			},
+			"remoteCover": null,
+			"lastSearchTime": null,
+			"editions": null
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/book",
+	"status": 200
 }

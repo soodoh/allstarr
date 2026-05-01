@@ -1,722 +1,715 @@
 {
-  "name": "compose-live",
-  "seed": {
-    "apiKey": "readarr-key",
-    "capturedResponses": {
-      "GET /api/v1/author": {
-        "body": [
-          {
-            "id": 1,
-            "authorMetadataId": 1,
-            "status": "continuing",
-            "ended": false,
-            "authorName": "Ursula K. Le Guin",
-            "authorNameLastFirst": "Le Guin, Ursula K.",
-            "foreignAuthorId": "6044",
-            "titleSlug": "6044",
-            "overview": "American author of speculative fiction, essays, and poetry.",
-            "disambiguation": "",
-            "links": [
-              {
-                "url": "https://www.goodreads.com/author/show/6044.Ursula_K_Le_Guin",
-                "name": "Goodreads"
-              }
-            ],
-            "nextBook": null,
-            "lastBook": null,
-            "images": [
-              {
-                "url": "/api/v1/mediacover/author/1/poster.jpg",
-                "coverType": "poster",
-                "extension": ".jpg",
-                "remoteUrl": "https://images.example.test/authors/6044.jpg"
-              }
-            ],
-            "remotePoster": null,
-            "path": "/data/capture/library/books/Ursula K. Le Guin",
-            "qualityProfileId": 1,
-            "metadataProfileId": 1,
-            "monitored": true,
-            "monitorNewItems": "all",
-            "rootFolderPath": "/data/capture/library/books",
-            "folder": null,
-            "genres": [
-              "Fantasy",
-              "Science Fiction"
-            ],
-            "cleanName": "ursulakleguin",
-            "sortName": "ursula k. le guin",
-            "sortNameLastFirst": "le guin, ursula k.",
-            "tags": [],
-            "added": "2026-04-23T12:00:00Z",
-            "addOptions": {
-              "monitor": "all",
-              "booksToMonitor": [],
-              "monitored": true,
-              "searchForMissingBooks": false
-            },
-            "ratings": {
-              "votes": 250000,
-              "value": 4.22,
-              "popularity": 1055000
-            },
-            "statistics": {
-              "bookFileCount": 1,
-              "bookCount": 1,
-              "availableBookCount": 1,
-              "totalBookCount": 1,
-              "sizeOnDisk": 4096,
-              "percentOfBooks": 100
-            }
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/blocklist?page=1&pageSize=250": {
-        "body": {
-          "page": 1,
-          "pageSize": 250,
-          "sortKey": "date",
-          "sortDirection": "descending",
-          "totalRecords": 0,
-          "records": []
-        },
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/book": {
-        "body": [
-          {
-            "id": 1,
-            "title": "A Wizard of Earthsea",
-            "authorTitle": "le guin, ursula k. A Wizard of Earthsea",
-            "seriesTitle": "Earthsea Cycle #1",
-            "disambiguation": "50th Anniversary Edition",
-            "overview": "Ged learns the true names of power on Earthsea.",
-            "authorId": 1,
-            "foreignBookId": "13642",
-            "foreignEditionId": "328497",
-            "titleSlug": "13642",
-            "monitored": true,
-            "anyEditionOk": true,
-            "ratings": {
-              "votes": 180000,
-              "value": 4.1,
-              "popularity": 738000
-            },
-            "releaseDate": "1968-01-01T00:00:00Z",
-            "pageCount": 320,
-            "genres": [
-              "Fantasy"
-            ],
-            "author": null,
-            "images": [
-              {
-                "url": "/api/v1/mediacover/book/1/cover.jpg",
-                "coverType": "cover",
-                "extension": ".jpg",
-                "remoteUrl": "https://images.example.test/books/328497.jpg"
-              }
-            ],
-            "links": [
-              {
-                "url": "https://www.goodreads.com/book/show/13642.A_Wizard_of_Earthsea",
-                "name": "Goodreads Book"
-              }
-            ],
-            "statistics": {
-              "bookFileCount": 1,
-              "bookCount": 1,
-              "totalBookCount": 1,
-              "sizeOnDisk": 2048,
-              "percentOfBooks": 100
-            },
-            "added": "2026-04-23T12:00:00Z",
-            "addOptions": {
-              "addType": "automatic",
-              "searchForNewBook": false
-            },
-            "remoteCover": null,
-            "lastSearchTime": null,
-            "editions": null
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/config/mediamanagement": {
-        "body": {
-          "autoUnmonitorPreviouslyDownloadedBooks": false,
-          "recycleBin": "",
-          "recycleBinCleanupDays": 7,
-          "downloadPropersAndRepacks": "preferAndUpgrade",
-          "createEmptyAuthorFolders": false,
-          "deleteEmptyFolders": false,
-          "fileDate": "none",
-          "watchLibraryForChanges": true,
-          "rescanAfterRefresh": "always",
-          "allowFingerprinting": "newFiles",
-          "setPermissionsLinux": false,
-          "chmodFolder": "755",
-          "chownGroup": "",
-          "skipFreeSpaceCheckWhenImporting": false,
-          "minimumFreeSpaceWhenImporting": 100,
-          "copyUsingHardlinks": true,
-          "importExtraFiles": false,
-          "extraFileExtensions": "srt",
-          "id": 1
-        },
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/config/naming": {
-        "body": {
-          "renameBooks": false,
-          "replaceIllegalCharacters": true,
-          "colonReplacementFormat": 4,
-          "standardBookFormat": "{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}",
-          "authorFolderFormat": "{Author Name}",
-          "includeAuthorName": false,
-          "includeBookTitle": false,
-          "includeQuality": false,
-          "replaceSpaces": false,
-          "id": 1
-        },
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/downloadclient": {
-        "body": [
-          {
-            "enable": true,
-            "protocol": "torrent",
-            "priority": 1,
-            "removeCompletedDownloads": false,
-            "removeFailedDownloads": false,
-            "name": "Transmission Capture",
-            "fields": [
-              {
-                "order": 0,
-                "name": "host",
-                "label": "Host",
-                "value": "transmission-capture",
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 1,
-                "name": "port",
-                "label": "Port",
-                "value": 9091,
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 2,
-                "name": "useSsl",
-                "label": "Use SSL",
-                "helpText": "Use secure connection when connecting to Transmission",
-                "value": false,
-                "type": "checkbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 3,
-                "name": "urlBase",
-                "label": "Url Base",
-                "helpText": "Adds a prefix to the transmission rpc url, eg http://[host]:[port]/[urlBase]/rpc, defaults to '/transmission/'",
-                "value": "/transmission/",
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 4,
-                "name": "username",
-                "label": "Username",
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 5,
-                "name": "password",
-                "label": "Password",
-                "type": "password",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 6,
-                "name": "musicCategory",
-                "label": "Category",
-                "helpText": "Adding a category specific to Readarr avoids conflicts with unrelated non-Readarr downloads. Using a category is optional, but strongly recommended.. Creates a [category] subdirectory in the output directory.",
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 7,
-                "name": "tvDirectory",
-                "label": "Directory",
-                "helpText": "Optional location to put downloads in, leave blank to use the default Transmission location",
-                "value": "/data/capture/downloads/torrents",
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 8,
-                "name": "recentTvPriority",
-                "label": "Recent Priority",
-                "helpText": "Priority to use when grabbing books released within the last 14 days",
-                "value": 0,
-                "type": "select",
-                "advanced": false,
-                "selectOptions": [
-                  {
-                    "value": 0,
-                    "name": "Last",
-                    "order": 0
-                  },
-                  {
-                    "value": 1,
-                    "name": "First",
-                    "order": 1
-                  }
-                ],
-                "isFloat": false
-              },
-              {
-                "order": 9,
-                "name": "olderTvPriority",
-                "label": "Older Priority",
-                "helpText": "Priority to use when grabbing books released over 14 days ago",
-                "value": 0,
-                "type": "select",
-                "advanced": false,
-                "selectOptions": [
-                  {
-                    "value": 0,
-                    "name": "Last",
-                    "order": 0
-                  },
-                  {
-                    "value": 1,
-                    "name": "First",
-                    "order": 1
-                  }
-                ],
-                "isFloat": false
-              },
-              {
-                "order": 10,
-                "name": "addPaused",
-                "label": "Add Paused",
-                "value": false,
-                "type": "checkbox",
-                "advanced": false,
-                "isFloat": false
-              }
-            ],
-            "implementationName": "Transmission",
-            "implementation": "Transmission",
-            "configContract": "TransmissionSettings",
-            "infoLink": "https://wiki.servarr.com/readarr/supported#transmission",
-            "tags": [],
-            "id": 1
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/history?page=1&pageSize=250": {
-        "body": {
-          "page": 1,
-          "pageSize": 250,
-          "sortKey": "date",
-          "sortDirection": "descending",
-          "totalRecords": 0,
-          "records": []
-        },
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/indexer": {
-        "body": [
-          {
-            "enableRss": true,
-            "enableAutomaticSearch": true,
-            "enableInteractiveSearch": true,
-            "supportsRss": true,
-            "supportsSearch": true,
-            "protocol": "torrent",
-            "priority": 25,
-            "downloadClientId": 0,
-            "name": "Nyaa.si (Prowlarr)",
-            "fields": [
-              {
-                "order": 0,
-                "name": "baseUrl",
-                "label": "URL",
-                "value": "http://prowlarr-capture:9696/1/",
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 1,
-                "name": "apiPath",
-                "label": "API Path",
-                "helpText": "Path to the api, usually /api",
-                "value": "/api",
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 2,
-                "name": "apiKey",
-                "label": "API Key",
-                "value": "<redacted>",
-                "type": "textbox",
-                "advanced": false,
-                "isFloat": false
-              },
-              {
-                "order": 3,
-                "name": "categories",
-                "label": "Categories",
-                "helpText": "Drop down list; at least one category must be selected.",
-                "value": [
-                  7000
-                ],
-                "type": "select",
-                "advanced": false,
-                "selectOptionsProviderAction": "newznabCategories",
-                "isFloat": false
-              },
-              {
-                "order": 4,
-                "name": "earlyReleaseLimit",
-                "label": "Early Download Limit",
-                "unit": "days",
-                "helpText": "Time before release date Readarr will download from this indexer, empty is no limit",
-                "type": "number",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 5,
-                "name": "additionalParameters",
-                "label": "Additional Parameters",
-                "helpText": "Additional Newznab parameters",
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 6,
-                "name": "minimumSeeders",
-                "label": "Minimum Seeders",
-                "helpText": "Minimum number of seeders required.",
-                "value": 1,
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 7,
-                "name": "seedCriteria.seedRatio",
-                "label": "Seed Ratio",
-                "helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
-                "type": "number",
-                "advanced": false,
-                "isFloat": true
-              },
-              {
-                "order": 8,
-                "name": "seedCriteria.seedTime",
-                "label": "Seed Time",
-                "unit": "minutes",
-                "helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
-                "type": "number",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 9,
-                "name": "seedCriteria.discographySeedTime",
-                "label": "Discography Seed Time",
-                "unit": "minutes",
-                "helpText": "The time a torrent should be seeded before stopping, empty is download client's default",
-                "type": "textbox",
-                "advanced": true,
-                "isFloat": false
-              },
-              {
-                "order": 10,
-                "name": "rejectBlocklistedTorrentHashesWhileGrabbing",
-                "label": "Reject Blocklisted Torrent Hashes While Grabbing",
-                "helpText": "If a torrent is blocked by hash it may not properly be rejected during RSS/Search for some indexers, enabling this will allow it to be rejected after the torrent is grabbed, but before it is sent to the client.",
-                "value": false,
-                "type": "checkbox",
-                "advanced": true,
-                "isFloat": false
-              }
-            ],
-            "implementationName": "Torznab",
-            "implementation": "Torznab",
-            "configContract": "TorznabSettings",
-            "infoLink": "https://wiki.servarr.com/readarr/supported#torznab",
-            "tags": [],
-            "id": 1
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/metadataprofile": {
-        "body": [
-          {
-            "name": "Standard",
-            "minPopularity": 350,
-            "skipMissingDate": true,
-            "skipMissingIsbn": false,
-            "skipPartsAndSets": true,
-            "skipSeriesSecondary": false,
-            "allowedLanguages": "eng, null",
-            "minPages": 0,
-            "ignored": [],
-            "id": 1
-          },
-          {
-            "name": "None",
-            "minPopularity": 10000000000,
-            "skipMissingDate": false,
-            "skipMissingIsbn": false,
-            "skipPartsAndSets": false,
-            "skipSeriesSecondary": false,
-            "minPages": 0,
-            "ignored": [],
-            "id": 2
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/qualityprofile": {
-        "body": [
-          {
-            "name": "eBook",
-            "upgradeAllowed": false,
-            "cutoff": 2,
-            "items": [
-              {
-                "quality": {
-                  "id": 0,
-                  "name": "Unknown Text"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 1,
-                  "name": "PDF"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 2,
-                  "name": "MOBI"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 3,
-                  "name": "EPUB"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 4,
-                  "name": "AZW3"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 13,
-                  "name": "Unknown Audio"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 10,
-                  "name": "MP3"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 12,
-                  "name": "M4B"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 11,
-                  "name": "FLAC"
-                },
-                "items": [],
-                "allowed": false
-              }
-            ],
-            "minFormatScore": 0,
-            "cutoffFormatScore": 0,
-            "formatItems": [],
-            "id": 1
-          },
-          {
-            "name": "Spoken",
-            "upgradeAllowed": false,
-            "cutoff": 10,
-            "items": [
-              {
-                "quality": {
-                  "id": 0,
-                  "name": "Unknown Text"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 1,
-                  "name": "PDF"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 2,
-                  "name": "MOBI"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 3,
-                  "name": "EPUB"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 4,
-                  "name": "AZW3"
-                },
-                "items": [],
-                "allowed": false
-              },
-              {
-                "quality": {
-                  "id": 13,
-                  "name": "Unknown Audio"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 10,
-                  "name": "MP3"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 12,
-                  "name": "M4B"
-                },
-                "items": [],
-                "allowed": true
-              },
-              {
-                "quality": {
-                  "id": 11,
-                  "name": "FLAC"
-                },
-                "items": [],
-                "allowed": true
-              }
-            ],
-            "minFormatScore": 0,
-            "cutoffFormatScore": 0,
-            "formatItems": [],
-            "id": 2
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/queue?page=1&pageSize=250": {
-        "body": {
-          "page": 1,
-          "pageSize": 250,
-          "sortKey": "timeleft",
-          "sortDirection": "descending",
-          "totalRecords": 0,
-          "records": []
-        },
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      },
-      "GET /api/v1/rootfolder": {
-        "body": [
-          {
-            "name": "Books",
-            "path": "/data/capture/library/books",
-            "defaultMetadataProfileId": 1,
-            "defaultQualityProfileId": 1,
-            "defaultMonitorOption": "all",
-            "defaultNewItemMonitorOption": "all",
-            "defaultTags": [],
-            "isCalibreLibrary": false,
-            "port": 0,
-            "outputProfile": "default",
-            "useSsl": false,
-            "accessible": true,
-            "freeSpace": 212277182464,
-            "totalSpace": 994662584320,
-            "id": 1
-          }
-        ],
-        "contentType": "application/json; charset=utf-8",
-        "status": 200
-      }
-    }
-  },
-  "service": "readarr"
+	"name": "compose-live",
+	"seed": {
+		"apiKey": "readarr-key",
+		"capturedResponses": {
+			"GET /api/v1/author": {
+				"body": [
+					{
+						"id": 1,
+						"authorMetadataId": 1,
+						"status": "continuing",
+						"ended": false,
+						"authorName": "Ursula K. Le Guin",
+						"authorNameLastFirst": "Le Guin, Ursula K.",
+						"foreignAuthorId": "6044",
+						"titleSlug": "6044",
+						"overview": "American author of speculative fiction, essays, and poetry.",
+						"disambiguation": "",
+						"links": [
+							{
+								"url": "https://www.goodreads.com/author/show/6044.Ursula_K_Le_Guin",
+								"name": "Goodreads"
+							}
+						],
+						"nextBook": null,
+						"lastBook": null,
+						"images": [
+							{
+								"url": "/api/v1/mediacover/author/1/poster.jpg",
+								"coverType": "poster",
+								"extension": ".jpg",
+								"remoteUrl": "https://images.example.test/authors/6044.jpg"
+							}
+						],
+						"remotePoster": null,
+						"path": "/data/capture/library/books/Ursula K. Le Guin",
+						"qualityProfileId": 1,
+						"metadataProfileId": 1,
+						"monitored": true,
+						"monitorNewItems": "all",
+						"rootFolderPath": "/data/capture/library/books",
+						"folder": null,
+						"genres": ["Fantasy", "Science Fiction"],
+						"cleanName": "ursulakleguin",
+						"sortName": "ursula k. le guin",
+						"sortNameLastFirst": "le guin, ursula k.",
+						"tags": [],
+						"added": "2026-04-23T12:00:00Z",
+						"addOptions": {
+							"monitor": "all",
+							"booksToMonitor": [],
+							"monitored": true,
+							"searchForMissingBooks": false
+						},
+						"ratings": {
+							"votes": 250000,
+							"value": 4.22,
+							"popularity": 1055000
+						},
+						"statistics": {
+							"bookFileCount": 1,
+							"bookCount": 1,
+							"availableBookCount": 1,
+							"totalBookCount": 1,
+							"sizeOnDisk": 4096,
+							"percentOfBooks": 100
+						}
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/blocklist?page=1&pageSize=250": {
+				"body": {
+					"page": 1,
+					"pageSize": 250,
+					"sortKey": "date",
+					"sortDirection": "descending",
+					"totalRecords": 0,
+					"records": []
+				},
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/book": {
+				"body": [
+					{
+						"id": 1,
+						"title": "A Wizard of Earthsea",
+						"authorTitle": "le guin, ursula k. A Wizard of Earthsea",
+						"seriesTitle": "Earthsea Cycle #1",
+						"disambiguation": "50th Anniversary Edition",
+						"overview": "Ged learns the true names of power on Earthsea.",
+						"authorId": 1,
+						"foreignBookId": "13642",
+						"foreignEditionId": "328497",
+						"titleSlug": "13642",
+						"monitored": true,
+						"anyEditionOk": true,
+						"ratings": {
+							"votes": 180000,
+							"value": 4.1,
+							"popularity": 738000
+						},
+						"releaseDate": "1968-01-01T00:00:00Z",
+						"pageCount": 320,
+						"genres": ["Fantasy"],
+						"author": null,
+						"images": [
+							{
+								"url": "/api/v1/mediacover/book/1/cover.jpg",
+								"coverType": "cover",
+								"extension": ".jpg",
+								"remoteUrl": "https://images.example.test/books/328497.jpg"
+							}
+						],
+						"links": [
+							{
+								"url": "https://www.goodreads.com/book/show/13642.A_Wizard_of_Earthsea",
+								"name": "Goodreads Book"
+							}
+						],
+						"statistics": {
+							"bookFileCount": 1,
+							"bookCount": 1,
+							"totalBookCount": 1,
+							"sizeOnDisk": 2048,
+							"percentOfBooks": 100
+						},
+						"added": "2026-04-23T12:00:00Z",
+						"addOptions": {
+							"addType": "automatic",
+							"searchForNewBook": false
+						},
+						"remoteCover": null,
+						"lastSearchTime": null,
+						"editions": null
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/config/mediamanagement": {
+				"body": {
+					"autoUnmonitorPreviouslyDownloadedBooks": false,
+					"recycleBin": "",
+					"recycleBinCleanupDays": 7,
+					"downloadPropersAndRepacks": "preferAndUpgrade",
+					"createEmptyAuthorFolders": false,
+					"deleteEmptyFolders": false,
+					"fileDate": "none",
+					"watchLibraryForChanges": true,
+					"rescanAfterRefresh": "always",
+					"allowFingerprinting": "newFiles",
+					"setPermissionsLinux": false,
+					"chmodFolder": "755",
+					"chownGroup": "",
+					"skipFreeSpaceCheckWhenImporting": false,
+					"minimumFreeSpaceWhenImporting": 100,
+					"copyUsingHardlinks": true,
+					"importExtraFiles": false,
+					"extraFileExtensions": "srt",
+					"id": 1
+				},
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/config/naming": {
+				"body": {
+					"renameBooks": false,
+					"replaceIllegalCharacters": true,
+					"colonReplacementFormat": 4,
+					"standardBookFormat": "{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}",
+					"authorFolderFormat": "{Author Name}",
+					"includeAuthorName": false,
+					"includeBookTitle": false,
+					"includeQuality": false,
+					"replaceSpaces": false,
+					"id": 1
+				},
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/downloadclient": {
+				"body": [
+					{
+						"enable": true,
+						"protocol": "torrent",
+						"priority": 1,
+						"removeCompletedDownloads": false,
+						"removeFailedDownloads": false,
+						"name": "Transmission Capture",
+						"fields": [
+							{
+								"order": 0,
+								"name": "host",
+								"label": "Host",
+								"value": "transmission-capture",
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 1,
+								"name": "port",
+								"label": "Port",
+								"value": 9091,
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 2,
+								"name": "useSsl",
+								"label": "Use SSL",
+								"helpText": "Use secure connection when connecting to Transmission",
+								"value": false,
+								"type": "checkbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 3,
+								"name": "urlBase",
+								"label": "Url Base",
+								"helpText": "Adds a prefix to the transmission rpc url, eg http://[host]:[port]/[urlBase]/rpc, defaults to '/transmission/'",
+								"value": "/transmission/",
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 4,
+								"name": "username",
+								"label": "Username",
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 5,
+								"name": "password",
+								"label": "Password",
+								"type": "password",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 6,
+								"name": "musicCategory",
+								"label": "Category",
+								"helpText": "Adding a category specific to Readarr avoids conflicts with unrelated non-Readarr downloads. Using a category is optional, but strongly recommended.. Creates a [category] subdirectory in the output directory.",
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 7,
+								"name": "tvDirectory",
+								"label": "Directory",
+								"helpText": "Optional location to put downloads in, leave blank to use the default Transmission location",
+								"value": "/data/capture/downloads/torrents",
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 8,
+								"name": "recentTvPriority",
+								"label": "Recent Priority",
+								"helpText": "Priority to use when grabbing books released within the last 14 days",
+								"value": 0,
+								"type": "select",
+								"advanced": false,
+								"selectOptions": [
+									{
+										"value": 0,
+										"name": "Last",
+										"order": 0
+									},
+									{
+										"value": 1,
+										"name": "First",
+										"order": 1
+									}
+								],
+								"isFloat": false
+							},
+							{
+								"order": 9,
+								"name": "olderTvPriority",
+								"label": "Older Priority",
+								"helpText": "Priority to use when grabbing books released over 14 days ago",
+								"value": 0,
+								"type": "select",
+								"advanced": false,
+								"selectOptions": [
+									{
+										"value": 0,
+										"name": "Last",
+										"order": 0
+									},
+									{
+										"value": 1,
+										"name": "First",
+										"order": 1
+									}
+								],
+								"isFloat": false
+							},
+							{
+								"order": 10,
+								"name": "addPaused",
+								"label": "Add Paused",
+								"value": false,
+								"type": "checkbox",
+								"advanced": false,
+								"isFloat": false
+							}
+						],
+						"implementationName": "Transmission",
+						"implementation": "Transmission",
+						"configContract": "TransmissionSettings",
+						"infoLink": "https://wiki.servarr.com/readarr/supported#transmission",
+						"tags": [],
+						"id": 1
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/history?page=1&pageSize=250": {
+				"body": {
+					"page": 1,
+					"pageSize": 250,
+					"sortKey": "date",
+					"sortDirection": "descending",
+					"totalRecords": 0,
+					"records": []
+				},
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/indexer": {
+				"body": [
+					{
+						"enableRss": true,
+						"enableAutomaticSearch": true,
+						"enableInteractiveSearch": true,
+						"supportsRss": true,
+						"supportsSearch": true,
+						"protocol": "torrent",
+						"priority": 25,
+						"downloadClientId": 0,
+						"name": "Nyaa.si (Prowlarr)",
+						"fields": [
+							{
+								"order": 0,
+								"name": "baseUrl",
+								"label": "URL",
+								"value": "http://prowlarr-capture:9696/1/",
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 1,
+								"name": "apiPath",
+								"label": "API Path",
+								"helpText": "Path to the api, usually /api",
+								"value": "/api",
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 2,
+								"name": "apiKey",
+								"label": "API Key",
+								"value": "<redacted>",
+								"type": "textbox",
+								"advanced": false,
+								"isFloat": false
+							},
+							{
+								"order": 3,
+								"name": "categories",
+								"label": "Categories",
+								"helpText": "Drop down list; at least one category must be selected.",
+								"value": [7000],
+								"type": "select",
+								"advanced": false,
+								"selectOptionsProviderAction": "newznabCategories",
+								"isFloat": false
+							},
+							{
+								"order": 4,
+								"name": "earlyReleaseLimit",
+								"label": "Early Download Limit",
+								"unit": "days",
+								"helpText": "Time before release date Readarr will download from this indexer, empty is no limit",
+								"type": "number",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 5,
+								"name": "additionalParameters",
+								"label": "Additional Parameters",
+								"helpText": "Additional Newznab parameters",
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 6,
+								"name": "minimumSeeders",
+								"label": "Minimum Seeders",
+								"helpText": "Minimum number of seeders required.",
+								"value": 1,
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 7,
+								"name": "seedCriteria.seedRatio",
+								"label": "Seed Ratio",
+								"helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
+								"type": "number",
+								"advanced": false,
+								"isFloat": true
+							},
+							{
+								"order": 8,
+								"name": "seedCriteria.seedTime",
+								"label": "Seed Time",
+								"unit": "minutes",
+								"helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
+								"type": "number",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 9,
+								"name": "seedCriteria.discographySeedTime",
+								"label": "Discography Seed Time",
+								"unit": "minutes",
+								"helpText": "The time a torrent should be seeded before stopping, empty is download client's default",
+								"type": "textbox",
+								"advanced": true,
+								"isFloat": false
+							},
+							{
+								"order": 10,
+								"name": "rejectBlocklistedTorrentHashesWhileGrabbing",
+								"label": "Reject Blocklisted Torrent Hashes While Grabbing",
+								"helpText": "If a torrent is blocked by hash it may not properly be rejected during RSS/Search for some indexers, enabling this will allow it to be rejected after the torrent is grabbed, but before it is sent to the client.",
+								"value": false,
+								"type": "checkbox",
+								"advanced": true,
+								"isFloat": false
+							}
+						],
+						"implementationName": "Torznab",
+						"implementation": "Torznab",
+						"configContract": "TorznabSettings",
+						"infoLink": "https://wiki.servarr.com/readarr/supported#torznab",
+						"tags": [],
+						"id": 1
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/metadataprofile": {
+				"body": [
+					{
+						"name": "Standard",
+						"minPopularity": 350,
+						"skipMissingDate": true,
+						"skipMissingIsbn": false,
+						"skipPartsAndSets": true,
+						"skipSeriesSecondary": false,
+						"allowedLanguages": "eng, null",
+						"minPages": 0,
+						"ignored": [],
+						"id": 1
+					},
+					{
+						"name": "None",
+						"minPopularity": 10000000000,
+						"skipMissingDate": false,
+						"skipMissingIsbn": false,
+						"skipPartsAndSets": false,
+						"skipSeriesSecondary": false,
+						"minPages": 0,
+						"ignored": [],
+						"id": 2
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/qualityprofile": {
+				"body": [
+					{
+						"name": "eBook",
+						"upgradeAllowed": false,
+						"cutoff": 2,
+						"items": [
+							{
+								"quality": {
+									"id": 0,
+									"name": "Unknown Text"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 1,
+									"name": "PDF"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 2,
+									"name": "MOBI"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 3,
+									"name": "EPUB"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 4,
+									"name": "AZW3"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 13,
+									"name": "Unknown Audio"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 10,
+									"name": "MP3"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 12,
+									"name": "M4B"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 11,
+									"name": "FLAC"
+								},
+								"items": [],
+								"allowed": false
+							}
+						],
+						"minFormatScore": 0,
+						"cutoffFormatScore": 0,
+						"formatItems": [],
+						"id": 1
+					},
+					{
+						"name": "Spoken",
+						"upgradeAllowed": false,
+						"cutoff": 10,
+						"items": [
+							{
+								"quality": {
+									"id": 0,
+									"name": "Unknown Text"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 1,
+									"name": "PDF"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 2,
+									"name": "MOBI"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 3,
+									"name": "EPUB"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 4,
+									"name": "AZW3"
+								},
+								"items": [],
+								"allowed": false
+							},
+							{
+								"quality": {
+									"id": 13,
+									"name": "Unknown Audio"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 10,
+									"name": "MP3"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 12,
+									"name": "M4B"
+								},
+								"items": [],
+								"allowed": true
+							},
+							{
+								"quality": {
+									"id": 11,
+									"name": "FLAC"
+								},
+								"items": [],
+								"allowed": true
+							}
+						],
+						"minFormatScore": 0,
+						"cutoffFormatScore": 0,
+						"formatItems": [],
+						"id": 2
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/queue?page=1&pageSize=250": {
+				"body": {
+					"page": 1,
+					"pageSize": 250,
+					"sortKey": "timeleft",
+					"sortDirection": "descending",
+					"totalRecords": 0,
+					"records": []
+				},
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			},
+			"GET /api/v1/rootfolder": {
+				"body": [
+					{
+						"name": "Books",
+						"path": "/data/capture/library/books",
+						"defaultMetadataProfileId": 1,
+						"defaultQualityProfileId": 1,
+						"defaultMonitorOption": "all",
+						"defaultNewItemMonitorOption": "all",
+						"defaultTags": [],
+						"isCalibreLibrary": false,
+						"port": 0,
+						"outputProfile": "default",
+						"useSsl": false,
+						"accessible": true,
+						"freeSpace": 212277182464,
+						"totalSpace": 994662584320,
+						"id": 1
+					}
+				],
+				"contentType": "application/json; charset=utf-8",
+				"status": 200
+			}
+		}
+	},
+	"service": "readarr"
 }

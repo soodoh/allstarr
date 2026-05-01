@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "node:http";
-import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import { createFakeServer } from "./base";
 
 type State = {
 	movieDetails: Record<string, unknown>;
@@ -54,11 +54,15 @@ function handler(
 	switch (kind) {
 		case "movie": {
 			const payload = state.movieDetails[id];
-			return payload ? json(payload) : json({ status_message: "Not Found" }, 404);
+			return payload
+				? json(payload)
+				: json({ status_message: "Not Found" }, 404);
 		}
 		case "collection": {
 			const payload = state.collectionDetails[id];
-			return payload ? json(payload) : json({ status_message: "Not Found" }, 404);
+			return payload
+				? json(payload)
+				: json({ status_message: "Not Found" }, 404);
 		}
 		case "tv": {
 			if (seasonNumber) {
@@ -69,7 +73,9 @@ function handler(
 			}
 
 			const payload = state.showDetails[id];
-			return payload ? json(payload) : json({ status_message: "Not Found" }, 404);
+			return payload
+				? json(payload)
+				: json({ status_message: "Not Found" }, 404);
 		}
 		default: {
 			return json({ status_message: "Not Found" }, 404);

@@ -2,8 +2,8 @@ import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
 import {
 	buildCapturedPathKey,
-	getCapturedResponse,
 	type CapturedReplayState,
+	getCapturedResponse,
 } from "./captured";
 
 type State = CapturedReplayState & {
@@ -37,7 +37,9 @@ function defaultState(seed?: Partial<State>): State {
 				year: 1965,
 			},
 		],
-		downloadClients: [{ id: 3, name: "Transmission", implementation: "Transmission" }],
+		downloadClients: [
+			{ id: 3, name: "Transmission", implementation: "Transmission" },
+		],
 		history: [{ id: 403, title: "Dune imported" }],
 		indexers: [{ id: 13, name: "Books Indexer" }],
 		mediaManagement: { renameBooks: true },

@@ -1,15 +1,15 @@
-import { test, expect } from "../fixtures/app";
-import { ensureAuthenticated } from "../helpers/auth";
-import navigateTo from "../helpers/navigation";
 import * as schema from "../../src/db/schema";
+import { expect, test } from "../fixtures/app";
 import {
 	seedAuthor,
 	seedBook,
-	seedEdition,
 	seedDownloadClient,
 	seedDownloadProfile,
+	seedEdition,
 	seedIndexer,
 } from "../fixtures/seed-data";
+import { ensureAuthenticated } from "../helpers/auth";
+import navigateTo from "../helpers/navigation";
 import PORTS from "../ports";
 
 test.use({
@@ -89,10 +89,7 @@ test.describe("Search and Grab", () => {
 		).toBeVisible();
 	});
 
-	test("release quality information is displayed", async ({
-		page,
-		appUrl,
-	}) => {
+	test("release quality information is displayed", async ({ page, appUrl }) => {
 		await navigateTo(page, appUrl, `/books/${bookId}`);
 		await page.getByRole("tab", { name: "Search Releases" }).click();
 		await expect(
@@ -122,8 +119,8 @@ test.describe("Search and Grab", () => {
 			timeout: 10_000,
 		});
 
-		const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then((r) =>
-			r.json(),
+		const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+			(r) => r.json(),
 		);
 		expect(qbState.addedDownloads.length).toBeGreaterThanOrEqual(1);
 

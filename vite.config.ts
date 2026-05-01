@@ -1,195 +1,198 @@
+import { createRequire } from "node:module";
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { createRequire } from "node:module";
-import { defineConfig } from "vite";
 import { nitro } from "nitro/vite";
+import { defineConfig } from "vite";
 import istanbul from "vite-plugin-istanbul";
 
 const require = createRequire(import.meta.url);
 const { createInstrumenter } = require("istanbul-lib-instrument") as {
-  createInstrumenter: (opts: Record<string, unknown>) => {
-    instrumentSync(code: string, filename: string): string;
-    lastSourceMap(): object | null;
-  };
+	createInstrumenter: (opts: Record<string, unknown>) => {
+		instrumentSync(code: string, filename: string): string;
+		lastSourceMap(): object | null;
+	};
 };
 const ignoredNitroWarningCodes = new Set([
-  "EVAL",
-  "CIRCULAR_DEPENDENCY",
-  "THIS_IS_UNDEFINED",
-  "EMPTY_BUNDLE",
+	"EVAL",
+	"CIRCULAR_DEPENDENCY",
+	"THIS_IS_UNDEFINED",
+	"EMPTY_BUNDLE",
 ]);
 
 function shouldIgnoreRollupWarning(warning: {
-  code?: string;
-  id?: string;
-  message: string;
+	code?: string;
+	id?: string;
+	message: string;
 }): boolean {
-  return (
-    warning.code === "MODULE_LEVEL_DIRECTIVE" &&
-    warning.id?.includes("node_modules") === true &&
-    warning.message.includes('"use client"')
-  );
+	return (
+		warning.code === "MODULE_LEVEL_DIRECTIVE" &&
+		warning.id?.includes("node_modules") === true &&
+		warning.message.includes('"use client"')
+	);
 }
 
 function getVendorChunk(id: string): string | undefined {
-  if (!id.includes("node_modules")) {
-    return;
-  }
+	if (!id.includes("node_modules")) {
+		return;
+	}
 
-  if (
-    id.includes("/node_modules/react/") ||
-    id.includes("/node_modules/react-dom/") ||
-    id.includes("/node_modules/scheduler/")
-  ) {
-    return "react-vendor";
-  }
+	if (
+		id.includes("/node_modules/react/") ||
+		id.includes("/node_modules/react-dom/") ||
+		id.includes("/node_modules/scheduler/")
+	) {
+		return "react-vendor";
+	}
 
-  if (
-    id.includes("/node_modules/@radix-ui/") ||
-    id.includes("/node_modules/@floating-ui/") ||
-    id.includes("/node_modules/cmdk/") ||
-    id.includes("/node_modules/sonner/") ||
-    id.includes("/node_modules/next-themes/")
-  ) {
-    return "ui-vendor";
-  }
+	if (
+		id.includes("/node_modules/@radix-ui/") ||
+		id.includes("/node_modules/@floating-ui/") ||
+		id.includes("/node_modules/cmdk/") ||
+		id.includes("/node_modules/sonner/") ||
+		id.includes("/node_modules/next-themes/")
+	) {
+		return "ui-vendor";
+	}
 
-  if (id.includes("/node_modules/@dnd-kit/")) {
-    return "dnd-vendor";
-  }
+	if (id.includes("/node_modules/@dnd-kit/")) {
+		return "dnd-vendor";
+	}
 
-  if (id.includes("/node_modules/better-call/")) {
-    return "better-call-vendor";
-  }
+	if (id.includes("/node_modules/better-call/")) {
+		return "better-call-vendor";
+	}
 
-  if (id.includes("/node_modules/@better-fetch/")) {
-    return "better-fetch-vendor";
-  }
+	if (id.includes("/node_modules/@better-fetch/")) {
+		return "better-fetch-vendor";
+	}
 
-  if (id.includes("/node_modules/@better-auth/utils/")) {
-    return "better-auth-utils-vendor";
-  }
+	if (id.includes("/node_modules/@better-auth/utils/")) {
+		return "better-auth-utils-vendor";
+	}
 
-  if (id.includes("/node_modules/better-auth/dist/client/")) {
-    return "better-auth-client-vendor";
-  }
+	if (id.includes("/node_modules/better-auth/dist/client/")) {
+		return "better-auth-client-vendor";
+	}
 
-  if (id.includes("/node_modules/better-auth/dist/plugins/")) {
-    return "better-auth-plugins-vendor";
-  }
+	if (id.includes("/node_modules/better-auth/dist/plugins/")) {
+		return "better-auth-plugins-vendor";
+	}
 
-  if (
-    id.includes("/node_modules/better-auth/") ||
-    id.includes("/node_modules/@better-auth/")
-  ) {
-    return "better-auth-vendor";
-  }
+	if (
+		id.includes("/node_modules/better-auth/") ||
+		id.includes("/node_modules/@better-auth/")
+	) {
+		return "better-auth-vendor";
+	}
 
-  if (
-    id.includes("/node_modules/jose/") ||
-    id.includes("/node_modules/@noble/")
-  ) {
-    return "crypto-vendor";
-  }
+	if (
+		id.includes("/node_modules/jose/") ||
+		id.includes("/node_modules/@noble/")
+	) {
+		return "crypto-vendor";
+	}
 
-  if (id.includes("/node_modules/lucide-react/")) {
-    return "icons-vendor";
-  }
+	if (id.includes("/node_modules/lucide-react/")) {
+		return "icons-vendor";
+	}
 
-  if (id.includes("/node_modules/zod/")) {
-    return "schema-vendor";
-  }
+	if (id.includes("/node_modules/zod/")) {
+		return "schema-vendor";
+	}
 }
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      onwarn(warning, defaultHandler) {
-        if (shouldIgnoreRollupWarning(warning)) {
-          return;
-        }
+	build: {
+		rollupOptions: {
+			onwarn(warning, defaultHandler) {
+				if (shouldIgnoreRollupWarning(warning)) {
+					return;
+				}
 
-        defaultHandler(warning);
-      },
-      output: {
-        manualChunks: getVendorChunk,
-      },
-    },
-  },
-  resolve: {
-    tsconfigPaths: true,
-  },
-  nitro: {
-    rollupConfig: {
-      onwarn(warning, defaultHandler) {
-        if (
-          ignoredNitroWarningCodes.has(warning.code || "") ||
-          shouldIgnoreRollupWarning(warning)
-        ) {
-          return;
-        }
+				defaultHandler(warning);
+			},
+			output: {
+				manualChunks: getVendorChunk,
+			},
+		},
+	},
+	resolve: {
+		tsconfigPaths: true,
+	},
+	nitro: {
+		rollupConfig: {
+			onwarn(warning, defaultHandler) {
+				if (
+					ignoredNitroWarningCodes.has(warning.code || "") ||
+					shouldIgnoreRollupWarning(warning)
+				) {
+					return;
+				}
 
-        defaultHandler(warning);
-      },
-    },
-  },
-  ssr: {
-    external: ["sharp"],
-  },
-  server: {
-    port: Number(process.env.PORT) || 3000,
-    host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
-    allowedHosts: ["allstarr", "host.docker.internal"],
-  },
-  plugins: [
-    tailwindcss(),
-    tanstackStart({
-      router: {
-        routeTreeFileHeader: [],
-      },
-    }),
-    nitro(),
-    viteReact(),
-    ...(process.env.INSTRUMENT_COVERAGE === "true"
-      ? [
-          istanbul({
-            include: "src/**/*",
-            exclude: ["node_modules", "**/*.test.*", "**/*.spec.*"],
-            extension: [".ts", ".tsx"],
-            forceBuildInstrument: true,
-          }),
-          // Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
-          // so we instrument it here using the same istanbul-lib-instrument that it uses.
-          (() => {
-            return {
-              name: "istanbul-ssr",
-              enforce: "post" as const,
-              transform(code: string, id: string, options?: { ssr?: boolean }) {
-                if (!options?.ssr) return null;
-                if (
-                  id.includes("node_modules") ||
-                  id.includes(".test.") ||
-                  id.includes(".spec.") ||
-                  !/\/src\//.test(id)
-                ) {
-                  return null;
-                }
-                const instrumenter = createInstrumenter({
-                  coverageGlobalScopeFunc: false,
-                  coverageGlobalScope: "globalThis",
-                  preserveComments: true,
-                  produceSourceMap: true,
-                  autoWrap: true,
-                  esModules: true,
-                  compact: false,
-                });
-                const instrumented = instrumenter.instrumentSync(code, id);
-                return { code: instrumented, map: instrumenter.lastSourceMap() };
-              },
-            };
-          })(),
-        ]
-      : []),
-  ],
+				defaultHandler(warning);
+			},
+		},
+	},
+	ssr: {
+		external: ["sharp"],
+	},
+	server: {
+		port: Number(process.env.PORT) || 3000,
+		host: true, // bind to 0.0.0.0 so the dev server is reachable inside Docker
+		allowedHosts: ["allstarr", "host.docker.internal"],
+	},
+	plugins: [
+		tailwindcss(),
+		tanstackStart({
+			router: {
+				routeTreeFileHeader: [],
+			},
+		}),
+		nitro(),
+		viteReact(),
+		...(process.env.INSTRUMENT_COVERAGE === "true"
+			? [
+					istanbul({
+						include: "src/**/*",
+						exclude: ["node_modules", "**/*.test.*", "**/*.spec.*"],
+						extension: [".ts", ".tsx"],
+						forceBuildInstrument: true,
+					}),
+					// Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
+					// so we instrument it here using the same istanbul-lib-instrument that it uses.
+					(() => {
+						return {
+							name: "istanbul-ssr",
+							enforce: "post" as const,
+							transform(code: string, id: string, options?: { ssr?: boolean }) {
+								if (!options?.ssr) return null;
+								if (
+									id.includes("node_modules") ||
+									id.includes(".test.") ||
+									id.includes(".spec.") ||
+									!/\/src\//.test(id)
+								) {
+									return null;
+								}
+								const instrumenter = createInstrumenter({
+									coverageGlobalScopeFunc: false,
+									coverageGlobalScope: "globalThis",
+									preserveComments: true,
+									produceSourceMap: true,
+									autoWrap: true,
+									esModules: true,
+									compact: false,
+								});
+								const instrumented = instrumenter.instrumentSync(code, id);
+								return {
+									code: instrumented,
+									map: instrumenter.lastSourceMap(),
+								};
+							},
+						};
+					})(),
+				]
+			: []),
+	],
 });

@@ -1,576 +1,574 @@
-import { mkdirSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test, expect } from "../fixtures/app";
+import * as schema from "../../src/db/schema";
+import { expect, test } from "../fixtures/app";
+import {
+	seedAuthor,
+	seedBook,
+	seedDownloadClient,
+	seedDownloadProfile,
+	seedEdition,
+	seedSetting,
+	seedTrackedDownload,
+} from "../fixtures/seed-data";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
 import captureSSEEvents from "../helpers/sse";
 import { triggerScheduledTask } from "../helpers/tasks";
-import * as schema from "../../src/db/schema";
-import {
-  seedAuthor,
-  seedBook,
-  seedEdition,
-  seedDownloadClient,
-  seedDownloadProfile,
-  seedTrackedDownload,
-  seedSetting,
-} from "../fixtures/seed-data";
 import PORTS from "../ports";
 
 test.use({
-  fakeServerScenario: "download-lifecycle-default",
-  requiredServices: ["QBITTORRENT"],
+	fakeServerScenario: "download-lifecycle-default",
+	requiredServices: ["QBITTORRENT"],
 });
 
 async function setLifecycleTorrentState(
-  setFakeServiceState: (
-    serviceName: "QBITTORRENT",
-    stateName: string | null,
-    replacements?: Record<string, boolean | number | string>,
-  ) => Promise<void>,
-  stateName: string,
-  hash: string,
-  savePath: string,
+	setFakeServiceState: (
+		serviceName: "QBITTORRENT",
+		stateName: string | null,
+		replacements?: Record<string, boolean | number | string>,
+	) => Promise<void>,
+	stateName: string,
+	hash: string,
+	savePath: string,
 ): Promise<void> {
-  await setFakeServiceState("QBITTORRENT", stateName, {
-    HASH: hash,
-    SAVE_PATH: savePath,
-  });
+	await setFakeServiceState("QBITTORRENT", stateName, {
+		HASH: hash,
+		SAVE_PATH: savePath,
+	});
 }
 
 test.describe("Download Lifecycle", () => {
-  let bookId: number;
-  let authorId: number;
-  let profileId: number;
-  let clientId: number;
+	let bookId: number;
+	let authorId: number;
+	let profileId: number;
+	let clientId: number;
 
-  test.beforeEach(
-    async ({ page, appUrl, db, tempDir, checkpoint }) => {
-      await ensureAuthenticated(page, appUrl);
+	test.beforeEach(async ({ page, appUrl, db, tempDir, checkpoint }) => {
+		await ensureAuthenticated(page, appUrl);
 
-      // Clean up data from previous tests to prevent interference
-      db.delete(schema.trackedDownloads).run();
-      db.delete(schema.history).run();
-      db.delete(schema.bookFiles).run();
-      db.delete(schema.blocklist).run();
-      db.delete(schema.editionDownloadProfiles).run();
-      db.delete(schema.authorDownloadProfiles).run();
-      db.delete(schema.booksAuthors).run();
-      db.delete(schema.editions).run();
-      db.delete(schema.books).run();
-      db.delete(schema.authors).run();
-      db.delete(schema.downloadClients).run();
-      db.delete(schema.indexers).run();
-      db.delete(schema.syncedIndexers).run();
-      db.delete(schema.downloadProfiles).run();
+		// Clean up data from previous tests to prevent interference
+		db.delete(schema.trackedDownloads).run();
+		db.delete(schema.history).run();
+		db.delete(schema.bookFiles).run();
+		db.delete(schema.blocklist).run();
+		db.delete(schema.editionDownloadProfiles).run();
+		db.delete(schema.authorDownloadProfiles).run();
+		db.delete(schema.booksAuthors).run();
+		db.delete(schema.editions).run();
+		db.delete(schema.books).run();
+		db.delete(schema.authors).run();
+		db.delete(schema.downloadClients).run();
+		db.delete(schema.indexers).run();
+		db.delete(schema.syncedIndexers).run();
+		db.delete(schema.downloadProfiles).run();
 
-      // Use tempDir as root folder for real filesystem operations
-      const profile = seedDownloadProfile(db, {
-        name: "Lifecycle Profile",
-        rootFolderPath: tempDir,
-        cutoff: 1,
-        items: [[1], [2], [3], [4], [5]],
-        upgradeAllowed: false,
-        categories: [7020],
-      });
-      profileId = profile.id;
+		// Use tempDir as root folder for real filesystem operations
+		const profile = seedDownloadProfile(db, {
+			name: "Lifecycle Profile",
+			rootFolderPath: tempDir,
+			cutoff: 1,
+			items: [[1], [2], [3], [4], [5]],
+			upgradeAllowed: false,
+			categories: [7020],
+		});
+		profileId = profile.id;
 
-      const author = seedAuthor(db, { name: "Lifecycle Author" });
-      authorId = author.id;
+		const author = seedAuthor(db, { name: "Lifecycle Author" });
+		authorId = author.id;
 
-      const book = seedBook(db, authorId, {
-        title: "Lifecycle Book",
-        releaseYear: 2024,
-      });
-      bookId = book.id;
+		const book = seedBook(db, authorId, {
+			title: "Lifecycle Book",
+			releaseYear: 2024,
+		});
+		bookId = book.id;
 
-      const edition = seedEdition(db, bookId, {
-        title: "Lifecycle Book - EPUB",
-      });
+		const edition = seedEdition(db, bookId, {
+			title: "Lifecycle Book - EPUB",
+		});
 
-      // Assign profile to author and edition
-      db.insert(schema.authorDownloadProfiles)
-        .values({ authorId, downloadProfileId: profileId })
-        .run();
-      db.insert(schema.editionDownloadProfiles)
-        .values({ editionId: edition.id, downloadProfileId: profileId })
-        .run();
+		// Assign profile to author and edition
+		db.insert(schema.authorDownloadProfiles)
+			.values({ authorId, downloadProfileId: profileId })
+			.run();
+		db.insert(schema.editionDownloadProfiles)
+			.values({ editionId: edition.id, downloadProfileId: profileId })
+			.run();
 
-      // Seed download client
-      const client = seedDownloadClient(db, {
-        name: "Lifecycle qBittorrent",
-        implementation: "qBittorrent",
-        protocol: "torrent",
-        port: PORTS.QBITTORRENT,
-        removeCompletedDownloads: true,
-      });
-      clientId = client.id;
+		// Seed download client
+		const client = seedDownloadClient(db, {
+			name: "Lifecycle qBittorrent",
+			implementation: "qBittorrent",
+			protocol: "torrent",
+			port: PORTS.QBITTORRENT,
+			removeCompletedDownloads: true,
+		});
+		clientId = client.id;
 
-      // Checkpoint WAL so bun:sqlite in the app server sees seeded data
-      checkpoint();
-    },
-  );
+		// Checkpoint WAL so bun:sqlite in the app server sees seeded data
+		checkpoint();
+	});
 
-  test("download progresses from queued to downloading", async ({
-    page,
-    appUrl,
-    db,
-    setFakeServiceState,
-  }) => {
-    // Seed a tracked download in "queued" state
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-1",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+	test("download progresses from queued to downloading", async ({
+		page,
+		appUrl,
+		db,
+		setFakeServiceState,
+	}) => {
+		// Seed a tracked download in "queued" state
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-1",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-downloading-book",
-      "lifecycle-hash-1",
-      "/downloads",
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-downloading-book",
+			"lifecycle-hash-1",
+			"/downloads",
+		);
 
-    // Trigger the refresh-downloads task
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		// Trigger the refresh-downloads task
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify the tracked download state was updated to "downloading"
-    const tracked = db.select().from(schema.trackedDownloads).all();
-    const download = tracked.find((t) => t.downloadId === "lifecycle-hash-1");
-    expect(download).toBeTruthy();
-    expect(download!.state).toBe("downloading");
-  });
+		// Verify the tracked download state was updated to "downloading"
+		const tracked = db.select().from(schema.trackedDownloads).all();
+		const download = tracked.find((t) => t.downloadId === "lifecycle-hash-1");
+		expect(download).toBeTruthy();
+		expect(download!.state).toBe("downloading");
+	});
 
-  test("download completes and triggers import", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    // Create a fake completed download directory with a book file
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(join(downloadDir, "book.epub"), "dummy epub content");
+	test("download completes and triggers import", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		// Create a fake completed download directory with a book file
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "dummy epub content");
 
-    // Seed a tracked download in "queued" state
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-2",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		// Seed a tracked download in "queued" state
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-2",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book-removing",
-      "lifecycle-hash-2",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book-removing",
+			"lifecycle-hash-2",
+			downloadDir,
+		);
 
-    // Trigger refresh-downloads
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		// Trigger refresh-downloads
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify tracked download reached "imported" state
-    await expect(async () => {
-      const tracked = db.select().from(schema.trackedDownloads).all();
-      const dl = tracked.find((t) => t.downloadId === "lifecycle-hash-2");
-      expect(dl).toBeTruthy();
-      // State should be completed, importPending, or imported
-      expect(["completed", "importPending", "imported"]).toContain(dl!.state);
-    }).toPass({ timeout: 10_000 });
-  });
+		// Verify tracked download reached "imported" state
+		await expect(async () => {
+			const tracked = db.select().from(schema.trackedDownloads).all();
+			const dl = tracked.find((t) => t.downloadId === "lifecycle-hash-2");
+			expect(dl).toBeTruthy();
+			// State should be completed, importPending, or imported
+			expect(["completed", "importPending", "imported"]).toContain(dl!.state);
+		}).toPass({ timeout: 10_000 });
+	});
 
-  test("file imported to library creates bookFiles entry", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(
-      join(downloadDir, "book.epub"),
-      "dummy epub content for import",
-    );
+	test("file imported to library creates bookFiles entry", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(
+			join(downloadDir, "book.epub"),
+			"dummy epub content for import",
+		);
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-3",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-3",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-3",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-3",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify bookFiles entry was created
-    await expect(async () => {
-      const files = db.select().from(schema.bookFiles).all();
-      expect(files.length).toBeGreaterThanOrEqual(1);
-      expect(files[0].bookId).toBe(bookId);
-      // Verify the file was placed in the root folder (tempDir)
-      expect(files[0].path).toContain(tempDir);
-    }).toPass({ timeout: 10_000 });
+		// Verify bookFiles entry was created
+		await expect(async () => {
+			const files = db.select().from(schema.bookFiles).all();
+			expect(files.length).toBeGreaterThanOrEqual(1);
+			expect(files[0].bookId).toBe(bookId);
+			// Verify the file was placed in the root folder (tempDir)
+			expect(files[0].path).toContain(tempDir);
+		}).toPass({ timeout: 10_000 });
 
-    // Verify the file actually exists on disk
-    const files = db.select().from(schema.bookFiles).all();
-    expect(files.length).toBeGreaterThanOrEqual(1);
-    expect(existsSync(files[0].path)).toBe(true);
-  });
+		// Verify the file actually exists on disk
+		const files = db.select().from(schema.bookFiles).all();
+		expect(files.length).toBeGreaterThanOrEqual(1);
+		expect(existsSync(files[0].path)).toBe(true);
+	});
 
-  test("history records lifecycle events", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(join(downloadDir, "book.epub"), "dummy content for history");
+	test("history records lifecycle events", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "dummy content for history");
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-4",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-4",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-4",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-4",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify history entries were created
-    await expect(async () => {
-      const historyEntries = db.select().from(schema.history).all();
-      const importEntry = historyEntries.find(
-        (h) => h.eventType === "bookImported",
-      );
-      expect(importEntry).toBeTruthy();
-      expect(importEntry!.bookId).toBe(bookId);
-    }).toPass({ timeout: 10_000 });
-  });
+		// Verify history entries were created
+		await expect(async () => {
+			const historyEntries = db.select().from(schema.history).all();
+			const importEntry = historyEntries.find(
+				(h) => h.eventType === "bookImported",
+			);
+			expect(importEntry).toBeTruthy();
+			expect(importEntry!.bookId).toBe(bookId);
+		}).toPass({ timeout: 10_000 });
+	});
 
-  test("SSE events fire during lifecycle", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(join(downloadDir, "book.epub"), "dummy content for sse");
+	test("SSE events fire during lifecycle", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "dummy content for sse");
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-5",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-5",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-5",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-5",
+			downloadDir,
+		);
 
-    // Navigate to the tasks page first, then capture SSE events while clicking
-    // Run — this avoids navigating away (which destroys the EventSource context).
-    await navigateTo(page, appUrl, "/system/tasks");
-    const taskRow = page
-      .getByRole("row")
-      .filter({ hasText: "Refresh Downloads" });
-    await expect(taskRow).toBeVisible({ timeout: 10_000 });
+		// Navigate to the tasks page first, then capture SSE events while clicking
+		// Run — this avoids navigating away (which destroys the EventSource context).
+		await navigateTo(page, appUrl, "/system/tasks");
+		const taskRow = page
+			.getByRole("row")
+			.filter({ hasText: "Refresh Downloads" });
+		await expect(taskRow).toBeVisible({ timeout: 10_000 });
 
-    const events = await captureSSEEvents(
-      page,
-      appUrl,
-      ["queueUpdated", "queueProgress", "downloadCompleted", "importCompleted"],
-      async () => {
-        await taskRow.getByRole("button").last().click();
-        // Wait for task to complete without navigating
-        await expect(async () => {
-          const isRunning = await taskRow.getByText("Running").isVisible();
-          expect(isRunning).toBe(false);
-        }).toPass({ timeout: 30_000 });
-      },
-      {
-        timeoutMs: 10_000,
-        until: (events) => events.length > 0,
-      },
-    );
+		const events = await captureSSEEvents(
+			page,
+			appUrl,
+			["queueUpdated", "queueProgress", "downloadCompleted", "importCompleted"],
+			async () => {
+				await taskRow.getByRole("button").last().click();
+				// Wait for task to complete without navigating
+				await expect(async () => {
+					const isRunning = await taskRow.getByText("Running").isVisible();
+					expect(isRunning).toBe(false);
+				}).toPass({ timeout: 30_000 });
+			},
+			{
+				timeoutMs: 10_000,
+				until: (events) => events.length > 0,
+			},
+		);
 
-    // Should have received at least one event (queueUpdated or queueProgress)
-    expect(events.length).toBeGreaterThanOrEqual(1);
-  });
+		// Should have received at least one event (queueUpdated or queueProgress)
+		expect(events.length).toBeGreaterThanOrEqual(1);
+	});
 
-  test("completed download removed from client when setting enabled", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    fakeServers,
-    setFakeServiceState,
-  }) => {
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(join(downloadDir, "book.epub"), "dummy content for removal");
+	test("completed download removed from client when setting enabled", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		fakeServers,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "dummy content for removal");
 
-    // The client has removeCompletedDownloads: true (set in beforeEach)
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-6",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		// The client has removeCompletedDownloads: true (set in beforeEach)
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-6",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-6",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-6",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Wait for the import + removal to complete
-    await expect(async () => {
-      const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
-        (r) => r.json(),
-      );
-      // The client should have received a delete command for the completed download
-      expect(qbState.removedIds.length).toBeGreaterThanOrEqual(1);
-      expect(qbState.removedIds).toContain("lifecycle-hash-6");
-    }).toPass({ timeout: 15_000 });
-  });
+		// Wait for the import + removal to complete
+		await expect(async () => {
+			const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+				(r) => r.json(),
+			);
+			// The client should have received a delete command for the completed download
+			expect(qbState.removedIds.length).toBeGreaterThanOrEqual(1);
+			expect(qbState.removedIds).toContain("lifecycle-hash-6");
+		}).toPass({ timeout: 15_000 });
+	});
 
-  test("naming template applied to imported files", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    // Enable rename books and set custom naming template
-    seedSetting(db, "mediaManagement.ebook.renameBooks", true);
-    seedSetting(
-      db,
-      "naming.ebook.bookFile",
-      "{Author Name} - {Book Title} ({Release Year})",
-    );
+	test("naming template applied to imported files", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		// Enable rename books and set custom naming template
+		seedSetting(db, "mediaManagement.ebook.renameBooks", true);
+		seedSetting(
+			db,
+			"naming.ebook.bookFile",
+			"{Author Name} - {Book Title} ({Release Year})",
+		);
 
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    writeFileSync(join(downloadDir, "book.epub"), "dummy content for naming");
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "dummy content for naming");
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-7",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-7",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-7",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-7",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify the file was renamed according to the template
-    await expect(async () => {
-      const files = db.select().from(schema.bookFiles).all();
-      expect(files.length).toBeGreaterThanOrEqual(1);
-      // The file path should contain the naming template pattern
-      const filePath = files[0].path;
-      expect(filePath).toContain("Lifecycle Author");
-      expect(filePath).toContain("Lifecycle Book");
-      expect(filePath).toContain("2024");
-    }).toPass({ timeout: 10_000 });
-  });
+		// Verify the file was renamed according to the template
+		await expect(async () => {
+			const files = db.select().from(schema.bookFiles).all();
+			expect(files.length).toBeGreaterThanOrEqual(1);
+			// The file path should contain the naming template pattern
+			const filePath = files[0].path;
+			expect(filePath).toContain("Lifecycle Author");
+			expect(filePath).toContain("Lifecycle Book");
+			expect(filePath).toContain("2024");
+		}).toPass({ timeout: 10_000 });
+	});
 
-  test("hard links vs copy behavior", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    // Enable hard links
-    seedSetting(db, "mediaManagement.ebook.useHardLinks", true);
+	test("hard links vs copy behavior", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		// Enable hard links
+		seedSetting(db, "mediaManagement.ebook.useHardLinks", true);
 
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [EPUB]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
-    const sourceFile = join(downloadDir, "book.epub");
-    writeFileSync(sourceFile, "dummy content for hardlink test");
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [EPUB]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
+		const sourceFile = join(downloadDir, "book.epub");
+		writeFileSync(sourceFile, "dummy content for hardlink test");
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-8",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-8",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-book",
-      "lifecycle-hash-8",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"lifecycle-hash-8",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify the file was imported
-    await expect(async () => {
-      const files = db.select().from(schema.bookFiles).all();
-      expect(files.length).toBeGreaterThanOrEqual(1);
-    }).toPass({ timeout: 10_000 });
+		// Verify the file was imported
+		await expect(async () => {
+			const files = db.select().from(schema.bookFiles).all();
+			expect(files.length).toBeGreaterThanOrEqual(1);
+		}).toPass({ timeout: 10_000 });
 
-    // Check if hard link was used (same inode) on the same filesystem
-    const files = db.select().from(schema.bookFiles).all();
-    expect(files.length).toBeGreaterThanOrEqual(1);
-    expect(existsSync(files[0].path)).toBe(true);
-    expect(existsSync(sourceFile)).toBe(true);
-    const sourceIno = statSync(sourceFile).ino;
-    const destIno = statSync(files[0].path).ino;
-    // On the same filesystem, hard links share the same inode
-    expect(destIno).toBe(sourceIno);
-  });
+		// Check if hard link was used (same inode) on the same filesystem
+		const files = db.select().from(schema.bookFiles).all();
+		expect(files.length).toBeGreaterThanOrEqual(1);
+		expect(existsSync(files[0].path)).toBe(true);
+		expect(existsSync(sourceFile)).toBe(true);
+		const sourceIno = statSync(sourceFile).ino;
+		const destIno = statSync(files[0].path).ino;
+		// On the same filesystem, hard links share the same inode
+		expect(destIno).toBe(sourceIno);
+	});
 
-  test("multi-file audiobook import assigns part numbers", async ({
-    page,
-    appUrl,
-    db,
-    tempDir,
-    setFakeServiceState,
-  }) => {
-    const downloadDir = join(
-      tempDir,
-      "downloads",
-      "Lifecycle Author - Lifecycle Book [MP3]",
-    );
-    mkdirSync(downloadDir, { recursive: true });
+	test("multi-file audiobook import assigns part numbers", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(
+			tempDir,
+			"downloads",
+			"Lifecycle Author - Lifecycle Book [MP3]",
+		);
+		mkdirSync(downloadDir, { recursive: true });
 
-    // Create 3 chapter files
-    writeFileSync(join(downloadDir, "Chapter 01.mp3"), "audio chapter 1");
-    writeFileSync(join(downloadDir, "Chapter 02.mp3"), "audio chapter 2");
-    writeFileSync(join(downloadDir, "Chapter 03.mp3"), "audio chapter 3");
+		// Create 3 chapter files
+		writeFileSync(join(downloadDir, "Chapter 01.mp3"), "audio chapter 1");
+		writeFileSync(join(downloadDir, "Chapter 02.mp3"), "audio chapter 2");
+		writeFileSync(join(downloadDir, "Chapter 03.mp3"), "audio chapter 3");
 
-    seedTrackedDownload(db, {
-      downloadClientId: clientId,
-      downloadId: "lifecycle-hash-audiobook",
-      releaseTitle: "Lifecycle Author - Lifecycle Book [MP3]",
-      protocol: "torrent",
-      state: "queued",
-      bookId,
-      authorId,
-      downloadProfileId: profileId,
-    });
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "lifecycle-hash-audiobook",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [MP3]",
+			protocol: "torrent",
+			state: "queued",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+		});
 
-    await setLifecycleTorrentState(
-      setFakeServiceState,
-      "single-completed-audiobook",
-      "lifecycle-hash-audiobook",
-      downloadDir,
-    );
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-audiobook",
+			"lifecycle-hash-audiobook",
+			downloadDir,
+		);
 
-    await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
 
-    // Verify all 3 files were imported with correct part numbers
-    await expect(async () => {
-      const files = db
-        .select()
-        .from(schema.bookFiles)
-        .all()
-        .filter((f) => f.path.endsWith(".mp3"));
-      expect(files.length).toBe(3);
+		// Verify all 3 files were imported with correct part numbers
+		await expect(async () => {
+			const files = db
+				.select()
+				.from(schema.bookFiles)
+				.all()
+				.filter((f) => f.path.endsWith(".mp3"));
+			expect(files.length).toBe(3);
 
-      // Sort by part number for predictable assertions
-      const sorted = files.toSorted((a, b) => a.part! - b.part!);
-      expect(sorted[0].part).toBe(1);
-      expect(sorted[0].partCount).toBe(3);
-      expect(sorted[1].part).toBe(2);
-      expect(sorted[1].partCount).toBe(3);
-      expect(sorted[2].part).toBe(3);
-      expect(sorted[2].partCount).toBe(3);
-    }).toPass({ timeout: 10_000 });
-  });
+			// Sort by part number for predictable assertions
+			const sorted = files.toSorted((a, b) => a.part! - b.part!);
+			expect(sorted[0].part).toBe(1);
+			expect(sorted[0].partCount).toBe(3);
+			expect(sorted[1].part).toBe(2);
+			expect(sorted[1].partCount).toBe(3);
+			expect(sorted[2].part).toBe(3);
+			expect(sorted[2].partCount).toBe(3);
+		}).toPass({ timeout: 10_000 });
+	});
 });

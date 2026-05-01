@@ -1,18 +1,18 @@
 {
-  "body": [
-    {
-      "path": "/data/capture/library/tv",
-      "accessible": true,
-      "freeSpace": 212277547008,
-      "unmappedFolders": [],
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v3/rootfolder",
-  "status": 200
+	"body": [
+		{
+			"path": "/data/capture/library/tv",
+			"accessible": true,
+			"freeSpace": 212277547008,
+			"unmappedFolders": [],
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v3/rootfolder",
+	"status": 200
 }

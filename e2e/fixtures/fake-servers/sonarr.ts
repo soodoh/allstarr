@@ -2,8 +2,8 @@ import type { IncomingMessage } from "node:http";
 import { createFakeServer, type FakeServer, type HandlerResult } from "./base";
 import {
 	buildCapturedPathKey,
-	getCapturedResponse,
 	type CapturedReplayState,
+	getCapturedResponse,
 } from "./captured";
 
 type State = CapturedReplayState & {
@@ -26,7 +26,9 @@ function defaultState(seed?: Partial<State>): State {
 	return {
 		apiKey: "sonarr-key",
 		blocklist: [{ id: 301, title: "Rejected release" }],
-		downloadClients: [{ id: 1, name: "qBittorrent", implementation: "qBittorrent" }],
+		downloadClients: [
+			{ id: 1, name: "qBittorrent", implementation: "qBittorrent" },
+		],
 		episodes: [
 			{
 				id: 201,

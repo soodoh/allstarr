@@ -1,17 +1,17 @@
 {
-  "body": [
-    {
-      "source": "UpdateCheck",
-      "type": "warning",
-      "message": "New update is available: v2.3.5.5327",
-      "wikiUrl": "https://wiki.servarr.com/prowlarr/system#new-update-is-available"
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/health",
-  "status": 200
+	"body": [
+		{
+			"source": "UpdateCheck",
+			"type": "warning",
+			"message": "New update is available: v2.3.5.5327",
+			"wikiUrl": "https://wiki.servarr.com/prowlarr/system#new-update-is-available"
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/health",
+	"status": 200
 }

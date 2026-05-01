@@ -1,9 +1,7 @@
 import type { Page } from "@playwright/test";
 import { and, eq, inArray } from "drizzle-orm";
-import { test, expect } from "../fixtures/app";
-import { ensureAuthenticated } from "../helpers/auth";
-import navigateTo from "../helpers/navigation";
 import * as schema from "../../src/db/schema";
+import { expect, test } from "../fixtures/app";
 import {
 	seedAuthor,
 	seedBook,
@@ -12,6 +10,8 @@ import {
 	seedEdition,
 	seedIndexer,
 } from "../fixtures/seed-data";
+import { ensureAuthenticated } from "../helpers/auth";
+import navigateTo from "../helpers/navigation";
 import PORTS from "../ports";
 
 test.use({
@@ -193,8 +193,8 @@ test.describe("Monitor discovery", () => {
 
 		await triggerTask(page, appUrl, "RSS Sync");
 
-		const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then((r) =>
-			r.json(),
+		const qbState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+			(r) => r.json(),
 		);
 		expect(qbState.addedDownloads).toHaveLength(1);
 
@@ -269,16 +269,17 @@ test.describe("Monitor discovery", () => {
 		await navigateTo(page, appUrl, "/series");
 		await page.getByRole("button", { name: "Refresh All" }).click();
 
-	await expect
-			.poll(() =>
-				db
-					.select({
-						id: schema.books.id,
-						title: schema.books.title,
-					})
-					.from(schema.books)
-					.where(eq(schema.books.foreignBookId, "211"))
-					.get() ?? null,
+		await expect
+			.poll(
+				() =>
+					db
+						.select({
+							id: schema.books.id,
+							title: schema.books.title,
+						})
+						.from(schema.books)
+						.where(eq(schema.books.foreignBookId, "211"))
+						.get() ?? null,
 			)
 			.toEqual(
 				expect.objectContaining({
@@ -286,7 +287,7 @@ test.describe("Monitor discovery", () => {
 				}),
 			);
 
-	const newBook = db
+		const newBook = db
 			.select({ id: schema.books.id })
 			.from(schema.books)
 			.where(eq(schema.books.foreignBookId, "211"))
@@ -379,16 +380,17 @@ test.describe("Monitor discovery", () => {
 		await navigateTo(page, appUrl, "/movies/collections");
 		await page.getByRole("button", { name: "Refresh All" }).click();
 
-	await expect
-			.poll(() =>
-				db
-					.select({
-						id: schema.movies.id,
-						title: schema.movies.title,
-					})
-					.from(schema.movies)
-					.where(eq(schema.movies.tmdbId, 5502))
-					.get() ?? null,
+		await expect
+			.poll(
+				() =>
+					db
+						.select({
+							id: schema.movies.id,
+							title: schema.movies.title,
+						})
+						.from(schema.movies)
+						.where(eq(schema.movies.tmdbId, 5502))
+						.get() ?? null,
 			)
 			.toEqual(
 				expect.objectContaining({
@@ -479,21 +481,25 @@ test.describe("Monitor discovery", () => {
 
 		await triggerTask(page, appUrl, "Refresh TMDB Metadata");
 
-	await expect
-			.poll(() =>
-				db
-					.select({ id: schema.episodes.id })
-					.from(schema.episodes)
-					.where(eq(schema.episodes.showId, show.id))
-					.all().length,
+		await expect
+			.poll(
+				() =>
+					db
+						.select({ id: schema.episodes.id })
+						.from(schema.episodes)
+						.where(eq(schema.episodes.showId, show.id))
+						.all().length,
 			)
 			.toBe(3);
 
-	const seasonTwo = db
+		const seasonTwo = db
 			.select({ id: schema.seasons.id })
 			.from(schema.seasons)
 			.where(
-				and(eq(schema.seasons.showId, show.id), eq(schema.seasons.seasonNumber, 2)),
+				and(
+					eq(schema.seasons.showId, show.id),
+					eq(schema.seasons.seasonNumber, 2),
+				),
 			)
 			.get();
 		expect(seasonTwo).toBeTruthy();

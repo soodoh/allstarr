@@ -1,231 +1,225 @@
 {
-  "body": [
-    {
-      "title": "The Office (US)",
-      "alternateTitles": [
-        {
-          "title": "The Office",
-          "seasonNumber": -1
-        },
-        {
-          "title": "The Office US",
-          "seasonNumber": -1
-        }
-      ],
-      "sortTitle": "office us",
-      "status": "ended",
-      "ended": true,
-      "overview": "A mockumentary on a group of typical office workers, where the workday consists of ego clashes, inappropriate behavior, and tedium.",
-      "previousAiring": "2013-05-16T04:00:00Z",
-      "network": "NBC",
-      "images": [
-        {
-          "coverType": "banner",
-          "url": "/MediaCover/1/banner.jpg?lastWrite=639125702730427616",
-          "remoteUrl": "https://artworks.thetvdb.com/banners/graphical/73244-g9.jpg"
-        },
-        {
-          "coverType": "poster",
-          "url": "/MediaCover/1/poster.jpg?lastWrite=639125702731247619",
-          "remoteUrl": "https://artworks.thetvdb.com/banners/posters/73244-1.jpg"
-        },
-        {
-          "coverType": "fanart",
-          "url": "/MediaCover/1/fanart.jpg?lastWrite=639125702732067622",
-          "remoteUrl": "https://artworks.thetvdb.com/banners/fanart/original/73244-32.jpg"
-        },
-        {
-          "coverType": "clearlogo",
-          "url": "/MediaCover/1/clearlogo.png?lastWrite=639125702732787624",
-          "remoteUrl": "https://artworks.thetvdb.com/banners/v4/series/73244/clearlogo/611b53bd4138e.png"
-        }
-      ],
-      "originalLanguage": {
-        "id": 1,
-        "name": "English"
-      },
-      "seasons": [
-        {
-          "seasonNumber": 0,
-          "monitored": false,
-          "statistics": {
-            "episodeFileCount": 0,
-            "episodeCount": 0,
-            "totalEpisodeCount": 21,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 1,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2005-04-26T04:00:00Z",
-            "episodeFileCount": 1,
-            "episodeCount": 6,
-            "totalEpisodeCount": 6,
-            "sizeOnDisk": 2812,
-            "releaseGroups": [
-              "GRP"
-            ],
-            "percentOfEpisodes": 16.666666666666668
-          }
-        },
-        {
-          "seasonNumber": 2,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2006-05-11T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 22,
-            "totalEpisodeCount": 22,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 3,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2007-05-17T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 23,
-            "totalEpisodeCount": 23,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 4,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2008-05-15T04:24:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 19,
-            "totalEpisodeCount": 19,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 5,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2009-05-14T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 26,
-            "totalEpisodeCount": 26,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 6,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2010-05-20T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 26,
-            "totalEpisodeCount": 26,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 7,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2011-05-19T04:24:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 26,
-            "totalEpisodeCount": 26,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 8,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2012-05-10T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 24,
-            "totalEpisodeCount": 24,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        },
-        {
-          "seasonNumber": 9,
-          "monitored": true,
-          "statistics": {
-            "previousAiring": "2013-05-16T04:00:00Z",
-            "episodeFileCount": 0,
-            "episodeCount": 23,
-            "totalEpisodeCount": 23,
-            "sizeOnDisk": 0,
-            "releaseGroups": [],
-            "percentOfEpisodes": 0
-          }
-        }
-      ],
-      "year": 2005,
-      "path": "/data/capture/library/tv/The Office (US)",
-      "qualityProfileId": 4,
-      "seasonFolder": true,
-      "monitored": true,
-      "monitorNewItems": "all",
-      "useSceneNumbering": false,
-      "runtime": 24,
-      "tvdbId": 73244,
-      "tvRageId": 6061,
-      "tvMazeId": 526,
-      "tmdbId": 2316,
-      "firstAired": "2005-03-24T00:00:00Z",
-      "lastAired": "2013-05-16T00:00:00Z",
-      "seriesType": "standard",
-      "cleanTitle": "theofficeus",
-      "imdbId": "tt0386676",
-      "titleSlug": "the-office-us",
-      "rootFolderPath": "/data/capture/library/tv",
-      "certification": "TV-14",
-      "genres": [
-        "Comedy"
-      ],
-      "tags": [],
-      "added": "2026-04-23T19:44:32Z",
-      "ratings": {
-        "votes": 829341,
-        "value": 9
-      },
-      "statistics": {
-        "seasonCount": 9,
-        "episodeFileCount": 1,
-        "episodeCount": 195,
-        "totalEpisodeCount": 216,
-        "sizeOnDisk": 2812,
-        "releaseGroups": [
-          "GRP"
-        ],
-        "percentOfEpisodes": 0.5128205128205128
-      },
-      "languageProfileId": 1,
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v3/series",
-  "status": 200
+	"body": [
+		{
+			"title": "The Office (US)",
+			"alternateTitles": [
+				{
+					"title": "The Office",
+					"seasonNumber": -1
+				},
+				{
+					"title": "The Office US",
+					"seasonNumber": -1
+				}
+			],
+			"sortTitle": "office us",
+			"status": "ended",
+			"ended": true,
+			"overview": "A mockumentary on a group of typical office workers, where the workday consists of ego clashes, inappropriate behavior, and tedium.",
+			"previousAiring": "2013-05-16T04:00:00Z",
+			"network": "NBC",
+			"images": [
+				{
+					"coverType": "banner",
+					"url": "/MediaCover/1/banner.jpg?lastWrite=639125702730427616",
+					"remoteUrl": "https://artworks.thetvdb.com/banners/graphical/73244-g9.jpg"
+				},
+				{
+					"coverType": "poster",
+					"url": "/MediaCover/1/poster.jpg?lastWrite=639125702731247619",
+					"remoteUrl": "https://artworks.thetvdb.com/banners/posters/73244-1.jpg"
+				},
+				{
+					"coverType": "fanart",
+					"url": "/MediaCover/1/fanart.jpg?lastWrite=639125702732067622",
+					"remoteUrl": "https://artworks.thetvdb.com/banners/fanart/original/73244-32.jpg"
+				},
+				{
+					"coverType": "clearlogo",
+					"url": "/MediaCover/1/clearlogo.png?lastWrite=639125702732787624",
+					"remoteUrl": "https://artworks.thetvdb.com/banners/v4/series/73244/clearlogo/611b53bd4138e.png"
+				}
+			],
+			"originalLanguage": {
+				"id": 1,
+				"name": "English"
+			},
+			"seasons": [
+				{
+					"seasonNumber": 0,
+					"monitored": false,
+					"statistics": {
+						"episodeFileCount": 0,
+						"episodeCount": 0,
+						"totalEpisodeCount": 21,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 1,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2005-04-26T04:00:00Z",
+						"episodeFileCount": 1,
+						"episodeCount": 6,
+						"totalEpisodeCount": 6,
+						"sizeOnDisk": 2812,
+						"releaseGroups": ["GRP"],
+						"percentOfEpisodes": 16.666666666666668
+					}
+				},
+				{
+					"seasonNumber": 2,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2006-05-11T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 22,
+						"totalEpisodeCount": 22,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 3,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2007-05-17T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 23,
+						"totalEpisodeCount": 23,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 4,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2008-05-15T04:24:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 19,
+						"totalEpisodeCount": 19,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 5,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2009-05-14T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 26,
+						"totalEpisodeCount": 26,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 6,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2010-05-20T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 26,
+						"totalEpisodeCount": 26,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 7,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2011-05-19T04:24:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 26,
+						"totalEpisodeCount": 26,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 8,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2012-05-10T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 24,
+						"totalEpisodeCount": 24,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				},
+				{
+					"seasonNumber": 9,
+					"monitored": true,
+					"statistics": {
+						"previousAiring": "2013-05-16T04:00:00Z",
+						"episodeFileCount": 0,
+						"episodeCount": 23,
+						"totalEpisodeCount": 23,
+						"sizeOnDisk": 0,
+						"releaseGroups": [],
+						"percentOfEpisodes": 0
+					}
+				}
+			],
+			"year": 2005,
+			"path": "/data/capture/library/tv/The Office (US)",
+			"qualityProfileId": 4,
+			"seasonFolder": true,
+			"monitored": true,
+			"monitorNewItems": "all",
+			"useSceneNumbering": false,
+			"runtime": 24,
+			"tvdbId": 73244,
+			"tvRageId": 6061,
+			"tvMazeId": 526,
+			"tmdbId": 2316,
+			"firstAired": "2005-03-24T00:00:00Z",
+			"lastAired": "2013-05-16T00:00:00Z",
+			"seriesType": "standard",
+			"cleanTitle": "theofficeus",
+			"imdbId": "tt0386676",
+			"titleSlug": "the-office-us",
+			"rootFolderPath": "/data/capture/library/tv",
+			"certification": "TV-14",
+			"genres": ["Comedy"],
+			"tags": [],
+			"added": "2026-04-23T19:44:32Z",
+			"ratings": {
+				"votes": 829341,
+				"value": 9
+			},
+			"statistics": {
+				"seasonCount": 9,
+				"episodeFileCount": 1,
+				"episodeCount": 195,
+				"totalEpisodeCount": 216,
+				"sizeOnDisk": 2812,
+				"releaseGroups": ["GRP"],
+				"percentOfEpisodes": 0.5128205128205128
+			},
+			"languageProfileId": 1,
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v3/series",
+	"status": 200
 }

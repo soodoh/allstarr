@@ -1,139 +1,137 @@
 {
-  "body": [
-    {
-      "enableRss": true,
-      "enableAutomaticSearch": true,
-      "enableInteractiveSearch": true,
-      "supportsRss": true,
-      "supportsSearch": true,
-      "protocol": "torrent",
-      "priority": 25,
-      "downloadClientId": 0,
-      "name": "Nyaa.si (Prowlarr)",
-      "fields": [
-        {
-          "order": 0,
-          "name": "baseUrl",
-          "label": "URL",
-          "value": "http://prowlarr-capture:9696/1/",
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 1,
-          "name": "apiPath",
-          "label": "API Path",
-          "helpText": "Path to the api, usually /api",
-          "value": "/api",
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 2,
-          "name": "apiKey",
-          "label": "API Key",
-          "value": "<redacted>",
-          "type": "textbox",
-          "advanced": false,
-          "isFloat": false
-        },
-        {
-          "order": 3,
-          "name": "categories",
-          "label": "Categories",
-          "helpText": "Drop down list; at least one category must be selected.",
-          "value": [
-            7000
-          ],
-          "type": "select",
-          "advanced": false,
-          "selectOptionsProviderAction": "newznabCategories",
-          "isFloat": false
-        },
-        {
-          "order": 4,
-          "name": "earlyReleaseLimit",
-          "label": "Early Download Limit",
-          "unit": "days",
-          "helpText": "Time before release date Readarr will download from this indexer, empty is no limit",
-          "type": "number",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 5,
-          "name": "additionalParameters",
-          "label": "Additional Parameters",
-          "helpText": "Additional Newznab parameters",
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 6,
-          "name": "minimumSeeders",
-          "label": "Minimum Seeders",
-          "helpText": "Minimum number of seeders required.",
-          "value": 1,
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 7,
-          "name": "seedCriteria.seedRatio",
-          "label": "Seed Ratio",
-          "helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
-          "type": "number",
-          "advanced": false,
-          "isFloat": true
-        },
-        {
-          "order": 8,
-          "name": "seedCriteria.seedTime",
-          "label": "Seed Time",
-          "unit": "minutes",
-          "helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
-          "type": "number",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 9,
-          "name": "seedCriteria.discographySeedTime",
-          "label": "Discography Seed Time",
-          "unit": "minutes",
-          "helpText": "The time a torrent should be seeded before stopping, empty is download client's default",
-          "type": "textbox",
-          "advanced": true,
-          "isFloat": false
-        },
-        {
-          "order": 10,
-          "name": "rejectBlocklistedTorrentHashesWhileGrabbing",
-          "label": "Reject Blocklisted Torrent Hashes While Grabbing",
-          "helpText": "If a torrent is blocked by hash it may not properly be rejected during RSS/Search for some indexers, enabling this will allow it to be rejected after the torrent is grabbed, but before it is sent to the client.",
-          "value": false,
-          "type": "checkbox",
-          "advanced": true,
-          "isFloat": false
-        }
-      ],
-      "implementationName": "Torznab",
-      "implementation": "Torznab",
-      "configContract": "TorznabSettings",
-      "infoLink": "https://wiki.servarr.com/readarr/supported#torznab",
-      "tags": [],
-      "id": 1
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/indexer",
-  "status": 200
+	"body": [
+		{
+			"enableRss": true,
+			"enableAutomaticSearch": true,
+			"enableInteractiveSearch": true,
+			"supportsRss": true,
+			"supportsSearch": true,
+			"protocol": "torrent",
+			"priority": 25,
+			"downloadClientId": 0,
+			"name": "Nyaa.si (Prowlarr)",
+			"fields": [
+				{
+					"order": 0,
+					"name": "baseUrl",
+					"label": "URL",
+					"value": "http://prowlarr-capture:9696/1/",
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 1,
+					"name": "apiPath",
+					"label": "API Path",
+					"helpText": "Path to the api, usually /api",
+					"value": "/api",
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 2,
+					"name": "apiKey",
+					"label": "API Key",
+					"value": "<redacted>",
+					"type": "textbox",
+					"advanced": false,
+					"isFloat": false
+				},
+				{
+					"order": 3,
+					"name": "categories",
+					"label": "Categories",
+					"helpText": "Drop down list; at least one category must be selected.",
+					"value": [7000],
+					"type": "select",
+					"advanced": false,
+					"selectOptionsProviderAction": "newznabCategories",
+					"isFloat": false
+				},
+				{
+					"order": 4,
+					"name": "earlyReleaseLimit",
+					"label": "Early Download Limit",
+					"unit": "days",
+					"helpText": "Time before release date Readarr will download from this indexer, empty is no limit",
+					"type": "number",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 5,
+					"name": "additionalParameters",
+					"label": "Additional Parameters",
+					"helpText": "Additional Newznab parameters",
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 6,
+					"name": "minimumSeeders",
+					"label": "Minimum Seeders",
+					"helpText": "Minimum number of seeders required.",
+					"value": 1,
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 7,
+					"name": "seedCriteria.seedRatio",
+					"label": "Seed Ratio",
+					"helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
+					"type": "number",
+					"advanced": false,
+					"isFloat": true
+				},
+				{
+					"order": 8,
+					"name": "seedCriteria.seedTime",
+					"label": "Seed Time",
+					"unit": "minutes",
+					"helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
+					"type": "number",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 9,
+					"name": "seedCriteria.discographySeedTime",
+					"label": "Discography Seed Time",
+					"unit": "minutes",
+					"helpText": "The time a torrent should be seeded before stopping, empty is download client's default",
+					"type": "textbox",
+					"advanced": true,
+					"isFloat": false
+				},
+				{
+					"order": 10,
+					"name": "rejectBlocklistedTorrentHashesWhileGrabbing",
+					"label": "Reject Blocklisted Torrent Hashes While Grabbing",
+					"helpText": "If a torrent is blocked by hash it may not properly be rejected during RSS/Search for some indexers, enabling this will allow it to be rejected after the torrent is grabbed, but before it is sent to the client.",
+					"value": false,
+					"type": "checkbox",
+					"advanced": true,
+					"isFloat": false
+				}
+			],
+			"implementationName": "Torznab",
+			"implementation": "Torznab",
+			"configContract": "TorznabSettings",
+			"infoLink": "https://wiki.servarr.com/readarr/supported#torznab",
+			"tags": [],
+			"id": 1
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/indexer",
+	"status": 200
 }

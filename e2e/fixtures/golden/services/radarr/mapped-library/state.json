@@ -28,7 +28,9 @@
 		"history": [{ "id": 9208, "title": "Dune imported" }],
 		"indexers": [{ "id": 9202, "name": "Radarr Indexer" }],
 		"mediaManagement": { "autoUnmonitorPreviouslyDownloadedMovies": true },
-		"movieFiles": [{ "id": 9205, "movieId": 111, "relativePath": "Dune.2021.mkv" }],
+		"movieFiles": [
+			{ "id": 9205, "movieId": 111, "relativePath": "Dune.2021.mkv" }
+		],
 		"movies": [{ "id": 111, "title": "Dune", "tmdbId": 11, "year": 2021 }],
 		"naming": { "renameMovies": true },
 		"qualityProfiles": [

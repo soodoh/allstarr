@@ -1,18 +1,20 @@
 // oxlint-disable react-hooks/rules-of-hooks -- Playwright fixture callbacks are not React hooks
 // oxlint-disable no-empty-pattern -- Playwright requires empty destructuring for fixtures without dependencies
-import { test as base } from "@playwright/test";
-import { addCoverageReport } from "monocart-reporter";
-import { spawn } from "node:child_process";
+
 import type { ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test as base } from "@playwright/test";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { addCoverageReport } from "monocart-reporter";
+import type * as schema from "../../src/db/schema";
 import {
 	createDiagnosticBuffer,
+	type DiagnosticEvent,
 	formatDiagnosticLine,
 	timeDiagnosticOperation,
-	type DiagnosticEvent,
 } from "../helpers/diagnostics";
 import { createAppServerSpawnConfig } from "./app-runtime";
 import {
@@ -22,39 +24,41 @@ import {
 	type ServiceName,
 } from "./fake-servers/manager";
 import { createTestDb } from "./test-db";
-import type * as schema from "../../src/db/schema";
 
 type AppServer = {
-  url: string;
-  dbHandle: ReturnType<typeof createTestDb>;
-  proc: ChildProcess;
+	url: string;
+	dbHandle: ReturnType<typeof createTestDb>;
+	proc: ChildProcess;
 };
 
 type WorkerFixtures = {
-  appServer: AppServer;
-  fakeServerScenario: string | null;
-  serviceManager: FakeServerManager;
-  requiredServices: ServiceName[];
+	appServer: AppServer;
+	fakeServerScenario: string | null;
+	serviceManager: FakeServerManager;
+	requiredServices: ServiceName[];
 };
 
 type AppFixtures = {
-  appUrl: string;
-  db: BetterSQLite3Database<typeof schema>;
-  fakeServers: Partial<Record<ServiceName, string>>;
-  setFakeServerScenario: (scenarioName: string) => Promise<void>;
-  setFakeServiceState: (
-    serviceName: ServiceName,
-    stateName: string | null,
-    replacements?: Record<string, boolean | number | string>,
-  ) => Promise<void>;
-  tempDir: string;
-  /** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
-  checkpoint: () => void;
+	appUrl: string;
+	db: BetterSQLite3Database<typeof schema>;
+	fakeServers: Partial<Record<ServiceName, string>>;
+	setFakeServerScenario: (scenarioName: string) => Promise<void>;
+	setFakeServiceState: (
+		serviceName: ServiceName,
+		stateName: string | null,
+		replacements?: Record<string, boolean | number | string>,
+	) => Promise<void>;
+	tempDir: string;
+	/** Force a WAL checkpoint so DB writes are visible to the app server (bun:sqlite). */
+	checkpoint: () => void;
 };
 
 const diagnosticBuffer = createDiagnosticBuffer(300);
 
-function recordDiagnostic(event: DiagnosticEvent, options?: { print?: boolean }): void {
+function recordDiagnostic(
+	event: DiagnosticEvent,
+	options?: { print?: boolean },
+): void {
 	diagnosticBuffer.record(event);
 	if (options?.print ?? true) {
 		console.info(formatDiagnosticLine(event));
@@ -80,15 +84,15 @@ function recordProcessOutput(stream: "stderr" | "stdout", chunk: Buffer): void {
 }
 
 async function waitForServer(url: string, timeoutMs: number): Promise<void> {
-  const start = Date.now();
+	const start = Date.now();
 	const endpoint = "/login";
 	let attempts = 0;
 	let lastError = "not ready";
-  while (Date.now() - start < timeoutMs) {
+	while (Date.now() - start < timeoutMs) {
 		attempts += 1;
-    try {
-      const res = await fetch(`${url}/login`);
-      if (res.ok) {
+		try {
+			const res = await fetch(`${url}/login`);
+			if (res.ok) {
 				recordDiagnostic({
 					scope: "app",
 					event: "ready",
@@ -96,16 +100,16 @@ async function waitForServer(url: string, timeoutMs: number): Promise<void> {
 					elapsedMs: Date.now() - start,
 					fields: { url, endpoint, attempts },
 				});
-        return;
-      }
+				return;
+			}
 			lastError = `${res.status} ${res.statusText}`;
-    } catch (error) {
+		} catch (error) {
 			lastError = error instanceof Error ? error.message : String(error);
-    }
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 500);
-    });
-  }
+		}
+		await new Promise<void>((resolve) => {
+			setTimeout(resolve, 500);
+		});
+	}
 	const elapsedMs = Date.now() - start;
 	recordDiagnostic({
 		scope: "app",
@@ -114,7 +118,7 @@ async function waitForServer(url: string, timeoutMs: number): Promise<void> {
 		elapsedMs,
 		fields: { url, endpoint, attempts, error: lastError },
 	});
-  throw new Error(`Server at ${url} did not start within ${timeoutMs}ms`);
+	throw new Error(`Server at ${url} did not start within ${timeoutMs}ms`);
 }
 
 export const test = base.extend<AppFixtures, WorkerFixtures>({
@@ -167,15 +171,22 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 				cwd: spawnConfig.cwd,
 				stdio: "pipe",
 			});
-			proc.stdout?.on("data", (chunk: Buffer) => recordProcessOutput("stdout", chunk));
-			proc.stderr?.on("data", (chunk: Buffer) => recordProcessOutput("stderr", chunk));
+			proc.stdout?.on("data", (chunk: Buffer) =>
+				recordProcessOutput("stdout", chunk),
+			);
+			proc.stderr?.on("data", (chunk: Buffer) =>
+				recordProcessOutput("stderr", chunk),
+			);
 
 			try {
 				await timeDiagnosticOperation(
 					{
 						scope: "app",
 						event: "startup",
-						fields: { workerIndex: workerInfo.workerIndex, url: spawnConfig.url },
+						fields: {
+							workerIndex: workerInfo.workerIndex,
+							url: spawnConfig.url,
+						},
 					},
 					async () => waitForServer(spawnConfig.url, 60_000),
 					{
@@ -243,7 +254,7 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 		await use(() => appServer.dbHandle.checkpoint());
 	},
 
-	tempDir: async ({}, use) => {
+	tempDir: async (_args, use) => {
 		const dir = mkdtempSync(join(tmpdir(), "allstarr-e2e-"));
 		await use(dir);
 		rmSync(dir, { recursive: true, force: true });
@@ -331,7 +342,7 @@ test.afterEach(async ({ page }, testInfo) => {
 	}
 });
 
-test.afterEach(async ({}, testInfo) => {
+test.afterEach(async (_args, testInfo) => {
 	if (testInfo.status !== testInfo.expectedStatus) {
 		await testInfo.attach("e2e-diagnostics", {
 			body: diagnosticBuffer.toText() || "No e2e diagnostics captured.",

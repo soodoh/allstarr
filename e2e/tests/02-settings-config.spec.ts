@@ -1,7 +1,7 @@
-import { test, expect } from "../fixtures/app";
+import * as schema from "../../src/db/schema";
+import { expect, test } from "../fixtures/app";
 import { ensureAuthenticated, waitForHydration } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
-import * as schema from "../../src/db/schema";
 import PORTS from "../ports";
 
 test.use({
@@ -345,12 +345,12 @@ test.describe("Settings and Configuration", () => {
 			await page.waitForLoadState("load");
 			await waitForHydration(page);
 
-			await expect(
-				popSection.locator('input[type="number"]'),
-			).toHaveValue("50");
-			await expect(
-				pagesSection.locator('input[type="number"]'),
-			).toHaveValue("100");
+			await expect(popSection.locator('input[type="number"]')).toHaveValue(
+				"50",
+			);
+			await expect(pagesSection.locator('input[type="number"]')).toHaveValue(
+				"100",
+			);
 		});
 	});
 

@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+	type CaptureConfig,
 	captureFixtureSet,
 	parseCaptureCliArgs,
-	type CaptureConfig,
 } from "../e2e/fixtures/golden/capture";
 
 type CaptureManifest = {

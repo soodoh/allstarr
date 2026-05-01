@@ -1,40 +1,40 @@
 import type { IncomingMessage } from "node:http";
-import { createFakeServer } from "./base";
 import type { FakeServer, HandlerResult } from "./base";
+import { createFakeServer } from "./base";
 import {
 	buildCapturedNamedKey,
 	buildCapturedPathKey,
-	getCapturedResponse,
 	type CapturedReplayState,
+	getCapturedResponse,
 } from "./captured";
 
 type State = CapturedReplayState & {
-  version: string;
-  apiKey: string;
-  indexers: Array<{
-    id: number;
-    name: string;
-    enable: boolean;
-    protocol: string;
-    privacy: string;
-  }>;
+	version: string;
+	apiKey: string;
+	indexers: Array<{
+		id: number;
+		name: string;
+		enable: boolean;
+		protocol: string;
+		privacy: string;
+	}>;
 };
 
 function defaultState(seed?: Partial<State>): State {
-  const clonedSeed = seed ? structuredClone(seed) : undefined;
-  return {
-    version: "1.12.0",
-    apiKey: "test-prowlarr-api-key",
-    indexers: [],
-    ...clonedSeed,
-  };
+	const clonedSeed = seed ? structuredClone(seed) : undefined;
+	return {
+		version: "1.12.0",
+		apiKey: "test-prowlarr-api-key",
+		indexers: [],
+		...clonedSeed,
+	};
 }
 
 function json(data: unknown): HandlerResult {
-  return {
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  };
+	return {
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	};
 }
 
 function handler(
@@ -56,10 +56,7 @@ function handler(
 			return { status: 401, body: "Unauthorized" };
 		}
 		if (proxyType === "caps" || proxyType === "search") {
-			return getCapturedResponse(
-				state,
-				buildCapturedNamedKey("t", proxyType),
-			);
+			return getCapturedResponse(state, buildCapturedNamedKey("t", proxyType));
 		}
 		return null;
 	}
@@ -70,67 +67,67 @@ function handler(
 		return { status: 401, body: "Unauthorized" };
 	}
 
-  switch (url.pathname) {
-    case "/api/v1/health": {
-      const captured = getCapturedResponse(
-        state,
-        buildCapturedPathKey(req.method, url.pathname),
-      );
-      if (captured) {
-        return captured;
-      }
-      return json([]);
-    }
+	switch (url.pathname) {
+		case "/api/v1/health": {
+			const captured = getCapturedResponse(
+				state,
+				buildCapturedPathKey(req.method, url.pathname),
+			);
+			if (captured) {
+				return captured;
+			}
+			return json([]);
+		}
 
-    case "/api/v1/system/status": {
-      const captured = getCapturedResponse(
-        state,
-        buildCapturedPathKey(req.method, url.pathname),
-      );
-      if (captured) {
-        return captured;
-      }
-      return json({ version: state.version });
-    }
+		case "/api/v1/system/status": {
+			const captured = getCapturedResponse(
+				state,
+				buildCapturedPathKey(req.method, url.pathname),
+			);
+			if (captured) {
+				return captured;
+			}
+			return json({ version: state.version });
+		}
 
-    case "/api/v1/indexer": {
-      const captured = getCapturedResponse(
-        state,
-        buildCapturedPathKey(req.method, url.pathname),
-      );
-      if (captured) {
-        return captured;
-      }
-      return json(state.indexers);
-    }
+		case "/api/v1/indexer": {
+			const captured = getCapturedResponse(
+				state,
+				buildCapturedPathKey(req.method, url.pathname),
+			);
+			if (captured) {
+				return captured;
+			}
+			return json(state.indexers);
+		}
 
-    case "/api/v1/applications": {
-      return getCapturedResponse(
-        state,
-        buildCapturedPathKey(req.method, url.pathname),
-      );
-    }
+		case "/api/v1/applications": {
+			return getCapturedResponse(
+				state,
+				buildCapturedPathKey(req.method, url.pathname),
+			);
+		}
 
-    case "/api/v1/applications/schema": {
-      return getCapturedResponse(
-        state,
-        buildCapturedPathKey(req.method, url.pathname),
-      );
-    }
+		case "/api/v1/applications/schema": {
+			return getCapturedResponse(
+				state,
+				buildCapturedPathKey(req.method, url.pathname),
+			);
+		}
 
-    default: {
-      return null;
-    }
-  }
+		default: {
+			return null;
+		}
+	}
 }
 
 export default function createProwlarrServer(
-  port: number,
-  seed?: Partial<State>,
+	port: number,
+	seed?: Partial<State>,
 ): FakeServer<State> {
-  return createFakeServer<State>({
-    port,
-    defaultState: () => defaultState(seed),
-    handler,
-  });
+	return createFakeServer<State>({
+		port,
+		defaultState: () => defaultState(seed),
+		handler,
+	});
 }

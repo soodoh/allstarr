@@ -84,7 +84,9 @@ export function buildThresholdReport(
 	});
 }
 
-export function isThresholdReportPassing(report: ThresholdReportEntry[]): boolean {
+export function isThresholdReportPassing(
+	report: ThresholdReportEntry[],
+): boolean {
 	return report.every((entry) => entry.passed);
 }
 

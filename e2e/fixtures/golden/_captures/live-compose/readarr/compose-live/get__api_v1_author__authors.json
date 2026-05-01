@@ -1,75 +1,72 @@
 {
-  "body": [
-    {
-      "id": 1,
-      "authorMetadataId": 1,
-      "status": "continuing",
-      "ended": false,
-      "authorName": "Ursula K. Le Guin",
-      "authorNameLastFirst": "Le Guin, Ursula K.",
-      "foreignAuthorId": "6044",
-      "titleSlug": "6044",
-      "overview": "American author of speculative fiction, essays, and poetry.",
-      "disambiguation": "",
-      "links": [
-        {
-          "url": "https://www.goodreads.com/author/show/6044.Ursula_K_Le_Guin",
-          "name": "Goodreads"
-        }
-      ],
-      "nextBook": null,
-      "lastBook": null,
-      "images": [
-        {
-          "url": "/api/v1/mediacover/author/1/poster.jpg",
-          "coverType": "poster",
-          "extension": ".jpg",
-          "remoteUrl": "https://images.example.test/authors/6044.jpg"
-        }
-      ],
-      "remotePoster": null,
-      "path": "/data/capture/library/books/Ursula K. Le Guin",
-      "qualityProfileId": 1,
-      "metadataProfileId": 1,
-      "monitored": true,
-      "monitorNewItems": "all",
-      "rootFolderPath": "/data/capture/library/books",
-      "folder": null,
-      "genres": [
-        "Fantasy",
-        "Science Fiction"
-      ],
-      "cleanName": "ursulakleguin",
-      "sortName": "ursula k. le guin",
-      "sortNameLastFirst": "le guin, ursula k.",
-      "tags": [],
-      "added": "2026-04-23T12:00:00Z",
-      "addOptions": {
-        "monitor": "all",
-        "booksToMonitor": [],
-        "monitored": true,
-        "searchForMissingBooks": false
-      },
-      "ratings": {
-        "votes": 250000,
-        "value": 4.22,
-        "popularity": 1055000
-      },
-      "statistics": {
-        "bookFileCount": 1,
-        "bookCount": 1,
-        "availableBookCount": 1,
-        "totalBookCount": 1,
-        "sizeOnDisk": 4096,
-        "percentOfBooks": 100
-      }
-    }
-  ],
-  "contentType": "application/json; charset=utf-8",
-  "headers": {
-    "X-Api-Key": "<redacted>"
-  },
-  "method": "GET",
-  "path": "/api/v1/author",
-  "status": 200
+	"body": [
+		{
+			"id": 1,
+			"authorMetadataId": 1,
+			"status": "continuing",
+			"ended": false,
+			"authorName": "Ursula K. Le Guin",
+			"authorNameLastFirst": "Le Guin, Ursula K.",
+			"foreignAuthorId": "6044",
+			"titleSlug": "6044",
+			"overview": "American author of speculative fiction, essays, and poetry.",
+			"disambiguation": "",
+			"links": [
+				{
+					"url": "https://www.goodreads.com/author/show/6044.Ursula_K_Le_Guin",
+					"name": "Goodreads"
+				}
+			],
+			"nextBook": null,
+			"lastBook": null,
+			"images": [
+				{
+					"url": "/api/v1/mediacover/author/1/poster.jpg",
+					"coverType": "poster",
+					"extension": ".jpg",
+					"remoteUrl": "https://images.example.test/authors/6044.jpg"
+				}
+			],
+			"remotePoster": null,
+			"path": "/data/capture/library/books/Ursula K. Le Guin",
+			"qualityProfileId": 1,
+			"metadataProfileId": 1,
+			"monitored": true,
+			"monitorNewItems": "all",
+			"rootFolderPath": "/data/capture/library/books",
+			"folder": null,
+			"genres": ["Fantasy", "Science Fiction"],
+			"cleanName": "ursulakleguin",
+			"sortName": "ursula k. le guin",
+			"sortNameLastFirst": "le guin, ursula k.",
+			"tags": [],
+			"added": "2026-04-23T12:00:00Z",
+			"addOptions": {
+				"monitor": "all",
+				"booksToMonitor": [],
+				"monitored": true,
+				"searchForMissingBooks": false
+			},
+			"ratings": {
+				"votes": 250000,
+				"value": 4.22,
+				"popularity": 1055000
+			},
+			"statistics": {
+				"bookFileCount": 1,
+				"bookCount": 1,
+				"availableBookCount": 1,
+				"totalBookCount": 1,
+				"sizeOnDisk": 4096,
+				"percentOfBooks": 100
+			}
+		}
+	],
+	"contentType": "application/json; charset=utf-8",
+	"headers": {
+		"X-Api-Key": "<redacted>"
+	},
+	"method": "GET",
+	"path": "/api/v1/author",
+	"status": 200
 }

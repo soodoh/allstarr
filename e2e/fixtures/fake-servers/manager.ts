@@ -1,10 +1,11 @@
-import { formatDiagnosticLine, timeDiagnosticOperation } from "../../helpers/diagnostics";
-import PORTS from "../../ports";
 import {
-	loadGoldenScenario,
-	loadGoldenServiceState,
-} from "../golden/loaders";
+	formatDiagnosticLine,
+	timeDiagnosticOperation,
+} from "../../helpers/diagnostics";
+import PORTS from "../../ports";
+import { loadGoldenScenario, loadGoldenServiceState } from "../golden/loaders";
 import type { FakeServer } from "./base";
+import createBookshelfServer from "./bookshelf";
 import createDelugeServer from "./deluge";
 import createHardcoverServer from "./hardcover";
 import createNewznabServer from "./newznab";
@@ -18,7 +19,6 @@ import createSABnzbdServer from "./sabnzbd";
 import createSonarrServer from "./sonarr";
 import createTmdbServer from "./tmdb";
 import createTransmissionServer from "./transmission";
-import createBookshelfServer from "./bookshelf";
 
 export type ServiceName = Exclude<keyof typeof PORTS, "APP_BASE">;
 export type ServiceUrls = Partial<Record<ServiceName, string>>;
@@ -105,7 +105,13 @@ async function waitForServer(
 			event: "ready",
 			status: "error",
 			elapsedMs,
-			fields: { service: serviceName, url, endpoint, attempts, error: lastError },
+			fields: {
+				service: serviceName,
+				url,
+				endpoint,
+				attempts,
+				error: lastError,
+			},
 		}),
 	);
 
@@ -146,79 +152,81 @@ function applyReplacements(
 	);
 }
 
-function buildFactories(ports: ServicePorts): Record<ServiceName, ManagedServerFactory> {
+function buildFactories(
+	ports: ServicePorts,
+): Record<ServiceName, ManagedServerFactory> {
 	return {
-	QBITTORRENT: (seed) =>
-		createQBittorrentServer(
-			ports.QBITTORRENT ?? PORTS.QBITTORRENT,
-			seed as Parameters<typeof createQBittorrentServer>[1],
-		) as ManagedServer,
-	TRANSMISSION: (seed) =>
-		createTransmissionServer(
-			ports.TRANSMISSION ?? PORTS.TRANSMISSION,
-			seed as Parameters<typeof createTransmissionServer>[1],
-		) as ManagedServer,
-	DELUGE: (seed) =>
-		createDelugeServer(
-			ports.DELUGE ?? PORTS.DELUGE,
-			seed as Parameters<typeof createDelugeServer>[1],
-		) as ManagedServer,
-	RTORRENT: (seed) =>
-		createRTorrentServer(
-			ports.RTORRENT ?? PORTS.RTORRENT,
-			seed as Parameters<typeof createRTorrentServer>[1],
-		) as ManagedServer,
-	SABNZBD: (seed) =>
-		createSABnzbdServer(
-			ports.SABNZBD ?? PORTS.SABNZBD,
-			seed as Parameters<typeof createSABnzbdServer>[1],
-		) as ManagedServer,
-	NZBGET: (seed) =>
-		createNZBGetServer(
-			ports.NZBGET ?? PORTS.NZBGET,
-			seed as Parameters<typeof createNZBGetServer>[1],
-		) as ManagedServer,
-	NEWZNAB: (seed) =>
-		createNewznabServer(
-			ports.NEWZNAB ?? PORTS.NEWZNAB,
-			seed as Parameters<typeof createNewznabServer>[1],
-		) as ManagedServer,
-	PROWLARR: (seed) =>
-		createProwlarrServer(
-			ports.PROWLARR ?? PORTS.PROWLARR,
-			seed as Parameters<typeof createProwlarrServer>[1],
-		) as ManagedServer,
-	HARDCOVER: (seed) =>
-		createHardcoverServer(
-			ports.HARDCOVER ?? PORTS.HARDCOVER,
-			seed as Parameters<typeof createHardcoverServer>[1],
-		) as ManagedServer,
-	TMDB: (seed) =>
-		createTmdbServer(
-			ports.TMDB ?? PORTS.TMDB,
-			seed as Parameters<typeof createTmdbServer>[1],
-		) as ManagedServer,
-	SONARR: (seed) =>
-		createSonarrServer(
-			ports.SONARR ?? PORTS.SONARR,
-			seed as Parameters<typeof createSonarrServer>[1],
-		) as ManagedServer,
-	RADARR: (seed) =>
-		createRadarrServer(
-			ports.RADARR ?? PORTS.RADARR,
-			seed as Parameters<typeof createRadarrServer>[1],
-		) as ManagedServer,
-	READARR: (seed) =>
-		createReadarrServer(
-			ports.READARR ?? PORTS.READARR,
-			seed as Parameters<typeof createReadarrServer>[1],
-		) as ManagedServer,
-	BOOKSHELF: (seed) =>
-		createBookshelfServer(
-			ports.BOOKSHELF ?? PORTS.BOOKSHELF,
-			seed as Parameters<typeof createBookshelfServer>[1],
-		) as ManagedServer,
-};
+		QBITTORRENT: (seed) =>
+			createQBittorrentServer(
+				ports.QBITTORRENT ?? PORTS.QBITTORRENT,
+				seed as Parameters<typeof createQBittorrentServer>[1],
+			) as ManagedServer,
+		TRANSMISSION: (seed) =>
+			createTransmissionServer(
+				ports.TRANSMISSION ?? PORTS.TRANSMISSION,
+				seed as Parameters<typeof createTransmissionServer>[1],
+			) as ManagedServer,
+		DELUGE: (seed) =>
+			createDelugeServer(
+				ports.DELUGE ?? PORTS.DELUGE,
+				seed as Parameters<typeof createDelugeServer>[1],
+			) as ManagedServer,
+		RTORRENT: (seed) =>
+			createRTorrentServer(
+				ports.RTORRENT ?? PORTS.RTORRENT,
+				seed as Parameters<typeof createRTorrentServer>[1],
+			) as ManagedServer,
+		SABNZBD: (seed) =>
+			createSABnzbdServer(
+				ports.SABNZBD ?? PORTS.SABNZBD,
+				seed as Parameters<typeof createSABnzbdServer>[1],
+			) as ManagedServer,
+		NZBGET: (seed) =>
+			createNZBGetServer(
+				ports.NZBGET ?? PORTS.NZBGET,
+				seed as Parameters<typeof createNZBGetServer>[1],
+			) as ManagedServer,
+		NEWZNAB: (seed) =>
+			createNewznabServer(
+				ports.NEWZNAB ?? PORTS.NEWZNAB,
+				seed as Parameters<typeof createNewznabServer>[1],
+			) as ManagedServer,
+		PROWLARR: (seed) =>
+			createProwlarrServer(
+				ports.PROWLARR ?? PORTS.PROWLARR,
+				seed as Parameters<typeof createProwlarrServer>[1],
+			) as ManagedServer,
+		HARDCOVER: (seed) =>
+			createHardcoverServer(
+				ports.HARDCOVER ?? PORTS.HARDCOVER,
+				seed as Parameters<typeof createHardcoverServer>[1],
+			) as ManagedServer,
+		TMDB: (seed) =>
+			createTmdbServer(
+				ports.TMDB ?? PORTS.TMDB,
+				seed as Parameters<typeof createTmdbServer>[1],
+			) as ManagedServer,
+		SONARR: (seed) =>
+			createSonarrServer(
+				ports.SONARR ?? PORTS.SONARR,
+				seed as Parameters<typeof createSonarrServer>[1],
+			) as ManagedServer,
+		RADARR: (seed) =>
+			createRadarrServer(
+				ports.RADARR ?? PORTS.RADARR,
+				seed as Parameters<typeof createRadarrServer>[1],
+			) as ManagedServer,
+		READARR: (seed) =>
+			createReadarrServer(
+				ports.READARR ?? PORTS.READARR,
+				seed as Parameters<typeof createReadarrServer>[1],
+			) as ManagedServer,
+		BOOKSHELF: (seed) =>
+			createBookshelfServer(
+				ports.BOOKSHELF ?? PORTS.BOOKSHELF,
+				seed as Parameters<typeof createBookshelfServer>[1],
+			) as ManagedServer,
+	};
 }
 
 export type FakeServerManager = ReturnType<typeof createFakeServerManager>;
@@ -303,7 +311,10 @@ export function createFakeServerManager(
 		);
 	}
 
-	async function resetService(name: ServiceName, server: ManagedServer): Promise<void> {
+	async function resetService(
+		name: ServiceName,
+		server: ManagedServer,
+	): Promise<void> {
 		await timeDiagnosticOperation(
 			{
 				scope: "fake-service",
@@ -311,7 +322,9 @@ export function createFakeServerManager(
 				fields: { service: name, url: server.url, path: "/__reset" },
 			},
 			async () => {
-				const response = await fetch(`${server.url}/__reset`, { method: "POST" });
+				const response = await fetch(`${server.url}/__reset`, {
+					method: "POST",
+				});
 				if (!response.ok) {
 					throw new Error(
 						`Failed to reset fake service ${name}: POST /__reset returned ${response.status} ${response.statusText}`,
@@ -356,7 +369,11 @@ export function createFakeServerManager(
 									{
 										scope: "fake-service",
 										event: "read-default-state",
-										fields: { service: name, url: server.url, endpoint: "/__state" },
+										fields: {
+											service: name,
+											url: server.url,
+											endpoint: "/__state",
+										},
 									},
 									async () => {
 										const response = await fetch(`${server.url}/__state`);
@@ -378,7 +395,9 @@ export function createFakeServerManager(
 					},
 				);
 			} catch (error) {
-				await Promise.allSettled([...running.values()].map((server) => server.stop()));
+				await Promise.allSettled(
+					[...running.values()].map((server) => server.stop()),
+				);
 				running.clear();
 				throw error;
 			}
@@ -431,7 +450,9 @@ export function createFakeServerManager(
 					if (!stateName) {
 						const defaultSeed = defaultSeeds.get(serviceName);
 						if (!defaultSeed) {
-							throw new Error(`Missing default seed for fake service ${serviceName}`);
+							throw new Error(
+								`Missing default seed for fake service ${serviceName}`,
+							);
 						}
 						await postJson(server.url, "/__seed", defaultSeed, {
 							service: serviceName,
@@ -462,7 +483,9 @@ export function createFakeServerManager(
 					fields: { runningServiceCount: running.size },
 				},
 				async () => {
-					await Promise.all([...running.values()].map((server) => server.stop()));
+					await Promise.all(
+						[...running.values()].map((server) => server.stop()),
+					);
 					running.clear();
 				},
 			);

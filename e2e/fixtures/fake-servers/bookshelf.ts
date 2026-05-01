@@ -32,7 +32,9 @@ function defaultState(seed?: Partial<State>): State {
 				year: 1968,
 			},
 		],
-		downloadClients: [{ id: 4, name: "qbittorrent", implementation: "qBittorrent" }],
+		downloadClients: [
+			{ id: 4, name: "qbittorrent", implementation: "qBittorrent" },
+		],
 		history: [{ id: 404, title: "Earthsea imported" }],
 		indexers: [{ id: 14, name: "Bookshelf Indexer" }],
 		mediaManagement: { renameBooks: true },

@@ -113,12 +113,16 @@ describe("createFakeServerManager", () => {
 			);
 			expect(newznabState.releases).toHaveLength(2);
 
-			let sabState = await fetch(`${urls.SABNZBD}/__state`).then((r) => r.json());
+			let sabState = await fetch(`${urls.SABNZBD}/__state`).then((r) =>
+				r.json(),
+			);
 			expect(sabState.version).toBe("4.2.0");
 
 			await manager.setScenario("search-grab-usenet");
 
-			newznabState = await fetch(`${urls.NEWZNAB}/__state`).then((r) => r.json());
+			newznabState = await fetch(`${urls.NEWZNAB}/__state`).then((r) =>
+				r.json(),
+			);
 			expect(newznabState.releases).toHaveLength(1);
 			expect(newznabState.releases[0]?.protocol).toBe("usenet");
 

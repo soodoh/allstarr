@@ -13,7 +13,8 @@ type DiagnosticTimerOptions = {
 	now?: () => number;
 };
 
-const SECRET_FIELD_PATTERN = /api[-_]?key|secret|token|password|cookie|authorization/i;
+const SECRET_FIELD_PATTERN =
+	/api[-_]?key|secret|token|password|cookie|authorization/i;
 const SECRET_VALUE_PATTERN =
 	/(api[-_]?key|secret|token|password|cookie|authorization)(\s*[=:]\s*)([^&\s]+)/gi;
 const MAX_FIELD_VALUE_LENGTH = 500;
@@ -89,7 +90,13 @@ export async function timeDiagnosticOperation<T>(
 
 	try {
 		const result = await operation();
-		log(formatDiagnosticLine({ ...event, status: "ok", elapsedMs: now() - start }));
+		log(
+			formatDiagnosticLine({
+				...event,
+				status: "ok",
+				elapsedMs: now() - start,
+			}),
+		);
 		return result;
 	} catch (error) {
 		log(

@@ -1,9 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type {
-	GoldenScenarioManifest,
-	GoldenServiceStateFile,
-} from "./schema";
+import type { GoldenScenarioManifest, GoldenServiceStateFile } from "./schema";
 
 const GOLDEN_ROOT = import.meta.dirname;
 const SCENARIOS_ROOT = join(GOLDEN_ROOT, "scenarios");
