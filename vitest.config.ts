@@ -11,12 +11,7 @@ export default defineConfig({
 			{
 				extends: true,
 				test: {
-					include: [
-						"src/**/*.test.{ts,tsx}",
-						"e2e/fixtures/**/*.test.ts",
-						"e2e/helpers/**/*.test.ts",
-						"scripts/**/*.test.ts",
-					],
+					include: ["**/*.test.{ts,tsx}"],
 					exclude: [
 						"**/node_modules/**",
 						"**/.worktrees/**",
@@ -86,8 +81,7 @@ export default defineConfig({
 			},
 		],
 		coverage: {
-			provider: "custom",
-			customProviderModule: "vitest-monocart-coverage/browser",
+			provider: "v8",
 			include: ["src/**/*.{ts,tsx}", "e2e/fixtures/**/*.ts"],
 			exclude: [
 				"**/*.test.*",
@@ -105,6 +99,12 @@ export default defineConfig({
 				"src/lib/tmdb-validators.ts",
 				"src/test/**",
 			],
+			thresholds: {
+				lines: 90,
+				statements: 90,
+				functions: 88,
+				branches: 75,
+			},
 		},
 	},
 });

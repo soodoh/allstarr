@@ -40,7 +40,6 @@ export function createAppServerSpawnConfig({
 			SQLITE_JOURNAL_MODE: "DELETE",
 			E2E_TEST_MODE: "true",
 			PORT: String(port),
-			INSTRUMENT_COVERAGE: process.env.INSTRUMENT_COVERAGE || "",
 		},
 	};
 }

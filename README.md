@@ -14,7 +14,7 @@ Useful commands:
 - `bun run start`
 - `bun run test`
 - `bun run test:coverage`
-- `bun run test:coverage:full`
+- `bun run test:e2e`
 - `bun run lint`
 - `bun run db:migrate`
 
