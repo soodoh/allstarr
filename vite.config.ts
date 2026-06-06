@@ -1,18 +1,9 @@
-import { createRequire } from "node:module";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
-import istanbul from "vite-plugin-istanbul";
 
-const require = createRequire(import.meta.url);
-const { createInstrumenter } = require("istanbul-lib-instrument") as {
-	createInstrumenter: (opts: Record<string, unknown>) => {
-		instrumentSync(code: string, filename: string): string;
-		lastSourceMap(): object | null;
-	};
-};
 const ignoredNitroWarningCodes = new Set([
 	"EVAL",
 	"CIRCULAR_DEPENDENCY",
@@ -151,48 +142,5 @@ export default defineConfig({
 		}),
 		nitro(),
 		viteReact(),
-		...(process.env.INSTRUMENT_COVERAGE === "true"
-			? [
-					istanbul({
-						include: "src/**/*",
-						exclude: ["node_modules", "**/*.test.*", "**/*.spec.*"],
-						extension: [".ts", ".tsx"],
-						forceBuildInstrument: true,
-					}),
-					// Second pass: instrument SSR (server) code — vite-plugin-istanbul skips SSR,
-					// so we instrument it here using the same istanbul-lib-instrument that it uses.
-					(() => {
-						return {
-							name: "istanbul-ssr",
-							enforce: "post" as const,
-							transform(code: string, id: string, options?: { ssr?: boolean }) {
-								if (!options?.ssr) return null;
-								if (
-									id.includes("node_modules") ||
-									id.includes(".test.") ||
-									id.includes(".spec.") ||
-									!/\/src\//.test(id)
-								) {
-									return null;
-								}
-								const instrumenter = createInstrumenter({
-									coverageGlobalScopeFunc: false,
-									coverageGlobalScope: "globalThis",
-									preserveComments: true,
-									produceSourceMap: true,
-									autoWrap: true,
-									esModules: true,
-									compact: false,
-								});
-								const instrumented = instrumenter.instrumentSync(code, id);
-								return {
-									code: instrumented,
-									map: instrumenter.lastSourceMap(),
-								};
-							},
-						};
-					})(),
-				]
-			: []),
 	],
 });

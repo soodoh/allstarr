@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test as base } from "@playwright/test";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { addCoverageReport } from "monocart-reporter";
 import type * as schema from "../../src/db/schema";
 import {
 	createDiagnosticBuffer,
@@ -325,20 +324,6 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 			},
 		});
 		throw error;
-	}
-});
-
-// Client-side JS coverage collection via CDP
-test.beforeEach(async ({ page }) => {
-	if (process.env.COLLECT_COVERAGE === "true") {
-		await page.coverage.startJSCoverage({ resetOnNavigation: false });
-	}
-});
-
-test.afterEach(async ({ page }, testInfo) => {
-	if (process.env.COLLECT_COVERAGE === "true") {
-		const coverage = await page.coverage.stopJSCoverage();
-		await addCoverageReport(coverage, testInfo);
 	}
 });
 

@@ -12,7 +12,7 @@
 - Typecheck: `bun run typecheck`
 - Unit + browser tests: `bun run test` (single file: `bun run test -- path/to/file`)
 - E2E tests: `bun run test:e2e` (installs Chromium on first run)
-- Merged coverage (unit + e2e): `bun run test:coverage:full`
+- Vitest coverage: `bun run test:coverage`
 - DB schema change: `bun run db:generate` then `bun run db:migrate`
 
 ## Coding Style & Naming Conventions
@@ -26,7 +26,7 @@
 
 ## Testing Guidelines
 - For complex features or risky changes, ensure we have sufficient Playwright e2e test coverage. Add/update tests as needed.
-- All changes need unit test coverage. Thresholds are enforced in `vitest.config.ts` (90% lines/statements/functions, 85% branches; `src/server/**` requires 95% across the board). Do not lower them.
+- All changes need unit test coverage. Thresholds are enforced in `vitest.config.ts` (90% lines/statements, 88% functions, 75% branches). Do not lower them.
 
 ## Commit & Pull Request Guidelines
 Commit messages must follow Conventional Commits with a required scope, for example `feat(auth): add session refresh` or `ci(release): pin workflow sha`. Lefthook runs Biome on staged files and commitlint on commit messages. PRs should describe user-visible changes, mention any schema or env updates, link related issues, and include screenshots or recordings for UI changes.

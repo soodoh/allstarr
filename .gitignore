@@ -7,7 +7,7 @@ data/
 .vinxi
 .tanstack
 
-# Claude/Serena
+# Agents
 .worktrees/
 .serena/
 .playwright-mcp/
@@ -16,6 +16,9 @@ data/
 .claude/sessions/
 .claude/plans/
 .superpowers/
+.codanna/
+.codannaignore
+.pi-lens/
 
 # Test artifacts
 e2e/.test-state.json
