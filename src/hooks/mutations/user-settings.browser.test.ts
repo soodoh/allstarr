@@ -139,6 +139,25 @@ describe("mutations/user-settings", () => {
 		});
 	});
 
+	it("does not roll back table settings when no previous cache entry exists", async () => {
+		getQueryData.mockReturnValue(undefined);
+		upsertUserSettingsFn.mockRejectedValue(new Error("boom"));
+
+		await runMutation(
+			useUpsertUserSettings,
+			{
+				columnOrder: ["title"],
+				tableId: "books",
+			},
+			true,
+		);
+
+		expect(setQueryData).toHaveBeenCalledTimes(1);
+		expect(invalidateQueries).toHaveBeenCalledWith({
+			queryKey: queryKeys.userSettings.byTable("books"),
+		});
+	});
+
 	it("optimistically resets table columns and invalidates the table cache", async () => {
 		const previous = {
 			columnOrder: ["old"],
@@ -190,6 +209,18 @@ describe("mutations/user-settings", () => {
 			queryKeys.userSettings.byTable("shows"),
 			previous,
 		);
+		expect(invalidateQueries).toHaveBeenCalledWith({
+			queryKey: queryKeys.userSettings.byTable("shows"),
+		});
+	});
+
+	it("does not roll back column resets when no previous cache entry exists", async () => {
+		getQueryData.mockReturnValue(undefined);
+		resetColumnSettingsFn.mockRejectedValue(new Error("boom"));
+
+		await runMutation(useResetColumnSettings, { tableId: "shows" }, true);
+
+		expect(setQueryData).toHaveBeenCalledTimes(1);
 		expect(invalidateQueries).toHaveBeenCalledWith({
 			queryKey: queryKeys.userSettings.byTable("shows"),
 		});

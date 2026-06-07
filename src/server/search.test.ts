@@ -175,6 +175,145 @@ describe("searchHardcoverFn", () => {
 		);
 	});
 
+	it("returns no results when Hardcover search payload is missing", async () => {
+		mockHardcoverFetchSequence({ search: { error: null, results: null } });
+
+		const result = await searchHardcoverFn({
+			data: { query: "missing", type: "books", limit: 20 },
+		});
+
+		expect(result).toEqual({
+			query: "missing",
+			type: "books",
+			results: [],
+			total: 0,
+		});
+	});
+
+	it("falls back across optional book and author search fields", async () => {
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeBookHit({
+					author_names: [],
+					author: { name: "Nested Author" },
+					description: undefined,
+					foreign_book_id: "foreign-book",
+					id: undefined,
+					image: undefined,
+					overview: "Overview text",
+					published_date: "2020-04-05",
+					release_year: undefined,
+					slug: undefined,
+					users_count: undefined,
+				}),
+			]),
+			{ b0: [{ contributions: [] }] },
+		);
+
+		const books = await searchHardcoverFn({
+			data: { query: "fallback", type: "books", limit: 20 },
+		});
+
+		expect(books.results[0]).toEqual(
+			expect.objectContaining({
+				id: "foreign-book",
+				subtitle: "Nested Author",
+				description: "Overview text",
+				releaseYear: 2020,
+				readers: null,
+				coverUrl: null,
+				hardcoverUrl: null,
+			}),
+		);
+
+		mocks.hardcoverFetch.mockReset();
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeAuthorHit({
+					books_count: undefined,
+					id: undefined,
+					image: undefined,
+					name_personal: "Pen Name",
+					slug: undefined,
+					users_count: undefined,
+				}),
+				makeAuthorHit({ id: 11, slug: "counted-author", books_count: 1 }),
+			]),
+			{ a0: { aggregate: { count: 1 } } },
+		);
+
+		const authors = await searchHardcoverFn({
+			data: { query: "fallback", type: "authors", limit: 20 },
+		});
+
+		expect(authors.results).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "Author One",
+					subtitle: "Pen Name",
+					readers: null,
+					coverUrl: null,
+					hardcoverUrl: null,
+				}),
+				expect.objectContaining({
+					id: "11",
+					slug: "counted-author",
+					subtitle: "1 book",
+				}),
+			]),
+		);
+	});
+
+	it("uses fallback book ids and skips secondary filters for nonnumeric ids", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			skipMissingIsbnAsin: true,
+			minimumPages: 10,
+		});
+		mocks.getProfileLanguages.mockReturnValue(["en"]);
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeBookHit({
+					id: undefined,
+					slug: undefined,
+					title: "Fallback Title Book",
+					author_names: undefined,
+					authorName: "Fallback Author",
+					description: undefined,
+					overview: "Overview fallback",
+					release_year: undefined,
+					published_date: "1984-06-01",
+					users_count: undefined,
+					image: null,
+				}),
+			]),
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "fallback", type: "books", limit: 10 },
+		});
+
+		expect(result).toEqual({
+			query: "fallback",
+			total: 1,
+			type: "books",
+			results: [
+				expect.objectContaining({
+					id: "Fallback Title Book",
+					type: "book",
+					slug: null,
+					subtitle: "Fallback Author",
+					description: "Overview fallback",
+					releaseYear: 1984,
+					readers: null,
+					coverUrl: null,
+					hardcoverUrl: null,
+				}),
+			],
+		});
+		expect(mocks.hardcoverFetch).toHaveBeenCalledTimes(1);
+	});
+
 	it("returns author results for type=authors", async () => {
 		const hit = makeAuthorHit();
 		mockHardcoverFetchSequence(
@@ -195,6 +334,27 @@ describe("searchHardcoverFn", () => {
 		expect(result.results[0].hardcoverUrl).toBe(
 			"https://hardcover.app/authors/author-one",
 		);
+	});
+
+	it("builds a single edition condition for author counts when only languages are filtered", async () => {
+		mocks.getProfileLanguages.mockReturnValue(["en"]);
+		mockHardcoverFetchSequence(
+			makeSearchResponse([makeAuthorHit({ slug: "quoted-author" })]),
+			{ a0: { aggregate: { count: 4 } } },
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "author", type: "authors", limit: 20 },
+		});
+
+		expect(result.results[0].subtitle).toBe("4 books");
+		const countQuery = mocks.hardcoverFetch.mock.calls[1][0] as string;
+		const countVariables = mocks.hardcoverFetch.mock.calls[1][1];
+		expect(countQuery).toContain(
+			"editions: { language: { code2: { _in: $languageCodes } } }",
+		);
+		expect(countQuery).not.toContain("editions: { _and");
+		expect(countVariables).toEqual({ languageCodes: ["en"] });
 	});
 
 	it("interleaves book and author results for type=all", async () => {
@@ -225,6 +385,24 @@ describe("searchHardcoverFn", () => {
 		expect(types).toContain("author");
 	});
 
+	it("stops type=all interleaving at the requested limit", async () => {
+		const bookHit = makeBookHit({ id: 1, users_count: 200 });
+		const authorHit = makeAuthorHit({ id: 2, users_count: 100 });
+		mockHardcoverFetchSequence(
+			makeSearchResponse([bookHit]),
+			makeSearchResponse([authorHit]),
+			{ b0: [{ contributions: [{ author: { name: "Author One" } }] }] },
+			{ a0: { aggregate: { count: 5 } } },
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "test", type: "all", limit: 1 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0].type).toBe("book");
+	});
+
 	it("filters out books without authors", async () => {
 		const hitNoAuthor = makeBookHit({
 			id: 3,
@@ -241,6 +419,24 @@ describe("searchHardcoverFn", () => {
 		});
 
 		expect(result.results).toHaveLength(0);
+	});
+
+	it("uses nested contribution authors when book search hits omit author_names", async () => {
+		const hit = makeBookHit({
+			author_names: [],
+			contributions: [{ author: { name: "Nested Author" } }],
+		});
+		delete (hit.document as Record<string, unknown>).authorName;
+		delete (hit.document as Record<string, unknown>).author_name;
+
+		mockHardcoverFetchSequence(makeSearchResponse([hit]), { b0: [] });
+
+		const result = await searchHardcoverFn({
+			data: { query: "nested", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0].subtitle).toBe("Nested Author");
 	});
 
 	it("filters out compilation books when profile says to skip them", async () => {
@@ -419,6 +615,126 @@ describe("searchHardcoverFn", () => {
 		expect(result.total).toBe(0);
 	});
 
+	it("returns empty results for malformed search payloads", async () => {
+		mockHardcoverFetchSequence({
+			search: { error: null, results: { hits: "not an array" } },
+		});
+
+		const result = await searchHardcoverFn({
+			data: { query: "malformed", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(0);
+		expect(result.total).toBe(0);
+	});
+
+	it("skips malformed book hits without a title", async () => {
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				{
+					document: { id: 70, slug: "missing-title", author_names: ["Author"] },
+				},
+				makeBookHit({ id: 71, title: "Complete Book", slug: "complete" }),
+			]),
+			{ b0: [{ contributions: [{ author: { name: "Complete Author" } }] }] },
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "complete", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]).toEqual(
+			expect.objectContaining({
+				subtitle: "Complete Author",
+				title: "Complete Book",
+			}),
+		);
+	});
+
+	it("skips malformed author hits without a name", async () => {
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				{ document: { id: 72, slug: "missing-name", books_count: 1 } },
+				makeAuthorHit({ id: 73, name: "Complete Author", slug: "complete" }),
+			]),
+			{ a0: { aggregate: { count: 1 } } },
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "complete", type: "authors", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]).toEqual(
+			expect.objectContaining({
+				subtitle: "1 book",
+				title: "Complete Author",
+			}),
+		);
+	});
+
+	it("keeps slug-only book hits without running edition filters", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			skipMissingIsbnAsin: true,
+			minimumPages: 50,
+		});
+		mocks.getProfileLanguages.mockReturnValue(["en"]);
+
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeBookHit({
+					id: undefined,
+					title: "Slug Only",
+					slug: "slug-only",
+				}),
+			]),
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "slug", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]).toEqual(
+			expect.objectContaining({
+				id: "slug-only",
+				subtitle: "Author One",
+				title: "Slug Only",
+			}),
+		);
+		expect(mocks.hardcoverFetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores malformed ids returned by edition filters", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			skipMissingIsbnAsin: true,
+		});
+
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeBookHit({ id: 80, title: "Filtered Out" }),
+				makeBookHit({ id: 81, title: "Filtered In", slug: "filtered-in" }),
+			]),
+			{ books: [{ id: null }, {}, { id: 81 }] },
+			{ b0: [{ contributions: [{ author: { name: "Filtered Author" } }] }] },
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "filtered", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]).toEqual(
+			expect.objectContaining({
+				subtitle: "Filtered Author",
+				title: "Filtered In",
+			}),
+		);
+	});
+
 	it("respects the limit parameter", async () => {
 		const hits = Array.from({ length: 10 }, (_, i) =>
 			makeBookHit({
@@ -554,6 +870,92 @@ describe("searchHardcoverFn", () => {
 
 		expect(result.results[0].subtitle).toBe("First Author, Second Author");
 	});
+
+	it("preserves valid author fallback fields", async () => {
+		mockHardcoverFetchSequence(
+			makeSearchResponse([
+				makeAuthorHit({
+					id: undefined,
+					name: undefined,
+					title: "Pen Name",
+					name_personal: "Legal Name",
+					books_count: undefined,
+					slug: undefined,
+				}),
+			]),
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "fallbacks", type: "authors", limit: 20 },
+		});
+
+		expect(result.results).toEqual([
+			expect.objectContaining({
+				id: "Pen Name",
+				slug: null,
+				subtitle: "Legal Name",
+				title: "Pen Name",
+				type: "author",
+			}),
+		]);
+	});
+
+	it("keeps book results when secondary filters fail", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			skipMissingIsbnAsin: true,
+			minimumPages: 50,
+		});
+		mocks.getProfileLanguages.mockReturnValue(["en"]);
+		const hit = makeBookHit({ id: 50, title: "Fallback Book" });
+		mockHardcoverFetchSequence(
+			makeSearchResponse([hit]),
+			new Error("language failed"),
+			new Error("isbn failed"),
+			new Error("pages failed"),
+			new Error("contributors failed"),
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "fallback", type: "books", limit: 20 },
+		});
+
+		expect(result.results).toEqual([
+			expect.objectContaining({
+				title: "Fallback Book",
+				subtitle: "Author One",
+			}),
+		]);
+	});
+
+	it("keeps author results when filtered book counts fail", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			skipCompilations: true,
+			skipMissingIsbnAsin: true,
+			skipMissingReleaseDate: true,
+			minimumPages: 100,
+			minimumPopularity: 25,
+		});
+		mocks.getProfileLanguages.mockReturnValue(["en"]);
+		const authorHit = makeAuthorHit({ books_count: 12, slug: "quoted-author" });
+		mockHardcoverFetchSequence(
+			makeSearchResponse([authorHit]),
+			new Error("count failed"),
+		);
+
+		const result = await searchHardcoverFn({
+			data: { query: "author fallback", type: "authors", limit: 20 },
+		});
+
+		expect(result.results).toEqual([
+			expect.objectContaining({
+				slug: "quoted-author",
+				subtitle: "12 books",
+				title: "Author One",
+			}),
+		]);
+	});
 });
 
 // ── getHardcoverAuthorFn ──────────────────────────────────────────────────
@@ -678,6 +1080,110 @@ describe("getHardcoverAuthorFn", () => {
 		).rejects.toThrow("Author not found on Hardcover.");
 	});
 
+	it("falls back to author id slug and skips malformed author books", async () => {
+		mockHardcoverFetchSequence(
+			{
+				authors: [
+					{
+						id: 90,
+						name: "Fallback Author",
+						slug: null,
+						bio: null,
+						books_count: 2,
+						born_year: null,
+						death_year: null,
+						image: null,
+					},
+				],
+				editions: [
+					{ language: null },
+					{ language: { code2: "en", language: "English" } },
+					{ language: { code2: "en", language: "English Duplicate" } },
+				],
+			},
+			{
+				books_aggregate: { aggregate: { count: 2 } },
+				books: [
+					{
+						id: 901,
+						slug: "missing-title",
+						book_series: [],
+					},
+					{
+						id: 902,
+						title: "Valid Book",
+						slug: null,
+						description: null,
+						release_date: null,
+						release_year: null,
+						rating: null,
+						ratings_count: null,
+						users_count: null,
+						image: null,
+						contributions: [],
+						all_contributions: [{ author: { name: "Fallback Author" } }],
+						editions: [{ language: { code2: "en", language: "English" } }],
+						book_series: [
+							{ position: 1, series: null },
+							{ position: 2, series: { id: 30 } },
+							{ position: "2.5", series: { id: 31, name: "Valid Series" } },
+						],
+					},
+				],
+			},
+		);
+
+		const result = await getHardcoverAuthorFn({
+			data: { foreignAuthorId: 90, language: "zz" },
+		});
+
+		expect(result.slug).toBe("90");
+		expect(result.hardcoverUrl).toBe("https://hardcover.app/authors/90");
+		expect(result.selectedLanguage).toBe("en");
+		expect(result.languages).toEqual([
+			{ code: "all", name: "All Languages" },
+			{ code: "en", name: "English" },
+		]);
+		expect(result.books).toEqual([
+			expect.objectContaining({
+				contributors: "Fallback Author",
+				hardcoverUrl: null,
+				languageCode: "en",
+				title: "Valid Book",
+				series: [{ id: "31", position: "2.5", title: "Valid Series" }],
+			}),
+		]);
+	});
+
+	it("throws when author detail is missing a display name", async () => {
+		mockHardcoverFetchSequence(
+			{
+				authors: [
+					{
+						id: 91,
+						slug: "nameless-author",
+						bio: null,
+						books_count: 0,
+						born_year: null,
+						death_year: null,
+						image: null,
+					},
+				],
+				editions: [],
+			},
+			{
+				books_aggregate: { aggregate: { count: 0 } },
+				books: [],
+			},
+		);
+
+		await expect(
+			getHardcoverAuthorFn({
+				data: { foreignAuthorId: 91 },
+			}),
+		).rejects.toThrow("Author name is missing in Hardcover response.");
+	});
+
 	it("clamps page when it exceeds total pages", async () => {
 		mockHardcoverFetchSequence(
 			// 1. meta
@@ -779,6 +1285,108 @@ describe("getHardcoverAuthorFn", () => {
 
 		expect(result.sortBy).toBe("title");
 		expect(result.sortDir).toBe("asc");
+	});
+
+	it("builds rating and year sort order variables", async () => {
+		for (const [sortBy, sortDir, expectedOrderBy] of [
+			["rating", "asc", [{ rating: "asc_nulls_last" }, { id: "asc" }]],
+			["year", "desc", [{ release_year: "desc_nulls_last" }, { id: "desc" }]],
+		] as const) {
+			vi.clearAllMocks();
+			mocks.requireAuth.mockResolvedValue(undefined);
+			mocks.getMetadataProfile.mockReturnValue(defaultProfile);
+			mocks.getProfileLanguages.mockReturnValue([]);
+			mockHardcoverFetchSequence(
+				{
+					authors: [
+						{
+							id: 61,
+							name: "Sorted Author",
+							slug: "sorted-author",
+							bio: null,
+							books_count: 2,
+							born_year: null,
+							death_year: null,
+							image: null,
+						},
+					],
+					editions: [],
+				},
+				{
+					books_aggregate: { aggregate: { count: 0 } },
+					books: [],
+				},
+			);
+
+			await getHardcoverAuthorFn({
+				data: {
+					foreignAuthorId: 61,
+					sortBy,
+					sortDir,
+				},
+			});
+
+			expect(mocks.hardcoverFetch.mock.calls[1][1]).toMatchObject({
+				orderBy: expectedOrderBy,
+			});
+		}
+	});
+
+	it("adds metadata profile filters to the author detail books query", async () => {
+		mocks.getMetadataProfile.mockReturnValue({
+			...defaultProfile,
+			minimumPages: 100,
+			minimumPopularity: 25,
+			skipCompilations: true,
+			skipMissingIsbnAsin: true,
+			skipMissingReleaseDate: true,
+		});
+		mockHardcoverFetchSequence(
+			{
+				authors: [
+					{
+						id: 70,
+						name: "Filtered Author",
+						slug: "filtered-author",
+						bio: null,
+						books_count: 0,
+						born_year: null,
+						death_year: null,
+						image: null,
+					},
+				],
+				editions: [
+					{
+						language: {
+							code2: "en",
+							language: "English",
+						},
+					},
+				],
+			},
+			{
+				books_aggregate: { aggregate: { count: 0 } },
+				books: [],
+			},
+		);
+
+		await getHardcoverAuthorFn({
+			data: { foreignAuthorId: 70, language: "all" },
+		});
+
+		const booksQuery = mocks.hardcoverFetch.mock.calls[1][0] as string;
+		const variables = mocks.hardcoverFetch.mock.calls[1][1];
+		expect(booksQuery).toContain("compilation: { _neq: true }");
+		expect(booksQuery).toContain("release_date: { _is_null: false }");
+		expect(booksQuery).toContain("users_count: { _gte: $minPopularity }");
+		expect(booksQuery).toContain("editions: { _and:");
+		expect(booksQuery).toContain("isbn_10");
+		expect(booksQuery).toContain("pages: { _gte: $minPages }");
+		expect(variables).toMatchObject({
+			langCodes: [],
+			minPages: 100,
+			minPopularity: 25,
+		});
 	});
 
 	it("defaults English when language map is empty", async () => {
@@ -935,6 +1543,22 @@ describe("getHardcoverBookLanguagesFn", () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].code).toBe("de");
 	});
+
+	it("skips incomplete language records and defaults missing readers to zero", async () => {
+		mockHardcoverFetchSequence({
+			editions: [
+				{ users_count: 10, language: { code2: "es" } },
+				{ users_count: 20, language: { language: "Italian" } },
+				{ language: { code2: "pt", language: "Portuguese" } },
+			],
+		});
+
+		const result = await getHardcoverBookLanguagesFn({
+			data: { foreignBookId: 3 },
+		});
+
+		expect(result).toEqual([{ code: "pt", name: "Portuguese", readers: 0 }]);
+	});
 });
 
 // ── getHardcoverBookDetailFn ──────────────────────────────────────────────
@@ -1009,6 +1633,24 @@ describe("getHardcoverBookDetailFn", () => {
 		expect(result).toBeUndefined();
 	});
 
+	it("returns undefined when the book detail record has no id", async () => {
+		mockHardcoverFetchSequence({
+			books: [
+				{
+					title: "Missing Id",
+					book_series: [],
+					contributions: [],
+				},
+			],
+		});
+
+		const result = await getHardcoverBookDetailFn({
+			data: { foreignBookId: 123 },
+		});
+
+		expect(result).toBeUndefined();
+	});
+
 	it("returns undefined when fetch fails", async () => {
 		mocks.hardcoverFetch.mockRejectedValueOnce(new Error("timeout"));
 
@@ -1046,5 +1688,83 @@ describe("getHardcoverBookDetailFn", () => {
 		assertExists(result);
 		expect(result.series).toHaveLength(0);
 		expect(result.coverUrl).toBeNull();
+	});
+
+	it("returns fallback book detail fields when optional values are missing", async () => {
+		mockHardcoverFetchSequence({
+			books: [
+				{
+					id: 602,
+					description: null,
+					release_date: null,
+					release_year: null,
+					rating: null,
+					ratings_count: null,
+					users_count: null,
+					image: null,
+					book_series: [{ series: { id: 40, name: "No Position Series" } }],
+					contributions: [],
+				},
+			],
+		});
+
+		const result = await getHardcoverBookDetailFn({
+			data: { foreignBookId: 602 },
+		});
+
+		assertExists(result);
+		expect(result).toEqual(
+			expect.objectContaining({
+				coverUrl: null,
+				description: null,
+				releaseDate: null,
+				releaseYear: null,
+				slug: null,
+				title: "",
+			}),
+		);
+		expect(result.series).toEqual([
+			{ id: "40", position: null, title: "No Position Series" },
+		]);
+		expect(result.contributors).toEqual([]);
+	});
+
+	it("ignores malformed book detail series and contributors", async () => {
+		mockHardcoverFetchSequence({
+			books: [
+				{
+					id: 601,
+					title: "Mostly Valid",
+					slug: "mostly-valid",
+					description: null,
+					release_date: null,
+					release_year: null,
+					rating: null,
+					ratings_count: null,
+					users_count: null,
+					image: null,
+					book_series: [
+						{ position: 1, series: null },
+						{ position: 2, series: { id: 20 } },
+						{ position: "3.5", series: { id: 21, name: "Valid Saga" } },
+					],
+					contributions: [
+						{ author: null },
+						{ author: { id: 2 } },
+						{ author: { id: 3, name: "Valid Writer" } },
+					],
+				},
+			],
+		});
+
+		const result = await getHardcoverBookDetailFn({
+			data: { foreignBookId: 601 },
+		});
+
+		assertExists(result);
+		expect(result.series).toEqual([
+			{ id: "21", title: "Valid Saga", position: "3.5" },
+		]);
+		expect(result.contributors).toEqual([{ id: "3", name: "Valid Writer" }]);
 	});
 });

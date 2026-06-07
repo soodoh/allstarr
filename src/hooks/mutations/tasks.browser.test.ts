@@ -74,6 +74,16 @@ describe("mutations/tasks", () => {
 		expect(error).toHaveBeenCalledWith("boom");
 	});
 
+	it("shows the fallback run-task error toast", async () => {
+		runScheduledTaskFn.mockRejectedValue("nope");
+
+		const { result } = await renderHook(() => useRunTask());
+
+		await result.current.mutateAsync("task-1").catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("Failed to run task");
+	});
+
 	it("wires toggle-task mutations and invalidates tasks", async () => {
 		toggleTaskEnabledFn.mockResolvedValue({ ok: true });
 
@@ -90,6 +100,21 @@ describe("mutations/tasks", () => {
 		expect(invalidateQueries).toHaveBeenCalledWith({
 			queryKey: queryKeys.tasks.all,
 		});
+	});
+
+	it("shows the server toggle-task error toast", async () => {
+		toggleTaskEnabledFn.mockRejectedValue(new Error("toggle failed"));
+
+		const { result } = await renderHook(() => useToggleTaskEnabled());
+
+		await result.current
+			.mutateAsync({
+				enabled: true,
+				taskId: "task-2",
+			})
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("toggle failed");
 	});
 
 	it("shows the toggle-task error toast", async () => {

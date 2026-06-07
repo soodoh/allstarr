@@ -139,6 +139,25 @@ describe("server/dashboard", () => {
 		expect(dashboardMocks.select).toHaveBeenCalledTimes(8);
 	});
 
+	it("defaults missing content stat counts to zero", async () => {
+		queueSelectResults([
+			{ get: null },
+			{ get: undefined },
+			{ get: { count: null } },
+			{ get: null },
+			{ get: undefined },
+			{ get: { count: null } },
+			{ get: null },
+			{ get: undefined },
+		]);
+
+		await expect(getDashboardContentStatsFn()).resolves.toMatchObject({
+			books: { total: 0, monitored: 0, fileCount: 0 },
+			movies: { total: 0, monitored: 0, fileCount: 0 },
+			shows: { total: 0, monitored: 0, fileCount: 0 },
+		});
+	});
+
 	it("groups and sorts dashboard quality breakdowns", async () => {
 		queueSelectResults([
 			{
@@ -212,6 +231,26 @@ describe("server/dashboard", () => {
 		expect(dashboardMocks.select).toHaveBeenCalledTimes(3);
 	});
 
+	it("defaults missing storage totals and disk capacity to zero", async () => {
+		queueSelectResults([
+			{ get: null },
+			{ get: undefined },
+			{ get: { total: null } },
+		]);
+		dashboardMocks.getDiskSpace.mockResolvedValueOnce([]);
+
+		await expect(getDashboardStorageStatsFn()).resolves.toEqual({
+			byContentType: [
+				{ contentType: "Books", totalSize: 0 },
+				{ contentType: "TV Shows", totalSize: 0 },
+				{ contentType: "Movies", totalSize: 0 },
+			],
+			totalUsed: 0,
+			totalCapacity: 0,
+			rootFolderCount: 0,
+		});
+	});
+
 	it("maps recent activity to a content type and timestamp", async () => {
 		const entries = [
 			{
@@ -247,7 +286,7 @@ describe("server/dashboard", () => {
 				date: new Date("2024-01-05T10:00:00.000Z"),
 				bookId: null,
 				movieId: null,
-				showId: 30,
+				showId: null,
 				episodeId: 40,
 			},
 		];

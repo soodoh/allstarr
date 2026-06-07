@@ -76,8 +76,8 @@ test.describe("Disk Scan", () => {
 
 		const bookFile = files.find((f) => f.bookId === bookId);
 		expect(bookFile).toBeTruthy();
-		expect(bookFile!.path).toContain("book.epub");
-		expect(bookFile!.size).toBeGreaterThan(0);
+		expect(bookFile?.path).toContain("book.epub");
+		expect(bookFile?.size).toBeGreaterThan(0);
 	});
 
 	test("quality matched — .epub maps to correct format", async ({
@@ -97,12 +97,12 @@ test.describe("Disk Scan", () => {
 		expect(bookFile).toBeTruthy();
 
 		// Verify quality was detected and contains EPUB
-		const quality = bookFile!.quality as {
+		const quality = bookFile?.quality as {
 			quality: { id: number; name: string };
 			revision: { version: number; real: number };
 		} | null;
 		expect(quality).toBeTruthy();
-		expect(quality!.quality.name).toMatch(/epub/i);
+		expect(quality?.quality.name).toMatch(/epub/i);
 	});
 
 	test("multiple formats discovered for same book", async ({

@@ -187,7 +187,11 @@ vi.mock("./tracked-download-state", () => ({
 
 // ─── Import after mocks ──────────────────────────────────────────────────────
 
-import { importCompletedDownload } from "./file-import";
+import {
+	buildManagedEpisodeDestination,
+	buildManagedMovieDestination,
+	importCompletedDownload,
+} from "./file-import";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -303,6 +307,50 @@ function expectClaimedForImport(id = 1) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+describe("managed destination builders", () => {
+	it("builds movie folders with and without release years", () => {
+		expect(
+			buildManagedMovieDestination({
+				rootFolderPath: "/library/movies",
+				movieTitle: "Alien: Romulus",
+				movieYear: 2024,
+				sourcePath: "/downloads/Alien.Romulus.mkv",
+			}),
+		).toBe("/library/movies/Alien_ Romulus (2024)/Alien.Romulus.mkv");
+		expect(
+			buildManagedMovieDestination({
+				rootFolderPath: "/library/movies",
+				movieTitle: "Untitled Movie",
+				movieYear: null,
+				sourcePath: "/downloads/movie.mkv",
+			}),
+		).toBe("/library/movies/Untitled Movie/movie.mkv");
+	});
+
+	it("builds episode destinations with optional season folders", () => {
+		expect(
+			buildManagedEpisodeDestination({
+				rootFolderPath: "/library/tv",
+				showTitle: "Severance",
+				showYear: 2022,
+				seasonNumber: 1,
+				sourcePath: "/downloads/Severance.S01E01.mkv",
+				useSeasonFolder: true,
+			}),
+		).toBe("/library/tv/Severance (2022)/Season 01/Severance.S01E01.mkv");
+		expect(
+			buildManagedEpisodeDestination({
+				rootFolderPath: "/library/tv",
+				showTitle: "One-Off Show",
+				showYear: null,
+				seasonNumber: 2,
+				sourcePath: "/downloads/One-Off.S02E03.mkv",
+				useSeasonFolder: false,
+			}),
+		).toBe("/library/tv/One-Off Show ()/One-Off.S02E03.mkv");
+	});
+});
+
 describe("importCompletedDownload", () => {
 	it("throws if tracked download not found", async () => {
 		// dbGet returns undefined (default)
@@ -413,6 +461,39 @@ describe("importCompletedDownload", () => {
 		await expect(importCompletedDownload(1)).rejects.toBe(error);
 
 		expectMarkedFailed("permission denied");
+	});
+
+	it("logs secondary failures when marking an import failure fails", async () => {
+		const td = makeTd();
+		const originalError = new Error("permission denied");
+		const markError = new Error("state update failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "my-book.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.mkdirSync.mockImplementation(() => {
+			throw originalError;
+		});
+		mocks.markTrackedDownloadFailed.mockImplementation(() => {
+			throw markError;
+		});
+
+		await expect(importCompletedDownload(1)).rejects.toBe(originalError);
+
+		expect(mocks.logError).toHaveBeenCalledWith(
+			"file-import",
+			"Failed to mark tracked download 1 failed: state update failed",
+			markError,
+		);
 	});
 
 	it("cleans up a copied destination file when history finalization fails", async () => {
@@ -577,6 +658,53 @@ describe("importCompletedDownload", () => {
 		);
 		expect(mocks.unlinkSync).toHaveBeenCalledWith(
 			expect.stringContaining("close-fail.epub"),
+		);
+		expectMarkedFailed("All file imports failed");
+	});
+
+	it("removes a copied destination when exclusive copy source close fails", async () => {
+		const td = makeTd();
+		const error = new Error("source close failed");
+		queueGets(
+			td,
+			{ contentType: "ebook" },
+			{ name: "Jane Author" },
+			{ rootFolderPath: "/library" },
+			{ title: "My Book", releaseYear: 2024 },
+		);
+		queueAlls([]);
+
+		mocks.statSync.mockReturnValue({ size: 2048, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "source-close-fail.epub", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({
+			bsize: 1024 * 1024,
+			bavail: 500,
+		});
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.useHardLinks") return false;
+				return defaultValue;
+			},
+		);
+		mocks.openSync.mockImplementation((_filePath: string, flags: string) =>
+			flags === "wx" ? 11 : 10,
+		);
+		mocks.closeSync.mockImplementation((fd: number) => {
+			if (fd === 10) {
+				throw error;
+			}
+		});
+
+		await importCompletedDownload(1);
+
+		expect(mocks.openSync).toHaveBeenCalledWith(
+			expect.stringContaining("source-close-fail.epub"),
+			"r",
+		);
+		expect(mocks.unlinkSync).toHaveBeenCalledWith(
+			expect.stringContaining("source-close-fail.epub"),
 		);
 		expectMarkedFailed("All file imports failed");
 	});
@@ -1252,6 +1380,57 @@ describe("pack detection and delegation", () => {
 });
 
 describe("importBookPackDownload", () => {
+	it("marks failed when source directory is missing for book pack", async () => {
+		const td = makeTd({
+			bookId: null,
+			authorId: 200,
+			outputPath: "/downloads/missing-pack",
+		});
+		queueGets(td);
+		mocks.statSync.mockImplementation(() => {
+			throw new Error("ENOENT");
+		});
+
+		await importCompletedDownload(1);
+
+		expectMarkedFailed("Download output path not found");
+	});
+
+	it("includes configured extra extensions when scanning book packs", async () => {
+		const td = makeTd({
+			bookId: null,
+			authorId: 200,
+			outputPath: "/downloads/pack",
+		});
+		queueGets(
+			td,
+			{ id: 200, name: "Pack Author" },
+			{ rootFolderPath: "/library" },
+			{ contentType: "ebook" },
+		);
+		mocks.getMediaSetting.mockImplementation(
+			(key: string, defaultValue: unknown) => {
+				if (key === "mediaManagement.book.importExtraFiles") return true;
+				if (key === "mediaManagement.book.extraFileExtensions")
+					return "nfo, .jpg";
+				return defaultValue;
+			},
+		);
+		mocks.statSync.mockReturnValue({ size: 1024, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "metadata.nfo", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024 * 1024, bavail: 500 });
+		mocks.mapBookFiles.mockReturnValue([]);
+
+		await importCompletedDownload(1);
+
+		expect(mocks.mapBookFiles).toHaveBeenCalledWith([
+			"/downloads/pack/metadata.nfo",
+		]);
+		expectMarkedFailed("No book files could be parsed from pack");
+	});
+
 	it("marks failed when outputPath is missing for book pack", async () => {
 		const td = makeTd({
 			bookId: null,
@@ -1525,6 +1704,35 @@ describe("importEpisodePackDownload", () => {
 			...overrides,
 		});
 	}
+
+	it("marks failed when source directory is missing for episode pack", async () => {
+		queueGets(makeTvTd({ outputPath: "/downloads/missing-tv-pack" }));
+		mocks.statSync.mockImplementation(() => {
+			throw new Error("ENOENT");
+		});
+
+		await importCompletedDownload(1);
+
+		expectMarkedFailed("Download output path not found");
+	});
+
+	it("marks failed when episode pack lacks free space", async () => {
+		queueGets(
+			makeTvTd(),
+			{ title: "My Show", year: 2020, useSeasonFolder: true },
+			{ downloadProfileId: 300 },
+			{ rootFolderPath: "/library/tv" },
+		);
+		mocks.statSync.mockReturnValue({ size: 1024, isDirectory: () => true });
+		mocks.readdirSync.mockReturnValue([
+			{ name: "show.S01E01.mkv", isDirectory: () => false },
+		]);
+		mocks.statfsSync.mockReturnValue({ bsize: 1024, bavail: 10 });
+
+		await importCompletedDownload(1);
+
+		expectMarkedFailed(expect.stringContaining("Insufficient free space"));
+	});
 
 	it("marks failed when outputPath is missing for episode pack", async () => {
 		queueGets(makeTvTd({ outputPath: null }));

@@ -63,6 +63,30 @@ describe("mutations/indexer-search", () => {
 		expect(error).toHaveBeenCalledWith("search exploded");
 	});
 
+	it("shows the search fallback error toast for non-Error failures", async () => {
+		searchIndexersFn.mockRejectedValue("nope");
+
+		const { result } = await renderHook(() => useSearchIndexers());
+
+		await result.current
+			.mutateAsync({ query: "Dune" } as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("Search failed");
+	});
+
+	it("shows the grab release server error toast", async () => {
+		grabReleaseFn.mockRejectedValue(new Error("grab exploded"));
+
+		const { result } = await renderHook(() => useGrabRelease());
+
+		await result.current
+			.mutateAsync({ releaseId: 22 } as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("grab exploded");
+	});
+
 	it("shows the grab release fallback error toast", async () => {
 		grabReleaseFn.mockRejectedValue("nope");
 

@@ -313,6 +313,18 @@ describe("TmdbShowSearch", () => {
 		vi.useFakeTimers();
 		tmdbShowSearchMocks.addShow.mutate.mockReset();
 		tmdbShowSearchMocks.upsertUserSettings.mutate.mockReset();
+		tmdbShowSearchMocks.downloadProfiles = [
+			{ contentType: "tv", id: 21, name: "HDTV" },
+		];
+		tmdbShowSearchMocks.settings = {
+			addDefaults: {
+				downloadProfileIds: [21],
+				monitorOption: "future",
+				searchCutoffUnmet: true,
+				searchOnAdd: false,
+				useSeasonFolder: true,
+			},
+		};
 		tmdbShowSearchMocks.showExists = false;
 		tmdbShowSearchMocks.searchStates.clear();
 		tmdbShowSearchMocks.useQuery.mockImplementation(
@@ -438,6 +450,92 @@ describe("TmdbShowSearch", () => {
 				onSuccess: expect.any(Function),
 			}),
 		);
+	});
+
+	it("toggles profiles and cutoff-unmet search before closing after add success", async () => {
+		tmdbShowSearchMocks.downloadProfiles = [
+			{ contentType: "tv", id: 21, name: "HDTV" },
+			{ contentType: "tv", id: 22, name: "Anime" },
+			{ contentType: "movie", id: 99, name: "Movies" },
+		];
+		tmdbShowSearchMocks.settings = {
+			addDefaults: {
+				downloadProfileIds: [21],
+				monitorOption: "future",
+				searchCutoffUnmet: true,
+				searchOnAdd: false,
+				useSeasonFolder: true,
+			},
+		};
+		tmdbShowSearchMocks.searchStates.set("frieren", {
+			data: {
+				query: "frieren",
+				results: [
+					{
+						first_air_date: "2023-09-29",
+						genre_ids: [16],
+						id: 300,
+						name: "Frieren",
+						origin_country: ["JP"],
+						original_name: "Frieren",
+						overview: "After the journey.",
+						popularity: 12,
+						poster_path: "/frieren.jpg",
+						vote_average: 9.1,
+					},
+				],
+			},
+		});
+		tmdbShowSearchMocks.addShow.mutate.mockImplementation(
+			(
+				_payload: unknown,
+				options?: {
+					onSuccess?: () => void;
+				},
+			) => {
+				options?.onSuccess?.();
+			},
+		);
+
+		await renderWithProviders(<TmdbShowSearch />);
+
+		await page.getByLabelText("Search TV shows").fill("frieren");
+		await vi.advanceTimersByTimeAsync(300);
+		await page.getByRole("heading", { name: "Frieren" }).click();
+
+		await page.getByText("HDTV:selected").click();
+		await page.getByText("Anime:idle").click();
+		await page.getByLabelText("Start search for cutoff unmet episodes").click();
+		await page.getByRole("button", { name: "Add Show" }).click();
+
+		expect(tmdbShowSearchMocks.upsertUserSettings.mutate).toHaveBeenCalledWith({
+			addDefaults: {
+				downloadProfileIds: [22],
+				monitorOption: "future",
+				searchCutoffUnmet: false,
+				searchOnAdd: false,
+				useSeasonFolder: true,
+			},
+			tableId: "tv",
+		});
+		expect(tmdbShowSearchMocks.addShow.mutate).toHaveBeenCalledWith(
+			{
+				downloadProfileIds: [22],
+				episodeGroupId: null,
+				monitorOption: "future",
+				searchCutoffUnmet: false,
+				searchOnAdd: false,
+				seriesType: "standard",
+				tmdbId: 300,
+				useSeasonFolder: true,
+			},
+			expect.objectContaining({
+				onSuccess: expect.any(Function),
+			}),
+		);
+		await expect
+			.element(page.getByTestId("dialog-root"))
+			.not.toBeInTheDocument();
 	});
 
 	it("shows the existing-library close branch when the show already exists", async () => {

@@ -952,7 +952,7 @@ describe("deluge provider", () => {
 				expect(body.params[0]).toEqual({});
 				response.statusCode = 200;
 				response.setHeader("Content-Type", "application/json");
-				response.end(jsonRpc({}));
+				response.end(jsonRpc({ missing: {} }));
 				return;
 			}
 
@@ -964,7 +964,20 @@ describe("deluge provider", () => {
 			const port = Number(server.baseUrl.split(":").pop());
 			const config = delugeConfig(port, { category: null });
 			const downloads = await delugeProvider.getDownloads(config);
-			expect(downloads).toEqual([]);
+			expect(downloads).toEqual([
+				{
+					id: "missing",
+					name: "",
+					status: "downloading",
+					size: 0,
+					downloaded: 0,
+					uploadSpeed: 0,
+					downloadSpeed: 0,
+					category: null,
+					outputPath: null,
+					isCompleted: false,
+				},
+			]);
 		} finally {
 			await server.stop();
 		}

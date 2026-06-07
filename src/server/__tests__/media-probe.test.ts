@@ -248,6 +248,53 @@ describe("probeVideoFile", () => {
 		});
 	});
 
+	it("returns null when video ffprobe exits with non-zero code", async () => {
+		mocks.spawnSync.mockReturnValue({ exitCode: 0 });
+		mocks.spawn.mockReturnValue(makeSpawnResult({}, 1));
+
+		const { probeVideoFile } = await import("../media-probe");
+		const result = await probeVideoFile("/path/to/bad-video.mp4");
+
+		expect(result).toBeNull();
+	});
+
+	it("defaults missing video metadata fields", async () => {
+		mocks.spawnSync.mockReturnValue({ exitCode: 0 });
+		mocks.spawn.mockReturnValue(
+			makeSpawnResult({
+				streams: [{ codec_type: "video" }],
+			}),
+		);
+
+		const { probeVideoFile } = await import("../media-probe");
+		const result = await probeVideoFile("/path/to/VIDEO");
+
+		expect(result).toStrictEqual({
+			duration: 0,
+			bitrate: 0,
+			codec: "unknown",
+			width: 0,
+			height: 0,
+			container: "",
+		});
+	});
+
+	it("logs unknown warning text for non-Error video probe failures", async () => {
+		mocks.spawnSync.mockReturnValue({ exitCode: 0 });
+		mocks.spawn.mockImplementation(() => {
+			throw "boom";
+		});
+
+		const { probeVideoFile } = await import("../media-probe");
+		const result = await probeVideoFile("/path/to/non-error.mp4");
+
+		expect(result).toBeNull();
+		expect(mocks.logWarn).toHaveBeenCalledWith(
+			"media-probe",
+			expect.stringContaining("Unknown error"),
+		);
+	});
+
 	it("logs warning and returns null on error", async () => {
 		mocks.spawnSync.mockReturnValue({ exitCode: 0 });
 		const badStream = new ReadableStream({

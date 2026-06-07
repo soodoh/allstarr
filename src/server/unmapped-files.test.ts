@@ -408,6 +408,7 @@ import {
 	getUnmappedFilesFn,
 	ignoreUnmappedFilesFn,
 	mapUnmappedFileFn,
+	previewUnmappedImportAssetsFn,
 	rescanAllRootFoldersFn,
 	rescanRootFolderFn,
 	searchLibraryFn,
@@ -586,6 +587,217 @@ describe("server/unmapped-files", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
 		useDefaultMocks();
+	});
+
+	function dirent(name: string, directory = false) {
+		return {
+			name,
+			isDirectory: () => directory,
+		};
+	}
+
+	describe("previewUnmappedImportAssetsFn", () => {
+		it("groups rows by source container and previews non-primary related assets", async () => {
+			mocks.readdirSync.mockImplementation((currentPath: string) => {
+				if (currentPath === "/incoming/Show") {
+					return [dirent("Season 01", true), dirent("poster.jpg")];
+				}
+				if (currentPath === "/incoming/Show/Season 01") {
+					return [
+						dirent("Show.S01E01.mkv"),
+						dirent("Show.S01E01.en.srt"),
+						dirent("Show.S01E02.mkv"),
+						dirent("Behind The Scenes", true),
+					];
+				}
+				if (currentPath === "/incoming/Show/Season 01/Behind The Scenes") {
+					return [dirent("notes.nfo")];
+				}
+				if (currentPath === "/incoming/Movie") {
+					return [dirent("Movie.2024.mkv"), dirent("Movie.2024.en.srt")];
+				}
+				if (currentPath === "/incoming/Audio") {
+					return [dirent("Chapter 01.mp3"), dirent("cover.jpg")];
+				}
+				if (currentPath === "/incoming/Book") {
+					return [
+						dirent("Novel.epub"),
+						dirent("Novel.m4b"),
+						dirent("Novel.nfo"),
+					];
+				}
+				return [];
+			});
+
+			const result = await previewUnmappedImportAssetsFn({
+				data: {
+					rows: [
+						{
+							contentType: "tv",
+							fileId: 1,
+							path: "/incoming/Show/Season 01/Show.S01E01.mkv",
+						},
+						{
+							contentType: "tv",
+							fileId: 2,
+							path: "/incoming/Show/Season 01/Show.S01E02.mkv",
+						},
+						{
+							contentType: "movie",
+							fileId: 3,
+							path: "/incoming/Movie/Movie.2024.mkv",
+						},
+						{
+							contentType: "audiobook",
+							fileId: 4,
+							path: "/incoming/Audio/Chapter 01.mp3",
+						},
+						{
+							contentType: "book",
+							fileId: 5,
+							path: "/incoming/Book/Novel.epub",
+						},
+					],
+				},
+			});
+
+			expect(mocks.requireAuth).toHaveBeenCalledOnce();
+			expect(result.rows).toHaveLength(5);
+			expect(result.rows.find((row) => row.fileId === 1)?.assets).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						relativeSourcePath: "Season 01/Show.S01E01.en.srt",
+						selected: true,
+					}),
+					expect.objectContaining({
+						ownershipReason: "container",
+						relativeSourcePath: "poster.jpg",
+					}),
+					expect.objectContaining({
+						ownershipReason: "container",
+						relativeSourcePath: "Season 01/Behind The Scenes/notes.nfo",
+					}),
+				]),
+			);
+			expect(result.rows.find((row) => row.fileId === 2)?.assets).toEqual(
+				expect.not.arrayContaining([
+					expect.objectContaining({
+						relativeSourcePath: "Season 01/Show.S01E01.mkv",
+					}),
+				]),
+			);
+			expect(result.rows.find((row) => row.fileId === 3)?.assets).toEqual([
+				expect.objectContaining({
+					relativeSourcePath: "Movie.2024.en.srt",
+					sourcePath: "/incoming/Movie/Movie.2024.en.srt",
+				}),
+			]);
+			expect(result.rows.find((row) => row.fileId === 4)?.assets).toEqual([
+				expect.objectContaining({ relativeSourcePath: "cover.jpg" }),
+			]);
+			expect(result.rows.find((row) => row.fileId === 5)?.assets).toEqual([
+				expect.objectContaining({ relativeSourcePath: "Novel.nfo" }),
+			]);
+		});
+
+		it("infers TV show root without a season folder and naturally sorts assets", async () => {
+			mocks.readdirSync.mockImplementation((currentPath: string) => {
+				if (currentPath === "/incoming/Show") {
+					return [
+						dirent("Show.S01E01.mkv"),
+						dirent("Show.S01E01.asset 10.nfo"),
+						dirent("Show.S01E01.asset 2.nfo"),
+						dirent("Show.S01E02.mp4"),
+						dirent("Show.S01E03.avi"),
+						dirent("Extras", true),
+					];
+				}
+				if (currentPath === "/incoming/Show/Extras") {
+					return [dirent("asset 1.nfo")];
+				}
+				return [];
+			});
+
+			const result = await previewUnmappedImportAssetsFn({
+				data: {
+					rows: [
+						{
+							contentType: "tv",
+							fileId: 10,
+							path: "/incoming/Show/Show.S01E01.mkv",
+						},
+					],
+				},
+			});
+
+			expect(result.rows).toEqual([
+				{
+					fileId: 10,
+					assets: [
+						expect.objectContaining({
+							ownershipReason: "container",
+							relativeSourcePath: "Extras/asset 1.nfo",
+						}),
+						expect.objectContaining({
+							ownershipReason: "direct",
+							relativeSourcePath: "Show.S01E01.asset 2.nfo",
+						}),
+						expect.objectContaining({
+							ownershipReason: "direct",
+							relativeSourcePath: "Show.S01E01.asset 10.nfo",
+						}),
+					],
+				},
+			]);
+		});
+
+		it("skips audiobook and ebook primary files while previewing related assets", async () => {
+			mocks.readdirSync.mockImplementation((currentPath: string) => {
+				if (currentPath === "/incoming/Audio") {
+					return [
+						dirent("Chapter 01.mp3"),
+						dirent("Chapter 02.m4b"),
+						dirent("Bonus.flac"),
+						dirent("cover.jpg"),
+					];
+				}
+				if (currentPath === "/incoming/Book") {
+					return [
+						dirent("Novel.epub"),
+						dirent("Novel.pdf"),
+						dirent("Novel.azw3"),
+						dirent("Novel.mobi"),
+						dirent("Novel.mp3"),
+						dirent("Novel.nfo"),
+					];
+				}
+				return [];
+			});
+
+			const result = await previewUnmappedImportAssetsFn({
+				data: {
+					rows: [
+						{
+							contentType: "audiobook",
+							fileId: 11,
+							path: "/incoming/Audio/Chapter 01.mp3",
+						},
+						{
+							contentType: "book",
+							fileId: 12,
+							path: "/incoming/Book/Novel.epub",
+						},
+					],
+				},
+			});
+
+			expect(result.rows.find((row) => row.fileId === 11)?.assets).toEqual([
+				expect.objectContaining({ relativeSourcePath: "cover.jpg" }),
+			]);
+			expect(result.rows.find((row) => row.fileId === 12)?.assets).toEqual([
+				expect.objectContaining({ relativeSourcePath: "Novel.nfo" }),
+			]);
+		});
 	});
 
 	// ─── getUnmappedFilesFn ────────────────────────────────────────────────
@@ -1004,6 +1216,71 @@ describe("server/unmapped-files", () => {
 			await expect(mapUnmappedFileFn({ data: baseData })).rejects.toThrow(
 				"Download profile 5 not found",
 			);
+		});
+
+		it("throws when episode mapping profile is missing", async () => {
+			mocks.select.mockReturnValue(createSelectChain(undefined));
+
+			await expect(
+				mapUnmappedFileFn({
+					data: {
+						downloadProfileId: 5,
+						rows: [{ unmappedFileId: 1, entityType: "episode", entityId: 101 }],
+					},
+				}),
+			).rejects.toThrow("Download profile 5 not found");
+		});
+
+		it("throws when episode mapping has no usable root folder", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "",
+				contentType: "tv",
+			};
+			mocks.select
+				.mockReturnValueOnce(createSelectChain(profile))
+				.mockReturnValueOnce(createSelectChain(profile, []))
+				.mockReturnValueOnce(createSelectChain(undefined, []));
+
+			await expect(
+				mapUnmappedFileFn({
+					data: {
+						downloadProfileId: 5,
+						rows: [{ unmappedFileId: 1, entityType: "episode", entityId: 101 }],
+					},
+				}),
+			).rejects.toThrow("Download profile 5 has no root folder configured");
+		});
+
+		it("throws when an episode mapping target is missing", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+				contentType: "tv",
+			};
+			mocks.select
+				.mockReturnValueOnce(createSelectChain(profile))
+				.mockReturnValueOnce(createSelectChain(profile))
+				.mockReturnValueOnce(
+					createSelectChain({
+						id: 1,
+						path: "/incoming/Show.S01E01.mkv",
+						size: 123,
+						quality: null,
+					}),
+				)
+				.mockReturnValueOnce(createSelectChain(undefined));
+
+			await expect(
+				mapUnmappedFileFn({
+					data: {
+						downloadProfileId: 5,
+						rows: [{ unmappedFileId: 1, entityType: "episode", entityId: 101 }],
+					},
+				}),
+			).rejects.toThrow("Episode 101 not found");
 		});
 
 		it("rejects mixed legacy and tv episode payloads", async () => {
@@ -2036,6 +2313,127 @@ describe("server/unmapped-files", () => {
 			);
 		});
 
+		it("uses nested relative directory parts to disambiguate movie sidecar destinations", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const file = {
+				id: 1,
+				path: "/incoming/movies/Alien (1979).mkv",
+				rootFolderPath: "/incoming/movies",
+				size: 8000000,
+				quality: null,
+			};
+			const movie = {
+				id: 10,
+				title: "Alien",
+				year: 1979,
+			};
+
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/movies/subs/en/Alien (1979).srt",
+						rootFolderPath: "/incoming/movies",
+						size: 200,
+						quality: null,
+					},
+					{
+						id: 3,
+						path: "/incoming/movies/subs/fr/Alien (1979).srt",
+						rootFolderPath: "/incoming/movies",
+						size: 300,
+						quality: null,
+					},
+				],
+			});
+
+			mocks.insert.mockReturnValue(createInsertChain());
+			mocks.update.mockReturnValue(createUpdateChain());
+			mocks.deleteFn.mockReturnValue(createDeleteChain());
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/subs/en/Alien (1979).srt",
+				"/library/movies/Alien (1979)/Alien (1979).subs.en.srt",
+			);
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/subs/fr/Alien (1979).srt",
+				"/library/movies/Alien (1979)/Alien (1979).subs.fr.srt",
+			);
+		});
+
+		it("ignores movie sidecars outside the source directory tree", async () => {
+			const profile = {
+				id: 5,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const file = {
+				id: 1,
+				path: "/incoming/movies/Alien (1979).mkv",
+				rootFolderPath: "/incoming",
+				size: 8000000,
+				quality: null,
+			};
+			const movie = {
+				id: 10,
+				title: "Alien",
+				year: 1979,
+			};
+
+			setupMovieRowMappingSelects({
+				profile,
+				rows: [{ file, movie }],
+				sidecarRows: [
+					{
+						id: 2,
+						path: "/incoming/movies-extras/Alien (1979).srt",
+						rootFolderPath: "/incoming",
+						size: 200,
+						quality: null,
+					},
+				],
+			});
+
+			mocks.insert.mockReturnValue(createInsertChain());
+			mocks.update.mockReturnValue(createUpdateChain());
+			mocks.deleteFn.mockReturnValue(createDeleteChain());
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					moveRelatedSidecars: true,
+					rows: [{ unmappedFileId: 1, entityId: 10, entityType: "movie" }],
+				},
+			});
+
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/movies/Alien (1979).mkv",
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+			);
+			expect(mocks.renameSync).not.toHaveBeenCalledWith(
+				"/incoming/movies-extras/Alien (1979).srt",
+				expect.anything(),
+			);
+		});
+
 		it("maps an episode file with video probe", async () => {
 			const profile = { id: 5, name: "TV" };
 			const file = {
@@ -2488,6 +2886,106 @@ describe("server/unmapped-files", () => {
 			);
 		});
 
+		it("moves requested TV assets and reports cleanup warnings after commit", async () => {
+			const profile = {
+				id: 5,
+				name: "TV",
+				rootFolderPath: "/library/tv",
+			};
+			const files = [
+				{
+					id: 1,
+					path: "/incoming/severance/Severance.S01E01.mkv",
+					size: 4000000,
+					quality: { quality: { name: "720p" } },
+				},
+			];
+
+			setupTvMappingSelects({
+				episodeRows: [
+					{
+						episodeNumber: 1,
+						seasonNumber: 1,
+						showTitle: "Severance",
+						showYear: 2022,
+						useSeasonFolder: true,
+					},
+				],
+				files,
+				profile,
+			});
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.probeVideoFile.mockResolvedValue({
+				codec: "h264",
+				container: "mkv",
+				duration: 1800,
+			});
+			mocks.renameSync.mockImplementation(() => undefined);
+			mocks.rmSync.mockImplementation(() => {
+				throw new Error("tv cleanup failed");
+			});
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					moveRelatedFiles: true,
+					deleteDeselectedRelatedFiles: true,
+					rows: [
+						{
+							unmappedFileId: 1,
+							entityType: "episode",
+							entityId: 101,
+							assets: [
+								{
+									action: "move",
+									kind: "file",
+									ownershipReason: "container",
+									relativeSourcePath: "poster.jpg",
+									selected: true,
+									sourcePath: "/incoming/severance/poster.jpg",
+								},
+								{
+									action: "delete",
+									kind: "directory",
+									ownershipReason: "container",
+									relativeSourcePath: "extras",
+									selected: false,
+									sourcePath: "/incoming/severance/extras",
+								},
+							],
+						},
+					],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [
+					{
+						entityType: "episode",
+						message: "tv cleanup failed",
+						sourcePath: "/incoming/severance/Severance.S01E01.mkv",
+						unmappedFileId: 1,
+					},
+				],
+			});
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/incoming/severance/poster.jpg",
+				"/library/tv/Severance (2022)/poster.jpg",
+			);
+			expect(mocks.rmSync).toHaveBeenCalledWith("/incoming/severance/extras", {
+				force: true,
+				recursive: true,
+			});
+		});
+
 		it("rolls back moved tv files when the row transaction fails", async () => {
 			const profile = {
 				id: 5,
@@ -2675,6 +3173,159 @@ describe("server/unmapped-files", () => {
 				"/downloads/Prometheus (2012).mkv",
 				"/library/movies/Prometheus (2012)/Prometheus (2012).mkv",
 			);
+		});
+
+		it("moves requested audiobook assets into the managed book folder", async () => {
+			const profile = {
+				id: 5,
+				name: "Audiobooks",
+				rootFolderPath: "/library",
+				contentType: "audiobook",
+			};
+			const file = {
+				id: 1,
+				path: "/downloads/Foundation.m4b",
+				size: 50000,
+				quality: null,
+			};
+			const book = {
+				id: 10,
+				title: "Foundation",
+				releaseYear: 1951,
+				authorName: "Isaac Asimov",
+			};
+
+			setupBookMappingSelects({ book, file, profile });
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.probeAudioFile.mockResolvedValue(null);
+			mocks.renameSync.mockImplementation(() => undefined);
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 5,
+					moveRelatedFiles: true,
+					deleteDeselectedRelatedFiles: false,
+					rows: [
+						{
+							unmappedFileId: 1,
+							entityType: "book",
+							entityId: 10,
+							assets: [
+								{
+									action: "move",
+									kind: "file",
+									ownershipReason: "container",
+									relativeSourcePath: "cover.jpg",
+									selected: true,
+									sourcePath: "/downloads/cover.jpg",
+								},
+							],
+						},
+					],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
+			expect(mocks.renameSync).toHaveBeenCalledWith(
+				"/downloads/cover.jpg",
+				"/library/Isaac Asimov/Foundation (1951)/cover.jpg",
+			);
+		});
+
+		it("moves selected movie assets and falls back to copy on cross-device asset moves", async () => {
+			const profile = {
+				id: 7,
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+				contentType: "movie",
+			};
+			const rows = [
+				{
+					file: {
+						id: 1,
+						path: "/downloads/Alien (1979).mkv",
+						size: 2000000000,
+						quality: null,
+					},
+					movie: { id: 11, title: "Alien", year: 1979 },
+				},
+			];
+
+			setupMovieRowMappingSelects({ profile, rows });
+
+			const insertChain = createInsertChain();
+			mocks.insert.mockReturnValue(insertChain);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+			mocks.probeVideoFile.mockResolvedValue(null);
+
+			const exdevError = Object.assign(new Error("cross-device asset"), {
+				code: "EXDEV",
+			});
+			mocks.renameSync
+				.mockImplementationOnce(() => undefined)
+				.mockImplementationOnce(() => {
+					throw exdevError;
+				});
+
+			const result = await mapUnmappedFileFn({
+				data: {
+					downloadProfileId: 7,
+					moveRelatedFiles: true,
+					deleteDeselectedRelatedFiles: false,
+					rows: [
+						{
+							unmappedFileId: 1,
+							entityType: "movie",
+							entityId: 11,
+							assets: [
+								{
+									action: "move",
+									kind: "file",
+									ownershipReason: "container",
+									relativeSourcePath: "poster.jpg",
+									selected: true,
+									sourcePath: "/downloads/poster.jpg",
+								},
+							],
+						},
+					],
+				},
+			});
+
+			expect(result).toEqual({
+				success: true,
+				mappedCount: 1,
+				failedCount: 0,
+				failures: [],
+				warnings: [],
+			});
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				1,
+				"/downloads/Alien (1979).mkv",
+				"/library/movies/Alien (1979)/Alien (1979).mkv",
+			);
+			expect(mocks.renameSync).toHaveBeenNthCalledWith(
+				2,
+				"/downloads/poster.jpg",
+				"/library/movies/Alien (1979)/poster.jpg",
+			);
+			expect(mocks.copyFileSync).toHaveBeenCalledWith(
+				"/downloads/poster.jpg",
+				"/library/movies/Alien (1979)/poster.jpg",
+			);
+			expect(mocks.unlinkSync).toHaveBeenCalledWith("/downloads/poster.jpg");
 		});
 
 		it("does not roll back committed files on cleanup failure", async () => {

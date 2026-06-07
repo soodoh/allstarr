@@ -131,6 +131,27 @@ describe("mutations/movies", () => {
 		});
 	});
 
+	it("shows the movie import server error toast when the mutation fails with an Error", async () => {
+		addMovieFn.mockRejectedValue(new Error("movie import failed"));
+		loading.mockReturnValue("submit-add-movie");
+
+		const { result } = await renderHook(() => useAddMovie());
+
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [2],
+				minimumAvailability: "released",
+				monitorOption: "movieOnly",
+				searchOnAdd: false,
+				tmdbId: 77,
+			} as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("movie import failed", {
+			id: "submit-add-movie",
+		});
+	});
+
 	it("wires movie updates and invalidates the movies cache", async () => {
 		updateMovieFn.mockResolvedValue({ ok: true });
 

@@ -701,6 +701,131 @@ describe("media-management route", () => {
 			.toBeInTheDocument();
 	});
 
+	it("updates switch and text handlers across book, tv, and movie tabs", async () => {
+		mediaManagementRouteMocks.settingsMap = createSettings({
+			"mediaManagement.movie.extraFileExtensions": ".srt,.sub,.nfo",
+			"mediaManagement.movie.importExtraFiles": true,
+			"mediaManagement.tv.extraFileExtensions": ".srt,.sub,.nfo",
+			"mediaManagement.tv.importExtraFiles": true,
+			"naming.tv.standardEpisode": "Standard",
+			"naming.tv.dailyEpisode": "Daily",
+			"naming.tv.animeEpisode": "Anime",
+			"naming.tv.seasonFolder": "Season",
+			"naming.tv.showFolder": "Shows",
+		});
+		mediaManagementRouteMocks.profiles = [
+			{
+				contentType: "ebook",
+				name: "eBooks",
+				rootFolderPath: "/library/books",
+			},
+			{
+				contentType: "audiobook",
+				name: "AudioBooks",
+				rootFolderPath: "/library/books",
+			},
+			{ contentType: "tv", name: "Series", rootFolderPath: "/library/tv" },
+			{
+				contentType: "movie",
+				name: "Movies",
+				rootFolderPath: "/library/movies",
+			},
+		];
+
+		const route = Route as unknown as { component: () => JSX.Element };
+		const Component = route.component;
+		await renderWithProviders(<Component />);
+
+		const setInputValue = (selector: string, value: string) => {
+			const input = document.querySelector(selector) as HTMLInputElement | null;
+			if (!input) {
+				throw new Error(`Input not found: ${selector}`);
+			}
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
+			setter?.call(input, value);
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+			input.dispatchEvent(new Event("change", { bubbles: true }));
+		};
+		const clickAllSwitches = async () => {
+			const switches = [...document.querySelectorAll('input[type="checkbox"]')];
+			for (const switchEl of switches) {
+				await page.elementLocator(switchEl as HTMLElement).click();
+			}
+		};
+
+		await clickAllSwitches();
+		setInputValue('input[value="{Author Name}"]', "Book Author Folder");
+		setInputValue(
+			'input[value="{Book Title} ({Release Year})"]',
+			"Book Folder",
+		);
+		setInputValue('input[value="/trash"]', "/book-trash");
+		setInputValue('input[value="30"]', "14");
+		await page.getByRole("button", { name: "Save Settings" }).click();
+
+		expect(
+			mediaManagementRouteMocks.updateSettings.mutate,
+		).toHaveBeenCalledWith(
+			expect.arrayContaining([
+				{ key: "mediaManagement.book.createEmptyAuthorFolders", value: false },
+				{ key: "mediaManagement.book.deleteEmptyAuthorFolders", value: true },
+				{ key: "mediaManagement.book.useHardLinks", value: true },
+				{ key: "mediaManagement.book.ignoreDeletedBooks", value: true },
+				{ key: "mediaManagement.book.recyclingBin", value: "/book-trash" },
+				{ key: "mediaManagement.book.recyclingBinCleanup", value: 14 },
+				{ key: "naming.book.ebook.authorFolder", value: "Book Author Folder" },
+				{ key: "naming.book.ebook.bookFolder", value: "Book Folder" },
+			]),
+		);
+
+		await page.getByRole("button", { name: "TV Shows" }).click();
+		setInputValue('input[value=".srt,.sub,.nfo"]', ".srt,.nfo");
+		await clickAllSwitches();
+		setInputValue('input[value="Standard"]', "Standard Changed");
+		setInputValue('input[value="Daily"]', "Daily Changed");
+		setInputValue('input[value="Anime"]', "Anime Changed");
+		setInputValue('input[value="Shows"]', "Shows Changed");
+		await page.getByRole("button", { name: "Save Settings" }).click();
+
+		expect(
+			mediaManagementRouteMocks.updateSettings.mutate,
+		).toHaveBeenCalledWith(
+			expect.arrayContaining([
+				{ key: "naming.tv.standardEpisode", value: "Standard Changed" },
+				{ key: "naming.tv.dailyEpisode", value: "Daily Changed" },
+				{ key: "naming.tv.animeEpisode", value: "Anime Changed" },
+				{ key: "naming.tv.showFolder", value: "Shows Changed" },
+				{ key: "mediaManagement.tv.extraFileExtensions", value: ".srt,.nfo" },
+			]),
+		);
+
+		await page.getByRole("button", { name: "Movies" }).click();
+		setInputValue('input[value=".srt,.sub,.nfo"]', ".srt");
+		await clickAllSwitches();
+		setInputValue(
+			'input[value="{Movie Title} ({Year})"]',
+			"Movie File Changed",
+		);
+		setInputValue(
+			'input[value="{Movie Title} ({Year})"]',
+			"Movie Folder Changed",
+		);
+		await page.getByRole("button", { name: "Save Settings" }).click();
+
+		expect(
+			mediaManagementRouteMocks.updateSettings.mutate,
+		).toHaveBeenCalledWith(
+			expect.arrayContaining([
+				{ key: "mediaManagement.movie.renameBooks", value: false },
+				{ key: "mediaManagement.movie.replaceIllegalCharacters", value: false },
+				{ key: "mediaManagement.movie.extraFileExtensions", value: ".srt" },
+			]),
+		);
+	});
+
 	it("saves tv settings and groups tv root folders", async () => {
 		mediaManagementRouteMocks.settingsMap = createSettings({
 			"naming.tv.standardEpisode": "Standard TV",

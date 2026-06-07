@@ -86,10 +86,12 @@ vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
 	default: ({
 		itemTitle,
 		onConfirm,
+		onOpenChange,
 		open,
 	}: {
 		itemTitle: string;
 		onConfirm: (deleteFiles: boolean) => void;
+		onOpenChange?: (open: boolean) => void;
 		open: boolean;
 	}) =>
 		open ? (
@@ -98,13 +100,31 @@ vi.mock("src/components/bookshelf/books/unmonitor-dialog", () => ({
 				<button onClick={() => onConfirm(true)} type="button">
 					confirm-unmonitor
 				</button>
+				<button onClick={() => onOpenChange?.(false)} type="button">
+					cancel-unmonitor
+				</button>
 			</div>
 		) : null,
 }));
 
 vi.mock("src/components/bookshelf/hardcover/book-preview-modal", () => ({
-	default: ({ book, open }: { book: { title: string }; open: boolean }) =>
-		open ? <div data-testid="preview-modal">{book.title}</div> : null,
+	default: ({
+		book,
+		onOpenChange,
+		open,
+	}: {
+		book: { title: string };
+		onOpenChange?: (open: boolean) => void;
+		open: boolean;
+	}) =>
+		open ? (
+			<div data-testid="preview-modal">
+				{book.title}
+				<button onClick={() => onOpenChange?.(false)} type="button">
+					close-preview
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/shared/column-settings-popover", () => ({
@@ -114,8 +134,23 @@ vi.mock("src/components/shared/column-settings-popover", () => ({
 }));
 
 vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
-	default: ({ open, seriesTitle }: { open: boolean; seriesTitle: string }) =>
-		open ? <div data-testid="edit-profiles-dialog">{seriesTitle}</div> : null,
+	default: ({
+		onOpenChange,
+		open,
+		seriesTitle,
+	}: {
+		onOpenChange?: (open: boolean) => void;
+		open: boolean;
+		seriesTitle: string;
+	}) =>
+		open ? (
+			<div data-testid="edit-profiles-dialog">
+				{seriesTitle}
+				<button onClick={() => onOpenChange?.(false)} type="button">
+					close-profiles
+				</button>
+			</div>
+		) : null,
 }));
 
 vi.mock("src/components/shared/metadata-warning", () => ({
@@ -944,6 +979,54 @@ describe("series route", () => {
 			.toHaveTextContent("Chronicles");
 	});
 
+	it("renders optional table columns for local and external series entries", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+		seriesRouteMocks.useTableColumns.mockReturnValue({
+			visibleColumns: [
+				{ key: "monitored", label: "Monitored" },
+				{ key: "cover", label: "Cover" },
+				{ key: "position", label: "#" },
+				{ key: "title", label: "Title" },
+				{ key: "releaseDate", label: "Release Date" },
+				{ key: "readers", label: "Readers" },
+				{ key: "rating", label: "Rating" },
+				{ key: "format", label: "Type" },
+				{ key: "pages", label: "Pages" },
+				{ key: "isbn10", label: "ISBN 10" },
+				{ key: "isbn13", label: "ISBN-13" },
+				{ key: "asin", label: "ASIN" },
+				{ key: "score", label: "Data Score" },
+				{ key: "author", label: "Author" },
+			],
+		});
+		installQueryMocks();
+
+		await renderWithProviders(<Component />);
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
+
+		await expect.element(page.getByText("150")).toBeInTheDocument();
+		await expect.element(page.getByText("4.6")).toBeInTheDocument();
+		await expect.element(page.getByText("(1,200)")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Hardcover").first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("320")).toBeInTheDocument();
+		await expect.element(page.getByText("ISBN10-1")).toBeInTheDocument();
+		await expect.element(page.getByText("ISBN13-1")).toBeInTheDocument();
+		await expect.element(page.getByText("ASIN-1")).toBeInTheDocument();
+		await expect.element(page.getByText("85")).toBeInTheDocument();
+
+		await expect.element(page.getByText("450")).toBeInTheDocument();
+		await expect.element(page.getByText("4.8")).toBeInTheDocument();
+		await expect.element(page.getByText("Paperback")).toBeInTheDocument();
+		await expect.element(page.getByText("280")).toBeInTheDocument();
+		await expect.element(page.getByText("GAMMA10")).toBeInTheDocument();
+		await expect.element(page.getByText("GAMMA13")).toBeInTheDocument();
+		await expect.element(page.getByText("GAMMA-ASIN")).toBeInTheDocument();
+		await expect.element(page.getByText("70")).toBeInTheDocument();
+	});
+
 	it("toggles a series when clicking the full header row", async () => {
 		const routeConfig = Route as unknown as { component: () => JSX.Element };
 		const Component = routeConfig.component;
@@ -1074,5 +1157,304 @@ describe("series route", () => {
 			.element(page.getByText("No series with monitored books found."))
 			.toBeInTheDocument();
 		await expect.element(page.getByText("Language")).not.toBeInTheDocument();
+	});
+
+	it("keeps local entries over external same-position matches and sorts position edge cases", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+		const edgePayload = {
+			...seriesData,
+			books: [
+				{
+					...seriesData.books[0],
+					foreignBookId: "1010",
+					languageCodes: ["en"],
+					title: "Local Position Five",
+				},
+			],
+			series: [
+				{
+					...seriesData.series[0],
+					books: [
+						{ bookId: 999, position: "1" },
+						{ bookId: 101, position: "5" },
+					],
+				},
+			],
+		} as unknown as typeof seriesData;
+		const edgeHardcoverPayload = [
+			{
+				foreignSeriesId: 777,
+				books: [
+					{
+						authorName: "External Author",
+						coverUrl: null,
+						editions: [
+							{
+								asin: "SAME-POSITION",
+								languageCode: "en",
+								releaseDate: "2024-01-01",
+								title: "External Same Position",
+							},
+						],
+						foreignBookId: 2020,
+						position: "5",
+						rating: null,
+						releaseDate: "2024-01-01",
+						releaseYear: 2024,
+						slug: "external-same-position",
+						title: "External Same Position",
+						usersCount: 9999,
+					},
+					{
+						authorName: "External Author",
+						coverUrl: null,
+						editions: [
+							{
+								asin: "DUPLICATE-FOREIGN",
+								languageCode: "en",
+								releaseDate: "2024-02-01",
+								title: "Duplicate Foreign Id",
+							},
+						],
+						foreignBookId: 1010,
+						position: "8",
+						rating: null,
+						releaseDate: "2024-02-01",
+						releaseYear: 2024,
+						slug: "duplicate-foreign-id",
+						title: "Duplicate Foreign Id",
+						usersCount: 50,
+					},
+					{
+						authorName: "External Author",
+						coverUrl: null,
+						editions: [
+							{
+								asin: "HALF-STEP",
+								languageCode: "en",
+								releaseDate: "2024-03-01",
+								title: "Half Step",
+							},
+						],
+						foreignBookId: 3030,
+						position: "2.5",
+						rating: null,
+						releaseDate: "2024-03-01",
+						releaseYear: 2024,
+						slug: "half-step",
+						title: "Half Step",
+						usersCount: 40,
+					},
+					{
+						authorName: "External Author",
+						coverUrl: null,
+						editions: [
+							{
+								asin: "NO-POSITION",
+								languageCode: "en",
+								releaseDate: "2024-04-01",
+								title: "Standalone Novella",
+							},
+						],
+						foreignBookId: 4040,
+						position: null,
+						rating: null,
+						releaseDate: "2024-04-01",
+						releaseYear: 2024,
+						slug: "standalone-novella",
+						title: "Standalone Novella",
+						usersCount: 30,
+					},
+				],
+			},
+		];
+
+		installQueryMocks({
+			seriesPayload: edgePayload,
+			hardcoverPayload: edgeHardcoverPayload,
+			metadataProfile: {
+				skipMissingIsbnAsin: true,
+				skipMissingReleaseDate: true,
+			},
+		});
+
+		await renderWithProviders(<Component />);
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
+
+		await expect
+			.element(page.getByText("Local Position Five").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("External Same Position"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Duplicate Foreign Id"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Half Step").first())
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Standalone Novella").first())
+			.toBeInTheDocument();
+	});
+
+	it("renders fallback values and ignores unknown optional columns", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+		seriesRouteMocks.useTableColumns.mockReturnValue({
+			visibleColumns: [
+				{ key: "monitored", label: "Monitored" },
+				{ key: "position", label: "#" },
+				{ key: "title", label: "Title" },
+				{ key: "releaseDate", label: "Release Date" },
+				{ key: "readers", label: "Readers" },
+				{ key: "rating", label: "Rating" },
+				{ key: "format", label: "Type" },
+				{ key: "pages", label: "Pages" },
+				{ key: "isbn10", label: "ISBN 10" },
+				{ key: "isbn13", label: "ISBN-13" },
+				{ key: "asin", label: "ASIN" },
+				{ key: "score", label: "Data Score" },
+				{ key: "author", label: "Author" },
+				{ key: "unknown", label: "Unknown" },
+			],
+		});
+		const fallbackPayload = {
+			...seriesData,
+			books: [
+				{
+					...seriesData.books[0],
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					languageCodes: ["en"],
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					title: "Fallback Local",
+					usersCount: null,
+				},
+			],
+			series: [
+				{
+					...seriesData.series[0],
+					books: [{ bookId: 101, position: null }],
+				},
+			],
+		} as unknown as typeof seriesData;
+
+		installQueryMocks({
+			seriesPayload: fallbackPayload,
+			hardcoverPayload: [],
+		});
+
+		await renderWithProviders(<Component />);
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
+
+		await expect
+			.element(page.getByText("Fallback Local").first())
+			.toBeInTheDocument();
+		await expect.element(page.getByText("Unknown")).toBeInTheDocument();
+		expect(document.body.textContent).toContain("—");
+	});
+
+	it("closes preview, profile, and unmonitor dialogs", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+
+		installQueryMocks();
+
+		await renderWithProviders(<Component />);
+		await page.getByRole("button", { name: "Expand Chronicles" }).click();
+
+		await page.getByText("Gamma Special Edition").first().click();
+		await expect.element(page.getByTestId("preview-modal")).toBeInTheDocument();
+		await page.getByRole("button", { name: "close-preview" }).click();
+		await expect
+			.element(page.getByTestId("preview-modal"))
+			.not.toBeInTheDocument();
+
+		await page
+			.getByRole("button", { name: "Edit download profiles" })
+			.first()
+			.click();
+		await expect
+			.element(page.getByTestId("edit-profiles-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "close-profiles" }).click();
+		await expect
+			.element(page.getByTestId("edit-profiles-dialog"))
+			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "profile-11" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+	});
+
+	it("skips external books missing a book-level release date when metadata requires it", async () => {
+		const routeConfig = Route as unknown as { component: () => JSX.Element };
+		const Component = routeConfig.component;
+		const payload = {
+			...seriesData,
+			books: [],
+			series: [
+				{
+					...seriesData.series[0],
+					books: [],
+				},
+			],
+		} as unknown as typeof seriesData;
+
+		installQueryMocks({
+			seriesPayload: payload,
+			hardcoverPayload: [
+				{
+					foreignSeriesId: 777,
+					books: [
+						{
+							authorName: "External Author",
+							coverUrl: null,
+							editions: [
+								{
+									asin: "BOOK-LEVEL-SKIP",
+									languageCode: "en",
+									releaseDate: "2024-05-01",
+									title: "Book Level Missing Release",
+								},
+							],
+							foreignBookId: 9090,
+							position: "1",
+							rating: null,
+							releaseDate: null,
+							releaseYear: 2024,
+							slug: "book-level-missing-release",
+							title: "Book Level Missing Release",
+							usersCount: 30,
+						},
+					],
+				},
+			],
+			metadataProfile: {
+				skipMissingIsbnAsin: true,
+				skipMissingReleaseDate: true,
+			},
+		});
+
+		await renderWithProviders(<Component />);
+
+		await expect
+			.element(page.getByText("Book Level Missing Release"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No series with monitored books found."))
+			.toBeInTheDocument();
 	});
 });

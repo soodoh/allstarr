@@ -175,6 +175,9 @@ test.describe("Monitor discovery", () => {
 			.where(eq(schema.books.foreignBookId, "201"))
 			.get();
 		expect(freshBook).toBeTruthy();
+		if (!freshBook) {
+			throw new Error("Fresh book was not imported");
+		}
 
 		const freshBookProfileLinks = db
 			.select({
@@ -185,7 +188,7 @@ test.describe("Monitor discovery", () => {
 				schema.editions,
 				eq(schema.editions.id, schema.editionDownloadProfiles.editionId),
 			)
-			.where(eq(schema.editions.bookId, freshBook!.id))
+			.where(eq(schema.editions.bookId, freshBook.id))
 			.all();
 		expect(freshBookProfileLinks).toEqual([
 			expect.objectContaining({ downloadProfileId: profile.id }),
@@ -293,6 +296,9 @@ test.describe("Monitor discovery", () => {
 			.where(eq(schema.books.foreignBookId, "211"))
 			.get();
 		expect(newBook).toBeTruthy();
+		if (!newBook) {
+			throw new Error("New book was not imported");
+		}
 
 		const wantedEditionLinks = db
 			.select({
@@ -304,7 +310,7 @@ test.describe("Monitor discovery", () => {
 				schema.editions,
 				eq(schema.editions.id, schema.editionDownloadProfiles.editionId),
 			)
-			.where(eq(schema.editions.bookId, newBook!.id))
+			.where(eq(schema.editions.bookId, newBook.id))
 			.all();
 		expect(wantedEditionLinks).toEqual([
 			expect.objectContaining({ downloadProfileId: profile.id }),
@@ -503,6 +509,9 @@ test.describe("Monitor discovery", () => {
 			)
 			.get();
 		expect(seasonTwo).toBeTruthy();
+		if (!seasonTwo) {
+			throw new Error("Season two was not imported");
+		}
 
 		const seasonTwoEpisodes = db
 			.select({
@@ -511,7 +520,7 @@ test.describe("Monitor discovery", () => {
 				episodeNumber: schema.episodes.episodeNumber,
 			})
 			.from(schema.episodes)
-			.where(eq(schema.episodes.seasonId, seasonTwo!.id))
+			.where(eq(schema.episodes.seasonId, seasonTwo.id))
 			.all();
 		expect(seasonTwoEpisodes).toHaveLength(2);
 		expect(seasonTwoEpisodes.map((episode) => episode.title)).toEqual([

@@ -435,20 +435,23 @@ function installDbMocks() {
 		set: vi.fn((values: Record<string, unknown>) => ({
 			where: vi.fn((condition: { right: number }) => {
 				if (table === schemaMocks.importSources) {
+					const applyUpdate = () => {
+						const index = mocks.rows.findIndex(
+							(row) => row.id === condition.right,
+						);
+						const existing = mocks.rows[index];
+						const updated = {
+							...existing,
+							...values,
+						};
+						mocks.rows[index] = updated as (typeof mocks.rows)[number];
+						return updated;
+					};
+
 					return {
+						run: vi.fn(applyUpdate),
 						returning: vi.fn(() => ({
-							get: vi.fn(() => {
-								const index = mocks.rows.findIndex(
-									(row) => row.id === condition.right,
-								);
-								const existing = mocks.rows[index];
-								const updated = {
-									...existing,
-									...values,
-								};
-								mocks.rows[index] = updated as (typeof mocks.rows)[number];
-								return updated;
-							}),
+							get: vi.fn(applyUpdate),
 						})),
 					};
 				}
@@ -966,6 +969,356 @@ describe("import source CRUD and refresh", () => {
 				title: "A Wizard of Earthsea",
 			}),
 		]);
+	});
+
+	it("refreshes each supported external source kind with its connector", async () => {
+		const cases = [
+			["radarr", mocks.fetchRadarrSnapshot],
+			["readarr", mocks.fetchReadarrSnapshot],
+			["bookshelf", mocks.fetchBookshelfSnapshot],
+		] as const;
+
+		for (const [index, [kind, fetchSnapshot]] of cases.entries()) {
+			const id = index + 20;
+			mocks.rows.push({
+				apiKey: `${kind}-key`,
+				baseUrl: `http://localhost/${kind}`,
+				createdAt: new Date("2026-04-21T00:00:00.000Z"),
+				id,
+				kind,
+				label: kind,
+				lastSyncError: null,
+				lastSyncedAt: null,
+				lastSyncStatus: "idle",
+				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+			});
+			const rawSnapshot = {
+				fetchedAt: `2026-04-21T12:0${index}:00.000Z`,
+				kind,
+			};
+			const normalizedSnapshot = {
+				activity: { blocklist: [], history: [], queue: [] },
+				fetchedAt: rawSnapshot.fetchedAt,
+				kind,
+				library: { books: [], movies: [], shows: [] },
+				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+				sourceId: id,
+				unsupported: [],
+			};
+			fetchSnapshot.mockResolvedValueOnce(rawSnapshot);
+			mocks.normalizeImportSnapshot.mockReturnValueOnce(normalizedSnapshot);
+
+			await expect(refreshImportSourceFn({ data: { id } })).resolves.toEqual(
+				normalizedSnapshot,
+			);
+
+			expect(fetchSnapshot).toHaveBeenCalledWith({
+				apiKey: `${kind}-key`,
+				baseUrl: `http://localhost/${kind}`,
+			});
+			expect(mocks.rows.find((row) => row.id === id)).toMatchObject({
+				lastSyncError: null,
+				lastSyncStatus: "synced",
+			});
+		}
+	});
+
+	it("records refresh errors and rejects unsupported source kinds", async () => {
+		mocks.rows.push({
+			apiKey: "lidarr-key",
+			baseUrl: "http://localhost:8686",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 99,
+			kind: "lidarr",
+			label: "Lidarr",
+			lastSyncError: null,
+			lastSyncedAt: null,
+			lastSyncStatus: "idle",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+
+		await expect(refreshImportSourceFn({ data: { id: 99 } })).rejects.toThrow(
+			"Unsupported import source kind: lidarr",
+		);
+		expect(mocks.rows[0]).toMatchObject({
+			lastSyncError: "Unsupported import source kind: lidarr",
+			lastSyncStatus: "error",
+		});
+	});
+
+	it("serializes plan and review fallback summaries and missing target labels", async () => {
+		mocks.rows.push({
+			apiKey: "radarr-key",
+			baseUrl: "http://localhost:7878",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 6,
+			kind: "radarr",
+			label: "Radarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+		});
+		mocks.provenance.push({
+			sourceKey: "radarr:6:movie:already-imported",
+			targetId: "999",
+			targetType: "movie",
+		});
+		mocks.books.push({
+			foreignBookId: null,
+			id: 71,
+			releaseYear: null,
+			title: "",
+		});
+		mocks.snapshots.push({
+			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+			id: 9,
+			payload: {
+				activity: {
+					blocklist: [],
+					history: [],
+					queue: [
+						{
+							payload: {},
+							resourceType: "queue",
+							sourceId: 6,
+							sourceKey: "radarr:6:queue:1",
+							title: "Queued Release",
+						},
+					],
+				},
+				fetchedAt: "2026-04-21T12:00:00.000Z",
+				kind: "radarr",
+				library: {
+					books: [
+						{
+							payload: {},
+							resourceType: "book",
+							sourceId: 6,
+							sourceKey: "radarr:6:book:missing",
+							title: "Untitled Book",
+						},
+					],
+					movies: [
+						{
+							payload: {},
+							resourceType: "movie",
+							sourceId: 6,
+							sourceKey: "radarr:6:movie:create",
+							title: "No IDs Movie",
+						},
+						{
+							payload: { tmdbId: 321 },
+							resourceType: "movie",
+							sourceId: 6,
+							sourceKey: "radarr:6:movie:already-imported",
+							title: "Already Imported Movie",
+						},
+					],
+					shows: [
+						{
+							payload: {},
+							resourceType: "show",
+							sourceId: 6,
+							sourceKey: "radarr:6:show:unresolved",
+							title: "No IDs Show",
+						},
+					],
+				},
+				settings: {
+					items: [
+						{
+							payload: {},
+							resourceType: "setting",
+							sourceId: 6,
+							sourceKey: "radarr:6:setting:unsupported",
+							title: "Setting Without Group",
+						},
+					],
+					metadataProfiles: [
+						{
+							payload: { isDefault: false, profileKind: "metadata" },
+							resourceType: "profile",
+							sourceId: 6,
+							sourceKey: "radarr:6:profile:metadata",
+							title: "Metadata Profile",
+						},
+					],
+					qualityProfiles: [
+						{
+							payload: { profileKind: "quality" },
+							resourceType: "profile",
+							sourceId: 6,
+							sourceKey: "radarr:6:profile:quality",
+							title: "Quality Profile",
+						},
+					],
+				},
+				unsupported: [
+					{
+						payload: {},
+						resourceType: "unsupported",
+						sourceId: 6,
+						sourceKey: "radarr:6:unsupported:1",
+						title: "Unsupported Row",
+					},
+				],
+				sourceId: 6,
+			},
+			sourceId: 6,
+		});
+
+		const plan = await getImportPlanFn({ data: { sourceId: 6 } });
+		expect(plan).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					sourceKey: "radarr:6:setting:unsupported",
+					sourceSummary: "Setting row",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:profile:quality",
+					sourceSummary: "quality profile",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:movie:create",
+					sourceSummary: "Mapped movie item",
+					target: { id: null, label: null },
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:movie:already-imported",
+					target: { id: 999, label: null },
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:queue:1",
+					sourceSummary: "queue",
+				}),
+			]),
+		);
+
+		const review = await getImportReviewFn({ data: { sourceId: 6 } });
+		expect(review).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					sourceKey: "radarr:6:book:missing",
+					sourceSummary: "Mapped book item",
+					status: "unresolved",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:show:unresolved",
+					sourceSummary: "Mapped show item",
+					status: "unresolved",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:profile:metadata",
+					sourceSummary: "metadata profile",
+					status: "blocked",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:6:unsupported:1",
+					sourceSummary: "unsupported",
+					status: "blocked",
+				}),
+			]),
+		);
+	});
+
+	it("returns empty plans and reviews before a source has a snapshot", async () => {
+		mocks.rows.push({
+			apiKey: "radarr-key",
+			baseUrl: "http://localhost:7878",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 30,
+			kind: "radarr",
+			label: "Radarr",
+			lastSyncError: null,
+			lastSyncedAt: null,
+			lastSyncStatus: "idle",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+
+		await expect(getImportPlanFn({ data: { sourceId: 30 } })).resolves.toEqual(
+			[],
+		);
+		await expect(
+			getImportReviewFn({ data: { sourceId: 30 } }),
+		).resolves.toEqual([]);
+	});
+
+	it("throws clear errors for missing import sources and snapshots", async () => {
+		await expect(refreshImportSourceFn({ data: { id: 404 } })).rejects.toThrow(
+			"Import source not found",
+		);
+		await expect(
+			applyImportPlanFn({ data: { selectedRows: [], sourceId: 404 } }),
+		).rejects.toThrow("Import source not found");
+		await expect(getImportPlanFn({ data: { sourceId: 404 } })).rejects.toThrow(
+			"Import source not found",
+		);
+		await expect(
+			getImportReviewFn({ data: { sourceId: 404 } }),
+		).rejects.toThrow("Import source not found");
+
+		mocks.rows.push({
+			apiKey: "radarr-key",
+			baseUrl: "http://localhost:7878",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 31,
+			kind: "radarr",
+			label: "Radarr",
+			lastSyncError: null,
+			lastSyncedAt: null,
+			lastSyncStatus: "idle",
+			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+		});
+
+		await expect(
+			applyImportPlanFn({ data: { selectedRows: [], sourceId: 31 } }),
+		).rejects.toThrow("Import snapshot not found");
+	});
+
+	it("rejects selected rows that are not in the latest import plan", async () => {
+		mocks.rows.push({
+			apiKey: "radarr-key",
+			baseUrl: "http://localhost:7878",
+			createdAt: new Date("2026-04-21T00:00:00.000Z"),
+			id: 32,
+			kind: "radarr",
+			label: "Radarr",
+			lastSyncError: null,
+			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
+			lastSyncStatus: "synced",
+			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+		});
+		mocks.snapshots.push({
+			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
+			id: 1,
+			payload: {
+				activity: { blocklist: [], history: [], queue: [] },
+				fetchedAt: "2026-04-21T12:00:00.000Z",
+				kind: "radarr",
+				library: { books: [], movies: [], shows: [] },
+				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
+				sourceId: 32,
+				unsupported: [],
+			},
+			sourceId: 32,
+		});
+
+		await expect(
+			applyImportPlanFn({
+				data: {
+					selectedRows: [
+						{
+							action: "create",
+							payload: {},
+							resourceType: "movie",
+							sourceKey: "radarr:32:movie:missing",
+						},
+					],
+					sourceId: 32,
+				},
+			}),
+		).rejects.toThrow("Import plan row not found for radarr:32:movie:missing");
 	});
 
 	it("updates review item status and payload", async () => {

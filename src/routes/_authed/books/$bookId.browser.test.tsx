@@ -641,6 +641,45 @@ describe("BookDetailRoute", () => {
 			.element(page.getByTestId("unmonitor-dialog"))
 			.toHaveTextContent("4K");
 		expect(bookDetailRouteMocks.navigate).not.toHaveBeenCalled();
+		await page.getByRole("button", { name: "confirm" }).click();
+		expect(
+			bookDetailRouteMocks.unmonitorBookProfile.mutate,
+		).toHaveBeenCalledWith(
+			{
+				bookId: 9,
+				deleteFiles: true,
+				downloadProfileId: 11,
+			},
+			expect.any(Object),
+		);
+		expect(bookDetailRouteMocks.invalidate).toHaveBeenCalledOnce();
+
+		await page.getByRole("button", { name: "toggle-Audio" }).click();
+		expect(bookDetailRouteMocks.monitorBookProfile.mutate).toHaveBeenCalledWith(
+			{ bookId: 9, downloadProfileId: 12 },
+			expect.any(Object),
+		);
+
+		await page.getByRole("button", { name: "refresh" }).click();
+		expect(
+			bookDetailRouteMocks.refreshBookMetadata.mutate,
+		).toHaveBeenCalledWith(9, expect.any(Object));
+
+		await page.getByRole("button", { name: "edit" }).first().click();
+		await expect
+			.element(page.getByTestId("book-edit-dialog"))
+			.toHaveTextContent("Dune");
+		await page.getByRole("button", { name: "save" }).click();
+
+		await page.getByRole("button", { name: "delete" }).click();
+		await expect
+			.element(page.getByTestId("book-delete-dialog"))
+			.toHaveTextContent("Dune");
+		await page.getByRole("button", { name: "confirm" }).click();
+		expect(bookDetailRouteMocks.navigate).toHaveBeenCalledWith({
+			params: { authorId: "4" },
+			to: "/authors/$authorId",
+		});
 	});
 
 	it("renders metadata warnings when the book is missing upstream metadata", async () => {
@@ -695,5 +734,49 @@ describe("BookDetailRoute", () => {
 		await expect
 			.element(page.getByTestId("profile-toggle-icons"))
 			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "reassign" }).click();
+		await expect
+			.element(page.getByTestId("reassign-files-dialog"))
+			.toHaveTextContent("Dune");
+		await page.getByRole("button", { name: "reassign" }).last().click();
+		expect(bookDetailRouteMocks.invalidate).toHaveBeenCalledOnce();
+
+		await page.getByRole("button", { name: "delete" }).last().click();
+		expect(bookDetailRouteMocks.navigate).toHaveBeenCalledWith({
+			to: "/books",
+		});
+	});
+
+	it("renders missing-editions warnings without book-level missing metadata", async () => {
+		bookDetailRouteMocks.book = {
+			autoSwitchEdition: 0,
+			bookAuthors: [],
+			description: null,
+			downloadProfileIds: [],
+			editions: [],
+			fileCount: 0,
+			files: [],
+			foreignBookId: null,
+			id: 9,
+			images: [],
+			languages: [],
+			metadataSourceMissingSince: null,
+			missingEditionsCount: 2,
+			releaseDate: null,
+			rating: null,
+			ratingsCount: null,
+			series: [],
+			slug: null,
+			title: "Dune",
+			usersCount: null,
+		};
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await expect
+			.element(page.getByTestId("metadata-warning"))
+			.toHaveTextContent("book-editions:Dune");
 	});
 });

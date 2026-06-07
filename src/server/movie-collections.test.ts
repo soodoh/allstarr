@@ -487,6 +487,94 @@ describe("server/movie-collections", () => {
 			expect(mocks.tmdbFetch).toHaveBeenCalledWith("/movie/100");
 		});
 
+		it("deletes stale cached parts and skips existing or excluded collection parts", async () => {
+			const monitoredCollections = [
+				{
+					id: 1,
+					minimumAvailability: "released",
+					monitored: true,
+					tmdbId: 999,
+				},
+			];
+			let callIndex = 0;
+			mocks.select.mockImplementation(() => {
+				callIndex++;
+				switch (callIndex) {
+					case 1:
+						return createSelectChain(undefined, monitoredCollections);
+					case 2:
+						return createSelectChain(undefined, [{ tmdbId: 200 }]);
+					case 3:
+						return createSelectChain(undefined, [{ tmdbId: 100 }]);
+					case 4:
+						return createSelectChain(undefined, [{ id: 9, tmdbId: 900 }]);
+					case 5:
+						return createSelectChain(undefined, []);
+					default:
+						return createSelectChain(undefined, []);
+				}
+			});
+			mocks.tmdbFetch
+				.mockResolvedValueOnce(
+					makeTmdbCollectionDetail({}, [
+						{
+							id: 100,
+							overview: "existing",
+							poster_path: null,
+							release_date: "2024-01-01",
+							title: "Existing Part",
+						},
+						{
+							id: 200,
+							overview: "excluded",
+							poster_path: null,
+							release_date: "2024-02-01",
+							title: "Excluded Part",
+						},
+						{
+							id: 300,
+							overview: "new",
+							poster_path: null,
+							release_date: "not-a-date",
+							title: "New Part",
+						},
+					]),
+				)
+				.mockResolvedValueOnce(
+					makeTmdbMovieDetail({
+						backdrop_path: null,
+						poster_path: null,
+						release_date: "",
+					}),
+				);
+			const updateChain = createUpdateChain();
+			mocks.update.mockReturnValue(updateChain);
+			const insertChain = createInsertChain({ id: 42 });
+			mocks.insert.mockReturnValue(insertChain);
+			const deleteChain = createDeleteChain();
+			mocks.deleteFn.mockReturnValue(deleteChain);
+
+			const result = await refreshCollectionsFn();
+
+			expect(result).toEqual({ added: 1 });
+			expect(mocks.tmdbFetch).toHaveBeenCalledWith("/collection/999");
+			expect(mocks.tmdbFetch).toHaveBeenCalledWith("/movie/300");
+			expect(mocks.tmdbFetch).toHaveBeenCalledTimes(2);
+			expect(mocks.deleteFn).toHaveBeenCalledWith(
+				schemaMocks.movieCollectionMovies,
+			);
+			expect(mocks.inArray).toHaveBeenCalledWith(
+				schemaMocks.movieCollectionMovies.id,
+				[9],
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({ tmdbId: 300, year: null }),
+			);
+			expect(insertChain.values).toHaveBeenCalledWith(
+				expect.objectContaining({ fanartUrl: "", posterUrl: "", year: 0 }),
+			);
+		});
+
 		it("rejects when admin auth fails", async () => {
 			mocks.requireAdmin.mockRejectedValueOnce(new Error("forbidden"));
 

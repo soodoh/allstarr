@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeImportSnapshot } from "./normalize";
+import {
+	type NormalizedImportSnapshot,
+	normalizeImportSnapshot,
+} from "./normalize";
 import { buildImportPlan } from "./plan";
 
 function buildRawSnapshot(overrides: {
@@ -361,6 +364,143 @@ describe("buildImportPlan", () => {
 			targetId: null,
 			sourceKey: "radarr:12:movie:301",
 		});
+	});
+
+	it("skips rows already imported from the same source across media and settings", async () => {
+		const plan = await buildImportPlan({
+			snapshots: [
+				normalizeImportSnapshot({
+					sourceId: 16,
+					kind: "sonarr",
+					snapshot: buildRawSnapshot({
+						kind: "sonarr",
+						settings: {
+							downloadClients: [{ id: 1, name: "Client" }],
+						},
+						library: {
+							series: [{ id: 2, title: "Imported Show", tvdbId: 22 }],
+							podcasts: [{ id: 3, title: "Imported Podcast" }],
+						},
+					}),
+				}),
+				normalizeImportSnapshot({
+					sourceId: 17,
+					kind: "readarr",
+					snapshot: buildRawSnapshot({
+						kind: "readarr",
+						library: {
+							books: [{ id: 4, title: "Imported Book" }],
+						},
+					}),
+				}),
+			],
+			existingState: {
+				provenanceBySourceKey: new Map([
+					[
+						"sonarr:16:setting:download-client:1",
+						{ targetId: 101, targetType: "setting" },
+					],
+					["sonarr:16:show:2", { targetId: 102, targetType: "show" }],
+					[
+						"sonarr:16:unsupported:library:podcasts:3",
+						{ targetId: 103, targetType: "unsupported" },
+					],
+					["readarr:17:book:4", { targetId: 104, targetType: "book" }],
+				]),
+			},
+		});
+
+		expect([
+			...plan.settings.items,
+			...plan.library.items,
+			...plan.unsupported.items,
+		]).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					action: "skip",
+					sourceKey: "sonarr:16:setting:download-client:1",
+					targetId: 101,
+				}),
+				expect.objectContaining({
+					action: "skip",
+					sourceKey: "sonarr:16:show:2",
+					targetId: 102,
+				}),
+				expect.objectContaining({
+					action: "skip",
+					sourceKey: "sonarr:16:unsupported:library:podcasts:3",
+					targetId: 103,
+				}),
+				expect.objectContaining({
+					action: "skip",
+					sourceKey: "readarr:17:book:4",
+					targetId: 104,
+				}),
+			]),
+		);
+	});
+
+	it("sorts rows deterministically by source, key, title, then action", async () => {
+		const snapshot = {
+			sourceId: 1,
+			kind: "sonarr",
+			fetchedAt: "2026-04-21T00:00:00.000Z",
+			settings: {
+				items: [
+					{
+						sourceId: 1,
+						sourceKey: "sonarr:1:setting:same",
+						resourceType: "setting",
+						title: "Beta",
+						payload: { group: "download-client" },
+					},
+					{
+						sourceId: 1,
+						sourceKey: "sonarr:1:setting:same",
+						resourceType: "setting",
+						title: "Alpha",
+						payload: { group: "download-client" },
+					},
+					{
+						sourceId: 1,
+						sourceKey: "sonarr:1:setting:title-tie",
+						resourceType: "setting",
+						title: "Same Title",
+						payload: { group: "indexer" },
+					},
+					{
+						sourceId: 1,
+						sourceKey: "sonarr:1:setting:title-tie",
+						resourceType: "setting",
+						title: "Same Title",
+						payload: { group: "download-client" },
+					},
+				],
+				qualityProfiles: [],
+				metadataProfiles: [],
+			},
+			library: { movies: [], shows: [], books: [] },
+			activity: { history: [], queue: [], blocklist: [] },
+			unsupported: [],
+		} satisfies NormalizedImportSnapshot;
+
+		const plan = await buildImportPlan({
+			snapshots: [snapshot],
+			existingState: {},
+		});
+
+		expect(
+			plan.settings.items.map((item) => [
+				item.sourceKey,
+				item.title,
+				item.action,
+			]),
+		).toEqual([
+			["sonarr:1:setting:same", "Alpha", "create"],
+			["sonarr:1:setting:same", "Beta", "create"],
+			["sonarr:1:setting:title-tie", "Same Title", "create"],
+			["sonarr:1:setting:title-tie", "Same Title", "unsupported"],
+		]);
 	});
 
 	it("emits unsupported rows for intentionally unsupported snapshot buckets", async () => {

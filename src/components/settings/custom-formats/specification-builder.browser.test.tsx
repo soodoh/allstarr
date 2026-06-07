@@ -11,13 +11,19 @@ vi.mock("src/components/ui/button", () => ({
 	Button: ({
 		children,
 		onClick,
+		size,
 		type = "button",
 	}: {
 		children: ReactNode;
 		onClick?: () => void;
+		size?: string;
 		type?: "button" | "submit" | "reset";
 	}) => (
-		<button onClick={onClick} type={type}>
+		<button
+			aria-label={size === "icon" ? "Remove condition" : undefined}
+			onClick={onClick}
+			type={type}
+		>
 			{children}
 		</button>
 	),
@@ -233,5 +239,85 @@ describe("SpecificationBuilder", () => {
 				_key: 1,
 			}),
 		]);
+	});
+
+	it("updates field values, toggles flags, and removes conditions", async () => {
+		const onChange = vi.fn();
+		const value = [
+			{
+				name: "Release Title",
+				negate: false,
+				required: true,
+				type: "releaseTitle",
+				value: "foo",
+			} satisfies Spec,
+			{
+				name: "Size",
+				negate: false,
+				required: false,
+				type: "size",
+				min: 100,
+				max: 250,
+			} satisfies Spec,
+			{
+				name: "Video Source",
+				negate: false,
+				required: true,
+				type: "videoSource",
+				value: "webdl",
+			} satisfies Spec,
+		];
+
+		await renderWithProviders(
+			<SpecificationBuilder onChange={onChange} value={value} />,
+		);
+
+		await page.getByPlaceholder("Regex pattern...").fill("bar");
+		expect(onChange).toHaveBeenLastCalledWith([
+			expect.objectContaining({ value: "bar" }),
+			value[1],
+			value[2],
+		]);
+
+		await page.getByPlaceholder("Min").fill("150");
+		expect(onChange).toHaveBeenLastCalledWith([
+			value[0],
+			expect.objectContaining({ min: 150 }),
+			value[2],
+		]);
+
+		await page.getByPlaceholder("Max").fill("");
+		expect(onChange).toHaveBeenLastCalledWith([
+			value[0],
+			expect.objectContaining({ max: undefined }),
+			value[2],
+		]);
+
+		await page.getByRole("button", { name: "Blu-ray" }).click();
+		expect(onChange).toHaveBeenLastCalledWith([
+			value[0],
+			value[1],
+			expect.objectContaining({ value: "bluray" }),
+		]);
+
+		await page.getByLabelText("Required").first().click();
+		expect(onChange).toHaveBeenLastCalledWith([
+			expect.objectContaining({ required: false }),
+			value[1],
+			value[2],
+		]);
+
+		await page.getByLabelText("Negate").first().click();
+		expect(onChange).toHaveBeenLastCalledWith([
+			expect.objectContaining({ negate: true }),
+			value[1],
+			value[2],
+		]);
+
+		await page
+			.getByRole("button", { name: "Remove condition" })
+			.first()
+			.click();
+		expect(onChange).toHaveBeenLastCalledWith([value[1], value[2]]);
 	});
 });

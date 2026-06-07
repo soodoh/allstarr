@@ -167,6 +167,89 @@ describe("ReleaseTable", () => {
 		);
 	});
 
+	it("sorts releases by score, indexer, size, protocol, peers, age, and rejection count", async () => {
+		const releases = [
+			{
+				...defaultRelease,
+				age: 9,
+				ageFormatted: "9d",
+				formatScore: 5,
+				guid: "charlie-guid",
+				indexer: "Indexer C",
+				protocol: "torrent" as const,
+				rejections: [],
+				seeders: 3,
+				size: 3000,
+				sizeFormatted: "3 KB",
+				title: "Charlie",
+			},
+			{
+				...defaultRelease,
+				age: 1,
+				ageFormatted: "1d",
+				formatScore: 20,
+				guid: "bravo-guid",
+				indexer: "Indexer B",
+				protocol: "usenet" as const,
+				rejections: [{ message: "Rejected", reason: "quality" }],
+				seeders: null,
+				size: 1000,
+				sizeFormatted: "1 KB",
+				title: "Bravo",
+			},
+			{
+				...defaultRelease,
+				age: 4,
+				ageFormatted: "4d",
+				formatScore: -10,
+				guid: "alpha-guid",
+				indexer: null,
+				indexerId: 99,
+				protocol: "torrent" as const,
+				rejections: [
+					{ message: "Rejected once", reason: "one" },
+					{ message: "Rejected twice", reason: "two" },
+				],
+				seeders: 12,
+				size: 2000,
+				sizeFormatted: "2 KB",
+				title: "Alpha",
+			},
+		];
+
+		const { container } = await renderWithProviders(
+			<ReleaseTable
+				grabbingGuid={undefined}
+				onGrab={vi.fn()}
+				releases={releases as never}
+				statusMap={null}
+			/>,
+		);
+		const firstRowText = () =>
+			container.querySelector("tbody tr")?.textContent ?? "";
+
+		await page.getByText("Score", { exact: true }).click();
+		expect(firstRowText()).toContain("Alpha");
+
+		await page.getByText("Indexer", { exact: true }).click();
+		expect(firstRowText()).toContain("Alpha");
+
+		await page.getByText("Size", { exact: true }).click();
+		expect(firstRowText()).toContain("Bravo");
+
+		await page.getByText("Protocol", { exact: true }).click();
+		expect(firstRowText()).toContain("Charlie");
+
+		await page.getByText("Peers", { exact: true }).click();
+		expect(firstRowText()).toContain("Bravo");
+
+		await page.getByText("Age", { exact: true }).click();
+		expect(firstRowText()).toContain("Bravo");
+
+		await page.getByRole("columnheader").nth(8).click();
+		expect(firstRowText()).toContain("Charlie");
+	});
+
 	it("shows a disabled grab control while a release is already being grabbed", async () => {
 		await renderWithProviders(
 			<ReleaseTable

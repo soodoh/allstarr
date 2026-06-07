@@ -140,6 +140,30 @@ describe("mutations/shows", () => {
 		});
 	});
 
+	it("shows the show import server error toast when the mutation fails with an Error", async () => {
+		addShowFn.mockRejectedValue(new Error("show import failed"));
+		loading.mockReturnValue("submit-add-show");
+
+		const { result } = await renderHook(() => useAddShow());
+
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [3],
+				episodeGroupId: null,
+				monitorOption: "none",
+				searchCutoffUnmet: false,
+				searchOnAdd: false,
+				seriesType: "standard",
+				tmdbId: 15,
+				useSeasonFolder: true,
+			} as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("show import failed", {
+			id: "submit-add-show",
+		});
+	});
+
 	it("wires show updates and invalidates the shows cache", async () => {
 		updateShowFn.mockResolvedValue({ ok: true });
 

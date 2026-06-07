@@ -176,7 +176,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 			expect(dl).toBeTruthy();
 			// State should reflect processing (completed, imported, or removed)
 			expect(["completed", "imported", "removed", "importPending"]).toContain(
-				dl!.state,
+				dl?.state,
 			);
 		}).toPass({ timeout: 10_000 });
 	});
@@ -220,7 +220,7 @@ test.describe("Blocklist and Failure Recovery", () => {
 				(e) => e.sourceTitle === "Failure Author - Failure Book [EPUB]",
 			);
 			expect(blocklistEntry).toBeTruthy();
-			expect(blocklistEntry!.source).toBe("automatic");
+			expect(blocklistEntry?.source).toBe("automatic");
 		}).toPass({ timeout: 15_000 });
 	});
 
@@ -439,7 +439,6 @@ test.describe("Blocklist and Failure Recovery", () => {
 		page,
 		appUrl,
 		db,
-		fakeServers,
 		setFakeServiceState,
 	}) => {
 		// Seed a tracked download in the queue

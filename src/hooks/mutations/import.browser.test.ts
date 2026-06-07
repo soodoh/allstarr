@@ -97,6 +97,26 @@ describe("mutations/import", () => {
 		});
 	});
 
+	it("shows the author import server error when the mutation fails with an Error", async () => {
+		importHardcoverAuthorFn.mockRejectedValue(
+			new Error("author import failed"),
+		);
+		loading.mockReturnValue("submit-import-author");
+
+		const { result } = await renderHook(() => useImportHardcoverAuthor());
+
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [1],
+				foreignAuthorId: 17,
+			} as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("author import failed", {
+			id: "submit-import-author",
+		});
+	});
+
 	it("wires book imports and dismisses the in-flight toast on success", async () => {
 		importHardcoverBookFn.mockResolvedValue({ ok: true });
 		loading.mockReturnValue("submit-import-book");
@@ -140,6 +160,24 @@ describe("mutations/import", () => {
 		});
 	});
 
+	it("shows the book import fallback error toast when the mutation fails", async () => {
+		importHardcoverBookFn.mockRejectedValue("nope");
+		loading.mockReturnValue("submit-import-book");
+
+		const { result } = await renderHook(() => useImportHardcoverBook());
+
+		await result.current
+			.mutateAsync({
+				downloadProfileIds: [9],
+				foreignBookId: 88,
+			} as never)
+			.catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("Failed to add book.", {
+			id: "submit-import-book",
+		});
+	});
+
 	it("wires author metadata refreshes and surfaces server errors", async () => {
 		refreshAuthorMetadataFn.mockResolvedValue({ ok: true });
 
@@ -156,6 +194,14 @@ describe("mutations/import", () => {
 		await result.current.mutateAsync(31).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("Failed to refresh metadata.");
+
+		refreshAuthorMetadataFn.mockRejectedValue(
+			new Error("author refresh failed"),
+		);
+
+		await result.current.mutateAsync(31).catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("author refresh failed");
 	});
 
 	it("wires book metadata refreshes and surfaces server errors", async () => {
@@ -174,5 +220,11 @@ describe("mutations/import", () => {
 		await result.current.mutateAsync(44).catch(() => {});
 
 		expect(error).toHaveBeenCalledWith("boom");
+
+		refreshBookMetadataFn.mockRejectedValue("nope");
+
+		await result.current.mutateAsync(44).catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("Failed to refresh metadata.");
 	});
 });

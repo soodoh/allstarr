@@ -120,7 +120,7 @@ export function scrubSecrets(value: unknown, key?: string): unknown {
 }
 
 export function parseCaptureCliArgs(argv: string[]): { configPath: string } {
-	const configIndex = argv.findIndex((arg) => arg === "--config");
+	const configIndex = argv.indexOf("--config");
 	const configPath =
 		configIndex >= 0 && configIndex + 1 < argv.length
 			? argv[configIndex + 1]

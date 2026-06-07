@@ -83,6 +83,82 @@ describe("DownloadProfileList", () => {
 			.toBeInTheDocument();
 	});
 
+	it("renders profile variants, fallbacks, and cancelable deletion", async () => {
+		const onDelete = vi.fn();
+		await renderWithProviders(
+			<DownloadProfileList
+				definitions={definitions}
+				onDelete={onDelete}
+				onEdit={vi.fn()}
+				profiles={[
+					{
+						...profile,
+						contentType: "movie",
+						cutoff: 0,
+						id: 12,
+						items: [[999], [1]],
+						name: "Movie Profile",
+						rootFolderPath: "/movies",
+						upgradeAllowed: true,
+					},
+					{
+						...profile,
+						categories: [9999],
+						contentType: "ebook",
+						id: 13,
+						name: "Ebook Profile",
+						upgradeAllowed: false,
+					},
+					{
+						...profile,
+						contentType: "audiobook",
+						id: 14,
+						name: "Audio Profile",
+					},
+					{
+						...profile,
+						contentType: "podcast",
+						id: 15,
+						name: "Podcast Profile",
+					},
+				]}
+			/>,
+		);
+
+		const movieRow = (await page.getByText("Movie Profile").element()).closest(
+			"tr",
+		);
+		const ebookRow = (await page.getByText("Ebook Profile").element()).closest(
+			"tr",
+		);
+		const audioRow = (await page.getByText("Audio Profile").element()).closest(
+			"tr",
+		);
+		const podcastRow = (
+			await page.getByText("Podcast Profile").element()
+		).closest("tr");
+		expect(movieRow?.textContent).toContain("Movie");
+		expect(movieRow?.textContent).toContain("/movies");
+		expect(movieRow?.textContent).toContain("Yes");
+		expect(ebookRow?.textContent).toContain("Ebook");
+		expect(ebookRow?.textContent).toContain("No");
+		expect(ebookRow?.textContent).toContain("9999");
+		expect(audioRow?.textContent).toContain("Audiobook");
+		expect(podcastRow?.textContent).toContain("podcast");
+		const rowButtons = movieRow?.querySelectorAll("[role='button'], button");
+		const deleteButton = rowButtons?.item(1);
+		if (!deleteButton) {
+			throw new Error("Delete button not found");
+		}
+		await page.elementLocator(deleteButton).click();
+		await expect.element(page.getByText("Delete Profile")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Cancel" }).click();
+		await expect
+			.element(page.getByText("Delete Profile"))
+			.not.toBeInTheDocument();
+		expect(onDelete).not.toHaveBeenCalled();
+	});
+
 	it("renders profile rows and wires edit/delete actions", async () => {
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();

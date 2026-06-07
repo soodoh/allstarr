@@ -109,6 +109,54 @@ describe("DownloadFormatForm", () => {
 		expect(onCancel).not.toHaveBeenCalled();
 	});
 
+	it("updates text, numeric, and content type fields before submitting", async () => {
+		const onSubmit = vi.fn();
+		downloadFormatFormMocks.validateForm.mockReturnValue({
+			success: true,
+			data: null,
+			errors: null,
+		} as never);
+
+		await renderWithProviders(
+			<DownloadFormatForm
+				defaultContentTypes={["audiobook"]}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		await page.getByLabelText("Title").fill("Audio Book Plus");
+		await page.getByLabelText("Weight").fill("8");
+		await page.getByLabelText("Ebook").click();
+		await page.getByLabelText("Audiobook").click();
+
+		const spinbuttons = await page.getByRole("spinbutton").elements();
+		await page.elementLocator(spinbuttons[1]).fill("12");
+		await page.elementLocator(spinbuttons[2]).fill("250");
+		await page.elementLocator(spinbuttons[3]).fill("375");
+
+		await page.getByRole("button", { name: "Save" }).click();
+
+		expect(downloadFormatFormMocks.validateForm).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				contentTypes: ["ebook"],
+				maxSize: 375,
+				minSize: 12,
+				preferredSize: 250,
+				title: "Audio Book Plus",
+				weight: 8,
+			}),
+		);
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				contentTypes: ["ebook"],
+				maxSize: 375,
+				title: "Audio Book Plus",
+			}),
+		);
+	});
+
 	it("renders validation errors and blocks submission", async () => {
 		const onSubmit = vi.fn();
 		downloadFormatFormMocks.validateForm.mockReturnValue({

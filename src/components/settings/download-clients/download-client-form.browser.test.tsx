@@ -207,6 +207,134 @@ describe("DownloadClientForm", () => {
 		});
 	});
 
+	it("submits a qBittorrent client with connection, credential, category, and toggle values", async () => {
+		const onSubmit = vi.fn();
+		const onCancel = vi.fn();
+		mockMutation();
+
+		await renderWithProviders(
+			<DownloadClientForm onCancel={onCancel} onSubmit={onSubmit} />,
+		);
+
+		await page
+			.getByRole("textbox", { exact: true, name: "Name" })
+			.fill("qBit Main");
+		await page.getByLabelText("Host").fill("qbittorrent.local");
+		await page.getByLabelText("Port").fill("9090");
+		await page.getByLabelText("SSL").click();
+		await page.getByLabelText("URL Base (optional)").fill("/qbit");
+		await page.getByLabelText("Username").fill("user");
+		await page.getByLabelText("Password").fill("secret");
+		await page.getByLabelText("Category").fill("books");
+		await page.getByLabelText("Tag (optional)").fill("priority");
+		await page.getByLabelText("Priority").fill("3");
+		await page.getByLabelText("Enabled").click();
+		await page.getByLabelText("Remove Completed Downloads").click();
+
+		await page.getByRole("button", { name: "Test Connection" }).click();
+
+		expect(downloadClientFormMocks.testDownloadClientFn).toHaveBeenCalledWith({
+			data: {
+				apiKey: null,
+				host: "qbittorrent.local",
+				implementation: "qBittorrent",
+				password: "secret",
+				port: 9090,
+				urlBase: "/qbit",
+				useSsl: true,
+				username: "user",
+			},
+		});
+
+		await page.getByRole("button", { name: "Save" }).click();
+		await page.getByRole("button", { name: "Cancel" }).click();
+
+		expect(onSubmit).toHaveBeenCalledWith({
+			apiKey: "",
+			category: "books",
+			enabled: false,
+			host: "qbittorrent.local",
+			implementation: "qBittorrent",
+			name: "qBit Main",
+			password: "secret",
+			port: 9090,
+			priority: 3,
+			protocol: "torrent",
+			removeCompletedDownloads: false,
+			tag: "priority",
+			useSsl: true,
+			urlBase: "/qbit",
+			username: "user",
+			watchFolder: "",
+		});
+		expect(onCancel).toHaveBeenCalledOnce();
+	});
+
+	it("renders usenet API key fields and test result banners", async () => {
+		const onSubmit = vi.fn();
+		downloadClientFormMocks.useMutation.mockReturnValue({
+			data: { message: "Connected", success: true, version: "4.2.1" },
+			error: null,
+			isPending: false,
+			mutate: vi.fn(),
+		});
+
+		await renderWithProviders(
+			<DownloadClientForm
+				initialValues={{
+					apiKey: "sab-key",
+					implementation: "SABnzbd",
+					name: "SAB",
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		await expect.element(page.getByLabelText("API Key")).toHaveValue("sab-key");
+		await expect
+			.element(page.getByLabelText("Username"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText("Password"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("Connected")).toBeInTheDocument();
+		await expect.element(page.getByText("Version: 4.2.1")).toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Save" }).click();
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				apiKey: "sab-key",
+				implementation: "SABnzbd",
+				protocol: "usenet",
+			}),
+		);
+	});
+
+	it("renders failed and pending test connection states", async () => {
+		downloadClientFormMocks.useMutation.mockReturnValue({
+			data: undefined,
+			error: new Error("connection failed"),
+			isPending: true,
+			mutate: vi.fn(),
+		});
+
+		await renderWithProviders(
+			<DownloadClientForm
+				initialValues={{ implementation: "qBittorrent", name: "qBit" }}
+				onCancel={vi.fn()}
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		await expect
+			.element(page.getByRole("button", { name: "Test Connection" }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByText("connection failed"))
+			.toBeInTheDocument();
+	});
+
 	it("respects the loading state and custom cancel label", async () => {
 		mockMutation();
 

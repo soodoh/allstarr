@@ -277,6 +277,65 @@ describe("newznab HTTP client", () => {
 		}
 	});
 
+	it("ignores malformed attrs and dedupes category attrs", async () => {
+		const server = await startHttpTestServer(async (request, response) => {
+			expect(request.pathname).toBe("/api");
+			response.statusCode = 200;
+			response.setHeader("Content-Type", "application/xml");
+			response.end(`<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
+<channel>
+  <item>
+    <title>Attr Edge Release</title>
+    <guid>attr-edge-guid</guid>
+    <comments>http://example.com/comments</comments>
+    <pubDate>Mon, 01 Jun 2026 00:00:00 GMT</pubDate>
+    <enclosure url="http://example.com/edge.torrent" length="512" type="application/octet-stream" />
+    <newznab:attr value="missing-name" />
+    <newznab:attr name="missing-value" />
+    <newznab:attr name="category" value="7020" />
+    <newznab:attr name="category" value="7020" />
+    <newznab:attr name="category" value="not-a-number" />
+    <newznab:attr name="indexerid" value="77" />
+    <newznab:attr name="indexer" value="EdgeIndexer" />
+    <newznab:attr name="magneturl" value="magnet:?xt=urn:btih:edge" />
+    <newznab:attr name="peers" value="5" />
+  </item>
+</channel>
+</rss>`);
+		});
+
+		try {
+			const results = await searchNewznab(
+				{
+					baseUrl: server.baseUrl,
+					apiPath: "/api",
+					apiKey: "test-newznab-api-key",
+				},
+				"attr edge",
+				[7020],
+			);
+
+			expect(results).toEqual([
+				expect.objectContaining({
+					guid: "attr-edge-guid",
+					title: "Attr Edge Release",
+					downloadUrl: "http://example.com/edge.torrent",
+					infoUrl: "http://example.com/comments",
+					publishDate: "Mon, 01 Jun 2026 00:00:00 GMT",
+					indexerId: 77,
+					indexer: "EdgeIndexer",
+					protocol: "torrent",
+					seeders: null,
+					leechers: null,
+					categories: [{ id: 7020, name: "" }],
+				}),
+			]);
+		} finally {
+			await server.stop();
+		}
+	});
+
 	it("treats magnet-only items as torrents", async () => {
 		const server = await startHttpTestServer(async (request, response) => {
 			expect(request.pathname).toBe("/api");
