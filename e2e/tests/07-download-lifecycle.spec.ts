@@ -141,7 +141,7 @@ test.describe("Download Lifecycle", () => {
 		const tracked = db.select().from(schema.trackedDownloads).all();
 		const download = tracked.find((t) => t.downloadId === "lifecycle-hash-1");
 		expect(download).toBeTruthy();
-		expect(download!.state).toBe("downloading");
+		expect(download?.state).toBe("downloading");
 	});
 
 	test("download completes and triggers import", async ({
@@ -188,7 +188,7 @@ test.describe("Download Lifecycle", () => {
 			const dl = tracked.find((t) => t.downloadId === "lifecycle-hash-2");
 			expect(dl).toBeTruthy();
 			// State should be completed, importPending, or imported
-			expect(["completed", "importPending", "imported"]).toContain(dl!.state);
+			expect(["completed", "importPending", "imported"]).toContain(dl?.state);
 		}).toPass({ timeout: 10_000 });
 	});
 
@@ -287,7 +287,7 @@ test.describe("Download Lifecycle", () => {
 				(h) => h.eventType === "bookImported",
 			);
 			expect(importEntry).toBeTruthy();
-			expect(importEntry!.bookId).toBe(bookId);
+			expect(importEntry?.bookId).toBe(bookId);
 		}).toPass({ timeout: 10_000 });
 	});
 
@@ -562,7 +562,7 @@ test.describe("Download Lifecycle", () => {
 			expect(files.length).toBe(3);
 
 			// Sort by part number for predictable assertions
-			const sorted = files.toSorted((a, b) => a.part! - b.part!);
+			const sorted = files.toSorted((a, b) => (a.part ?? 0) - (b.part ?? 0));
 			expect(sorted[0].part).toBe(1);
 			expect(sorted[0].partCount).toBe(3);
 			expect(sorted[1].part).toBe(2);

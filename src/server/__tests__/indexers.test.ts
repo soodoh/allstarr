@@ -1630,6 +1630,45 @@ describe("searchIndexersFn (additional paths)", () => {
 		expect(result.warnings).toContain("Unknown indexer error");
 	});
 
+	it("waits for pacing rate limits before searching", async () => {
+		const manualIndexer = {
+			id: 1,
+			name: "Paced",
+			baseUrl: "https://indexer.com",
+			apiPath: undefined,
+			apiKey: "key",
+			enableAutomaticSearch: true,
+			priority: 1,
+		};
+		const rawRelease = makeRelease({ guid: "paced1" });
+
+		mocks.selectAll
+			.mockReturnValueOnce([manualIndexer])
+			.mockReturnValueOnce([])
+			.mockReturnValueOnce([]);
+		mocks.canQueryIndexer.mockReturnValue({
+			allowed: false,
+			reason: "pacing",
+			waitMs: 1,
+		});
+		mocks.searchNewznab.mockResolvedValueOnce([rawRelease]);
+		mocks.enrichRelease.mockReturnValue(rawRelease);
+
+		const { searchIndexersFn } = await import("../indexers");
+		const result = await searchIndexersFn({
+			data: { query: "test", bookId: null, categories: null },
+		});
+
+		expect(result.releases).toHaveLength(1);
+		expect(mocks.searchNewznab).toHaveBeenCalledWith(
+			expect.objectContaining({ apiPath: "/api" }),
+			"test",
+			expect.anything(),
+			undefined,
+			expect.objectContaining({ indexerId: 1, indexerType: "manual" }),
+		);
+	});
+
 	it("skips indexer when rate limiter returns backoff", async () => {
 		const manualIndexer = {
 			id: 1,
@@ -1728,6 +1767,46 @@ describe("dedupeAndScoreReleases (additional paths)", () => {
 
 		expect(result[0].rejections).toContainEqual(
 			expect.objectContaining({ reason: "belowMinimumSize" }),
+		);
+	});
+
+	it("omits dimension context when format type is unknown and zero size has no sizeMB", async () => {
+		mocks.selectGet.mockReturnValueOnce({ authorId: 1 });
+		mocks.selectAll.mockReturnValueOnce([{ downloadProfileId: 1 }]);
+		mocks.selectAll.mockReturnValueOnce([
+			{
+				id: 1,
+				name: "P1",
+				items: [[5]],
+				cutoff: 0,
+				upgradeAllowed: false,
+				categories: [],
+				minCustomFormatScore: 0,
+				upgradeUntilCustomFormatScore: 0,
+			},
+		]);
+		mocks.selectGet.mockReturnValueOnce(undefined);
+		mocks.selectAll.mockReturnValueOnce([]);
+		mocks.getDefSizeLimits.mockReturnValueOnce({ minSize: 1, maxSize: 2 });
+		mocks.getFormatType.mockReturnValueOnce(undefined);
+
+		const { dedupeAndScoreReleases } = await import("../indexers");
+		const r = makeRelease({
+			guid: "g-zero-size",
+			size: 0,
+			sizeFormatted: "0 MB",
+			quality: { id: 5, name: "Mystery", weight: 10, color: "blue" },
+		});
+
+		const result = dedupeAndScoreReleases([r], 42, null);
+
+		expect(result[0].rejections).toContainEqual({
+			reason: "belowMinimumSize",
+			message: "0 MB is below minimum 1 MB for Mystery",
+		});
+		expect(mocks.calculateCFScore).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ sizeMB: undefined }),
 		);
 	});
 

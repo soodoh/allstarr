@@ -127,6 +127,27 @@ describe("synced indexer api routes", () => {
 		expect(syncApiMocks.toReadarrResource).toHaveBeenCalledTimes(2);
 	});
 
+	it("lists no synced indexers as an empty resource list", async () => {
+		syncApiMocks.all.mockResolvedValue([]);
+
+		const handler = (
+			IndexerListRoute as unknown as {
+				server: {
+					handlers: {
+						GET: (input: { request: Request }) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.GET;
+
+		const response = await handler({
+			request: new Request("https://example.com/api/v1/indexer"),
+		});
+
+		await expect(response.json()).resolves.toEqual([]);
+		expect(syncApiMocks.toReadarrResource).not.toHaveBeenCalled();
+	});
+
 	it("creates a synced indexer", async () => {
 		const body = {
 			configContract: "TorznabSettings",
@@ -301,6 +322,46 @@ describe("synced indexer api routes", () => {
 		});
 	});
 
+	it("rejects invalid update ids and missing update targets", async () => {
+		const handler = (
+			IndexerIdRoute as unknown as {
+				server: {
+					handlers: {
+						PUT: (input: {
+							params: { id: string };
+							request: Request;
+						}) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.PUT;
+
+		const invalidResponse = await handler({
+			params: { id: "nope" },
+			request: new Request("https://example.com/api/v1/indexer/nope", {
+				method: "PUT",
+			}),
+		});
+		expect(invalidResponse.status).toBe(400);
+		await expect(invalidResponse.json()).resolves.toEqual({
+			message: "Invalid ID",
+		});
+
+		syncApiMocks.get.mockResolvedValue(undefined);
+		const missingResponse = await handler({
+			params: { id: "99" },
+			request: new Request("https://example.com/api/v1/indexer/99", {
+				body: JSON.stringify({}),
+				headers: { "content-type": "application/json" },
+				method: "PUT",
+			}),
+		});
+		expect(missingResponse.status).toBe(404);
+		await expect(missingResponse.json()).resolves.toEqual({
+			message: "Not Found",
+		});
+	});
+
 	it("gets, updates, and deletes a synced indexer", async () => {
 		const existingRow = {
 			id: 4,
@@ -429,6 +490,32 @@ describe("synced indexer api routes", () => {
 		expect(syncApiMocks.db.update).not.toHaveBeenCalled();
 	});
 
+	it("rejects invalid delete ids before deleting", async () => {
+		const handler = (
+			IndexerIdRoute as unknown as {
+				server: {
+					handlers: {
+						DELETE: (input: {
+							params: { id: string };
+							request: Request;
+						}) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.DELETE;
+
+		const response = await handler({
+			params: { id: "nope" },
+			request: new Request("https://example.com/api/v1/indexer/nope", {
+				method: "DELETE",
+			}),
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({ message: "Invalid ID" });
+		expect(syncApiMocks.runDelete).not.toHaveBeenCalled();
+	});
+
 	it("returns 400 when validated payload cannot be mapped", async () => {
 		syncApiMocks.fromReadarrResource.mockImplementation(() => {
 			throw new Error("baseUrl is required");
@@ -469,5 +556,96 @@ describe("synced indexer api routes", () => {
 		});
 		expect(syncApiMocks.fromReadarrResource).toHaveBeenCalledOnce();
 		expect(syncApiMocks.db.insert).not.toHaveBeenCalled();
+	});
+
+	it("uses a generic message when indexer create mapping throws a non-Error", async () => {
+		syncApiMocks.fromReadarrResource.mockImplementation(() => {
+			throw "not an error";
+		});
+
+		const handler = (
+			IndexerListRoute as unknown as {
+				server: {
+					handlers: {
+						POST: (input: { request: Request }) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.POST;
+
+		const response = await handler({
+			request: new Request("https://example.com/api/v1/indexer", {
+				body: JSON.stringify({
+					configContract: "NewznabSettings",
+					enableAutomaticSearch: true,
+					enableInteractiveSearch: true,
+					enableRss: true,
+					fields: [{ name: "baseUrl", value: "https://example.com" }],
+					implementation: "Newznab",
+					name: "Broken Indexer",
+					priority: 25,
+					protocol: "usenet",
+				}),
+				headers: { "content-type": "application/json" },
+				method: "POST",
+			}),
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({
+			message: "Invalid indexer payload",
+			errors: ["Unable to map indexer payload"],
+		});
+	});
+
+	it("uses a generic message when indexer update mapping throws a non-Error", async () => {
+		syncApiMocks.get.mockResolvedValue({
+			id: 4,
+			implementation: "Newznab",
+			name: "Existing",
+			protocol: "usenet",
+		});
+		syncApiMocks.fromReadarrResource.mockImplementation(() => {
+			throw "not an error";
+		});
+
+		const handler = (
+			IndexerIdRoute as unknown as {
+				server: {
+					handlers: {
+						PUT: (input: {
+							params: { id: string };
+							request: Request;
+						}) => Promise<Response>;
+					};
+				};
+			}
+		).server.handlers.PUT;
+
+		const response = await handler({
+			params: { id: "4" },
+			request: new Request("https://example.com/api/v1/indexer/4", {
+				body: JSON.stringify({
+					configContract: "NewznabSettings",
+					enableAutomaticSearch: true,
+					enableInteractiveSearch: true,
+					enableRss: true,
+					fields: [{ name: "baseUrl", value: "https://example.com" }],
+					implementation: "Newznab",
+					name: "Broken Indexer",
+					priority: 25,
+					protocol: "usenet",
+				}),
+				headers: { "content-type": "application/json" },
+				method: "PUT",
+			}),
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({
+			message: "Invalid indexer payload",
+			errors: ["Unable to map indexer payload"],
+		});
+		expect(syncApiMocks.db.update).not.toHaveBeenCalled();
 	});
 });

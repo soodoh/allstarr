@@ -44,7 +44,9 @@ describe("editions helpers", () => {
 	it("matches profile formats by media type", () => {
 		expect(matchesProfileFormat("Audiobook", "audio")).toBe(true);
 		expect(matchesProfileFormat("E-Book", "audio")).toBe(false);
+		expect(matchesProfileFormat(null, "audio")).toBe(false);
 		expect(matchesProfileFormat("Physical Book", "ebook")).toBe(true);
+		expect(matchesProfileFormat("Audiobook", "ebook")).toBe(false);
 		expect(matchesProfileFormat(null, "ebook")).toBe(true);
 	});
 
@@ -55,12 +57,13 @@ describe("editions helpers", () => {
 
 	it("falls back correctly when a language or default cover is missing", () => {
 		expect(pickBestEdition(editions, "fr")?.id).toBe(3);
-		expect(
-			pickBestEdition(
-				editions.map((edition) => ({ ...edition, isDefaultCover: false })),
-				"en",
-			)?.id,
-		).toBe(1);
+		const withoutDefaultCover = editions.map((edition) => ({
+			...edition,
+			isDefaultCover: false,
+		}));
+		expect(pickBestEdition(withoutDefaultCover, "en")?.id).toBe(1);
+		expect(pickBestEdition(withoutDefaultCover, "all")?.id).toBe(1);
+		expect(pickBestEdition(editions, "de")?.id).toBe(1);
 		expect(pickBestEdition([], "en")).toBeUndefined();
 	});
 
@@ -105,5 +108,41 @@ describe("editions helpers", () => {
 				language: "en",
 			}),
 		).toBeUndefined();
+	});
+
+	it("uses popularity when no matching language or default cover is available", () => {
+		expect(
+			pickBestEditionForProfile(editions, {
+				contentType: "ebook",
+				language: "de",
+			})?.id,
+		).toBe(3);
+
+		expect(
+			pickBestEditionForProfile(
+				[
+					{
+						format: "E-Book",
+						id: 10,
+						isDefaultCover: false,
+						languageCode: "de",
+						score: null,
+						usersCount: null,
+					},
+					{
+						format: "E-Book",
+						id: 11,
+						isDefaultCover: false,
+						languageCode: "it",
+						score: 1,
+						usersCount: 1,
+					},
+				],
+				{
+					contentType: "ebook",
+					language: "fr",
+				},
+			)?.id,
+		).toBe(11);
 	});
 });

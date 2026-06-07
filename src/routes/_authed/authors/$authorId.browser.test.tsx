@@ -93,8 +93,26 @@ const authorDetailRouteMocks = vi.hoisted(() => ({
 	useInfiniteQuery: vi.fn(),
 	useQuery: vi.fn(),
 	useSuspenseQuery: vi.fn(),
-	useTableColumns: vi.fn((_tableId?: string) => ({
-		visibleColumns: [{ key: "title" }, { key: "readers" }, { key: "rating" }],
+	useTableColumns: vi.fn((tableId?: string) => ({
+		visibleColumns:
+			tableId === "author-series"
+				? [
+						{ key: "monitored" },
+						{ key: "cover" },
+						{ key: "position" },
+						{ key: "title" },
+						{ key: "releaseDate" },
+						{ key: "readers" },
+						{ key: "rating" },
+						{ key: "format" },
+						{ key: "pages" },
+						{ key: "isbn10" },
+						{ key: "isbn13" },
+						{ key: "asin" },
+						{ key: "score" },
+						{ key: "author" },
+					]
+				: [{ key: "title" }, { key: "readers" }, { key: "rating" }],
 	})),
 	userSettingsQuery: vi.fn((tableId: string) => ({
 		queryKey: ["user-settings", tableId],
@@ -259,7 +277,23 @@ vi.mock("src/components/bookshelf/books/additional-authors", () => ({
 }));
 
 vi.mock("src/components/bookshelf/hardcover/book-preview-modal", () => ({
-	default: () => <div data-testid="book-preview-modal" />,
+	default: ({
+		book,
+		onOpenChange,
+	}: {
+		book: { hardcoverUrl: string | null; title: string };
+		onOpenChange: (open: boolean) => void;
+	}) => (
+		<div data-testid="book-preview-modal">
+			<span data-testid="book-preview-title">{book.title}</span>
+			<span data-testid="book-preview-url">
+				{book.hardcoverUrl ?? "no-hardcover-url"}
+			</span>
+			<button type="button" onClick={() => onOpenChange(false)}>
+				close-preview
+			</button>
+		</div>
+	),
 }));
 
 vi.mock("src/components/bookshelf/books/base-book-table", () => ({
@@ -465,11 +499,13 @@ vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
 	default: ({
 		loading,
 		onCancel,
+		onOpenChange,
 		onSubmit,
 	}: {
 		loading?: boolean;
-		onCancel: () => void;
-		onSubmit: (values: {
+		onCancel?: () => void;
+		onOpenChange?: (open: boolean) => void;
+		onSubmit?: (values: {
 			downloadProfileIds: number[];
 			monitorNewBooks: "all" | "none" | "new";
 		}) => void;
@@ -479,7 +515,7 @@ vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
 				type="button"
 				disabled={loading}
 				onClick={() =>
-					onSubmit({
+					onSubmit?.({
 						downloadProfileIds: [11],
 						monitorNewBooks: "new",
 					})
@@ -487,7 +523,13 @@ vi.mock("src/components/shared/edit-series-profiles-dialog", () => ({
 			>
 				save
 			</button>
-			<button type="button" onClick={onCancel}>
+			<button
+				type="button"
+				onClick={() => {
+					onCancel?.();
+					onOpenChange?.(false);
+				}}
+			>
 				cancel
 			</button>
 		</div>
@@ -517,7 +559,23 @@ vi.mock("src/components/ui/card", () => ({
 }));
 
 vi.mock("src/components/ui/dialog", () => ({
-	Dialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	Dialog: ({
+		children,
+		onOpenChange,
+		open,
+	}: {
+		children: ReactNode;
+		onOpenChange?: (open: boolean) => void;
+		open?: boolean;
+	}) =>
+		open ? (
+			<div data-testid="dialog">
+				<button type="button" onClick={() => onOpenChange?.(false)}>
+					close-dialog
+				</button>
+				{children}
+			</div>
+		) : null,
 	DialogContent: ({ children }: { children: ReactNode }) => (
 		<div>{children}</div>
 	),
@@ -697,6 +755,30 @@ describe("AuthorDetailRoute", () => {
 		authorDetailRouteMocks.updateSeries.mutate.mockReset();
 		authorDetailRouteMocks.updateAuthor.mutate.mockReset();
 		authorDetailRouteMocks.unmonitorBookProfile.mutate.mockReset();
+		authorDetailRouteMocks.useTableColumns.mockReset();
+		authorDetailRouteMocks.useTableColumns.mockImplementation(
+			(tableId?: string) => ({
+				visibleColumns:
+					tableId === "author-series"
+						? [
+								{ key: "monitored" },
+								{ key: "cover" },
+								{ key: "position" },
+								{ key: "title" },
+								{ key: "releaseDate" },
+								{ key: "readers" },
+								{ key: "rating" },
+								{ key: "format" },
+								{ key: "pages" },
+								{ key: "isbn10" },
+								{ key: "isbn13" },
+								{ key: "asin" },
+								{ key: "score" },
+								{ key: "author" },
+							]
+						: [{ key: "title" }, { key: "readers" }, { key: "rating" }],
+			}),
+		);
 		authorDetailRouteMocks.useInfiniteQuery.mockReset();
 		authorDetailRouteMocks.useInfiniteQuery.mockImplementation(
 			() =>
@@ -1029,6 +1111,296 @@ describe("AuthorDetailRoute", () => {
 		);
 	});
 
+	it("covers book search clearing, metadata warnings, and inactive profile monitoring", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: "Prolific science fiction author.",
+			bornYear: 1920,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editionInformation: null,
+					fileCount: 2,
+					format: "ebook",
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: new Date("2024-01-02"),
+					missingEditionsCount: 0,
+					pageCount: 800,
+					publisher: "Ace",
+					rating: 4.2,
+					ratingsCount: 123,
+					releaseDate: "1950-01-01",
+					releaseYear: 1950,
+					score: 98,
+					series: null,
+					title: "Foundation",
+					usersCount: 10_000,
+					country: "US",
+					audioLength: null,
+				},
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 2,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editionInformation: null,
+					fileCount: 0,
+					format: "ebook",
+					id: 2,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 3,
+					pageCount: 256,
+					publisher: "Gnome Press",
+					rating: 4,
+					ratingsCount: 80,
+					releaseDate: "1951-01-01",
+					releaseYear: 1951,
+					score: 95,
+					series: null,
+					title: "I, Robot",
+					usersCount: 8_000,
+					country: "US",
+					audioLength: null,
+				},
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 3,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editionInformation: null,
+					fileCount: 0,
+					format: "ebook",
+					id: 3,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 128,
+					publisher: "Doubleday",
+					rating: 3.9,
+					ratingsCount: 40,
+					releaseDate: "1952-01-01",
+					releaseYear: 1952,
+					score: 90,
+					series: null,
+					title: "The Caves of Steel",
+					usersCount: 6_000,
+					country: "US",
+					audioLength: null,
+				},
+			],
+			bookCount: 3,
+			deathYear: 1992,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: false,
+			skipMissingReleaseDate: false,
+		};
+
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		await renderWithProviders(<routeConfig.component />);
+
+		await expect.element(page.getByText("book:Foundation")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("book-editions:I, Robot"))
+			.toBeInTheDocument();
+
+		await page.getByPlaceholder("Filter by title…").fill("robot");
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "robot", "en", "readers", "desc");
+
+		await page.getByRole("button", { name: "Clear search" }).click();
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "", "en", "readers", "desc");
+
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		expect(
+			authorDetailRouteMocks.monitorBookProfile.mutate,
+		).toHaveBeenCalledWith({
+			bookId: 3,
+			downloadProfileId: 11,
+		});
+	});
+
+	it("fetches the next author books page when the sentinel intersects", async () => {
+		const fetchNextPage = vi.fn();
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: 1920,
+			books: [],
+			bookCount: 0,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.useInfiniteQuery.mockReturnValue({
+			data: { pages: [{ items: [], total: 0 }] },
+			fetchNextPage,
+			hasNextPage: true,
+			isFetchingNextPage: false,
+			isLoading: false,
+		});
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		authorDetailRouteMocks.setObserverCallback?.([
+			{ isIntersecting: true } as IntersectionObserverEntry,
+		]);
+
+		expect(fetchNextPage).toHaveBeenCalledOnce();
+	});
+
+	it("renders the next-page skeleton without fetching while already loading", async () => {
+		const fetchNextPage = vi.fn();
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: 1920,
+			books: [],
+			bookCount: 0,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.useInfiniteQuery.mockReturnValue({
+			data: { pages: [{ items: [], total: 0 }] },
+			fetchNextPage,
+			hasNextPage: true,
+			isFetchingNextPage: true,
+			isLoading: false,
+		});
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await expect
+			.element(page.getByTestId("book-table-rows-skeleton"))
+			.toHaveTextContent("3");
+		authorDetailRouteMocks.setObserverCallback?.([
+			{ isIntersecting: true } as IntersectionObserverEntry,
+		]);
+		expect(fetchNextPage).not.toHaveBeenCalled();
+	});
+
+	it("opens the single-book unmonitor dialog for an active row profile", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: "Bio",
+			bornYear: 1920,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 42,
+					coverUrl: null,
+					downloadProfileIds: [11],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 42,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 320,
+					publisher: "Ace",
+					rating: 4.2,
+					ratingsCount: 123,
+					releaseDate: "1950-01-01",
+					releaseYear: 1950,
+					score: 98,
+					series: null,
+					title: "Foundation",
+					usersCount: 10_000,
+					country: "US",
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
+		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
+
+		expect(
+			authorDetailRouteMocks.unmonitorBookProfile.mutate,
+		).toHaveBeenCalledWith(
+			{
+				bookId: 42,
+				deleteFiles: true,
+				downloadProfileId: 11,
+			},
+			expect.any(Object),
+		);
+	});
+
 	it("renders the author chrome and series fallback state", async () => {
 		authorDetailRouteMocks.author = {
 			availableLanguages: [{ language: "English", languageCode: "en" }],
@@ -1174,6 +1546,238 @@ describe("AuthorDetailRoute", () => {
 			.click();
 		await expect
 			.element(page.getByTestId("edit-series-profiles-dialog"))
+			.toBeInTheDocument();
+	});
+
+	it("filters and clears the series search input", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: 1920,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editions: [],
+					editionInformation: null,
+					fileCount: 0,
+					format: null,
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: null,
+					publisher: null,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					score: null,
+					series: null,
+					title: "Foundation",
+					usersCount: null,
+					country: null,
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 1, position: "1" }],
+					downloadProfileIds: [],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "Series" }).click();
+		await expect
+			.element(page.getByText("Foundation").first())
+			.toBeInTheDocument();
+		await page.getByPlaceholder("Filter by series name…").fill("zzz");
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		await expect.element(page.getByText(/No series match/)).toBeInTheDocument();
+		await page.getByRole("button", { name: "Clear search" }).click();
+		await expect
+			.element(page.getByText(/No series match/))
+			.not.toBeInTheDocument();
+	});
+
+	it("shows qualifying external series books and opens their preview", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: "Prolific science fiction author.",
+			bornYear: 1920,
+			books: [
+				{
+					id: 1,
+					title: "Foundation",
+					slug: "foundation",
+					authorName: "Isaac Asimov",
+					authorForeignId: "7",
+					bookAuthors: [],
+					description: null,
+					releaseDate: "1951-01-01",
+					releaseYear: 1951,
+					downloadProfileIds: [],
+					foreignBookId: "201",
+					images: [],
+					rating: 4.2,
+					ratingsCount: 123,
+					usersCount: 10_000,
+					tags: [],
+					languageCodes: ["en"],
+					editions: [],
+					metadataSourceMissingSince: null,
+					fileCount: 0,
+					missingEditionsCount: 0,
+				},
+			],
+			bookCount: 1,
+			deathYear: 1992,
+			downloadProfileIds: [],
+			foreignAuthorId: "7",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 1, position: "1" }],
+					downloadProfileIds: [],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: true,
+					monitored: true,
+					slug: "foundation",
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: true,
+			skipMissingReleaseDate: true,
+		};
+		authorDetailRouteMocks.useQuery.mockImplementation(
+			(query: { queryKey: [string, ...unknown[]] }) => {
+				if (query.queryKey[0] === "hardcover-series-complete") {
+					return {
+						data: [
+							{
+								foreignSeriesId: 101,
+								books: [
+									{
+										foreignBookId: 201,
+										title: "Duplicate Foundation",
+										slug: "duplicate-foundation",
+										position: "1",
+										releaseDate: "1951-01-01",
+										releaseYear: 1951,
+										rating: 4.1,
+										usersCount: 9_000,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [],
+									},
+									{
+										foreignBookId: 202,
+										title: "No Identifier",
+										slug: "no-identifier",
+										position: "2",
+										releaseDate: "1952-01-01",
+										releaseYear: 1952,
+										rating: 4,
+										usersCount: 8_000,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{ languageCode: "en", releaseDate: "1952-01-01" },
+										],
+									},
+									{
+										foreignBookId: 203,
+										title: "Second Foundation",
+										slug: "second-foundation",
+										position: "3",
+										releaseDate: "1953-01-01",
+										releaseYear: 1953,
+										rating: 4.3,
+										usersCount: 11_000,
+										coverUrl: "/second.jpg",
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												id: 303,
+												bookId: 203,
+												title: "Second Foundation",
+												isbn10: "1234567890",
+												isbn13: null,
+												asin: null,
+												format: "Paperback",
+												pageCount: 256,
+												releaseDate: "1953-01-01",
+												languageCode: "en",
+												coverUrl: "/second.jpg",
+												isDefaultCover: true,
+											},
+										],
+									},
+								],
+							},
+						],
+						isLoading: false,
+					};
+				}
+				return { data: false, isLoading: false };
+			},
+		);
+
+		const routeConfig = Route as unknown as {
+			component: () => ReactNode;
+		};
+
+		await renderWithProviders(<routeConfig.component />);
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation" }).click();
+
+		await expect
+			.element(page.getByText("Second Foundation"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No Identifier"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Duplicate Foundation"))
+			.not.toBeInTheDocument();
+
+		await page.getByText("Second Foundation").click();
+		await expect
+			.element(page.getByTestId("book-preview-modal"))
 			.toBeInTheDocument();
 	});
 
@@ -1332,6 +1936,1000 @@ describe("AuthorDetailRoute", () => {
 			},
 			expect.any(Object),
 		);
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+	});
+
+	it("renders pending skeletons", async () => {
+		const routeConfig = Route as unknown as {
+			pendingComponent: () => ReactNode;
+		};
+
+		await renderWithProviders(<routeConfig.pendingComponent />);
+
+		expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2);
+	});
+
+	it("uses all-language fallback, debounces repeated searches, and toggles same-column sort", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [],
+					editionInformation: null,
+					fileCount: 0,
+					format: "ebook",
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 128,
+					publisher: null,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					score: null,
+					series: null,
+					title: "Robots and Empire",
+					usersCount: 100,
+					country: null,
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: null,
+		};
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "", "all", "readers", "desc");
+
+		await page.getByPlaceholder("Filter by title…").fill("ro");
+		await page.getByPlaceholder("Filter by title…").fill("robot");
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "robot", "all", "readers", "desc");
+
+		await page.getByRole("button", { name: "sort-title" }).click();
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "robot", "all", "title", "asc");
+		await page.getByRole("button", { name: "sort-title" }).click();
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "robot", "all", "title", "desc");
+	});
+
+	it("fetches another books page when the sentinel intersects", async () => {
+		const fetchNextPage = vi.fn();
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [],
+			bookCount: 2,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.useInfiniteQuery.mockReturnValue({
+			data: { pages: [{ items: [], total: 2 }] },
+			fetchNextPage,
+			hasNextPage: true,
+			isFetchingNextPage: false,
+			isLoading: false,
+		});
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		authorDetailRouteMocks.setObserverCallback?.([
+			{ isIntersecting: true } as IntersectionObserverEntry,
+		]);
+
+		expect(fetchNextPage).toHaveBeenCalledTimes(1);
+	});
+
+	it("clears an empty books search immediately after a debounced search", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [],
+			bookCount: 0,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByPlaceholder("Filter by title…").fill("robot");
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "robot", "en", "readers", "desc");
+
+		await page.getByPlaceholder("Filter by title…").fill("   ");
+		expect(
+			authorDetailRouteMocks.authorBooksInfiniteQuery,
+		).toHaveBeenLastCalledWith(7, "", "en", "readers", "desc");
+	});
+
+	it("closes a single-book unmonitor dialog without mutating", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 42,
+					coverUrl: null,
+					downloadProfileIds: [11],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 42,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 320,
+					publisher: "Ace",
+					rating: 4.2,
+					ratingsCount: 123,
+					releaseDate: "1950-01-01",
+					releaseYear: 1950,
+					score: 98,
+					series: null,
+					title: "Foundation",
+					usersCount: 10_000,
+					country: "US",
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
+
+		expect(
+			authorDetailRouteMocks.unmonitorBookProfile.mutate,
+		).not.toHaveBeenCalled();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+	});
+
+	it("shows local series metadata warnings and monitors an inactive local series row", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					id: 1,
+					bookId: 1,
+					title: "Missing Metadata",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: new Date("2024-01-01"),
+					missingEditionsCount: 0,
+					fileCount: 1,
+					usersCount: 5,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					languageCodes: ["en"],
+				},
+				{
+					id: 2,
+					bookId: 2,
+					title: "Missing Editions",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 2,
+					fileCount: 0,
+					usersCount: 4,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					languageCodes: ["en"],
+				},
+				{
+					id: 3,
+					bookId: 3,
+					title: "Clean Local",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					fileCount: 0,
+					usersCount: 3,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					languageCodes: ["en"],
+				},
+			],
+			bookCount: 3,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [
+						{ bookId: 1, position: "1" },
+						{ bookId: 2, position: "2" },
+						{ bookId: 3, position: "3" },
+					],
+					downloadProfileIds: [11],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation" }).click();
+
+		await expect
+			.element(page.getByText("book:Missing Metadata"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("book-editions:Missing Editions"))
+			.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		expect(
+			authorDetailRouteMocks.monitorBookProfile.mutate,
+		).toHaveBeenCalledWith({
+			bookId: 3,
+			downloadProfileId: 11,
+		});
+	});
+
+	it("unmonitors an active local series row and clears the dialog on success", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					id: 4,
+					bookId: 4,
+					title: "Active Local",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [11],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					fileCount: 2,
+					usersCount: 3,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					languageCodes: ["en"],
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 4, position: "1" }],
+					downloadProfileIds: [11],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation" }).click();
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
+		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
+
+		expect(
+			authorDetailRouteMocks.unmonitorBookProfile.mutate,
+		).toHaveBeenCalledWith(
+			{
+				bookId: 4,
+				deleteFiles: true,
+				downloadProfileId: 11,
+			},
+			expect.any(Object),
+		);
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+	});
+
+	it("cancels author edit, delete, and author-level unmonitor dialogs", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					asin: null,
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					bookId: 1,
+					coverUrl: null,
+					downloadProfileIds: [11],
+					editionInformation: null,
+					fileCount: 1,
+					format: "ebook",
+					id: 1,
+					isbn10: null,
+					isbn13: null,
+					language: "English",
+					languageCodes: ["en"],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					pageCount: 320,
+					publisher: null,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: 1950,
+					score: null,
+					series: null,
+					title: "Foundation",
+					usersCount: 100,
+					country: null,
+					audioLength: null,
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "isaac-asimov",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+
+		await page.getByRole("button", { name: "edit" }).click();
+		await expect.element(page.getByTestId("author-form")).toBeInTheDocument();
+		await page.getByRole("button", { name: "cancel" }).click();
+		await expect
+			.element(page.getByTestId("author-form"))
+			.not.toBeInTheDocument();
+		expect(authorDetailRouteMocks.updateAuthor.mutate).not.toHaveBeenCalled();
+
+		await page.getByRole("button", { name: "delete" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.toHaveTextContent("Delete Author");
+		await page.getByRole("button", { name: "cancel" }).click();
+		await expect
+			.element(page.getByTestId("confirm-dialog"))
+			.not.toBeInTheDocument();
+		expect(authorDetailRouteMocks.deleteAuthor.mutate).not.toHaveBeenCalled();
+
+		await page.getByRole("button", { name: "toggle-4K" }).first().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
+		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.not.toBeInTheDocument();
+		expect(
+			authorDetailRouteMocks.bulkUnmonitorBook.mutate,
+		).not.toHaveBeenCalled();
+	});
+
+	it("renders empty cells for unknown series column keys", async () => {
+		authorDetailRouteMocks.useTableColumns.mockImplementation(
+			(tableId?: string) => ({
+				visibleColumns:
+					tableId === "author-series"
+						? [{ key: "title" }, { key: "unknown-column", label: "Mystery" }]
+						: [{ key: "title" }, { key: "readers" }, { key: "rating" }],
+			}),
+		);
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					id: 1,
+					bookId: 1,
+					title: "Foundation",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					fileCount: 0,
+					usersCount: 10,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: "1951-01-01",
+					releaseYear: 1951,
+					languageCodes: ["en"],
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "7",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 1, position: "1" }],
+					downloadProfileIds: [],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation Series",
+				},
+			],
+			status: "active",
+		};
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation Series" }).click();
+
+		await expect.element(page.getByText("Mystery")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Foundation", { exact: true }))
+			.toBeInTheDocument();
+	});
+
+	it("dedupes and filters external series entries by position, metadata, and language", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					id: 1,
+					bookId: 1,
+					title: "Local Winner",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					fileCount: 0,
+					usersCount: 10,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: "1951-01-01",
+					releaseYear: 1951,
+					languageCodes: ["en"],
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [],
+			foreignAuthorId: "7",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 1, position: "1" }],
+					downloadProfileIds: [],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: true,
+			skipMissingReleaseDate: true,
+		};
+		authorDetailRouteMocks.useQuery.mockImplementation(
+			(query: { queryKey: [string, ...unknown[]] }) => {
+				if (query.queryKey[0] === "hardcover-series-complete") {
+					return {
+						data: [
+							{
+								foreignSeriesId: 101,
+								books: [
+									{
+										foreignBookId: 201,
+										title: "External Duplicate",
+										slug: "external-duplicate",
+										position: "1",
+										releaseDate: "1951-01-01",
+										releaseYear: 1951,
+										rating: 4,
+										usersCount: 10_000,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "1111111111",
+												languageCode: "en",
+												releaseDate: "1951-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 202,
+										title: "Lower Readers",
+										slug: "lower-readers",
+										position: "2",
+										releaseDate: "1952-01-01",
+										releaseYear: 1952,
+										rating: 4,
+										usersCount: 10,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "2222222222",
+												languageCode: "en",
+												releaseDate: "1952-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 203,
+										title: "Higher Readers",
+										slug: "higher-readers",
+										position: "2",
+										releaseDate: "1952-02-01",
+										releaseYear: 1952,
+										rating: 4.5,
+										usersCount: 500,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "3333333333",
+												languageCode: "en",
+												releaseDate: "1952-02-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 204,
+										title: "Parent Story",
+										slug: "parent-story",
+										position: "3",
+										releaseDate: "1953-01-01",
+										releaseYear: 1953,
+										rating: null,
+										usersCount: 200,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "4444444444",
+												languageCode: "en",
+												releaseDate: "1953-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 205,
+										title: "Parent Story Part Two",
+										slug: "parent-story-part-two",
+										position: "3.5",
+										releaseDate: "1953-06-01",
+										releaseYear: 1953,
+										rating: null,
+										usersCount: 150,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isbn10: "5555555555",
+												languageCode: "en",
+												releaseDate: "1953-06-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 206,
+										title: "Orphan Fractional",
+										slug: "orphan-fractional",
+										position: "4.5",
+										releaseDate: "1954-06-01",
+										releaseYear: 1954,
+										rating: null,
+										usersCount: 90,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "6666666666",
+												languageCode: "en",
+												releaseDate: "1954-06-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 207,
+										title: "No Position Finale",
+										slug: "no-position-finale",
+										position: null,
+										releaseDate: "1955-01-01",
+										releaseYear: 1955,
+										rating: null,
+										usersCount: 80,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "7777777777",
+												languageCode: "en",
+												releaseDate: "1955-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 208,
+										title: "Edition Date Only",
+										slug: "edition-date-only",
+										position: "5",
+										releaseDate: null,
+										releaseYear: 1956,
+										rating: null,
+										usersCount: 70,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "8888888888",
+												languageCode: "en",
+												releaseDate: "1956-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 209,
+										title: "No Qualifying Edition",
+										slug: "no-qualifying-edition",
+										position: "6",
+										releaseDate: "1956-01-01",
+										releaseYear: 1956,
+										rating: null,
+										usersCount: 60,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												languageCode: "en",
+												releaseDate: "1956-01-01",
+											},
+										],
+									},
+									{
+										foreignBookId: 210,
+										title: "French Only",
+										slug: "french-only",
+										position: "7",
+										releaseDate: "1957-01-01",
+										releaseYear: 1957,
+										rating: null,
+										usersCount: 50,
+										coverUrl: null,
+										authorName: "Isaac Asimov",
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: "9999999999",
+												languageCode: "fr",
+												releaseDate: "1957-01-01",
+											},
+										],
+									},
+								],
+							},
+						],
+						isLoading: false,
+					};
+				}
+				return { data: false, isLoading: false };
+			},
+		);
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+		await page.getByRole("button", { name: "Series" }).click();
+		await page.getByRole("button", { name: "Foundation" }).click();
+
+		await expect.element(page.getByText("Local Winner")).toBeInTheDocument();
+		await expect.element(page.getByText("Higher Readers")).toBeInTheDocument();
+		await expect.element(page.getByText("Parent Story")).toBeInTheDocument();
+		await expect
+			.element(page.getByText("Orphan Fractional"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No Position Finale"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("External Duplicate"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Lower Readers"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Parent Story Part Two"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Edition Date Only"))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText("No Qualifying Edition"))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText("French Only")).not.toBeInTheDocument();
+	});
+
+	it("closes series preview, profile editor, and local row unmonitor dialog", async () => {
+		authorDetailRouteMocks.author = {
+			availableLanguages: [{ language: "English", languageCode: "en" }],
+			bio: null,
+			bornYear: null,
+			books: [
+				{
+					id: 4,
+					bookId: 4,
+					title: "Active Local",
+					authorName: "Isaac Asimov",
+					bookAuthors: [],
+					downloadProfileIds: [11],
+					editions: [],
+					images: [],
+					metadataSourceMissingSince: null,
+					missingEditionsCount: 0,
+					fileCount: 2,
+					usersCount: 3,
+					rating: null,
+					ratingsCount: null,
+					releaseDate: null,
+					releaseYear: null,
+					languageCodes: ["en"],
+				},
+			],
+			bookCount: 1,
+			deathYear: null,
+			downloadProfileIds: [11],
+			foreignAuthorId: "7",
+			id: 7,
+			images: [],
+			name: "Isaac Asimov",
+			series: [
+				{
+					books: [{ bookId: 4, position: "1" }],
+					downloadProfileIds: [11],
+					foreignSeriesId: "101",
+					id: 101,
+					isCompleted: false,
+					monitored: true,
+					title: "Foundation",
+				},
+			],
+			status: "active",
+		};
+		authorDetailRouteMocks.downloadProfiles = [
+			{ contentType: "ebook", id: 11, language: "en", name: "4K" },
+		];
+		authorDetailRouteMocks.metadataProfile = {
+			skipMissingIsbnAsin: false,
+			skipMissingReleaseDate: false,
+		};
+		authorDetailRouteMocks.useQuery.mockImplementation(
+			(query: { queryKey: [string, ...unknown[]] }) => {
+				if (query.queryKey[0] === "hardcover-series-complete") {
+					return {
+						data: [
+							{
+								foreignSeriesId: 101,
+								books: [
+									{
+										foreignBookId: 301,
+										title: "External Preview",
+										slug: null,
+										position: "2",
+										releaseDate: null,
+										releaseYear: null,
+										rating: null,
+										usersCount: null,
+										coverUrl: null,
+										authorName: null,
+										editions: [
+											{
+												isDefaultCover: true,
+												isbn10: null,
+												isbn13: null,
+												asin: null,
+												format: null,
+												pageCount: null,
+												languageCode: "en",
+												releaseDate: null,
+											},
+										],
+									},
+								],
+							},
+						],
+						isLoading: false,
+					};
+				}
+				return { data: false, isLoading: false };
+			},
+		);
+
+		const routeConfig = Route as unknown as { component: () => ReactNode };
+		await renderWithProviders(<routeConfig.component />);
+		await page.getByRole("button", { name: "Series" }).click();
+
+		await page
+			.getByRole("button", { name: "Edit download profiles", exact: true })
+			.click();
+		await expect
+			.element(page.getByTestId("edit-series-profiles-dialog"))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "cancel" }).click();
+		await expect
+			.element(page.getByTestId("edit-series-profiles-dialog"))
+			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "Foundation" }).click();
+		await page.getByText("External Preview").click();
+		await expect
+			.element(page.getByTestId("book-preview-modal"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByTestId("book-preview-url"))
+			.toHaveTextContent("no-hardcover-url");
+		await page.getByRole("button", { name: "close-preview" }).click();
+		await expect
+			.element(page.getByTestId("book-preview-modal"))
+			.not.toBeInTheDocument();
+
+		await page.getByRole("button", { name: "toggle-4K" }).last().click();
+		await expect
+			.element(page.getByTestId("unmonitor-dialog"))
+			.toHaveTextContent("4K");
+		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
+		expect(
+			authorDetailRouteMocks.unmonitorBookProfile.mutate,
+		).not.toHaveBeenCalled();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
 			.not.toBeInTheDocument();

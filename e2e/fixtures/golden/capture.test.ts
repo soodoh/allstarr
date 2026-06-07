@@ -251,7 +251,7 @@ describe("golden capture helpers", () => {
 	});
 
 	it("redacts query-string secrets in captured paths and filenames", async () => {
-		const server = await startHttpTestServer((request, response) => {
+		const server = await startHttpTestServer((_request, response) => {
 			response.statusCode = 200;
 			response.setHeader("Content-Type", "application/json");
 			response.end(

@@ -61,6 +61,16 @@ describe("mutations/queue", () => {
 		});
 	});
 
+	it("shows the server error toast when queue removal fails with an Error", async () => {
+		removeFromQueueFn.mockRejectedValue(new Error("queue removal failed"));
+
+		const { result } = await renderHook(() => useRemoveFromQueue());
+
+		await result.current.mutateAsync({ id: 9 } as never).catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("queue removal failed");
+	});
+
 	it("shows the fallback error toast when queue removal fails", async () => {
 		removeFromQueueFn.mockRejectedValue("nope");
 

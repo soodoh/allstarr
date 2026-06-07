@@ -76,6 +76,16 @@ describe("mutations/blocklist", () => {
 		expect(error).toHaveBeenCalledWith("missing item");
 	});
 
+	it("falls back to the generic remove-from-blocklist error toast", async () => {
+		removeFromBlocklistFn.mockRejectedValue("nope");
+
+		const { result } = await renderHook(() => useRemoveFromBlocklist());
+
+		await result.current.mutateAsync(11).catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("Failed to remove from blocklist");
+	});
+
 	it("wires bulk remove mutations and success handling", async () => {
 		bulkRemoveFromBlocklistFn.mockResolvedValue({ removed: 3 });
 
@@ -90,6 +100,16 @@ describe("mutations/blocklist", () => {
 		expect(invalidateQueries).toHaveBeenCalledWith({
 			queryKey: queryKeys.blocklist.all,
 		});
+	});
+
+	it("shows the server error message when bulk remove fails", async () => {
+		bulkRemoveFromBlocklistFn.mockRejectedValue(new Error("bulk failed"));
+
+		const { result } = await renderHook(() => useBulkRemoveFromBlocklist());
+
+		await result.current.mutateAsync([1, 2, 3]).catch(() => {});
+
+		expect(error).toHaveBeenCalledWith("bulk failed");
 	});
 
 	it("falls back to the generic bulk blocklist error toast", async () => {

@@ -266,8 +266,11 @@ test.describe("Queue Management", () => {
 			.all()
 			.find((c) => c.name === "Unreachable Client");
 		expect(unreachableClient).toBeTruthy();
+		if (!unreachableClient) {
+			throw new Error("Unreachable client was not seeded");
+		}
 		seedTrackedDownload(db, {
-			downloadClientId: unreachableClient!.id,
+			downloadClientId: unreachableClient.id,
 			downloadId: "unreachable-dl",
 			releaseTitle: "Unreachable Download",
 			protocol: "torrent",
@@ -310,8 +313,11 @@ test.describe("Queue Management", () => {
 			.all()
 			.find((c) => c.name === "Dismiss Client");
 		expect(dismissClient).toBeTruthy();
+		if (!dismissClient) {
+			throw new Error("Dismiss client was not seeded");
+		}
 		seedTrackedDownload(db, {
-			downloadClientId: dismissClient!.id,
+			downloadClientId: dismissClient.id,
 			downloadId: "dismiss-dl",
 			releaseTitle: "Dismiss Download",
 			protocol: "torrent",

@@ -180,7 +180,7 @@ function seedTvLibrary(
 	db: Parameters<typeof seedAuthor>[0],
 	rootFolderPath: string,
 ) {
-	const profile = seedDownloadProfile(db, {
+	seedDownloadProfile(db, {
 		name: "Unmapped TV Profile",
 		rootFolderPath,
 		contentType: "tv",

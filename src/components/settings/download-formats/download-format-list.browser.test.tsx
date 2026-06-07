@@ -13,6 +13,31 @@ vi.mock("src/hooks/mutations", () => ({
 	useUpdateDownloadFormat: () => downloadFormatListMocks.updateDownloadFormat,
 }));
 
+vi.mock("src/components/ui/slider", () => ({
+	default: ({
+		disabledThumbs,
+		onValueChange,
+		onValueCommit,
+		value,
+	}: {
+		disabledThumbs: Set<number>;
+		onValueChange: (value: number[]) => void;
+		onValueCommit: (value: number[]) => void;
+		value: number[];
+	}) => (
+		<button
+			type="button"
+			data-testid="size-slider"
+			onClick={() => {
+				onValueChange([value[0] + 1, value[1] + 2, value[2] + 3]);
+				onValueCommit([value[0] + 1, value[1] + 2, value[2] + 3]);
+			}}
+		>
+			thumbs:{[...disabledThumbs].join(",")}
+		</button>
+	),
+}));
+
 vi.mock("src/components/shared/confirm-dialog", () => ({
 	default: ({
 		description,
@@ -92,14 +117,73 @@ describe("DownloadFormatList", () => {
 			.toBeInTheDocument();
 	});
 
+	it("updates size limits for audio and video modes while respecting no-limit thumbs", async () => {
+		const audio = makeDefinition({
+			id: 21,
+			title: "MP3",
+			contentTypes: ["audiobook"],
+			minSize: 64,
+			preferredSize: 128,
+			maxSize: 320,
+			noMaxLimit: 0,
+			noPreferredLimit: 1,
+		});
+		const video = makeDefinition({
+			id: 22,
+			title: "WEBRip",
+			contentTypes: ["tv"],
+			minSize: 10,
+			preferredSize: 20,
+			maxSize: 30,
+			noMaxLimit: 0,
+			noPreferredLimit: 0,
+		});
+
+		await renderWithProviders(
+			<DownloadFormatList
+				definitions={[audio, video]}
+				onDelete={vi.fn()}
+				onEdit={vi.fn()}
+			/>,
+		);
+
+		await expect.element(page.getByText("5 hr:")).toBeInTheDocument();
+		await expect.element(page.getByText("1 hr:")).toBeInTheDocument();
+		await expect.element(page.getByText("thumbs:1")).toBeInTheDocument();
+
+		await page.getByTestId("size-slider").first().click();
+		expect(
+			downloadFormatListMocks.updateDownloadFormat.mutate,
+		).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 21,
+				minSize: 65,
+				preferredSize: 128,
+				maxSize: 323,
+			}),
+		);
+
+		await page.getByTestId("size-slider").last().click();
+		expect(
+			downloadFormatListMocks.updateDownloadFormat.mutate,
+		).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 22,
+				minSize: 11,
+				preferredSize: 22,
+				maxSize: 33,
+			}),
+		);
+	});
+
 	it("renders rows, hides example sizes for unknown formats, and wires the actions", async () => {
 		const onDelete = vi.fn();
 		const onEdit = vi.fn();
 		const unknownVideo = makeDefinition({
 			id: 11,
 			title: "Unknown Video",
-			color: "blue",
-			contentTypes: ["movie"],
+			color: "mystery",
+			contentTypes: ["comic"],
 			minSize: 1,
 			maxSize: 2,
 			preferredSize: 1,
@@ -128,6 +212,7 @@ describe("DownloadFormatList", () => {
 		expect(unknownRowEl?.querySelector("td")?.textContent).not.toContain(
 			"1 hr:",
 		);
+		expect(unknownRowEl?.textContent).toContain("comic");
 
 		const archiveRowEl = (await page.getByText("Archive").element()).closest(
 			"tr",
@@ -151,11 +236,111 @@ describe("DownloadFormatList", () => {
 			.element(page.getByText("Delete Download Format"))
 			.toBeInTheDocument();
 
+		await page.getByRole("button", { name: "Cancel" }).click();
+		expect(onDelete).not.toHaveBeenCalled();
+		await expect
+			.element(page.getByText("Delete Download Format"))
+			.not.toBeInTheDocument();
+
+		await (archiveButtons?.[1] as HTMLElement).click();
 		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(archiveFormat.id);
 		await expect
 			.element(page.getByText("Delete Download Format"))
 			.not.toBeInTheDocument();
+	});
+
+	it("uses default size and payload values when optional format limits are absent", async () => {
+		const custom = {
+			...makeDefinition({
+				id: 41,
+				title: "Custom Range",
+				contentTypes: ["ebook"],
+				minSize: 5,
+				maxSize: undefined,
+				preferredSize: undefined,
+				noMaxLimit: 1,
+				noPreferredLimit: undefined,
+			}),
+			source: undefined,
+			resolution: undefined,
+		} as DownloadFormat;
+
+		await renderWithProviders(
+			<DownloadFormatList
+				definitions={[custom]}
+				onDelete={vi.fn()}
+				onEdit={vi.fn()}
+			/>,
+		);
+
+		await expect.element(page.getByText("∞ MB")).toBeInTheDocument();
+		await expect.element(page.getByText("200 pg:")).toBeInTheDocument();
+		await page.getByTestId("size-slider").click();
+
+		expect(
+			downloadFormatListMocks.updateDownloadFormat.mutate,
+		).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 41,
+				minSize: 6,
+				preferredSize: 102,
+				maxSize: 100,
+				noMaxLimit: 1,
+				noPreferredLimit: 0,
+				resolution: 0,
+				source: null,
+			}),
+		);
+	});
+
+	it("sorts by title, content type, and size limit with no-limit formats last", async () => {
+		await renderWithProviders(
+			<DownloadFormatList
+				definitions={[
+					makeDefinition({
+						id: 31,
+						title: "Zulu",
+						contentTypes: ["movie"],
+						maxSize: 10,
+						noMaxLimit: 0,
+					}),
+					makeDefinition({
+						id: 32,
+						title: "Alpha",
+						contentTypes: ["ebook"],
+						maxSize: 0,
+						noMaxLimit: 1,
+					}),
+					makeDefinition({
+						id: 33,
+						title: "Middle",
+						contentTypes: ["audiobook"],
+						maxSize: 5,
+						noMaxLimit: 0,
+					}),
+				]}
+				onDelete={vi.fn()}
+				onEdit={vi.fn()}
+			/>,
+		);
+
+		const readRowTitles = () =>
+			[...document.querySelectorAll("tbody tr")].map(
+				(row) => row.querySelector("td")?.textContent ?? "",
+			);
+
+		await page.getByText("Title").click();
+		expect(readRowTitles()[0]).toContain("Alpha");
+
+		await page.getByText("Content Type").click();
+		expect(readRowTitles()[0]).toContain("Middle");
+
+		await page.getByText("Size Limit").click();
+		const sizeSortedTitles = readRowTitles();
+		expect(sizeSortedTitles[0]).toContain("Middle");
+		expect(sizeSortedTitles[1]).toContain("Zulu");
+		expect(sizeSortedTitles[2]).toContain("Alpha");
 	});
 });

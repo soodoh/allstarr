@@ -108,6 +108,65 @@ describe("assignImportAssets", () => {
 		]);
 	});
 
+	it("uses episode tokens and source containment when stems do not match", () => {
+		const result = assignImportAssets({
+			rows: [
+				buildRow({
+					sourcePath: "/downloads/Show/Season 1/Show.S01E01.mkv",
+					destinationPath: "/library/tv/Show/Season 01/Show S01E01.mkv",
+					sourceContainerRoot: "/downloads/Show",
+					destinationContainerRoot: "/library/tv/Show",
+				}),
+			],
+			discoveredPaths: [
+				"/downloads/Show/Season 1/Commentary.S01E01.en.srt",
+				"/other/Show/Season 1/Show.S01E01.nfo",
+			],
+		});
+
+		expect(result.rows[0]?.assets).toEqual([
+			expect.objectContaining({
+				destinationRelativePath: "Season 01/Commentary.S01E01.en.srt",
+				ownershipReason: "token",
+				sourcePath: "/downloads/Show/Season 1/Commentary.S01E01.en.srt",
+			}),
+		]);
+		expect(result.unrelatedPaths).toEqual([
+			"/other/Show/Season 1/Show.S01E01.nfo",
+		]);
+	});
+
+	it("assigns ambiguous TV container assets deterministically to the earliest source row", () => {
+		const result = assignImportAssets({
+			rows: [
+				buildRow({
+					rowId: "tv-2",
+					sourcePath: "/downloads/Show/Season 1/Show.S01E02.mkv",
+					destinationPath: "/library/tv/Show/Season 01/Show S01E02.mkv",
+					sourceContainerRoot: "/downloads/Show",
+					destinationContainerRoot: "/library/tv/Show",
+				}),
+				buildRow({
+					rowId: "tv-1",
+					sourcePath: "/downloads/Show/Season 1/Show.S01E01.mkv",
+					destinationPath: "/library/tv/Show/Season 01/Show S01E01.mkv",
+					sourceContainerRoot: "/downloads/Show",
+					destinationContainerRoot: "/library/tv/Show",
+				}),
+			],
+			discoveredPaths: ["/downloads/Show/theme.mp3"],
+		});
+
+		expect(result.unrelatedPaths).toEqual([]);
+		expect(result.rows[0]?.assets).toEqual([]);
+		expect(result.rows[1]?.assets).toEqual([
+			expect.objectContaining({
+				destinationRelativePath: "theme.mp3",
+				ownershipReason: "container",
+			}),
+		]);
+	});
+
 	it("marks ambiguous container files as unrelated instead of attaching twice", () => {
 		const result = assignImportAssets({
 			rows: [
@@ -169,6 +228,44 @@ describe("buildAssetOperations", () => {
 		]);
 		expect(operations.deletes).toEqual([]);
 		expect(operations.stopAt).toBe("/downloads/Severance");
+	});
+
+	it("deletes deselected move assets only when enabled and preserves ignored assets", () => {
+		const row = {
+			...buildRow(),
+			assets: [
+				{
+					action: "move" as const,
+					destinationRelativePath: "Season 01/subtitle.srt",
+					kind: "file" as const,
+					ownershipReason: "direct" as const,
+					relativeSourcePath: "Season 1/subtitle.srt",
+					selected: false,
+					sourcePath: "/downloads/Severance/Season 1/subtitle.srt",
+				},
+				{
+					action: "ignore" as const,
+					destinationRelativePath: "Season 01/poster.jpg",
+					kind: "file" as const,
+					ownershipReason: "container" as const,
+					relativeSourcePath: "poster.jpg",
+					selected: false,
+					sourcePath: "/downloads/Severance/poster.jpg",
+				},
+			],
+		};
+
+		expect(
+			buildAssetOperations({ row, deleteDeselectedAssets: false }).deletes,
+		).toEqual([]);
+		expect(
+			buildAssetOperations({ row, deleteDeselectedAssets: true }).deletes,
+		).toEqual([
+			{
+				kind: "file",
+				path: "/downloads/Severance/Season 1/subtitle.srt",
+			},
+		]);
 	});
 
 	it("builds delete operations for deselected attached assets when enabled", () => {

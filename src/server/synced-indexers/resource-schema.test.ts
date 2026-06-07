@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import {
 	formatIndexerPayloadError,
 	readarrIndexerResourceSchema,
@@ -30,6 +31,50 @@ describe("readarrIndexerResourceSchema", () => {
 		});
 
 		expect(result.success).toBe(true);
+	});
+
+	it("rejects payloads missing the required baseUrl field", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			fields: [{ name: "apiPath", value: "/api" }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "baseUrl is required",
+						path: ["fields"],
+					}),
+				]),
+			);
+		}
+	});
+
+	it("rejects an empty required baseUrl field", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "NewznabSettings",
+			fields: [{ name: "baseUrl", value: "   " }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			protocol: "usenet",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "baseUrl must be a non-empty string",
+						path: ["fields", 0, "value"],
+					}),
+				]),
+			);
+		}
 	});
 
 	it("rejects a Torznab payload with a non-torrent protocol", () => {
@@ -189,6 +234,32 @@ describe("readarrIndexerResourceSchema", () => {
 		}
 	});
 
+	it("rejects Newznab payloads with Torznab settings or torrent protocol", () => {
+		const result = readarrIndexerResourceSchema.safeParse({
+			configContract: "TorznabSettings",
+			fields: [{ name: "baseUrl", value: "https://example.com" }],
+			implementation: "Newznab",
+			name: "Invalid Indexer",
+			protocol: "torrent",
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.issues).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message: "Newznab indexers must use NewznabSettings",
+						path: ["configContract"],
+					}),
+					expect.objectContaining({
+						message: "Newznab indexers must use usenet protocol",
+						path: ["protocol"],
+					}),
+				]),
+			);
+		}
+	});
+
 	it("formats payload errors with issue paths", () => {
 		const result = readarrIndexerResourceSchema.safeParse({
 			configContract: "NewznabSettings",
@@ -208,5 +279,17 @@ describe("readarrIndexerResourceSchema", () => {
 				"fields.0.value: field value is required",
 			);
 		}
+	});
+
+	it("formats root-level payload errors without a path prefix", () => {
+		const error = new ZodError([
+			{
+				code: "custom",
+				message: "root problem",
+				path: [],
+			},
+		]);
+
+		expect(formatIndexerPayloadError(error)).toEqual(["root problem"]);
 	});
 });

@@ -169,8 +169,11 @@ const schemaMocks = vi.hoisted(
 vi.mock("@tanstack/react-start", () => ({
 	createServerFn: () => ({
 		handler: (handler: (...args: unknown[]) => unknown) => handler,
-		inputValidator: () => ({
-			handler: (handler: (...args: unknown[]) => unknown) => handler,
+		inputValidator: (validator: (input: unknown) => unknown) => ({
+			handler:
+				(handler: (input: { data: unknown }) => unknown) =>
+				(input: { data: unknown }) =>
+					handler({ data: validator(input.data) }),
 		}),
 	}),
 }));
@@ -522,6 +525,97 @@ describe("server/authors", () => {
 			expect(result.series).toEqual([]);
 			expect(result.availableLanguages).toEqual([]);
 			expect(result.downloadProfileIds).toEqual([10]);
+		});
+
+		it("aggregates series profiles and falls back when book primary author is missing", async () => {
+			mocks.authorRow = { id: 1, name: "Author One" };
+			mocks.bookAuthorEntries = [{ bookId: 100 }, { bookId: 101 }];
+			mocks.bookRows = [
+				{ id: 100, title: "Book One", usersCount: 100 },
+				{ id: 101, title: "Book Two", usersCount: 300 },
+			];
+			mocks.allBookAuthorEntries = [
+				{
+					bookId: 100,
+					authorId: 2,
+					foreignAuthorId: "fa-2",
+					authorName: "Secondary Author",
+					isPrimary: false,
+				},
+			];
+			mocks.seriesLinks = [
+				{
+					bookId: 100,
+					foreignSeriesId: "fs-20",
+					isCompleted: false,
+					monitored: true,
+					position: null,
+					seriesId: 20,
+					seriesSlug: "series-two",
+					seriesTitle: "Series Two",
+				},
+				{
+					bookId: 101,
+					foreignSeriesId: "fs-20",
+					isCompleted: false,
+					monitored: true,
+					position: "2",
+					seriesId: 20,
+					seriesSlug: "series-two",
+					seriesTitle: "Series Two",
+				},
+			];
+			mocks.seriesProfileLinks = [
+				{ downloadProfileId: 7, seriesId: 20 },
+				{ downloadProfileId: 8, seriesId: 20 },
+			];
+			mocks.editionRows = [
+				{
+					bookId: 100,
+					id: 200,
+					languageCode: null,
+					metadataSourceMissingSince: null,
+				},
+				{
+					bookId: 101,
+					id: 201,
+					languageCode: "fr",
+					metadataSourceMissingSince: new Date("2026-01-01T00:00:00.000Z"),
+				},
+			];
+			mocks.availableLanguages = [
+				{ language: "English", languageCode: "en", totalReaders: 100 },
+				{ language: null, languageCode: "fr", totalReaders: 300 },
+			];
+			mocks.fileCountRows = [];
+			mocks.profileLinkRows = [];
+			setupAuthorDetailMocks();
+
+			const result = await getAuthorFn({ data: { id: 1 } });
+
+			expect(result.books[0].authorName).toBeNull();
+			expect(result.books[0].authorForeignId).toBeNull();
+			expect(result.books[0].fileCount).toBe(0);
+			expect(result.books[1].languageCodes).toEqual(["fr"]);
+			expect(result.books[1].missingEditionsCount).toBe(1);
+			expect(result.series).toEqual([
+				{
+					books: [
+						{ bookId: 100, position: "" },
+						{ bookId: 101, position: "2" },
+					],
+					downloadProfileIds: [7, 8],
+					foreignSeriesId: "fs-20",
+					id: 20,
+					isCompleted: false,
+					monitored: true,
+					slug: "series-two",
+					title: "Series Two",
+				},
+			]);
+			expect(result.availableLanguages).toEqual([
+				{ language: "English", languageCode: "en", totalReaders: 100 },
+			]);
 		});
 
 		it("returns author with books, editions, and series", async () => {

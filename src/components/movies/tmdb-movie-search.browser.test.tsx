@@ -287,6 +287,10 @@ describe("MoviePreviewModal", () => {
 	beforeEach(() => {
 		tmdbMovieSearchMocks.addMovie.mutate.mockReset();
 		tmdbMovieSearchMocks.upsertUserSettings.mutate.mockReset();
+		tmdbMovieSearchMocks.downloadProfiles = [
+			{ contentType: "movie", id: 11, name: "HD" },
+			{ contentType: "tv", id: 12, name: "TV" },
+		];
 		tmdbMovieSearchMocks.movieExists = false;
 		tmdbMovieSearchMocks.searchStates.clear();
 		tmdbMovieSearchMocks.useQuery.mockImplementation(
@@ -368,6 +372,45 @@ describe("MoviePreviewModal", () => {
 
 		await page.getByRole("button", { name: "Close" }).click();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it("renders missing optional metadata and blocks monitored adds without profiles", async () => {
+		tmdbMovieSearchMocks.downloadProfiles = [
+			{ contentType: "tv", id: 12, name: "TV" },
+		];
+
+		await renderWithProviders(
+			<MoviePreviewModal
+				addDefaults={null}
+				movie={{
+					adult: false,
+					backdrop_path: null,
+					genre_ids: [],
+					id: 10,
+					media_type: "movie",
+					original_title: "Untitled",
+					overview: "",
+					popularity: 0,
+					poster_path: null,
+					release_date: "",
+					title: "Untitled",
+					vote_average: 0,
+				}}
+				onOpenChange={vi.fn()}
+				open
+			/>,
+		);
+
+		await expect.element(page.getByText("Add Movie")).toBeInTheDocument();
+		await expect.element(page.getByText(/Popularity:/)).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Add Movie" }))
+			.toBeDisabled();
+
+		expect(
+			tmdbMovieSearchMocks.upsertUserSettings.mutate,
+		).not.toHaveBeenCalled();
+		expect(tmdbMovieSearchMocks.addMovie.mutate).not.toHaveBeenCalled();
 	});
 
 	it("persists defaults and adds a movie when the modal form is submitted", async () => {

@@ -1064,6 +1064,165 @@ describe("applyImportPlan", () => {
 		]);
 	});
 
+	it("handles skip rows, existing review updates, mapped payloads, and missing update targets", async () => {
+		mocks.getState().reviews.push({
+			createdAt: new Date("2026-01-01T00:00:00.000Z"),
+			id: 77,
+			payload: { old: true },
+			resourceType: "show",
+			sourceId: 14,
+			sourceKey: "sonarr:14:show:unresolved",
+			status: "unresolved",
+			updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+		});
+		mocks.getState().provenance.push(
+			{
+				lastImportedAt: new Date("2026-01-01T00:00:00.000Z"),
+				sourceId: 14,
+				sourceKey: "radarr:14:setting:missing-client",
+				targetId: "999",
+				targetType: "download-client",
+			},
+			{
+				lastImportedAt: new Date("2026-01-01T00:00:00.000Z"),
+				sourceId: 14,
+				sourceKey: "radarr:14:profile:missing-profile",
+				targetId: "998",
+				targetType: "download-profile",
+			},
+		);
+
+		const result = await applyImportPlan({
+			sourceId: 14,
+			selectedRows: [
+				{
+					action: "skip",
+					payload: { targetId: 1 },
+					resourceType: "movie",
+					sourceKey: "radarr:14:movie:skip",
+				},
+				{
+					action: "unsupported",
+					payload: { reason: "cannot import" },
+					resourceType: "queue",
+					sourceKey: "radarr:14:queue:unsupported",
+				},
+				{
+					action: "unresolved",
+					payload: { title: "Updated unresolved show" },
+					resourceType: "show",
+					sourceKey: "sonarr:14:show:unresolved",
+				},
+				{
+					action: "create",
+					payload: {
+						group: "download-client",
+						mapped: {
+							apiKey: "mapped-key",
+							category: "mapped",
+							enabled: true,
+							host: "mapped.local",
+							implementation: "qBittorrent",
+							name: "Mapped Client",
+							password: null,
+							port: 8080,
+							protocol: "torrent",
+							priority: 1,
+							removeCompletedDownloads: true,
+							settings: { ratio: 2 },
+							tag: null,
+							urlBase: null,
+							useSsl: false,
+							username: null,
+						},
+					},
+					resourceType: "setting",
+					sourceKey: "radarr:14:setting:mapped-client",
+				},
+				{
+					action: "create",
+					payload: {
+						apiKey: null,
+						category: "top-level",
+						enabled: true,
+						group: "download-client",
+						host: "top.local",
+						implementation: "Nzbget",
+						name: "Top Level Client",
+						password: null,
+						port: 6789,
+						protocol: "usenet",
+						priority: 2,
+						removeCompletedDownloads: false,
+						tag: "top",
+						urlBase: null,
+						useSsl: false,
+						username: null,
+					},
+					resourceType: "setting",
+					sourceKey: "radarr:14:setting:top-level-client",
+				},
+				{
+					action: "update",
+					payload: {
+						group: "download-client",
+						raw: { name: "Missing Client" },
+					},
+					resourceType: "setting",
+					sourceKey: "radarr:14:setting:missing-client",
+				},
+				{
+					action: "update",
+					payload: {
+						profileKind: "quality",
+						raw: { name: "Missing Profile" },
+					},
+					resourceType: "profile",
+					sourceKey: "radarr:14:profile:missing-profile",
+				},
+			],
+		});
+
+		expect(result).toEqual({ appliedCount: 2, reviewCount: 4 });
+		expect(mocks.getState().clients).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					category: "mapped",
+					name: "Mapped Client",
+					settings: { ratio: 2 },
+				}),
+				expect.objectContaining({
+					category: "top-level",
+					name: "Top Level Client",
+					settings: null,
+				}),
+			]),
+		);
+		expect(mocks.getState().reviews).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 77,
+					payload: { title: "Updated unresolved show" },
+					sourceKey: "sonarr:14:show:unresolved",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:14:queue:unsupported",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:14:setting:missing-client",
+				}),
+				expect.objectContaining({
+					sourceKey: "radarr:14:profile:missing-profile",
+				}),
+			]),
+		);
+		expect(
+			mocks
+				.getState()
+				.provenance.some((row) => row.sourceKey === "radarr:14:movie:skip"),
+		).toBe(false);
+	});
+
 	it("rolls back earlier writes when a later row fails", async () => {
 		mocks.getState().failOnInsertTable = schemaMocks.downloadProfiles;
 
@@ -1208,6 +1367,54 @@ describe("applyImportPlan", () => {
 			]),
 		);
 		expect(mocks.getState().reviews).toHaveLength(0);
+	});
+
+	it("reviews unsupported setting/profile rows and preserves string target ids", async () => {
+		const result = await applyImportPlan({
+			sourceId: 15,
+			selectedRows: [
+				{
+					action: "create",
+					payload: { group: "notifications" },
+					resourceType: "setting",
+					sourceKey: "same-key",
+				},
+				{
+					action: "create",
+					payload: { profileKind: "unknown" },
+					resourceType: "profile",
+					sourceKey: "same-key",
+				},
+				{
+					action: "create",
+					payload: { targetId: " external-book-id " },
+					resourceType: "book",
+					sourceKey: "readarr:15:book:string-target",
+				},
+				{
+					action: "create",
+					payload: { targetId: "   " },
+					resourceType: "movie",
+					sourceKey: "radarr:15:movie:blank-target",
+				},
+			],
+		});
+
+		expect(result).toEqual({ appliedCount: 1, reviewCount: 3 });
+		expect(mocks.getState().provenance).toEqual([
+			expect.objectContaining({
+				sourceKey: "readarr:15:book:string-target",
+				targetId: "external-book-id",
+				targetType: "book",
+			}),
+		]);
+		expect(mocks.getState().reviews.map((row) => row.sourceKey)).toEqual([
+			"radarr:15:movie:blank-target",
+			"same-key",
+		]);
+		expect(
+			mocks.getState().reviews.find((row) => row.sourceKey === "same-key"),
+		).toEqual(expect.objectContaining({ resourceType: "setting" }));
 	});
 
 	it("does not create a local record for unsupported actions on supported rows", async () => {

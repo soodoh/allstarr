@@ -18,8 +18,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tanstack/react-start", () => ({
 	createServerFn: () => ({
 		handler: (handler: (...args: unknown[]) => unknown) => handler,
-		inputValidator: () => ({
-			handler: (handler: (...args: unknown[]) => unknown) => handler,
+		inputValidator: (validator: (input: unknown) => unknown) => ({
+			handler:
+				(handler: (input: { data: unknown }) => unknown) =>
+				(input: { data: unknown }) =>
+					handler({ data: validator(input.data) }),
 		}),
 	}),
 }));

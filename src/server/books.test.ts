@@ -377,6 +377,73 @@ describe("server/books", () => {
 			expect(mocks.pickBestEdition).toHaveBeenCalledWith([fakeEdition], "all");
 		});
 
+		it("applies monitored/search filters and maps related book data", async () => {
+			mocks.selectAll
+				.mockReturnValueOnce([
+					{
+						id: 1,
+						title: "Filtered Book",
+						images: [{ url: "http://book-cover.jpg" }],
+						primaryAuthorName: "Primary Author",
+						primaryAuthorId: 10,
+						primaryForeignAuthorId: "fa10",
+						releaseDate: "2026-01-01",
+						rating: 4.2,
+						ratingsCount: 12,
+						usersCount: 99,
+					},
+				])
+				.mockReturnValueOnce([{ bookId: 1, position: "1", title: "Series A" }])
+				.mockReturnValueOnce([
+					{
+						bookId: 1,
+						authorId: 10,
+						foreignAuthorId: "fa10",
+						authorName: "Primary Author",
+						isPrimary: true,
+					},
+				])
+				.mockReturnValueOnce([
+					{ bookId: 1, id: 100, images: [], isDefaultCover: false },
+					{ bookId: 1, id: 101, images: [], isDefaultCover: false },
+				])
+				.mockReturnValueOnce([
+					{ editionId: 100, downloadProfileId: 5 },
+					{ editionId: 101, downloadProfileId: 6 },
+					{ editionId: 101, downloadProfileId: 5 },
+				])
+				.mockReturnValueOnce([
+					{ authorId: 10, downloadProfileId: 7 },
+					{ authorId: 10, downloadProfileId: 8 },
+				]);
+			mocks.selectGet.mockReturnValueOnce({ count: 1 });
+
+			const result = await getPaginatedBooksFn({
+				data: {
+					monitored: false,
+					search: "Filtered",
+					sortDir: "asc",
+					sortKey: "title",
+				},
+			});
+
+			expect(result.items[0]).toMatchObject({
+				authorDownloadProfileIds: [7, 8],
+				authorForeignId: "fa10",
+				bookAuthors: [
+					{
+						authorId: 10,
+						authorName: "Primary Author",
+						foreignAuthorId: "fa10",
+						isPrimary: true,
+					},
+				],
+				coverUrl: "http://book-cover.jpg",
+				downloadProfileIds: [5, 6],
+				series: [{ position: "1", title: "Series A" }],
+			});
+		});
+
 		it("defaults total to 0 when count query returns null", async () => {
 			mocks.selectAll.mockReturnValue([]);
 			mocks.selectGet.mockReturnValueOnce(null);
@@ -438,6 +505,161 @@ describe("server/books", () => {
 			expect(result.total).toBe(2);
 			expect(result.items).toHaveLength(1);
 			expect(result.items[0]).toMatchObject({ id: 1, authorName: "Author" });
+		});
+
+		it("filters by search and language and maps edition, series, profile, and file data", async () => {
+			const pickedEdition = {
+				asin: "ASIN",
+				bookId: 1,
+				country: "US",
+				editionInformation: "Deluxe",
+				format: "E-Book",
+				id: 100,
+				images: [{ url: "http://edition-cover.jpg" }],
+				isDefaultCover: false,
+				isbn10: "1234567890",
+				isbn13: "9781234567890",
+				language: "French",
+				languageCode: "fr",
+				metadataSourceMissingSince: "2026-01-02",
+				pageCount: 320,
+				publisher: "Press",
+				releaseDate: "2026-02-03",
+				score: 42,
+				title: "Titre Français",
+			};
+			mocks.selectGet.mockReturnValueOnce({ count: 1 });
+			mocks.selectAll
+				.mockReturnValueOnce([
+					{
+						id: 1,
+						title: "Original Title",
+						images: [{ url: "http://book-cover.jpg" }],
+						metadataSourceMissingSince: null,
+						rating: 4.8,
+						ratingsCount: 20,
+						releaseDate: null,
+						releaseYear: 2024,
+						usersCount: 100,
+					},
+				])
+				.mockReturnValueOnce([
+					pickedEdition,
+					{
+						...pickedEdition,
+						id: 101,
+						isDefaultCover: true,
+						metadataSourceMissingSince: null,
+						title: "Default Title",
+					},
+				])
+				.mockReturnValueOnce([
+					{ editionId: 100, downloadProfileId: 5 },
+					{ editionId: 101, downloadProfileId: 6 },
+				])
+				.mockReturnValueOnce([
+					{
+						bookId: 1,
+						authorId: 10,
+						authorName: "Primary Author",
+						foreignAuthorId: "fa10",
+						isPrimary: true,
+					},
+				])
+				.mockReturnValueOnce([{ bookId: 1, position: "2", title: "Series B" }])
+				.mockReturnValueOnce([{ bookId: 1, count: 3 }]);
+			mocks.pickBestEdition.mockReturnValueOnce(pickedEdition);
+
+			const result = await getAuthorBooksPaginatedFn({
+				data: {
+					authorId: 10,
+					language: "fr",
+					search: "Original",
+					sortDir: "asc",
+					sortKey: "releaseDate",
+				},
+			});
+
+			expect(result.items[0]).toMatchObject({
+				authorName: "Primary Author",
+				coverUrl: "http://edition-cover.jpg",
+				downloadProfileIds: [5, 6],
+				fileCount: 3,
+				format: "E-Book",
+				isbn13: "9781234567890",
+				missingEditionsCount: 1,
+				releaseDate: "2026-02-03",
+				series: [{ position: "2", title: "Series B" }],
+				title: "Titre Français",
+			});
+			expect(mocks.pickBestEdition).toHaveBeenCalledWith(
+				[pickedEdition, expect.objectContaining({ id: 101 })],
+				"fr",
+			);
+		});
+
+		it("falls back to book metadata when no best edition or primary author exists", async () => {
+			mocks.selectGet.mockReturnValueOnce({ count: 1 });
+			mocks.selectAll
+				.mockReturnValueOnce([
+					{
+						id: 1,
+						title: "Original Title",
+						images: [{ url: "http://book-cover.jpg" }],
+						metadataSourceMissingSince: "2026-01-01",
+						rating: 4.2,
+						ratingsCount: 12,
+						releaseDate: null,
+						releaseYear: 1999,
+						usersCount: 42,
+					},
+				])
+				.mockReturnValueOnce([
+					{
+						bookId: 1,
+						id: 100,
+						images: [],
+						isDefaultCover: true,
+						metadataSourceMissingSince: "2026-02-02",
+						title: "Default Cover Edition",
+					},
+				])
+				.mockReturnValueOnce([])
+				.mockReturnValueOnce([
+					{
+						bookId: 1,
+						authorId: 10,
+						authorName: "Secondary Author",
+						foreignAuthorId: "fa10",
+						isPrimary: false,
+					},
+				])
+				.mockReturnValueOnce([])
+				.mockReturnValueOnce([]);
+			mocks.pickBestEdition.mockReturnValueOnce(undefined);
+
+			const result = await getAuthorBooksPaginatedFn({
+				data: { authorId: 10 },
+			});
+
+			expect(result.items[0]).toMatchObject({
+				authorName: null,
+				bookAuthors: [
+					{
+						authorId: 10,
+						authorName: "Secondary Author",
+						foreignAuthorId: "fa10",
+						isPrimary: false,
+					},
+				],
+				coverUrl: "http://book-cover.jpg",
+				downloadProfileIds: [],
+				fileCount: 0,
+				missingEditionsCount: 1,
+				releaseDate: "1999",
+				series: [],
+				title: "Original Title",
+			});
 		});
 
 		it("calculates pagination correctly", async () => {

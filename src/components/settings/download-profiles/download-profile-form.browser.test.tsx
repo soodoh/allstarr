@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { renderWithProviders } from "src/test/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 const downloadProfileFormMocks = vi.hoisted(() => ({
 	categoryMultiSelect: vi.fn(),
@@ -135,6 +135,12 @@ vi.mock("src/components/settings/download-profiles/tier-group-list", () => ({
 		return (
 			<div data-testid="tier-group-list">
 				{props.downloadFormats.map((format) => format.title).join(",")}
+				<button type="button" onClick={() => props.onRemoveFormat(1)}>
+					Remove EPUB
+				</button>
+				<button type="button" onClick={() => props.onChange([[2]])}>
+					Keep PDF only
+				</button>
 			</div>
 		);
 	},
@@ -291,6 +297,434 @@ describe("DownloadProfileForm", () => {
 		await expect
 			.element(page.getByText("Root folder already exists"))
 			.not.toBeInTheDocument();
+	});
+
+	it("shows validation errors without submitting", async () => {
+		const onSubmit = vi.fn();
+		const onSubmitWithId = vi.fn();
+
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			errors: {
+				items: "Choose at least one format",
+				name: "Name is required",
+				rootFolderPath: "Root folder is required",
+			},
+			success: false,
+		});
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				onSubmitWithId={onSubmitWithId}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByRole("button", { name: "Save" }).click();
+
+		await expect
+			.element(page.getByText("Name is required"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Root folder is required"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Choose at least one format"))
+			.toBeInTheDocument();
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(onSubmitWithId).not.toHaveBeenCalled();
+	});
+
+	it("saves root folder changes directly when file counting returns zero", async () => {
+		const onSubmit = vi.fn();
+
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			data: {
+				categories: [1000],
+				contentType: "ebook",
+				cutoff: 0,
+				icon: "book",
+				language: "en",
+				minCustomFormatScore: 5,
+				name: "Existing Profile",
+				items: [[1], [2]],
+				rootFolderPath: "/library/new",
+				upgradeAllowed: false,
+				upgradeUntilCustomFormatScore: 7,
+			},
+			success: true,
+		});
+		downloadProfileFormMocks.countProfileFilesFn.mockResolvedValueOnce({
+			count: 0,
+		});
+
+		const initialValues = {
+			categories: [1000],
+			contentType: "ebook",
+			cutoff: 0,
+			icon: "book",
+			id: 7,
+			items: [[1], [2]],
+			language: "en",
+			minCustomFormatScore: 5,
+			name: "Existing Profile",
+			rootFolderPath: "/library/old",
+			upgradeAllowed: false,
+			upgradeUntilCustomFormatScore: 7,
+		} satisfies ComponentProps<typeof DownloadProfileForm>["initialValues"];
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={initialValues}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByLabelText("Root Folder").fill("/library/new");
+		await page.getByRole("button", { name: "Save" }).click();
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ rootFolderPath: "/library/new" }),
+		);
+		await expect.element(page.getByText("Move Files?")).not.toBeInTheDocument();
+
+		expect(downloadProfileFormMocks.moveProfileFilesFn).not.toHaveBeenCalled();
+	});
+
+	it("can skip moving files after a root folder change", async () => {
+		const onSubmit = vi.fn();
+
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			data: {
+				categories: [1000],
+				contentType: "ebook",
+				cutoff: 0,
+				icon: "book",
+				language: "en",
+				minCustomFormatScore: 5,
+				name: "Existing Profile",
+				items: [[1], [2]],
+				rootFolderPath: "/library/new",
+				upgradeAllowed: false,
+				upgradeUntilCustomFormatScore: 7,
+			},
+			success: true,
+		});
+		downloadProfileFormMocks.countProfileFilesFn.mockResolvedValue({
+			count: 2,
+		});
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [1000],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 7,
+					items: [[1], [2]],
+					language: "en",
+					minCustomFormatScore: 5,
+					name: "Existing Profile",
+					rootFolderPath: "/library/old",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 7,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByLabelText("Root Folder").fill("/library/new");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect
+			.element(page.getByText("2 files will be moved."))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Don't Move" }).click();
+
+		expect(downloadProfileFormMocks.moveProfileFilesFn).not.toHaveBeenCalled();
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ rootFolderPath: "/library/new" }),
+		);
+		await expect.element(page.getByText("Move Files?")).not.toBeInTheDocument();
+	});
+
+	it("adds, removes, and filters file formats from the combobox", async () => {
+		const onSubmit = vi.fn();
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			data: {
+				categories: [],
+				contentType: "ebook",
+				cutoff: 0,
+				icon: "book",
+				language: "en",
+				minCustomFormatScore: 0,
+				name: "Existing Profile",
+				items: [[2]],
+				rootFolderPath: "/library/books",
+				upgradeAllowed: false,
+				upgradeUntilCustomFormatScore: 0,
+			},
+			success: true,
+		});
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [],
+					contentType: "ebook",
+					cutoff: 1,
+					icon: "book",
+					id: 9,
+					items: [[1]],
+					language: "en",
+					minCustomFormatScore: 0,
+					name: "Existing Profile",
+					rootFolderPath: "/library/books",
+					upgradeAllowed: true,
+					upgradeUntilCustomFormatScore: 0,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByPlaceholder("Add a format...").click();
+		await page.getByRole("button", { name: "PDF", exact: true }).click();
+		expect(downloadProfileFormMocks.tierGroupList).toHaveBeenLastCalledWith(
+			expect.objectContaining({ items: [[1], [2]] }),
+		);
+		await expect
+			.element(page.getByPlaceholder("All formats added"))
+			.toBeDisabled();
+
+		await page.getByRole("button", { name: "Remove EPUB" }).click();
+		expect(downloadProfileFormMocks.tierGroupList).toHaveBeenLastCalledWith(
+			expect.objectContaining({ cutoff: 0, items: [[2]] }),
+		);
+		await page.getByRole("button", { name: "Keep PDF only" }).click();
+		expect(downloadProfileFormMocks.tierGroupList).toHaveBeenLastCalledWith(
+			expect.objectContaining({ items: [[2]] }),
+		);
+
+		await page.getByRole("button", { name: "Save" }).click();
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ items: [[2]] }),
+		);
+	});
+
+	it("supports keyboard selection, outside click closing, and folder browsing", async () => {
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={[
+					...ebookFormats,
+					{ contentTypes: ["ebook"], id: 3, title: "MOBI" },
+				]}
+				initialValues={{
+					categories: [],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 10,
+					items: [[1]],
+					language: "en",
+					minCustomFormatScore: 0,
+					name: "Existing Profile",
+					rootFolderPath: "",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 0,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={vi.fn()}
+				serverCwd="/srv"
+			/>,
+		);
+
+		const searchInput = page.getByPlaceholder("Add a format...");
+		await searchInput.click();
+		await userEvent.keyboard("{ArrowDown}{Enter}");
+		expect(downloadProfileFormMocks.tierGroupList).toHaveBeenLastCalledWith(
+			expect.objectContaining({ items: [[1], [3]] }),
+		);
+
+		await page.getByRole("button", { name: "Remove EPUB" }).click();
+		await page.getByPlaceholder("Add a format...").click();
+		expect(document.querySelectorAll("[data-item]")).toHaveLength(1);
+		document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+		expect(document.querySelectorAll("[data-item]")).toHaveLength(0);
+
+		const rootFolder = page.getByLabelText("Root Folder");
+		await expect.element(rootFolder).toHaveValue("");
+		const browseButton = document.querySelector(
+			"#root-folder + button",
+		) as HTMLButtonElement | null;
+		if (!browseButton) {
+			throw new Error("Browse button not found");
+		}
+		await page.elementLocator(browseButton).click();
+		expect(
+			downloadProfileFormMocks.directoryBrowserDialog,
+		).toHaveBeenLastCalledWith(
+			expect.objectContaining({ initialPath: "/srv", open: true }),
+		);
+		await page.getByRole("button", { name: "Choose path" }).click();
+		await expect.element(rootFolder).toHaveValue("/library/new");
+	});
+
+	it("shows an empty combobox result when no file format matches", async () => {
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 10,
+					items: [[1]],
+					language: "en",
+					minCustomFormatScore: 0,
+					name: "Existing Profile",
+					rootFolderPath: "/library/books",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 0,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={vi.fn()}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByPlaceholder("Add a format...").fill("mobi");
+		await expect
+			.element(page.getByText("No formats found."))
+			.toBeInTheDocument();
+	});
+
+	it("can cancel a root-folder move prompt without submitting", async () => {
+		const onSubmit = vi.fn();
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			data: {
+				categories: [1000],
+				contentType: "ebook",
+				cutoff: 0,
+				icon: "book",
+				language: "en",
+				minCustomFormatScore: 5,
+				name: "Existing Profile",
+				items: [[1]],
+				rootFolderPath: "/library/new",
+				upgradeAllowed: false,
+				upgradeUntilCustomFormatScore: 7,
+			},
+			success: true,
+		});
+		downloadProfileFormMocks.countProfileFilesFn.mockResolvedValue({
+			count: 3,
+		});
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [1000],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 7,
+					items: [[1]],
+					language: "en",
+					minCustomFormatScore: 5,
+					name: "Existing Profile",
+					rootFolderPath: "/library/old",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 7,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByLabelText("Root Folder").fill("/library/new");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect.element(page.getByText("Move Files?")).toBeInTheDocument();
+		await page.getByRole("button", { name: "Cancel" }).last().click();
+
+		await expect.element(page.getByText("Move Files?")).not.toBeInTheDocument();
+		expect(onSubmit).not.toHaveBeenCalled();
+	});
+
+	it("reports move failures but still saves the validated profile", async () => {
+		const onSubmit = vi.fn();
+		downloadProfileFormMocks.validateForm.mockReturnValue({
+			data: {
+				categories: [1000],
+				contentType: "ebook",
+				cutoff: 0,
+				icon: "book",
+				language: "en",
+				minCustomFormatScore: 5,
+				name: "Existing Profile",
+				items: [[1]],
+				rootFolderPath: "/library/new",
+				upgradeAllowed: false,
+				upgradeUntilCustomFormatScore: 7,
+			},
+			success: true,
+		});
+		downloadProfileFormMocks.countProfileFilesFn.mockResolvedValue({
+			count: 2,
+		});
+		downloadProfileFormMocks.moveProfileFilesFn.mockRejectedValue(
+			new Error("disk locked"),
+		);
+
+		await renderWithProviders(
+			<DownloadProfileForm
+				downloadFormats={ebookFormats}
+				initialValues={{
+					categories: [1000],
+					contentType: "ebook",
+					cutoff: 0,
+					icon: "book",
+					id: 7,
+					items: [[1]],
+					language: "en",
+					minCustomFormatScore: 5,
+					name: "Existing Profile",
+					rootFolderPath: "/library/old",
+					upgradeAllowed: false,
+					upgradeUntilCustomFormatScore: 7,
+				}}
+				onCancel={vi.fn()}
+				onSubmit={onSubmit}
+				serverCwd="/srv"
+			/>,
+		);
+
+		await page.getByLabelText("Root Folder").fill("/library/new");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect
+			.element(page.getByText("2 files will be moved."))
+			.toBeInTheDocument();
+		await page.getByRole("button", { name: "Move Files" }).click();
+
+		expect(downloadProfileFormMocks.toastError).toHaveBeenCalledWith(
+			"Failed to move files: disk locked",
+		);
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ rootFolderPath: "/library/new" }),
+		);
 	});
 
 	it("prompts to move files when the root folder changes and submits after moving", async () => {

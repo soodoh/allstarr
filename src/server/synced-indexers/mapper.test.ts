@@ -108,6 +108,24 @@ describe("toReadarrResource", () => {
 		expect(categoriesField?.value).toEqual([]);
 	});
 
+	it("maps torrent protocols and null API fields for outgoing resources", () => {
+		const result = toReadarrResource({
+			...baseRow,
+			apiKey: null,
+			apiPath: null,
+			implementation: "Torznab",
+			protocol: "torrent",
+		});
+		const fieldMap = Object.fromEntries(
+			result.fields.map((field) => [field.name, field.value]),
+		);
+
+		expect(result.protocol).toBe("torrent");
+		expect(result.configContract).toBe("TorznabSettings");
+		expect(fieldMap.apiPath).toBe("/api");
+		expect(fieldMap.apiKey).toBe("");
+	});
+
 	it("maps baseUrl, apiPath, and apiKey into fields", () => {
 		const result = toReadarrResource(baseRow);
 		const fieldMap = Object.fromEntries(
@@ -234,6 +252,48 @@ describe("fromReadarrResource", () => {
 		};
 		const result = fromReadarrResource(body);
 		expect(result.categories).toBe("[]");
+	});
+
+	it("defaults omitted optional Prowlarr fields for incoming resources", () => {
+		const body: ReadarrIndexerResource = {
+			name: "Minimal Torznab (Prowlarr)",
+			implementation: "Torznab",
+			configContract: "TorznabSettings",
+			fields: [{ name: "baseUrl", value: "https://prowlarr.example" }],
+		};
+
+		const result = fromReadarrResource(body);
+
+		expect(result).toMatchObject({
+			name: "Minimal Torznab",
+			baseUrl: "https://prowlarr.example",
+			apiPath: "/api",
+			apiKey: null,
+			categories: "[]",
+			enableRss: true,
+			enableSearch: true,
+			enableAutomaticSearch: true,
+			enableInteractiveSearch: true,
+			priority: 25,
+			protocol: "torrent",
+		});
+	});
+
+	it("ignores unsupported category object shapes", () => {
+		const body: ReadarrIndexerResource = {
+			...baseBody,
+			fields: [
+				...baseBody.fields.filter((field) => field.name !== "categories"),
+				{
+					name: "categories",
+					value: [{ name: "Missing Id" }, "bad", 7020],
+				},
+			],
+		};
+
+		const result = fromReadarrResource(body);
+
+		expect(result.categories).toBe(JSON.stringify([7020]));
 	});
 
 	it("handles non-array categories value", () => {

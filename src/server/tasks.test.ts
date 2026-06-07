@@ -352,6 +352,78 @@ describe("tasks server functions", () => {
 			expect(result[0].lastResult).toBe("success");
 		});
 
+		it("ignores terminal non-stale runs and invalid statuses", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "cleanup-cache",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Cleanup Cache",
+					progress: "scheduled row progress",
+				},
+			]);
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
+				{
+					error: "unexpected status",
+					jobType: "cleanup-cache",
+					progress: "finished progress",
+					sourceType: "scheduled",
+					status: "unknown",
+					updatedAt: new Date("2026-04-09T10:02:00.000Z"),
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(false);
+			expect(result[0].progress).toBe("scheduled row progress");
+			expect(result[0].runStatus).toBeNull();
+		});
+
+		it("selects the newest visible run for matching active statuses", async () => {
+			mocks.all.mockReturnValue([
+				{
+					enabled: true,
+					group: "maintenance",
+					id: "cleanup-cache",
+					interval: 3600,
+					lastDuration: null,
+					lastExecution: null,
+					lastMessage: null,
+					lastResult: null,
+					name: "Cleanup Cache",
+					progress: null,
+				},
+			]);
+			mocks.listVisibleScheduledJobRuns.mockReturnValue([
+				{
+					createdAt: new Date("2026-04-09T10:00:00.000Z"),
+					jobType: "cleanup-cache",
+					progress: "older active run",
+					sourceType: "scheduled",
+					status: "running",
+				},
+				{
+					jobType: "cleanup-cache",
+					lastHeartbeatAt: new Date("2026-04-09T10:03:00.000Z"),
+					progress: "newer active run",
+					sourceType: "scheduled",
+					status: "queued",
+				},
+			]);
+
+			const result = await getScheduledTasksFn();
+
+			expect(result[0].isRunning).toBe(true);
+			expect(result[0].progress).toBe("newer active run");
+			expect(result[0].runStatus).toBe("queued");
+		});
+
 		it("prefers active scheduled run state over stale state for the same task", async () => {
 			mocks.all.mockReturnValue([
 				{

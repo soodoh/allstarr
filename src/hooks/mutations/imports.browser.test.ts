@@ -192,6 +192,7 @@ describe("mutations/imports", () => {
 				kind: "sonarr",
 				label: "Sonarr",
 			},
+			fallback: "Failed to create import source",
 		},
 		{
 			hook: useUpdateImportSource,
@@ -203,26 +204,31 @@ describe("mutations/imports", () => {
 				kind: "sonarr",
 				label: "Sonarr Main",
 			},
+			fallback: "Failed to update import source",
 		},
 		{
 			hook: useDeleteImportSource,
 			fn: deleteImportSourceFn,
 			variables: { id: 2 },
+			fallback: "Failed to delete import source",
 		},
 		{
 			hook: useRefreshImportSource,
 			fn: refreshImportSourceFn,
 			variables: { id: 3 },
+			fallback: "Failed to refresh import source",
 		},
 		{
 			hook: useApplyImportPlan,
 			fn: applyImportPlanFn,
 			variables: { selectedRows: [], sourceId: 5 },
+			fallback: "Failed to apply import plan",
 		},
 		{
 			hook: useResolveImportReviewItem,
 			fn: resolveImportReviewItemFn,
 			variables: { id: 4, status: "resolved" as const },
+			fallback: "Failed to update review item",
 		},
 	])("shows the server error message when %p fails", async ({
 		hook,
@@ -234,6 +240,90 @@ describe("mutations/imports", () => {
 		await runMutation(hook, variables, true);
 
 		expect(error).toHaveBeenCalledWith("boom");
+	});
+
+	it.each([
+		{
+			hook: useCreateImportSource,
+			fn: createImportSourceFn,
+			variables: {
+				apiKey: "secret",
+				baseUrl: "http://localhost:8989",
+				kind: "sonarr",
+				label: "Sonarr",
+			},
+			fallback: "Failed to create import source",
+		},
+		{
+			hook: useUpdateImportSource,
+			fn: updateImportSourceFn,
+			variables: {
+				apiKey: "secret",
+				baseUrl: "http://localhost:8989",
+				id: 1,
+				kind: "sonarr",
+				label: "Sonarr Main",
+			},
+			fallback: "Failed to update import source",
+		},
+		{
+			hook: useDeleteImportSource,
+			fn: deleteImportSourceFn,
+			variables: { id: 2 },
+			fallback: "Failed to delete import source",
+		},
+		{
+			hook: useRefreshImportSource,
+			fn: refreshImportSourceFn,
+			variables: { id: 3 },
+			fallback: "Failed to refresh import source",
+		},
+		{
+			hook: useApplyImportPlan,
+			fn: applyImportPlanFn,
+			variables: { selectedRows: [], sourceId: 5 },
+			fallback: "Failed to apply import plan",
+		},
+		{
+			hook: useResolveImportReviewItem,
+			fn: resolveImportReviewItemFn,
+			variables: { id: 4, status: "resolved" as const },
+			fallback: "Failed to update review item",
+		},
+	])("shows fallback error messages for non-Error failures", async ({
+		hook,
+		fn,
+		variables,
+		fallback,
+	}) => {
+		fn.mockRejectedValue("nope");
+
+		await runMutation(hook, variables, true);
+
+		expect(error).toHaveBeenCalledWith(fallback);
+	});
+
+	it.each([
+		{
+			result: { appliedCount: 1, reviewCount: 0 },
+			message: "Applied 1 row",
+		},
+		{
+			result: { appliedCount: 1, reviewCount: 2 },
+			message: "Applied 1 row; 2 review items queued",
+		},
+	])("shows alternate import plan success labels", async ({
+		result,
+		message,
+	}) => {
+		applyImportPlanFn.mockResolvedValue(result);
+
+		await runMutation(useApplyImportPlan, {
+			selectedRows: [],
+			sourceId: 5,
+		});
+
+		expect(success).toHaveBeenCalledWith(message);
 	});
 
 	it("invalidates imports after refresh errors so source status stays current", async () => {

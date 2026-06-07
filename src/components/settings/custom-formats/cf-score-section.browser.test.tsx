@@ -263,6 +263,20 @@ describe("CFScoreSection", () => {
 			/>,
 		);
 
+		await page.getByPlaceholder("Add a custom format...").fill("Source");
+		const sourceBoostOption = (
+			await page.getByText("Movie Source Boost").element()
+		).closest("button");
+		expect(sourceBoostOption).not.toBeNull();
+		if (!sourceBoostOption) throw new Error("Expected source boost option");
+		await userEvent.click(sourceBoostOption);
+
+		expect(cfScoreSectionMocks.setScore.mutate).toHaveBeenCalledWith(
+			{ profileId: 42, customFormatId: 2, score: 50 },
+			expect.objectContaining({ onSuccess: expect.any(Function) }),
+		);
+
+		await userEvent.keyboard("{Escape}");
 		await page.getByRole("button", { name: "Add Category" }).click();
 		await page.getByRole("button", { name: "Resolution" }).click();
 
@@ -289,6 +303,15 @@ describe("CFScoreSection", () => {
 			expect.objectContaining({ onSuccess: expect.any(Function) }),
 		);
 
+		const removeBtn = rowEl.querySelector(
+			'button[title="Remove"]',
+		) as HTMLButtonElement;
+		await removeBtn.click();
+		expect(cfScoreSectionMocks.removeCFs.mutate).toHaveBeenCalledWith(
+			{ profileId: 42, customFormatIds: [1] },
+			expect.objectContaining({ onSuccess: expect.any(Function) }),
+		);
+
 		await page.getByRole("button", { name: "Remove All" }).click();
 
 		expect(cfScoreSectionMocks.removeCFs.mutate).toHaveBeenCalledWith(
@@ -301,5 +324,69 @@ describe("CFScoreSection", () => {
 		expect(onMinScoreChange).toHaveBeenCalledWith(222);
 		expect(onUpgradeUntilScoreChange).toHaveBeenCalledWith(333);
 		expect(cfScoreSectionMocks.profileQueryRefetch).toHaveBeenCalled();
+	});
+
+	it("handles search keyboard paths, no-results, empty rows, and all-added state", async () => {
+		const onLocalScoresChange = vi.fn();
+		cfScoreSectionMocks.useSuspenseQuery.mockReturnValue({
+			data: allCustomFormats,
+		});
+		cfScoreSectionMocks.useQuery.mockReturnValue({
+			data: undefined,
+			refetch: cfScoreSectionMocks.profileQueryRefetch,
+		});
+
+		const { unmount } = await renderWithProviders(
+			<CFScoreSection
+				contentType="movie"
+				localScores={[]}
+				minCustomFormatScore={0}
+				onLocalScoresChange={onLocalScoresChange}
+				onMinScoreChange={vi.fn()}
+				onUpgradeUntilScoreChange={vi.fn()}
+				upgradeUntilCustomFormatScore={0}
+			/>,
+		);
+
+		await expect
+			.element(
+				page.getByText(
+					"No custom formats assigned. Use the controls above to add formats.",
+				),
+			)
+			.toBeInTheDocument();
+
+		await page.getByPlaceholder("Add a custom format...").fill("missing");
+		await expect
+			.element(page.getByText("No custom formats found."))
+			.toBeInTheDocument();
+
+		await page.getByPlaceholder("Add a custom format...").clear();
+		await page.getByPlaceholder("Add a custom format...").fill("Movie");
+		await userEvent.keyboard("{ArrowDown}{ArrowUp}{Enter}");
+		expect(onLocalScoresChange).toHaveBeenCalledWith([
+			{ customFormatId: 2, score: 50 },
+		]);
+
+		unmount();
+		await renderWithProviders(
+			<CFScoreSection
+				contentType="movie"
+				localScores={[
+					{ customFormatId: 1, score: 100 },
+					{ customFormatId: 2, score: 50 },
+					{ customFormatId: 3, score: 75 },
+				]}
+				minCustomFormatScore={0}
+				onLocalScoresChange={vi.fn()}
+				onMinScoreChange={vi.fn()}
+				onUpgradeUntilScoreChange={vi.fn()}
+				upgradeUntilCustomFormatScore={0}
+			/>,
+		);
+
+		await expect
+			.element(page.getByPlaceholder("All formats added"))
+			.toBeDisabled();
 	});
 });

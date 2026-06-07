@@ -352,6 +352,136 @@ describe("importHardcoverAuthorFn", () => {
 			}),
 		).toThrow();
 	});
+
+	it("runs search after author import when requested and monitored", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.fetchAuthorComplete.mockResolvedValue({
+			author: makeRawAuthor(),
+			books: [],
+		});
+		mocks.fetchBatchedEditions.mockResolvedValue(new Map());
+		mocks.searchForAuthorBooks.mockResolvedValue(undefined);
+
+		let getCallCount = 0;
+		mocks.get.mockImplementation(() => {
+			getCallCount++;
+			switch (getCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return undefined;
+				case 3:
+					return { id: 1, name: "J.R.R. Tolkien" };
+				default:
+					return undefined;
+			}
+		});
+
+		const { importHardcoverAuthorFn } = await import("../import");
+		const result = await importHardcoverAuthorFn({
+			data: {
+				foreignAuthorId: 100,
+				downloadProfileIds: [],
+				monitorOption: "all",
+				monitorNewBooks: "all",
+				searchOnAdd: true,
+			},
+		});
+
+		expect(result.authorId).toBe(1);
+		expect(mocks.searchForAuthorBooks).toHaveBeenCalledWith(1);
+	});
+
+	it("logs and completes when author search-on-add fails", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.fetchAuthorComplete.mockResolvedValue({
+			author: makeRawAuthor(),
+			books: [],
+		});
+		mocks.fetchBatchedEditions.mockResolvedValue(new Map());
+		const searchError = new Error("indexer offline");
+		mocks.searchForAuthorBooks.mockRejectedValue(searchError);
+
+		let getCallCount = 0;
+		mocks.get.mockImplementation(() => {
+			getCallCount++;
+			switch (getCallCount) {
+				case 1:
+				case 2:
+					return undefined;
+				case 3:
+					return { id: 1, name: "J.R.R. Tolkien" };
+				default:
+					return undefined;
+			}
+		});
+
+		const { importHardcoverAuthorFn } = await import("../import");
+		const result = await importHardcoverAuthorFn({
+			data: {
+				foreignAuthorId: 100,
+				downloadProfileIds: [],
+				monitorOption: "all",
+				monitorNewBooks: "all",
+				searchOnAdd: true,
+			},
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(result.authorId).toBe(1);
+		expect(mocks.logError).toHaveBeenCalledWith(
+			"import",
+			"Search after import failed",
+			searchError,
+		);
+	});
+
+	it("does not search after author import when monitor option is none", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.fetchAuthorComplete.mockResolvedValue({
+			author: makeRawAuthor(),
+			books: [],
+		});
+		mocks.fetchBatchedEditions.mockResolvedValue(new Map());
+
+		let getCallCount = 0;
+		mocks.get.mockImplementation(() => {
+			getCallCount++;
+			switch (getCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return undefined;
+				case 3:
+					return { id: 1, name: "J.R.R. Tolkien" };
+				default:
+					return undefined;
+			}
+		});
+
+		const { importHardcoverAuthorFn } = await import("../import");
+		const result = await importHardcoverAuthorFn({
+			data: {
+				foreignAuthorId: 100,
+				downloadProfileIds: [],
+				monitorOption: "none",
+				monitorNewBooks: "all",
+				searchOnAdd: true,
+			},
+		});
+
+		expect(result.authorId).toBe(1);
+		expect(mocks.searchForAuthorBooks).not.toHaveBeenCalled();
+	});
 });
 
 describe("importHardcoverBookFn", () => {
@@ -377,6 +507,225 @@ describe("importHardcoverBookFn", () => {
 		expect(call.commandType).toBe("importBook");
 		expect(call.dedupeKey).toBe("foreignBookId");
 		expect(result).toEqual({ commandId: 2 });
+	});
+
+	it("throws from the command handler when the book already exists", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.get.mockReturnValueOnce({ id: 77 });
+
+		const { importHardcoverBookFn } = await import("../import");
+
+		await expect(
+			importHardcoverBookFn({
+				data: {
+					foreignBookId: 99,
+					downloadProfileIds: [],
+					monitorOption: "all",
+					monitorNewBooks: "all",
+					searchOnAdd: false,
+					monitorSeries: false,
+				},
+			}),
+		).rejects.toThrow("Book is already on your bookshelf.");
+		expect(mocks.fetchBookComplete).not.toHaveBeenCalled();
+	});
+
+	it("throws from the command handler when Hardcover has no book", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.get.mockReturnValueOnce(undefined);
+		mocks.fetchBookComplete.mockResolvedValue(null);
+
+		const { importHardcoverBookFn } = await import("../import");
+
+		await expect(
+			importHardcoverBookFn({
+				data: {
+					foreignBookId: 99,
+					downloadProfileIds: [],
+					monitorOption: "all",
+					monitorNewBooks: "all",
+					searchOnAdd: false,
+					monitorSeries: false,
+				},
+			}),
+		).rejects.toThrow("Book not found on Hardcover.");
+	});
+
+	it("throws from the command handler when no primary author is present", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.get.mockReturnValueOnce(undefined);
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: makeRawBook({
+				contributions: [
+					{
+						authorId: 101,
+						authorName: "Narrator",
+						contribution: "Narrator",
+						position: 1,
+					},
+				],
+			}),
+			editions: [makeRawEdition()],
+		});
+
+		const { importHardcoverBookFn } = await import("../import");
+
+		await expect(
+			importHardcoverBookFn({
+				data: {
+					foreignBookId: 99,
+					downloadProfileIds: [],
+					monitorOption: "all",
+					monitorNewBooks: "all",
+					searchOnAdd: false,
+					monitorSeries: false,
+				},
+			}),
+		).rejects.toThrow("Could not determine the author of this book.");
+	});
+
+	it("runs the command handler for an already imported book and refreshes monitoring side effects", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: makeRawBook({
+				id: 99,
+				contributions: [
+					{
+						authorId: 100,
+						authorName: "J.R.R. Tolkien",
+						contribution: null,
+						position: 1,
+					},
+					{
+						authorId: 101,
+						authorName: "Christopher Tolkien",
+						contribution: null,
+						position: 2,
+					},
+				],
+			}),
+			editions: [makeRawEdition({ id: 301 })],
+		});
+		mocks.get
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ id: 7, isStub: false })
+			.mockReturnValueOnce({ id: 7 })
+			.mockReturnValueOnce({ id: 77 });
+		mocks.all
+			.mockReturnValueOnce([{ id: 301, bookId: 77 }])
+			.mockReturnValueOnce([{ id: 11, contentType: "ebook" }])
+			.mockReturnValueOnce([{ seriesId: 5 }])
+			.mockReturnValueOnce([]);
+		mocks.pickBestEditionForProfile.mockReturnValue({ id: 301 });
+		const searchError = new Error("search failed");
+		mocks.searchForBook.mockRejectedValue(searchError);
+		mocks.refreshSeriesInternal.mockResolvedValue(undefined);
+
+		const { importHardcoverBookFn } = await import("../import");
+		const result = await importHardcoverBookFn({
+			data: {
+				foreignBookId: 99,
+				downloadProfileIds: [11],
+				monitorOption: "all",
+				monitorNewBooks: "new",
+				searchOnAdd: true,
+				monitorSeries: true,
+			},
+		});
+
+		expect(result).toEqual({
+			bookId: 77,
+			authorId: 7,
+			additionalAuthorsImported: 0,
+		});
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalledWith(
+			[{ id: 301, bookId: 77 }],
+			expect.objectContaining({ id: 11, contentType: "ebook" }),
+		);
+		expect(mocks.searchForBook).toHaveBeenCalledWith(77);
+		expect(mocks.refreshSeriesInternal).toHaveBeenCalledWith(5);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(mocks.logError).toHaveBeenCalledWith(
+			"import",
+			"Search after import failed",
+			searchError,
+		);
+		expect(mocks.run).toHaveBeenCalled();
+	});
+
+	it("runs the command handler to import a new book with editions and monitored series", async () => {
+		mocks.requireAdmin.mockResolvedValue(undefined);
+		mocks.submitCommand.mockImplementation((command) =>
+			command.handler(command.body, noopProgress, noopTitle),
+		);
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: makeRawBook({
+				id: 99,
+				series: [
+					{
+						seriesId: 500,
+						seriesTitle: "Middle-earth",
+						seriesSlug: "middle-earth",
+						isCompleted: true,
+						position: "1",
+					},
+				],
+			}),
+			editions: [makeRawEdition({ id: 301 })],
+		});
+		mocks.get
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ id: 7, isStub: false })
+			.mockReturnValueOnce({ id: 7 })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ id: 88, title: "The Hobbit" })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ id: 5 });
+		mocks.all
+			.mockReturnValueOnce([{ id: 301, bookId: 88 }])
+			.mockReturnValueOnce([{ id: 11, contentType: "ebook" }])
+			.mockReturnValueOnce([{ seriesId: 5 }])
+			.mockReturnValueOnce([]);
+		mocks.pickBestEditionForProfile.mockReturnValue({ id: 301 });
+		mocks.searchForBook.mockResolvedValue(undefined);
+		mocks.refreshSeriesInternal.mockResolvedValue(undefined);
+
+		const { importHardcoverBookFn } = await import("../import");
+		const result = await importHardcoverBookFn({
+			data: {
+				foreignBookId: 99,
+				downloadProfileIds: [11],
+				monitorOption: "all",
+				monitorNewBooks: "new",
+				searchOnAdd: true,
+				monitorSeries: true,
+			},
+		});
+
+		expect(result).toEqual({
+			bookId: 88,
+			authorId: 7,
+			additionalAuthorsImported: 0,
+		});
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalledWith(
+			[{ id: 301, bookId: 88 }],
+			expect.objectContaining({ id: 11, contentType: "ebook" }),
+		);
+		expect(mocks.searchForBook).toHaveBeenCalledWith(88);
+		expect(mocks.refreshSeriesInternal).toHaveBeenCalledWith(5);
+		expect(mocks.run).toHaveBeenCalled();
 	});
 });
 
@@ -1977,6 +2326,101 @@ describe("monitorOption switch cases in importAuthorInternal", () => {
 		expect(result.booksAdded).toBe(1);
 		expect(mocks.pickBestEditionForProfile).toHaveBeenCalled();
 	});
+
+	async function setupMultiBookMonitorTest(monitorOption: "first" | "latest") {
+		const rawAuthor = makeRawAuthor();
+		const earlyBook = makeRawBook({
+			id: 201,
+			title: "Early Book",
+			releaseDate: "1930-01-01",
+		});
+		const lateBook = makeRawBook({
+			id: 202,
+			title: "Late Book",
+			releaseDate: "1950-01-01",
+		});
+		const earlyEdition = makeRawEdition({ id: 301, bookId: 201 });
+		const lateEdition = makeRawEdition({ id: 302, bookId: 202 });
+
+		mocks.fetchAuthorComplete.mockResolvedValue({
+			author: rawAuthor,
+			books: [lateBook, earlyBook],
+		});
+		mocks.fetchBatchedEditions.mockResolvedValue(
+			new Map([
+				[lateBook.id, [lateEdition]],
+				[earlyBook.id, [earlyEdition]],
+			]),
+		);
+		mocks.pickBestEditionForProfile.mockImplementation(
+			(editions) => editions[0],
+		);
+
+		let getCallCount = 0;
+		mocks.get.mockImplementation(() => {
+			getCallCount += 1;
+			switch (getCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return undefined;
+				case 3:
+					return { id: 1, name: rawAuthor.name };
+				case 4:
+					return undefined;
+				case 5:
+					return { id: 10, title: lateBook.title };
+				case 6:
+					return undefined;
+				case 7:
+					return { id: 11, title: earlyBook.title };
+				default:
+					return undefined;
+			}
+		});
+
+		let allCallCount = 0;
+		mocks.all.mockImplementation(() => {
+			allCallCount += 1;
+			if (allCallCount === 1) return [{ id: 1, contentType: "ebook" }];
+			if (allCallCount === 2) {
+				return monitorOption === "first"
+					? [{ id: 301, bookId: 11 }]
+					: [{ id: 302, bookId: 10 }];
+			}
+			return [];
+		});
+
+		const { importAuthorInternal } = await import("../import");
+		return importAuthorInternal(
+			{
+				foreignAuthorId: 100,
+				downloadProfileIds: [1],
+				monitorOption,
+				monitorNewBooks: "all",
+			},
+			noopProgress,
+			noopTitle,
+		);
+	}
+
+	it("chooses the earliest release date when monitoring the first book", async () => {
+		await setupMultiBookMonitorTest("first");
+
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalledWith(
+			[{ id: 301, bookId: 11 }],
+			expect.objectContaining({ id: 1, contentType: "ebook" }),
+		);
+	});
+
+	it("chooses the newest release date when monitoring the latest book", async () => {
+		await setupMultiBookMonitorTest("latest");
+
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalledWith(
+			[{ id: 302, bookId: 10 }],
+			expect.objectContaining({ id: 1, contentType: "ebook" }),
+		);
+	});
 });
 
 // ========================================================================
@@ -3060,6 +3504,156 @@ describe("refreshBookInternal — autoSwitchEdition", () => {
 		expect(result.booksUpdated).toBe(1);
 		expect(result.editionsUpdated).toBe(1);
 		// pickBestEditionForProfile should have been called for autoSwitch
+		expect(mocks.pickBestEditionForProfile).toHaveBeenCalled();
+	});
+
+	it("returns early when auto-switch has no current editions", async () => {
+		const rawBook = makeRawBook();
+		const rawEdition = makeRawEdition();
+
+		mocks.get.mockReturnValueOnce({
+			id: 1,
+			foreignBookId: "200",
+			autoSwitchEdition: 1,
+		});
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: rawBook,
+			editions: [rawEdition],
+		});
+		mocks.get.mockReturnValueOnce({ authorId: 5, foreignAuthorId: "100" });
+
+		let txGetCallCount = 0;
+		let txAllCallCount = 0;
+		mocks.all.mockImplementation(() => {
+			txAllCallCount++;
+			switch (txAllCallCount) {
+				case 1:
+					return [];
+				case 2:
+					return [];
+				default:
+					return [];
+			}
+		});
+		mocks.get.mockImplementation(() => {
+			txGetCallCount++;
+			switch (txGetCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return { id: 300 };
+				default:
+					return undefined;
+			}
+		});
+
+		const { refreshBookInternal } = await import("../import");
+		const result = await refreshBookInternal(1, noopProgress);
+
+		expect(result.editionsUpdated).toBe(1);
+		expect(mocks.pickBestEditionForProfile).not.toHaveBeenCalled();
+	});
+
+	it("skips an auto-switch profile link when the download profile is missing", async () => {
+		const rawBook = makeRawBook();
+		const rawEdition = makeRawEdition();
+
+		mocks.get.mockReturnValueOnce({
+			id: 1,
+			foreignBookId: "200",
+			autoSwitchEdition: 1,
+		});
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: rawBook,
+			editions: [rawEdition],
+		});
+		mocks.get.mockReturnValueOnce({ authorId: 5, foreignAuthorId: "100" });
+
+		let txGetCallCount = 0;
+		let txAllCallCount = 0;
+		mocks.all.mockImplementation(() => {
+			txAllCallCount++;
+			switch (txAllCallCount) {
+				case 1:
+					return [];
+				case 2:
+					return [{ id: 300, format: "Paperback" }];
+				case 3:
+					return [{ id: 1, editionId: 300, downloadProfileId: 1 }];
+				default:
+					return [];
+			}
+		});
+		mocks.get.mockImplementation(() => {
+			txGetCallCount++;
+			switch (txGetCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return { id: 300 };
+				case 3:
+					return undefined;
+				default:
+					return undefined;
+			}
+		});
+
+		const { refreshBookInternal } = await import("../import");
+		const result = await refreshBookInternal(1, noopProgress);
+
+		expect(result.editionsUpdated).toBe(1);
+		expect(mocks.pickBestEditionForProfile).not.toHaveBeenCalled();
+	});
+
+	it("skips an auto-switch profile when no best edition is available", async () => {
+		const rawBook = makeRawBook();
+		const rawEdition = makeRawEdition();
+
+		mocks.get.mockReturnValueOnce({
+			id: 1,
+			foreignBookId: "200",
+			autoSwitchEdition: 1,
+		});
+		mocks.fetchBookComplete.mockResolvedValue({
+			book: rawBook,
+			editions: [rawEdition],
+		});
+		mocks.get.mockReturnValueOnce({ authorId: 5, foreignAuthorId: "100" });
+
+		let txGetCallCount = 0;
+		let txAllCallCount = 0;
+		mocks.all.mockImplementation(() => {
+			txAllCallCount++;
+			switch (txAllCallCount) {
+				case 1:
+					return [];
+				case 2:
+					return [{ id: 300, format: "Paperback" }];
+				case 3:
+					return [{ id: 1, editionId: 300, downloadProfileId: 1 }];
+				default:
+					return [];
+			}
+		});
+		mocks.get.mockImplementation(() => {
+			txGetCallCount++;
+			switch (txGetCallCount) {
+				case 1:
+					return undefined;
+				case 2:
+					return { id: 300 };
+				case 3:
+					return { id: 1, contentType: "ebook" };
+				default:
+					return undefined;
+			}
+		});
+		mocks.pickBestEditionForProfile.mockReturnValue(null);
+
+		const { refreshBookInternal } = await import("../import");
+		const result = await refreshBookInternal(1, noopProgress);
+
+		expect(result.editionsUpdated).toBe(1);
 		expect(mocks.pickBestEditionForProfile).toHaveBeenCalled();
 	});
 });
