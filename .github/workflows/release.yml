@@ -29,7 +29,7 @@ jobs:
       minor: ${{ steps.release-context.outputs.minor }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
@@ -165,7 +165,7 @@ jobs:
       REGISTRY: ghcr.io
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ needs.release-please.outputs.tag_name }}
 
