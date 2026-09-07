@@ -69,7 +69,7 @@
 		"@vitest/browser": "^4.1.10",
 		"@vitest/browser-playwright": "^4.1.10",
 		"@vitest/coverage-v8": "4.1.10",
-		"better-sqlite3": "^12.11.1",
+		"better-sqlite3": "^13.0.3",
 		"drizzle-kit": "^0.31.10",
 		"lefthook": "^2.1.10",
 		"tailwindcss": "^4.3.2",
