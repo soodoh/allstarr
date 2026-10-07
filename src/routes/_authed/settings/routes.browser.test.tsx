@@ -884,7 +884,7 @@ describe("settings routes", () => {
 		await renderRouteComponent(route.component);
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Settings");
+			.toMatchTextContent("Settings");
 		await expect
 			.element(page.getByRole("heading", { name: "General" }))
 			.toBeInTheDocument();
@@ -925,7 +925,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("General Settings");
+			.toMatchTextContent("General Settings");
 		await expect
 			.element(
 				page.elementLocator(
@@ -983,7 +983,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("download-format-list"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await expect
 			.element(page.getByRole("button", { name: "Add Format" }))
 			.toBeInTheDocument();
@@ -1034,7 +1034,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("download-client-list"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await expect
 			.element(page.getByRole("button", { name: "Save Settings" }))
 			.toBeInTheDocument();
@@ -1073,13 +1073,13 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Import Lists");
+			.toMatchTextContent("Import Lists");
 		const emptyStates = page.getByTestId("empty-state");
 		await expect.element(emptyStates.first()).toBeInTheDocument();
 		const emptyDescriptions = page.getByTestId("empty-state-description");
 		await expect
 			.element(emptyDescriptions.first())
-			.toHaveTextContent("Books excluded from import lists will appear here.");
+			.toMatchTextContent("Books excluded from import lists will appear here.");
 	});
 
 	it("wires the indexers loader and add-indexer dialog", async () => {
@@ -1111,7 +1111,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("indexer-list"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await page.getByRole("button", { name: "Add Indexer" }).click();
 		await expect
 			.element(page.getByTestId("indexer-implementation-select"))
@@ -1150,7 +1150,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Metadata Settings");
+			.toMatchTextContent("Metadata Settings");
 		await page.getByRole("button", { name: "Save TMDB Settings" }).click();
 		expect(settingsRouteMocks.updateSettings.mutate).toHaveBeenCalledWith([
 			{ key: "metadata.tmdb.language", value: "en" },
@@ -1190,14 +1190,14 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("download-profile-list"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await page.getByRole("button", { name: "Add Profile" }).click();
 		await expect
 			.element(page.getByTestId("download-profile-form"))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("download-profile-form-server-cwd"))
-			.toHaveTextContent("/srv");
+			.toMatchTextContent("/srv");
 	});
 
 	it("wires the custom formats loader and add-format sheet", async () => {
@@ -1226,7 +1226,7 @@ describe("settings routes", () => {
 
 		await expect
 			.element(page.getByTestId("custom-format-list"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await page.getByRole("button", { name: "Add Custom Format" }).click();
 		await expect
 			.element(page.getByTestId("custom-format-form"))

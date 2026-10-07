@@ -206,7 +206,7 @@ function computeAbsoluteNumbers(showId: number): void {
 		.where(eq(shows.id, showId))
 		.get();
 
-	if (!show || show.seriesType !== "anime") {
+	if (show?.seriesType !== "anime") {
 		return;
 	}
 

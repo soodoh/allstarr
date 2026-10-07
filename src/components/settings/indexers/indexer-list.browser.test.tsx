@@ -237,9 +237,9 @@ describe("IndexerList", () => {
 		);
 
 		const rows = await page.getByRole("row").elements();
-		expect(rows[1]).toHaveTextContent("Alpha Manual");
-		expect(rows[2]).toHaveTextContent("Bravo Manual");
-		expect(rows[3]).toHaveTextContent("Charlie Synced");
+		expect(rows[1]).toMatchTextContent("Alpha Manual");
+		expect(rows[2]).toMatchTextContent("Bravo Manual");
+		expect(rows[3]).toMatchTextContent("Charlie Synced");
 		await expect.element(page.getByText("Prowlarr Sync")).toBeInTheDocument();
 
 		const alphaButtons = rows[1].querySelectorAll("[role='button'], button");

@@ -477,7 +477,7 @@ describe("MovieDetailHeader", () => {
 		await page.getByText("HD:active").click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("HD:The Matrix");
+			.toMatchTextContent("HD:The Matrix");
 
 		await page.getByRole("button", { name: "Confirm unmonitor" }).click();
 		expect(movieDetailHeaderMocks.unmonitorProfile.mutate).toHaveBeenCalledWith(

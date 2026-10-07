@@ -515,7 +515,7 @@ describe("TmdbMovieSearch", () => {
 
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("Search for a movie");
+			.toMatchTextContent("Search for a movie");
 
 		await page.getByLabelText("Search movies").fill("alien");
 		await vi.advanceTimersByTimeAsync(300);
@@ -545,10 +545,10 @@ describe("TmdbMovieSearch", () => {
 
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("Search failed");
+			.toMatchTextContent("Search failed");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				"Configure your TMDB API key in Settings > Metadata to search for movies.",
 			);
 	});

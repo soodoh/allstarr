@@ -314,13 +314,13 @@ describe("AuthorsRoute", () => {
 		await renderWithProviders(<routeConfig.component />);
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Authors");
+			.toMatchTextContent("Authors");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("No authors yet");
+			.toMatchTextContent("No authors yet");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent("Search Hardcover to add your first author.");
+			.toMatchTextContent("Search Hardcover to add your first author.");
 	});
 
 	it("renders grid mode, reacts to search, toggles views, and fetches the next page", async () => {
@@ -332,7 +332,7 @@ describe("AuthorsRoute", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 authors on your bookshelf");
+			.toMatchTextContent("2 authors on your bookshelf");
 		await expect
 			.poll(
 				() => document.querySelectorAll('[data-testid="author-card"]').length,
@@ -346,7 +346,7 @@ describe("AuthorsRoute", () => {
 		);
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 matching authors");
+			.toMatchTextContent("2 matching authors");
 
 		await page.getByText("List").click();
 		expect(authorsRouteMocks.setViewMode).toHaveBeenCalledWith("table");
@@ -366,10 +366,10 @@ describe("AuthorsRoute", () => {
 
 		await expect
 			.element(page.getByTestId("column-settings-popover"))
-			.toHaveTextContent("authors");
+			.toMatchTextContent("authors");
 		await expect
 			.element(page.getByTestId("author-table-items"))
-			.toHaveTextContent("Isaac Asimov,Ursula K. Le Guin");
+			.toMatchTextContent("Isaac Asimov,Ursula K. Le Guin");
 		await expect
 			.element(page.getByTestId("author-table-rows-skeleton"))
 			.toBeInTheDocument();

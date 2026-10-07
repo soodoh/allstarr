@@ -98,7 +98,7 @@ describe("AdditionalAuthors", () => {
 		await page.getByText("Preview Writer").click();
 		await expect
 			.element(page.getByTestId("author-preview-modal"))
-			.toHaveTextContent("Preview Writer");
+			.toMatchTextContent("Preview Writer");
 
 		await page.getByText("close-preview").click();
 		await expect

@@ -18,7 +18,10 @@ const mocks = vi.hoisted(() => ({
 	logWarn: vi.fn(),
 	logError: vi.fn(),
 	canQueryIndexer: vi.fn(
-		(): { allowed: boolean; reason?: string; waitMs?: number } => ({
+		(
+			_type: string,
+			_id: number,
+		): { allowed: boolean; reason?: string; waitMs?: number } => ({
 			allowed: true,
 		}),
 	),

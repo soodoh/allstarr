@@ -243,10 +243,10 @@ describe("import lists route", () => {
 
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("No exclusions");
+			.toMatchTextContent("No exclusions");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent("Books excluded from import lists will appear here.");
+			.toMatchTextContent("Books excluded from import lists will appear here.");
 	});
 
 	it("renders books and removes a book exclusion through the confirm dialog", async () => {

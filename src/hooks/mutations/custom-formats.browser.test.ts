@@ -155,23 +155,20 @@ describe("mutations/custom-formats", () => {
 			call: { data: { profileId: 13, category: "Science Fiction" } },
 			toast: "Category formats added",
 		},
-	])("wires $name mutations and invalidates custom format caches", async ({
-		hook,
-		fn,
-		variables,
-		call,
-		toast,
-	}) => {
-		fn.mockResolvedValue({ ok: true });
+	])(
+		"wires $name mutations and invalidates custom format caches",
+		async ({ hook, fn, variables, call, toast }) => {
+			fn.mockResolvedValue({ ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		if (toast) {
-			expect(success).toHaveBeenCalledWith(toast);
-		}
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: queryKeys.customFormats.all,
-		});
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			if (toast) {
+				expect(success).toHaveBeenCalledWith(toast);
+			}
+			expect(invalidateQueries).toHaveBeenCalledWith({
+				queryKey: queryKeys.customFormats.all,
+			});
+		},
+	);
 });

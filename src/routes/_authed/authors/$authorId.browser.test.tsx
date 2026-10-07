@@ -1071,22 +1071,22 @@ describe("AuthorDetailRoute", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Isaac Asimov");
+			.toMatchTextContent("Isaac Asimov");
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("1920-1992");
+			.toMatchTextContent("1920-1992");
 		await expect
 			.element(page.getByTestId("column-settings-popover"))
-			.toHaveTextContent("author-books");
+			.toMatchTextContent("author-books");
 		await expect
 			.element(page.getByTestId("base-book-table-items"))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("profile-toggle-icons").first())
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await expect
 			.element(page.getByTestId("profile-toggle-icons-partial").first())
-			.toHaveTextContent("11");
+			.toMatchTextContent("11");
 
 		await page.getByRole("button").first().click();
 
@@ -1322,7 +1322,7 @@ describe("AuthorDetailRoute", () => {
 
 		await expect
 			.element(page.getByTestId("book-table-rows-skeleton"))
-			.toHaveTextContent("3");
+			.toMatchTextContent("3");
 		authorDetailRouteMocks.setObserverCallback?.([
 			{ isIntersecting: true } as IntersectionObserverEntry,
 		]);
@@ -1386,7 +1386,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).last().click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
 
 		expect(
@@ -1431,7 +1431,7 @@ describe("AuthorDetailRoute", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Isaac Asimov");
+			.toMatchTextContent("Isaac Asimov");
 		await expect
 			.element(page.getByTestId("page-header-description"))
 			.not.toBeInTheDocument();
@@ -1911,7 +1911,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "delete" }).click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
-			.toHaveTextContent("Delete Author");
+			.toMatchTextContent("Delete Author");
 		await page.getByRole("button", { name: "confirm" }).click();
 		expect(authorDetailRouteMocks.deleteAuthor.mutate).toHaveBeenCalledWith(
 			7,
@@ -1924,7 +1924,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).first().click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
 		expect(
 			authorDetailRouteMocks.bulkUnmonitorBook.mutate,
@@ -2330,7 +2330,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).last().click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await page.getByRole("button", { name: "confirm-unmonitor" }).click();
 
 		expect(
@@ -2413,7 +2413,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "delete" }).click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
-			.toHaveTextContent("Delete Author");
+			.toMatchTextContent("Delete Author");
 		await page.getByRole("button", { name: "cancel" }).click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
@@ -2423,7 +2423,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).first().click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
@@ -2916,7 +2916,7 @@ describe("AuthorDetailRoute", () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("book-preview-url"))
-			.toHaveTextContent("no-hardcover-url");
+			.toMatchTextContent("no-hardcover-url");
 		await page.getByRole("button", { name: "close-preview" }).click();
 		await expect
 			.element(page.getByTestId("book-preview-modal"))
@@ -2925,7 +2925,7 @@ describe("AuthorDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).last().click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await page.getByRole("button", { name: "cancel-unmonitor" }).click();
 		expect(
 			authorDetailRouteMocks.unmonitorBookProfile.mutate,

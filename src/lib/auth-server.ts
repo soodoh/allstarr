@@ -19,7 +19,7 @@ function getDefaultRole(): DefaultRole {
 type AuthHookContext = {
 	path?: string;
 	params?: {
-		providerId?: string;
+		id?: string;
 	};
 	request?: Request;
 };
@@ -43,7 +43,7 @@ function getRequestPathname(ctx: unknown): string {
 
 function getProviderId(ctx: unknown, callbackMatch: RegExpMatchArray): string {
 	if (typeof ctx === "object" && ctx !== null) {
-		const providerId = (ctx as AuthHookContext).params?.providerId;
+		const providerId = (ctx as AuthHookContext).params?.id;
 		if (typeof providerId === "string") {
 			return providerId;
 		}
@@ -110,9 +110,7 @@ export const auth = betterAuth({
 					}
 
 					// OIDC callback
-					const callbackMatch = requestPathname.match(
-						/\/oauth2\/callback\/([^/]+)$/,
-					);
+					const callbackMatch = requestPathname.match(/\/callback\/([^/]+)$/);
 					if (callbackMatch) {
 						const providerId = getProviderId(ctx, callbackMatch);
 						if (

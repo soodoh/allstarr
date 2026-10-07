@@ -58,8 +58,8 @@ function SetupPage() {
 
 	const handleOidcSetup = async (providerId: string) => {
 		try {
-			await signIn.oauth2({
-				providerId,
+			await signIn.social({
+				provider: providerId,
 				callbackURL: "/",
 			});
 		} catch {

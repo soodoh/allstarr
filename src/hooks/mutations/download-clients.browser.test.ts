@@ -84,23 +84,20 @@ describe("mutations/download-clients", () => {
 			call: { data: { id: 2 } },
 			toast: "Download client deleted",
 		},
-	])("wires $name mutations and invalidates the download clients cache", async ({
-		hook,
-		fn,
-		variables,
-		call,
-		toast,
-	}) => {
-		fn.mockResolvedValue({ ok: true });
+	])(
+		"wires $name mutations and invalidates the download clients cache",
+		async ({ hook, fn, variables, call, toast }) => {
+			fn.mockResolvedValue({ ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		expect(success).toHaveBeenCalledWith(toast);
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: queryKeys.downloadClients.all,
-		});
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			expect(success).toHaveBeenCalledWith(toast);
+			expect(invalidateQueries).toHaveBeenCalledWith({
+				queryKey: queryKeys.downloadClients.all,
+			});
+		},
+	);
 
 	it.each([
 		{
@@ -124,16 +121,14 @@ describe("mutations/download-clients", () => {
 			variables: 4,
 			errorText: "Failed to delete download client",
 		},
-	])("shows the $name error toast when the mutation fails", async ({
-		hook,
-		fn,
-		variables,
-		errorText,
-	}) => {
-		fn.mockRejectedValue(new Error("boom"));
+	])(
+		"shows the $name error toast when the mutation fails",
+		async ({ hook, fn, variables, errorText }) => {
+			fn.mockRejectedValue(new Error("boom"));
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith(errorText);
-	});
+			expect(error).toHaveBeenCalledWith(errorText);
+		},
+	);
 });

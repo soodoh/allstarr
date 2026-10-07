@@ -111,7 +111,7 @@ describe("auth-server", () => {
 
 			const result = await beforeCreate(baseUserData, {
 				request: new Request(
-					"http://localhost:3000/api/auth/oauth2/callback/authentik",
+					"http://localhost:3000/api/auth/callback/authentik",
 				),
 			});
 
@@ -186,7 +186,7 @@ describe("auth-server", () => {
 
 			const ctx = {
 				request: new Request(
-					"http://localhost:3000/api/auth/oauth2/callback/authentik",
+					"http://localhost:3000/api/auth/callback/authentik",
 				),
 			};
 
@@ -203,7 +203,7 @@ describe("auth-server", () => {
 
 			const ctx = {
 				request: new Request(
-					"http://localhost:3000/api/auth/oauth2/callback/authentik",
+					"http://localhost:3000/api/auth/callback/authentik",
 				),
 			};
 
@@ -223,7 +223,7 @@ describe("auth-server", () => {
 
 			const ctx = {
 				request: new Request(
-					"http://localhost:3000/api/auth/oauth2/callback/authentik",
+					"http://localhost:3000/api/auth/callback/authentik",
 				),
 			};
 
@@ -236,6 +236,32 @@ describe("auth-server", () => {
 				"authentik",
 			);
 		});
+
+		it.each([true, false])(
+			"uses the core callback provider id when account creation is allowed=%s",
+			async (allowed) => {
+				mocks.authConfig.registrationDisabled = true;
+				mocks.authConfig.allowOidcAccountCreation.mockReturnValue(allowed);
+				mocks.sqlitePrepareGet.mockReturnValue({ count: 3 });
+				mocks.getSettingValue.mockReturnValue("requester");
+
+				const result = beforeCreate(baseUserData, {
+					path: "/callback/:id",
+					params: { id: "authentik" },
+				});
+
+				if (allowed) {
+					await expect(result).resolves.toEqual({
+						data: { ...baseUserData, role: "requester" },
+					});
+				} else {
+					await expect(result).rejects.toThrow("Registration is disabled");
+				}
+				expect(mocks.authConfig.allowOidcAccountCreation).toHaveBeenCalledWith(
+					"authentik",
+				);
+			},
+		);
 
 		it("blocks email/password signup when DISABLE_REGISTRATION is set", async () => {
 			mocks.authConfig.registrationDisabled = true;
@@ -269,7 +295,7 @@ describe("auth-server", () => {
 			await expect(
 				beforeCreate(baseUserData, {
 					request: new Request(
-						"http://localhost:3000/api/auth/sign-up/email?next=/oauth2/callback/authentik",
+						"http://localhost:3000/api/auth/sign-up/email?next=/callback/authentik",
 					),
 				}),
 			).rejects.toThrow("Registration is disabled");
@@ -293,7 +319,7 @@ describe("auth-server", () => {
 
 			const result = await beforeCreate(baseUserData, {
 				request: new Request(
-					"http://localhost:3000/api/auth/oauth2/callback/authentik",
+					"http://localhost:3000/api/auth/callback/authentik",
 				),
 			});
 

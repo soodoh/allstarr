@@ -529,6 +529,8 @@ describe("newznab HTTP client", () => {
 
 			await vi.advanceTimersByTimeAsync(1);
 
+			await vi.waitFor(() => expect(server.requests).toHaveLength(2));
+
 			await expect(resultPromise).resolves.toEqual([
 				expect.objectContaining({
 					guid: "guid-retry",
@@ -596,6 +598,8 @@ describe("newznab HTTP client", () => {
 
 			await reportRateLimitedSeen;
 			await vi.advanceTimersByTimeAsync(2000);
+
+			await vi.waitFor(() => expect(server.requests).toHaveLength(2));
 
 			await expect(resultPromise).resolves.toEqual([
 				expect.objectContaining({
@@ -668,6 +672,8 @@ describe("newznab HTTP client", () => {
 			await reportRateLimitedSeen;
 			await vi.advanceTimersByTimeAsync(1000);
 
+			await vi.waitFor(() => expect(server.requests).toHaveLength(2));
+
 			await expect(resultPromise).resolves.toEqual([
 				expect.objectContaining({
 					guid: "guid-date-retry",
@@ -734,6 +740,8 @@ describe("newznab HTTP client", () => {
 
 			await reportRateLimitedSeen;
 			await vi.advanceTimersByTimeAsync(2000);
+
+			await vi.waitFor(() => expect(server.requests).toHaveLength(2));
 
 			await expect(resultPromise).resolves.toEqual([
 				expect.objectContaining({

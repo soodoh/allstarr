@@ -181,16 +181,16 @@ describe("misc authed routes", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Requests");
+			.toMatchTextContent("Requests");
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("Request books, movies, and more.");
+			.toMatchTextContent("Request books, movies, and more.");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("Coming Soon");
+			.toMatchTextContent("Coming Soon");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				"The requests feature is under development. Check back later!",
 			);
 		expect(document.querySelector("svg.lucide-book-open")).not.toBeNull();
@@ -228,10 +228,10 @@ describe("misc authed routes", () => {
 
 		await expect
 			.element(page.getByTestId("link-/movies"))
-			.toHaveTextContent("Back to Movies");
+			.toMatchTextContent("Back to Movies");
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Add Movie");
+			.toMatchTextContent("Add Movie");
 		await expect.element(page.getByText("Search TMDB")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("tmdb-movie-search"))
@@ -270,10 +270,10 @@ describe("misc authed routes", () => {
 
 		await expect
 			.element(page.getByTestId("link-/tv"))
-			.toHaveTextContent("Back to TV Shows");
+			.toMatchTextContent("Back to TV Shows");
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Add TV Show");
+			.toMatchTextContent("Add TV Show");
 		await expect.element(page.getByText("Search TMDB")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("tmdb-show-search"))
@@ -288,15 +288,15 @@ describe("misc authed routes", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("System");
+			.toMatchTextContent("System");
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("Monitor activity and manage system-level features.");
+			.toMatchTextContent("Monitor activity and manage system-level features.");
 
 		for (const item of miscRouteMocks.systemNavItems) {
 			await expect
 				.element(page.getByTestId(`link-${item.to}`))
-				.toHaveTextContent(item.title);
+				.toMatchTextContent(item.title);
 			await expect
 				.element(page.getByText(item.description))
 				.toBeInTheDocument();
@@ -349,7 +349,7 @@ describe("misc authed routes", () => {
 		await renderWithProviders(routeConfig.component());
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Events");
+			.toMatchTextContent("Events");
 		await expect
 			.element(page.getByText(/View a log of all events/))
 			.toBeInTheDocument();

@@ -382,18 +382,18 @@ describe("profiles route", () => {
 
 		await expect
 			.element(page.getByTestId("profile-count"))
-			.toHaveTextContent("2");
+			.toMatchTextContent("2");
 		await expect
 			.element(page.getByTestId("definition-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 
 		await page.getByRole("button", { name: "Add Profile" }).click();
 		await expect
 			.element(page.getByTestId("download-profile-form-server-cwd"))
-			.toHaveTextContent("/srv");
+			.toMatchTextContent("/srv");
 		await expect
 			.element(page.getByTestId("download-profile-form-initial"))
-			.toHaveTextContent("new");
+			.toMatchTextContent("new");
 		await page.getByRole("button", { name: "submit-with-cfs" }).click();
 		expect(
 			profilesRouteMocks.createDownloadProfile.mutate,
@@ -439,13 +439,13 @@ describe("profiles route", () => {
 
 		await expect
 			.element(page.getByTestId("profile-count"))
-			.toHaveTextContent("2");
+			.toMatchTextContent("2");
 
 		await page.getByRole("button", { name: "TV" }).click();
 
 		await expect
 			.element(page.getByTestId("profile-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await expect.element(page.getByText("Series")).toBeInTheDocument();
 
 		await page.getByRole("button", { name: "delete" }).click();
@@ -486,10 +486,10 @@ describe("profiles route", () => {
 
 		await expect
 			.element(page.getByTestId("download-profile-form-initial"))
-			.toHaveTextContent("Movies");
+			.toMatchTextContent("Movies");
 		await expect
 			.element(page.getByTestId("download-profile-form-error"))
-			.toHaveTextContent("Profile update failed");
+			.toMatchTextContent("Profile update failed");
 
 		await page.getByRole("button", { name: "submit", exact: true }).click();
 

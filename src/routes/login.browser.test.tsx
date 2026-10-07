@@ -17,7 +17,7 @@ const loginRouteMocks = vi.hoisted(() => ({
 	hasUsersFn: vi.fn(),
 	navigate: vi.fn(),
 	signInEmail: vi.fn(),
-	signInOauth2: vi.fn(),
+	signInSocial: vi.fn(),
 	toastError: vi.fn(),
 }));
 
@@ -49,7 +49,7 @@ vi.mock("sonner", () => ({
 vi.mock("src/lib/auth-client", () => ({
 	signIn: {
 		email: (...args: unknown[]) => loginRouteMocks.signInEmail(...args),
-		oauth2: (...args: unknown[]) => loginRouteMocks.signInOauth2(...args),
+		social: (...args: unknown[]) => loginRouteMocks.signInSocial(...args),
 	},
 }));
 
@@ -179,14 +179,14 @@ describe("login route", () => {
 
 		await page.getByRole("button", { name: "Sign in with GitHub" }).click();
 
-		expect(loginRouteMocks.signInOauth2).toHaveBeenCalledWith({
+		expect(loginRouteMocks.signInSocial).toHaveBeenCalledWith({
 			callbackURL: "/",
-			providerId: "github",
+			provider: "github",
 		});
 	});
 
 	it("shows a toast when OIDC sign-in fails", async () => {
-		loginRouteMocks.signInOauth2.mockRejectedValueOnce(new Error("boom"));
+		loginRouteMocks.signInSocial.mockRejectedValueOnce(new Error("boom"));
 
 		await renderLoginRoute({
 			emailPasswordRegistrationDisabled: false,

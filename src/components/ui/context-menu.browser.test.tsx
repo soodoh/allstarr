@@ -36,7 +36,7 @@ describe("ContextMenu", () => {
 		).toHaveClass("custom-content");
 		expect(
 			document.body.querySelector('[data-slot="context-menu-item"]'),
-		).toHaveTextContent("Default item");
+		).toMatchTextContent("Default item");
 	});
 
 	it("marks inset and destructive items", async () => {

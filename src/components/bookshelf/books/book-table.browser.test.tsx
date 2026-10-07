@@ -208,22 +208,22 @@ describe("BookTable", () => {
 
 		await expect
 			.element(page.getByTestId("leading-10"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await expect
 			.element(page.getByTestId("leading-10"))
-			.toHaveTextContent("HD");
+			.toMatchTextContent("HD");
 		await expect
 			.element(page.getByTestId("leading-10"))
-			.not.toHaveTextContent("SD");
+			.not.toMatchTextContent("SD");
 		await expect
 			.element(page.getByTestId("leading-11"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		await expect
 			.element(page.getByTestId("leading-11"))
-			.toHaveTextContent("HD");
+			.toMatchTextContent("HD");
 		await expect
 			.element(page.getByTestId("leading-11"))
-			.toHaveTextContent("SD");
+			.toMatchTextContent("SD");
 
 		// Click the 4K button within leading-10
 		const leading10 = await page.getByTestId("leading-10").element();

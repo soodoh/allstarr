@@ -141,6 +141,6 @@ describe("authed route", () => {
 		await expect.element(page.getByTestId("app-layout")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("outlet-probe"))
-			.toHaveTextContent("true");
+			.toMatchTextContent("true");
 	});
 });

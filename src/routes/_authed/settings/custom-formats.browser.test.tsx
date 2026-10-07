@@ -333,7 +333,7 @@ describe("custom formats route", () => {
 
 		await expect
 			.element(page.getByTestId("custom-format-list-count"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 		await expect
 			.element(page.getByRole("button", { name: "Export" }))
 			.toBeDisabled();
@@ -359,7 +359,7 @@ describe("custom formats route", () => {
 		await expect.element(page.getByTestId("sheet")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("custom-format-form-values"))
-			.toHaveTextContent("new");
+			.toMatchTextContent("new");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			customFormatsRouteMocks.createCustomFormat.mutate,
@@ -376,7 +376,7 @@ describe("custom formats route", () => {
 		await page.getByRole("button", { name: "edit" }).first().click();
 		await expect
 			.element(page.getByTestId("custom-format-form-values"))
-			.toHaveTextContent("Bad Rip");
+			.toMatchTextContent("Bad Rip");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			customFormatsRouteMocks.updateCustomFormat.mutate,

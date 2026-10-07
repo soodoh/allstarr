@@ -69,7 +69,9 @@ const mocks = vi.hoisted(() => {
 	const copyFileSync = vi.fn();
 	const existsSync = vi.fn(() => true);
 	const mkdirSync = vi.fn();
-	const readdirSync = vi.fn(() => []);
+	const readdirSync = vi.fn(
+		(_path: string): Array<{ name: string; isDirectory: () => boolean }> => [],
+	);
 	const rmSync = vi.fn();
 	const unlinkSync = vi.fn();
 

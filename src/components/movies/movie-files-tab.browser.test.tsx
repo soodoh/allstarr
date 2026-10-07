@@ -38,10 +38,10 @@ describe("MovieFilesTab", () => {
 
 		await expect
 			.element(page.getByTestId("empty-state"))
-			.toHaveTextContent("No movie files");
+			.toMatchTextContent("No movie files");
 		await expect
 			.element(page.getByTestId("empty-state"))
-			.toHaveTextContent("No files have been imported for this movie yet.");
+			.toMatchTextContent("No files have been imported for this movie yet.");
 	});
 
 	it("renders file metadata and formatting helpers for populated file rows", async () => {

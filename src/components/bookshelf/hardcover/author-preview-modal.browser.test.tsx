@@ -321,7 +321,7 @@ describe("AuthorPreviewModal", () => {
 			/>,
 		);
 
-		expect(container).toHaveTextContent("Isaac Asimov");
+		expect(container).toMatchTextContent("Isaac Asimov");
 		await expect.element(page.getByText("1920–2010")).toBeInTheDocument();
 		await expect.element(page.getByText("42 books")).toBeInTheDocument();
 		await expect

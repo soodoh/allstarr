@@ -355,9 +355,15 @@ describe("importHardcoverAuthorFn", () => {
 
 	it("runs search after author import when requested and monitored", async () => {
 		mocks.requireAdmin.mockResolvedValue(undefined);
-		mocks.submitCommand.mockImplementation((command) =>
-			command.handler(command.body, noopProgress, noopTitle),
-		);
+		let importResult: unknown;
+		mocks.submitCommand.mockImplementation(async (command) => {
+			importResult = await command.handler(
+				command.body,
+				noopProgress,
+				noopTitle,
+			);
+			return { commandId: 1 };
+		});
 		mocks.fetchAuthorComplete.mockResolvedValue({
 			author: makeRawAuthor(),
 			books: [],
@@ -391,15 +397,22 @@ describe("importHardcoverAuthorFn", () => {
 			},
 		});
 
-		expect(result.authorId).toBe(1);
+		expect(result).toEqual({ commandId: 1 });
+		expect(importResult).toEqual(expect.objectContaining({ authorId: 1 }));
 		expect(mocks.searchForAuthorBooks).toHaveBeenCalledWith(1);
 	});
 
 	it("logs and completes when author search-on-add fails", async () => {
 		mocks.requireAdmin.mockResolvedValue(undefined);
-		mocks.submitCommand.mockImplementation((command) =>
-			command.handler(command.body, noopProgress, noopTitle),
-		);
+		let importResult: unknown;
+		mocks.submitCommand.mockImplementation(async (command) => {
+			importResult = await command.handler(
+				command.body,
+				noopProgress,
+				noopTitle,
+			);
+			return { commandId: 1 };
+		});
 		mocks.fetchAuthorComplete.mockResolvedValue({
 			author: makeRawAuthor(),
 			books: [],
@@ -434,7 +447,8 @@ describe("importHardcoverAuthorFn", () => {
 		});
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(result.authorId).toBe(1);
+		expect(result).toEqual({ commandId: 1 });
+		expect(importResult).toEqual(expect.objectContaining({ authorId: 1 }));
 		expect(mocks.logError).toHaveBeenCalledWith(
 			"import",
 			"Search after import failed",
@@ -444,9 +458,15 @@ describe("importHardcoverAuthorFn", () => {
 
 	it("does not search after author import when monitor option is none", async () => {
 		mocks.requireAdmin.mockResolvedValue(undefined);
-		mocks.submitCommand.mockImplementation((command) =>
-			command.handler(command.body, noopProgress, noopTitle),
-		);
+		let importResult: unknown;
+		mocks.submitCommand.mockImplementation(async (command) => {
+			importResult = await command.handler(
+				command.body,
+				noopProgress,
+				noopTitle,
+			);
+			return { commandId: 1 };
+		});
 		mocks.fetchAuthorComplete.mockResolvedValue({
 			author: makeRawAuthor(),
 			books: [],
@@ -479,7 +499,8 @@ describe("importHardcoverAuthorFn", () => {
 			},
 		});
 
-		expect(result.authorId).toBe(1);
+		expect(result).toEqual({ commandId: 1 });
+		expect(importResult).toEqual(expect.objectContaining({ authorId: 1 }));
 		expect(mocks.searchForAuthorBooks).not.toHaveBeenCalled();
 	});
 });

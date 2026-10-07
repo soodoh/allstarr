@@ -23,13 +23,13 @@ describe("DropdownMenu", () => {
 
 		expect(
 			document.body.querySelector('[data-slot="dropdown-menu-trigger"]'),
-		).toHaveTextContent("Open menu");
+		).toMatchTextContent("Open menu");
 		expect(
 			document.body.querySelector('[data-slot="dropdown-menu-content"]'),
 		).toHaveClass("custom-content");
 		expect(
 			document.body.querySelector('[data-slot="dropdown-menu-item"]'),
-		).toHaveTextContent("Item");
+		).toMatchTextContent("Item");
 	});
 
 	it("marks items with inset and destructive variant metadata", async () => {

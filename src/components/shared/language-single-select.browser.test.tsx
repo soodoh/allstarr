@@ -50,7 +50,7 @@ describe("LanguageSingleSelect", () => {
 
 		await expect
 			.element(page.getByRole("combobox"))
-			.toHaveTextContent("English");
+			.toMatchTextContent("English");
 	});
 
 	it("falls back to the placeholder when the code is unknown", async () => {
@@ -58,7 +58,7 @@ describe("LanguageSingleSelect", () => {
 
 		await expect
 			.element(page.getByRole("combobox"))
-			.toHaveTextContent("Select language");
+			.toMatchTextContent("Select language");
 	});
 
 	it("calls onChange with the selected language code", async () => {

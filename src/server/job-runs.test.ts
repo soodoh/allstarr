@@ -22,7 +22,8 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
-vi.mock("drizzle-orm", () => ({
+vi.mock("drizzle-orm", async (importOriginal) => ({
+	...(await importOriginal<typeof import("drizzle-orm")>()),
 	and: vi.fn((...conditions: unknown[]) => ({ type: "and", conditions })),
 	eq: vi.fn((left: unknown, right: unknown) => ({ type: "eq", left, right })),
 	inArray: vi.fn((left: unknown, values: unknown[]) => ({

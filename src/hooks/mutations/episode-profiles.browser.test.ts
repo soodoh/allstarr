@@ -104,21 +104,19 @@ describe("mutations/episode-profiles", () => {
 				},
 			},
 		},
-	])("wires $name mutations and invalidates the shows cache", async ({
-		hook,
-		fn,
-		variables,
-		call,
-	}) => {
-		fn.mockResolvedValue({ ok: true });
+	])(
+		"wires $name mutations and invalidates the shows cache",
+		async ({ hook, fn, variables, call }) => {
+			fn.mockResolvedValue({ ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: queryKeys.shows.all,
-		});
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			expect(invalidateQueries).toHaveBeenCalledWith({
+				queryKey: queryKeys.shows.all,
+			});
+		},
+	);
 
 	it.each([
 		{
@@ -153,16 +151,14 @@ describe("mutations/episode-profiles", () => {
 			},
 			errorText: "Failed to unmonitor episodes",
 		},
-	])("shows the $name error toast when the mutation fails", async ({
-		hook,
-		fn,
-		variables,
-		errorText,
-	}) => {
-		fn.mockRejectedValue(new Error("boom"));
+	])(
+		"shows the $name error toast when the mutation fails",
+		async ({ hook, fn, variables, errorText }) => {
+			fn.mockRejectedValue(new Error("boom"));
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith(errorText);
-	});
+			expect(error).toHaveBeenCalledWith(errorText);
+		},
+	);
 });

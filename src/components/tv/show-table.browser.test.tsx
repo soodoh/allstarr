@@ -219,8 +219,8 @@ describe("ShowTable", () => {
 		);
 
 		const rows = Array.from(container.querySelectorAll("tbody tr"));
-		expect(rows[0]).toHaveTextContent("Andor");
-		expect(rows[1]).toHaveTextContent("Severance");
+		expect(rows[0]).toMatchTextContent("Andor");
+		expect(rows[1]).toMatchTextContent("Severance");
 		await expect
 			.element(page.getByText("Continuing"))
 			.toHaveClass("bg-green-600");
@@ -247,32 +247,32 @@ describe("ShowTable", () => {
 		});
 
 		await page.getByText("Year").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Severance",
 		);
 		await page.getByText("Year").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Andor",
 		);
 		await expect.element(page.getByText("Custom Label")).toBeInTheDocument();
 		await page.getByText("Network").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Andor",
 		);
 		await page.getByText("Seasons").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Andor",
 		);
 		await page.getByText("Seasons").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Severance",
 		);
 		await page.getByText("Episodes").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Andor",
 		);
 		await page.getByText("Status").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Severance",
 		);
 	});

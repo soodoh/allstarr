@@ -6,6 +6,7 @@
 .playwright
 .playwright-mcp
 .tanstack
+.vitest
 .output
 dist
 node_modules

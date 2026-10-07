@@ -124,7 +124,7 @@ describe("SyncedIndexerEditDialog", () => {
 		expect(priorityInput.value).toBe("13");
 		await expect
 			.element(page.getByRole("combobox"))
-			.toHaveTextContent("Usenet Client");
+			.toMatchTextContent("Usenet Client");
 		expect(syncedIndexerDialogMocks.categoryMultiSelect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				disabled: true,

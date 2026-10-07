@@ -148,9 +148,9 @@ describe("AuthorTable", () => {
 		);
 
 		const rows = Array.from(container.querySelectorAll("tbody tr"));
-		expect(rows[0]).toHaveTextContent("Barbara Liskov");
-		expect(rows[1]).toHaveTextContent("Ada Lovelace");
-		expect(rows[2]).toHaveTextContent("Grace Hopper");
+		expect(rows[0]).toMatchTextContent("Barbara Liskov");
+		expect(rows[1]).toMatchTextContent("Ada Lovelace");
+		expect(rows[2]).toMatchTextContent("Grace Hopper");
 		expect(container.querySelector('img[alt="Ada Lovelace"]')).toHaveAttribute(
 			"src",
 			"/ada.jpg",
@@ -171,24 +171,24 @@ describe("AuthorTable", () => {
 		});
 
 		await page.getByText("Books").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Barbara Liskov",
 		);
-		expect(container.querySelectorAll("tbody tr")[1]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[1]).toMatchTextContent(
 			"Grace Hopper",
 		);
-		expect(container.querySelectorAll("tbody tr")[2]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[2]).toMatchTextContent(
 			"Ada Lovelace",
 		);
 
 		await page.getByText("Books").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Ada Lovelace",
 		);
-		expect(container.querySelectorAll("tbody tr")[1]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[1]).toMatchTextContent(
 			"Grace Hopper",
 		);
-		expect(container.querySelectorAll("tbody tr")[2]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[2]).toMatchTextContent(
 			"Barbara Liskov",
 		);
 	});

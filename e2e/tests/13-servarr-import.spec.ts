@@ -597,12 +597,22 @@ test.describe("Servarr imports", () => {
 			await expect(planRow(page, flow.visibleRows[0].title)).toBeVisible();
 			await assertPlanRows(page, flow.visibleRows);
 
-			await page
-				.getByRole("tabpanel", { name: "Plan" })
-				.getByRole("button", {
-					name: "Apply Selected",
-				})
-				.click();
+			// Wait for the mutation before polling through the second SQLite driver.
+			// Otherwise the fixture's readers can contend with the app's writer.
+			await Promise.all([
+				page.waitForResponse(
+					(response) =>
+						response.request().method() === "POST" &&
+						response.url().includes("/_serverFn/"),
+				),
+				page
+					.getByRole("tabpanel", { name: "Plan" })
+					.getByRole("button", { name: "Apply Selected" })
+					.click(),
+			]);
+			await expect(
+				page.getByText(/^Applied \d+ rows?(;|$)/).last(),
+			).toBeVisible();
 
 			const resolvedProvenance = new Map<
 				string,

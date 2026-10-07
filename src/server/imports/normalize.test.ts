@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { normalizeImportSnapshot } from "./normalize";
+import { normalizeImportSnapshot as normalizeTypedImportSnapshot } from "./normalize";
+import type { RawImportSnapshot } from "./types";
+
+// Exercise malformed and sparse external payloads without weakening the production contract.
+function normalizeImportSnapshot(
+	args: Omit<Parameters<typeof normalizeTypedImportSnapshot>[0], "snapshot"> & {
+		snapshot: Record<string, unknown>;
+	},
+) {
+	return normalizeTypedImportSnapshot({
+		...args,
+		snapshot: args.snapshot as RawImportSnapshot,
+	});
+}
 
 describe("normalizeImportSnapshot", () => {
 	it("maps legacy settings, profiles, library, activity, and unsupported buckets", () => {

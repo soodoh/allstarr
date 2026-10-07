@@ -108,12 +108,14 @@ describe("Select", () => {
 			document.body.querySelector(
 				'[data-slot="select-item"][data-state="checked"]',
 			),
-		).toHaveTextContent("Beta");
+		).toMatchTextContent("Beta");
 
 		await page.getByRole("option", { name: "Alpha" }).click();
 
 		expect(onValueChange).toHaveBeenCalledWith("alpha");
-		await expect.element(page.getByRole("combobox")).toHaveTextContent("Alpha");
+		await expect
+			.element(page.getByRole("combobox"))
+			.toMatchTextContent("Alpha");
 		expect(
 			document.body.querySelector('[data-slot="select-content"]'),
 		).toBeNull();

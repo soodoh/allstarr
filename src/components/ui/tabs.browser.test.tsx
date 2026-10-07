@@ -36,7 +36,7 @@ describe("Tabs", () => {
 		);
 		expect(
 			document.body.querySelector('[data-slot="tabs-trigger"]'),
-		).toHaveTextContent("Account");
+		).toMatchTextContent("Account");
 		expect(
 			document.body.querySelector('[data-slot="tabs-content"]'),
 		).toHaveClass("custom-content", "flex-1", "outline-none");
@@ -66,9 +66,9 @@ describe("Tabs", () => {
 		);
 		expect(
 			document.body.querySelector('[data-slot="tabs-trigger"]'),
-		).toHaveTextContent("Account");
+		).toMatchTextContent("Account");
 		expect(
 			document.body.querySelector('[data-slot="tabs-content"]'),
-		).toHaveTextContent("Security details");
+		).toMatchTextContent("Security details");
 	});
 });

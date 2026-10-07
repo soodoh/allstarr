@@ -402,11 +402,11 @@ describe("imports settings route", () => {
 		await page.getByRole("tab", { name: "Plan" }).click();
 		await expect
 			.element(page.getByTestId("plan-table"))
-			.toHaveTextContent("source:2 rows:1 first:Severance");
+			.toMatchTextContent("source:2 rows:1 first:Severance");
 		await page.getByRole("tab", { name: "Review" }).click();
 		await expect
 			.element(page.getByTestId("review-panel"))
-			.toHaveTextContent("rows:1 first:Unknown Book");
+			.toMatchTextContent("rows:1 first:Unknown Book");
 		await page.getByRole("tab", { name: "Sources" }).click();
 
 		await page.getByRole("button", { name: "Refresh Sonarr" }).click();
@@ -418,7 +418,7 @@ describe("imports settings route", () => {
 		await expect.element(page.getByTestId("source-dialog")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("dialog-mode"))
-			.toHaveTextContent("edit-1");
+			.toMatchTextContent("edit-1");
 		await page.getByRole("button", { name: "Submit" }).click();
 		expect(importsRouteMocks.updateImportSourceFn).toHaveBeenCalledWith({
 			apiKey: "dialog-key",
@@ -434,7 +434,7 @@ describe("imports settings route", () => {
 		await page.getByRole("button", { name: "Add source" }).click();
 		await expect
 			.element(page.getByTestId("dialog-mode"))
-			.toHaveTextContent("create");
+			.toMatchTextContent("create");
 		await page.getByRole("button", { name: "Submit" }).click();
 		expect(importsRouteMocks.createImportSourceFn).toHaveBeenCalledWith({
 			apiKey: "dialog-key",
@@ -497,6 +497,6 @@ describe("imports settings route", () => {
 		await page.getByRole("tab", { name: "Plan" }).click();
 		await expect
 			.element(page.getByTestId("plan-table"))
-			.toHaveTextContent("source:1 rows:1 first:Severance");
+			.toMatchTextContent("source:1 rows:1 first:Severance");
 	});
 });

@@ -377,13 +377,13 @@ describe("movies index route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Movies");
+			.toMatchTextContent("Movies");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("No movies yet");
+			.toMatchTextContent("No movies yet");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				"Add your first movie to start building your collection.",
 			);
 		await expect
@@ -406,45 +406,45 @@ describe("movies index route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 movies");
+			.toMatchTextContent("2 movies");
 		await expect.element(page.getByTestId("movie-table")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("movie-table-selectable"))
-			.toHaveTextContent("false");
+			.toMatchTextContent("false");
 		await expect
 			.element(page.getByTestId("movie-table-movies"))
-			.toHaveTextContent("Alien,Blade Runner");
+			.toMatchTextContent("Alien,Blade Runner");
 		await expect
 			.element(page.getByTestId("movie-table-profiles"))
-			.toHaveTextContent("Movie Profile");
+			.toMatchTextContent("Movie Profile");
 		await expect
 			.element(page.getByTestId("column-settings-popover"))
-			.toHaveTextContent("movies");
+			.toMatchTextContent("movies");
 
 		await page.getByText("select-first").click();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 
 		await page.getByText("select-first").click();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 
 		await page.getByText("toggle-all").click();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("2");
+			.toMatchTextContent("2");
 
 		await page.getByText("toggle-all").click();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 
 		await page.getByText("select-first").click();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 
 		await page.getByText("toggle-active-profile").click();
 		expect(moviesRouteMocks.unmonitorMovieProfile.mutate).toHaveBeenCalledWith({
@@ -461,16 +461,16 @@ describe("movies index route", () => {
 		await page.getByText("Mass Editor").click();
 		await expect
 			.element(page.getByTestId("movie-table-selectable"))
-			.toHaveTextContent("true");
+			.toMatchTextContent("true");
 		await expect
 			.element(page.getByTestId("movie-bulk-bar"))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("movie-bulk-bar-selected"))
-			.toHaveTextContent("1 selected");
+			.toMatchTextContent("1 selected");
 		await expect
 			.element(page.getByTestId("movie-bulk-bar-profiles"))
-			.toHaveTextContent("Movie Profile");
+			.toMatchTextContent("Movie Profile");
 
 		await page.getByText("Cancel").click();
 		await expect
@@ -478,10 +478,10 @@ describe("movies index route", () => {
 			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("movie-table-selected-count"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 		await expect
 			.element(page.getByTestId("movie-table-selectable"))
-			.toHaveTextContent("false");
+			.toMatchTextContent("false");
 	});
 
 	it("renders the grid path, search filtering, and view toggle wiring", async () => {
@@ -496,7 +496,7 @@ describe("movies index route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 movies");
+			.toMatchTextContent("2 movies");
 		await expect
 			.poll(
 				() => document.querySelectorAll('[data-testid="movie-card"]').length,
@@ -509,7 +509,7 @@ describe("movies index route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("1 matching movies");
+			.toMatchTextContent("1 matching movies");
 		await expect
 			.poll(
 				() => document.querySelectorAll('[data-testid="movie-card"]').length,

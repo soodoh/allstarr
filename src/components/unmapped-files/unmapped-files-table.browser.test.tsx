@@ -328,7 +328,7 @@ describe("UnmappedFilesTable", () => {
 
 		await expect
 			.element(page.getByTestId("empty-state"))
-			.toHaveTextContent("No unmapped files");
+			.toMatchTextContent("No unmapped files");
 		await expect.element(page.getByRole("textbox")).toBeInTheDocument();
 		await expect
 			.element(page.getByRole("button", { name: "Show Ignored" }))
@@ -406,7 +406,7 @@ describe("UnmappedFilesTable", () => {
 
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				'files:[{"hints":{"title":"Alien","year":1979},"id":3,"path":"/library/movies/Alien (1979).mkv"}]',
 			);
 		await page.getByRole("button", { name: "Close mapping dialog" }).click();
@@ -419,7 +419,7 @@ describe("UnmappedFilesTable", () => {
 		await page.getByRole("button", { name: "Map Selected" }).click();
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				'files:[{"hints":{"author":"Frank Herbert","title":"Dune","year":1965},"id":1,"path":"/library/books/Dune.epub"}]',
 			);
 		await page.getByRole("button", { name: "Close mapping dialog" }).click();
@@ -445,7 +445,7 @@ describe("UnmappedFilesTable", () => {
 		await page.getByTitle("Delete file").first().click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
-			.toHaveTextContent("Delete files");
+			.toMatchTextContent("Delete files");
 		await page.getByRole("button", { name: "Confirm" }).click();
 		await expect
 			.poll(() => tableMocks.deleteUnmappedFilesFn.mock.calls)
@@ -551,7 +551,7 @@ describe("UnmappedFilesTable", () => {
 		await page.getByTitle("Map to library entry").first().click();
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				'files:[{"hints":{"episode":1,"season":1,"title":"Pilot"},"id":4,"path":"/library/tv/Show.S01E01.mkv"}]',
 			);
 		await page.getByRole("button", { name: "Close mapping dialog" }).click();
@@ -564,7 +564,7 @@ describe("UnmappedFilesTable", () => {
 		await page.getByRole("button", { name: "Map Selected" }).click();
 		await expect
 			.element(page.getByTestId("mapping-dialog"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				'files:[{"hints":{"episode":1,"season":1,"title":"Pilot"},"id":4,"path":"/library/tv/Show.S01E01.mkv"},{"hints":{"episode":2,"season":1,"title":"Second Episode"},"id":5,"path":"/library/tv/Show.S01E02.mkv"}]',
 			);
 	});

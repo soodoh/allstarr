@@ -51,7 +51,7 @@ describe("Command", () => {
 		).toBeInTheDocument();
 		expect(
 			container.querySelector('[data-slot="command-item"]'),
-		).toHaveTextContent("Refresh");
+		).toMatchTextContent("Refresh");
 	});
 
 	it("renders the empty state helper when nothing matches", async () => {

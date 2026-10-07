@@ -396,13 +396,13 @@ describe("indexers route", () => {
 
 		await expect
 			.element(page.getByTestId("indexer-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await expect
 			.element(page.getByTestId("synced-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 		await expect
 			.element(page.getByTestId("status-count"))
-			.toHaveTextContent("1");
+			.toMatchTextContent("1");
 
 		await page.getByRole("button", { name: "Add Indexer" }).click();
 		await expect
@@ -412,7 +412,7 @@ describe("indexers route", () => {
 		await expect.element(page.getByTestId("indexer-form")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("indexer-form-request-interval"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(indexersRouteMocks.createIndexer.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -428,13 +428,13 @@ describe("indexers route", () => {
 		await page.getByRole("button", { name: "edit" }).click();
 		await expect
 			.element(page.getByTestId("indexer-form-implementation"))
-			.toHaveTextContent("Newznab");
+			.toMatchTextContent("Newznab");
 		await expect
 			.element(page.getByTestId("indexer-form-categories"))
-			.toHaveTextContent("0");
+			.toMatchTextContent("0");
 		await expect
 			.element(page.getByTestId("indexer-form-request-interval"))
-			.toHaveTextContent("5");
+			.toMatchTextContent("5");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(indexersRouteMocks.updateIndexer.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({

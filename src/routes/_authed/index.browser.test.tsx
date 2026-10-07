@@ -152,7 +152,7 @@ describe("dashboard route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Dashboard");
+			.toMatchTextContent("Dashboard");
 		await expect.element(page.getByTestId("summary-row")).toBeInTheDocument();
 		await expect.element(page.getByTestId("activity-feed")).toBeInTheDocument();
 		await expect

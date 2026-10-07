@@ -199,29 +199,24 @@ describe("mutations/books", () => {
 			result: { reassigned: 3 },
 			invalidations: [queryKeys.books.all, queryKeys.authors.all],
 		},
-	])("wires $name mutations, toast text, and invalidation", async ({
-		hook,
-		fn,
-		variables,
-		call,
-		invalidations,
-		toast,
-		result,
-	}) => {
-		fn.mockResolvedValue(result ?? { ok: true });
+	])(
+		"wires $name mutations, toast text, and invalidation",
+		async ({ hook, fn, variables, call, invalidations, toast, result }) => {
+			fn.mockResolvedValue(result ?? { ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		if (toast) {
-			expect(success).toHaveBeenCalledWith(toast);
-		}
-		for (const [index, queryKey] of invalidations.entries()) {
-			expect(invalidateQueries).toHaveBeenNthCalledWith(index + 1, {
-				queryKey,
-			});
-		}
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			if (toast) {
+				expect(success).toHaveBeenCalledWith(toast);
+			}
+			for (const [index, queryKey] of invalidations.entries()) {
+				expect(invalidateQueries).toHaveBeenNthCalledWith(index + 1, {
+					queryKey,
+				});
+			}
+		},
+	);
 
 	it.each([
 		{
@@ -291,17 +286,15 @@ describe("mutations/books", () => {
 			variables: { fromBookId: 29, toBookId: 30 },
 			errorText: "Failed to reassign files",
 		},
-	])("shows the $name error toast when the mutation fails", async ({
-		hook,
-		fn,
-		variables,
-		errorText,
-	}) => {
-		fn.mockRejectedValue(new Error("boom"));
+	])(
+		"shows the $name error toast when the mutation fails",
+		async ({ hook, fn, variables, errorText }) => {
+			fn.mockRejectedValue(new Error("boom"));
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith(errorText);
-		expect(success).not.toHaveBeenCalled();
-	});
+			expect(error).toHaveBeenCalledWith(errorText);
+			expect(success).not.toHaveBeenCalled();
+		},
+	);
 });

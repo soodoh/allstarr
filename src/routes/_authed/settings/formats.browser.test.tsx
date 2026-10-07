@@ -367,7 +367,7 @@ describe("formats route", () => {
 		await page.getByRole("button", { name: "Movie" }).click();
 		await expect
 			.element(page.getByTestId("download-format-list"))
-			.toHaveTextContent("Bluray");
+			.toMatchTextContent("Bluray");
 		await expect.element(page.getByText("Epub")).not.toBeInTheDocument();
 
 		const movieDefaultLocator = page.getByLabelText("Default Movie Runtime");
@@ -392,7 +392,7 @@ describe("formats route", () => {
 		await page.getByRole("button", { name: "Add Format" }).click();
 		await expect
 			.element(page.getByTestId("download-format-form-defaults"))
-			.toHaveTextContent("ebook");
+			.toMatchTextContent("ebook");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(formatsRouteMocks.createDownloadFormat.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -407,7 +407,7 @@ describe("formats route", () => {
 		await page.getByRole("button", { name: "edit" }).first().click();
 		await expect
 			.element(page.getByTestId("download-format-form-initial"))
-			.toHaveTextContent("Bluray");
+			.toMatchTextContent("Bluray");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(formatsRouteMocks.updateDownloadFormat.mutate).toHaveBeenCalledWith(
 			expect.objectContaining({

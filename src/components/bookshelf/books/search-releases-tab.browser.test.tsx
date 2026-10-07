@@ -209,10 +209,10 @@ describe("SearchReleasesTab", () => {
 		});
 		await expect
 			.element(page.getByTestId("search-toolbar"))
-			.toHaveTextContent("default:Frank Herbert Dune");
+			.toMatchTextContent("default:Frank Herbert Dune");
 		await expect
 			.element(page.getByTestId("release-table"))
-			.toHaveTextContent("releases:Release One,Release Two");
+			.toMatchTextContent("releases:Release One,Release Two");
 
 		await page.getByRole("button", { name: "Trigger search" }).click();
 		expect(

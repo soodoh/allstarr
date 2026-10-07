@@ -597,7 +597,7 @@ describe("ShowDetailHeader", () => {
 		await page.getByRole("button", { name: "4K:active" }).click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("unmonitor:4K:Archive:show:false:0");
+			.toMatchTextContent("unmonitor:4K:Archive:show:false:0");
 
 		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(showDetailHeaderMocks.bulkUnmonitor.mutate).toHaveBeenCalledWith(
@@ -633,7 +633,7 @@ describe("ShowDetailHeader", () => {
 		await page.getByRole("button", { name: "Delete" }).click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
-			.toHaveTextContent("Delete Show");
+			.toMatchTextContent("Delete Show");
 
 		await page.getByRole("button", { name: "Confirm" }).click();
 		expect(showDetailHeaderMocks.deleteShow.mutate).toHaveBeenCalledWith(

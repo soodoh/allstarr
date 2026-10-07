@@ -620,7 +620,7 @@ describe("BookDetailRoute", () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 		await expect
 			.element(page.getByRole("button", { name: "toggle-4K" }))
 			.toBeInTheDocument();
@@ -639,7 +639,7 @@ describe("BookDetailRoute", () => {
 		await page.getByRole("button", { name: "toggle-4K" }).click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("4K");
+			.toMatchTextContent("4K");
 		expect(bookDetailRouteMocks.navigate).not.toHaveBeenCalled();
 		await page.getByRole("button", { name: "confirm" }).click();
 		expect(
@@ -668,13 +668,13 @@ describe("BookDetailRoute", () => {
 		await page.getByRole("button", { name: "edit" }).first().click();
 		await expect
 			.element(page.getByTestId("book-edit-dialog"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 		await page.getByRole("button", { name: "save" }).click();
 
 		await page.getByRole("button", { name: "delete" }).click();
 		await expect
 			.element(page.getByTestId("book-delete-dialog"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 		await page.getByRole("button", { name: "confirm" }).click();
 		expect(bookDetailRouteMocks.navigate).toHaveBeenCalledWith({
 			params: { authorId: "4" },
@@ -730,7 +730,7 @@ describe("BookDetailRoute", () => {
 
 		await expect
 			.element(page.getByTestId("metadata-warning"))
-			.toHaveTextContent("book:Dune");
+			.toMatchTextContent("book:Dune");
 		await expect
 			.element(page.getByTestId("profile-toggle-icons"))
 			.not.toBeInTheDocument();
@@ -738,7 +738,7 @@ describe("BookDetailRoute", () => {
 		await page.getByRole("button", { name: "reassign" }).click();
 		await expect
 			.element(page.getByTestId("reassign-files-dialog"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 		await page.getByRole("button", { name: "reassign" }).last().click();
 		expect(bookDetailRouteMocks.invalidate).toHaveBeenCalledOnce();
 
@@ -777,6 +777,6 @@ describe("BookDetailRoute", () => {
 
 		await expect
 			.element(page.getByTestId("metadata-warning"))
-			.toHaveTextContent("book-editions:Dune");
+			.toMatchTextContent("book-editions:Dune");
 	});
 });

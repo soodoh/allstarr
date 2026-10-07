@@ -111,10 +111,10 @@ describe("BookDetailContent", () => {
 		await page.getByRole("button", { name: /English and 1 other/i }).click();
 		await expect
 			.element(page.getByTestId("popover-content"))
-			.toHaveTextContent("English");
+			.toMatchTextContent("English");
 		await expect
 			.element(page.getByTestId("popover-content"))
-			.toHaveTextContent("Spanish");
+			.toMatchTextContent("Spanish");
 	});
 
 	it("falls back to the coverUrl, singular vote label, and hides optional sections when data is absent", async () => {

@@ -16,7 +16,7 @@ const setupRouteMocks = vi.hoisted(() => ({
 	getRegistrationStatusFn: vi.fn(),
 	hasUsersFn: vi.fn(),
 	navigate: vi.fn(),
-	signInOauth2: vi.fn(),
+	signInSocial: vi.fn(),
 	signUpEmail: vi.fn(),
 	toastError: vi.fn(),
 	toastSuccess: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock("sonner", () => ({
 
 vi.mock("src/lib/auth-client", () => ({
 	signIn: {
-		oauth2: (...args: unknown[]) => setupRouteMocks.signInOauth2(...args),
+		social: (...args: unknown[]) => setupRouteMocks.signInSocial(...args),
 	},
 	signUp: {
 		email: (...args: unknown[]) => setupRouteMocks.signUpEmail(...args),
@@ -174,9 +174,9 @@ describe("setup route", () => {
 
 		await page.getByRole("button", { name: "Continue with Authentik" }).click();
 
-		expect(setupRouteMocks.signInOauth2).toHaveBeenCalledWith({
+		expect(setupRouteMocks.signInSocial).toHaveBeenCalledWith({
 			callbackURL: "/",
-			providerId: "authentik",
+			provider: "authentik",
 		});
 	});
 

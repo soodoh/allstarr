@@ -253,7 +253,7 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 		await use(() => appServer.dbHandle.checkpoint());
 	},
 
-	tempDir: async (_args, use) => {
+	tempDir: async ({ requiredServices: _requiredServices }, use) => {
 		const dir = mkdtempSync(join(tmpdir(), "allstarr-e2e-"));
 		await use(dir);
 		rmSync(dir, { recursive: true, force: true });
@@ -327,7 +327,7 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 	}
 });
 
-test.afterEach(async (_args, testInfo) => {
+test.afterEach(async ({ requiredServices: _requiredServices }, testInfo) => {
 	if (testInfo.status !== testInfo.expectedStatus) {
 		await testInfo.attach("e2e-diagnostics", {
 			body: diagnosticBuffer.toText() || "No e2e diagnostics captured.",

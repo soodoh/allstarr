@@ -1,5 +1,6 @@
 import type { ComponentProps, PropsWithChildren } from "react";
 import { renderWithProviders } from "src/test/render";
+import { requireValue } from "src/test/require-value";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
@@ -222,13 +223,13 @@ describe("DownloadFormatList", () => {
 		// "No limit" text appears in the archive row
 		expect(archiveRowEl?.textContent).toContain("No limit");
 
-		const archiveButtons = archiveRowEl?.querySelectorAll(
-			"[role='button'], button",
-		);
-		await (archiveButtons?.[0] as HTMLElement).click();
+		const archiveButtons = requireValue(
+			archiveRowEl,
+		).querySelectorAll<HTMLElement>("[role='button'], button");
+		await requireValue(archiveButtons[0]).click();
 		expect(onEdit).toHaveBeenCalledWith(archiveFormat);
 
-		await (archiveButtons?.[1] as HTMLElement).click();
+		await requireValue(archiveButtons[1]).click();
 		await expect
 			.element(page.getByTestId("confirm-dialog"))
 			.toBeInTheDocument();
@@ -242,7 +243,7 @@ describe("DownloadFormatList", () => {
 			.element(page.getByText("Delete Download Format"))
 			.not.toBeInTheDocument();
 
-		await (archiveButtons?.[1] as HTMLElement).click();
+		await requireValue(archiveButtons[1]).click();
 		await page.getByRole("button", { name: "Confirm" }).click();
 
 		expect(onDelete).toHaveBeenCalledWith(archiveFormat.id);
@@ -265,7 +266,7 @@ describe("DownloadFormatList", () => {
 			}),
 			source: undefined,
 			resolution: undefined,
-		} as DownloadFormat;
+		} as unknown as DownloadFormat;
 
 		await renderWithProviders(
 			<DownloadFormatList

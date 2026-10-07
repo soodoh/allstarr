@@ -419,13 +419,13 @@ describe("BooksRoute", () => {
 		await renderWithProviders(<routeConfig.component />);
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Books");
+			.toMatchTextContent("Books");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("No books yet");
+			.toMatchTextContent("No books yet");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent("Search Hardcover to add your first book.");
+			.toMatchTextContent("Search Hardcover to add your first book.");
 	});
 
 	it("renders grid mode, reacts to search, toggles views, and fetches more books", async () => {
@@ -436,7 +436,7 @@ describe("BooksRoute", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 books on your bookshelf");
+			.toMatchTextContent("2 books on your bookshelf");
 		await expect
 			.poll(() => document.querySelectorAll('[data-testid="book-card"]').length)
 			.toBe(2);
@@ -452,7 +452,7 @@ describe("BooksRoute", () => {
 		);
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("2 matching books");
+			.toMatchTextContent("2 matching books");
 
 		await page.getByText("List").click();
 		expect(booksRouteMocks.setViewMode).toHaveBeenCalledWith("table");
@@ -472,13 +472,13 @@ describe("BooksRoute", () => {
 
 		await expect
 			.element(page.getByTestId("column-settings-popover"))
-			.toHaveTextContent("books");
+			.toMatchTextContent("books");
 		await expect
 			.element(page.getByTestId("book-table-sort"))
-			.toHaveTextContent("readers:desc");
+			.toMatchTextContent("readers:desc");
 		await expect
 			.element(page.getByTestId("book-table-profiles"))
-			.toHaveTextContent("eBook,Audio");
+			.toMatchTextContent("eBook,Audio");
 		await expect
 			.element(page.getByTestId("book-table-rows-skeleton"))
 			.toBeInTheDocument();
@@ -514,10 +514,10 @@ describe("BooksRoute", () => {
 			.toHaveAttribute("data-open", "true");
 		await expect
 			.element(page.getByTestId("unmonitor-dialog-title"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 		await expect
 			.element(page.getByTestId("unmonitor-dialog-profile"))
-			.toHaveTextContent("eBook");
+			.toMatchTextContent("eBook");
 
 		await page.getByText("confirm-unmonitor").click();
 		expect(booksRouteMocks.unmonitorBookProfile.mutate).toHaveBeenCalledWith(

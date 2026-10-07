@@ -139,23 +139,20 @@ describe("mutations/imports", () => {
 			call: { data: { id: 4, status: "resolved" } },
 			toast: "Review item updated",
 		},
-	])("wires $name and invalidates the imports cache", async ({
-		hook,
-		fn,
-		variables,
-		call,
-		toast,
-	}) => {
-		fn.mockResolvedValue({ ok: true });
+	])(
+		"wires $name and invalidates the imports cache",
+		async ({ hook, fn, variables, call, toast }) => {
+			fn.mockResolvedValue({ ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		expect(success).toHaveBeenCalledWith(toast);
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: queryKeys.imports.all,
-		});
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			expect(success).toHaveBeenCalledWith(toast);
+			expect(invalidateQueries).toHaveBeenCalledWith({
+				queryKey: queryKeys.imports.all,
+			});
+		},
+	);
 
 	it("wires import plan apply success messaging and invalidation", async () => {
 		applyImportPlanFn.mockResolvedValue({
@@ -230,17 +227,16 @@ describe("mutations/imports", () => {
 			variables: { id: 4, status: "resolved" as const },
 			fallback: "Failed to update review item",
 		},
-	])("shows the server error message when %p fails", async ({
-		hook,
-		fn,
-		variables,
-	}) => {
-		fn.mockRejectedValue(new Error("boom"));
+	])(
+		"shows the server error message when %p fails",
+		async ({ hook, fn, variables }) => {
+			fn.mockRejectedValue(new Error("boom"));
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith("boom");
-	});
+			expect(error).toHaveBeenCalledWith("boom");
+		},
+	);
 
 	it.each([
 		{
@@ -290,18 +286,16 @@ describe("mutations/imports", () => {
 			variables: { id: 4, status: "resolved" as const },
 			fallback: "Failed to update review item",
 		},
-	])("shows fallback error messages for non-Error failures", async ({
-		hook,
-		fn,
-		variables,
-		fallback,
-	}) => {
-		fn.mockRejectedValue("nope");
+	])(
+		"shows fallback error messages for non-Error failures",
+		async ({ hook, fn, variables, fallback }) => {
+			fn.mockRejectedValue("nope");
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith(fallback);
-	});
+			expect(error).toHaveBeenCalledWith(fallback);
+		},
+	);
 
 	it.each([
 		{
@@ -312,19 +306,19 @@ describe("mutations/imports", () => {
 			result: { appliedCount: 1, reviewCount: 2 },
 			message: "Applied 1 row; 2 review items queued",
 		},
-	])("shows alternate import plan success labels", async ({
-		result,
-		message,
-	}) => {
-		applyImportPlanFn.mockResolvedValue(result);
+	])(
+		"shows alternate import plan success labels",
+		async ({ result, message }) => {
+			applyImportPlanFn.mockResolvedValue(result);
 
-		await runMutation(useApplyImportPlan, {
-			selectedRows: [],
-			sourceId: 5,
-		});
+			await runMutation(useApplyImportPlan, {
+				selectedRows: [],
+				sourceId: 5,
+			});
 
-		expect(success).toHaveBeenCalledWith(message);
-	});
+			expect(success).toHaveBeenCalledWith(message);
+		},
+	);
 
 	it("invalidates imports after refresh errors so source status stays current", async () => {
 		refreshImportSourceFn.mockRejectedValue(new Error("boom"));

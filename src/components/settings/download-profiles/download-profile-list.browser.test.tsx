@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CATEGORY_MAP } from "src/lib/categories";
 import { renderWithProviders } from "src/test/render";
+import { requireValue } from "src/test/require-value";
 import { describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
@@ -185,11 +186,13 @@ describe("DownloadProfileList", () => {
 		expect(row?.textContent).toContain(CATEGORY_MAP.get(1000) ?? "1000");
 		expect(row?.textContent).toContain(CATEGORY_MAP.get(2000) ?? "2000");
 
-		const rowButtons = row?.querySelectorAll("[role='button'], button");
-		await (rowButtons?.[0] as HTMLElement).click();
+		const rowButtons = requireValue(row).querySelectorAll<HTMLElement>(
+			"[role='button'], button",
+		);
+		await requireValue(rowButtons[0]).click();
 		expect(onEdit).toHaveBeenCalledWith(profile);
 
-		await (rowButtons?.[1] as HTMLElement).click();
+		await requireValue(rowButtons[1]).click();
 		await expect.element(page.getByText("Delete Profile")).toBeInTheDocument();
 		await expect
 			.element(

@@ -190,8 +190,8 @@ describe("EditionsTab", () => {
 		const cards = Array.from(
 			container.querySelectorAll('[data-testid^="profile-"]'),
 		);
-		expect(cards[0]).toHaveTextContent("Monitored");
-		expect(cards[1]).toHaveTextContent("Unmonitored");
+		expect(cards[0]).toMatchTextContent("Monitored");
+		expect(cards[1]).toMatchTextContent("Unmonitored");
 
 		const unmonitoredCard = cards[1] as HTMLElement;
 		const chooseBtn = unmonitoredCard.querySelector(
@@ -201,10 +201,10 @@ describe("EditionsTab", () => {
 
 		await expect
 			.element(page.getByTestId("edition-selection-modal"))
-			.toHaveTextContent("Unmonitored");
+			.toMatchTextContent("Unmonitored");
 		await expect
 			.element(page.getByTestId("edition-selection-modal"))
-			.toHaveTextContent("none");
+			.toMatchTextContent("none");
 
 		const modal = await page.getByTestId("edition-selection-modal").element();
 		const confirmBtn = modal.querySelector(
@@ -271,7 +271,7 @@ describe("EditionsTab", () => {
 		await page.getByRole("button", { name: "Unmonitor" }).click();
 		await expect
 			.element(page.getByTestId("unmonitor-dialog"))
-			.toHaveTextContent("Audio");
+			.toMatchTextContent("Audio");
 
 		await page.getByRole("button", { name: "Confirm unmonitor" }).click();
 		expect(editionsTabMocks.unmonitorBookProfile.mutate).toHaveBeenCalledWith(

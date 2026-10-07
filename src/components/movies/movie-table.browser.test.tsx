@@ -214,8 +214,8 @@ describe("MovieTable", () => {
 		);
 
 		const rows = page.getByRole("row");
-		await expect.element(rows.nth(1)).toHaveTextContent("Alien");
-		await expect.element(rows.nth(2)).toHaveTextContent("Blade Runner");
+		await expect.element(rows.nth(1)).toMatchTextContent("Alien");
+		await expect.element(rows.nth(2)).toMatchTextContent("Blade Runner");
 		await expect
 			.element(page.getByText("Released"))
 			.toHaveClass("bg-green-600");
@@ -243,24 +243,24 @@ describe("MovieTable", () => {
 		await page.getByText("Year").click();
 		await expect
 			.element(page.getByRole("row").nth(1))
-			.toHaveTextContent("Blade Runner");
+			.toMatchTextContent("Blade Runner");
 		await page.getByText("Year").click();
 		await expect
 			.element(page.getByRole("row").nth(1))
-			.toHaveTextContent("Alien");
+			.toMatchTextContent("Alien");
 		await expect.element(page.getByText("Custom Label")).toBeInTheDocument();
 		await page.getByText("Studio").click();
 		await expect
 			.element(page.getByRole("row").nth(1))
-			.toHaveTextContent("Blade Runner");
+			.toMatchTextContent("Blade Runner");
 		await page.getByText("Studio").click();
 		await expect
 			.element(page.getByRole("row").nth(1))
-			.toHaveTextContent("Alien");
+			.toMatchTextContent("Alien");
 		await page.getByText("Status").click();
 		await expect
 			.element(page.getByRole("row").nth(1))
-			.toHaveTextContent("Blade Runner");
+			.toMatchTextContent("Blade Runner");
 	});
 
 	it("supports selection mode and header toggles", async () => {

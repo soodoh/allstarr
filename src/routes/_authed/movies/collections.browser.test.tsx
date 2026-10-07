@@ -535,13 +535,13 @@ describe("collections route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Collections");
+			.toMatchTextContent("Collections");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("No collections found");
+			.toMatchTextContent("No collections found");
 		await expect
 			.element(page.getByTestId("empty-state-description"))
-			.toHaveTextContent(
+			.toMatchTextContent(
 				"Collections are automatically discovered when you add movies that belong to a TMDB collection.",
 			);
 	});
@@ -556,7 +556,7 @@ describe("collections route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-description"))
-			.toHaveTextContent("3 collections");
+			.toMatchTextContent("3 collections");
 
 		const cards = document.querySelectorAll('[data-testid="collection-card"]');
 		expect(Array.from(cards).map((card) => card.textContent)).toEqual([
@@ -600,7 +600,7 @@ describe("collections route", () => {
 		await page.getByRole("button", { name: "Edit" }).click();
 		await expect
 			.element(page.getByTestId("edit-dialog"))
-			.toHaveTextContent("Dune Collection");
+			.toMatchTextContent("Dune Collection");
 		await page.getByText("Close Edit").click();
 		await expect
 			.element(page.getByTestId("edit-dialog"))
@@ -609,13 +609,13 @@ describe("collections route", () => {
 		await page.getByRole("button", { name: "Add Missing" }).click();
 		await expect
 			.element(page.getByTestId("add-missing-dialog"))
-			.toHaveTextContent("Dune Collection");
+			.toMatchTextContent("Dune Collection");
 		await page.getByText("Close Add Missing").click();
 
 		await page.getByRole("button", { name: "Preview Missing Movie" }).click();
 		await expect
 			.element(page.getByTestId("movie-preview-modal"))
-			.toHaveTextContent("Dune: Part Two");
+			.toMatchTextContent("Dune: Part Two");
 		await page.getByText("Close Preview").click();
 		await expect
 			.element(page.getByTestId("movie-preview-modal"))

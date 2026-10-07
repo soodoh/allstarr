@@ -350,7 +350,7 @@ describe("BookPreviewModal", () => {
 			/>,
 		);
 
-		expect(container).toHaveTextContent("Dune");
+		expect(container).toMatchTextContent("Dune");
 		await expect.element(page.getByText("Jane Doe")).toBeInTheDocument();
 		await expect.element(page.getByText("2002-03-04")).toBeInTheDocument();
 		await expect.element(page.getByText("Saga")).toBeInTheDocument();

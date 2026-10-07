@@ -34,7 +34,7 @@ describe("Dialog", () => {
 
 		expect(
 			document.body.querySelector('[data-slot="dialog-trigger"]'),
-		).toHaveTextContent("Open dialog");
+		).toMatchTextContent("Open dialog");
 		expect(
 			document.body.querySelector('[data-slot="dialog-overlay"]'),
 		).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe("Dialog", () => {
 		const footerCloseButton = document.body.querySelector(
 			'[data-slot="dialog-footer"] button',
 		);
-		expect(footerCloseButton).toHaveTextContent("Close");
+		expect(footerCloseButton).toMatchTextContent("Close");
 		await page.getByRole("button", { name: "Close" }).click();
 
 		expect(onOpenChange).toHaveBeenCalledWith(false);

@@ -53,23 +53,24 @@ describe("getProvider", () => {
 		await expect(getProvider("Blackhole")).resolves.toBe(provider);
 	});
 
-	it.each(
-		DOWNLOAD_CLIENT_IMPLEMENTATIONS,
-	)("loads %s on the server", async (implementation, modulePath) => {
-		const provider = {
-			addDownload: vi.fn(),
-			getDownloads: vi.fn(),
-			removeDownload: vi.fn(),
-			testConnection: vi.fn(),
-		};
+	it.each(DOWNLOAD_CLIENT_IMPLEMENTATIONS)(
+		"loads %s on the server",
+		async (implementation, modulePath) => {
+			const provider = {
+				addDownload: vi.fn(),
+				getDownloads: vi.fn(),
+				removeDownload: vi.fn(),
+				testConnection: vi.fn(),
+			};
 
-		vi.doMock("src/lib/runtime", () => ({ isServerRuntime: true }));
-		vi.doMock(modulePath, () => ({ default: provider }));
+			vi.doMock("src/lib/runtime", () => ({ isServerRuntime: true }));
+			vi.doMock(modulePath, () => ({ default: provider }));
 
-		const { default: getProvider } = await import("./registry");
+			const { default: getProvider } = await import("./registry");
 
-		await expect(getProvider(implementation)).resolves.toBe(provider);
-	});
+			await expect(getProvider(implementation)).resolves.toBe(provider);
+		},
+	);
 
 	it("throws for an unknown implementation", async () => {
 		vi.doMock("src/lib/runtime", () => ({ isServerRuntime: true }));

@@ -74,6 +74,8 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						headless: true,
+						// Existing tests intentionally locate partial labels and text.
+						locators: { exact: false },
 						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},

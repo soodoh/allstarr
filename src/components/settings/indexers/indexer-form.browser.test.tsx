@@ -143,7 +143,7 @@ describe("IndexerForm", () => {
 
 		await expect
 			.element(page.getByRole("combobox"))
-			.toHaveTextContent("Usenet Client");
+			.toMatchTextContent("Usenet Client");
 		expect(indexerFormMocks.categoryMultiSelect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				value: [1000, 2000],

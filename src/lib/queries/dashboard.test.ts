@@ -56,14 +56,17 @@ describe("dashboard queries", () => {
 			["dashboard", "recentActivity"],
 			[{ id: 1 }],
 		],
-	])("builds the %s query", async (_label, makeQuery, mockFn, queryKey, value) => {
-		mockFn.mockResolvedValue(value);
+	])(
+		"builds the %s query",
+		async (_label, makeQuery, mockFn, queryKey, value) => {
+			mockFn.mockResolvedValue(value);
 
-		const options = makeQuery();
-		const queryFn = requireValue(options.queryFn);
+			const options = makeQuery();
+			const queryFn = requireValue(options.queryFn);
 
-		expect(options.queryKey).toStrictEqual(queryKey);
-		await expect(queryFn({} as never)).resolves.toEqual(value);
-		expect(mockFn).toHaveBeenCalledTimes(1);
-	});
+			expect(options.queryKey).toStrictEqual(queryKey);
+			await expect(queryFn({} as never)).resolves.toEqual(value);
+			expect(mockFn).toHaveBeenCalledTimes(1);
+		},
+	);
 });

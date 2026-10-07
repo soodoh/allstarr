@@ -28,4 +28,5 @@ coverage/
 coverage-reports/
 monocart-report/
 .vitest-attachments/
+.vitest/
 **/__screenshots__/

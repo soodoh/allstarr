@@ -125,13 +125,13 @@ describe("Sidebar primitives", () => {
 
 		await expect
 			.element(page.getByTestId("sidebar-state"))
-			.toHaveTextContent("expanded");
+			.toMatchTextContent("expanded");
 		await expect
 			.element(page.getByTestId("sidebar-open"))
-			.toHaveTextContent("true");
+			.toMatchTextContent("true");
 		await expect
 			.element(page.getByTestId("sidebar-mobile"))
-			.toHaveTextContent("false");
+			.toMatchTextContent("false");
 
 		document.dispatchEvent(
 			new KeyboardEvent("keydown", { ctrlKey: true, key: "x", bubbles: true }),
@@ -139,7 +139,7 @@ describe("Sidebar primitives", () => {
 
 		await expect
 			.element(page.getByTestId("sidebar-state"))
-			.toHaveTextContent("expanded");
+			.toMatchTextContent("expanded");
 
 		document.dispatchEvent(
 			new KeyboardEvent("keydown", { ctrlKey: true, key: "b", bubbles: true }),
@@ -147,10 +147,10 @@ describe("Sidebar primitives", () => {
 
 		await expect
 			.element(page.getByTestId("sidebar-state"))
-			.toHaveTextContent("collapsed");
+			.toMatchTextContent("collapsed");
 		await expect
 			.element(page.getByTestId("sidebar-open"))
-			.toHaveTextContent("false");
+			.toMatchTextContent("false");
 		expect(sidebarMocks.cookieSet).toHaveBeenCalledWith(
 			expect.objectContaining({
 				name: "sidebar_state",
@@ -173,7 +173,7 @@ describe("Sidebar primitives", () => {
 		expect(onOpenChange).toHaveBeenCalledWith(true);
 		await expect
 			.element(page.getByTestId("sidebar-state"))
-			.toHaveTextContent("collapsed");
+			.toMatchTextContent("collapsed");
 	});
 
 	it("accepts direct boolean setOpen values", async () => {
@@ -187,10 +187,10 @@ describe("Sidebar primitives", () => {
 
 		await expect
 			.element(page.getByTestId("sidebar-open"))
-			.toHaveTextContent("false");
+			.toMatchTextContent("false");
 		await expect
 			.element(page.getByTestId("sidebar-state"))
-			.toHaveTextContent("collapsed");
+			.toMatchTextContent("collapsed");
 	});
 
 	it("renders the mobile sheet variant and toggles openMobile state", async () => {
@@ -213,7 +213,7 @@ describe("Sidebar primitives", () => {
 			.toHaveAttribute("data-open", "true");
 		await expect
 			.element(page.getByTestId("sidebar-mobile-open"))
-			.toHaveTextContent("true");
+			.toMatchTextContent("true");
 		await expect
 			.element(page.getByTestId("sheet-content"))
 			.toHaveAttribute("data-mobile", "true");
@@ -223,10 +223,10 @@ describe("Sidebar primitives", () => {
 		await expect.element(page.getByText("Header")).toBeInTheDocument();
 		await expect
 			.element(page.getByTestId("sheet-title"))
-			.toHaveTextContent("Sidebar");
+			.toMatchTextContent("Sidebar");
 		await expect
 			.element(page.getByTestId("sheet-description"))
-			.toHaveTextContent("Displays the mobile sidebar.");
+			.toMatchTextContent("Displays the mobile sidebar.");
 	});
 
 	it("renders the desktop structural slots for icon-collapsed floating sidebars", async () => {
@@ -250,7 +250,7 @@ describe("Sidebar primitives", () => {
 		expect(inner).toBeInTheDocument();
 		expect(
 			container.querySelector('[data-slot="sidebar-content"]'),
-		).toHaveTextContent("Body");
+		).toMatchTextContent("Body");
 	});
 
 	it("renders left-side inset desktop sidebars while expanded", async () => {
@@ -317,7 +317,7 @@ describe("Sidebar primitives", () => {
 			</SidebarProvider>,
 		);
 
-		expect(container.querySelector('[data-slot="sidebar"]')).toHaveTextContent(
+		expect(container.querySelector('[data-slot="sidebar"]')).toMatchTextContent(
 			"Library",
 		);
 		await expect
@@ -365,7 +365,7 @@ describe("Sidebar primitives", () => {
 
 		await expect
 			.element(page.getByTestId("tooltip-content"))
-			.toHaveTextContent("More info");
+			.toMatchTextContent("More info");
 		await expect
 			.element(page.getByTestId("tooltip-content"))
 			.toHaveClass("custom-tooltip");
@@ -411,7 +411,7 @@ describe("Sidebar primitives", () => {
 		expect(childLink).toHaveAttribute("data-size", "md");
 		await expect
 			.element(page.getByTestId("tooltip-content"))
-			.toHaveTextContent("Docs tip");
+			.toMatchTextContent("Docs tip");
 		await expect
 			.element(page.getByTestId("tooltip-content"))
 			.toHaveAttribute("data-hidden", "false");

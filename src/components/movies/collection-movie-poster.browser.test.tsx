@@ -104,7 +104,7 @@ describe("CollectionMoviePoster", () => {
 		expect(container.querySelector('a[href="/movies/12"]')).not.toBeNull();
 		expect(
 			container.querySelector("[data-testid='tooltip-content']"),
-		).toHaveTextContent("Alien");
+		).toMatchTextContent("Alien");
 	});
 
 	it("adds missing movies and exposes the exclude action from the context menu", async () => {

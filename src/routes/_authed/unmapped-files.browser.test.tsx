@@ -147,7 +147,7 @@ describe("unmapped files route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Unmapped Files");
+			.toMatchTextContent("Unmapped Files");
 		await expect
 			.element(page.getByTestId("unmapped-files-table"))
 			.toBeInTheDocument();

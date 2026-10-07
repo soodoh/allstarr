@@ -328,7 +328,7 @@ describe("download clients route", () => {
 
 		await expect
 			.element(page.getByTestId("page-header"))
-			.toHaveTextContent("Download Clients");
+			.toMatchTextContent("Download Clients");
 		await expect
 			.element(page.getByTestId("download-client-list"))
 			.toBeInTheDocument();
@@ -359,7 +359,7 @@ describe("download clients route", () => {
 		await page.getByRole("button", { name: "qBittorrent" }).click();
 		await expect
 			.element(page.getByTestId("download-client-form-implementation"))
-			.toHaveTextContent("qBittorrent");
+			.toMatchTextContent("qBittorrent");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			downloadClientsRouteMocks.createDownloadClient.mutate,
@@ -382,7 +382,7 @@ describe("download clients route", () => {
 		await page.getByRole("button", { name: "edit" }).click();
 		await expect
 			.element(page.getByTestId("download-client-form-implementation"))
-			.toHaveTextContent("qBittorrent");
+			.toMatchTextContent("qBittorrent");
 		await page.getByRole("button", { name: "submit" }).click();
 		expect(
 			downloadClientsRouteMocks.updateDownloadClient.mutate,

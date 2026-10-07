@@ -287,10 +287,10 @@ describe("AddBooksRoute", () => {
 
 		await expect
 			.element(page.getByTestId("page-header-title"))
-			.toHaveTextContent("Add to Bookshelf");
+			.toMatchTextContent("Add to Bookshelf");
 		await expect
 			.element(page.getByTestId("empty-state-title"))
-			.toHaveTextContent("Search to add");
+			.toMatchTextContent("Search to add");
 
 		await page.getByLabelText("Search query").fill("a");
 		const searchInput = document.querySelector(
@@ -334,11 +334,11 @@ describe("AddBooksRoute", () => {
 		await page.getByRole("heading", { name: "Dune" }).click();
 		await expect
 			.element(page.getByTestId("book-preview-modal"))
-			.toHaveTextContent("Dune");
+			.toMatchTextContent("Dune");
 
 		await page.getByRole("heading", { name: "Frank Herbert" }).click();
 		await expect
 			.element(page.getByTestId("author-preview-modal"))
-			.toHaveTextContent("Frank Herbert");
+			.toMatchTextContent("Frank Herbert");
 	});
 });

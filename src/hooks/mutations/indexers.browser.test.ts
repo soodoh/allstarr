@@ -98,24 +98,20 @@ describe("mutations/indexers", () => {
 			toast: "Synced indexer updated",
 			invalidations: [queryKeys.syncedIndexers.all],
 		},
-	])("wires $name mutations and invalidates the expected cache", async ({
-		hook,
-		fn,
-		variables,
-		call,
-		toast,
-		invalidations,
-	}) => {
-		fn.mockResolvedValue({ ok: true });
+	])(
+		"wires $name mutations and invalidates the expected cache",
+		async ({ hook, fn, variables, call, toast, invalidations }) => {
+			fn.mockResolvedValue({ ok: true });
 
-		await runMutation(hook, variables);
+			await runMutation(hook, variables);
 
-		expect(fn).toHaveBeenCalledWith(call);
-		expect(success).toHaveBeenCalledWith(toast);
-		for (const queryKey of invalidations) {
-			expect(invalidateQueries).toHaveBeenCalledWith({ queryKey });
-		}
-	});
+			expect(fn).toHaveBeenCalledWith(call);
+			expect(success).toHaveBeenCalledWith(toast);
+			for (const queryKey of invalidations) {
+				expect(invalidateQueries).toHaveBeenCalledWith({ queryKey });
+			}
+		},
+	);
 
 	it.each([
 		{
@@ -146,16 +142,14 @@ describe("mutations/indexers", () => {
 			variables: { id: 6, name: "Synced" },
 			errorText: "Failed to update synced indexer",
 		},
-	])("shows the $name error toast when the mutation fails", async ({
-		hook,
-		fn,
-		variables,
-		errorText,
-	}) => {
-		fn.mockRejectedValue(new Error("boom"));
+	])(
+		"shows the $name error toast when the mutation fails",
+		async ({ hook, fn, variables, errorText }) => {
+			fn.mockRejectedValue(new Error("boom"));
 
-		await runMutation(hook, variables, true);
+			await runMutation(hook, variables, true);
 
-		expect(error).toHaveBeenCalledWith(errorText);
-	});
+			expect(error).toHaveBeenCalledWith(errorText);
+		},
+	);
 });

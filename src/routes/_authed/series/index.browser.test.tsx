@@ -968,7 +968,7 @@ describe("series route", () => {
 		await page.getByText("Gamma Special Edition").first().click();
 		await expect
 			.element(page.getByTestId("preview-modal"))
-			.toHaveTextContent("Gamma Special Edition");
+			.toMatchTextContent("Gamma Special Edition");
 
 		await page
 			.getByRole("button", { name: "Edit download profiles" })
@@ -976,7 +976,7 @@ describe("series route", () => {
 			.click();
 		await expect
 			.element(page.getByTestId("edit-profiles-dialog"))
-			.toHaveTextContent("Chronicles");
+			.toMatchTextContent("Chronicles");
 	});
 
 	it("renders optional table columns for local and external series entries", async () => {
@@ -1090,10 +1090,10 @@ describe("series route", () => {
 
 		await expect
 			.element(page.getByTestId("metadata-warning-book"))
-			.toHaveTextContent("Alpha");
+			.toMatchTextContent("Alpha");
 		await expect
 			.element(page.getByTestId("metadata-warning-book-editions"))
-			.toHaveTextContent("Beta");
+			.toMatchTextContent("Beta");
 
 		await page.getByPlaceholder("Filter by series name...").fill("zzz");
 		await vi.advanceTimersByTimeAsync(300);

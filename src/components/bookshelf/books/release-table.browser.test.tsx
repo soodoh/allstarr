@@ -162,7 +162,7 @@ describe("ReleaseTable", () => {
 		);
 
 		await page.getByText("Title").click();
-		expect(container.querySelectorAll("tbody tr")[0]).toHaveTextContent(
+		expect(container.querySelectorAll("tbody tr")[0]).toMatchTextContent(
 			"Alpha",
 		);
 	});
