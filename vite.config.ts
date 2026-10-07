@@ -112,7 +112,7 @@ export default defineConfig({
 		tsconfigPaths: true,
 	},
 	nitro: {
-		rollupConfig: {
+		rolldownConfig: {
 			onwarn(warning, defaultHandler) {
 				if (
 					ignoredNitroWarningCodes.has(warning.code || "") ||
