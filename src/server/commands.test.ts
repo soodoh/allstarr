@@ -1,471 +1,238 @@
+import { jobRuns } from "src/db/schema";
+import { createSqliteFixture } from "src/test/sqlite-fixture";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const commandsMocks = vi.hoisted(() => ({
-	acquireJobRun: vi.fn(),
-	completeJobRun: vi.fn(),
+const mocks = vi.hoisted(() => ({
 	emit: vi.fn(),
-	failJobRun: vi.fn(),
-	heartbeatJobRun: vi.fn(),
-	listActiveJobRuns: vi.fn(),
 	logError: vi.fn(),
 	requireAuth: vi.fn(),
-	rejectDbUse: vi.fn(() => {
-		throw new Error("commands.ts should route command state through job-runs");
-	}),
-	updateJobRunProgress: vi.fn(),
 }));
-
 vi.mock("@tanstack/react-start", () => ({
-	createServerFn: () => ({
-		handler: (handler: (...args: unknown[]) => unknown) => handler,
-	}),
+	createServerFn: () => ({ handler: (handler: unknown) => handler }),
 }));
-
-vi.mock("src/db", () => ({
-	db: new Proxy({}, { get: () => commandsMocks.rejectDbUse }),
-}));
-
-vi.mock("src/db/schema", () => ({
-	activeAdhocCommands: {
-		body: "activeAdhocCommands.body",
-		commandType: "activeAdhocCommands.commandType",
-		id: "activeAdhocCommands.id",
-	},
-}));
-
-vi.mock("./event-bus", () => ({
-	eventBus: {
-		emit: commandsMocks.emit,
-	},
-}));
-
-vi.mock("./logger", () => ({
-	logError: commandsMocks.logError,
-}));
-
-vi.mock("./middleware", () => ({
-	requireAuth: commandsMocks.requireAuth,
-}));
-
-vi.mock("./job-runs", () => ({
-	acquireJobRun: commandsMocks.acquireJobRun,
-	completeJobRun: commandsMocks.completeJobRun,
-	failJobRun: commandsMocks.failJobRun,
-	heartbeatJobRun: commandsMocks.heartbeatJobRun,
-	JOB_HEARTBEAT_INTERVAL_MS: 10_000,
-	listActiveJobRuns: commandsMocks.listActiveJobRuns,
-	updateJobRunProgress: commandsMocks.updateJobRunProgress,
-}));
-
-import { getActiveCommandsFn, submitCommand } from "./commands";
-
-describe("commands server helpers", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		commandsMocks.acquireJobRun.mockReturnValue({ id: 42 });
-		commandsMocks.listActiveJobRuns.mockReturnValue([]);
-	});
-
-	it("rejects duplicate commands that share the dedupe key value", () => {
-		const handler = vi.fn(async () => ({}));
-		commandsMocks.acquireJobRun.mockImplementation(() => {
-			throw new Error("This task is already running.");
-		});
-
-		expect(() =>
-			submitCommand({
-				body: { mediaId: 7 },
-				commandType: "refreshBook",
-				dedupeKey: "mediaId",
-				handler,
-				name: "Refresh book",
-			}),
-		).toThrowError("This task is already running.");
-
-		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
-			sourceType: "command",
-			jobType: "refreshBook",
-			displayName: "Refresh book",
-			dedupeKey: "mediaId",
-			dedupeValue: "7",
-			metadata: { body: { mediaId: 7 }, batchTaskId: undefined },
-		});
-		expect(handler).not.toHaveBeenCalled();
-	});
-
-	it("rejects a command when a matching scheduled batch task is active", () => {
-		commandsMocks.listActiveJobRuns.mockReturnValue([
-			{ sourceType: "scheduled", jobType: "refresh-metadata" },
-		]);
-		const handler = vi.fn(async () => ({}));
-
-		expect(() =>
-			submitCommand({
-				batchTaskId: "refresh-metadata",
-				body: { mediaId: 7 },
-				commandType: "refreshBook",
-				dedupeKey: "mediaId",
-				handler,
-				name: "Refresh book",
-			}),
-		).toThrowError("A batch metadata refresh is already running.");
-
-		expect(handler).not.toHaveBeenCalled();
-		expect(commandsMocks.listActiveJobRuns).toHaveBeenCalledOnce();
-		expect(commandsMocks.acquireJobRun).not.toHaveBeenCalled();
-	});
-
-	it("acquires a command job run with an undefined dedupe value when the body omits the dedupe key", () => {
-		const handler = vi.fn(async () => ({}));
-
-		expect(
-			submitCommand({
-				body: {},
-				commandType: "refreshBook",
-				dedupeKey: "mediaId",
-				handler,
-				name: "Refresh book",
-			}),
-		).toEqual({ commandId: 42 });
-
-		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
-			sourceType: "command",
-			jobType: "refreshBook",
-			displayName: "Refresh book",
-			dedupeKey: "mediaId",
-			dedupeValue: expect.any(String),
-			metadata: { body: {}, batchTaskId: undefined },
-		});
-	});
-
-	it("stores batch task overlap metadata on command job runs", () => {
-		const handler = vi.fn(async () => ({}));
-
-		submitCommand({
-			batchTaskId: "metadata-refresh",
-			body: { mediaId: 21 },
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-
-		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
-			sourceType: "command",
-			jobType: "refreshBook",
-			displayName: "Refresh book",
-			dedupeKey: "mediaId",
-			dedupeValue: "21",
-			metadata: { body: { mediaId: 21 }, batchTaskId: "metadata-refresh" },
-		});
-		expect(
-			commandsMocks.listActiveJobRuns.mock.invocationCallOrder[0],
-		).toBeLessThan(commandsMocks.acquireJobRun.mock.invocationCallOrder[0]);
-	});
-
-	it("updates job-run progress and emits completion for finished commands", async () => {
-		const handler = vi.fn(
-			async (
-				body: Record<string, unknown>,
-				updateProgress: (message: string) => void,
-				setTitle: (title: string) => void,
-			) => {
-				setTitle("Refreshing");
-				updateProgress(`for ${body.mediaId}`);
-				return { ok: true };
-			},
-		);
-
-		expect(
-			submitCommand({
-				body: { mediaId: 99 },
-				commandType: "refreshBook",
-				dedupeKey: "mediaId",
-				handler,
-				name: "Refresh book",
-			}),
-		).toEqual({ commandId: 42 });
-
-		expect(commandsMocks.acquireJobRun).toHaveBeenCalledWith({
-			sourceType: "command",
-			jobType: "refreshBook",
-			displayName: "Refresh book",
-			dedupeKey: "mediaId",
-			dedupeValue: "99",
-			metadata: { body: { mediaId: 99 }, batchTaskId: undefined },
-		});
-
-		await vi.waitFor(() => {
-			expect(commandsMocks.emit).toHaveBeenCalledWith({
-				commandId: 42,
-				progress: "Refreshing — for 99",
-				type: "commandProgress",
-			});
-			expect(commandsMocks.emit).toHaveBeenCalledWith({
-				commandId: 42,
-				commandType: "refreshBook",
-				result: { ok: true },
-				title: "Refreshing",
-				type: "commandCompleted",
-			});
-		});
-
-		expect(commandsMocks.updateJobRunProgress).toHaveBeenCalledWith(
-			42,
-			"Refreshing — for 99",
-		);
-		expect(commandsMocks.completeJobRun).toHaveBeenCalledWith(42, { ok: true });
-		const completionEventCall = commandsMocks.emit.mock.calls.findIndex(
-			([event]) =>
-				event &&
-				typeof event === "object" &&
-				"type" in event &&
-				event.type === "commandCompleted",
-		);
-		expect(
-			commandsMocks.completeJobRun.mock.invocationCallOrder[0],
-		).toBeLessThan(
-			commandsMocks.emit.mock.invocationCallOrder[completionEventCall],
-		);
-		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
-		expect(commandsMocks.logError).not.toHaveBeenCalled();
-	});
-
-	it("heartbeats active no-progress commands and clears the interval", async () => {
-		vi.useFakeTimers();
-		let resolveHandler: () => void = () => {
-			throw new Error("handler promise was not initialized");
-		};
-		const handler = vi.fn(
-			() =>
-				new Promise<Record<string, unknown>>((resolve) => {
-					resolveHandler = () => resolve({ ok: true });
-				}),
-		);
-
-		submitCommand({
-			body: { mediaId: 99 },
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-
-		expect(handler).toHaveBeenCalledOnce();
-		vi.advanceTimersByTime(9_999);
-		expect(commandsMocks.heartbeatJobRun).not.toHaveBeenCalled();
-		vi.advanceTimersByTime(1);
-		expect(commandsMocks.heartbeatJobRun).toHaveBeenCalledWith(42);
-
-		resolveHandler();
-		await vi.waitFor(() => {
-			expect(commandsMocks.completeJobRun).toHaveBeenCalledWith(42, {
-				ok: true,
-			});
-		});
-
-		expect(vi.getTimerCount()).toBe(0);
-		vi.useRealTimers();
-	});
-
-	it("logs, fails the job run, and emits failures for failed commands", async () => {
-		const boom = new Error("boom");
-		const handler = vi.fn(
-			async (
-				_body: Record<string, unknown>,
-				_updateProgress: (message: string) => void,
-				setTitle: (title: string) => void,
-			) => {
-				setTitle("Failing task");
-				throw boom;
-			},
-		);
-
-		submitCommand({
-			body: { mediaId: 11 },
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-
-		await vi.waitFor(() => {
-			expect(commandsMocks.logError).toHaveBeenCalledWith(
-				"command",
-				"refreshBook #42 failed",
-				boom,
-			);
-			expect(commandsMocks.emit).toHaveBeenCalledWith({
-				commandId: 42,
-				commandType: "refreshBook",
-				error: "boom",
-				title: "Failing task",
-				type: "commandFailed",
-			});
-		});
-
-		expect(commandsMocks.failJobRun).toHaveBeenCalledWith(42, "boom");
-		const failureEventCall = commandsMocks.emit.mock.calls.findIndex(
-			([event]) =>
-				event &&
-				typeof event === "object" &&
-				"type" in event &&
-				event.type === "commandFailed",
-		);
-		expect(commandsMocks.failJobRun.mock.invocationCallOrder[0]).toBeLessThan(
-			commandsMocks.emit.mock.invocationCallOrder[failureEventCall],
-		);
-		expect(commandsMocks.rejectDbUse).not.toHaveBeenCalled();
-	});
-
-	it("clears heartbeat intervals after failed commands", async () => {
-		vi.useFakeTimers();
-		let rejectHandler: () => void = () => {
-			throw new Error("handler promise was not initialized");
-		};
-		const handler = vi.fn(
-			() =>
-				new Promise<Record<string, unknown>>((_resolve, reject) => {
-					rejectHandler = () => reject(new Error("boom"));
-				}),
-		);
-
-		submitCommand({
-			body: { mediaId: 99 },
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-
-		expect(handler).toHaveBeenCalledOnce();
-		vi.advanceTimersByTime(10_000);
-		expect(commandsMocks.heartbeatJobRun).toHaveBeenCalledWith(42);
-
-		rejectHandler();
-		await vi.waitFor(() => {
-			expect(commandsMocks.failJobRun).toHaveBeenCalledWith(42, "boom");
-		});
-
-		expect(vi.getTimerCount()).toBe(0);
-		vi.useRealTimers();
-	});
-
-	it("returns active commands for authenticated requests", async () => {
-		commandsMocks.listActiveJobRuns.mockReturnValue([
-			{
-				displayName: "Refresh book",
-				id: 5,
-				jobType: "refreshBook",
-				metadata: { body: { mediaId: 5 } },
-				progress: "working",
-				sourceType: "command",
-			},
-			{
-				displayName: "Scheduled refresh",
-				id: 6,
-				jobType: "metadata-refresh",
-				metadata: { body: { mediaId: 9 } },
-				progress: "queued",
-				sourceType: "scheduled",
-			},
-		]);
-
-		await expect(getActiveCommandsFn()).resolves.toEqual([
-			{
-				body: { mediaId: 5 },
-				commandType: "refreshBook",
-				id: 5,
-				name: "Refresh book",
-				progress: "working",
-			},
-		]);
-
-		expect(commandsMocks.requireAuth).toHaveBeenCalledTimes(1);
-	});
+vi.mock("./event-bus", () => ({ eventBus: { emit: mocks.emit } }));
+vi.mock("./logger", () => ({ logError: mocks.logError }));
+vi.mock("./middleware", () => ({ requireAuth: mocks.requireAuth }));
+let fixture: ReturnType<typeof createSqliteFixture>;
+let commands: typeof import("./commands");
+let jobs: typeof import("./job-runs");
+beforeEach(async () => {
+	vi.resetAllMocks();
+	vi.resetModules();
+	vi.useFakeTimers();
+	fixture = createSqliteFixture();
+	vi.doMock("src/db", () => ({ db: fixture.db }));
+	commands = await import("./commands");
+	jobs = await import("./job-runs");
 });
+afterEach(() => {
+	fixture.close();
+	vi.doUnmock("src/db");
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+});
+function submit(
+	handler: import("./commands").CommandHandler,
+	body: Record<string, unknown> = { mediaId: 7 },
+) {
+	return commands.submitCommand({
+		commandType: "refreshBook",
+		name: "Refresh book",
+		dedupeKey: "mediaId",
+		body,
+		handler,
+	});
+}
 
-describe("commands server helpers with real job-run acquisition", () => {
-	afterEach(() => {
-		vi.doMock("./job-runs", () => ({
-			acquireJobRun: commandsMocks.acquireJobRun,
-			completeJobRun: commandsMocks.completeJobRun,
-			failJobRun: commandsMocks.failJobRun,
-			heartbeatJobRun: commandsMocks.heartbeatJobRun,
-			JOB_HEARTBEAT_INTERVAL_MS: 10_000,
-			listActiveJobRuns: commandsMocks.listActiveJobRuns,
-			updateJobRunProgress: commandsMocks.updateJobRunProgress,
-		}));
-		vi.doMock("src/db", () => ({
-			db: new Proxy({}, { get: () => commandsMocks.rejectDbUse }),
-		}));
-		vi.doUnmock("drizzle-orm");
-		vi.doUnmock("src/db/schema");
-		vi.resetModules();
+describe("command presentation and admission", () => {
+	it("rejects duplicate commands without starting duplicate work", async () => {
+		const work = Promise.withResolvers<Record<string, unknown>>();
+		const handler = vi.fn(() => work.promise);
+		submit(handler);
+		expect(() => submit(handler)).toThrow("This task is already running.");
+		expect(handler).toHaveBeenCalledTimes(1);
+		work.resolve({});
+		await vi.advanceTimersByTimeAsync(0);
 	});
 
 	it("allows same-type commands with missing dedupe values to run concurrently", async () => {
-		vi.resetModules();
-		vi.doUnmock("./job-runs");
-		vi.doUnmock("drizzle-orm");
-		vi.doUnmock("src/db/schema");
-
-		const [{ default: Database }, { drizzle }, schema] = await Promise.all([
-			import("better-sqlite3"),
-			import("drizzle-orm/better-sqlite3"),
-			import("src/db/schema"),
-		]);
-		const sqlite = new Database(":memory:");
-		sqlite.exec(`
-			CREATE TABLE job_runs (
-				id integer PRIMARY KEY AUTOINCREMENT,
-				source_type text NOT NULL,
-				job_type text NOT NULL,
-				display_name text NOT NULL,
-				dedupe_key text,
-				dedupe_value text,
-				status text DEFAULT 'queued' NOT NULL,
-				progress text,
-				attempt integer DEFAULT 1 NOT NULL,
-				result text,
-				error text,
-				metadata text,
-				started_at integer,
-				last_heartbeat_at integer,
-				finished_at integer,
-				created_at integer NOT NULL,
-				updated_at integer NOT NULL
-			)
-		`);
-		sqlite.exec(`
-			CREATE UNIQUE INDEX job_runs_active_dedupe_unique_idx
-			ON job_runs (source_type, job_type, dedupe_key, dedupe_value)
-			WHERE status IN ('queued', 'running')
-		`);
-		const db = drizzle({ client: sqlite, schema });
-
-		vi.doMock("src/db", () => ({ db, sqlite }));
-		const { submitCommand } = await import("./commands");
-		const handler = vi.fn(() => new Promise<Record<string, unknown>>(() => {}));
-
-		const first = submitCommand({
-			body: {},
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-		const second = submitCommand({
-			body: {},
-			commandType: "refreshBook",
-			dedupeKey: "mediaId",
-			handler,
-			name: "Refresh book",
-		});
-
+		const work = Promise.withResolvers<Record<string, unknown>>();
+		const handler = vi.fn(() => work.promise);
+		const first = submit(handler, {});
+		const second = submit(handler, {});
 		expect(first.commandId).not.toBe(second.commandId);
 		expect(handler).toHaveBeenCalledTimes(2);
+		expect(jobs.listActiveJobRuns()).toHaveLength(2);
+		work.resolve({});
+		await vi.advanceTimersByTimeAsync(0);
+	});
 
-		sqlite.close();
+	it("rejects a command when its scheduled batch is already active", () => {
+		jobs.acquireJobRun({
+			sourceType: "scheduled",
+			jobType: "refresh-metadata",
+			displayName: "Batch",
+		});
+		const handler = vi.fn();
+		expect(() =>
+			commands.submitCommand({
+				commandType: "refreshBook",
+				name: "Refresh book",
+				body: { mediaId: 7 },
+				dedupeKey: "mediaId",
+				batchTaskId: "refresh-metadata",
+				handler,
+			}),
+		).toThrow("A batch metadata refresh is already running.");
+		expect(handler).not.toHaveBeenCalled();
+		expect(jobs.listActiveJobRuns()).toHaveLength(1);
+	});
+
+	it("stores command body and batch overlap metadata", async () => {
+		commands.submitCommand({
+			commandType: "refreshBook",
+			name: "Refresh book",
+			body: { mediaId: 7 },
+			dedupeKey: "mediaId",
+			batchTaskId: "refresh-metadata",
+			handler: async () => ({}),
+		});
+		expect(jobs.listActiveJobRuns()[0]).toMatchObject({
+			metadata: { body: { mediaId: 7 }, batchTaskId: "refresh-metadata" },
+			dedupeKey: "mediaId",
+			dedupeValue: "7",
+		});
+		await vi.advanceTimersByTimeAsync(0);
+	});
+
+	it("formats progress and emits completion only after persisted completion", async () => {
+		mocks.emit.mockImplementation((event) => {
+			if (event.type === "commandCompleted") {
+				expect(fixture.db.select().from(jobRuns).all()[0]).toMatchObject({
+					status: "succeeded",
+					result: { ok: true },
+				});
+			}
+		});
+		const submitted = submit(async (body, progress, title) => {
+			title("Refreshing");
+			progress(`for ${body.mediaId}`);
+			return { ok: true };
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		expect(mocks.emit).toHaveBeenCalledWith({
+			type: "commandProgress",
+			commandId: submitted.commandId,
+			progress: "Refreshing — for 7",
+		});
+		expect(mocks.emit).toHaveBeenCalledWith({
+			type: "commandCompleted",
+			commandId: submitted.commandId,
+			commandType: "refreshBook",
+			result: { ok: true },
+			title: "Refreshing",
+		});
+		expect(fixture.db.select().from(jobRuns).all()[0]?.progress).toBe(
+			"Refreshing — for 7",
+		);
+		expect(mocks.logError).not.toHaveBeenCalled();
+	});
+
+	it.each([new Error("boom"), "bad"])(
+		"formats failures after persisted failure (%s)",
+		async (error) => {
+			mocks.emit.mockImplementation((event) => {
+				if (event.type === "commandFailed")
+					expect(fixture.db.select().from(jobRuns).all()[0]?.status).toBe(
+						"failed",
+					);
+			});
+			const submitted = submit(async (_body, _progress, title) => {
+				title("Failing task");
+				throw error;
+			});
+			await vi.advanceTimersByTimeAsync(0);
+			expect(mocks.logError).toHaveBeenCalledWith(
+				"command",
+				`refreshBook #${submitted.commandId} failed`,
+				error,
+			);
+			expect(mocks.emit).toHaveBeenCalledWith({
+				type: "commandFailed",
+				commandId: submitted.commandId,
+				commandType: "refreshBook",
+				error: error instanceof Error ? "boom" : "Unknown error",
+				title: "Failing task",
+			});
+		},
+	);
+
+	it("returns active commands for authenticated reconnection and excludes scheduled runs", async () => {
+		const work = Promise.withResolvers<Record<string, unknown>>();
+		const submitted = submit(() => work.promise);
+		jobs.acquireJobRun({
+			sourceType: "scheduled",
+			jobType: "batch",
+			displayName: "Batch",
+		});
+		expect(await commands.getActiveCommandsFn()).toEqual([
+			{
+				id: submitted.commandId,
+				commandType: "refreshBook",
+				name: "Refresh book",
+				progress: null,
+				body: { mediaId: 7 },
+			},
+		]);
+		expect(mocks.requireAuth).toHaveBeenCalledTimes(1);
+		work.resolve({});
+		await vi.advanceTimersByTimeAsync(0);
+	});
+
+	it.each([null, { body: null }, { body: [] }, { body: "bad" }])(
+		"normalizes legacy reconnect metadata (%s)",
+		async (metadata) => {
+			const run = jobs.acquireJobRun({
+				sourceType: "command",
+				jobType: "legacy",
+				displayName: "Legacy",
+			});
+			fixture.db.update(jobRuns).set({ metadata }).run();
+			expect(await commands.getActiveCommandsFn()).toEqual([
+				{
+					id: run.id,
+					commandType: "legacy",
+					name: "Legacy",
+					progress: null,
+					body: {},
+				},
+			]);
+		},
+	);
+
+	it("logs detached execution errors when failure persistence is unavailable", async () => {
+		fixture.sqlite.exec(
+			"CREATE TRIGGER reject_failure BEFORE UPDATE OF status ON job_runs WHEN NEW.status = 'failed' BEGIN SELECT RAISE(ABORT, 'storage unavailable'); END",
+		);
+		const submitted = submit(async () => {
+			throw new Error("work failed");
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		expect(mocks.logError).toHaveBeenCalledWith(
+			"command",
+			`Uncaught error in refreshBook #${submitted.commandId}`,
+			expect.objectContaining({
+				message: expect.stringContaining("storage unavailable"),
+			}),
+		);
+		expect(mocks.emit).not.toHaveBeenCalled();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("rejects unauthenticated reconnection", async () => {
+		mocks.requireAuth.mockRejectedValue(new Error("Unauthorized"));
+		await expect(commands.getActiveCommandsFn()).rejects.toThrow(
+			"Unauthorized",
+		);
 	});
 });

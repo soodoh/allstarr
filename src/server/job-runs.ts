@@ -93,6 +93,42 @@ export function acquireJobRun(input: AcquireJobRunInput): JobRun {
 	}
 }
 
+export type JobRunOutcome<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> =
+	| { status: "succeeded"; result: T }
+	| { status: "failed"; message: string; error?: unknown };
+
+/** Owns the lifetime of an already-admitted run; work retains source-specific interpretation. */
+export async function executeJobRun<T extends Record<string, unknown>>(
+	jobRunId: number,
+	work: (
+		reportProgress: (message: string) => void,
+	) => Promise<JobRunOutcome<T>>,
+): Promise<JobRunOutcome<T>> {
+	const heartbeatInterval = setInterval(
+		() => heartbeatJobRun(jobRunId),
+		JOB_HEARTBEAT_INTERVAL_MS,
+	);
+	try {
+		const outcome = await work((message) =>
+			updateJobRunProgress(jobRunId, message),
+		);
+		if (outcome.status === "succeeded") {
+			completeJobRun(jobRunId, outcome.result);
+		} else {
+			failJobRun(jobRunId, outcome.message);
+		}
+		return outcome;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown error";
+		failJobRun(jobRunId, message);
+		return { status: "failed", message, error };
+	} finally {
+		clearInterval(heartbeatInterval);
+	}
+}
+
 export function heartbeatJobRun(jobRunId: number): void {
 	const now = new Date();
 

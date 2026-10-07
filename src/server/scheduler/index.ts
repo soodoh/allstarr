@@ -4,13 +4,9 @@ import { scheduledTasks } from "src/db/schema";
 import { eventBus } from "../event-bus";
 import {
 	acquireJobRun,
-	completeJobRun,
-	failJobRun,
-	heartbeatJobRun,
-	JOB_HEARTBEAT_INTERVAL_MS,
+	executeJobRun,
 	listActiveJobRuns,
 	markStaleJobRuns,
-	updateJobRunProgress,
 } from "../job-runs";
 import { logError, logInfo } from "../logger";
 import { getAllTasks, getTask } from "./registry";
@@ -109,63 +105,50 @@ async function executeTask(taskId: string): Promise<void> {
 	}
 
 	const start = Date.now();
-	const heartbeatInterval = setInterval(
-		() => heartbeatJobRun(run.id),
-		JOB_HEARTBEAT_INTERVAL_MS,
-	);
-
-	try {
-		const updateProgress = (message: string): void => {
-			updateJobRunProgress(run.id, message);
-			db.update(scheduledTasks)
-				.set({ progress: message })
-				.where(eq(scheduledTasks.id, taskId))
-				.run();
-			eventBus.emit({ type: "taskUpdated", taskId });
-		};
-
-		const result = await task.handler(updateProgress);
-		const duration = Date.now() - start;
-
+	const writeResult = (success: boolean, message: string): void => {
 		db.update(scheduledTasks)
 			.set({
 				progress: null,
 				lastExecution: new Date(),
-				lastDuration: duration,
-				lastResult: result.success ? "success" : "error",
-				lastMessage: result.message,
-			})
-			.where(eq(scheduledTasks.id, taskId))
-			.run();
-
-		if (result.success) {
-			completeJobRun(run.id, result as Record<string, unknown>);
-		} else {
-			failJobRun(run.id, result.message);
-		}
-		logInfo("scheduler", `${task.name}: ${result.message} (${duration}ms)`);
-		eventBus.emit({ type: "taskUpdated", taskId });
-	} catch (error) {
-		const duration = Date.now() - start;
-		const message = error instanceof Error ? error.message : "Unknown error";
-
-		db.update(scheduledTasks)
-			.set({
-				progress: null,
-				lastExecution: new Date(),
-				lastDuration: duration,
-				lastResult: "error",
+				lastDuration: Date.now() - start,
+				lastResult: success ? "success" : "error",
 				lastMessage: message,
 			})
 			.where(eq(scheduledTasks.id, taskId))
 			.run();
-
-		failJobRun(run.id, message);
-		logError("scheduler", `${task.name} failed: ${message}`, error);
-		eventBus.emit({ type: "taskUpdated", taskId });
-	} finally {
-		clearInterval(heartbeatInterval);
+	};
+	const outcome = await executeJobRun(run.id, async (reportProgress) => {
+		try {
+			const result = await task.handler((message) => {
+				reportProgress(message);
+				db.update(scheduledTasks)
+					.set({ progress: message })
+					.where(eq(scheduledTasks.id, taskId))
+					.run();
+				eventBus.emit({ type: "taskUpdated", taskId });
+			});
+			writeResult(result.success, result.message);
+			return result.success
+				? { status: "succeeded", result }
+				: { status: "failed", message: result.message };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			return { status: "failed", message, error };
+		}
+	});
+	if (outcome.status === "failed" && "error" in outcome) {
+		writeResult(false, outcome.message);
+		logError(
+			"scheduler",
+			`${task.name} failed: ${outcome.message}`,
+			outcome.error,
+		);
+	} else {
+		const message =
+			outcome.status === "succeeded" ? outcome.result.message : outcome.message;
+		logInfo("scheduler", `${task.name}: ${message} (${Date.now() - start}ms)`);
 	}
+	eventBus.emit({ type: "taskUpdated", taskId });
 }
 
 function startTimers(): void {

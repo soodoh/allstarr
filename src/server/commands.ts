@@ -1,15 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { eventBus } from "./event-bus";
-import {
-	acquireJobRun,
-	completeJobRun,
-	failJobRun,
-	heartbeatJobRun,
-	JOB_HEARTBEAT_INTERVAL_MS,
-	listActiveJobRuns,
-	updateJobRunProgress,
-} from "./job-runs";
+import { acquireJobRun, executeJobRun, listActiveJobRuns } from "./job-runs";
 import { logError } from "./logger";
 import { requireAuth } from "./middleware";
 
@@ -54,39 +46,35 @@ async function doWork(
 		title = t;
 	};
 
-	const updateProgress = (message: string): void => {
-		const progress = title ? `${title} — ${message}` : message;
-		updateJobRunProgress(commandId, progress);
-		eventBus.emit({ type: "commandProgress", commandId, progress });
-	};
-	const heartbeatInterval = setInterval(
-		() => heartbeatJobRun(commandId),
-		JOB_HEARTBEAT_INTERVAL_MS,
-	);
+	const outcome = await executeJobRun(commandId, async (reportProgress) => {
+		const updateProgress = (message: string): void => {
+			const progress = title ? `${title} — ${message}` : message;
+			reportProgress(progress);
+			eventBus.emit({ type: "commandProgress", commandId, progress });
+		};
+		return {
+			status: "succeeded",
+			result: await handler(body, updateProgress, setTitle),
+		};
+	});
 
-	try {
-		const result = await handler(body, updateProgress, setTitle);
-		completeJobRun(commandId, result);
+	if (outcome.status === "succeeded") {
 		eventBus.emit({
 			type: "commandCompleted",
 			commandId,
 			commandType,
-			result,
+			result: outcome.result,
 			title,
 		});
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "Unknown error";
-		logError("command", `${commandType} #${commandId} failed`, error);
-		failJobRun(commandId, message);
+	} else {
+		logError("command", `${commandType} #${commandId} failed`, outcome.error);
 		eventBus.emit({
 			type: "commandFailed",
 			commandId,
 			commandType,
-			error: message,
+			error: outcome.message,
 			title,
 		});
-	} finally {
-		clearInterval(heartbeatInterval);
 	}
 }
 
