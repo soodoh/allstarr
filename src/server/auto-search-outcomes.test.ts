@@ -16,6 +16,7 @@ describe("auto-search outcomes", () => {
 			all_indexers_exhausted: 0,
 			download_client_unavailable: 0,
 			download_dispatch_failed: 0,
+			grab_limit_reached: 0,
 			pack_search_failed: 0,
 			fallback_used: 0,
 			no_matching_releases: 0,

@@ -1,9 +1,7 @@
 import type { AutoSearchOutcomeRecorder } from "./auto-search-outcomes";
 import type { BookSearchParams } from "./indexers/http";
-import type { IndexerRelease } from "./indexers/types";
 
 type IndexerSource = "manual" | "synced";
-
 type GateResult =
 	| { allowed: true }
 	| {
@@ -11,7 +9,6 @@ type GateResult =
 			reason: "backoff" | "pacing" | "daily_query_limit" | "daily_grab_limit";
 			waitMs?: number;
 	  };
-
 type EnabledIndexer = {
 	id: number;
 	name: string;
@@ -19,12 +16,10 @@ type EnabledIndexer = {
 	apiPath: string | null;
 	apiKey: string | null;
 };
-
 export type EnabledIndexers = {
 	manual: EnabledIndexer[];
 	synced: EnabledIndexer[];
 };
-
 type SearchResult = {
 	title: string;
 	guid: string;
@@ -33,143 +28,126 @@ type SearchResult = {
 	downloadUrl: string;
 	indexer?: string | null;
 };
-
 type EnrichedSearchResult<TRelease extends SearchResult> = TRelease & {
 	indexer: string;
 	allstarrIndexerId: number;
 	indexerSource: IndexerSource;
 };
-
-type SearchNewznab<TRelease extends SearchResult> = (
-	feed: { baseUrl: string; apiPath: string; apiKey: string },
-	query: string,
-	categories: number[],
-	bookParams: BookSearchParams | undefined,
-	indexerIdentity: { indexerType: IndexerSource; indexerId: number },
-) => Promise<TRelease[]>;
-
-export type SearchEnabledIndexersOptions<
-	TRelease extends SearchResult,
-	TEnriched,
-> = {
+type SearchOptions = {
 	bookParams?: BookSearchParams;
-	canQueryIndexer: (
-		indexerType: IndexerSource,
-		indexerId: number,
-	) => GateResult;
 	categories: number[];
 	contentType?: "book" | "tv";
 	enabledIndexers: EnabledIndexers;
+	logPrefix?: string;
+	searchContext?: "movie" | "episode";
+	onOutcome?: AutoSearchOutcomeRecorder;
+	query: string;
+};
+
+/** Bind adapters once; each search supplies only its query and media facts. */
+export function createIndexerSearch<TRelease extends SearchResult, TEnriched>({
+	canQueryIndexer,
+	enrichRelease,
+	logError,
+	logInfo,
+	searchNewznab,
+	sleep,
+}: {
+	canQueryIndexer: (source: IndexerSource, id: number) => GateResult;
 	enrichRelease: (
 		release: EnrichedSearchResult<TRelease>,
 		contentType?: "book" | "tv",
 	) => TEnriched;
 	logError: (prefix: string, message: string, error: unknown) => void;
 	logInfo: (prefix: string, message: string) => void;
-	logPrefix?: string;
-	onOutcome?: AutoSearchOutcomeRecorder;
-	query: string;
-	searchNewznab: SearchNewznab<TRelease>;
+	searchNewznab: (
+		feed: { baseUrl: string; apiPath: string; apiKey: string },
+		query: string,
+		categories: number[],
+		bookParams: BookSearchParams | undefined,
+		identity: { indexerType: IndexerSource; indexerId: number },
+	) => Promise<TRelease[]>;
 	sleep: (ms: number) => Promise<void> | void;
-};
-
-async function waitOrSkipBlockedIndexer(
-	indexer: EnabledIndexer,
-	gate: Exclude<GateResult, { allowed: true }>,
-	logInfo: (prefix: string, message: string) => void,
-	logPrefix: string,
-	sleep: (ms: number) => Promise<void> | void,
-	onOutcome?: AutoSearchOutcomeRecorder,
-): Promise<boolean> {
-	if (gate.reason === "pacing" && gate.waitMs) {
-		await sleep(gate.waitMs);
-		return true;
-	}
-
-	onOutcome?.("indexer_skipped");
-	logInfo(logPrefix, `Indexer "${indexer.name}" skipped: ${gate.reason}`);
-	return false;
-}
-
-export async function searchEnabledIndexers<
-	TRelease extends SearchResult,
-	TEnriched = IndexerRelease,
->({
-	bookParams,
-	canQueryIndexer,
-	categories,
-	contentType,
-	enabledIndexers,
-	enrichRelease,
-	logError,
-	logInfo,
-	logPrefix = "rss-sync",
-	onOutcome,
-	query,
-	searchNewznab,
-	sleep,
-}: SearchEnabledIndexersOptions<TRelease, TEnriched>): Promise<TEnriched[]> {
-	const allReleases: TEnriched[] = [];
-
-	const indexerGroups = [
-		{
-			source: "synced" as const,
-			indexers: enabledIndexers.synced.filter((indexer) => indexer.apiKey),
-		},
-		{ source: "manual" as const, indexers: enabledIndexers.manual },
-	];
-
-	for (const group of indexerGroups) {
-		for (const indexer of group.indexers) {
-			const gate = canQueryIndexer(group.source, indexer.id);
-			if (!gate.allowed) {
-				const shouldQuery = await waitOrSkipBlockedIndexer(
-					indexer,
-					gate,
-					logInfo,
-					logPrefix,
-					sleep,
-					onOutcome,
-				);
-				if (!shouldQuery) {
+}) {
+	return async function searchEnabledIndexers({
+		bookParams,
+		categories,
+		contentType,
+		enabledIndexers,
+		logPrefix = "rss-sync",
+		searchContext,
+		onOutcome,
+		query,
+	}: SearchOptions): Promise<TEnriched[]> {
+		const allReleases: TEnriched[] = [];
+		const context = searchContext ? ` for ${searchContext}` : "";
+		const groups = [
+			{
+				source: "synced" as const,
+				indexers: enabledIndexers.synced.filter((indexer) => indexer.apiKey),
+			},
+			{ source: "manual" as const, indexers: enabledIndexers.manual },
+		];
+		for (const group of groups) {
+			for (const indexer of group.indexers) {
+				let gate = canQueryIndexer(group.source, indexer.id);
+				if (
+					!gate.allowed &&
+					gate.reason === "pacing" &&
+					gate.waitMs &&
+					gate.waitMs > 0
+				) {
+					await sleep(gate.waitMs);
+					gate = canQueryIndexer(group.source, indexer.id);
+				}
+				if (!gate.allowed) {
+					onOutcome?.("indexer_skipped");
+					logInfo(
+						logPrefix,
+						`Indexer "${indexer.name}" skipped${context}: ${gate.reason}`,
+					);
 					continue;
 				}
-			}
-
-			try {
-				const results = await searchNewznab(
-					{
-						baseUrl: indexer.baseUrl,
-						apiPath: indexer.apiPath ?? "/api",
-						apiKey:
-							group.source === "manual"
-								? (indexer.apiKey as string)
-								: (indexer.apiKey ?? ""),
-					},
-					query,
-					categories,
-					bookParams,
-					{ indexerType: group.source, indexerId: indexer.id },
-				);
-				allReleases.push(
-					...results.map((release) =>
-						enrichRelease(
-							{
-								...release,
-								indexer: release.indexer || indexer.name,
-								allstarrIndexerId: indexer.id,
-								indexerSource: group.source,
-							},
-							contentType,
+				try {
+					const results = await searchNewznab(
+						{
+							baseUrl: indexer.baseUrl,
+							apiPath: indexer.apiPath ?? "/api",
+							apiKey:
+								group.source === "manual"
+									? (indexer.apiKey as string)
+									: (indexer.apiKey ?? ""),
+						},
+						query,
+						categories,
+						bookParams,
+						{ indexerType: group.source, indexerId: indexer.id },
+					);
+					allReleases.push(
+						...results.map((release) =>
+							enrichRelease(
+								{
+									...release,
+									indexer: release.indexer || indexer.name,
+									allstarrIndexerId: indexer.id,
+									indexerSource: group.source,
+								},
+								contentType,
+							),
 						),
-					),
-				);
-			} catch (error) {
-				onOutcome?.("indexer_failed");
-				logError(logPrefix, `Indexer "${indexer.name}" failed`, error);
+					);
+				} catch (error) {
+					onOutcome?.("indexer_failed");
+					logError(
+						logPrefix,
+						group.source === "manual" && searchContext
+							? `Manual indexer failed${context}`
+							: `Indexer "${indexer.name}" failed${context}`,
+						error,
+					);
+				}
 			}
 		}
-	}
-
-	return allReleases;
+		return allReleases;
+	};
 }

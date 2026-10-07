@@ -10,6 +10,7 @@ import {
 	seedIndexer,
 } from "../fixtures/seed-data";
 import { ensureAuthenticated } from "../helpers/auth";
+import navigateTo from "../helpers/navigation";
 import { triggerScheduledTask } from "../helpers/tasks";
 import PORTS from "../ports";
 
@@ -140,6 +141,63 @@ test.describe("Auto-Search", () => {
 		const grabEntry = historyEntries.find((h) => h.eventType === "bookGrabbed");
 		expect(grabEntry).toBeTruthy();
 	});
+
+	for (const alternative of [false, true]) {
+		test(`manual and automatic grabs share the cap (alternate origin: ${alternative})`, async ({
+			page,
+			appUrl,
+			db,
+			fakeServers,
+			checkpoint,
+		}) => {
+			db.update(schema.indexers)
+				.set({ dailyGrabLimit: 1, requestInterval: 0 })
+				.run();
+			checkpoint();
+			await navigateTo(page, appUrl, `/books/${bookId}`);
+			await page.getByRole("tab", { name: "Search Releases" }).click();
+			await expect(page.getByTitle("Grab release").first()).toBeVisible({
+				timeout: 15_000,
+			});
+			await page.getByTitle("Grab release").first().click();
+			await expect(page.getByText(/sent to/i).first()).toBeVisible({
+				timeout: 10_000,
+			});
+			const initial = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+				(response) => response.json(),
+			);
+			expect(initial.addedDownloads).toHaveLength(1);
+			db.delete(schema.trackedDownloads).run();
+			db.delete(schema.history).run();
+			if (alternative)
+				seedIndexer(db, {
+					name: "Alternate origin",
+					implementation: "Torznab",
+					protocol: "torrent",
+					baseUrl: `http://localhost:${PORTS.NEWZNAB}`,
+					apiKey: "test-newznab-api-key",
+					enableRss: true,
+					enableAutomaticSearch: true,
+					priority: 100,
+					requestInterval: 0,
+					dailyGrabLimit: 1,
+				});
+			checkpoint();
+			await triggerScheduledTask(page, appUrl, "RSS Sync");
+			const state = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+				(response) => response.json(),
+			);
+			expect(state.addedDownloads).toHaveLength(alternative ? 2 : 1);
+			const tracked = db.select().from(schema.trackedDownloads).all();
+			expect(tracked).toHaveLength(alternative ? 1 : 0);
+			const grabs = db
+				.select()
+				.from(schema.history)
+				.all()
+				.filter((entry) => entry.eventType === "bookGrabbed");
+			expect(grabs).toHaveLength(alternative ? 1 : 0);
+		});
+	}
 
 	test("auto-search respects cutoff — does not search when at cutoff", async ({
 		page,

@@ -4,6 +4,7 @@ export const AUTO_SEARCH_OUTCOME_REASONS = [
 	"all_indexers_exhausted",
 	"download_client_unavailable",
 	"download_dispatch_failed",
+	"grab_limit_reached",
 	"pack_search_failed",
 	"fallback_used",
 	"no_matching_releases",

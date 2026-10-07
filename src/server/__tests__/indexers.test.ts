@@ -546,6 +546,23 @@ describe("dedupeAndScoreReleases", () => {
 		expect(result[1].title).toBe("Release 3");
 	});
 
+	it("preserves alternate indexer origins for automatic cap fallback without duplicating an origin", async () => {
+		const { dedupeAndScoreReleases } = await import("../indexers");
+		const manual = makeRelease({
+			guid: "same-guid",
+			indexerSource: "manual",
+			allstarrIndexerId: 1,
+		});
+		const duplicate = makeRelease({ ...manual });
+		const synced = makeRelease({ ...manual, indexerSource: "synced" });
+		const other = makeRelease({ ...manual, allstarrIndexerId: 2 });
+		expect(
+			dedupeAndScoreReleases([manual, duplicate, synced, other], null, null, {
+				preserveIndexerOrigins: true,
+			}),
+		).toEqual([manual, synced, other]);
+	});
+
 	it("filters irrelevant releases when bookInfo provided", async () => {
 		// Make fuzzy matching fail for one release
 		mocks.tokenSetRatio
@@ -1030,6 +1047,10 @@ describe("grabReleaseFn", () => {
 	});
 
 	it("throws when grab rate limit reached", async () => {
+		mocks.selectGet.mockReturnValue({ downloadClientId: null, tag: null });
+		mocks.selectAll.mockReturnValue([makeClient()]);
+		const addDownload = vi.fn();
+		mocks.getProvider.mockResolvedValue({ addDownload });
 		mocks.canGrabIndexer.mockReturnValue({
 			allowed: false,
 			reason: "dailyCap",
@@ -1109,6 +1130,7 @@ describe("grabReleaseFn", () => {
 				},
 			}),
 		).rejects.toThrow("Download client not found");
+		expect(mocks.canGrabIndexer).not.toHaveBeenCalled();
 	});
 
 	it("throws when no matching protocol clients found", async () => {
@@ -1135,6 +1157,7 @@ describe("grabReleaseFn", () => {
 				},
 			}),
 		).rejects.toThrow("No enabled usenet download clients configured");
+		expect(mocks.canGrabIndexer).not.toHaveBeenCalled();
 	});
 
 	it("records history and tracked download after successful grab", async () => {

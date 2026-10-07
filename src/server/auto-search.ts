@@ -23,33 +23,29 @@ import {
 	syncedIndexers,
 	trackedDownloads,
 } from "src/db/schema";
-import { dispatchAutoSearchDownload } from "./auto-search-download-dispatch";
 import {
+	type AutoSearchGrabResult,
+	dispatchAutoSearchDownload,
+} from "./auto-search-download-dispatch";
+import {
+	createIndexerSearch,
 	type EnabledIndexers,
-	searchEnabledIndexers,
 } from "./auto-search-indexer-search";
 import {
 	type AutoSearchOutcomeCounts,
-	type AutoSearchOutcomeReason,
 	type AutoSearchOutcomeRecorder,
 	createAutoSearchOutcomeCounts,
 	createAutoSearchOutcomeRecorder,
 } from "./auto-search-outcomes";
-import getProvider from "./download-clients/registry";
-import type { ConnectionConfig } from "./download-clients/types";
+import { grabBestReleaseForProfile } from "./auto-search-release-selection";
 import { anyIndexerAvailable, canQueryIndexer } from "./indexer-rate-limiter";
 import type { PackContext, ProfileInfo } from "./indexers";
 import {
 	dedupeAndScoreReleases,
 	getCategoriesForProfiles,
 	getReleaseTypeRank,
-	isPackQualified,
 } from "./indexers";
-import {
-	enrichRelease,
-	getProfileWeight,
-	isFormatInProfile,
-} from "./indexers/format-parser";
+import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
 import { searchNewznab } from "./indexers/http";
 import type { IndexerRelease } from "./indexers/types";
 import { logError, logInfo, logWarn } from "./logger";
@@ -64,10 +60,7 @@ type AutoSearchOptions = {
 
 type HistoryInsert = typeof history.$inferInsert;
 type TrackedDownloadInsert = typeof trackedDownloads.$inferInsert;
-type GuidDedupeOutcomeReason = Extract<
-	AutoSearchOutcomeReason,
-	"download_client_unavailable" | "download_dispatch_failed"
->;
+type ProfileGrabs = { titles: string[]; deferred: boolean };
 
 type SearchDetail = {
 	bookId: number;
@@ -160,6 +153,15 @@ function sleep(ms: number): Promise<void> {
 		setTimeout(resolve, ms);
 	});
 }
+
+const searchEnabledIndexers = createIndexerSearch({
+	canQueryIndexer,
+	enrichRelease,
+	logError,
+	logInfo,
+	searchNewznab,
+	sleep,
+});
 
 function sortBySearchPriority<T extends { id: number }>(
 	items: T[],
@@ -367,7 +369,7 @@ function getWantedBooks(): WantedBook[] {
 			}
 			// At or above cutoff but CF upgrade threshold is set — may still need
 			// a CF-based upgrade (we can't compute CF scores for existing files here,
-			// so we optimistically include the book and let findBestReleaseForProfile decide)
+			// so we optimistically include the book and let the release selection module decide)
 			if (profile.upgradeUntilCustomFormatScore > 0) {
 				return true;
 			}
@@ -811,18 +813,12 @@ async function searchIndexers(
 ): Promise<IndexerRelease[]> {
 	return searchEnabledIndexers({
 		bookParams,
-		canQueryIndexer,
 		categories,
 		contentType,
 		enabledIndexers: ixs,
-		enrichRelease,
-		logError,
-		logInfo,
 		logPrefix,
 		onOutcome,
 		query,
-		searchNewznab,
-		sleep,
 	});
 }
 
@@ -861,25 +857,6 @@ function createPackFailureTrackingRecorder(
 	};
 }
 
-function recordOutcomeOnceForGuid(
-	reason: GuidDedupeOutcomeReason,
-	guid: string,
-	recordedOutcomeGuids: Set<string> | undefined,
-	onOutcome?: AutoSearchOutcomeRecorder,
-): void {
-	if (!recordedOutcomeGuids) {
-		onOutcome?.(reason);
-		return;
-	}
-
-	const key = `${reason}:${guid}`;
-	if (recordedOutcomeGuids.has(key)) {
-		return;
-	}
-	recordedOutcomeGuids.add(key);
-	onOutcome?.(reason);
-}
-
 async function searchAndGrabForBook(
 	book: WantedBook,
 	ixs: EnabledIndexers,
@@ -907,18 +884,12 @@ async function searchAndGrabForBook(
 
 	const allReleases = await searchEnabledIndexers({
 		bookParams,
-		canQueryIndexer,
 		categories,
 		contentType: "book",
 		enabledIndexers: ixs,
-		enrichRelease,
-		logError,
-		logInfo,
 		logPrefix: "rss-sync",
 		onOutcome,
 		query,
-		searchNewznab,
-		sleep,
 	});
 
 	detail.searched = true;
@@ -930,8 +901,10 @@ async function searchAndGrabForBook(
 
 	// Score, deduplicate, and grab per profile
 	const bookInfo = { title: book.title, authorName: book.authorName };
-	const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo);
-	const grabbedTitles = await grabPerProfile(
+	const scored = dedupeAndScoreReleases(allReleases, book.id, bookInfo, {
+		preserveIndexerOrigins: true,
+	});
+	const { titles: grabbedTitles, deferred } = await grabPerProfile(
 		scored,
 		book,
 		onOutcome,
@@ -941,7 +914,7 @@ async function searchAndGrabForBook(
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
-	} else {
+	} else if (!deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 
@@ -954,7 +927,7 @@ async function grabPerProfile(
 	book: WantedBook,
 	onOutcome?: AutoSearchOutcomeRecorder,
 	recordedOutcomeGuids?: Set<string>,
-): Promise<string[]> {
+): Promise<ProfileGrabs> {
 	const blocklistedTitles = new Set(
 		db
 			.select({ sourceTitle: blocklist.sourceTitle })
@@ -978,6 +951,7 @@ async function grabPerProfile(
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
+	let deferred = false;
 
 	for (const profile of book.profiles) {
 		if (satisfiedProfiles.has(profile.id)) {
@@ -985,26 +959,18 @@ async function grabPerProfile(
 		}
 
 		const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
-		const bestRelease = findBestReleaseForProfile(
-			scored,
+		const result = await grabBestReleaseForProfile({
+			releases: scored,
 			profile,
 			bestExistingWeight,
 			blocklistedTitles,
 			grabbedGuids,
-		);
-
-		if (!bestRelease) {
-			continue;
-		}
-
-		const grabbed = await grabRelease(
-			bestRelease,
-			book,
-			profile.id,
-			onOutcome,
-			recordedOutcomeGuids,
-		);
-		if (grabbed) {
+			grab: (release) =>
+				grabRelease(release, book, profile.id, onOutcome, recordedOutcomeGuids),
+		});
+		deferred ||= result.status === "deferred";
+		if (result.status === "grabbed") {
+			const bestRelease = result.release;
 			grabbedGuids.add(bestRelease.guid);
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
@@ -1015,110 +981,10 @@ async function grabPerProfile(
 		}
 	}
 
-	return grabbedTitles;
+	return { titles: grabbedTitles, deferred };
 }
 
 // ─── Pack-aware book search helpers ─────────────────────────────────────────
-
-/** Grab a release for an author-level pack or individual book */
-async function grabReleaseForBookPack(
-	release: IndexerRelease,
-	authorId: number | null,
-	bookId: number | undefined,
-	profileId: number,
-	onOutcome?: AutoSearchOutcomeRecorder,
-	recordedOutcomeGuids?: Set<string>,
-): Promise<boolean> {
-	const resolved = resolveDownloadClient(release);
-	if (!resolved) {
-		recordOutcomeOnceForGuid(
-			"download_client_unavailable",
-			release.guid,
-			recordedOutcomeGuids,
-			onOutcome,
-		);
-		logWarn(
-			"auto-search",
-			`No enabled ${release.protocol} download client for "${release.title}"`,
-		);
-		return false;
-	}
-
-	const { client, combinedTag } = resolved;
-
-	const config: ConnectionConfig = {
-		implementation: client.implementation as ConnectionConfig["implementation"],
-		host: client.host,
-		port: client.port,
-		useSsl: client.useSsl,
-		urlBase: client.urlBase,
-		username: client.username,
-		password: client.password,
-		apiKey: client.apiKey,
-		category: client.category,
-		tag: client.tag,
-		settings: client.settings as Record<string, unknown> | null,
-	};
-
-	let downloadId: string | null;
-	try {
-		const provider = await getProvider(client.implementation);
-		downloadId = await provider.addDownload(config, {
-			url: release.downloadUrl,
-			torrentData: null,
-			nzbData: null,
-			category: null,
-			tag: combinedTag,
-			savePath: null,
-		});
-	} catch (error) {
-		recordOutcomeOnceForGuid(
-			"download_dispatch_failed",
-			release.guid,
-			recordedOutcomeGuids,
-			onOutcome,
-		);
-		throw error;
-	}
-
-	if (downloadId) {
-		db.insert(trackedDownloads)
-			.values({
-				downloadClientId: client.id,
-				downloadId,
-				authorId: authorId ?? null,
-				bookId: bookId ?? null,
-				downloadProfileId: profileId,
-				releaseTitle: release.title,
-				protocol: release.protocol,
-				indexerId: release.allstarrIndexerId,
-				guid: release.guid,
-				state: "queued",
-			})
-			.run();
-	}
-
-	db.insert(history)
-		.values({
-			eventType: "bookGrabbed",
-			bookId: bookId ?? null,
-			authorId,
-			data: {
-				title: release.title,
-				guid: release.guid,
-				indexerId: release.allstarrIndexerId,
-				downloadClientId: client.id,
-				downloadClientName: client.name,
-				protocol: release.protocol,
-				size: release.size,
-				quality: release.quality.name,
-				source: "autoSearch",
-			},
-		})
-		.run();
-
-	return true;
-}
 
 /** Try to grab the best release for each wanted book, with pack context */
 async function grabPerProfileForBooks(
@@ -1148,29 +1014,29 @@ async function grabPerProfileForBooks(
 	for (const book of wantedBooks) {
 		for (const profile of book.profiles) {
 			const bestExistingWeight = book.bestWeightByProfile.get(profile.id) ?? 0;
-			const best = findBestReleaseForProfile(
-				scored,
+			const result = await grabBestReleaseForProfile({
+				releases: scored,
 				profile,
 				bestExistingWeight,
 				blocklistedTitles,
 				grabbedGuids,
-				0,
 				packContext,
-			);
-			if (!best) {
-				continue;
+				grab: (release) =>
+					grabReleaseForBookPack(
+						release,
+						book.authorId,
+						getReleaseTypeRank(release.releaseType) >= 2 ? undefined : book.id,
+						profile.id,
+						onOutcome,
+						recordedOutcomeGuids,
+					),
+			});
+			if (result.status === "deferred") {
+				return { searched: true, grabbed, deferred: true };
 			}
-
-			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			const result = await grabReleaseForBookPack(
-				best,
-				book.authorId,
-				isPack ? undefined : book.id,
-				profile.id,
-				onOutcome,
-				recordedOutcomeGuids,
-			);
-			if (result) {
+			if (result.status === "grabbed") {
+				const best = result.release;
+				const isPack = getReleaseTypeRank(best.releaseType) >= 2;
 				grabbedGuids.add(best.guid);
 				grabbed = true;
 				logInfo(
@@ -1217,7 +1083,9 @@ async function searchAndGrabForAuthor(
 		return { searched: true, grabbed: false };
 	}
 
-	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const scored = dedupeAndScoreReleases(allReleases, null, null, {
+		preserveIndexerOrigins: true,
+	});
 	const packContext: PackContext = {
 		wantedBookIds: new Set(wantedBooks.map((b) => b.id)),
 	};
@@ -1228,7 +1096,7 @@ async function searchAndGrabForAuthor(
 		onOutcome,
 		recordedOutcomeGuids,
 	);
-	if (!result.grabbed) {
+	if (!result.grabbed && !result.deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 	return result;
@@ -1251,100 +1119,14 @@ async function searchAndGrabForMovie(
 	const query = buildMovieSearchQuery(movie);
 	const categories = getCategoriesForProfiles(movie.profiles);
 
-	const allReleases: IndexerRelease[] = [];
-
-	const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-	for (const synced of syncedWithKey) {
-		// Rate limiter gate — automatic searches enforce daily caps
-		const gate = canQueryIndexer("synced", synced.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				onOutcome?.("indexer_skipped");
-				logInfo(
-					"auto-search",
-					`Indexer "${synced.name}" skipped for movie: ${gate.reason}`,
-				);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: synced.baseUrl,
-					apiPath: synced.apiPath ?? "/api",
-					apiKey: synced.apiKey ?? "",
-				},
-				query,
-				categories,
-				undefined,
-				{ indexerType: "synced", indexerId: synced.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease({
-						...r,
-						indexer: r.indexer || synced.name,
-						allstarrIndexerId: synced.id,
-						indexerSource: "synced" as const,
-					}),
-				),
-			);
-		} catch (error) {
-			onOutcome?.("indexer_failed");
-			logError(
-				"auto-search",
-				`Indexer "${synced.name}" failed for movie`,
-				error,
-			);
-		}
-	}
-
-	for (const ix of ixs.manual) {
-		// Rate limiter gate — automatic searches enforce daily caps
-		const gate = canQueryIndexer("manual", ix.id);
-		if (!gate.allowed) {
-			if (gate.reason === "pacing" && gate.waitMs) {
-				await sleep(gate.waitMs);
-			} else {
-				onOutcome?.("indexer_skipped");
-				logInfo(
-					"auto-search",
-					`Indexer "${ix.name}" skipped for movie: ${gate.reason}`,
-				);
-				continue;
-			}
-		}
-
-		try {
-			const results = await searchNewznab(
-				{
-					baseUrl: ix.baseUrl,
-					apiPath: ix.apiPath ?? "/api",
-					apiKey: ix.apiKey as string,
-				},
-				query,
-				categories,
-				undefined,
-				{ indexerType: "manual", indexerId: ix.id },
-			);
-			allReleases.push(
-				...results.map((r) =>
-					enrichRelease({
-						...r,
-						indexer: r.indexer || ix.name,
-						allstarrIndexerId: ix.id,
-						indexerSource: "manual" as const,
-					}),
-				),
-			);
-		} catch (error) {
-			onOutcome?.("indexer_failed");
-			logError("auto-search", "Manual indexer failed for movie", error);
-		}
-	}
+	const allReleases = await searchEnabledIndexers({
+		enabledIndexers: ixs,
+		query,
+		categories,
+		logPrefix: "auto-search",
+		searchContext: "movie",
+		onOutcome,
+	});
 
 	detail.searched = true;
 
@@ -1353,13 +1135,19 @@ async function searchAndGrabForMovie(
 		return detail;
 	}
 
-	const scored = dedupeAndScoreReleases(allReleases, null, null);
-	const grabbedTitles = await grabPerProfileForMovie(scored, movie, onOutcome);
+	const scored = dedupeAndScoreReleases(allReleases, null, null, {
+		preserveIndexerOrigins: true,
+	});
+	const { titles: grabbedTitles, deferred } = await grabPerProfileForMovie(
+		scored,
+		movie,
+		onOutcome,
+	);
 
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
-	} else {
+	} else if (!deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 
@@ -1371,7 +1159,7 @@ async function grabPerProfileForMovie(
 	scored: IndexerRelease[],
 	movie: WantedMovie,
 	onOutcome?: AutoSearchOutcomeRecorder,
-): Promise<string[]> {
+): Promise<ProfileGrabs> {
 	const blocklistedTitles = new Set(
 		db
 			.select({ sourceTitle: blocklist.sourceTitle })
@@ -1398,6 +1186,7 @@ async function grabPerProfileForMovie(
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
+	let deferred = false;
 
 	for (const profile of movie.profiles) {
 		if (satisfiedProfiles.has(profile.id)) {
@@ -1405,25 +1194,18 @@ async function grabPerProfileForMovie(
 		}
 
 		const bestExistingWeight = movie.bestWeightByProfile.get(profile.id) ?? 0;
-		const bestRelease = findBestReleaseForProfile(
-			scored,
+		const result = await grabBestReleaseForProfile({
+			releases: scored,
 			profile,
 			bestExistingWeight,
 			blocklistedTitles,
 			grabbedGuids,
-		);
-
-		if (!bestRelease) {
-			continue;
-		}
-
-		const grabbed = await grabReleaseForMovie(
-			bestRelease,
-			movie,
-			profile.id,
-			onOutcome,
-		);
-		if (grabbed) {
+			grab: (release) =>
+				grabReleaseForMovie(release, movie, profile.id, onOutcome),
+		});
+		deferred ||= result.status === "deferred";
+		if (result.status === "grabbed") {
+			const bestRelease = result.release;
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
 			grabbedGuids.add(bestRelease.guid);
@@ -1434,7 +1216,7 @@ async function grabPerProfileForMovie(
 		}
 	}
 
-	return grabbedTitles;
+	return { titles: grabbedTitles, deferred };
 }
 
 // ─── Per-episode search + grab ──────────────────────────────────────────────
@@ -1458,100 +1240,17 @@ async function searchAndGrabForEpisode(
 	const categories = getCategoriesForProfiles(episode.profiles);
 
 	const allReleases: IndexerRelease[] = [];
-
 	for (const query of queries) {
-		const syncedWithKey = ixs.synced.filter((s) => s.apiKey);
-		for (const synced of syncedWithKey) {
-			// Rate limiter gate — automatic searches enforce daily caps
-			const gate = canQueryIndexer("synced", synced.id);
-			if (!gate.allowed) {
-				if (gate.reason === "pacing" && gate.waitMs) {
-					await sleep(gate.waitMs);
-				} else {
-					onOutcome?.("indexer_skipped");
-					logInfo(
-						"auto-search",
-						`Indexer "${synced.name}" skipped for episode: ${gate.reason}`,
-					);
-					continue;
-				}
-			}
-
-			try {
-				const results = await searchNewznab(
-					{
-						baseUrl: synced.baseUrl,
-						apiPath: synced.apiPath ?? "/api",
-						apiKey: synced.apiKey ?? "",
-					},
-					query,
-					categories,
-					undefined,
-					{ indexerType: "synced", indexerId: synced.id },
-				);
-				allReleases.push(
-					...results.map((r) =>
-						enrichRelease({
-							...r,
-							indexer: r.indexer || synced.name,
-							allstarrIndexerId: synced.id,
-							indexerSource: "synced" as const,
-						}),
-					),
-				);
-			} catch (error) {
-				onOutcome?.("indexer_failed");
-				logError(
-					"auto-search",
-					`Indexer "${synced.name}" failed for episode`,
-					error,
-				);
-			}
-		}
-
-		for (const ix of ixs.manual) {
-			// Rate limiter gate — automatic searches enforce daily caps
-			const gate = canQueryIndexer("manual", ix.id);
-			if (!gate.allowed) {
-				if (gate.reason === "pacing" && gate.waitMs) {
-					await sleep(gate.waitMs);
-				} else {
-					onOutcome?.("indexer_skipped");
-					logInfo(
-						"auto-search",
-						`Indexer "${ix.name}" skipped for episode: ${gate.reason}`,
-					);
-					continue;
-				}
-			}
-
-			try {
-				const results = await searchNewznab(
-					{
-						baseUrl: ix.baseUrl,
-						apiPath: ix.apiPath ?? "/api",
-						apiKey: ix.apiKey as string,
-					},
-					query,
-					categories,
-					undefined,
-					{ indexerType: "manual", indexerId: ix.id },
-				);
-				allReleases.push(
-					...results.map((r) =>
-						enrichRelease({
-							...r,
-							indexer: r.indexer || ix.name,
-							allstarrIndexerId: ix.id,
-							indexerSource: "manual" as const,
-						}),
-					),
-				);
-			} catch (error) {
-				onOutcome?.("indexer_failed");
-				logError("auto-search", "Manual indexer failed for episode", error);
-			}
-		}
+		allReleases.push(
+			...(await searchEnabledIndexers({
+				enabledIndexers: ixs,
+				query,
+				categories,
+				logPrefix: "auto-search",
+				searchContext: "episode",
+				onOutcome,
+			})),
+		);
 	}
 
 	detail.searched = true;
@@ -1561,8 +1260,10 @@ async function searchAndGrabForEpisode(
 		return detail;
 	}
 
-	const scored = dedupeAndScoreReleases(allReleases, null, null);
-	const grabbedTitles = await grabPerProfileForEpisode(
+	const scored = dedupeAndScoreReleases(allReleases, null, null, {
+		preserveIndexerOrigins: true,
+	});
+	const { titles: grabbedTitles, deferred } = await grabPerProfileForEpisode(
 		scored,
 		episode,
 		onOutcome,
@@ -1572,7 +1273,7 @@ async function searchAndGrabForEpisode(
 	if (grabbedTitles.length > 0) {
 		detail.grabbed = true;
 		detail.releaseTitle = grabbedTitles.join(", ");
-	} else {
+	} else if (!deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 
@@ -1585,7 +1286,7 @@ async function grabPerProfileForEpisode(
 	episode: WantedEpisode,
 	onOutcome?: AutoSearchOutcomeRecorder,
 	recordedOutcomeGuids?: Set<string>,
-): Promise<string[]> {
+): Promise<ProfileGrabs> {
 	const blocklistedTitles = new Set(
 		db
 			.select({ sourceTitle: blocklist.sourceTitle })
@@ -1612,6 +1313,7 @@ async function grabPerProfileForEpisode(
 
 	const satisfiedProfiles = new Set<number>();
 	const grabbedTitles: string[] = [];
+	let deferred = false;
 
 	for (const profile of episode.profiles) {
 		if (satisfiedProfiles.has(profile.id)) {
@@ -1619,26 +1321,24 @@ async function grabPerProfileForEpisode(
 		}
 
 		const bestExistingWeight = episode.bestWeightByProfile.get(profile.id) ?? 0;
-		const bestRelease = findBestReleaseForProfile(
-			scored,
+		const result = await grabBestReleaseForProfile({
+			releases: scored,
 			profile,
 			bestExistingWeight,
 			blocklistedTitles,
 			grabbedGuids,
-		);
-
-		if (!bestRelease) {
-			continue;
-		}
-
-		const grabbed = await grabReleaseForEpisode(
-			bestRelease,
-			episode,
-			profile.id,
-			onOutcome,
-			recordedOutcomeGuids,
-		);
-		if (grabbed) {
+			grab: (release) =>
+				grabReleaseForEpisode(
+					release,
+					episode,
+					profile.id,
+					onOutcome,
+					recordedOutcomeGuids,
+				),
+		});
+		deferred ||= result.status === "deferred";
+		if (result.status === "grabbed") {
+			const bestRelease = result.release;
 			grabbedGuids.add(bestRelease.guid);
 			satisfiedProfiles.add(profile.id);
 			grabbedTitles.push(bestRelease.title);
@@ -1649,12 +1349,16 @@ async function grabPerProfileForEpisode(
 		}
 	}
 
-	return grabbedTitles;
+	return { titles: grabbedTitles, deferred };
 }
 
 // ─── Pack-aware episode search helpers ─────────────────────────────────────
 
-type PackSearchResult = { searched: boolean; grabbed: boolean };
+type PackSearchResult = {
+	searched: boolean;
+	grabbed: boolean;
+	deferred?: boolean;
+};
 
 /** Build a PackContext from a season map of wanted episodes */
 function buildPackContextFromSeasons(
@@ -1671,106 +1375,6 @@ function buildPackContextFromSeasons(
 		wantedEpisodesBySeason,
 		totalWantedSeasons: seasonMap.size,
 	};
-}
-
-/** Grab a release for a show-level or season-level pack, or individual episode */
-async function grabReleaseForEpisodePack(
-	release: IndexerRelease,
-	showId: number,
-	episodeId: number | undefined,
-	profileId: number,
-	onOutcome?: AutoSearchOutcomeRecorder,
-	recordedOutcomeGuids?: Set<string>,
-): Promise<boolean> {
-	const resolved = resolveDownloadClient(release);
-	if (!resolved) {
-		recordOutcomeOnceForGuid(
-			"download_client_unavailable",
-			release.guid,
-			recordedOutcomeGuids,
-			onOutcome,
-		);
-		logWarn(
-			"auto-search",
-			`No enabled ${release.protocol} download client for "${release.title}"`,
-		);
-		return false;
-	}
-
-	const { client, combinedTag } = resolved;
-
-	const config: ConnectionConfig = {
-		implementation: client.implementation as ConnectionConfig["implementation"],
-		host: client.host,
-		port: client.port,
-		useSsl: client.useSsl,
-		urlBase: client.urlBase,
-		username: client.username,
-		password: client.password,
-		apiKey: client.apiKey,
-		category: client.category,
-		tag: client.tag,
-		settings: client.settings as Record<string, unknown> | null,
-	};
-
-	let downloadId: string | null;
-	try {
-		const provider = await getProvider(client.implementation);
-		downloadId = await provider.addDownload(config, {
-			url: release.downloadUrl,
-			torrentData: null,
-			nzbData: null,
-			category: null,
-			tag: combinedTag,
-			savePath: null,
-		});
-	} catch (error) {
-		recordOutcomeOnceForGuid(
-			"download_dispatch_failed",
-			release.guid,
-			recordedOutcomeGuids,
-			onOutcome,
-		);
-		throw error;
-	}
-
-	if (downloadId) {
-		db.insert(trackedDownloads)
-			.values({
-				downloadClientId: client.id,
-				downloadId,
-				showId,
-				episodeId: episodeId ?? null,
-				downloadProfileId: profileId,
-				releaseTitle: release.title,
-				protocol: release.protocol,
-				indexerId: release.allstarrIndexerId,
-				guid: release.guid,
-				state: "queued",
-			})
-			.run();
-	}
-
-	db.insert(history)
-		.values({
-			eventType: "episodeGrabbed",
-			showId,
-			episodeId: episodeId ?? null,
-			data: {
-				title: release.title,
-				guid: release.guid,
-				indexerId: release.allstarrIndexerId,
-				downloadClientId: client.id,
-				downloadClientName: client.name,
-				protocol: release.protocol,
-				size: release.size,
-				quality: release.quality.name,
-				source: "autoSearch",
-			},
-		})
-		.run();
-
-	return true;
 }
 
 /** Try to grab the best release for each wanted episode, with pack context */
@@ -1800,29 +1404,29 @@ async function grabPerProfileForEpisodes(
 	for (const ep of wantedEpisodes) {
 		for (const profile of ep.profiles) {
 			const bestExistingWeight = ep.bestWeightByProfile.get(profile.id) ?? 0;
-			const best = findBestReleaseForProfile(
-				scored,
+			const result = await grabBestReleaseForProfile({
+				releases: scored,
 				profile,
 				bestExistingWeight,
 				blocklistedTitles,
 				grabbedGuids,
-				0,
 				packContext,
-			);
-			if (!best) {
-				continue;
+				grab: (release) =>
+					grabReleaseForEpisodePack(
+						release,
+						ep.showId,
+						getReleaseTypeRank(release.releaseType) >= 2 ? undefined : ep.id,
+						profile.id,
+						onOutcome,
+						recordedOutcomeGuids,
+					),
+			});
+			if (result.status === "deferred") {
+				return { searched: true, grabbed, deferred: true };
 			}
-
-			const isPack = getReleaseTypeRank(best.releaseType) >= 2;
-			const result = await grabReleaseForEpisodePack(
-				best,
-				ep.showId,
-				isPack ? undefined : ep.id,
-				profile.id,
-				onOutcome,
-				recordedOutcomeGuids,
-			);
-			if (result) {
+			if (result.status === "grabbed") {
+				const best = result.release;
+				const isPack = getReleaseTypeRank(best.releaseType) >= 2;
 				grabbedGuids.add(best.guid);
 				grabbed = true;
 				logInfo(
@@ -1868,7 +1472,9 @@ async function searchAndGrabForSeason(
 		return { searched: true, grabbed: false };
 	}
 
-	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const scored = dedupeAndScoreReleases(allReleases, null, null, {
+		preserveIndexerOrigins: true,
+	});
 	const packContext = buildPackContextFromSeasons(allSeasonMap);
 	const result = await grabPerProfileForEpisodes(
 		scored,
@@ -1877,7 +1483,7 @@ async function searchAndGrabForSeason(
 		onOutcome,
 		recordedOutcomeGuids,
 	);
-	if (!result.grabbed) {
+	if (!result.grabbed && !result.deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 	return result;
@@ -1916,7 +1522,9 @@ async function searchAndGrabForShow(
 		return { searched: true, grabbed: false };
 	}
 
-	const scored = dedupeAndScoreReleases(allReleases, null, null);
+	const scored = dedupeAndScoreReleases(allReleases, null, null, {
+		preserveIndexerOrigins: true,
+	});
 	const packContext = buildPackContextFromSeasons(seasonMap);
 	const allEpisodes = [...seasonMap.values()].flat();
 	const result = await grabPerProfileForEpisodes(
@@ -1926,7 +1534,7 @@ async function searchAndGrabForShow(
 		onOutcome,
 		recordedOutcomeGuids,
 	);
-	if (!result.grabbed) {
+	if (!result.grabbed && !result.deferred) {
 		onOutcome?.("no_matching_releases");
 	}
 	return result;
@@ -2021,6 +1629,7 @@ async function searchSeasonWithFallback(
 				grabbed += 1;
 				return { searched, grabbed };
 			}
+			if (seasonResult.deferred) return { searched, grabbed };
 		} catch (error) {
 			logError(
 				"auto-search",
@@ -2096,6 +1705,7 @@ export async function searchForShow(
 				grabbed += 1;
 				return { searched, grabbed };
 			}
+			if (packResult.deferred) return { searched, grabbed };
 		} catch (error) {
 			logError(
 				"auto-search",
@@ -2266,7 +1876,7 @@ async function processWantedBooks(
 					recordedOutcomeGuids,
 				);
 				recordBookDetails(authorBooks, packResult, result);
-				if (packResult.grabbed) {
+				if (packResult.grabbed || packResult.deferred) {
 					continue;
 				}
 			} catch (error) {
@@ -2402,7 +2012,7 @@ async function processSeasonEpisodes(
 				recordedOutcomeGuids,
 			);
 			recordEpisodeDetails(seasonEpisodes, seasonResult, result);
-			if (seasonResult.grabbed) {
+			if (seasonResult.grabbed || seasonResult.deferred) {
 				return;
 			}
 		} catch (error) {
@@ -2531,7 +2141,7 @@ async function processWantedEpisodes(
 					packResult,
 					result,
 				);
-				if (packResult.grabbed) {
+				if (packResult.grabbed || packResult.deferred) {
 					continue;
 				}
 			} catch (error) {
@@ -2659,244 +2269,47 @@ export async function runAutoSearch(
 	return result;
 }
 
-// ─── Release filtering ──────────────────────────────────────────────────────
+// ─── Automatic grab adapters ────────────────────────────────────────────────
 
-/** Check if the profile has reached its upgrade ceiling (quality cutoff + CF threshold) */
-function isUpgradeCeiling(
-	profile: ProfileInfo,
-	bestExistingWeight: number,
-	bestExistingCFScore: number,
-): boolean {
-	const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-	const atCutoffTier = bestExistingWeight >= cutoffWeight;
-	if (!atCutoffTier) {
-		return false;
-	}
-	// No CF threshold set — quality cutoff alone is the ceiling
-	if (profile.upgradeUntilCustomFormatScore === 0) {
-		return true;
-	}
-	// Both quality cutoff and CF threshold must be met
-	return bestExistingCFScore >= profile.upgradeUntilCustomFormatScore;
-}
+type MediaAssociation = Pick<
+	TrackedDownloadInsert,
+	"bookId" | "authorId" | "movieId" | "showId" | "episodeId"
+>;
 
-/** Check if a release is an acceptable upgrade over existing files */
-function isUpgradeCandidate(
+function grabReleaseForTarget(
 	release: IndexerRelease,
-	bestExistingWeight: number,
-	bestExistingCFScore: number,
-): boolean {
-	if (release.quality.weight > bestExistingWeight) {
-		return true;
-	}
-	// Same tier — only upgrade if CF score is better
-	return (
-		release.quality.weight === bestExistingWeight &&
-		release.cfScore > bestExistingCFScore
-	);
-}
-
-/** Compare two candidates — return true if release is better than current best */
-function isBetterCandidate(
-	release: IndexerRelease,
-	current: IndexerRelease,
-	profileItems: number[][],
-): boolean {
-	const currentWeight = getProfileWeight(current.quality.id, profileItems);
-	const releaseWeight = getProfileWeight(release.quality.id, profileItems);
-	if (releaseWeight > currentWeight) {
-		return true;
-	}
-	return releaseWeight === currentWeight && release.cfScore > current.cfScore;
-}
-
-function findBestReleaseForProfile(
-	releases: IndexerRelease[],
-	profile: ProfileInfo,
-	bestExistingWeight: number,
-	blocklistedTitles: Set<string>,
-	grabbedGuids: Set<string>,
-	bestExistingCFScore = 0,
-	packContext: PackContext | null = null,
-): IndexerRelease | null {
-	const existingCF = bestExistingCFScore;
-
-	// If files exist but upgrades aren't allowed, skip
-	if (bestExistingWeight > 0 && !profile.upgradeAllowed) {
-		return null;
-	}
-
-	// If at or above upgrade ceiling, skip
-	if (
-		bestExistingWeight > 0 &&
-		isUpgradeCeiling(profile, bestExistingWeight, existingCF)
-	) {
-		return null;
-	}
-
-	let bestCandidate: IndexerRelease | null = null;
-
-	for (const release of releases) {
-		if (!isFormatInProfile(release.quality.id, profile.items)) {
-			continue;
-		}
-		if (release.rejections.length > 0) {
-			continue;
-		}
-		if (blocklistedTitles.has(release.title)) {
-			continue;
-		}
-		if (grabbedGuids.has(release.guid)) {
-			continue;
-		}
-		if (release.cfScore < profile.minCustomFormatScore) {
-			continue;
-		}
-		// Skip disqualified packs
-		if (!isPackQualified(release, packContext)) {
-			continue;
-		}
-
-		// For upgrades, ensure the release is actually better
-		if (
-			bestExistingWeight > 0 &&
-			!isUpgradeCandidate(release, bestExistingWeight, existingCF)
-		) {
-			continue;
-		}
-
-		if (
-			!bestCandidate ||
-			isBetterCandidate(release, bestCandidate, profile.items)
-		) {
-			bestCandidate = release;
-		}
-	}
-
-	return bestCandidate;
-}
-
-// ─── Grab helper ────────────────────────────────────────────────────────────
-
-async function grabRelease(
-	release: IndexerRelease,
-	book: WantedBook,
 	profileId: number,
+	association: MediaAssociation,
+	eventType: "bookGrabbed" | "movieGrabbed" | "episodeGrabbed",
+	source: "rssSync" | "autoSearch",
 	onOutcome?: AutoSearchOutcomeRecorder,
 	recordedOutcomeGuids?: Set<string>,
-): Promise<boolean> {
-	let client: typeof downloadClients.$inferSelect | undefined;
-
-	// Check indexer-level download client override
-	const indexerTable =
-		release.indexerSource === "synced" ? syncedIndexers : indexers;
-	const indexerRow = db
-		.select({ downloadClientId: indexerTable.downloadClientId })
-		.from(indexerTable)
-		.where(eq(indexerTable.id, release.allstarrIndexerId))
-		.get();
-
-	if (indexerRow?.downloadClientId) {
-		client = db
-			.select()
-			.from(downloadClients)
-			.where(eq(downloadClients.id, indexerRow.downloadClientId))
-			.get();
-	}
-
-	if (!client) {
-		// Find matching download client by protocol + priority
-		const matchingClients = db
-			.select()
-			.from(downloadClients)
-			.where(eq(downloadClients.enabled, true))
-			.orderBy(asc(downloadClients.priority))
-			.all()
-			.filter((c) => c.protocol === release.protocol);
-
-		if (matchingClients.length === 0) {
-			recordOutcomeOnceForGuid(
-				"download_client_unavailable",
-				release.guid,
-				recordedOutcomeGuids,
-				onOutcome,
-			);
-			logWarn(
-				"rss-sync",
-				`No enabled ${release.protocol} download client for "${release.title}"`,
-			);
-			return false;
-		}
-		client = matchingClients[0];
-	}
-	// Look up indexer tag
-	const indexerTagRow = db
-		.select({ tag: indexerTable.tag })
-		.from(indexerTable)
-		.where(eq(indexerTable.id, release.allstarrIndexerId))
-		.get();
-	const combinedTag =
-		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
-
-	const config: ConnectionConfig = {
-		implementation: client.implementation as ConnectionConfig["implementation"],
-		host: client.host,
-		port: client.port,
-		useSsl: client.useSsl,
-		urlBase: client.urlBase,
-		username: client.username,
-		password: client.password,
-		apiKey: client.apiKey,
-		category: client.category,
-		tag: client.tag,
-		settings: client.settings as Record<string, unknown> | null,
-	};
-
-	let downloadId: string | null;
-	try {
-		const provider = await getProvider(client.implementation);
-		downloadId = await provider.addDownload(config, {
-			url: release.downloadUrl,
-			torrentData: null,
-			nzbData: null,
-			category: null,
-			tag: combinedTag,
-			savePath: null,
-		});
-	} catch (error) {
-		recordOutcomeOnceForGuid(
-			"download_dispatch_failed",
-			release.guid,
-			recordedOutcomeGuids,
-			onOutcome,
-		);
-		throw error;
-	}
-
-	// Track the download
-	if (downloadId) {
-		db.insert(trackedDownloads)
-			.values({
-				downloadClientId: client.id,
-				downloadId,
-				bookId: book.id,
-				authorId: book.authorId ?? null,
-				downloadProfileId: profileId,
-				releaseTitle: release.title,
-				protocol: release.protocol,
-				indexerId: release.allstarrIndexerId,
-				guid: release.guid,
-				state: "queued",
-			})
-			.run();
-	}
-
-	// Record history event
-	db.insert(history)
-		.values({
-			eventType: "bookGrabbed",
-			bookId: book.id,
-			authorId: book.authorId,
+): Promise<AutoSearchGrabResult> {
+	return dispatchAutoSearchDownload<
+		IndexerRelease,
+		TrackedDownloadInsert,
+		HistoryInsert
+	>({
+		release,
+		resolveDownloadClient,
+		logWarn,
+		onOutcome,
+		recordedOutcomeGuids,
+		logPrefix: source === "rssSync" ? "rss-sync" : "auto-search",
+		trackedDownload: ({ client, downloadId, release }) => ({
+			...association,
+			downloadClientId: client.id,
+			downloadId,
+			downloadProfileId: profileId,
+			releaseTitle: release.title,
+			protocol: release.protocol,
+			indexerId: release.allstarrIndexerId,
+			guid: release.guid,
+			state: "queued",
+		}),
+		history: ({ client, release }) => ({
+			...association,
+			eventType,
 			data: {
 				title: release.title,
 				guid: release.guid,
@@ -2906,17 +2319,108 @@ async function grabRelease(
 				protocol: release.protocol,
 				size: release.size,
 				quality: release.quality.name,
-				source: "rssSync",
+				source,
 			},
-		})
-		.run();
-
-	return true;
+		}),
+		insertTrackedDownload: (value) => {
+			db.insert(trackedDownloads).values(value).run();
+		},
+		insertHistory: (value) => {
+			db.insert(history).values(value).run();
+		},
+	});
 }
 
-// ─── Grab helpers for movies and episodes ───────────────────────────────────
+function grabRelease(
+	release: IndexerRelease,
+	book: WantedBook,
+	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
+) {
+	return grabReleaseForTarget(
+		release,
+		profileId,
+		{ bookId: book.id, authorId: book.authorId },
+		"bookGrabbed",
+		"rssSync",
+		onOutcome,
+		recordedOutcomeGuids,
+	);
+}
 
-/** Resolve a download client from an indexer release */
+function grabReleaseForBookPack(
+	release: IndexerRelease,
+	authorId: number | null,
+	bookId: number | undefined,
+	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
+) {
+	return grabReleaseForTarget(
+		release,
+		profileId,
+		{ authorId, bookId: bookId ?? null },
+		"bookGrabbed",
+		"autoSearch",
+		onOutcome,
+		recordedOutcomeGuids,
+	);
+}
+
+function grabReleaseForMovie(
+	release: IndexerRelease,
+	movie: WantedMovie,
+	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
+) {
+	return grabReleaseForTarget(
+		release,
+		profileId,
+		{ movieId: movie.id },
+		"movieGrabbed",
+		"autoSearch",
+		onOutcome,
+	);
+}
+
+function grabReleaseForEpisode(
+	release: IndexerRelease,
+	episode: WantedEpisode,
+	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
+) {
+	return grabReleaseForTarget(
+		release,
+		profileId,
+		{ showId: episode.showId, episodeId: episode.id },
+		"episodeGrabbed",
+		"autoSearch",
+		onOutcome,
+		recordedOutcomeGuids,
+	);
+}
+
+function grabReleaseForEpisodePack(
+	release: IndexerRelease,
+	showId: number,
+	episodeId: number | undefined,
+	profileId: number,
+	onOutcome?: AutoSearchOutcomeRecorder,
+	recordedOutcomeGuids?: Set<string>,
+) {
+	return grabReleaseForTarget(
+		release,
+		profileId,
+		{ showId, episodeId: episodeId ?? null },
+		"episodeGrabbed",
+		"autoSearch",
+		onOutcome,
+		recordedOutcomeGuids,
+	);
+}
+
 function resolveDownloadClient(release: IndexerRelease) {
 	let client: typeof downloadClients.$inferSelect | undefined;
 
@@ -2960,110 +2464,4 @@ function resolveDownloadClient(release: IndexerRelease) {
 		[client.tag, indexerTagRow?.tag].filter(Boolean).join(",") || null;
 
 	return { client, combinedTag };
-}
-
-async function grabReleaseForMovie(
-	release: IndexerRelease,
-	movie: WantedMovie,
-	profileId: number,
-	onOutcome?: AutoSearchOutcomeRecorder,
-): Promise<boolean> {
-	return dispatchAutoSearchDownload<
-		IndexerRelease,
-		TrackedDownloadInsert,
-		HistoryInsert
-	>({
-		getProvider,
-		history: ({ client, release }) => ({
-			eventType: "movieGrabbed",
-			movieId: movie.id,
-			data: {
-				title: release.title,
-				guid: release.guid,
-				indexerId: release.allstarrIndexerId,
-				downloadClientId: client.id,
-				downloadClientName: client.name,
-				protocol: release.protocol,
-				size: release.size,
-				quality: release.quality.name,
-				source: "autoSearch",
-			},
-		}),
-		insertHistory: (value) => {
-			db.insert(history).values(value).run();
-		},
-		insertTrackedDownload: (value) => {
-			db.insert(trackedDownloads).values(value).run();
-		},
-		logWarn,
-		onOutcome,
-		release,
-		resolveDownloadClient,
-		trackedDownload: ({ client, downloadId, release }) => ({
-			downloadClientId: client.id,
-			downloadId,
-			movieId: movie.id,
-			downloadProfileId: profileId,
-			releaseTitle: release.title,
-			protocol: release.protocol,
-			indexerId: release.allstarrIndexerId,
-			guid: release.guid,
-			state: "queued",
-		}),
-	});
-}
-
-async function grabReleaseForEpisode(
-	release: IndexerRelease,
-	episode: WantedEpisode,
-	profileId: number,
-	onOutcome?: AutoSearchOutcomeRecorder,
-	recordedOutcomeGuids?: Set<string>,
-): Promise<boolean> {
-	return dispatchAutoSearchDownload<
-		IndexerRelease,
-		TrackedDownloadInsert,
-		HistoryInsert
-	>({
-		getProvider,
-		history: ({ client, release }) => ({
-			eventType: "episodeGrabbed",
-			showId: episode.showId,
-			episodeId: episode.id,
-			data: {
-				title: release.title,
-				guid: release.guid,
-				indexerId: release.allstarrIndexerId,
-				downloadClientId: client.id,
-				downloadClientName: client.name,
-				protocol: release.protocol,
-				size: release.size,
-				quality: release.quality.name,
-				source: "autoSearch",
-			},
-		}),
-		insertHistory: (value) => {
-			db.insert(history).values(value).run();
-		},
-		insertTrackedDownload: (value) => {
-			db.insert(trackedDownloads).values(value).run();
-		},
-		logWarn,
-		onOutcome,
-		recordedOutcomeGuids,
-		release,
-		resolveDownloadClient,
-		trackedDownload: ({ client, downloadId, release }) => ({
-			downloadClientId: client.id,
-			downloadId,
-			showId: episode.showId,
-			episodeId: episode.id,
-			downloadProfileId: profileId,
-			releaseTitle: release.title,
-			protocol: release.protocol,
-			indexerId: release.allstarrIndexerId,
-			guid: release.guid,
-			state: "queued",
-		}),
-	});
 }

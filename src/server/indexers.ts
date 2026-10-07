@@ -25,13 +25,9 @@ import {
 	updateIndexerSchema,
 	updateSyncedIndexerSchema,
 } from "src/lib/validators";
-import getProvider from "./download-clients/registry";
 import type { ConnectionConfig } from "./download-clients/types";
-import {
-	canGrabIndexer,
-	canQueryIndexer,
-	getAllIndexerStatuses,
-} from "./indexer-rate-limiter";
+import { dispatchIndexerDownload } from "./indexer-download";
+import { canQueryIndexer, getAllIndexerStatuses } from "./indexer-rate-limiter";
 import type { ReleaseAttributes } from "./indexers/cf-scoring";
 import { calculateCFScore } from "./indexers/cf-scoring";
 import type { EditionMeta } from "./indexers/format-parser";
@@ -643,13 +639,21 @@ export function dedupeAndScoreReleases(
 	allReleases: IndexerRelease[],
 	bookId: number | null,
 	bookInfo: BookInfo | null,
+	{ preserveIndexerOrigins = false }: { preserveIndexerOrigins?: boolean } = {},
 ): IndexerRelease[] {
-	// Deduplicate by guid
+	// Automatic cap fallback needs alternate origins for the same release.
 	const seen = new Set<string>();
 	const unique: IndexerRelease[] = [];
 	for (const release of allReleases) {
-		if (!seen.has(release.guid)) {
-			seen.add(release.guid);
+		const identity = preserveIndexerOrigins
+			? JSON.stringify([
+					release.indexerSource,
+					release.allstarrIndexerId,
+					release.guid,
+				])
+			: release.guid;
+		if (!seen.has(identity)) {
+			seen.add(identity);
 			unique.push(release);
 		}
 	}
@@ -1134,17 +1138,8 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		await requireAuth();
 
-		const grabGate = canGrabIndexer(
-			data.indexerSource as "manual" | "synced",
-			data.indexerId,
-		);
-		if (!grabGate.allowed) {
-			throw new Error("Indexer daily grab limit reached");
-		}
-
 		const { client, combinedTag } = resolveGrabClient(data);
 
-		const provider = await getProvider(client.implementation);
 		const config: ConnectionConfig = {
 			implementation:
 				client.implementation as ConnectionConfig["implementation"],
@@ -1160,14 +1155,23 @@ export const grabReleaseFn = createServerFn({ method: "POST" })
 			settings: client.settings as Record<string, unknown> | null,
 		};
 
-		const downloadId = await provider.addDownload(config, {
-			url: data.downloadUrl,
-			torrentData: null,
-			nzbData: null,
-			category: null,
-			tag: combinedTag,
-			savePath: null,
+		const result = await dispatchIndexerDownload({
+			indexerSource: data.indexerSource,
+			indexerId: data.indexerId,
+			config,
+			download: {
+				url: data.downloadUrl,
+				torrentData: null,
+				nzbData: null,
+				category: null,
+				tag: combinedTag,
+				savePath: null,
+			},
 		});
+		if (result.status === "grab_limit_reached") {
+			throw new Error("Indexer daily grab limit reached");
+		}
+		const { downloadId } = result;
 
 		// Look up authorId from booksAuthors if bookId is available
 		let authorId: number | null = null;

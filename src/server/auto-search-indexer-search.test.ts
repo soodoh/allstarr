@@ -1,301 +1,204 @@
-import { searchEnabledIndexers } from "src/server/auto-search-indexer-search";
-import { describe, expect, it, vi } from "vitest";
+import { createIndexerSearch } from "src/server/auto-search-indexer-search";
+import { buildRelease } from "src/server/auto-search-test-fixtures";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-describe("searchEnabledIndexers", () => {
-	it("enriches successful synced and manual results in search order", async () => {
-		const searchNewznab = vi
-			.fn()
-			.mockResolvedValueOnce([
-				{
-					title: "Synced Release",
-					guid: "synced-guid",
-					protocol: "usenet",
-					size: 100,
-					downloadUrl: "https://example.com/synced.nzb",
-					quality: { id: 1, name: "EPUB", weight: 1 },
-				},
-			])
-			.mockResolvedValueOnce([
-				{
-					title: "Manual Release",
-					guid: "manual-guid",
-					protocol: "usenet",
-					size: 200,
-					downloadUrl: "https://example.com/manual.nzb",
-					indexer: null,
-					quality: { id: 1, name: "EPUB", weight: 1 },
-				},
-			]);
+const manual = {
+	id: 2,
+	name: "Manual",
+	baseUrl: "https://manual.example",
+	apiPath: null,
+	apiKey: "manual-key",
+};
+const synced = {
+	id: 1,
+	name: "Synced",
+	baseUrl: "https://synced.example",
+	apiPath: "/custom",
+	apiKey: "synced-key",
+};
+const release = buildRelease({
+	title: "Release",
+	guid: "guid",
+	indexer: "",
+	size: 200,
+	downloadUrl: "https://example.com/release.nzb",
+});
+const adapters = {
+	canQueryIndexer:
+		vi.fn<Parameters<typeof createIndexerSearch>[0]["canQueryIndexer"]>(),
+	searchNewznab: vi.fn(async () => [release]),
+	enrichRelease: vi.fn(
+		(
+			value: typeof release & {
+				indexer: string;
+				allstarrIndexerId: number;
+				indexerSource: "manual" | "synced";
+			},
+		) => value,
+	),
+	logError: vi.fn(),
+	logInfo: vi.fn(),
+	sleep: vi.fn(),
+};
+const search = createIndexerSearch(adapters);
+const onOutcome = vi.fn();
+const options = {
+	enabledIndexers: { manual: [manual], synced: [] },
+	query: "Author Book",
+	categories: [7020],
+	onOutcome,
+};
 
-		const releases = await searchEnabledIndexers({
+beforeEach(() => {
+	vi.clearAllMocks();
+	adapters.canQueryIndexer.mockReset().mockReturnValue({ allowed: true });
+	adapters.searchNewznab.mockReset().mockResolvedValue([release]);
+});
+
+describe("indexer execution interface", () => {
+	it("queries keyed synced indexers before manual indexers and enriches their origins", async () => {
+		const results = await search({
+			...options,
+			enabledIndexers: {
+				manual: [manual],
+				synced: [synced, { ...synced, id: 3, apiKey: null }],
+			},
 			bookParams: { author: "Author", title: "Book" },
-			canQueryIndexer: () => ({ allowed: true }),
-			categories: [7020],
 			contentType: "book",
-			enabledIndexers: {
-				manual: [
-					{
-						id: 2,
-						name: "Manual",
-						baseUrl: "https://manual.example",
-						apiPath: "/api",
-						apiKey: "manual-key",
-					},
-				],
-				synced: [
-					{
-						id: 1,
-						name: "Synced",
-						baseUrl: "https://synced.example",
-						apiPath: "/api",
-						apiKey: "synced-key",
-					},
-				],
-			},
-			enrichRelease: (release) => release,
-			logError: vi.fn(),
-			logInfo: vi.fn(),
-			query: "Author Book",
-			searchNewznab,
-			sleep: vi.fn(),
 		});
-
-		expect(releases).toEqual([
-			expect.objectContaining({
-				allstarrIndexerId: 1,
-				guid: "synced-guid",
-				indexer: "Synced",
-				indexerSource: "synced",
-			}),
-			expect.objectContaining({
-				allstarrIndexerId: 2,
-				guid: "manual-guid",
-				indexer: "Manual",
-				indexerSource: "manual",
-			}),
-		]);
-	});
-
-	it("isolates per-indexer failures and returns successful results", async () => {
-		const searchNewznab = vi
-			.fn()
-			.mockResolvedValueOnce([
-				{
-					title: "Synced Release",
-					guid: "synced-guid",
-					protocol: "usenet",
-					size: 100,
-					downloadUrl: "https://example.com/synced.nzb",
-					quality: { id: 1, name: "EPUB", weight: 1 },
-				},
-			])
-			.mockRejectedValueOnce(new Error("manual failed"));
-		const logError = vi.fn();
-		const recordOutcome = vi.fn();
-
-		const releases = await searchEnabledIndexers({
-			bookParams: { author: "Author", title: "Book" },
-			canQueryIndexer: () => ({ allowed: true }),
-			categories: [7020],
-			contentType: "book",
-			enabledIndexers: {
-				manual: [
-					{
-						id: 2,
-						name: "Manual",
-						baseUrl: "https://manual.example",
-						apiPath: "/api",
-						apiKey: "manual-key",
-					},
-				],
-				synced: [
-					{
-						id: 1,
-						name: "Synced",
-						baseUrl: "https://synced.example",
-						apiPath: "/api",
-						apiKey: "synced-key",
-					},
-				],
-			},
-			enrichRelease: (release) => release,
-			logError,
-			logInfo: vi.fn(),
-			onOutcome: recordOutcome,
-			query: "Author Book",
-			searchNewznab,
-			sleep: vi.fn(),
-		});
-
-		expect(releases).toEqual([
-			expect.objectContaining({
-				allstarrIndexerId: 1,
-				guid: "synced-guid",
-				indexer: "Synced",
-				indexerSource: "synced",
-			}),
-		]);
-		expect(logError).toHaveBeenCalledWith(
-			"rss-sync",
-			expect.stringContaining("Manual"),
-			expect.any(Error),
-		);
-		expect(recordOutcome).toHaveBeenCalledWith("indexer_failed");
-	});
-
-	it("skips synced indexers without api keys", async () => {
-		const searchNewznab = vi.fn();
-
-		const releases = await searchEnabledIndexers({
-			canQueryIndexer: () => ({ allowed: true }),
-			categories: [7020],
-			enabledIndexers: {
-				manual: [],
-				synced: [
-					{
-						id: 1,
-						name: "Synced",
-						baseUrl: "https://synced.example",
-						apiPath: "/api",
-						apiKey: null,
-					},
-				],
-			},
-			enrichRelease: (release) => release,
-			logError: vi.fn(),
-			logInfo: vi.fn(),
-			query: "Author Book",
-			searchNewznab,
-			sleep: vi.fn(),
-		});
-
-		expect(releases).toEqual([]);
-		expect(searchNewznab).not.toHaveBeenCalled();
-	});
-
-	it("waits for pacing gates before querying the indexer", async () => {
-		const sleep = vi.fn();
-		const searchNewznab = vi.fn().mockResolvedValueOnce([
+		expect(results).toEqual([
 			{
-				title: "Manual Release",
-				guid: "manual-guid",
-				protocol: "usenet",
-				size: 200,
-				downloadUrl: "https://example.com/manual.nzb",
-				quality: { id: 1, name: "EPUB", weight: 1 },
+				...release,
+				indexer: "Synced",
+				allstarrIndexerId: 1,
+				indexerSource: "synced",
+			},
+			{
+				...release,
+				indexer: "Manual",
+				allstarrIndexerId: 2,
+				indexerSource: "manual",
 			},
 		]);
+		expect(adapters.searchNewznab.mock.calls).toEqual([
+			[
+				{ baseUrl: synced.baseUrl, apiPath: "/custom", apiKey: synced.apiKey },
+				options.query,
+				options.categories,
+				{ author: "Author", title: "Book" },
+				{ indexerType: "synced", indexerId: 1 },
+			],
+			[
+				{ baseUrl: manual.baseUrl, apiPath: "/api", apiKey: manual.apiKey },
+				options.query,
+				options.categories,
+				{ author: "Author", title: "Book" },
+				{ indexerType: "manual", indexerId: 2 },
+			],
+		]);
+		expect(adapters.enrichRelease).toHaveBeenCalledWith(results[0], "book");
+	});
 
-		await searchEnabledIndexers({
-			canQueryIndexer: () => ({
+	it("preserves a reported indexer name", async () => {
+		adapters.searchNewznab.mockResolvedValue([
+			{ ...release, indexer: "Reported" },
+		]);
+		expect(await search(options)).toEqual([
+			expect.objectContaining({ indexer: "Reported" }),
+		]);
+	});
+
+	it("isolates one indexer failure and still queries the next", async () => {
+		const error = new Error("synced failed");
+		adapters.searchNewznab.mockRejectedValueOnce(error);
+		const results = await search({
+			...options,
+			enabledIndexers: { manual: [manual], synced: [synced] },
+		});
+		expect(results).toHaveLength(1);
+		expect(onOutcome).toHaveBeenCalledExactlyOnceWith("indexer_failed");
+		expect(adapters.logError).toHaveBeenCalledWith(
+			"rss-sync",
+			'Indexer "Synced" failed',
+			error,
+		);
+	});
+
+	it("waits once and obtains fresh admission before querying", async () => {
+		adapters.canQueryIndexer.mockReturnValueOnce({
+			allowed: false,
+			reason: "pacing",
+			waitMs: 250,
+		});
+		await search(options);
+		expect(adapters.sleep).toHaveBeenCalledExactlyOnceWith(250);
+		expect(adapters.canQueryIndexer).toHaveBeenCalledTimes(2);
+		expect(adapters.searchNewznab).toHaveBeenCalledOnce();
+		expect(onOutcome).not.toHaveBeenCalled();
+	});
+
+	it.each(["backoff", "daily_query_limit", "pacing"] as const)(
+		"skips once if %s blocks fresh admission",
+		async (reason) => {
+			adapters.canQueryIndexer
+				.mockReturnValueOnce({ allowed: false, reason: "pacing", waitMs: 250 })
+				.mockReturnValueOnce({ allowed: false, reason, waitMs: 500 });
+			expect(await search(options)).toEqual([]);
+			expect(adapters.sleep).toHaveBeenCalledOnce();
+			expect(adapters.canQueryIndexer).toHaveBeenCalledTimes(2);
+			expect(adapters.searchNewznab).not.toHaveBeenCalled();
+			expect(onOutcome).toHaveBeenCalledExactlyOnceWith("indexer_skipped");
+		},
+	);
+
+	it.each([undefined, 0, -1])(
+		"skips pacing without a positive wait (%s)",
+		async (waitMs) => {
+			adapters.canQueryIndexer.mockReturnValue({
 				allowed: false,
 				reason: "pacing",
-				waitMs: 250,
-			}),
-			categories: [7020],
-			enabledIndexers: {
-				manual: [
-					{
-						id: 2,
-						name: "Manual",
-						baseUrl: "https://manual.example",
-						apiPath: "/api",
-						apiKey: "manual-key",
-					},
-				],
-				synced: [],
-			},
-			enrichRelease: (release) => release,
-			logError: vi.fn(),
-			logInfo: vi.fn(),
-			query: "Author Book",
-			searchNewznab,
-			sleep,
+				waitMs,
+			});
+			await search(options);
+			expect(adapters.sleep).not.toHaveBeenCalled();
+			expect(adapters.searchNewznab).not.toHaveBeenCalled();
+			expect(onOutcome).toHaveBeenCalledExactlyOnceWith("indexer_skipped");
+		},
+	);
+
+	it("skips quota-blocked indexers without sleeping", async () => {
+		adapters.canQueryIndexer.mockReturnValue({
+			allowed: false,
+			reason: "daily_query_limit",
 		});
-
-		expect(sleep).toHaveBeenCalledWith(250);
-		expect(searchNewznab).toHaveBeenCalledOnce();
-	});
-
-	it("logs and skips non-pacing blocked indexers", async () => {
-		const logInfo = vi.fn();
-		const recordOutcome = vi.fn();
-		const searchNewznab = vi.fn();
-
-		const releases = await searchEnabledIndexers({
-			canQueryIndexer: () => ({
-				allowed: false,
-				reason: "daily_query_limit",
-			}),
-			categories: [7020],
-			enabledIndexers: {
-				manual: [
-					{
-						id: 2,
-						name: "Manual",
-						baseUrl: "https://manual.example",
-						apiPath: "/api",
-						apiKey: "manual-key",
-					},
-				],
-				synced: [],
-			},
-			enrichRelease: (release) => release,
-			logError: vi.fn(),
-			logInfo,
-			onOutcome: recordOutcome,
-			query: "Author Book",
-			searchNewznab,
-			sleep: vi.fn(),
-		});
-
-		expect(releases).toEqual([]);
-		expect(logInfo).toHaveBeenCalledWith(
+		await search(options);
+		expect(adapters.sleep).not.toHaveBeenCalled();
+		expect(adapters.logInfo).toHaveBeenCalledWith(
 			"rss-sync",
 			'Indexer "Manual" skipped: daily_query_limit',
 		);
-		expect(recordOutcome).toHaveBeenCalledWith("indexer_skipped");
-		expect(searchNewznab).not.toHaveBeenCalled();
 	});
 
-	it("logs and skips pacing gates without wait time and records skipped outcomes", async () => {
-		const logInfo = vi.fn();
-		const recordOutcome = vi.fn();
-		const searchNewznab = vi.fn();
-
-		const releases = await searchEnabledIndexers({
-			canQueryIndexer: () => ({
+	it.each(["movie", "episode"] as const)(
+		"preserves %s context for manual errors and skips",
+		async (searchContext) => {
+			const error = new Error("failed");
+			adapters.searchNewznab.mockRejectedValueOnce(error);
+			await search({ ...options, searchContext, logPrefix: "auto-search" });
+			expect(adapters.logError).toHaveBeenCalledWith(
+				"auto-search",
+				`Manual indexer failed for ${searchContext}`,
+				error,
+			);
+			adapters.canQueryIndexer.mockReturnValue({
 				allowed: false,
-				reason: "pacing",
-			}),
-			categories: [7020],
-			enabledIndexers: {
-				manual: [
-					{
-						id: 2,
-						name: "Manual",
-						baseUrl: "https://manual.example",
-						apiPath: "/api",
-						apiKey: "manual-key",
-					},
-				],
-				synced: [],
-			},
-			enrichRelease: (release) => release,
-			logError: vi.fn(),
-			logInfo,
-			onOutcome: recordOutcome,
-			query: "Author Book",
-			searchNewznab,
-			sleep: vi.fn(),
-		});
-
-		expect(releases).toEqual([]);
-		expect(logInfo).toHaveBeenCalledWith(
-			"rss-sync",
-			'Indexer "Manual" skipped: pacing',
-		);
-		expect(recordOutcome).toHaveBeenCalledWith("indexer_skipped");
-		expect(searchNewznab).not.toHaveBeenCalled();
-	});
+				reason: "backoff",
+			});
+			await search({ ...options, searchContext, logPrefix: "auto-search" });
+			expect(adapters.logInfo).toHaveBeenCalledWith(
+				"auto-search",
+				`Indexer "Manual" skipped for ${searchContext}: backoff`,
+			);
+		},
+	);
 });

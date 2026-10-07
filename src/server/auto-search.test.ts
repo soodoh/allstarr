@@ -1,3 +1,4 @@
+import * as testSchema from "src/db/schema";
 import {
 	buildDownloadClient,
 	buildManualIndexer,
@@ -10,8 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // ─── Hoisted mocks ─────────────────────────────────────────────────────────
 
 const mocks = vi.hoisted(() => ({
-	selectAll: vi.fn((): unknown[] => []),
-	selectGet: vi.fn((): unknown => undefined),
+	selectAll: vi.fn((_table?: unknown): unknown[] => []),
+	selectGet: vi.fn((_table?: unknown): unknown => undefined),
 	updateRun: vi.fn(),
 	insertRun: vi.fn(),
 	logInfo: vi.fn(),
@@ -25,6 +26,9 @@ const mocks = vi.hoisted(() => ({
 			allowed: true,
 		}),
 	),
+	canGrabIndexer: vi.fn((_source?: string, _id?: number) => ({
+		allowed: true as boolean,
+	})),
 	anyIndexerAvailable: vi.fn(() => true),
 	searchNewznab: vi.fn(
 		async (_feed?: unknown, _query?: unknown): Promise<unknown[]> => [],
@@ -53,38 +57,38 @@ vi.mock("drizzle-orm", () => ({
 vi.mock("src/db", () => ({
 	db: {
 		select: vi.fn(() => ({
-			from: vi.fn(() => ({
+			from: vi.fn((table: unknown) => ({
 				where: vi.fn(() => ({
-					all: mocks.selectAll,
-					get: mocks.selectGet,
+					all: () => mocks.selectAll(table),
+					get: () => mocks.selectGet(table),
 					orderBy: vi.fn(() => ({
-						all: mocks.selectAll,
+						all: () => mocks.selectAll(table),
 					})),
 				})),
 				innerJoin: vi.fn(() => ({
 					where: vi.fn(() => ({
-						all: mocks.selectAll,
-						get: mocks.selectGet,
+						all: () => mocks.selectAll(table),
+						get: () => mocks.selectGet(table),
 					})),
 					innerJoin: vi.fn(() => ({
 						where: vi.fn(() => ({
-							all: mocks.selectAll,
+							all: () => mocks.selectAll(table),
 						})),
 					})),
 				})),
 				leftJoin: vi.fn(() => ({
 					leftJoin: vi.fn(() => ({
 						where: vi.fn(() => ({
-							all: mocks.selectAll,
+							all: () => mocks.selectAll(table),
 						})),
 					})),
 					where: vi.fn(() => ({
-						all: mocks.selectAll,
+						all: () => mocks.selectAll(table),
 					})),
 				})),
-				all: mocks.selectAll,
+				all: () => mocks.selectAll(table),
 				orderBy: vi.fn(() => ({
-					all: mocks.selectAll,
+					all: () => mocks.selectAll(table),
 				})),
 			})),
 		})),
@@ -208,6 +212,7 @@ vi.mock("./download-clients/registry", () => ({
 
 vi.mock("./indexer-rate-limiter", () => ({
 	canQueryIndexer: mocks.canQueryIndexer,
+	canGrabIndexer: mocks.canGrabIndexer,
 	anyIndexerAvailable: mocks.anyIndexerAvailable,
 }));
 
@@ -312,6 +317,7 @@ beforeEach(() => {
 	mocks.selectAll.mockReturnValue([]);
 	mocks.selectGet.mockReturnValue(undefined);
 	mocks.canQueryIndexer.mockReturnValue({ allowed: true });
+	mocks.canGrabIndexer.mockReset().mockReturnValue({ allowed: true });
 	mocks.anyIndexerAvailable.mockReturnValue(true);
 	mocks.searchNewznab.mockResolvedValue([]);
 	mocks.enrichRelease.mockImplementation((r: unknown) => r);
@@ -340,6 +346,7 @@ describe("runAutoSearch", () => {
 				all_indexers_exhausted: 0,
 				download_client_unavailable: 0,
 				download_dispatch_failed: 0,
+				grab_limit_reached: 0,
 				pack_search_failed: 0,
 				fallback_used: 0,
 				no_matching_releases: 0,
@@ -464,10 +471,8 @@ describe("searchForShow", () => {
 	});
 });
 
-describe("findBestReleaseForProfile (via runAutoSearch)", () => {
-	// The findBestReleaseForProfile function is not exported, so we test it
-	// indirectly through the search flow. We set up a scenario where the
-	// search+grab path is exercised for a wanted book.
+describe("profile release selection (via runAutoSearch)", () => {
+	// Keep caller-level coverage alongside the shared selection interface tests.
 
 	function setupBookSearchFlow(
 		releases: ReturnType<typeof makeRelease>[],
@@ -2326,11 +2331,13 @@ describe("searchForMovie", () => {
 					return [];
 			}
 		});
-		mocks.canQueryIndexer.mockImplementation((_type, id) =>
-			id === 1
-				? { allowed: false, reason: "pacing", waitMs: 1 }
-				: { allowed: false, reason: "dailyCap" },
-		);
+		let paced = false;
+		mocks.canQueryIndexer.mockImplementation((_type, id) => {
+			if (id !== 1) return { allowed: false, reason: "dailyCap" };
+			if (paced) return { allowed: true };
+			paced = true;
+			return { allowed: false, reason: "pacing", waitMs: 1 };
+		});
 
 		const result = await searchForMovie(5);
 
@@ -2838,11 +2845,13 @@ describe("searchForShow", () => {
 					return [];
 			}
 		});
-		mocks.canQueryIndexer.mockImplementation((_type, id) =>
-			id === 1
-				? { allowed: false, reason: "pacing", waitMs: 1 }
-				: { allowed: false, reason: "dailyCap" },
-		);
+		let paced = false;
+		mocks.canQueryIndexer.mockImplementation((_type, id) => {
+			if (id !== 1) return { allowed: false, reason: "dailyCap" };
+			if (paced) return { allowed: true };
+			paced = true;
+			return { allowed: false, reason: "pacing", waitMs: 1 };
+		});
 
 		const result = await searchForShow(1);
 
@@ -6753,6 +6762,7 @@ describe("searchForMovie — synced indexer paths", () => {
 				indexer: "SyncedIx",
 				indexerSource: "synced",
 			}),
+			undefined,
 		);
 	});
 
@@ -7030,4 +7040,177 @@ describe("getWantedEpisodes — quality parsing edge cases", () => {
 		// Should still work — episode is wanted because file quality is null (weight 0) and below cutoff
 		expect(result.searched).toBeGreaterThanOrEqual(1);
 	});
+});
+
+describe("automatic grab admission and deferral", () => {
+	type Target =
+		| "book"
+		| "movie"
+		| "episode"
+		| "author-pack"
+		| "season-pack"
+		| "show-pack";
+	function setupQuotaFlow(
+		target: Target,
+		releases = [makeRelease()],
+		settings: Record<string, unknown> = {},
+	) {
+		const profile = makeProfile(settings);
+		const bookRows =
+			target === "book" || target === "author-pack"
+				? [
+						{
+							id: 10,
+							title: "Book A",
+							lastSearchedAt: null,
+							authorId: 1,
+							authorName: "Author",
+							authorMonitored: true,
+						},
+					]
+				: [];
+		if (target === "author-pack")
+			bookRows.push({ ...requireValue(bookRows[0]), id: 11, title: "Book B" });
+		const episodeRows =
+			(target.includes("pack") && target !== "author-pack") ||
+			target === "episode"
+				? [
+						{
+							id: 100,
+							showId: 1,
+							showTitle: "Show",
+							seasonNumber: 1,
+							episodeNumber: 1,
+							absoluteNumber: null,
+							seriesType: "standard",
+							airDate: null,
+							lastSearchedAt: null,
+						},
+					]
+				: [];
+		if (target === "season-pack" || target === "show-pack")
+			episodeRows.push({
+				...requireValue(episodeRows[0]),
+				id: 101,
+				episodeNumber: 2,
+				seasonNumber: target === "show-pack" ? 2 : 1,
+			});
+		mocks.selectAll.mockImplementation((table) => {
+			switch (table) {
+				case testSchema.indexers:
+					return [buildManualIndexer()];
+				case testSchema.books:
+					return bookRows;
+				case testSchema.movies:
+					return target === "movie"
+						? [{ id: 5, title: "Movie", year: 2024, lastSearchedAt: null }]
+						: [];
+				case testSchema.episodes:
+					return episodeRows;
+				case testSchema.editionDownloadProfiles:
+					return [{ editionId: 100, profileId: profile.id }];
+				case testSchema.movieDownloadProfiles:
+				case testSchema.episodeDownloadProfiles:
+					return [{ profileId: profile.id }];
+				case testSchema.downloadProfiles:
+					return [profile];
+				default:
+					return [];
+			}
+		});
+		mocks.selectGet.mockImplementation((table) =>
+			table === testSchema.downloadClients
+				? makeDownloadClient()
+				: { downloadClientId: 5, tag: null },
+		);
+		mocks.searchNewznab.mockResolvedValue(releases);
+		mocks.dedupeAndScoreReleases.mockReturnValue(releases);
+		mocks.getReleaseTypeRank.mockReturnValue(target.includes("pack") ? 3 : 0);
+		const addDownload = vi.fn(async () => "download-1");
+		mocks.getProvider.mockResolvedValue({ addDownload });
+		return { profile, bookRows, addDownload };
+	}
+
+	it.each([
+		"book",
+		"movie",
+		"episode",
+		"author-pack",
+		"season-pack",
+		"show-pack",
+	] as const)(
+		"enforces grab caps for %s and does not use narrower pack fallback",
+		async (target) => {
+			const fixture = setupQuotaFlow(target);
+			mocks.canGrabIndexer.mockReturnValue({ allowed: false });
+			const result = await runAutoSearch({ delayBetweenBooks: 0 });
+			expect(result.grabbed).toBe(0);
+			expect(result.errors).toBe(0);
+			expect(result.outcomes.grab_limit_reached).toBe(1);
+			expect(result.outcomes.download_dispatch_failed).toBe(0);
+			expect(result.outcomes.no_matching_releases).toBe(0);
+			expect(result.outcomes.fallback_used).toBe(0);
+			expect(fixture.addDownload).not.toHaveBeenCalled();
+			expect(mocks.insertRun).not.toHaveBeenCalled();
+			expect(mocks.searchNewznab).toHaveBeenCalledOnce();
+		},
+	);
+
+	it.each([false, true])(
+		"grabs a lower-ranked alternative only if upgrades cannot later replace it (upgrades=%s)",
+		async (upgradeAllowed) => {
+			const best = makeRelease({
+				guid: "best",
+				allstarrIndexerId: 1,
+				quality: { id: 3, name: "Best", weight: 3, color: "#fff" },
+			});
+			const next = makeRelease({
+				guid: "next",
+				allstarrIndexerId: 2,
+				downloadUrl: "http://example.com/next",
+				quality: { id: 2, name: "Next", weight: 2, color: "#fff" },
+			});
+			const fixture = setupQuotaFlow("book", [next, best], { upgradeAllowed });
+			mocks.canGrabIndexer.mockImplementation((_source, id) => ({
+				allowed: id === 2,
+			}));
+			const result = await runAutoSearch({ delayBetweenBooks: 0 });
+			expect(result.grabbed).toBe(upgradeAllowed ? 0 : 1);
+			expect(result.outcomes.grab_limit_reached).toBe(1);
+			expect(fixture.addDownload).toHaveBeenCalledTimes(upgradeAllowed ? 0 : 1);
+			if (!upgradeAllowed)
+				expect(fixture.addDownload).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({ url: next.downloadUrl }),
+				);
+		},
+	);
+
+	it("continues unrelated author groups after deferring a capped pack", async () => {
+		const fixture = setupQuotaFlow("author-pack");
+		fixture.bookRows.push({
+			id: 12,
+			title: "Other book",
+			authorId: 2,
+			authorName: "Other author",
+			authorMonitored: true,
+			lastSearchedAt: null,
+		});
+		mocks.canGrabIndexer.mockReturnValue({ allowed: false });
+		const result = await runAutoSearch({ delayBetweenBooks: 0 });
+		expect(mocks.searchNewznab).toHaveBeenCalledTimes(2);
+		expect(result.details.map((detail) => detail.bookId)).toEqual([10, 11, 12]);
+		expect(result.outcomes.grab_limit_reached).toBe(2);
+	});
+
+	it.each(["season-pack", "show-pack"] as const)(
+		"also defers capped %s for direct show searches",
+		async (target) => {
+			const fixture = setupQuotaFlow(target);
+			mocks.canGrabIndexer.mockReturnValue({ allowed: false });
+			expect(await searchForShow(1)).toEqual({ searched: 2, grabbed: 0 });
+			expect(mocks.searchNewznab).toHaveBeenCalledOnce();
+			expect(fixture.addDownload).not.toHaveBeenCalled();
+		},
+	);
 });

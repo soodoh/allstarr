@@ -1,204 +1,175 @@
-import { dispatchAutoSearchDownload } from "src/server/auto-search-download-dispatch";
-import { describe, expect, it, vi } from "vitest";
+import {
+	buildDownloadClient,
+	buildRelease,
+} from "src/server/auto-search-test-fixtures";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-function createRelease() {
+const mocks = vi.hoisted(() => ({
+	getProvider: vi.fn(),
+	canGrabIndexer: vi.fn(),
+}));
+vi.mock("./download-clients/registry", () => ({ default: mocks.getProvider }));
+vi.mock("./indexer-rate-limiter", () => ({
+	canGrabIndexer: mocks.canGrabIndexer,
+}));
+
+import { dispatchAutoSearchDownload } from "./auto-search-download-dispatch";
+
+const addDownload = vi.fn();
+function setup() {
+	const client = buildDownloadClient();
 	return {
-		allstarrIndexerId: 5,
-		downloadUrl: "https://example.com/release.nzb",
-		guid: "guid-1",
-		protocol: "usenet" as const,
-		quality: { id: 1, name: "EPUB", weight: 1 },
-		size: 100,
-		title: "Release",
+		release: buildRelease(),
+		resolveDownloadClient: vi.fn(() => ({
+			client,
+			combinedTag: "client-tag,indexer-tag",
+		})),
+		trackedDownload: vi.fn(({ downloadId }: { downloadId: string }) => ({
+			downloadId,
+		})),
+		history: vi.fn(() => ({ eventType: "bookGrabbed" })),
+		insertTrackedDownload: vi.fn(),
+		insertHistory: vi.fn(),
+		logWarn: vi.fn(),
+		onOutcome: vi.fn(),
 	};
 }
 
-function createClient() {
-	return {
-		id: 9,
-		name: "Client",
-		implementation: "sabnzbd",
-		host: "localhost",
-		port: 8080,
-		useSsl: false,
-		urlBase: "",
-		username: null,
-		password: null,
-		apiKey: "key",
-		category: null,
-		tag: "client-tag",
-		settings: null,
-	};
-}
+beforeEach(() => {
+	vi.clearAllMocks();
+	mocks.getProvider.mockReset().mockResolvedValue({ addDownload });
+	mocks.canGrabIndexer.mockReset().mockReturnValue({ allowed: true });
+	addDownload.mockReset().mockResolvedValue("download-1");
+});
 
-describe("dispatchAutoSearchDownload", () => {
-	it("adds a download, tracks it, and records history through supplied repositories", async () => {
-		const provider = {
-			addDownload: vi.fn().mockResolvedValue("download-1"),
-		};
-		const insertTrackedDownload = vi.fn();
-		const insertHistory = vi.fn();
-
-		const result = await dispatchAutoSearchDownload({
-			getProvider: vi.fn().mockResolvedValue(provider),
-			insertHistory,
-			insertTrackedDownload,
-			logWarn: vi.fn(),
-			release: createRelease(),
-			resolveDownloadClient: () => ({
-				client: createClient(),
-				combinedTag: "client-tag,indexer-tag",
-			}),
-			trackedDownload: ({ client, downloadId, release }) => ({
-				downloadClientId: client.id,
-				downloadId,
-				releaseTitle: release.title,
-				state: "queued",
-			}),
-			history: ({ client, release }) => ({
-				eventType: "bookGrabbed",
-				data: {
-					downloadClientId: client.id,
-					guid: release.guid,
-					title: release.title,
-				},
-			}),
+describe("automatic dispatch interface", () => {
+	it("dispatches, tracks, and records history after grab admission", async () => {
+		const options = setup();
+		expect(await dispatchAutoSearchDownload(options)).toEqual({
+			status: "grabbed",
 		});
-
-		expect(result).toBe(true);
-		expect(provider.addDownload).toHaveBeenCalledWith(
+		expect(mocks.canGrabIndexer).toHaveBeenCalledExactlyOnceWith("manual", 1);
+		expect(addDownload).toHaveBeenCalledWith(
 			expect.objectContaining({ implementation: "sabnzbd" }),
 			expect.objectContaining({
 				tag: "client-tag,indexer-tag",
-				url: "https://example.com/release.nzb",
+				url: options.release.downloadUrl,
 			}),
 		);
-		expect(insertTrackedDownload).toHaveBeenCalledWith(
-			expect.objectContaining({ downloadId: "download-1" }),
-		);
-		expect(insertHistory).toHaveBeenCalledWith(
-			expect.objectContaining({ eventType: "bookGrabbed" }),
-		);
-	});
-
-	it("returns false and skips provider work when no download client resolves", async () => {
-		const provider = {
-			addDownload: vi.fn(),
-		};
-		const getProvider = vi.fn().mockResolvedValue(provider);
-		const insertTrackedDownload = vi.fn();
-		const insertHistory = vi.fn();
-		const logWarn = vi.fn();
-		const recordOutcome = vi.fn();
-
-		const result = await dispatchAutoSearchDownload({
-			getProvider,
-			insertHistory,
-			insertTrackedDownload,
-			logWarn,
-			onOutcome: recordOutcome,
-			release: createRelease(),
-			resolveDownloadClient: () => null,
-			trackedDownload: ({ downloadId }) => ({ downloadId }),
-			history: ({ release }) => ({ eventType: "bookGrabbed", release }),
+		expect(options.insertTrackedDownload).toHaveBeenCalledWith({
+			downloadId: "download-1",
 		});
-
-		expect(result).toBe(false);
-		expect(logWarn).toHaveBeenCalledWith(
-			"auto-search",
-			expect.stringContaining("No enabled usenet download client"),
-		);
-		expect(recordOutcome).toHaveBeenCalledWith("download_client_unavailable");
-		expect(getProvider).not.toHaveBeenCalled();
-		expect(provider.addDownload).not.toHaveBeenCalled();
-		expect(insertTrackedDownload).not.toHaveBeenCalled();
-		expect(insertHistory).not.toHaveBeenCalled();
-	});
-
-	it("records dispatch failure before preserving provider errors", async () => {
-		const providerError = new Error("client rejected release");
-		const provider = {
-			addDownload: vi.fn().mockRejectedValue(providerError),
-		};
-		const recordOutcome = vi.fn();
-
-		await expect(
-			dispatchAutoSearchDownload({
-				getProvider: vi.fn().mockResolvedValue(provider),
-				insertHistory: vi.fn(),
-				insertTrackedDownload: vi.fn(),
-				logWarn: vi.fn(),
-				onOutcome: recordOutcome,
-				release: createRelease(),
-				resolveDownloadClient: () => ({
-					client: createClient(),
-					combinedTag: "client-tag,indexer-tag",
-				}),
-				trackedDownload: ({ downloadId }) => ({ downloadId }),
-				history: ({ release }) => ({ eventType: "bookGrabbed", release }),
-			}),
-		).rejects.toThrow("client rejected release");
-
-		expect(recordOutcome).toHaveBeenCalledWith("download_dispatch_failed");
-	});
-
-	it("records dispatch failure before preserving provider resolution errors", async () => {
-		const providerError = new Error("provider registry unavailable");
-		const recordOutcome = vi.fn();
-
-		await expect(
-			dispatchAutoSearchDownload({
-				getProvider: vi.fn().mockRejectedValue(providerError),
-				insertHistory: vi.fn(),
-				insertTrackedDownload: vi.fn(),
-				logWarn: vi.fn(),
-				onOutcome: recordOutcome,
-				release: createRelease(),
-				resolveDownloadClient: () => ({
-					client: createClient(),
-					combinedTag: "client-tag,indexer-tag",
-				}),
-				trackedDownload: ({ downloadId }) => ({ downloadId }),
-				history: ({ release }) => ({ eventType: "bookGrabbed", release }),
-			}),
-		).rejects.toBe(providerError);
-
-		expect(recordOutcome).toHaveBeenCalledWith("download_dispatch_failed");
-	});
-
-	it("records history without tracking when provider accepts without a download id", async () => {
-		const provider = {
-			addDownload: vi.fn().mockResolvedValue(null),
-		};
-		const insertTrackedDownload = vi.fn();
-		const insertHistory = vi.fn();
-
-		const result = await dispatchAutoSearchDownload({
-			getProvider: vi.fn().mockResolvedValue(provider),
-			insertHistory,
-			insertTrackedDownload,
-			logWarn: vi.fn(),
-			release: createRelease(),
-			resolveDownloadClient: () => ({
-				client: createClient(),
-				combinedTag: "client-tag,indexer-tag",
-			}),
-			trackedDownload: ({ downloadId }) => ({ downloadId }),
-			history: ({ client, release }) => ({
-				eventType: "bookGrabbed",
-				data: {
-					downloadClientId: client.id,
-					guid: release.guid,
-					title: release.title,
-				},
-			}),
+		expect(options.insertHistory).toHaveBeenCalledWith({
+			eventType: "bookGrabbed",
 		});
+	});
 
-		expect(result).toBe(true);
-		expect(provider.addDownload).toHaveBeenCalledOnce();
-		expect(insertTrackedDownload).not.toHaveBeenCalled();
-		expect(insertHistory).toHaveBeenCalledWith(
-			expect.objectContaining({ eventType: "bookGrabbed" }),
+	it("does not resolve a provider or charge quota without a client", async () => {
+		const options = setup();
+		expect(
+			await dispatchAutoSearchDownload({
+				...options,
+				resolveDownloadClient: () => null,
+				logPrefix: "rss-sync",
+			}),
+		).toEqual({ status: "unavailable" });
+		expect(mocks.getProvider).not.toHaveBeenCalled();
+		expect(mocks.canGrabIndexer).not.toHaveBeenCalled();
+		expect(options.onOutcome).toHaveBeenCalledExactlyOnceWith(
+			"download_client_unavailable",
 		);
+		expect(options.logWarn).toHaveBeenCalledWith(
+			"rss-sync",
+			expect.stringContaining("No enabled usenet"),
+		);
+	});
+
+	it.each(["provider", "dispatch"])(
+		"preserves %s exceptions and records dispatch failure",
+		async (phase) => {
+			const options = setup();
+			const error = new Error("dispatch error");
+			if (phase === "provider") mocks.getProvider.mockRejectedValue(error);
+			else addDownload.mockRejectedValue(error);
+			await expect(dispatchAutoSearchDownload(options)).rejects.toBe(error);
+			expect(options.onOutcome).toHaveBeenCalledExactlyOnceWith(
+				"download_dispatch_failed",
+			);
+			expect(mocks.canGrabIndexer).toHaveBeenCalledTimes(
+				phase === "provider" ? 0 : 1,
+			);
+			expect(options.insertHistory).not.toHaveBeenCalled();
+		},
+	);
+
+	it("records history without tracking when accepted without an ID", async () => {
+		const options = setup();
+		addDownload.mockResolvedValue(null);
+		expect(await dispatchAutoSearchDownload(options)).toEqual({
+			status: "grabbed",
+		});
+		expect(options.insertTrackedDownload).not.toHaveBeenCalled();
+		expect(options.insertHistory).toHaveBeenCalledOnce();
+	});
+
+	it("denies capped grabs without dispatch or persistence, deduplicating diagnostics only", async () => {
+		const options = { ...setup(), recordedOutcomeGuids: new Set<string>() };
+		mocks.canGrabIndexer.mockReturnValue({
+			allowed: false,
+			reason: "daily_grab_limit",
+		});
+		for (let i = 0; i < 2; i++)
+			expect(await dispatchAutoSearchDownload(options)).toEqual({
+				status: "grab_limit_reached",
+			});
+		expect(options.onOutcome).toHaveBeenCalledExactlyOnceWith(
+			"grab_limit_reached",
+		);
+		expect(addDownload).not.toHaveBeenCalled();
+		expect(options.insertTrackedDownload).not.toHaveBeenCalled();
+		expect(options.insertHistory).not.toHaveBeenCalled();
+		mocks.canGrabIndexer.mockReturnValue({ allowed: true });
+		expect(await dispatchAutoSearchDownload(options)).toEqual({
+			status: "grabbed",
+		});
+		expect(addDownload).toHaveBeenCalledOnce();
+	});
+
+	it("deduplicates failed diagnostics without suppressing retry dispatches", async () => {
+		const options = { ...setup(), recordedOutcomeGuids: new Set<string>() };
+		addDownload.mockRejectedValue(new Error("rejected"));
+		for (let i = 0; i < 2; i++)
+			await expect(dispatchAutoSearchDownload(options)).rejects.toThrow(
+				"rejected",
+			);
+		expect(options.onOutcome).toHaveBeenCalledExactlyOnceWith(
+			"download_dispatch_failed",
+		);
+		expect(mocks.canGrabIndexer).toHaveBeenCalledTimes(2);
+		expect(addDownload).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not classify tracking persistence failure as a provider failure", async () => {
+		const options = setup();
+		const error = new Error("tracking write failed");
+		options.insertTrackedDownload.mockImplementation(() => {
+			throw error;
+		});
+		await expect(dispatchAutoSearchDownload(options)).rejects.toBe(error);
+		expect(addDownload).toHaveBeenCalledOnce();
+		expect(options.onOutcome).not.toHaveBeenCalled();
+		expect(options.insertHistory).not.toHaveBeenCalled();
+	});
+
+	it("preserves history failure after tracking without refunding admission", async () => {
+		const options = setup();
+		const error = new Error("history write failed");
+		options.insertHistory.mockImplementation(() => {
+			throw error;
+		});
+		await expect(dispatchAutoSearchDownload(options)).rejects.toBe(error);
+		expect(options.insertTrackedDownload).toHaveBeenCalledOnce();
+		expect(mocks.canGrabIndexer).toHaveBeenCalledOnce();
+		expect(options.onOutcome).not.toHaveBeenCalled();
 	});
 });

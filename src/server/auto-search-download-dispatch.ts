@@ -2,11 +2,13 @@ import type {
 	AutoSearchOutcomeReason,
 	AutoSearchOutcomeRecorder,
 } from "./auto-search-outcomes";
-import type {
-	ConnectionConfig,
-	DownloadRequest,
-} from "./download-clients/types";
+import type { ConnectionConfig } from "./download-clients/types";
+import { dispatchIndexerDownload } from "./indexer-download";
 import type { IndexerRelease } from "./indexers/types";
+
+export type AutoSearchGrabResult = {
+	status: "grabbed" | "unavailable" | "grab_limit_reached";
+};
 
 type DownloadClientRow = {
 	id: number;
@@ -26,7 +28,13 @@ type DownloadClientRow = {
 
 type DispatchRelease = Pick<
 	IndexerRelease,
-	"allstarrIndexerId" | "downloadUrl" | "guid" | "protocol" | "size" | "title"
+	| "allstarrIndexerId"
+	| "indexerSource"
+	| "downloadUrl"
+	| "guid"
+	| "protocol"
+	| "size"
+	| "title"
 > & {
 	quality: { name: string };
 };
@@ -46,16 +54,11 @@ type TrackedDownloadContext<TRelease extends DispatchRelease> =
 		downloadId: string;
 	};
 
-type DownloadProvider = {
-	addDownload(
-		config: ConnectionConfig,
-		download: DownloadRequest,
-	): Promise<string | null>;
-};
-
 type GuidDedupeOutcomeReason = Extract<
 	AutoSearchOutcomeReason,
-	"download_client_unavailable" | "download_dispatch_failed"
+	| "download_client_unavailable"
+	| "download_dispatch_failed"
+	| "grab_limit_reached"
 >;
 
 export type DispatchAutoSearchDownloadOptions<
@@ -63,11 +66,11 @@ export type DispatchAutoSearchDownloadOptions<
 	TTracked,
 	THistory,
 > = {
-	getProvider: (implementation: string) => Promise<DownloadProvider>;
 	history: (context: DispatchContext<TRelease>) => THistory;
 	insertHistory: (history: THistory) => void;
 	insertTrackedDownload: (trackedDownload: TTracked) => void;
 	logWarn: (prefix: string, message: string) => void;
+	logPrefix?: string;
 	onOutcome?: AutoSearchOutcomeRecorder;
 	recordedOutcomeGuids?: Set<string>;
 	release: TRelease;
@@ -117,11 +120,11 @@ export async function dispatchAutoSearchDownload<
 	TTracked,
 	THistory,
 >({
-	getProvider,
 	history,
 	insertHistory,
 	insertTrackedDownload,
 	logWarn,
+	logPrefix = "auto-search",
 	onOutcome,
 	recordedOutcomeGuids,
 	release,
@@ -131,7 +134,7 @@ export async function dispatchAutoSearchDownload<
 	TRelease,
 	TTracked,
 	THistory
->): Promise<boolean> {
+>): Promise<AutoSearchGrabResult> {
 	const resolved = await resolveDownloadClient(release);
 	if (!resolved) {
 		recordOutcomeOnceForGuid(
@@ -141,24 +144,38 @@ export async function dispatchAutoSearchDownload<
 			onOutcome,
 		);
 		logWarn(
-			"auto-search",
+			logPrefix,
 			`No enabled ${release.protocol} download client for "${release.title}"`,
 		);
-		return false;
+		return { status: "unavailable" };
 	}
 
 	const { client, combinedTag } = resolved;
 	let downloadId: string | null;
 	try {
-		const provider = await getProvider(client.implementation);
-		downloadId = await provider.addDownload(buildConnectionConfig(client), {
-			url: release.downloadUrl,
-			torrentData: null,
-			nzbData: null,
-			category: null,
-			tag: combinedTag,
-			savePath: null,
+		const result = await dispatchIndexerDownload({
+			indexerSource: release.indexerSource,
+			indexerId: release.allstarrIndexerId,
+			config: buildConnectionConfig(client),
+			download: {
+				url: release.downloadUrl,
+				torrentData: null,
+				nzbData: null,
+				category: null,
+				tag: combinedTag,
+				savePath: null,
+			},
 		});
+		if (result.status === "grab_limit_reached") {
+			recordOutcomeOnceForGuid(
+				result.status,
+				release.guid,
+				recordedOutcomeGuids,
+				onOutcome,
+			);
+			return result;
+		}
+		downloadId = result.downloadId;
 	} catch (error) {
 		recordOutcomeOnceForGuid(
 			"download_dispatch_failed",
@@ -175,5 +192,5 @@ export async function dispatchAutoSearchDownload<
 	}
 
 	insertHistory(history(context));
-	return true;
+	return { status: "grabbed" };
 }
