@@ -22,25 +22,15 @@ type ExecuteMappingInput<TResult> = {
 	logLabel: string;
 	logWarn?: (scope: string, message: string) => void;
 	move: (helpers: {
-		recordMove: (operation: MappingMoveOperation) => void;
+		movePath: (operation: MappingMoveOperation) => void;
 	}) => void;
 	runTransaction: () => TResult;
 };
 
-function movePathToManagedDestination(
+function relocatePath(
 	fs: MappingFs,
-	from: string,
-	to: string,
-	kind: MappingMoveKind,
+	{ from, to, kind }: MappingMoveOperation,
 ): void {
-	if (!fs.existsSync(from)) {
-		throw new Error(`Rollback source does not exist: ${from}`);
-	}
-	const parent = path.dirname(to);
-	if (!fs.existsSync(parent)) {
-		fs.mkdirSync(parent, { recursive: true });
-	}
-
 	try {
 		fs.renameSync(from, to);
 		return;
@@ -81,7 +71,18 @@ function rollbackMovedPaths({
 }): void {
 	for (const moved of [...movedPaths].reverse()) {
 		try {
-			movePathToManagedDestination(fs, moved.to, moved.from, moved.kind);
+			if (!fs.existsSync(moved.to)) {
+				throw new Error(`Rollback source does not exist: ${moved.to}`);
+			}
+			const parent = path.dirname(moved.from);
+			if (!fs.existsSync(parent)) {
+				fs.mkdirSync(parent, { recursive: true });
+			}
+			relocatePath(fs, {
+				from: moved.to,
+				to: moved.from,
+				kind: moved.kind,
+			});
 		} catch (rollbackError) {
 			logWarn(
 				"unmapped-files",
@@ -99,12 +100,14 @@ export function executeMappingWithRollback<TResult>({
 	runTransaction,
 }: ExecuteMappingInput<TResult>): TResult {
 	const movedPaths: MappingMoveOperation[] = [];
-	const recordMove = (operation: MappingMoveOperation): void => {
+	const movePath = (operation: MappingMoveOperation): void => {
+		fs.mkdirSync(path.dirname(operation.to), { recursive: true });
+		relocatePath(fs, operation);
 		movedPaths.push(operation);
 	};
 
 	try {
-		move({ recordMove });
+		move({ movePath });
 		return runTransaction();
 	} catch (error) {
 		rollbackMovedPaths({ fs, logLabel, logWarn, movedPaths });

@@ -1,6 +1,12 @@
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { eq } from "drizzle-orm";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { eq, sql } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
 import { expect, test } from "../fixtures/app";
 import {
@@ -589,6 +595,91 @@ test.describe("Unmapped Files", () => {
 		await expect.poll(() => existsSync(expectedFolderArtPath)).toBe(true);
 		await expect.poll(() => existsSync(sourceFolderFile)).toBe(false);
 		await expect.poll(() => existsSync(destinationKeepFile)).toBe(true);
+	});
+
+	test("restores movie and sidecar sources when mapping persistence fails", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		checkpoint,
+	}) => {
+		const { movie } = seedMovieLibrary(db, tempDir);
+		const file = seedUnmappedMovieFile(db, tempDir, "Alien (1979).mkv", [
+			"Alien (1979).nfo",
+		]);
+		const destinationDir = join(tempDir, `${movie.title} (${movie.year})`);
+		const sourcePaths = [file.path, ...file.sidecarPaths];
+		const sourceContents = sourcePaths.map((source) =>
+			readFileSync(source, "utf8"),
+		);
+
+		db.run(sql`
+			CREATE TRIGGER mapping_history_failure
+			BEFORE INSERT ON history
+			WHEN NEW.event_type = 'movieFileAdded'
+			BEGIN
+				SELECT RAISE(ABORT, 'mapping history rejected');
+			END
+		`);
+		checkpoint();
+
+		try {
+			await navigateTo(page, appUrl, "/unmapped-files");
+			const movieRow = page
+				.getByText(file.filename, { exact: true })
+				.locator(
+					"xpath=ancestor::div[.//button[@title='Map to library entry'] and .//*[@role='checkbox']][1]",
+				);
+			await movieRow.getByTitle("Map to library entry").click();
+			await expect(
+				page.getByText("Alien · 1979", { exact: true }),
+			).toBeVisible();
+			await page.getByLabel("Move related files").check();
+			await page.getByRole("button", { name: "Map Selected Files" }).click();
+
+			await expect(page.getByText("1 file failed to map")).toBeVisible();
+			await expect(page.getByText("mapping history rejected")).toBeVisible();
+			await expect(
+				page.getByRole("heading", { name: "Map 1 file" }),
+			).toBeVisible();
+
+			for (const [index, source] of sourcePaths.entries()) {
+				expect(readFileSync(source, "utf8")).toBe(sourceContents[index]);
+				expect(existsSync(join(destinationDir, basename(source)))).toBe(false);
+			}
+			expect(
+				db
+					.select()
+					.from(schema.movieFiles)
+					.where(eq(schema.movieFiles.movieId, movie.id))
+					.all(),
+			).toEqual([]);
+			expect(
+				db
+					.select()
+					.from(schema.history)
+					.where(eq(schema.history.movieId, movie.id))
+					.all(),
+			).toEqual([]);
+			expect(
+				db
+					.select({ path: schema.movies.path })
+					.from(schema.movies)
+					.where(eq(schema.movies.id, movie.id))
+					.get(),
+			).toEqual({ path: "" });
+			expect(
+				db
+					.select({ path: schema.unmappedFiles.path })
+					.from(schema.unmappedFiles)
+					.where(eq(schema.unmappedFiles.id, file.id))
+					.get(),
+			).toEqual({ path: file.path });
+		} finally {
+			db.run(sql`DROP TRIGGER IF EXISTS mapping_history_failure`);
+			checkpoint();
+		}
 	});
 
 	test("maps TV rows with distinct episode targets and preserves nested and show-level related files", async ({

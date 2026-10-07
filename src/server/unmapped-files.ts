@@ -35,10 +35,7 @@ import {
 } from "src/server/import-assets";
 import { logWarn } from "src/server/logger";
 import { requireAdmin, requireAuth } from "src/server/middleware";
-import {
-	executeMappingWithRollback,
-	type MappingMoveOperation,
-} from "src/server/unmapped-file-mapping-executor";
+import { executeMappingWithRollback } from "src/server/unmapped-file-mapping-executor";
 import { z } from "zod";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -383,39 +380,6 @@ function buildMovieSidecarCollisionKey(
 	);
 }
 
-function moveFileToManagedPath(
-	fs: typeof import("node:fs"),
-	sourcePath: string,
-	destPath: string,
-): void {
-	fs.mkdirSync(path.dirname(destPath), { recursive: true });
-
-	try {
-		fs.renameSync(sourcePath, destPath);
-		return;
-	} catch (error) {
-		if (
-			!(error instanceof Error) ||
-			!("code" in error) ||
-			error.code !== "EXDEV"
-		) {
-			throw error;
-		}
-	}
-
-	fs.copyFileSync(sourcePath, destPath);
-	try {
-		fs.unlinkSync(sourcePath);
-	} catch (error) {
-		try {
-			fs.unlinkSync(destPath);
-		} catch {
-			// Ignore cleanup failures so the original unlink error is preserved.
-		}
-		throw error;
-	}
-}
-
 function resolveManagedRootFolder(downloadProfileId: number): string | null {
 	const profile = db
 		.select()
@@ -437,41 +401,6 @@ function resolveManagedRootFolder(downloadProfileId: number): string | null {
 			)
 			.sort((left, right) => left.id - right.id)[0]?.rootFolderPath ?? null
 	);
-}
-
-function movePathToManagedDestination(
-	fs: typeof import("node:fs"),
-	sourcePath: string,
-	destPath: string,
-	kind: "directory" | "file",
-): void {
-	fs.mkdirSync(path.dirname(destPath), { recursive: true });
-
-	try {
-		fs.renameSync(sourcePath, destPath);
-		return;
-	} catch (error) {
-		if (
-			kind === "directory" ||
-			!(error instanceof Error) ||
-			!("code" in error) ||
-			error.code !== "EXDEV"
-		) {
-			throw error;
-		}
-	}
-
-	fs.copyFileSync(sourcePath, destPath);
-	try {
-		fs.unlinkSync(sourcePath);
-	} catch (error) {
-		try {
-			fs.unlinkSync(destPath);
-		} catch {
-			// Ignore cleanup failures so the original unlink error is preserved.
-		}
-		throw error;
-	}
 }
 
 function isPrimaryImportFile(contentType: string, filePath: string): boolean {
@@ -1032,13 +961,8 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					executeMappingWithRollback({
 						fs,
 						logLabel: "TV file move",
-						move: ({
-							recordMove,
-						}: {
-							recordMove: (operation: MappingMoveOperation) => void;
-						}) => {
-							moveFileToManagedPath(fs, file.path, managedEpisodePath);
-							recordMove({
+						move: ({ movePath }) => {
+							movePath({
 								from: file.path,
 								kind: "file",
 								to: managedEpisodePath,
@@ -1067,13 +991,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 									});
 
 									for (const move of assetOperations.moves) {
-										movePathToManagedDestination(
-											fs,
-											move.from,
-											move.to,
-											move.kind,
-										);
-										recordMove(move);
+										movePath(move);
 									}
 								}
 							} else if (normalized.moveRelatedFiles) {
@@ -1115,8 +1033,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 										usedDestPaths,
 										(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
 									);
-									moveFileToManagedPath(fs, candidate.path, sidecarDest);
-									recordMove({
+									movePath({
 										from: candidate.path,
 										kind: "file",
 										to: sidecarDest,
@@ -1355,13 +1272,8 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					executeMappingWithRollback({
 						fs,
 						logLabel: "file move",
-						move: ({
-							recordMove,
-						}: {
-							recordMove: (operation: MappingMoveOperation) => void;
-						}) => {
-							moveFileToManagedPath(fs, file.path, destPath);
-							recordMove({
+						move: ({ movePath }) => {
+							movePath({
 								from: file.path,
 								to: destPath,
 								kind: "file",
@@ -1389,13 +1301,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 											normalized.deleteDeselectedRelatedFiles,
 									});
 									for (const move of assetOperations.moves) {
-										movePathToManagedDestination(
-											fs,
-											move.from,
-											move.to,
-											move.kind,
-										);
-										recordMove(move);
+										movePath(move);
 									}
 								}
 							}
@@ -1519,13 +1425,8 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 					executeMappingWithRollback({
 						fs,
 						logLabel: "movie file move",
-						move: ({
-							recordMove,
-						}: {
-							recordMove: (operation: MappingMoveOperation) => void;
-						}) => {
-							moveFileToManagedPath(fs, file.path, destPath);
-							recordMove({
+						move: ({ movePath }) => {
+							movePath({
 								from: file.path,
 								kind: "file",
 								to: destPath,
@@ -1554,13 +1455,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 									});
 
 									for (const move of assetOperations.moves) {
-										movePathToManagedDestination(
-											fs,
-											move.from,
-											move.to,
-											move.kind,
-										);
-										recordMove(move);
+										movePath(move);
 									}
 								}
 							} else if (normalized.moveRelatedFiles) {
@@ -1602,8 +1497,7 @@ export const mapUnmappedFileFn = createServerFn({ method: "POST" })
 										usedDestPaths,
 										(sidecarCollisionCounts.get(collisionKey) ?? 0) > 1,
 									);
-									moveFileToManagedPath(fs, candidate.path, sidecarDest);
-									recordMove({
+									movePath({
 										from: candidate.path,
 										kind: "file",
 										to: sidecarDest,
