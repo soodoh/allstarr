@@ -164,12 +164,12 @@ function writeProvenance(args: {
 		.run();
 }
 
-async function persistReviewItem(args: {
+function persistReviewItem(args: {
 	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<void> {
+}): void {
 	const existing = args.tx
 		.select()
 		.from(importReviewItems)
@@ -232,13 +232,13 @@ function buildDownloadProfileValues(args: { row: ApplyImportPlanRow }) {
 	};
 }
 
-async function applyDownloadClientRow(args: {
+function applyDownloadClientRow(args: {
 	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
 	provenance: { targetId: string; targetType: string } | undefined;
-}): Promise<boolean> {
+}): boolean {
 	const targetId =
 		args.provenance?.targetType === "download-client"
 			? getTargetIdNumber(args.provenance.targetId)
@@ -253,7 +253,7 @@ async function applyDownloadClientRow(args: {
 					.get();
 
 	if (args.row.action === "update" && !existing) {
-		await persistReviewItem({
+		persistReviewItem({
 			row: args.row,
 			sourceId: args.sourceId,
 			timestamp: args.timestamp,
@@ -310,13 +310,13 @@ async function applyDownloadClientRow(args: {
 	return true;
 }
 
-async function applyDownloadProfileRow(args: {
+function applyDownloadProfileRow(args: {
 	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
 	provenance: { targetId: string; targetType: string } | undefined;
-}): Promise<boolean> {
+}): boolean {
 	const targetId =
 		args.provenance?.targetType === "download-profile"
 			? getTargetIdNumber(args.provenance.targetId)
@@ -331,7 +331,7 @@ async function applyDownloadProfileRow(args: {
 					.get();
 
 	if (args.row.action === "update" && !existing) {
-		await persistReviewItem({
+		persistReviewItem({
 			row: args.row,
 			sourceId: args.sourceId,
 			timestamp: args.timestamp,
@@ -384,12 +384,12 @@ async function applyDownloadProfileRow(args: {
 	return true;
 }
 
-async function applyMetadataProfileRow(args: {
+function applyMetadataProfileRow(args: {
 	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<boolean> {
+}): boolean {
 	const raw = getSourcePayload(args.row);
 	args.tx
 		.insert(settings)
@@ -427,15 +427,15 @@ function getExplicitTargetId(row: ApplyImportPlanRow): string | null {
 	return null;
 }
 
-async function applyResolvedLibraryRow(args: {
+function applyResolvedLibraryRow(args: {
 	tx: DbClient;
 	row: ApplyImportPlanRow;
 	sourceId: number;
 	timestamp: Date;
-}): Promise<boolean> {
+}): boolean {
 	const targetId = getExplicitTargetId(args.row);
 	if (!targetId) {
-		await persistReviewItem({
+		persistReviewItem({
 			row: args.row,
 			sourceId: args.sourceId,
 			timestamp: args.timestamp,
@@ -487,7 +487,7 @@ export async function applyImportPlan(
 			left.action.localeCompare(right.action),
 	);
 
-	return db.transaction(async (tx) => {
+	return db.transaction((tx) => {
 		const transactionDb = tx as DbClient;
 		let appliedCount = 0;
 		let reviewCount = 0;
@@ -498,7 +498,7 @@ export async function applyImportPlan(
 			}
 
 			if (row.action === "unresolved" || row.action === "unsupported") {
-				await persistReviewItem({
+				persistReviewItem({
 					row,
 					sourceId: args.sourceId,
 					timestamp,
@@ -509,7 +509,7 @@ export async function applyImportPlan(
 			}
 
 			if (!isSupportedAction(row.action) || !isSupportedRow(row)) {
-				await persistReviewItem({
+				persistReviewItem({
 					row,
 					sourceId: args.sourceId,
 					timestamp,
@@ -526,7 +526,7 @@ export async function applyImportPlan(
 			});
 
 			if (row.resourceType === "setting") {
-				const applied = await applyDownloadClientRow({
+				const applied = applyDownloadClientRow({
 					provenance:
 						provenance?.targetType === "download-client"
 							? {
@@ -551,7 +551,7 @@ export async function applyImportPlan(
 				row.resourceType === "profile" &&
 				row.payload.profileKind === "quality"
 			) {
-				const applied = await applyDownloadProfileRow({
+				const applied = applyDownloadProfileRow({
 					provenance:
 						provenance?.targetType === "download-profile"
 							? {
@@ -576,7 +576,7 @@ export async function applyImportPlan(
 				row.resourceType === "profile" &&
 				row.payload.profileKind === "metadata"
 			) {
-				await applyMetadataProfileRow({
+				applyMetadataProfileRow({
 					row,
 					sourceId: args.sourceId,
 					timestamp,
@@ -591,7 +591,7 @@ export async function applyImportPlan(
 				row.resourceType === "show" ||
 				row.resourceType === "book"
 			) {
-				const applied = await applyResolvedLibraryRow({
+				const applied = applyResolvedLibraryRow({
 					row,
 					sourceId: args.sourceId,
 					timestamp,

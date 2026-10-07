@@ -4,6 +4,9 @@ Allstarr manages media files associated with books, movies, and TV episodes.
 
 ## Language
 
+**Import plan**:
+The proposed changes derived from a saved snapshot of an external application's configuration and library, matched against Allstarr's current data. It is distinct from Completed import and Mapping.
+
 **Completed import**:
 The placement of files from a completed tracked download into the managed library. It is distinct from Mapping an existing unmapped file.
 

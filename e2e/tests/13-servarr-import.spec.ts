@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
 import { expect, test } from "../fixtures/app";
 import type { ServiceName } from "../fixtures/fake-servers/manager";
@@ -81,9 +81,12 @@ function sourceActionButton(
 	label: string,
 	action: "Refresh" | "Select" | "Selected",
 ) {
-	return page.locator(
-		`xpath=(//div[contains(normalize-space(.), "${label}")]/following::button[normalize-space()="${action}"])[1]`,
-	);
+	return page
+		.locator('[data-slot="card"]')
+		.filter({
+			has: page.locator('[data-slot="card-title"]').filter({ hasText: label }),
+		})
+		.getByRole("button", { name: action, exact: true });
 }
 
 function planRow(page: Page, label: string) {
@@ -138,6 +141,70 @@ async function assertPlanRows(
 }
 
 test.describe("Servarr imports", () => {
+	test("rolls back earlier imported records when a later plan row fails and permits retry", async ({
+		page,
+		db,
+		checkpoint,
+		fakeServers,
+	}) => {
+		await addImportSource({
+			apiKey: "sonarr-key",
+			baseUrl: requireServiceUrl(fakeServers, "SONARR"),
+			kind: "sonarr",
+			label: "Atomic Sonarr",
+			page,
+		});
+		await refreshSource(page, "Atomic Sonarr");
+		await selectSource(page, "Atomic Sonarr");
+		await page.getByRole("tab", { name: "Plan" }).click();
+		await expect(planRow(page, "HD-1080p")).toBeVisible();
+		const selectedProfileCount = await page
+			.getByRole("tabpanel", { name: "Plan" })
+			.getByRole("row")
+			.filter({ hasText: "quality profile" })
+			.count();
+		expect(selectedProfileCount).toBeGreaterThan(0);
+		const clients = db.select().from(schema.downloadClients).all();
+		const profiles = db.select().from(schema.downloadProfiles).all();
+		const provenance = db.select().from(schema.importProvenance).all();
+		const reviews = db.select().from(schema.importReviewItems).all();
+		db.run(
+			sql`CREATE TRIGGER import_profile_failure BEFORE INSERT ON download_profiles BEGIN SELECT RAISE(ABORT, 'import profile rejected'); END`,
+		);
+		checkpoint();
+		try {
+			await page
+				.getByRole("tabpanel", { name: "Plan" })
+				.getByRole("button", { name: "Apply Selected" })
+				.click();
+			await expect(
+				page.getByText("import profile rejected").last(),
+			).toBeVisible();
+			expect(db.select().from(schema.downloadClients).all()).toEqual(clients);
+			expect(db.select().from(schema.downloadProfiles).all()).toEqual(profiles);
+			expect(db.select().from(schema.importProvenance).all()).toEqual(
+				provenance,
+			);
+			expect(db.select().from(schema.importReviewItems).all()).toEqual(reviews);
+		} finally {
+			db.run(sql`DROP TRIGGER IF EXISTS import_profile_failure`);
+			checkpoint();
+		}
+		await page
+			.getByRole("tabpanel", { name: "Plan" })
+			.getByRole("button", { name: "Apply Selected" })
+			.click();
+		await expect(
+			page.getByText(/^Applied \d+ rows?(;|$)/).last(),
+		).toBeVisible();
+		expect(db.select().from(schema.downloadClients).all()).toHaveLength(
+			clients.length + 1,
+		);
+		expect(db.select().from(schema.downloadProfiles).all()).toHaveLength(
+			profiles.length + selectedProfileCount,
+		);
+	});
+
 	test.beforeEach(async ({ page, appUrl }) => {
 		await ensureAuthenticated(page, appUrl);
 		await navigateTo(page, appUrl, "/settings/imports");

@@ -1,184 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
+import {
+	downloadClients,
+	importReviewItems,
+	importSnapshots,
+	importSources,
+} from "src/db/schema";
+import { createSqliteFixture } from "src/test/sqlite-fixture";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ImportSourceKind, RawImportSnapshot } from "./imports/types";
 
-const schemaMocks = vi.hoisted(() => ({
-	books: {
-		foreignBookId: "books.foreignBookId",
-		id: "books.id",
-		releaseYear: "books.releaseYear",
-		title: "books.title",
-	},
-	booksAuthors: {
-		authorName: "booksAuthors.authorName",
-		bookId: "booksAuthors.bookId",
-		isPrimary: "booksAuthors.isPrimary",
-	},
-	importProvenance: {
-		sourceId: "importProvenance.sourceId",
-		sourceKey: "importProvenance.sourceKey",
-		targetId: "importProvenance.targetId",
-		targetType: "importProvenance.targetType",
-	},
-	importReviewItems: {
-		createdAt: "importReviewItems.createdAt",
-		id: "importReviewItems.id",
-		payload: "importReviewItems.payload",
-		resourceType: "importReviewItems.resourceType",
-		sourceId: "importReviewItems.sourceId",
-		sourceKey: "importReviewItems.sourceKey",
-		status: "importReviewItems.status",
-		updatedAt: "importReviewItems.updatedAt",
-	},
-	importSnapshots: {
-		fetchedAt: "importSnapshots.fetchedAt",
-		payload: "importSnapshots.payload",
-		sourceId: "importSnapshots.sourceId",
-	},
-	importSources: {
-		apiKey: "importSources.apiKey",
-		baseUrl: "importSources.baseUrl",
-		createdAt: "importSources.createdAt",
-		id: "importSources.id",
-		kind: "importSources.kind",
-		label: "importSources.label",
-		lastSyncError: "importSources.lastSyncError",
-		lastSyncedAt: "importSources.lastSyncedAt",
-		lastSyncStatus: "importSources.lastSyncStatus",
-		updatedAt: "importSources.updatedAt",
-	},
-	movies: {
-		id: "movies.id",
-		title: "movies.title",
-		tmdbId: "movies.tmdbId",
-	},
-	shows: {
-		id: "shows.id",
-		title: "shows.title",
-		tmdbId: "shows.tmdbId",
-	},
+const mocks = vi.hoisted(() => ({
+	requireAdmin: vi.fn(),
+	sonarr: vi.fn(),
+	radarr: vi.fn(),
+	readarr: vi.fn(),
+	bookshelf: vi.fn(),
 }));
-
-const mocks = vi.hoisted(() => {
-	const rows: Array<{
-		apiKey: string;
-		baseUrl: string;
-		createdAt: Date;
-		id: number;
-		kind: string;
-		label: string;
-		lastSyncError: string | null;
-		lastSyncedAt: Date | null;
-		lastSyncStatus: string;
-		updatedAt: Date;
-	}> = [];
-	const snapshots: Array<{
-		fetchedAt: Date;
-		id: number;
-		payload: Record<string, unknown>;
-		sourceId: number;
-	}> = [];
-	const provenance: Array<{
-		sourceKey: string;
-		targetId: string;
-		targetType: string;
-	}> = [];
-	const books: Array<{
-		foreignBookId: string | null;
-		id: number;
-		releaseYear: number | null;
-		title: string;
-	}> = [];
-	const booksAuthors: Array<{
-		authorName: string;
-		bookId: number;
-		isPrimary: boolean;
-	}> = [];
-	const movies: Array<{
-		id: number;
-		title: string;
-		tmdbId: number;
-	}> = [];
-	const shows: Array<{
-		id: number;
-		title: string;
-		tmdbId: number;
-	}> = [];
-	const reviewItems: Array<{
-		createdAt: Date;
-		id: number;
-		payload: Record<string, unknown>;
-		resourceType: string;
-		sourceId: number;
-		sourceKey: string;
-		status: string;
-		updatedAt: Date;
-	}> = [];
-
-	let nextSourceId = 1;
-	let nextSnapshotId = 1;
-	let nextReviewItemId = 1;
-
-	const requireAdmin = vi.fn();
-	const select = vi.fn();
-	const insert = vi.fn();
-	const update = vi.fn();
-	const deleteFn = vi.fn();
-	const fetchSonarrSnapshot = vi.fn();
-	const fetchRadarrSnapshot = vi.fn();
-	const fetchReadarrSnapshot = vi.fn();
-	const fetchBookshelfSnapshot = vi.fn();
-	const normalizeImportSnapshot = vi.fn();
-	const applyImportPlan = vi.fn();
-
-	return {
-		applyImportPlan,
-		books,
-		booksAuthors,
-		deleteFn,
-		fetchBookshelfSnapshot,
-		fetchRadarrSnapshot,
-		fetchReadarrSnapshot,
-		fetchSonarrSnapshot,
-		insert,
-		movies,
-		nextReviewItemIdRef: {
-			get value() {
-				return nextReviewItemId;
-			},
-			set value(value: number) {
-				nextReviewItemId = value;
-			},
-		},
-		nextSnapshotIdRef: {
-			get value() {
-				return nextSnapshotId;
-			},
-			set value(value: number) {
-				nextSnapshotId = value;
-			},
-		},
-		nextSourceIdRef: {
-			get value() {
-				return nextSourceId;
-			},
-			set value(value: number) {
-				nextSourceId = value;
-			},
-		},
-		normalizeImportSnapshot,
-		provenance,
-		requireAdmin,
-		reviewItems,
-		rows,
-		select,
-		snapshots,
-		shows,
-		update,
-	};
-});
-
 vi.mock("@tanstack/react-start", () => ({
 	createServerFn: () => ({
-		handler: (handler: (...args: unknown[]) => unknown) => handler,
+		handler: (handler: () => unknown) => handler,
 		inputValidator: (validator: (input: unknown) => unknown) => ({
 			handler:
 				(handler: (input: { data: unknown }) => unknown) =>
@@ -187,1192 +27,241 @@ vi.mock("@tanstack/react-start", () => ({
 		}),
 	}),
 }));
-
-vi.mock("drizzle-orm", () => ({
-	and: vi.fn((...args: unknown[]) => ({ args, type: "and" })),
-	eq: vi.fn((left: unknown, right: unknown) => ({ left, right, type: "eq" })),
-}));
-
-vi.mock("src/db", () => ({
-	db: {
-		delete: (...args: unknown[]) => mocks.deleteFn(...args),
-		insert: (...args: unknown[]) => mocks.insert(...args),
-		select: (...args: unknown[]) => mocks.select(...args),
-		update: (...args: unknown[]) => mocks.update(...args),
-	},
-}));
-
-vi.mock("src/db/schema", () => schemaMocks);
-
-vi.mock("src/lib/validators", () => ({
-	applyImportPlanSchema: { parse: (data: unknown) => data },
-	createImportSourceSchema: { parse: (data: unknown) => data },
-	deleteImportSourceSchema: { parse: (data: unknown) => data },
-	refreshImportSourceSchema: { parse: (data: unknown) => data },
-	resolveImportReviewItemSchema: { parse: (data: unknown) => data },
-	updateImportSourceSchema: { parse: (data: unknown) => data },
-}));
-
-vi.mock("./imports/apply", () => ({
-	applyImportPlan: mocks.applyImportPlan,
-}));
-
-vi.mock("./imports/connectors/bookshelf", () => ({
-	fetchBookshelfSnapshot: mocks.fetchBookshelfSnapshot,
-}));
-
-vi.mock("./imports/connectors/radarr", () => ({
-	fetchRadarrSnapshot: mocks.fetchRadarrSnapshot,
-}));
-
-vi.mock("./imports/connectors/readarr", () => ({
-	fetchReadarrSnapshot: mocks.fetchReadarrSnapshot,
-}));
-
+vi.mock("./middleware", () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock("./imports/connectors/sonarr", () => ({
-	fetchSonarrSnapshot: mocks.fetchSonarrSnapshot,
+	fetchSonarrSnapshot: mocks.sonarr,
 }));
-
-vi.mock("./imports/normalize", () => ({
-	normalizeImportSnapshot: mocks.normalizeImportSnapshot,
+vi.mock("./imports/connectors/radarr", () => ({
+	fetchRadarrSnapshot: mocks.radarr,
 }));
-
-vi.mock("./middleware", () => ({
-	requireAdmin: mocks.requireAdmin,
+vi.mock("./imports/connectors/readarr", () => ({
+	fetchReadarrSnapshot: mocks.readarr,
 }));
-
-import {
-	applyImportPlanFn,
-	createImportSourceFn,
-	deleteImportSourceFn,
-	getImportPlanFn,
-	getImportReviewFn,
-	getImportSourcesFn,
-	refreshImportSourceFn,
-	resolveImportReviewItemFn,
-	updateImportSourceFn,
-} from "./import-sources";
-
-function resetState() {
-	mocks.rows.splice(0, mocks.rows.length);
-	mocks.snapshots.splice(0, mocks.snapshots.length);
-	mocks.provenance.splice(0, mocks.provenance.length);
-	mocks.books.splice(0, mocks.books.length);
-	mocks.booksAuthors.splice(0, mocks.booksAuthors.length);
-	mocks.movies.splice(0, mocks.movies.length);
-	mocks.shows.splice(0, mocks.shows.length);
-	mocks.reviewItems.splice(0, mocks.reviewItems.length);
-	mocks.nextSourceIdRef.value = 1;
-	mocks.nextSnapshotIdRef.value = 1;
-	mocks.nextReviewItemIdRef.value = 1;
-}
-
-function installDbMocks() {
-	mocks.select.mockImplementation(() => ({
-		from: (table: unknown) => {
-			if (table === schemaMocks.importSources) {
-				return {
-					get: vi.fn((condition?: { right: number }) =>
-						condition
-							? mocks.rows.find((row) => row.id === condition.right)
-							: undefined,
-					),
-					where: vi.fn((condition: { right: number }) => ({
-						get: vi.fn(() =>
-							mocks.rows.find((row) => row.id === condition.right),
-						),
-					})),
-					orderBy: vi.fn(() => ({
-						all: vi.fn(() =>
-							[...mocks.rows].sort((left, right) =>
-								left.label.localeCompare(right.label),
-							),
-						),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.importSnapshots) {
-				return {
-					where: vi.fn((condition: { right: number }) => ({
-						orderBy: vi.fn(() => ({
-							all: vi.fn(() =>
-								mocks.snapshots.filter(
-									(snapshot) => snapshot.sourceId === condition.right,
-								),
-							),
-						})),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.importProvenance) {
-				return {
-					all: vi.fn(() => mocks.provenance),
-				};
-			}
-
-			if (table === schemaMocks.movies) {
-				return {
-					all: vi.fn(() => mocks.movies),
-					where: vi.fn((condition: { right: number }) => ({
-						get: vi.fn(() =>
-							mocks.movies.find((row) => row.id === condition.right),
-						),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.shows) {
-				return {
-					all: vi.fn(() => mocks.shows),
-					where: vi.fn((condition: { right: number }) => ({
-						get: vi.fn(() =>
-							mocks.shows.find((row) => row.id === condition.right),
-						),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.books) {
-				return {
-					all: vi.fn(() => mocks.books),
-					where: vi.fn((condition: { right: number }) => ({
-						get: vi.fn(() =>
-							mocks.books.find((row) => row.id === condition.right),
-						),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.booksAuthors) {
-				return {
-					all: vi.fn(() => mocks.booksAuthors),
-				};
-			}
-
-			if (table === schemaMocks.importReviewItems) {
-				return {
-					get: vi.fn((condition?: { right: number }) =>
-						condition
-							? mocks.reviewItems.find((row) => row.id === condition.right)
-							: undefined,
-					),
-				};
-			}
-
-			return {
-				get: vi.fn(() => undefined),
-				all: vi.fn(() => []),
-				orderBy: vi.fn(() => ({ all: vi.fn(() => []) })),
-				where: vi.fn(() => ({ get: vi.fn(() => undefined), run: vi.fn() })),
-			};
+vi.mock("./imports/connectors/bookshelf", () => ({
+	fetchBookshelfSnapshot: mocks.bookshelf,
+}));
+let fixture: ReturnType<typeof createSqliteFixture>;
+let source: typeof import("./import-sources");
+beforeEach(async () => {
+	vi.resetModules();
+	vi.resetAllMocks();
+	fixture = createSqliteFixture();
+	vi.doMock("src/db", () => ({ db: fixture.db }));
+	source = await import("./import-sources");
+});
+afterEach(() => {
+	vi.doUnmock("src/db");
+	vi.restoreAllMocks();
+	fixture.close();
+});
+async function create(kind: ImportSourceKind = "readarr") {
+	return source.createImportSourceFn({
+		data: {
+			kind,
+			label: "Source",
+			baseUrl: "http://source.test",
+			apiKey: "secret",
 		},
-	}));
-
-	mocks.insert.mockImplementation((table: unknown) => ({
-		values: vi.fn((data: Record<string, unknown>) => {
-			if (table === schemaMocks.importSources) {
-				return {
-					returning: vi.fn(() => ({
-						get: vi.fn(() => {
-							const row = {
-								...data,
-								id: mocks.nextSourceIdRef.value,
-								lastSyncError: null,
-								lastSyncedAt: null,
-							};
-							mocks.nextSourceIdRef.value += 1;
-							mocks.rows.push(row as (typeof mocks.rows)[number]);
-							return row;
-						}),
-					})),
-				};
-			}
-
-			if (table === schemaMocks.importSnapshots) {
-				return {
-					run: vi.fn(() => {
-						mocks.snapshots.push({
-							fetchedAt: data.fetchedAt as Date,
-							id: mocks.nextSnapshotIdRef.value,
-							payload: data.payload as Record<string, unknown>,
-							sourceId: data.sourceId as number,
-						});
-						mocks.nextSnapshotIdRef.value += 1;
-					}),
-				};
-			}
-
-			if (table === schemaMocks.importReviewItems) {
-				return {
-					run: vi.fn(() => {
-						mocks.reviewItems.push({
-							createdAt: data.createdAt as Date,
-							id: mocks.nextReviewItemIdRef.value,
-							payload: data.payload as Record<string, unknown>,
-							resourceType: data.resourceType as string,
-							sourceId: data.sourceId as number,
-							sourceKey: data.sourceKey as string,
-							status: data.status as string,
-							updatedAt: data.updatedAt as Date,
-						});
-						mocks.nextReviewItemIdRef.value += 1;
-					}),
-				};
-			}
-
-			return {
-				run: vi.fn(() => undefined),
-				returning: vi.fn(() => ({
-					get: vi.fn(() => data),
-				})),
-			};
-		}),
-	}));
-
-	mocks.update.mockImplementation((table: unknown) => ({
-		set: vi.fn((values: Record<string, unknown>) => ({
-			where: vi.fn((condition: { right: number }) => {
-				if (table === schemaMocks.importSources) {
-					const applyUpdate = () => {
-						const index = mocks.rows.findIndex(
-							(row) => row.id === condition.right,
-						);
-						const existing = mocks.rows[index];
-						const updated = {
-							...existing,
-							...values,
-						};
-						mocks.rows[index] = updated as (typeof mocks.rows)[number];
-						return updated;
-					};
-
-					return {
-						run: vi.fn(applyUpdate),
-						returning: vi.fn(() => ({
-							get: vi.fn(applyUpdate),
-						})),
-					};
-				}
-
-				if (table === schemaMocks.importReviewItems) {
-					return {
-						run: vi.fn(() => {
-							const index = mocks.reviewItems.findIndex(
-								(row) => row.id === condition.right,
-							);
-							const existing = mocks.reviewItems[index];
-							mocks.reviewItems[index] = {
-								...existing,
-								payload:
-									(values.payload as Record<string, unknown>) ??
-									existing.payload,
-								status: (values.status as string) ?? existing.status,
-								updatedAt: (values.updatedAt as Date) ?? existing.updatedAt,
-							};
-						}),
-					};
-				}
-
-				return {
-					run: vi.fn(() => undefined),
-					returning: vi.fn(() => ({
-						get: vi.fn(() => values),
-					})),
-				};
-			}),
-		})),
-	}));
-
-	mocks.deleteFn.mockImplementation(() => ({
-		where: vi.fn((condition: { right: number }) => ({
-			run: vi.fn(() => {
-				const index = mocks.rows.findIndex((row) => row.id === condition.right);
-				if (index >= 0) {
-					mocks.rows.splice(index, 1);
-				}
-			}),
-		})),
-	}));
+	});
+}
+function snapshot(kind: ImportSourceKind = "readarr"): RawImportSnapshot {
+	return {
+		kind,
+		fetchedAt: "2026-10-01T12:00:00.000Z",
+		settings: {
+			downloadClients: [
+				{ id: 1, name: "Trusted", implementation: "QBittorrent", port: 8080 },
+			],
+		},
+		profiles: [],
+		rootFolders: [],
+		library: {},
+		activity: { history: [], queue: [], blocklist: [] },
+	};
 }
 
-describe("import source CRUD and refresh", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		resetState();
-		installDbMocks();
-		mocks.requireAdmin.mockResolvedValue({ user: { id: 1, role: "admin" } });
-	});
-
-	it("creates, lists, updates, and deletes a source", async () => {
-		const created = await createImportSourceFn({
+describe("authenticated Import source callers", () => {
+	it("persists CRUD changes while redacting credentials from returned data", async () => {
+		const row = await create();
+		expect(row).toMatchObject({ hasApiKey: true, lastSyncStatus: "idle" });
+		expect(row).not.toHaveProperty("apiKey");
+		expect(fixture.db.select().from(importSources).get()?.apiKey).toBe(
+			"secret",
+		);
+		const updated = await source.updateImportSourceFn({
 			data: {
-				apiKey: "secret",
-				baseUrl: "http://localhost:7878",
-				kind: "radarr",
-				label: "Radarr 4K",
+				id: row.id,
+				kind: "readarr",
+				label: "Updated",
+				baseUrl: "http://source.test",
+				apiKey: "new",
 			},
 		});
-
-		expect(created.lastSyncStatus).toBe("idle");
-		expect(created).not.toHaveProperty("apiKey");
-		expect(created.hasApiKey).toBe(true);
-
-		const listed = await getImportSourcesFn();
-		expect(listed).toHaveLength(1);
-		expect(listed[0]).not.toHaveProperty("apiKey");
-		expect(listed[0]?.hasApiKey).toBe(true);
-
-		const updated = await updateImportSourceFn({
-			data: {
-				apiKey: "secret-2",
-				baseUrl: "http://localhost:7878",
-				id: created.id,
-				kind: "radarr",
-				label: "Radarr UHD",
-			},
-		});
-
-		expect(updated.label).toBe("Radarr UHD");
+		expect(updated).toMatchObject({ label: "Updated", hasApiKey: true });
 		expect(updated).not.toHaveProperty("apiKey");
-		expect(updated.hasApiKey).toBe(true);
-
-		await deleteImportSourceFn({ data: { id: created.id } });
-		await expect(getImportSourcesFn()).resolves.toEqual([]);
-		expect(mocks.requireAdmin).toHaveBeenCalledTimes(5);
+		const listed = await source.getImportSourcesFn();
+		expect(listed[0]).not.toHaveProperty("apiKey");
+		await source.deleteImportSourceFn({ data: { id: row.id } });
+		expect(await source.getImportSourcesFn()).toEqual([]);
 	});
-
-	it("refreshes a source, stores a normalized snapshot, and updates sync status", async () => {
-		mocks.rows.push({
-			apiKey: "sonarr-key",
-			baseUrl: "http://localhost:8989",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 1,
-			kind: "sonarr",
-			label: "Sonarr",
-			lastSyncError: null,
-			lastSyncedAt: null,
-			lastSyncStatus: "idle",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+	it.each(["sonarr", "radarr", "readarr", "bookshelf"] as const)(
+		"refreshes %s through its existing connector adapter",
+		async (kind) => {
+			const row = await create(kind);
+			mocks[kind].mockResolvedValueOnce(snapshot(kind));
+			const refreshed = await source.refreshImportSourceFn({
+				data: { id: row.id },
+			});
+			expect(mocks[kind]).toHaveBeenCalledWith({
+				baseUrl: "http://source.test",
+				apiKey: "secret",
+			});
+			expect(fixture.db.select().from(importSnapshots).get()?.payload).toEqual(
+				refreshed,
+			);
+			expect(fixture.db.select().from(importSources).get()).toMatchObject({
+				lastSyncStatus: "synced",
+				lastSyncError: null,
+				lastSyncedAt: new Date("2026-10-01T12:00:00Z"),
+			});
+		},
+	);
+	it("records connector errors and preserves the previous snapshot", async () => {
+		const row = await create();
+		mocks.readarr.mockResolvedValueOnce(snapshot());
+		await source.refreshImportSourceFn({ data: { id: row.id } });
+		mocks.readarr.mockRejectedValueOnce(new Error("Unavailable"));
+		await expect(
+			source.refreshImportSourceFn({ data: { id: row.id } }),
+		).rejects.toThrow("Unavailable");
+		expect(fixture.db.select().from(importSources).get()).toMatchObject({
+			lastSyncStatus: "error",
+			lastSyncError: "Unavailable",
 		});
-
-		const rawSnapshot = {
-			fetchedAt: "2026-04-21T12:00:00.000Z",
-			kind: "sonarr" as const,
-			settings: { naming: { renameEpisodes: true } },
-			rootFolders: [{ id: 1, path: "/tv" }],
-			profiles: [{ id: 2, name: "HD-1080p" }],
-			library: { series: [{ id: 3, title: "Andor", tmdbId: 1 }] },
-			activity: { history: [], queue: [], blocklist: [] },
-		};
-		const normalizedSnapshot = {
-			activity: { blocklist: [], history: [], queue: [] },
-			fetchedAt: rawSnapshot.fetchedAt,
-			kind: "sonarr" as const,
-			library: { books: [], movies: [], shows: [] },
-			settings: {
-				items: [],
-				metadataProfiles: [],
-				qualityProfiles: [],
-			},
-			sourceId: 1,
-			unsupported: [],
-		};
-
-		mocks.fetchSonarrSnapshot.mockResolvedValue(rawSnapshot);
-		mocks.normalizeImportSnapshot.mockReturnValue(normalizedSnapshot);
-
-		const result = await refreshImportSourceFn({ data: { id: 1 } });
-
-		expect(result).toEqual(normalizedSnapshot);
-		expect(mocks.fetchSonarrSnapshot).toHaveBeenCalledWith({
-			apiKey: "sonarr-key",
-			baseUrl: "http://localhost:8989",
-		});
-		expect(mocks.normalizeImportSnapshot).toHaveBeenCalledWith({
-			kind: "sonarr",
-			snapshot: rawSnapshot,
-			sourceId: 1,
-		});
-		expect(mocks.snapshots).toHaveLength(1);
-		expect(mocks.snapshots[0]).toMatchObject({
-			payload: normalizedSnapshot,
-			sourceId: 1,
-		});
-		expect(mocks.rows[0]).toMatchObject({
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T12:00:00.000Z"),
-			lastSyncStatus: "synced",
-		});
+		expect(fixture.db.select().from(importSnapshots).all()).toHaveLength(1);
+		mocks.readarr.mockRejectedValueOnce("non-Error failure");
+		await expect(
+			source.refreshImportSourceFn({ data: { id: row.id } }),
+		).rejects.toBe("non-Error failure");
+		expect(fixture.db.select().from(importSources).get()?.lastSyncError).toBe(
+			"non-Error failure",
+		);
 	});
-
-	it("delegates apply payloads to the apply engine", async () => {
-		mocks.movies.push({
-			id: 44,
-			title: "The Matrix",
-			tmdbId: 603,
-		});
-		mocks.rows.push({
-			apiKey: "radarr-key",
-			baseUrl: "http://localhost:7878",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 7,
-			kind: "radarr",
-			label: "Radarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
-		});
-		mocks.snapshots.push({
-			fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
-			id: 1,
-			payload: {
-				activity: { blocklist: [], history: [], queue: [] },
-				fetchedAt: "2026-04-21T10:00:00.000Z",
-				kind: "radarr",
-				library: {
-					books: [],
-					movies: [
-						{
-							payload: {
-								raw: {
-									id: 1,
-									tmdbId: 603,
-									title: "The Matrix",
-									year: 1999,
-								},
-								tmdbId: 603,
-								year: 1999,
-							},
-							resourceType: "movie",
-							sourceId: 7,
-							sourceKey: "radarr:7:movie:1",
-							title: "The Matrix",
-						},
-					],
-					shows: [],
-				},
-				settings: {
-					items: [
-						{
-							payload: {
-								group: "download-client",
-								id: 1,
-								mapped: { name: "SABnzbd Capture", port: 8080 },
-								raw: { name: "SABnzbd Capture" },
-								title: "SABnzbd Capture",
-							},
-							resourceType: "setting",
-							sourceId: 7,
-							sourceKey: "radarr:7:setting:download-client:1",
-							title: "SABnzbd Capture",
-						},
-					],
-					metadataProfiles: [],
-					qualityProfiles: [],
-				},
-				sourceId: 7,
-				unsupported: [],
-			},
-			sourceId: 7,
-		});
-		mocks.applyImportPlan.mockResolvedValue({
-			appliedCount: 2,
-			reviewCount: 1,
-		});
-
-		const result = await applyImportPlanFn({
+	it("rejects stored unsupported source kinds with a recorded error", async () => {
+		const row = await create();
+		fixture.db
+			.update(importSources)
+			.set({ kind: "unknown" })
+			.where(eq(importSources.id, row.id))
+			.run();
+		await expect(
+			source.refreshImportSourceFn({ data: { id: row.id } }),
+		).rejects.toThrow("Unsupported import source kind");
+		expect(fixture.db.select().from(importSources).get()?.lastSyncStatus).toBe(
+			"error",
+		);
+	});
+	it("ignores submitted row payloads and applies only the persisted canonical plan", async () => {
+		const row = await create();
+		mocks.readarr.mockResolvedValueOnce(snapshot());
+		await source.refreshImportSourceFn({ data: { id: row.id } });
+		const rows = await source.getImportPlanFn({ data: { sourceId: row.id } });
+		const first = rows[0];
+		if (!first) throw new Error("Missing plan row");
+		await source.applyImportPlanFn({
 			data: {
+				sourceId: row.id,
 				selectedRows: [
 					{
-						action: "create",
-						payload: {},
-						resourceType: "setting",
-						sourceKey: "radarr:7:setting:download-client:1",
-					},
-					{
-						action: "update",
-						payload: {},
-						resourceType: "movie",
-						sourceKey: "radarr:7:movie:1",
+						sourceKey: first.sourceKey,
+						resourceType: "book",
+						action: "unsupported",
+						payload: { name: "Injected", targetId: 999 },
 					},
 				],
-				sourceId: 7,
 			},
 		});
-
-		expect(result).toEqual({ appliedCount: 2, reviewCount: 1 });
-		expect(mocks.applyImportPlan).toHaveBeenCalledWith({
-			selectedRows: [
-				{
-					action: "create",
-					payload: {
-						group: "download-client",
-						id: 1,
-						mapped: { name: "SABnzbd Capture", port: 8080 },
-						raw: { name: "SABnzbd Capture" },
-						title: "SABnzbd Capture",
-					},
-					resourceType: "setting",
-					sourceKey: "radarr:7:setting:download-client:1",
-				},
-				{
-					action: "update",
-					payload: {
-						raw: {
-							id: 1,
-							tmdbId: 603,
-							title: "The Matrix",
-							year: 1999,
-						},
-						targetId: 44,
-						tmdbId: 603,
-						year: 1999,
-					},
-					resourceType: "movie",
-					sourceKey: "radarr:7:movie:1",
-				},
-			],
-			sourceId: 7,
-		});
-	});
-
-	it("builds plan rows from the latest snapshot with mapped target labels", async () => {
-		mocks.rows.push({
-			apiKey: "sonarr-key",
-			baseUrl: "http://localhost:8989",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 1,
-			kind: "sonarr",
-			label: "Sonarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
-		});
-		mocks.shows.push({
-			id: 44,
-			title: "Severance",
-			tmdbId: 2022,
-		});
-		mocks.snapshots.push(
-			{
-				fetchedAt: new Date("2026-04-21T10:00:00.000Z"),
-				id: 1,
-				payload: {
-					activity: { blocklist: [], history: [], queue: [] },
-					fetchedAt: "2026-04-21T10:00:00.000Z",
-					kind: "sonarr",
-					library: {
-						books: [],
-						movies: [],
-						shows: [
-							{
-								payload: { tmdbId: 9999, tvdbId: 12345 },
-								resourceType: "show",
-								sourceId: 1,
-								sourceKey: "sonarr:1:show:old",
-								title: "Old Snapshot",
-							},
-						],
-					},
-					settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-					sourceId: 1,
-					unsupported: [],
-				},
-				sourceId: 1,
-			},
-			{
-				fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-				id: 2,
-				payload: {
-					activity: { blocklist: [], history: [], queue: [] },
-					fetchedAt: "2026-04-21T12:00:00.000Z",
-					kind: "sonarr",
-					library: {
-						books: [],
-						movies: [],
-						shows: [
-							{
-								payload: { tmdbId: 2022, tvdbId: 999999 },
-								resourceType: "show",
-								sourceId: 1,
-								sourceKey: "sonarr:1:show:101",
-								title: "Severance",
-							},
-						],
-					},
-					settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-					sourceId: 1,
-					unsupported: [],
-				},
-				sourceId: 1,
-			},
-		);
-
-		const result = await getImportPlanFn({ data: { sourceId: 1 } });
-
-		expect(result).toEqual([
-			expect.objectContaining({
-				action: "update",
-				payload: { targetId: 44, tmdbId: 2022, tvdbId: 999999 },
-				reason: null,
-				resourceType: "show",
-				selectable: true,
-				sourceKey: "sonarr:1:show:101",
-				sourceSummary: "TMDB 2022 | TVDB 999999",
-				target: { id: 44, label: "Severance" },
-				title: "Severance",
-			}),
+		expect(fixture.db.select().from(downloadClients).all()).toEqual([
+			expect.objectContaining({ name: "Trusted" }),
 		]);
+		expect(
+			await source.getImportReviewFn({ data: { sourceId: row.id } }),
+		).toEqual([expect.objectContaining({ action: "skip" })]);
 	});
-
-	it("serializes unresolved rows for review from the latest snapshot", async () => {
-		mocks.rows.push({
-			apiKey: "readarr-key",
-			baseUrl: "http://localhost:8787",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 2,
-			kind: "readarr",
-			label: "Readarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
-		});
-		mocks.snapshots.push({
-			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-			id: 3,
-			payload: {
-				activity: { blocklist: [], history: [], queue: [] },
-				fetchedAt: "2026-04-21T12:00:00.000Z",
-				kind: "readarr",
-				library: {
-					books: [
-						{
-							payload: {
-								authorName: "Unknown Author",
-								title: "Unknown Book",
-							},
-							resourceType: "book",
-							sourceId: 2,
-							sourceKey: "readarr:2:book:501",
-							title: "Unknown Book",
-						},
-					],
-					movies: [],
-					shows: [],
-				},
-				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-				sourceId: 2,
-				unsupported: [],
-			},
-			sourceId: 2,
-		});
-
-		const result = await getImportReviewFn({ data: { sourceId: 2 } });
-
-		expect(result).toEqual([
-			expect.objectContaining({
-				action: "unresolved",
-				payload: {
-					authorName: "Unknown Author",
-					title: "Unknown Book",
-				},
-				reason: "No confident book match",
-				resourceType: "book",
-				sourceKey: "readarr:2:book:501",
-				sourceSummary: "Author Unknown Author",
-				status: "unresolved",
-				target: { id: null, label: null },
-				title: "Unknown Book",
+	it("distinguishes absent snapshots from absent sources at the authenticated interface", async () => {
+		const row = await create();
+		expect(
+			await source.getImportPlanFn({ data: { sourceId: row.id } }),
+		).toEqual([]);
+		expect(
+			await source.getImportReviewFn({ data: { sourceId: row.id } }),
+		).toEqual([]);
+		await expect(
+			source.applyImportPlanFn({
+				data: { sourceId: row.id, selectedRows: [] },
 			}),
-		]);
-	});
-
-	it("builds matched Readarr book rows using existing title-author-year fingerprints", async () => {
-		mocks.rows.push({
-			apiKey: "readarr-key",
-			baseUrl: "http://localhost:8787",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 3,
-			kind: "readarr",
-			label: "Readarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
-		});
-		mocks.books.push({
-			foreignBookId: "hc-earthsea-1",
-			id: 44,
-			releaseYear: 1968,
-			title: "A Wizard of Earthsea",
-		});
-		mocks.booksAuthors.push({
-			authorName: "Ursula K. Le Guin",
-			bookId: 44,
-			isPrimary: true,
-		});
-		mocks.snapshots.push({
-			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-			id: 4,
-			payload: {
-				activity: { blocklist: [], history: [], queue: [] },
-				fetchedAt: "2026-04-21T12:00:00.000Z",
-				kind: "readarr",
-				library: {
-					books: [
-						{
-							payload: {
-								authorName: "Ursula K. Le Guin",
-								foreignBookId: "13642",
-								title: "A Wizard of Earthsea",
-								year: 1968,
-							},
-							resourceType: "book",
-							sourceId: 3,
-							sourceKey: "readarr:3:book:1",
-							title: "A Wizard of Earthsea",
-						},
-					],
-					movies: [],
-					shows: [],
-				},
-				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-				sourceId: 3,
-				unsupported: [],
-			},
-			sourceId: 3,
-		});
-
-		const result = await getImportPlanFn({ data: { sourceId: 3 } });
-
-		expect(result).toEqual([
-			expect.objectContaining({
-				action: "update",
-				payload: {
-					authorName: "Ursula K. Le Guin",
-					foreignBookId: "13642",
-					targetId: 44,
-					title: "A Wizard of Earthsea",
-					year: 1968,
-				},
-				reason: null,
-				resourceType: "book",
-				selectable: true,
-				sourceKey: "readarr:3:book:1",
-				sourceSummary: "Author Ursula K. Le Guin | Hardcover 13642",
-				target: { id: 44, label: "A Wizard of Earthsea" },
-				title: "A Wizard of Earthsea",
-			}),
-		]);
-	});
-
-	it("refreshes each supported external source kind with its connector", async () => {
-		const cases = [
-			["radarr", mocks.fetchRadarrSnapshot],
-			["readarr", mocks.fetchReadarrSnapshot],
-			["bookshelf", mocks.fetchBookshelfSnapshot],
-		] as const;
-
-		for (const [index, [kind, fetchSnapshot]] of cases.entries()) {
-			const id = index + 20;
-			mocks.rows.push({
-				apiKey: `${kind}-key`,
-				baseUrl: `http://localhost/${kind}`,
-				createdAt: new Date("2026-04-21T00:00:00.000Z"),
-				id,
-				kind,
-				label: kind,
-				lastSyncError: null,
-				lastSyncedAt: null,
-				lastSyncStatus: "idle",
-				updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-			});
-			const rawSnapshot = {
-				fetchedAt: `2026-04-21T12:0${index}:00.000Z`,
-				kind,
-			};
-			const normalizedSnapshot = {
-				activity: { blocklist: [], history: [], queue: [] },
-				fetchedAt: rawSnapshot.fetchedAt,
-				kind,
-				library: { books: [], movies: [], shows: [] },
-				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-				sourceId: id,
-				unsupported: [],
-			};
-			fetchSnapshot.mockResolvedValueOnce(rawSnapshot);
-			mocks.normalizeImportSnapshot.mockReturnValueOnce(normalizedSnapshot);
-
-			await expect(refreshImportSourceFn({ data: { id } })).resolves.toEqual(
-				normalizedSnapshot,
-			);
-
-			expect(fetchSnapshot).toHaveBeenCalledWith({
-				apiKey: `${kind}-key`,
-				baseUrl: `http://localhost/${kind}`,
-			});
-			expect(mocks.rows.find((row) => row.id === id)).toMatchObject({
-				lastSyncError: null,
-				lastSyncStatus: "synced",
-			});
-		}
-	});
-
-	it("records refresh errors and rejects unsupported source kinds", async () => {
-		mocks.rows.push({
-			apiKey: "lidarr-key",
-			baseUrl: "http://localhost:8686",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 99,
-			kind: "lidarr",
-			label: "Lidarr",
-			lastSyncError: null,
-			lastSyncedAt: null,
-			lastSyncStatus: "idle",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-
-		await expect(refreshImportSourceFn({ data: { id: 99 } })).rejects.toThrow(
-			"Unsupported import source kind: lidarr",
-		);
-		expect(mocks.rows[0]).toMatchObject({
-			lastSyncError: "Unsupported import source kind: lidarr",
-			lastSyncStatus: "error",
-		});
-	});
-
-	it("serializes plan and review fallback summaries and missing target labels", async () => {
-		mocks.rows.push({
-			apiKey: "radarr-key",
-			baseUrl: "http://localhost:7878",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 6,
-			kind: "radarr",
-			label: "Radarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
-		});
-		mocks.provenance.push({
-			sourceKey: "radarr:6:movie:already-imported",
-			targetId: "999",
-			targetType: "movie",
-		});
-		mocks.books.push({
-			foreignBookId: null,
-			id: 71,
-			releaseYear: null,
-			title: "",
-		});
-		mocks.snapshots.push({
-			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-			id: 9,
-			payload: {
-				activity: {
-					blocklist: [],
-					history: [],
-					queue: [
-						{
-							payload: {},
-							resourceType: "queue",
-							sourceId: 6,
-							sourceKey: "radarr:6:queue:1",
-							title: "Queued Release",
-						},
-					],
-				},
-				fetchedAt: "2026-04-21T12:00:00.000Z",
-				kind: "radarr",
-				library: {
-					books: [
-						{
-							payload: {},
-							resourceType: "book",
-							sourceId: 6,
-							sourceKey: "radarr:6:book:missing",
-							title: "Untitled Book",
-						},
-					],
-					movies: [
-						{
-							payload: {},
-							resourceType: "movie",
-							sourceId: 6,
-							sourceKey: "radarr:6:movie:create",
-							title: "No IDs Movie",
-						},
-						{
-							payload: { tmdbId: 321 },
-							resourceType: "movie",
-							sourceId: 6,
-							sourceKey: "radarr:6:movie:already-imported",
-							title: "Already Imported Movie",
-						},
-					],
-					shows: [
-						{
-							payload: {},
-							resourceType: "show",
-							sourceId: 6,
-							sourceKey: "radarr:6:show:unresolved",
-							title: "No IDs Show",
-						},
-					],
-				},
-				settings: {
-					items: [
-						{
-							payload: {},
-							resourceType: "setting",
-							sourceId: 6,
-							sourceKey: "radarr:6:setting:unsupported",
-							title: "Setting Without Group",
-						},
-					],
-					metadataProfiles: [
-						{
-							payload: { isDefault: false, profileKind: "metadata" },
-							resourceType: "profile",
-							sourceId: 6,
-							sourceKey: "radarr:6:profile:metadata",
-							title: "Metadata Profile",
-						},
-					],
-					qualityProfiles: [
-						{
-							payload: { profileKind: "quality" },
-							resourceType: "profile",
-							sourceId: 6,
-							sourceKey: "radarr:6:profile:quality",
-							title: "Quality Profile",
-						},
-					],
-				},
-				unsupported: [
-					{
-						payload: {},
-						resourceType: "unsupported",
-						sourceId: 6,
-						sourceKey: "radarr:6:unsupported:1",
-						title: "Unsupported Row",
-					},
-				],
-				sourceId: 6,
-			},
-			sourceId: 6,
-		});
-
-		const plan = await getImportPlanFn({ data: { sourceId: 6 } });
-		expect(plan).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					sourceKey: "radarr:6:setting:unsupported",
-					sourceSummary: "Setting row",
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:profile:quality",
-					sourceSummary: "quality profile",
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:movie:create",
-					sourceSummary: "Mapped movie item",
-					target: { id: null, label: null },
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:movie:already-imported",
-					target: { id: 999, label: null },
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:queue:1",
-					sourceSummary: "queue",
-				}),
-			]),
-		);
-
-		const review = await getImportReviewFn({ data: { sourceId: 6 } });
-		expect(review).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					sourceKey: "radarr:6:book:missing",
-					sourceSummary: "Mapped book item",
-					status: "unresolved",
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:show:unresolved",
-					sourceSummary: "Mapped show item",
-					status: "unresolved",
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:profile:metadata",
-					sourceSummary: "metadata profile",
-					status: "blocked",
-				}),
-				expect.objectContaining({
-					sourceKey: "radarr:6:unsupported:1",
-					sourceSummary: "unsupported",
-					status: "blocked",
-				}),
-			]),
-		);
-	});
-
-	it("returns empty plans and reviews before a source has a snapshot", async () => {
-		mocks.rows.push({
-			apiKey: "radarr-key",
-			baseUrl: "http://localhost:7878",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 30,
-			kind: "radarr",
-			label: "Radarr",
-			lastSyncError: null,
-			lastSyncedAt: null,
-			lastSyncStatus: "idle",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-
-		await expect(getImportPlanFn({ data: { sourceId: 30 } })).resolves.toEqual(
-			[],
-		);
-		await expect(
-			getImportReviewFn({ data: { sourceId: 30 } }),
-		).resolves.toEqual([]);
-	});
-
-	it("throws clear errors for missing import sources and snapshots", async () => {
-		await expect(refreshImportSourceFn({ data: { id: 404 } })).rejects.toThrow(
-			"Import source not found",
-		);
-		await expect(
-			applyImportPlanFn({ data: { selectedRows: [], sourceId: 404 } }),
-		).rejects.toThrow("Import source not found");
-		await expect(getImportPlanFn({ data: { sourceId: 404 } })).rejects.toThrow(
-			"Import source not found",
-		);
-		await expect(
-			getImportReviewFn({ data: { sourceId: 404 } }),
-		).rejects.toThrow("Import source not found");
-
-		mocks.rows.push({
-			apiKey: "radarr-key",
-			baseUrl: "http://localhost:7878",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 31,
-			kind: "radarr",
-			label: "Radarr",
-			lastSyncError: null,
-			lastSyncedAt: null,
-			lastSyncStatus: "idle",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-
-		await expect(
-			applyImportPlanFn({ data: { selectedRows: [], sourceId: 31 } }),
 		).rejects.toThrow("Import snapshot not found");
+		await expect(
+			source.refreshImportSourceFn({ data: { id: 999 } }),
+		).rejects.toThrow("Import source not found");
 	});
-
-	it("rejects selected rows that are not in the latest import plan", async () => {
-		mocks.rows.push({
-			apiKey: "radarr-key",
-			baseUrl: "http://localhost:7878",
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 32,
-			kind: "radarr",
-			label: "Radarr",
-			lastSyncError: null,
-			lastSyncedAt: new Date("2026-04-21T11:00:00.000Z"),
-			lastSyncStatus: "synced",
-			updatedAt: new Date("2026-04-21T11:00:00.000Z"),
+	it("resolves review items while preserving payloads unless explicitly replaced", async () => {
+		const row = await create();
+		const item = fixture.db
+			.insert(importReviewItems)
+			.values({
+				sourceId: row.id,
+				sourceKey: "review",
+				resourceType: "book",
+				payload: { title: "Original" },
+			})
+			.returning()
+			.get();
+		await source.resolveImportReviewItemFn({
+			data: { id: item.id, status: "resolved" },
 		});
-		mocks.snapshots.push({
-			fetchedAt: new Date("2026-04-21T12:00:00.000Z"),
-			id: 1,
-			payload: {
-				activity: { blocklist: [], history: [], queue: [] },
-				fetchedAt: "2026-04-21T12:00:00.000Z",
-				kind: "radarr",
-				library: { books: [], movies: [], shows: [] },
-				settings: { items: [], metadataProfiles: [], qualityProfiles: [] },
-				sourceId: 32,
-				unsupported: [],
+		expect(fixture.db.select().from(importReviewItems).get()).toMatchObject({
+			status: "resolved",
+			payload: { title: "Original" },
+		});
+		await source.resolveImportReviewItemFn({
+			data: {
+				id: item.id,
+				status: "unresolved",
+				payload: { title: "Replacement" },
 			},
-			sourceId: 32,
 		});
-
-		await expect(
-			applyImportPlanFn({
-				data: {
-					selectedRows: [
-						{
-							action: "create",
-							payload: {},
-							resourceType: "movie",
-							sourceKey: "radarr:32:movie:missing",
-						},
-					],
-					sourceId: 32,
-				},
-			}),
-		).rejects.toThrow("Import plan row not found for radarr:32:movie:missing");
-	});
-
-	it("updates review item status and payload", async () => {
-		mocks.reviewItems.push({
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 9,
-			payload: { title: "Unknown Show" },
-			resourceType: "show",
-			sourceId: 1,
-			sourceKey: "sonarr:1:show:55",
-			status: "unresolved",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-
-		await expect(
-			resolveImportReviewItemFn({
-				data: {
-					id: 9,
-					payload: { title: "Resolved Show", tmdbId: 123 },
-					status: "resolved",
-				},
-			}),
-		).resolves.toEqual({ success: true });
-
-		expect(mocks.reviewItems[0]).toMatchObject({
-			payload: { title: "Resolved Show", tmdbId: 123 },
-			status: "resolved",
+		expect(fixture.db.select().from(importReviewItems).get()?.payload).toEqual({
+			title: "Replacement",
 		});
 	});
-
-	it("preserves a review item payload when resolving without one", async () => {
-		mocks.reviewItems.push({
-			createdAt: new Date("2026-04-21T00:00:00.000Z"),
-			id: 10,
-			payload: { title: "Keep Me" },
-			resourceType: "show",
-			sourceId: 1,
-			sourceKey: "sonarr:1:show:99",
-			status: "unresolved",
-			updatedAt: new Date("2026-04-21T00:00:00.000Z"),
-		});
-
-		await expect(
-			resolveImportReviewItemFn({
-				data: {
-					id: 10,
-					status: "resolved",
-				},
-			}),
-		).resolves.toEqual({ success: true });
-
-		expect(mocks.reviewItems[0]).toMatchObject({
-			payload: { title: "Keep Me" },
-			status: "resolved",
-		});
+	it("requires admin authorization before every persisted read and mutation", async () => {
+		mocks.requireAdmin.mockRejectedValue(new Error("Forbidden"));
+		const calls = [
+			() => create(),
+			() => source.getImportSourcesFn(),
+			() =>
+				source.updateImportSourceFn({
+					data: {
+						id: 1,
+						kind: "readarr",
+						label: "Source",
+						baseUrl: "http://source.test",
+						apiKey: "secret",
+					},
+				}),
+			() => source.deleteImportSourceFn({ data: { id: 1 } }),
+			() => source.refreshImportSourceFn({ data: { id: 1 } }),
+			() => source.getImportPlanFn({ data: { sourceId: 1 } }),
+			() => source.getImportReviewFn({ data: { sourceId: 1 } }),
+			() =>
+				source.applyImportPlanFn({ data: { sourceId: 1, selectedRows: [] } }),
+			() =>
+				source.resolveImportReviewItemFn({
+					data: { id: 1, status: "resolved" },
+				}),
+		];
+		for (const call of calls) await expect(call()).rejects.toThrow("Forbidden");
+		expect(fixture.db.select().from(importSources).all()).toEqual([]);
 	});
 });
