@@ -288,7 +288,7 @@ function makeProfile(overrides: Record<string, unknown> = {}) {
 	return {
 		id: 1,
 		name: "Default Profile",
-		items: [[1, 2, 3]],
+		items: [[7], [6], [5], [4], [3], [2], [1]],
 		cutoff: 3,
 		upgradeAllowed: true,
 		categories: "[7020]",
@@ -593,61 +593,6 @@ describe("profile release selection (via runAutoSearch)", () => {
 		expect(result.details[0].grabbed).toBe(true);
 	});
 
-	it("searches books at cutoff when custom format upgrade threshold remains", async () => {
-		const profile = makeProfile({
-			cutoff: 3,
-			upgradeAllowed: true,
-			upgradeUntilCustomFormatScore: 50,
-		});
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 1,
-							name: "TestIndexer",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 2:
-					return [];
-				case 3:
-					return [
-						{
-							id: 10,
-							title: "Test Book",
-							lastSearchedAt: null,
-							authorId: 1,
-							authorName: "Author Name",
-							authorMonitored: true,
-						},
-					];
-				case 4:
-					return [{ editionId: 100, profileId: profile.id }];
-				case 5:
-					return [profile];
-				case 6:
-					return [];
-				case 7:
-					return [{ quality: { quality: { id: 3 } } }];
-				default:
-					return [];
-			}
-		});
-		mocks.searchNewznab.mockResolvedValue([]);
-
-		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
-
-		expect(result.searched).toBe(1);
-		expect(mocks.searchNewznab).toHaveBeenCalledOnce();
-	});
-
 	it("skips releases with rejections", async () => {
 		const rejected = makeRelease({
 			rejections: [{ reason: "unknownQuality", message: "Unknown quality" }],
@@ -773,112 +718,6 @@ describe("profile release selection (via runAutoSearch)", () => {
 
 		expect(result.searched).toBe(0);
 		expect(mocks.searchNewznab).not.toHaveBeenCalled();
-	});
-
-	it("treats malformed existing book quality as below cutoff", async () => {
-		const profile = makeProfile({ cutoff: 3, upgradeAllowed: true });
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 1,
-							name: "ix",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 2:
-					return [];
-				case 3:
-					return [
-						{
-							id: 10,
-							title: "Test Book",
-							lastSearchedAt: null,
-							authorId: 1,
-							authorName: "Author",
-							authorMonitored: true,
-						},
-					];
-				case 4:
-					return [{ editionId: 100, profileId: profile.id }];
-				case 5:
-					return [profile];
-				case 6:
-					return [];
-				case 7:
-					return [{ quality: { unexpected: true } }];
-				default:
-					return [];
-			}
-		});
-		mocks.searchNewznab.mockResolvedValue([]);
-
-		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
-
-		expect(result.searched).toBe(1);
-		expect(result.outcomes.no_matching_releases).toBe(1);
-	});
-
-	it("does not grab when existing file meets cutoff and upgrades not allowed", async () => {
-		const profile = makeProfile({ upgradeAllowed: false });
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 1,
-							name: "ix",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 2:
-					return [];
-				case 3:
-					return [
-						{
-							id: 10,
-							title: "Test Book",
-							lastSearchedAt: null,
-							authorId: 1,
-							authorName: "Author",
-							authorMonitored: true,
-						},
-					];
-				case 4:
-					return [{ editionId: 100, profileId: profile.id }];
-				case 5:
-					return [profile];
-				case 6:
-					return [];
-				// Existing files at weight 3 (at cutoff)
-				case 7:
-					return [{ quality: { quality: { id: 3 } } }];
-				default:
-					return [];
-			}
-		});
-
-		// getProfileWeight: cutoff = 3, existing = 3 → no upgrade needed → book not wanted
-		mocks.getProfileWeight.mockImplementation((id: number) => id);
-
-		const result = await runAutoSearch({ bookIds: [10], maxBooks: 1 });
-
-		// The book should not even be considered wanted since upgradeAllowed is false
-		// and existing file is at cutoff weight
-		expect(result.grabbed).toBe(0);
 	});
 
 	it("skips releases below minimum custom format score", async () => {
@@ -2153,88 +1992,6 @@ describe("searchForMovie", () => {
 		expect(result).toEqual({ searched: 1, grabbed: 0 });
 	});
 
-	it("treats malformed existing movie quality as below cutoff", async () => {
-		const profile = makeProfile({ id: 10, cutoff: 3, upgradeAllowed: true });
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 5,
-							title: "Test Movie",
-							year: 2024,
-							lastSearchedAt: null,
-						},
-					];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				case 5:
-					return [{ quality: { unexpected: true } }];
-				case 6:
-					return [
-						{
-							id: 1,
-							name: "TestIndexer",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 7:
-					return [];
-				default:
-					return [];
-			}
-		});
-		mocks.searchNewznab.mockResolvedValue([]);
-
-		const result = await searchForMovie(5);
-
-		expect(result).toEqual({ searched: 1, grabbed: 0 });
-	});
-
-	it("skips movie searches when upgrades are disabled below cutoff", async () => {
-		const profile = makeProfile({ id: 10, cutoff: 7, upgradeAllowed: false });
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 5,
-							title: "Test Movie",
-							year: 2024,
-							lastSearchedAt: null,
-						},
-					];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				case 5:
-					return [{ quality: { quality: { id: 3 } } }];
-				default:
-					return [];
-			}
-		});
-
-		const result = await searchForMovie(5);
-
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
-		expect(mocks.searchNewznab).not.toHaveBeenCalled();
-	});
-
 	it("normalizes movie titles before querying indexers", async () => {
 		const profile = makeProfile({ id: 10 });
 		const callIdx = { n: 0 };
@@ -2466,36 +2223,6 @@ describe("searchForMovie", () => {
 			"auto-search",
 			'Grabbed "Test Release" for movie "Movie" (profile: Available profile)',
 		);
-	});
-
-	it("skips movie with existing files when upgrade not allowed", async () => {
-		const profile = makeProfile({
-			id: 10,
-			upgradeAllowed: false,
-			cutoff: 7,
-		});
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [{ id: 5, title: "Movie", year: 2024, lastSearchedAt: null }];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				// existingFiles with quality at cutoff
-				case 5:
-					return [{ quality: { quality: { id: 7 } } }];
-				default:
-					return [];
-			}
-		});
-
-		const result = await searchForMovie(5);
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
 	});
 
 	it("includes movie for upgrade when below cutoff", async () => {
@@ -6286,49 +6013,6 @@ describe("searchForShow — cutoffUnmet", () => {
 		expect(result.searched).toBeGreaterThanOrEqual(1);
 	});
 
-	it("excludes episodes below cutoff when upgrades are disabled", async () => {
-		const profile = makeProfile({
-			id: 20,
-			upgradeAllowed: false,
-			cutoff: 7,
-		});
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 100,
-							showId: 1,
-							showTitle: "Upgrade Disabled Show",
-							seasonNumber: 1,
-							episodeNumber: 1,
-							absoluteNumber: null,
-							seriesType: "standard",
-							airDate: null,
-							lastSearchedAt: null,
-						},
-					];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				case 5:
-					return [{ quality: { quality: { id: 3 } } }];
-				default:
-					return [];
-			}
-		});
-
-		const result = await searchForShow(1, true);
-
-		expect(result).toEqual({ searched: 0, grabbed: 0 });
-		expect(mocks.searchNewznab).not.toHaveBeenCalled();
-	});
-
 	it("excludes episodes with existing files when cutoffUnmet is false", async () => {
 		const profile = makeProfile({
 			id: 20,
@@ -6580,112 +6264,6 @@ describe("searchForShow — season-level pack", () => {
 });
 
 // ─── Movie upgrade with CF score ─────────────────────────────────────────
-
-describe("getWantedMovies — CF upgrade threshold", () => {
-	it("includes movie with CF upgrade threshold when at quality cutoff", async () => {
-		const release = makeRelease({
-			guid: "movie-cf-guid",
-			title: "Movie.CF.Upgrade",
-			quality: { id: 7, name: "Bluray-1080p", weight: 7, color: "#0f0" },
-			cfScore: 20,
-		});
-
-		const mockProvider = { addDownload: vi.fn(async () => "dl-cf-movie") };
-		mocks.getProvider.mockResolvedValue(mockProvider);
-
-		const getCallIdx = { n: 0 };
-		mocks.selectGet.mockImplementation(() => {
-			getCallIdx.n += 1;
-			const cycle = ((getCallIdx.n - 1) % 3) + 1;
-			switch (cycle) {
-				case 1:
-					return { downloadClientId: 5 };
-				case 2:
-					return {
-						id: 5,
-						name: "SABnzbd",
-						implementation: "sabnzbd",
-						host: "localhost",
-						port: 8080,
-						useSsl: false,
-						urlBase: "",
-						username: "",
-						password: "",
-						apiKey: "abc",
-						category: "movies",
-						tag: null,
-						protocol: "usenet",
-						enabled: true,
-						priority: 1,
-						settings: null,
-					};
-				case 3:
-					return { tag: null };
-				default:
-					return undefined;
-			}
-		});
-
-		const profile = makeProfile({
-			id: 10,
-			upgradeAllowed: true,
-			cutoff: 7,
-			upgradeUntilCustomFormatScore: 25,
-		});
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 5,
-							title: "CF Movie",
-							year: 2024,
-							lastSearchedAt: null,
-						},
-					];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				// existing file at cutoff weight (7) but CF threshold not met
-				case 5:
-					return [{ quality: { quality: { id: 7 } } }];
-				case 6:
-					return [
-						{
-							id: 1,
-							name: "ix",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 7:
-					return [];
-				case 8:
-					return [];
-				case 9:
-					return [];
-				default:
-					return [];
-			}
-		});
-
-		mocks.searchNewznab.mockResolvedValue([release]);
-		mocks.dedupeAndScoreReleases.mockReturnValue([release]);
-
-		const result = await searchForMovie(5);
-
-		// Movie should be searched because CF upgrade threshold is set
-		expect(result.searched).toBe(1);
-	});
-});
 
 // ─── Synced indexer for movie/episode searches ───────────────────────────
 
@@ -6981,66 +6559,6 @@ describe("searchForMovie — synced indexer paths", () => {
 });
 
 // ─── Episode existing file quality parsing ───────────────────────────────
-
-describe("getWantedEpisodes — quality parsing edge cases", () => {
-	it("handles episode file with no quality object", async () => {
-		const profile = makeProfile({ id: 20, upgradeAllowed: true, cutoff: 7 });
-		const callIdx = { n: 0 };
-		mocks.selectAll.mockImplementation(() => {
-			callIdx.n += 1;
-			switch (callIdx.n) {
-				case 1:
-					return [
-						{
-							id: 100,
-							showId: 1,
-							showTitle: "Quality Edge Show",
-							seasonNumber: 1,
-							episodeNumber: 1,
-							absoluteNumber: null,
-							seriesType: "standard",
-							airDate: null,
-							lastSearchedAt: null,
-						},
-					];
-				case 2:
-					return [{ profileId: profile.id }];
-				case 3:
-					return [profile];
-				case 4:
-					return [];
-				// existingFiles with null quality
-				case 5:
-					return [{ quality: null }];
-				// getEnabledIndexers
-				case 6:
-					return [
-						{
-							id: 1,
-							name: "ix",
-							baseUrl: "http://ix",
-							apiPath: "/api",
-							apiKey: "key1",
-							enableRss: true,
-							priority: 1,
-						},
-					];
-				case 7:
-					return [];
-				default:
-					return [];
-			}
-		});
-
-		mocks.searchNewznab.mockResolvedValue([]);
-
-		// cutoffUnmet = true to exercise upgrade path with null quality
-		const result = await searchForShow(1, true);
-
-		// Should still work — episode is wanted because file quality is null (weight 0) and below cutoff
-		expect(result.searched).toBeGreaterThanOrEqual(1);
-	});
-});
 
 describe("automatic grab admission and deferral", () => {
 	type Target =

@@ -45,10 +45,11 @@ import {
 	getCategoriesForProfiles,
 	getReleaseTypeRank,
 } from "./indexers";
-import { enrichRelease, getProfileWeight } from "./indexers/format-parser";
+import { enrichRelease } from "./indexers/format-parser";
 import { searchNewznab } from "./indexers/http";
 import type { IndexerRelease } from "./indexers/types";
 import { logError, logInfo, logWarn } from "./logger";
+import { assessWantedItem } from "./wanted-assessment";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -297,21 +298,6 @@ function getWantedBooks(): WantedBook[] {
 			)
 			.all();
 
-		const activeProfileIds = new Set(
-			activeDownloads
-				.map((d) => d.downloadProfileId)
-				.filter((id): id is number => id !== null),
-		);
-
-		for (const id of activeProfileIds) {
-			profileMap.delete(id);
-		}
-
-		const profiles = [...profileMap.values()];
-		if (profiles.length === 0) {
-			continue;
-		}
-
 		// Check existing files for this book
 		const existingFiles = db
 			.select({ quality: bookFiles.quality })
@@ -319,77 +305,31 @@ function getWantedBooks(): WantedBook[] {
 			.where(eq(bookFiles.bookId, book.id))
 			.all();
 
-		// Compute per-profile best existing weight
-		const bestWeightByProfile = new Map<number, number>();
-		for (const profile of profiles) {
-			let best = 0;
-			for (const file of existingFiles) {
-				if (file.quality) {
-					const qualityId =
-						typeof file.quality === "object" &&
-						"quality" in file.quality &&
-						file.quality.quality
-							? file.quality.quality.id
-							: 0;
-					const weight = getProfileWeight(qualityId, profile.items);
-					if (weight > best) {
-						best = weight;
-					}
-				}
-			}
-			bestWeightByProfile.set(profile.id, best);
-		}
-
-		if (existingFiles.length === 0) {
-			// No files at all — wanted
-			wanted.push({
-				id: book.id,
-				title: book.title,
-				authorId: book.authorId,
-				authorName: book.authorName,
-				lastSearchedAt: book.lastSearchedAt,
-				editionTargets,
-				profiles,
-				bestWeightByProfile,
-			});
+		const {
+			wanted: isWanted,
+			profiles,
+			bestWeightByProfile,
+		} = assessWantedItem({
+			profiles: [...profileMap.values()],
+			activeProfileIds: activeDownloads.map(
+				(download) => download.downloadProfileId,
+			),
+			existingFiles,
+		});
+		if (!isWanted) {
 			continue;
 		}
-
-		// Check if any profile allows upgrades and the best file is below cutoff
-		// or if a CF upgrade threshold is set (may need CF-based upgrade even at cutoff)
-		const upgradeNeeded = profiles.some((profile) => {
-			if (!profile.upgradeAllowed) {
-				return false;
-			}
-			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-			// Below quality cutoff — definitely needs upgrade
-			if (bestWeight < cutoffWeight) {
-				return true;
-			}
-			// At or above cutoff but CF upgrade threshold is set — may still need
-			// a CF-based upgrade (we can't compute CF scores for existing files here,
-			// so we optimistically include the book and let the release selection module decide)
-			if (profile.upgradeUntilCustomFormatScore > 0) {
-				return true;
-			}
-			return false;
+		wanted.push({
+			id: book.id,
+			title: book.title,
+			authorId: book.authorId,
+			authorName: book.authorName,
+			lastSearchedAt: book.lastSearchedAt,
+			editionTargets,
+			profiles,
+			bestWeightByProfile,
 		});
-
-		if (upgradeNeeded) {
-			wanted.push({
-				id: book.id,
-				title: book.title,
-				authorId: book.authorId,
-				authorName: book.authorName,
-				lastSearchedAt: book.lastSearchedAt,
-				editionTargets,
-				profiles,
-				bestWeightByProfile,
-			});
-		}
 	}
-
 	return wanted;
 }
 
@@ -473,21 +413,6 @@ function getWantedMovies(movieIds?: number[]): WantedMovie[] {
 			)
 			.all();
 
-		const activeProfileIds = new Set(
-			activeDownloads
-				.map((d) => d.downloadProfileId)
-				.filter((id): id is number => id !== null),
-		);
-
-		for (const id of activeProfileIds) {
-			profileMap.delete(id);
-		}
-
-		const profiles = [...profileMap.values()];
-		if (profiles.length === 0) {
-			continue;
-		}
-
 		// Check existing files for this movie
 		const existingFiles = db
 			.select({ quality: movieFiles.quality })
@@ -495,67 +420,29 @@ function getWantedMovies(movieIds?: number[]): WantedMovie[] {
 			.where(eq(movieFiles.movieId, movie.id))
 			.all();
 
-		// Compute per-profile best existing weight
-		const bestWeightByProfile = new Map<number, number>();
-		for (const profile of profiles) {
-			let best = 0;
-			for (const file of existingFiles) {
-				if (file.quality) {
-					const qualityId =
-						typeof file.quality === "object" &&
-						"quality" in file.quality &&
-						file.quality.quality
-							? file.quality.quality.id
-							: 0;
-					const weight = getProfileWeight(qualityId, profile.items);
-					if (weight > best) {
-						best = weight;
-					}
-				}
-			}
-			bestWeightByProfile.set(profile.id, best);
-		}
-
-		if (existingFiles.length === 0) {
-			wanted.push({
-				id: movie.id,
-				title: movie.title,
-				year: movie.year,
-				lastSearchedAt: movie.lastSearchedAt,
-				profiles,
-				bestWeightByProfile,
-			});
+		const {
+			wanted: isWanted,
+			profiles,
+			bestWeightByProfile,
+		} = assessWantedItem({
+			profiles: [...profileMap.values()],
+			activeProfileIds: activeDownloads.map(
+				(download) => download.downloadProfileId,
+			),
+			existingFiles,
+		});
+		if (!isWanted) {
 			continue;
 		}
-
-		// Check if any profile allows upgrades and the best file is below cutoff
-		const upgradeNeeded = profiles.some((profile) => {
-			if (!profile.upgradeAllowed) {
-				return false;
-			}
-			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-			if (bestWeight < cutoffWeight) {
-				return true;
-			}
-			if (profile.upgradeUntilCustomFormatScore > 0) {
-				return true;
-			}
-			return false;
+		wanted.push({
+			id: movie.id,
+			title: movie.title,
+			year: movie.year,
+			lastSearchedAt: movie.lastSearchedAt,
+			profiles,
+			bestWeightByProfile,
 		});
-
-		if (upgradeNeeded) {
-			wanted.push({
-				id: movie.id,
-				title: movie.title,
-				year: movie.year,
-				lastSearchedAt: movie.lastSearchedAt,
-				profiles,
-				bestWeightByProfile,
-			});
-		}
 	}
-
 	return wanted;
 }
 
@@ -648,21 +535,6 @@ function getWantedEpisodes(
 			)
 			.all();
 
-		const activeProfileIds = new Set(
-			activeDownloads
-				.map((d) => d.downloadProfileId)
-				.filter((id): id is number => id !== null),
-		);
-
-		for (const id of activeProfileIds) {
-			profileMap.delete(id);
-		}
-
-		const profiles = [...profileMap.values()];
-		if (profiles.length === 0) {
-			continue;
-		}
-
 		// Check existing files for this episode
 		const existingFiles = db
 			.select({ quality: episodeFiles.quality })
@@ -670,82 +542,34 @@ function getWantedEpisodes(
 			.where(eq(episodeFiles.episodeId, ep.id))
 			.all();
 
-		// Compute per-profile best existing weight
-		const bestWeightByProfile = new Map<number, number>();
-		for (const profile of profiles) {
-			let best = 0;
-			for (const file of existingFiles) {
-				if (file.quality) {
-					const qualityId =
-						typeof file.quality === "object" &&
-						"quality" in file.quality &&
-						file.quality.quality
-							? file.quality.quality.id
-							: 0;
-					const weight = getProfileWeight(qualityId, profile.items);
-					if (weight > best) {
-						best = weight;
-					}
-				}
-			}
-			bestWeightByProfile.set(profile.id, best);
-		}
-
-		if (existingFiles.length === 0) {
-			wanted.push({
-				id: ep.id,
-				showId: ep.showId,
-				showTitle: ep.showTitle,
-				seasonNumber: ep.seasonNumber,
-				episodeNumber: ep.episodeNumber,
-				absoluteNumber: ep.absoluteNumber,
-				seriesType: ep.seriesType,
-				airDate: ep.airDate,
-				lastSearchedAt: ep.lastSearchedAt,
-				profiles,
-				bestWeightByProfile,
-			});
-			continue;
-		}
-
-		// If cutoffUnmet is false and files exist, skip (only want missing episodes)
-		if (!cutoffUnmet) {
-			continue;
-		}
-
-		// Check if any profile allows upgrades and the best file is below cutoff
-		const upgradeNeeded = profiles.some((profile) => {
-			if (!profile.upgradeAllowed) {
-				return false;
-			}
-			const cutoffWeight = getProfileWeight(profile.cutoff, profile.items);
-			const bestWeight = bestWeightByProfile.get(profile.id) ?? 0;
-			if (bestWeight < cutoffWeight) {
-				return true;
-			}
-			if (profile.upgradeUntilCustomFormatScore > 0) {
-				return true;
-			}
-			return false;
+		const {
+			wanted: isWanted,
+			profiles,
+			bestWeightByProfile,
+		} = assessWantedItem({
+			profiles: [...profileMap.values()],
+			activeProfileIds: activeDownloads.map(
+				(download) => download.downloadProfileId,
+			),
+			existingFiles,
 		});
-
-		if (upgradeNeeded) {
-			wanted.push({
-				id: ep.id,
-				showId: ep.showId,
-				showTitle: ep.showTitle,
-				seasonNumber: ep.seasonNumber,
-				episodeNumber: ep.episodeNumber,
-				absoluteNumber: ep.absoluteNumber,
-				seriesType: ep.seriesType,
-				airDate: ep.airDate,
-				lastSearchedAt: ep.lastSearchedAt,
-				profiles,
-				bestWeightByProfile,
-			});
+		if (!isWanted || (existingFiles.length > 0 && !cutoffUnmet)) {
+			continue;
 		}
+		wanted.push({
+			id: ep.id,
+			showId: ep.showId,
+			showTitle: ep.showTitle,
+			seasonNumber: ep.seasonNumber,
+			episodeNumber: ep.episodeNumber,
+			absoluteNumber: ep.absoluteNumber,
+			seriesType: ep.seriesType,
+			airDate: ep.airDate,
+			lastSearchedAt: ep.lastSearchedAt,
+			profiles,
+			bestWeightByProfile,
+		});
 	}
-
 	return wanted;
 }
 

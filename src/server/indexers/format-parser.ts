@@ -2,6 +2,12 @@ import { db } from "src/db";
 import { downloadFormats, settings } from "src/db/schema";
 import type { EditionMeta } from "src/lib/format-size-calc";
 import { computeEffectiveSizes, sizeMode } from "src/lib/format-size-calc";
+
+export {
+	getProfileWeight,
+	isFormatInProfile,
+} from "src/lib/download-profile-quality";
+
 import detectReleaseType from "./release-type-parser";
 import type { IndexerRelease, ReleaseQuality } from "./types";
 
@@ -312,27 +318,4 @@ export function enrichRelease(
 		releaseType,
 		packInfo,
 	};
-}
-
-/**
- * Derive a format weight from a profile's ordered items array.
- * Each inner array is a group of equivalent-quality formats.
- * Formats in the same group get the same weight.
- * Groups at the top of the list (lower index) are more preferred and get a
- * higher weight.  Returns 0 for formats not found in the profile.
- */
-export function getProfileWeight(qualityId: number, items: number[][]): number {
-	for (let i = 0; i < items.length; i += 1) {
-		if (items[i].includes(qualityId)) {
-			return items.length - i; // First group = highest weight
-		}
-	}
-	return 0; // Not in profile
-}
-
-export function isFormatInProfile(
-	qualityId: number,
-	items: number[][],
-): boolean {
-	return items.some((group) => group.includes(qualityId));
 }
