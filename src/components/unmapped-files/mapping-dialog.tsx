@@ -1,8 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
 import type { JSX } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo } from "react";
 import { Button } from "src/components/ui/button";
 import Checkbox from "src/components/ui/checkbox";
 import {
@@ -21,219 +20,53 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "src/components/ui/select";
-import type { UnmappedFileHints } from "src/db/schema/unmapped-files";
-import { useUpsertUserSettings } from "src/hooks/mutations/user-settings";
 import { useDebounce } from "src/hooks/use-debounce";
-import { downloadProfilesListQuery } from "src/lib/queries/download-profiles";
-import { userSettingsQuery } from "src/lib/queries/user-settings";
-import { queryKeys } from "src/lib/query-keys";
-import {
-	mapUnmappedFileFn,
-	previewUnmappedImportAssetsFn,
-	searchLibraryFn,
-	suggestUnmappedTvMappingsFn,
-} from "src/server/unmapped-files";
+import { useMappingInteraction } from "src/hooks/use-mapping-interaction";
+import type {
+	MappingAction,
+	MappingAsset,
+	MappingFile,
+	MappingLibraryResult,
+	MappingRow,
+	MappingSuggestion,
+} from "src/lib/mapping-interaction";
+import { searchLibraryFn } from "src/server/unmapped-files";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type MappingDialogFile = {
-	id: number;
-	path: string;
-	hints: UnmappedFileHints | null;
-};
-
+export type MappingDialogFile = MappingFile;
 type MappingDialogProps = {
 	contentType: string;
-	files: MappingDialogFile[];
+	files: MappingFile[];
 	onClose: () => void;
 };
-
-type LibraryResult = {
-	id: number;
-	title: string;
-	subtitle: string;
-	entityType: "book" | "movie" | "episode";
-};
-
-type TvSuggestionRow = {
-	fileId: number;
-	hints: MappingDialogFile["hints"];
-	path: string;
-	subtitle: string;
-	suggestedEpisodeId: number | null;
-	title?: string;
-};
-
-type TvRowState = {
-	assets: ImportAssetState[];
-	assetsExpanded: boolean;
-	errorMessage: string | null;
-	search: string;
-	selectedEpisodeId: number | null;
-};
-
-type NonTvRowState = {
-	assets: ImportAssetState[];
-	assetsExpanded: boolean;
-	errorMessage: string | null;
-	search: string;
-	selectedEntityId: number | null;
-};
-
-type ImportRowIssue = {
-	entityType: "book" | "episode" | "movie";
-	message: string;
-	sourcePath: string;
-	unmappedFileId: number;
-};
-
-type MapImportResult = {
-	failedCount?: number;
-	failures?: ImportRowIssue[];
-	mappedCount: number;
-	success: boolean;
-	warnings?: ImportRowIssue[];
-};
-
-type ImportAssetState = {
-	kind: "directory" | "file";
-	ownershipReason: "container" | "direct" | "nested" | "token";
-	relativeSourcePath: string;
-	selected: boolean;
-	sourcePath: string;
-};
-
-type TvRowProps = {
-	assetSummary: string;
-	file: MappingDialogFile;
-	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
-	onAssetSelectedChange: (
-		fileId: number,
-		sourcePath: string,
-		selected: boolean,
-	) => void;
-	onGroupSelectedChange: (
-		fileId: number,
-		ownershipReason: ImportAssetState["ownershipReason"],
-		selected: boolean,
-	) => void;
-	onSearchChange: (fileId: number, search: string) => void;
-	onSelectedEpisodeIdChange: (
-		fileId: number,
-		selectedEpisodeId: number | null,
-	) => void;
-	rowState: TvRowState;
-	suggestion: TvSuggestionRow | undefined;
-};
-
-type NonTvRowProps = {
-	assetSummary: string;
-	contentType: string;
-	file: MappingDialogFile;
-	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
-	onAssetSelectedChange: (
-		fileId: number,
-		sourcePath: string,
-		selected: boolean,
-	) => void;
-	onGroupSelectedChange: (
-		fileId: number,
-		ownershipReason: ImportAssetState["ownershipReason"],
-		selected: boolean,
-	) => void;
-	onSearchChange: (fileId: number, search: string) => void;
-	onSelectedEntityIdChange: (
-		fileId: number,
-		selectedEntityId: number | null,
-	) => void;
-	rowState: NonTvRowState;
-	selectionTouched: boolean;
-};
-
+type LibraryResult = MappingLibraryResult;
+type ImportAssetState = MappingAsset;
 type RowAssetsProps = {
 	assetSummary: string;
-	assets: ImportAssetState[];
+	assets: readonly MappingAsset[];
 	assetsExpanded: boolean;
-	file: MappingDialogFile;
-	onAssetExpandedChange: (fileId: number, expanded: boolean) => void;
-	onAssetSelectedChange: (
-		fileId: number,
-		sourcePath: string,
-		selected: boolean,
-	) => void;
-	onGroupSelectedChange: (
-		fileId: number,
-		ownershipReason: ImportAssetState["ownershipReason"],
-		selected: boolean,
-	) => void;
+	file: MappingFile;
+	onAction: (action: MappingAction) => void;
 };
+type TvRowProps = {
+	assetSummary: string;
+	file: MappingFile;
+	rowState: MappingRow["rowState"];
+	suggestion: MappingSuggestion | undefined;
+	onAction: (action: MappingAction) => void;
+};
+type NonTvRowProps = Omit<TvRowProps, "suggestion"> & { contentType: string };
 
 function getFileName(pathname: string): string {
 	const fileName = pathname.split("/").pop();
 	return fileName && fileName.length > 0 ? fileName : pathname;
 }
 
-function buildInitialRowSearch(file: MappingDialogFile): string {
-	if (file.hints?.title) {
-		return file.hints.title;
-	}
-
-	return getFileName(file.path);
-}
-
 function getEntityTypeForContentType(
 	contentType: string,
 ): LibraryResult["entityType"] {
 	return contentType === "movie" ? "movie" : "book";
-}
-
-function buildTvInitialRowState(
-	files: MappingDialogFile[],
-	assetStateById: Record<number, ImportAssetState[]>,
-	suggestionMap: Map<number, TvSuggestionRow>,
-	current: Record<number, TvRowState>,
-	searchTouched: Set<number>,
-	selectionTouched: Set<number>,
-): Record<number, TvRowState> {
-	const next: Record<number, TvRowState> = {};
-
-	for (const file of files) {
-		const suggestion = suggestionMap.get(file.id);
-		const currentRow = current[file.id];
-		const defaultSearch =
-			file.hints?.title ?? suggestion?.title ?? getFileName(file.path) ?? "";
-		const defaultSelection = suggestion?.suggestedEpisodeId ?? null;
-
-		if (!currentRow) {
-			next[file.id] = {
-				assets: assetStateById[file.id] ?? [],
-				assetsExpanded: false,
-				errorMessage: null,
-				search: defaultSearch,
-				selectedEpisodeId: defaultSelection,
-			};
-			continue;
-		}
-
-		next[file.id] = {
-			assets:
-				currentRow.assets.length > 0
-					? currentRow.assets
-					: (assetStateById[file.id] ?? []),
-			assetsExpanded: currentRow.assetsExpanded,
-			errorMessage: currentRow.errorMessage ?? null,
-			search: searchTouched.has(file.id)
-				? currentRow.search
-				: currentRow.search.length > 0
-					? currentRow.search
-					: defaultSearch,
-			selectedEpisodeId: selectionTouched.has(file.id)
-				? currentRow.selectedEpisodeId
-				: (currentRow.selectedEpisodeId ?? defaultSelection),
-		};
-	}
-
-	return next;
 }
 
 function formatEpisodeOption(option: LibraryResult): string {
@@ -248,46 +81,7 @@ function formatLibraryOption(option: LibraryResult): string {
 		: option.title;
 }
 
-function normalizeComparisonValue(value: string): string {
-	return value
-		.trim()
-		.toLowerCase()
-		.replaceAll(/[^a-z0-9]+/g, " ");
-}
-
-function pickSuggestedLibraryOption(
-	file: MappingDialogFile,
-	rowState: NonTvRowState,
-	options: LibraryResult[],
-): LibraryResult | undefined {
-	const hintedTitle = file.hints?.title;
-	const normalizedHint =
-		typeof hintedTitle === "string" && hintedTitle.length > 0
-			? normalizeComparisonValue(hintedTitle)
-			: "";
-	if (normalizedHint.length > 0) {
-		const hintMatch = options.find(
-			(option) => normalizeComparisonValue(option.title) === normalizedHint,
-		);
-		if (hintMatch) {
-			return hintMatch;
-		}
-	}
-
-	const normalizedSearch = normalizeComparisonValue(rowState.search);
-	if (normalizedSearch.length > 0) {
-		const searchMatch = options.find(
-			(option) => normalizeComparisonValue(option.title) === normalizedSearch,
-		);
-		if (searchMatch) {
-			return searchMatch;
-		}
-	}
-
-	return options[0];
-}
-
-function summarizeAssets(assets: ImportAssetState[]): string {
+function summarizeAssets(assets: readonly ImportAssetState[]): string {
 	if (assets.length === 0) {
 		return "No assets";
 	}
@@ -296,7 +90,7 @@ function summarizeAssets(assets: ImportAssetState[]): string {
 	return `${selectedCount} selected / ${assets.length} total`;
 }
 
-function groupAssets(assets: ImportAssetState[]): Array<{
+function groupAssets(assets: readonly ImportAssetState[]): Array<{
 	assets: ImportAssetState[];
 	label: string;
 }> {
@@ -325,9 +119,7 @@ function RowAssets({
 	assets,
 	assetsExpanded,
 	file,
-	onAssetExpandedChange,
-	onAssetSelectedChange,
-	onGroupSelectedChange,
+	onAction,
 }: RowAssetsProps): JSX.Element {
 	if (assets.length === 0) {
 		return (
@@ -343,7 +135,13 @@ function RowAssets({
 				type="button"
 				variant="ghost"
 				className="h-auto w-full justify-between px-2 py-2 text-left"
-				onClick={() => onAssetExpandedChange(file.id, !assetsExpanded)}
+				onClick={() =>
+					onAction({
+						type: "expanded",
+						fileId: file.id,
+						value: !assetsExpanded,
+					})
+				}
 			>
 				<span>Assets</span>
 				<span className="text-xs text-muted-foreground">{assetSummary}</span>
@@ -361,11 +159,13 @@ function RowAssets({
 									aria-label={`Toggle ${group.label} for ${getFileName(file.path)}`}
 									checked={group.assets.every((asset) => asset.selected)}
 									onCheckedChange={(checked) =>
-										onGroupSelectedChange(
-											file.id,
-											group.assets[0]?.ownershipReason ?? "direct",
-											Boolean(checked),
-										)
+										onAction({
+											type: "group",
+											fileId: file.id,
+											ownershipReason:
+												group.assets[0]?.ownershipReason ?? "direct",
+											value: Boolean(checked),
+										})
 									}
 								/>
 							</div>
@@ -380,11 +180,12 @@ function RowAssets({
 											aria-label={asset.relativeSourcePath}
 											checked={asset.selected}
 											onCheckedChange={(checked) =>
-												onAssetSelectedChange(
-													file.id,
-													asset.sourcePath,
-													Boolean(checked),
-												)
+												onAction({
+													type: "asset",
+													fileId: file.id,
+													sourcePath: asset.sourcePath,
+													value: Boolean(checked),
+												})
 											}
 										/>
 										<div className="min-w-0 flex-1">
@@ -409,13 +210,9 @@ function RowAssets({
 function TvMappingRow({
 	assetSummary,
 	file,
-	onAssetExpandedChange,
-	onAssetSelectedChange,
-	onGroupSelectedChange,
-	onSearchChange,
-	onSelectedEpisodeIdChange,
 	rowState,
 	suggestion,
+	onAction,
 }: TvRowProps): JSX.Element {
 	const debouncedSearch = useDebounce(rowState.search, 300);
 	const searchEnabled = debouncedSearch.trim().length >= 2;
@@ -452,14 +249,14 @@ function TvMappingRow({
 		}
 
 		if (
-			rowState.selectedEpisodeId != null &&
-			!options.has(rowState.selectedEpisodeId)
+			rowState.selectedEntityId != null &&
+			!options.has(rowState.selectedEntityId)
 		) {
-			options.set(rowState.selectedEpisodeId, {
+			options.set(rowState.selectedEntityId, {
 				entityType: "episode",
-				id: rowState.selectedEpisodeId,
+				id: rowState.selectedEntityId,
 				subtitle: "Selected manually",
-				title: `Episode ${rowState.selectedEpisodeId}`,
+				title: `Episode ${rowState.selectedEntityId}`,
 			});
 		}
 
@@ -467,7 +264,7 @@ function TvMappingRow({
 	}, [
 		file.hints?.title,
 		file.path,
-		rowState.selectedEpisodeId,
+		rowState.selectedEntityId,
 		searchResults?.library,
 		suggestion,
 	]);
@@ -507,7 +304,13 @@ function TvMappingRow({
 							id={searchId}
 							placeholder="Search by show title..."
 							value={rowState.search}
-							onChange={(event) => onSearchChange(file.id, event.target.value)}
+							onChange={(event) =>
+								onAction({
+									type: "search",
+									fileId: file.id,
+									value: event.target.value,
+								})
+							}
 							className="pl-9"
 						/>
 					</div>
@@ -518,15 +321,16 @@ function TvMappingRow({
 					<Select
 						aria-label={`Episode target for ${fileName}`}
 						value={
-							rowState.selectedEpisodeId != null
-								? String(rowState.selectedEpisodeId)
+							rowState.selectedEntityId != null
+								? String(rowState.selectedEntityId)
 								: ""
 						}
 						onValueChange={(value) =>
-							onSelectedEpisodeIdChange(
-								file.id,
-								value.length > 0 ? Number(value) : null,
-							)
+							onAction({
+								type: "target",
+								fileId: file.id,
+								value: value.length > 0 ? Number(value) : null,
+							})
 						}
 					>
 						<SelectTrigger>
@@ -564,9 +368,7 @@ function TvMappingRow({
 				assets={rowState.assets}
 				assetsExpanded={rowState.assetsExpanded}
 				file={file}
-				onAssetExpandedChange={onAssetExpandedChange}
-				onAssetSelectedChange={onAssetSelectedChange}
-				onGroupSelectedChange={onGroupSelectedChange}
+				onAction={onAction}
 			/>
 		</div>
 	);
@@ -576,13 +378,8 @@ function NonTvMappingRow({
 	assetSummary,
 	contentType,
 	file,
-	onAssetExpandedChange,
-	onAssetSelectedChange,
-	onGroupSelectedChange,
-	onSearchChange,
-	onSelectedEntityIdChange,
 	rowState,
-	selectionTouched,
+	onAction,
 }: NonTvRowProps): JSX.Element {
 	const debouncedSearch = useDebounce(rowState.search, 300);
 	const searchEnabled = debouncedSearch.trim().length >= 2;
@@ -634,30 +431,8 @@ function NonTvMappingRow({
 	}, [expectedEntityType, rowState.selectedEntityId, searchResults?.library]);
 
 	useEffect(() => {
-		const suggestedOption = pickSuggestedLibraryOption(
-			file,
-			rowState,
-			selectOptions,
-		);
-
-		if (
-			selectionTouched ||
-			rowState.selectedEntityId != null ||
-			suggestedOption == null
-		) {
-			return;
-		}
-
-		onSelectedEntityIdChange(file.id, suggestedOption.id);
-	}, [
-		file.id,
-		file,
-		onSelectedEntityIdChange,
-		rowState.selectedEntityId,
-		rowState,
-		selectOptions,
-		selectionTouched,
-	]);
+		onAction({ type: "results", fileId: file.id, results: selectOptions });
+	}, [file.id, onAction, selectOptions]);
 
 	const selectHint = !searchEnabled
 		? "Type at least 2 characters to search"
@@ -687,7 +462,13 @@ function NonTvMappingRow({
 							id={searchId}
 							placeholder="Search by title..."
 							value={rowState.search}
-							onChange={(event) => onSearchChange(file.id, event.target.value)}
+							onChange={(event) =>
+								onAction({
+									type: "search",
+									fileId: file.id,
+									value: event.target.value,
+								})
+							}
 							className="pl-9"
 						/>
 					</div>
@@ -703,10 +484,11 @@ function NonTvMappingRow({
 								: ""
 						}
 						onValueChange={(value) =>
-							onSelectedEntityIdChange(
-								file.id,
-								value.length > 0 ? Number(value) : null,
-							)
+							onAction({
+								type: "target",
+								fileId: file.id,
+								value: value.length > 0 ? Number(value) : null,
+							})
 						}
 					>
 						<SelectTrigger>
@@ -744,9 +526,7 @@ function NonTvMappingRow({
 				assets={rowState.assets}
 				assetsExpanded={rowState.assetsExpanded}
 				file={file}
-				onAssetExpandedChange={onAssetExpandedChange}
-				onAssetSelectedChange={onAssetSelectedChange}
-				onGroupSelectedChange={onGroupSelectedChange}
+				onAction={onAction}
 			/>
 		</div>
 	);
@@ -756,611 +536,21 @@ function NonTvMappingRow({
 
 export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 	const { contentType, files, onClose } = props;
-	const filesRef = useRef(files);
-	const queryClient = useQueryClient();
-	const upsertUserSettings = useUpsertUserSettings();
-	const isTv = contentType === "tv";
-
-	const [activeFileIds, setActiveFileIds] = useState<number[]>(() =>
-		files.map((file) => file.id),
-	);
-	const [selectedProfileId, setSelectedProfileId] = useState<string>("");
-	const [mapping, setMapping] = useState(false);
-	const [moveRelatedFiles, setMoveRelatedFiles] = useState(false);
-	const [deleteDeselectedRelatedFiles, setDeleteDeselectedRelatedFiles] =
-		useState(false);
-	const [tvRowStateById, setTvRowStateById] = useState<
-		Record<number, TvRowState>
-	>({});
-	const [nonTvRowStateById, setNonTvRowStateById] = useState<
-		Record<number, NonTvRowState>
-	>(() =>
-		Object.fromEntries(
-			files.map((file) => [
-				file.id,
-				{
-					assets: [],
-					assetsExpanded: false,
-					errorMessage: null,
-					search: buildInitialRowSearch(file),
-					selectedEntityId: null,
-				},
-			]),
-		),
-	);
-	const previousSeedSignatureRef = useRef("");
-	const previousNonTvAssetSignatureRef = useRef("");
-	const searchTouchedRef = useRef(new Set<number>());
-	const selectionTouchedRef = useRef(new Set<number>());
-	const nonTvSelectionTouchedRef = useRef(new Set<number>());
-	const importDefaultsHydrated = useRef(false);
-	const initialFileSignatureRef = useRef("");
-	filesRef.current = files;
-
-	const fileSignature = files.map((file) => file.id).join(",");
-	useEffect(() => {
-		if (initialFileSignatureRef.current === fileSignature) {
-			return;
-		}
-
-		initialFileSignatureRef.current = fileSignature;
-		setActiveFileIds(files.map((file) => file.id));
-	}, [fileSignature, files]);
-
-	const visibleFiles = useMemo(
-		() => files.filter((file) => activeFileIds.includes(file.id)),
-		[activeFileIds, files],
-	);
-	filesRef.current = visibleFiles;
-
-	const { data: userSettings, isFetched: isUserSettingsFetched } = useQuery(
-		userSettingsQuery("unmapped-files"),
-	);
-
-	useEffect(() => {
-		if (!isUserSettingsFetched || importDefaultsHydrated.current) {
-			return;
-		}
-
-		const savedMoveRelatedFiles =
-			userSettings?.addDefaults?.moveRelatedFiles ??
-			userSettings?.addDefaults?.moveRelatedSidecars;
-		const savedDeleteDeselected =
-			userSettings?.addDefaults?.deleteDeselectedRelatedFiles;
-		setMoveRelatedFiles(Boolean(savedMoveRelatedFiles ?? false));
-		setDeleteDeselectedRelatedFiles(Boolean(savedDeleteDeselected ?? false));
-		importDefaultsHydrated.current = true;
-	}, [isUserSettingsFetched, userSettings]);
-
-	const { data: allProfiles = [] } = useQuery(downloadProfilesListQuery());
-
-	const filteredProfiles = useMemo(
-		() => allProfiles.filter((profile) => profile.contentType === contentType),
-		[allProfiles, contentType],
-	);
-
-	const effectiveProfileId = useMemo(() => {
-		if (selectedProfileId) return selectedProfileId;
-		if (filteredProfiles.length > 0) return String(filteredProfiles[0].id);
-		return "";
-	}, [filteredProfiles, selectedProfileId]);
-
-	const { data: tvSuggestionResults } = useQuery({
-		queryKey: [
-			"unmappedFiles",
-			"tv-suggestions",
-			contentType,
-			visibleFiles.map((file) => file.id).join(","),
-		],
-		queryFn: () =>
-			suggestUnmappedTvMappingsFn({
-				data: {
-					rows: visibleFiles.map((file) => ({
-						contentType: "tv" as const,
-						fileId: file.id,
-						hints: file.hints,
-						path: file.path,
-					})),
-				},
-			}),
-		enabled: isTv && visibleFiles.length > 0,
-	});
-
-	const assetPreviewQuery = useQuery({
-		queryKey: [
-			"unmappedFiles",
-			"asset-preview",
-			contentType,
-			visibleFiles.map((file) => file.id).join(","),
-		],
-		queryFn: () =>
-			previewUnmappedImportAssetsFn({
-				data: {
-					rows: visibleFiles.map((file) => ({
-						contentType:
-							contentType === "ebook"
-								? "book"
-								: (contentType as "audiobook" | "book" | "movie" | "tv"),
-						fileId: file.id,
-						path: file.path,
-					})),
-				},
-			}),
-		enabled: visibleFiles.length > 0,
-	});
-	const assetPreviewResults = assetPreviewQuery.data;
-	const isAssetPreviewPending = Boolean(
-		assetPreviewQuery.isLoading || assetPreviewQuery.isFetching,
-	);
-	const assetPreviewById = useMemo(
-		() =>
-			Object.fromEntries(
-				(assetPreviewResults?.rows ?? []).map((row) => [
-					row.fileId,
-					row.assets.map((asset) => ({
-						kind: asset.kind,
-						ownershipReason: asset.ownershipReason,
-						relativeSourcePath: asset.relativeSourcePath,
-						selected: asset.selected,
-						sourcePath: asset.sourcePath,
-					})),
-				]),
-			) as Record<number, ImportAssetState[]>,
-		[assetPreviewResults],
-	);
-	const assetPreviewSignature = useMemo(
-		() =>
-			(assetPreviewResults?.rows ?? [])
-				.map(
-					(row) =>
-						`${row.fileId}:${row.assets
-							.map((asset) => `${asset.sourcePath}:${asset.selected}`)
-							.join(",")}`,
-				)
-				.join("|"),
-		[assetPreviewResults],
-	);
-
-	const tvSuggestionRows: TvSuggestionRow[] = (
-		tvSuggestionResults?.rows ?? []
-	).map((row) => ({
-		...row,
-		title:
-			"title" in row && typeof row.title === "string" ? row.title : undefined,
-	}));
-	const tvSuggestionMap = useMemo(
-		() =>
-			new Map<number, TvSuggestionRow>(
-				tvSuggestionRows.map((row) => [row.fileId, row]),
-			),
-		[tvSuggestionRows],
-	);
-	const tvSeedSignature = `${visibleFiles.map((file) => file.id).join(",")}::${tvSuggestionRows
-		.map(
-			(row) =>
-				`${row.fileId}:${row.suggestedEpisodeId ?? "null"}:${row.title ?? ""}:${row.subtitle}`,
-		)
-		.join("|")}::${assetPreviewSignature}`;
-
-	useEffect(() => {
-		if (!isTv) {
-			return;
-		}
-
-		if (previousSeedSignatureRef.current === tvSeedSignature) {
-			return;
-		}
-		previousSeedSignatureRef.current = tvSeedSignature;
-
-		setTvRowStateById((current) =>
-			buildTvInitialRowState(
-				filesRef.current,
-				assetPreviewById,
-				tvSuggestionMap,
-				current,
-				searchTouchedRef.current,
-				selectionTouchedRef.current,
-			),
-		);
-	}, [assetPreviewById, isTv, tvSeedSignature, tvSuggestionMap]);
-
-	useEffect(() => {
-		if (isTv) {
-			return;
-		}
-
-		const nonTvSignature = `${visibleFiles.map((file) => file.id).join(",")}::${assetPreviewSignature}`;
-		if (previousNonTvAssetSignatureRef.current === nonTvSignature) {
-			return;
-		}
-		previousNonTvAssetSignatureRef.current = nonTvSignature;
-
-		setNonTvRowStateById((current) =>
-			Object.fromEntries(
-				visibleFiles.map((file) => [
-					file.id,
-					current[file.id]
-						? {
-								...current[file.id],
-								assets:
-									current[file.id].assets.length > 0
-										? current[file.id].assets
-										: (assetPreviewById[file.id] ?? []),
-							}
-						: {
-								assets: assetPreviewById[file.id] ?? [],
-								assetsExpanded: false,
-								errorMessage: null,
-								search: buildInitialRowSearch(file),
-								selectedEntityId: null,
-							},
-				]),
-			),
-		);
-	}, [assetPreviewById, assetPreviewSignature, isTv, visibleFiles]);
-
-	const tvRows = useMemo(
-		() =>
-			visibleFiles.map((file) => {
-				const suggestion = tvSuggestionMap.get(file.id);
-				const currentState = tvRowStateById[file.id];
-				const defaultSearch =
-					file.hints?.title ?? suggestion?.title ?? getFileName(file.path);
-				const rowState = currentState ?? {
-					assets: assetPreviewById[file.id] ?? [],
-					assetsExpanded: false,
-					errorMessage: null,
-					search: defaultSearch,
-					selectedEpisodeId: suggestion?.suggestedEpisodeId ?? null,
-				};
-
-				return {
-					file,
-					rowState,
-					suggestion,
-				};
-			}),
-		[assetPreviewById, tvRowStateById, tvSuggestionMap, visibleFiles],
-	);
-
-	const nonTvRows = useMemo(
-		() =>
-			visibleFiles.map((file) => ({
-				file,
-				rowState: nonTvRowStateById[file.id] ?? {
-					assets: assetPreviewById[file.id] ?? [],
-					assetsExpanded: false,
-					errorMessage: null,
-					search: buildInitialRowSearch(file),
-					selectedEntityId: null,
-				},
-			})),
-		[assetPreviewById, nonTvRowStateById, visibleFiles],
-	);
-	const requiresAssetPreview = moveRelatedFiles || deleteDeselectedRelatedFiles;
-	const disableTvSubmit =
-		mapping ||
-		!effectiveProfileId ||
-		tvRows.length === 0 ||
-		tvRows.some((row) => row.rowState.selectedEpisodeId == null) ||
-		(requiresAssetPreview && isAssetPreviewPending);
-	const disableNonTvSubmit =
-		mapping ||
-		!effectiveProfileId ||
-		nonTvRows.length === 0 ||
-		nonTvRows.some((row) => row.rowState.selectedEntityId == null) ||
-		(requiresAssetPreview && isAssetPreviewPending);
-
-	const getFallbackSearchValue = (fileId: number): string => {
-		const fallbackFile =
-			filesRef.current.find((file) => file.id === fileId) ??
-			filesRef.current[0];
-		return fallbackFile ? buildInitialRowSearch(fallbackFile) : "";
-	};
-
-	const setTvAssetsExpanded = (fileId: number, assetsExpanded: boolean) => {
-		setTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...(current[fileId] ?? {
-					assets: assetPreviewById[fileId] ?? [],
-					assetsExpanded: false,
-					search: getFallbackSearchValue(fileId),
-					selectedEpisodeId: null,
-				}),
-				assetsExpanded,
-			},
-		}));
-	};
-
-	const setNonTvAssetsExpanded = (fileId: number, assetsExpanded: boolean) => {
-		setNonTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...(current[fileId] ?? {
-					assets: assetPreviewById[fileId] ?? [],
-					assetsExpanded: false,
-					search: getFallbackSearchValue(fileId),
-					selectedEntityId: null,
-				}),
-				assetsExpanded,
-			},
-		}));
-	};
-
-	const setTvAssetSelected = (
-		fileId: number,
-		sourcePath: string,
-		selected: boolean,
-	) => {
-		setTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...current[fileId],
-				assets:
-					current[fileId]?.assets.map((asset) =>
-						asset.sourcePath === sourcePath ? { ...asset, selected } : asset,
-					) ?? [],
-			},
-		}));
-	};
-
-	const setNonTvAssetSelected = (
-		fileId: number,
-		sourcePath: string,
-		selected: boolean,
-	) => {
-		setNonTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...current[fileId],
-				assets:
-					current[fileId]?.assets.map((asset) =>
-						asset.sourcePath === sourcePath ? { ...asset, selected } : asset,
-					) ?? [],
-			},
-		}));
-	};
-
-	const setTvGroupSelected = (
-		fileId: number,
-		ownershipReason: ImportAssetState["ownershipReason"],
-		selected: boolean,
-	) => {
-		setTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...current[fileId],
-				assets:
-					current[fileId]?.assets.map((asset) =>
-						asset.ownershipReason === ownershipReason
-							? { ...asset, selected }
-							: asset,
-					) ?? [],
-			},
-		}));
-	};
-
-	const setNonTvGroupSelected = (
-		fileId: number,
-		ownershipReason: ImportAssetState["ownershipReason"],
-		selected: boolean,
-	) => {
-		setNonTvRowStateById((current) => ({
-			...current,
-			[fileId]: {
-				...current[fileId],
-				assets:
-					current[fileId]?.assets.map((asset) =>
-						asset.ownershipReason === ownershipReason
-							? { ...asset, selected }
-							: asset,
-					) ?? [],
-			},
-		}));
-	};
-
-	const clearRowErrors = () => {
-		setTvRowStateById((current) =>
-			Object.fromEntries(
-				Object.entries(current).map(([fileId, rowState]) => [
-					Number(fileId),
-					{ ...rowState, errorMessage: null },
-				]),
-			),
-		);
-		setNonTvRowStateById((current) =>
-			Object.fromEntries(
-				Object.entries(current).map(([fileId, rowState]) => [
-					Number(fileId),
-					{ ...rowState, errorMessage: null },
-				]),
-			),
-		);
-	};
-
-	const applyRowFailures = (failures: ImportRowIssue[]) => {
-		const failureMessageById = new Map(
-			failures.map((failure) => [failure.unmappedFileId, failure.message]),
-		);
-		setTvRowStateById((current) =>
-			Object.fromEntries(
-				Object.entries(current).map(([fileId, rowState]) => [
-					Number(fileId),
-					{
-						...rowState,
-						errorMessage: failureMessageById.get(Number(fileId)) ?? null,
-					},
-				]),
-			),
-		);
-		setNonTvRowStateById((current) =>
-			Object.fromEntries(
-				Object.entries(current).map(([fileId, rowState]) => [
-					Number(fileId),
-					{
-						...rowState,
-						errorMessage: failureMessageById.get(Number(fileId)) ?? null,
-					},
-				]),
-			),
-		);
-	};
-
-	const handleNonTvMap = async () => {
-		const profileId = Number(effectiveProfileId);
-		if (!profileId) {
-			toast.error("Please select a download profile first");
-			return;
-		}
-
-		if (nonTvRows.some((row) => row.rowState.selectedEntityId == null)) {
-			toast.error("Please resolve all rows first");
-			return;
-		}
-		if (requiresAssetPreview && isAssetPreviewPending) {
-			toast.error("Please wait for related files to finish loading");
-			return;
-		}
-
-		setMapping(true);
-		clearRowErrors();
-		try {
-			const result = (await mapUnmappedFileFn({
-				data: {
-					downloadProfileId: profileId,
-					deleteDeselectedRelatedFiles,
-					moveRelatedFiles,
-					rows: nonTvRows.map((row) => ({
-						assets: row.rowState.assets.map((asset) => ({
-							action: !moveRelatedFiles
-								? "ignore"
-								: asset.selected
-									? "move"
-									: deleteDeselectedRelatedFiles
-										? "delete"
-										: "ignore",
-							kind: asset.kind,
-							ownershipReason: asset.ownershipReason,
-							relativeSourcePath: asset.relativeSourcePath,
-							selected: asset.selected,
-							sourcePath: asset.sourcePath,
-						})),
-						entityId: row.rowState.selectedEntityId as number,
-						entityType: getEntityTypeForContentType(contentType),
-						unmappedFileId: row.file.id,
-					})),
-				},
-			})) as MapImportResult;
-
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.unmappedFiles.all,
-			});
-			upsertUserSettings.mutate({
-				addDefaults: {
-					deleteDeselectedRelatedFiles,
-					moveRelatedFiles,
-				},
-				tableId: "unmapped-files",
-			});
-			const failures = result.failures ?? [];
-			const failedCount = result.failedCount ?? failures.length;
-			if (failedCount > 0) {
-				applyRowFailures(failures);
-				setActiveFileIds(failures.map((failure) => failure.unmappedFileId));
-				toast.error(
-					`${failedCount} file${failedCount !== 1 ? "s" : ""} failed to map`,
-				);
-				return;
-			}
-
-			toast.success(
-				`${result.mappedCount} file${result.mappedCount !== 1 ? "s" : ""} mapped`,
-			);
-			onClose();
-		} catch {
-			toast.error("Failed to map files");
-		} finally {
-			setMapping(false);
-		}
-	};
-
-	const handleTvMap = async () => {
-		const profileId = Number(effectiveProfileId);
-		if (!profileId) {
-			toast.error("Please select a download profile first");
-			return;
-		}
-
-		if (tvRows.some((row) => row.rowState.selectedEpisodeId == null)) {
-			toast.error("Please resolve all TV rows first");
-			return;
-		}
-		if (requiresAssetPreview && isAssetPreviewPending) {
-			toast.error("Please wait for related files to finish loading");
-			return;
-		}
-
-		setMapping(true);
-		clearRowErrors();
-		try {
-			const result = (await mapUnmappedFileFn({
-				data: {
-					downloadProfileId: profileId,
-					deleteDeselectedRelatedFiles,
-					moveRelatedFiles,
-					rows: tvRows.map((row) => ({
-						assets: row.rowState.assets.map((asset) => ({
-							action: !moveRelatedFiles
-								? "ignore"
-								: asset.selected
-									? "move"
-									: deleteDeselectedRelatedFiles
-										? "delete"
-										: "ignore",
-							kind: asset.kind,
-							ownershipReason: asset.ownershipReason,
-							relativeSourcePath: asset.relativeSourcePath,
-							selected: asset.selected,
-							sourcePath: asset.sourcePath,
-						})),
-						entityId: row.rowState.selectedEpisodeId as number,
-						entityType: "episode" as const,
-						unmappedFileId: row.file.id,
-					})),
-				},
-			})) as MapImportResult;
-
-			upsertUserSettings.mutate({
-				addDefaults: {
-					deleteDeselectedRelatedFiles,
-					moveRelatedFiles,
-				},
-				tableId: "unmapped-files",
-			});
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.unmappedFiles.all,
-			});
-			const failures = result.failures ?? [];
-			const failedCount = result.failedCount ?? failures.length;
-			if (failedCount > 0) {
-				applyRowFailures(failures);
-				setActiveFileIds(failures.map((failure) => failure.unmappedFileId));
-				toast.error(
-					`${failedCount} file${failedCount !== 1 ? "s" : ""} failed to map`,
-				);
-				return;
-			}
-			toast.success(
-				`${result.mappedCount} file${result.mappedCount !== 1 ? "s" : ""} mapped`,
-			);
-			onClose();
-		} catch {
-			toast.error("Failed to map files");
-		} finally {
-			setMapping(false);
-		}
-	};
+	const {
+		isTv,
+		rows,
+		mapping,
+		filteredProfiles,
+		effectiveProfileId,
+		setSelectedProfileId,
+		moveRelatedFiles,
+		setMoveRelatedFiles,
+		deleteDeselectedRelatedFiles,
+		setDeleteDeselectedRelatedFiles,
+		disableSubmit,
+		dispatch,
+		submit,
+	} = useMappingInteraction(contentType, files, onClose);
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1429,58 +619,12 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						<>
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
 								<div className="divide-y divide-border">
-									{tvRows.map(({ file, rowState, suggestion }) => (
+									{rows.map(({ file, rowState, suggestion }) => (
 										<TvMappingRow
 											assetSummary={summarizeAssets(rowState.assets)}
 											key={file.id}
 											file={file}
-											onAssetExpandedChange={setTvAssetsExpanded}
-											onAssetSelectedChange={setTvAssetSelected}
-											onGroupSelectedChange={setTvGroupSelected}
-											onSearchChange={(fileId, searchValue) => {
-												searchTouchedRef.current.add(fileId);
-												setTvRowStateById((current) => ({
-													...current,
-													[fileId]: {
-														assets:
-															current[fileId]?.assets ??
-															assetPreviewById[fileId] ??
-															[],
-														assetsExpanded:
-															current[fileId]?.assetsExpanded ?? false,
-														errorMessage: null,
-														search: searchValue,
-														selectedEpisodeId:
-															current[fileId]?.selectedEpisodeId ??
-															suggestion?.suggestedEpisodeId ??
-															null,
-													},
-												}));
-											}}
-											onSelectedEpisodeIdChange={(
-												fileId,
-												selectedEpisodeId,
-											) => {
-												selectionTouchedRef.current.add(fileId);
-												setTvRowStateById((current) => ({
-													...current,
-													[fileId]: {
-														assets:
-															current[fileId]?.assets ??
-															assetPreviewById[fileId] ??
-															[],
-														assetsExpanded:
-															current[fileId]?.assetsExpanded ?? false,
-														errorMessage: null,
-														search:
-															current[fileId]?.search ??
-															file.hints?.title ??
-															suggestion?.title ??
-															getFileName(file.path),
-														selectedEpisodeId,
-													},
-												}));
-											}}
+											onAction={dispatch}
 											rowState={rowState}
 											suggestion={suggestion}
 										/>
@@ -1490,9 +634,9 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 							<div className="flex justify-end">
 								<Button
-									disabled={disableTvSubmit}
+									disabled={disableSubmit}
 									onClick={() => {
-										void handleTvMap();
+										void submit();
 									}}
 								>
 									{mapping ? (
@@ -1506,55 +650,14 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 						<>
 							<div className="min-h-[200px] max-h-[320px] overflow-y-auto rounded-md border border-border">
 								<div className="divide-y divide-border">
-									{nonTvRows.map(({ file, rowState }) => (
+									{rows.map(({ file, rowState }) => (
 										<NonTvMappingRow
 											assetSummary={summarizeAssets(rowState.assets)}
 											key={file.id}
 											contentType={contentType}
 											file={file}
-											onAssetExpandedChange={setNonTvAssetsExpanded}
-											onAssetSelectedChange={setNonTvAssetSelected}
-											onGroupSelectedChange={setNonTvGroupSelected}
-											onSearchChange={(fileId, searchValue) => {
-												setNonTvRowStateById((current) => ({
-													...current,
-													[fileId]: {
-														assets:
-															current[fileId]?.assets ??
-															assetPreviewById[fileId] ??
-															[],
-														assetsExpanded:
-															current[fileId]?.assetsExpanded ?? false,
-														errorMessage: null,
-														search: searchValue,
-														selectedEntityId:
-															current[fileId]?.selectedEntityId ?? null,
-													},
-												}));
-											}}
-											onSelectedEntityIdChange={(fileId, selectedEntityId) => {
-												nonTvSelectionTouchedRef.current.add(fileId);
-												setNonTvRowStateById((current) => ({
-													...current,
-													[fileId]: {
-														assets:
-															current[fileId]?.assets ??
-															assetPreviewById[fileId] ??
-															[],
-														assetsExpanded:
-															current[fileId]?.assetsExpanded ?? false,
-														errorMessage: null,
-														search:
-															current[fileId]?.search ??
-															buildInitialRowSearch(file),
-														selectedEntityId,
-													},
-												}));
-											}}
+											onAction={dispatch}
 											rowState={rowState}
-											selectionTouched={nonTvSelectionTouchedRef.current.has(
-												file.id,
-											)}
 										/>
 									))}
 								</div>
@@ -1562,9 +665,9 @@ export default function MappingDialog(props: MappingDialogProps): JSX.Element {
 
 							<div className="flex justify-end">
 								<Button
-									disabled={disableNonTvSubmit}
+									disabled={disableSubmit}
 									onClick={() => {
-										void handleNonTvMap();
+										void submit();
 									}}
 								>
 									{mapping ? (

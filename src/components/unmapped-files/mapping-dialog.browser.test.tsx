@@ -1601,7 +1601,16 @@ describe("MappingDialog", () => {
 			page.getByLabelText("Episode target for Severance.S01E01.mkv"),
 			"102",
 		);
-		mappingDialogState.tvSuggestions = [];
+		mappingDialogState.tvSuggestions = [
+			{
+				fileId: 62,
+				hints: null,
+				path: "/incoming/Severance.S01E01.mkv",
+				subtitle: "Late suggestion",
+				suggestedEpisodeId: 103,
+				title: "Other Show",
+			},
+		];
 		mappingDialogState.tvSearchResults = [];
 		await page
 			.getByLabelText("Search episodes for Severance.S01E01.mkv")
