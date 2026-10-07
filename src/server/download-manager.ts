@@ -9,7 +9,10 @@ import type {
 } from "./download-clients/types";
 import { eventBus } from "./event-bus";
 import handleFailedDownload from "./failed-download-handler";
-import { importCompletedDownload } from "./file-import";
+import {
+	type CompletedImportResult,
+	importCompletedDownload,
+} from "./file-import";
 import { logError, logWarn } from "./logger";
 import { fetchQueueItems } from "./queue";
 import type { TaskResult } from "./scheduler/registry";
@@ -17,8 +20,6 @@ import getMediaSetting from "./settings-reader";
 import {
 	markTrackedDownloadCompleted,
 	markTrackedDownloadDownloading,
-	markTrackedDownloadFailed,
-	markTrackedDownloadImportPending,
 	markTrackedDownloadRemoved,
 } from "./tracked-download-state";
 
@@ -99,37 +100,11 @@ async function runFailedDownloadHandler(
 	}
 }
 
-function claimImport(td: TrackedDownload): boolean {
-	if (td.state === "importPending") {
-		return true;
-	}
-
+async function importTrackedDownload(
+	td: TrackedDownload,
+): Promise<CompletedImportResult> {
 	try {
-		markTrackedDownloadImportPending(td.id);
-		return true;
-	} catch (error) {
-		logWarn(
-			"download-manager",
-			`Failed to claim import for "${td.releaseTitle}": ${error instanceof Error ? error.message : "Unknown error"}`,
-		);
-		return false;
-	}
-}
-
-function getTrackedDownloadState(id: number): string | null {
-	const refreshed = db
-		.select({ state: trackedDownloads.state })
-		.from(trackedDownloads)
-		.where(eq(trackedDownloads.id, id))
-		.get();
-
-	return refreshed?.state ?? null;
-}
-
-async function importTrackedDownload(td: TrackedDownload): Promise<boolean> {
-	try {
-		await importCompletedDownload(td.id);
-		return true;
+		return await importCompletedDownload(td.id);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		logError(
@@ -137,10 +112,7 @@ async function importTrackedDownload(td: TrackedDownload): Promise<boolean> {
 			`Import failed for "${td.releaseTitle}": ${message}`,
 			error,
 		);
-		if (getTrackedDownloadState(td.id) !== "failed") {
-			markTrackedDownloadFailed(td.id, message);
-		}
-		return false;
+		return { status: "failed", message };
 	}
 }
 
@@ -185,14 +157,8 @@ export async function refreshDownloads(): Promise<TaskResult> {
 					enableCompletedHandling &&
 					(td.state === "completed" || td.state === "importPending")
 				) {
-					if (!claimImport(td)) {
-						continue;
-					}
-					if (!(await importTrackedDownload(td))) {
-						stats.failed += 1;
-						continue;
-					}
-					if (getTrackedDownloadState(td.id) === "failed") {
+					const outcome = await importTrackedDownload(td);
+					if (outcome.status === "failed") {
 						stats.failed += 1;
 					}
 				}
@@ -236,31 +202,14 @@ export async function refreshDownloads(): Promise<TaskResult> {
 				stats,
 			);
 			if (action === "import" && enableCompletedHandling) {
-				if (!claimImport(td)) {
-					continue;
-				}
-				if (!(await importTrackedDownload(td))) {
+				const outcome = await importTrackedDownload(td);
+				if (outcome.status === "failed") {
 					stats.failed += 1;
 					await runFailedDownloadHandler(td.id, provider, config);
 					continue;
 				}
 
-				const refreshed = db
-					.select({ state: trackedDownloads.state })
-					.from(trackedDownloads)
-					.where(eq(trackedDownloads.id, td.id))
-					.get();
-
-				if (refreshed?.state === "failed") {
-					stats.failed += 1;
-					await runFailedDownloadHandler(td.id, provider, config);
-					continue;
-				}
-
-				if (
-					refreshed?.state === "imported" &&
-					client.removeCompletedDownloads
-				) {
+				if (outcome.status === "imported" && client.removeCompletedDownloads) {
 					await removeFromClient(provider, config, td.downloadId);
 				}
 			}

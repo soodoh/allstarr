@@ -39,6 +39,13 @@ import {
 	markTrackedDownloadImported,
 } from "./tracked-download-state";
 
+export type CompletedImportResult =
+	| { status: "imported" }
+	| { status: "failed"; message: string }
+	| { status: "skipped"; message: string };
+
+type ImportDisposition = Exclude<CompletedImportResult, { status: "skipped" }>;
+
 type ImportResult = {
 	bookFileId: number | null;
 	destPath: string;
@@ -596,9 +603,10 @@ async function importFiles(
 	return count;
 }
 
-function markFailed(id: number, message: string): void {
+function markFailed(id: number, message: string): ImportDisposition {
 	markTrackedDownloadFailed(id, message);
 	logWarn("file-import", `Failed: ${message}`);
+	return { status: "failed", message };
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -720,34 +728,32 @@ function importEpisodeFile(
 async function importEpisodePackDownload(
 	td: typeof trackedDownloads.$inferSelect,
 	sideEffects: FileSideEffectRecorder,
-): Promise<void> {
+): Promise<ImportDisposition> {
 	if (!td.outputPath || !td.showId) {
-		markFailed(td.id, "Missing output path or show ID for episode pack");
-		return;
+		return markFailed(td.id, "Missing output path or show ID for episode pack");
 	}
 
 	const sourceDir = resolveSourceDir(td.outputPath);
 	if (!sourceDir) {
-		markFailed(td.id, "Download output path not found");
-		return;
+		return markFailed(td.id, "Download output path not found");
 	}
 
 	const allFiles = scanForBookFiles(sourceDir, VIDEO_EXTENSIONS);
 	if (allFiles.length === 0) {
-		markFailed(td.id, "No video files found in episode pack download");
-		return;
+		return markFailed(td.id, "No video files found in episode pack download");
 	}
 
 	const show = db.select().from(shows).where(eq(shows.id, td.showId)).get();
 	if (!show) {
-		markFailed(td.id, `Show ${td.showId} not found`);
-		return;
+		return markFailed(td.id, `Show ${td.showId} not found`);
 	}
 
 	const rootFolderPath = resolveShowRootFolder(td.showId);
 	if (!rootFolderPath) {
-		markFailed(td.id, "No root folder configured for TV download profiles");
-		return;
+		return markFailed(
+			td.id,
+			"No root folder configured for TV download profiles",
+		);
 	}
 
 	const cfg = readImportSettings("ebook"); // reuse generic settings
@@ -755,16 +761,14 @@ async function importEpisodePackDownload(
 	if (!cfg.skipFreeSpaceCheck) {
 		const spaceError = checkFreeSpace(rootFolderPath, cfg.minimumFreeSpace);
 		if (spaceError) {
-			markFailed(td.id, spaceError);
-			return;
+			return markFailed(td.id, spaceError);
 		}
 	}
 
 	// Map files to season/episode numbers
 	const mapped = mapTvFiles(allFiles);
 	if (mapped.length === 0) {
-		markFailed(td.id, "No files matched S##E## pattern in episode pack");
-		return;
+		return markFailed(td.id, "No files matched S##E## pattern in episode pack");
 	}
 
 	// Load all episodes for this show
@@ -830,8 +834,7 @@ async function importEpisodePackDownload(
 	}
 
 	if (importedCount === 0) {
-		markFailed(td.id, "No episode files matched or imported from pack");
-		return;
+		return markFailed(td.id, "No episode files matched or imported from pack");
 	}
 
 	const insertedHistory = db
@@ -854,27 +857,25 @@ async function importEpisodePackDownload(
 		"file-import",
 		`Imported ${importedCount} episode(s) from pack for "${show.title}"`,
 	);
+	return { status: "imported" };
 }
 
 async function importBookPackDownload(
 	td: typeof trackedDownloads.$inferSelect,
 	sideEffects: FileSideEffectRecorder,
-): Promise<void> {
+): Promise<ImportDisposition> {
 	if (!td.outputPath || !td.authorId) {
-		markFailed(td.id, "Missing output path or author ID for book pack");
-		return;
+		return markFailed(td.id, "Missing output path or author ID for book pack");
 	}
 
 	const sourceDir = resolveSourceDir(td.outputPath);
 	if (!sourceDir) {
-		markFailed(td.id, "Download output path not found");
-		return;
+		return markFailed(td.id, "Download output path not found");
 	}
 
 	const files = scanForBookFiles(sourceDir, buildScanExtensions());
 	if (files.length === 0) {
-		markFailed(td.id, "No book files found in book pack download");
-		return;
+		return markFailed(td.id, "No book files found in book pack download");
 	}
 
 	const author = db
@@ -883,14 +884,12 @@ async function importBookPackDownload(
 		.where(eq(authors.id, td.authorId))
 		.get();
 	if (!author) {
-		markFailed(td.id, `Author ${td.authorId} not found`);
-		return;
+		return markFailed(td.id, `Author ${td.authorId} not found`);
 	}
 
 	const rootFolderPath = resolveRootFolder(td.downloadProfileId);
 	if (!rootFolderPath) {
-		markFailed(td.id, "No root folder configured in download profiles");
-		return;
+		return markFailed(td.id, "No root folder configured in download profiles");
 	}
 
 	const primaryType = resolveProfileType(td.downloadProfileId);
@@ -899,16 +898,14 @@ async function importBookPackDownload(
 	if (!cfg.skipFreeSpaceCheck) {
 		const spaceError = checkFreeSpace(rootFolderPath, cfg.minimumFreeSpace);
 		if (spaceError) {
-			markFailed(td.id, spaceError);
-			return;
+			return markFailed(td.id, spaceError);
 		}
 	}
 
 	// Map files to extracted titles
 	const mapped = mapBookFiles(files);
 	if (mapped.length === 0) {
-		markFailed(td.id, "No book files could be parsed from pack");
-		return;
+		return markFailed(td.id, "No book files could be parsed from pack");
 	}
 
 	// Load all books for this author
@@ -995,8 +992,7 @@ async function importBookPackDownload(
 	}
 
 	if (importedCount === 0) {
-		markFailed(td.id, "No book files matched or imported from pack");
-		return;
+		return markFailed(td.id, "No book files matched or imported from pack");
 	}
 
 	const insertedHistory = db
@@ -1025,11 +1021,12 @@ async function importBookPackDownload(
 		"file-import",
 		`Imported ${importedCount} book(s) from pack for author "${author.name}"`,
 	);
+	return { status: "imported" };
 }
 
 export async function importCompletedDownload(
 	trackedDownloadId: number,
-): Promise<void> {
+): Promise<CompletedImportResult> {
 	const sideEffects = createFileSideEffectRecorder();
 	const td = db
 		.select()
@@ -1041,11 +1038,21 @@ export async function importCompletedDownload(
 		throw new Error(`Tracked download ${trackedDownloadId} not found`);
 	}
 
-	claimTrackedDownloadImport(td.id);
+	try {
+		claimTrackedDownloadImport(td.id);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown error";
+		logWarn(
+			"file-import",
+			`Failed to claim import for "${td.releaseTitle}": ${message}`,
+		);
+		return { status: "skipped", message };
+	}
 
 	try {
-		await importCompletedTrackedDownload(td, sideEffects);
+		const result = await importCompletedTrackedDownload(td, sideEffects);
 		sideEffects.commit();
+		return result;
 	} catch (error) {
 		const cleanupFailures = sideEffects.cleanup();
 		for (const failure of cleanupFailures) {
@@ -1071,51 +1078,44 @@ export async function importCompletedDownload(
 async function importCompletedTrackedDownload(
 	td: typeof trackedDownloads.$inferSelect,
 	sideEffects: FileSideEffectRecorder,
-): Promise<void> {
+): Promise<ImportDisposition> {
 	// Pack download detection — parent ID set but item ID null
 	const isEpisodePack = td.showId && !td.episodeId;
 	const isBookPack = td.authorId && !td.bookId;
 
 	if (isEpisodePack) {
-		await importEpisodePackDownload(td, sideEffects);
-		return;
+		return importEpisodePackDownload(td, sideEffects);
 	}
 	if (isBookPack) {
-		await importBookPackDownload(td, sideEffects);
-		return;
+		return importBookPackDownload(td, sideEffects);
 	}
 
 	if (!td.outputPath) {
-		markFailed(td.id, "Download output path not set");
-		return;
+		return markFailed(td.id, "Download output path not set");
 	}
 
 	const sourceDir = resolveSourceDir(td.outputPath);
 	if (!sourceDir) {
-		markFailed(td.id, "Download output path not found");
-		return;
+		return markFailed(td.id, "Download output path not found");
 	}
 
 	const primaryType = resolveProfileType(td.downloadProfileId);
 	const cfg = readImportSettings(primaryType);
 	const files = scanForBookFiles(sourceDir, buildScanExtensions());
 	if (files.length === 0) {
-		markFailed(td.id, "No book files found in download");
-		return;
+		return markFailed(td.id, "No book files found in download");
 	}
 
 	const authorName = resolveAuthorName(td.authorId, td.bookId);
 	const rootFolderPath = resolveRootFolder(td.downloadProfileId);
 	if (!rootFolderPath) {
-		markFailed(td.id, "No root folder configured in download profiles");
-		return;
+		return markFailed(td.id, "No root folder configured in download profiles");
 	}
 
 	if (!cfg.skipFreeSpaceCheck) {
 		const spaceError = checkFreeSpace(rootFolderPath, cfg.minimumFreeSpace);
 		if (spaceError) {
-			markFailed(td.id, spaceError);
-			return;
+			return markFailed(td.id, spaceError);
 		}
 	}
 
@@ -1196,8 +1196,7 @@ async function importCompletedTrackedDownload(
 	}
 
 	if (importedCount === 0) {
-		markFailed(td.id, "All file imports failed");
-		return;
+		return markFailed(td.id, "All file imports failed");
 	}
 
 	const insertedHistory = db
@@ -1256,4 +1255,5 @@ async function importCompletedTrackedDownload(
 		"file-import",
 		`Imported ${importedCount} files for "${bookTitle}" to ${destDir}`,
 	);
+	return { status: "imported" };
 }

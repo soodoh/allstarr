@@ -4,6 +4,15 @@ Allstarr manages media files associated with books, movies, and TV episodes.
 
 ## Language
 
+**Completed import**:
+The placement of files from a completed tracked download into the managed library. It is distinct from Mapping an existing unmapped file.
+
+**Job run**:
+One execution of an Allstarr scheduled task or on-demand command, with its own progress and outcome.
+
+**Wanted item**:
+A book, movie, or TV episode eligible for automatic search because it is missing files or may qualify for an upgrade under an available download profile.
+
 **Indexer**:
 A configured source of releases that can be searched and grabbed, either configured directly in Allstarr or synced from an indexer manager.
 

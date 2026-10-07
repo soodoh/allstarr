@@ -187,9 +187,108 @@ test.describe("Download Lifecycle", () => {
 			const tracked = db.select().from(schema.trackedDownloads).all();
 			const dl = tracked.find((t) => t.downloadId === "lifecycle-hash-2");
 			expect(dl).toBeTruthy();
-			// State should be completed, importPending, or imported
-			expect(["completed", "importPending", "imported"]).toContain(dl?.state);
+			expect(dl?.state).toBe("imported");
 		}).toPass({ timeout: 10_000 });
+	});
+
+	test("pending completed import recovers files, rows, and client cleanup", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		checkpoint,
+		fakeServers,
+		setFakeServiceState,
+	}) => {
+		const downloadDir = join(tempDir, "downloads", "pending-recovery");
+		mkdirSync(downloadDir, { recursive: true });
+		writeFileSync(join(downloadDir, "book.epub"), "pending recovery media");
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "pending-recovery",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "importPending",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+			outputPath: downloadDir,
+		});
+		checkpoint();
+		await setLifecycleTorrentState(
+			setFakeServiceState,
+			"single-completed-book",
+			"pending-recovery",
+			downloadDir,
+		);
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		const download = db
+			.select()
+			.from(schema.trackedDownloads)
+			.all()
+			.find((row) => row.downloadId === "pending-recovery");
+		expect(download?.state).toBe("imported");
+		const files = db.select().from(schema.bookFiles).all();
+		expect(files).toHaveLength(1);
+		expect(existsSync(files[0].path)).toBe(true);
+		const clientState = await fetch(`${fakeServers.QBITTORRENT}/__state`).then(
+			(response) => response.json(),
+		);
+		expect(clientState.removedIds).toContain("pending-recovery");
+		const runs = db
+			.select()
+			.from(schema.jobRuns)
+			.all()
+			.filter((run) => run.jobType === "refresh-downloads");
+		expect(runs.at(-1)?.status).toBe("succeeded");
+	});
+
+	test("pending import failure records one disposition and no managed files", async ({
+		page,
+		appUrl,
+		db,
+		tempDir,
+		checkpoint,
+	}) => {
+		seedSetting(db, "downloadClient.redownloadFailed", false);
+		seedSetting(db, "downloadClient.removeFailed", false);
+		seedTrackedDownload(db, {
+			downloadClientId: clientId,
+			downloadId: "pending-failure",
+			releaseTitle: "Lifecycle Author - Lifecycle Book [EPUB]",
+			protocol: "torrent",
+			state: "importPending",
+			bookId,
+			authorId,
+			downloadProfileId: profileId,
+			outputPath: join(tempDir, "missing"),
+		});
+		checkpoint();
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads", {
+			expectedStatus: "Error",
+		});
+		const download = db
+			.select()
+			.from(schema.trackedDownloads)
+			.all()
+			.find((row) => row.downloadId === "pending-failure");
+		expect(download?.state).toBe("failed");
+		expect(download?.message).toBe("Download output path not found");
+		expect(db.select().from(schema.bookFiles).all()).toEqual([]);
+		const runs = db
+			.select()
+			.from(schema.jobRuns)
+			.all()
+			.filter((run) => run.jobType === "refresh-downloads");
+		expect(runs.at(-1)?.status).toBe("failed");
+		await triggerScheduledTask(page, appUrl, "Refresh Downloads");
+		expect(
+			db
+				.select()
+				.from(schema.trackedDownloads)
+				.all()
+				.find((row) => row.downloadId === "pending-failure"),
+		).toEqual(download);
 	});
 
 	test("file imported to library creates bookFiles entry", async ({
