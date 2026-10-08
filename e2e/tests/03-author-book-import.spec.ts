@@ -1,9 +1,31 @@
+import type { Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
 import { expect, test } from "../fixtures/app";
 import { seedDownloadClient, seedDownloadProfile } from "../fixtures/seed-data";
 import { ensureAuthenticated } from "../helpers/auth";
 import navigateTo from "../helpers/navigation";
+import captureSSEEvents from "../helpers/sse";
+
+async function confirmAuthorImport(page: Page, appUrl: string): Promise<void> {
+	const events = await captureSSEEvents(
+		page,
+		appUrl,
+		["commandCompleted", "commandFailed"],
+		() => page.getByRole("button", { name: "Confirm", exact: true }).click(),
+		{
+			timeoutMs: 30_000,
+			until: (captured) =>
+				captured.some(
+					(event) => JSON.parse(event.data).commandType === "importAuthor",
+				),
+		},
+	);
+	const terminal = events.find(
+		(event) => JSON.parse(event.data).commandType === "importAuthor",
+	);
+	expect(terminal?.type, terminal?.data).toBe("commandCompleted");
+}
 
 test.use({
 	fakeServerScenario: "author-book-import-default",
@@ -83,9 +105,9 @@ test.describe("Author and Book Import", () => {
 		// Should open the author preview modal dialog
 		await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
-		// Author name should be in the dialog
+		// The dialog title labels the preview even when identity and title repeat the name.
 		await expect(
-			page.getByRole("dialog").getByText("Brandon Sanderson"),
+			page.getByRole("dialog", { name: "Brandon Sanderson", exact: true }),
 		).toBeVisible();
 	});
 
@@ -116,10 +138,8 @@ test.describe("Author and Book Import", () => {
 			.getByRole("button", { name: /add to bookshelf/i })
 			.click({ timeout: 10_000 });
 
-		// Click Confirm in the add form
-		await page
-			.getByRole("button", { name: /confirm/i })
-			.click({ timeout: 5000 });
+		// Dialog closure only submits a background job; wait for its terminal event.
+		await confirmAuthorImport(page, appUrl);
 
 		// Dialog should close after import
 		await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 10_000 });
@@ -167,9 +187,7 @@ test.describe("Author and Book Import", () => {
 		await page
 			.getByRole("button", { name: /add to bookshelf/i })
 			.click({ timeout: 10_000 });
-		await page
-			.getByRole("button", { name: /confirm/i })
-			.click({ timeout: 5000 });
+		await confirmAuthorImport(page, appUrl);
 
 		// Wait for import to complete
 		await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 10_000 });
@@ -177,8 +195,10 @@ test.describe("Author and Book Import", () => {
 		// Check editions in DB - default metadata profile allows English
 		// The Spanish edition should be filtered out by default
 		const editions = db.select().from(schema.editions).all();
-		// Verify editions were imported (may be 0 if import is still processing)
-		expect(editions.length).toBeGreaterThanOrEqual(0);
+		expect(editions.length).toBeGreaterThan(0);
+		expect(editions.every((edition) => edition.languageCode === "en")).toBe(
+			true,
+		);
 	});
 
 	test("import single book", async ({ page, appUrl }) => {

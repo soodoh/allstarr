@@ -36,15 +36,22 @@ describe("app server lifecycle", () => {
 		const onDiagnostic = vi.fn();
 		const proc = await startAppServer(
 			config(
-				"require('node:http').createServer((req, res) => res.end('login')).listen(process.env.PORT, '127.0.0.1', () => { console.log('ready'); console.error('diagnostic'); });",
+				"require('node:http').createServer((req, res) => res.end('login')).listen(process.env.PORT, '127.0.0.1', () => { setTimeout(() => { console.log('ready'); console.error('diagnostic'); }, 50); });",
 				port,
 			),
 			{ onOutput, onDiagnostic, intervalMs: 5 },
 		);
 		try {
 			expect(proc.exitCode).toBeNull();
-			expect(onOutput.mock.calls.map(([stream]) => stream)).toContain("stdout");
-			expect(onOutput.mock.calls.map(([stream]) => stream)).toContain("stderr");
+			// HTTP readiness and delivery of pipe output are independently scheduled.
+			await vi.waitFor(() => {
+				expect(onOutput.mock.calls.map(([stream]) => stream)).toContain(
+					"stdout",
+				);
+				expect(onOutput.mock.calls.map(([stream]) => stream)).toContain(
+					"stderr",
+				);
+			});
 			expect(onDiagnostic).toHaveBeenCalledWith(
 				expect.objectContaining({ event: "ready", status: "ok" }),
 			);
