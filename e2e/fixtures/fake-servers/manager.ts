@@ -351,6 +351,9 @@ export function createFakeServerManager(
 						}
 
 						await Promise.all(
+							[...running.values()].map((server) => server.ready),
+						);
+						await Promise.all(
 							[...running.entries()].map(([name, server]) =>
 								waitForServer(name, server.url, {
 									timeoutMs: options?.readinessTimeoutMs,

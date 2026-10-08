@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakeServerManager } from "./manager";
 
 afterEach(async () => {
-	// Each test stops its manager explicitly; this hook is just a guard.
+	vi.restoreAllMocks();
 });
 
 describe("createFakeServerManager", () => {
@@ -76,14 +76,17 @@ describe("createFakeServerManager", () => {
 	});
 
 	it("reports fake-service readiness failures with service, endpoint, and attempts", async () => {
+		vi.spyOn(globalThis, "fetch").mockRejectedValue(
+			new Error("simulated unavailable"),
+		);
 		const manager = createFakeServerManager(["QBITTORRENT"], {
-			ports: { QBITTORRENT: 9 },
+			ports: { QBITTORRENT: 0 },
 			readinessTimeoutMs: 20,
 			readinessIntervalMs: 1,
 		});
 
 		await expect(manager.start()).rejects.toThrow(
-			/Fake service QBITTORRENT at http:\/\/localhost:9\/__state did not become ready/,
+			/Fake service QBITTORRENT at http:\/\/localhost:\d+\/__state did not become ready/,
 		);
 	});
 

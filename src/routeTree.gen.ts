@@ -3,65 +3,59 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as ApiEventsRouteImport } from './routes/api/events'
-import { Route as Api_testResetRouteImport } from './routes/api/__test-reset'
 import { Route as AuthedUnmappedFilesRouteImport } from './routes/_authed/unmapped-files'
-import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
-import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
-import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
-import { Route as AuthedSeriesIndexRouteImport } from './routes/_authed/series/index'
-import { Route as AuthedRequestsIndexRouteImport } from './routes/_authed/requests/index'
-import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
-import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
-import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
+import { Route as Api_testResetRouteImport } from './routes/api/[_][_]test-reset'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as AuthedActivityIndexRouteImport } from './routes/_authed/activity/index'
-import { Route as ApiImagesSplatRouteImport } from './routes/api/images/$'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AuthedTvCalendarRouteImport } from './routes/_authed/tv/calendar'
-import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
-import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
-import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
-import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/events'
-import { Route as AuthedSettingsUsersRouteImport } from './routes/_authed/settings/users'
-import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
-import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
-import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
-import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
-import { Route as AuthedSettingsImportsRouteImport } from './routes/_authed/settings/imports'
-import { Route as AuthedSettingsImportListsRouteImport } from './routes/_authed/settings/import-lists'
-import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
-import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
-import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
-import { Route as AuthedSettingsCustomFormatsRouteImport } from './routes/_authed/settings/custom-formats'
-import { Route as AuthedMoviesCollectionsRouteImport } from './routes/_authed/movies/collections'
-import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
-import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
-import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
-import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
-import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
-import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
-import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
 import { Route as AuthedActivityBlocklistRouteImport } from './routes/_authed/activity/blocklist'
-import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
-import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
-import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
-import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
-import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
+import { Route as AuthedActivityHistoryRouteImport } from './routes/_authed/activity/history'
+import { Route as AuthedAuthorsIndexRouteImport } from './routes/_authed/authors/index'
+import { Route as AuthedAuthorsAuthorIdRouteImport } from './routes/_authed/authors/$authorId'
+import { Route as AuthedBooksIndexRouteImport } from './routes/_authed/books/index'
+import { Route as AuthedBooksBookIdRouteImport } from './routes/_authed/books/$bookId'
+import { Route as AuthedBooksAddRouteImport } from './routes/_authed/books/add'
+import { Route as AuthedMoviesIndexRouteImport } from './routes/_authed/movies/index'
+import { Route as AuthedMoviesMovieIdRouteImport } from './routes/_authed/movies/$movieId'
+import { Route as AuthedMoviesAddRouteImport } from './routes/_authed/movies/add'
+import { Route as AuthedMoviesCalendarRouteImport } from './routes/_authed/movies/calendar'
+import { Route as AuthedMoviesCollectionsRouteImport } from './routes/_authed/movies/collections'
+import { Route as AuthedRequestsIndexRouteImport } from './routes/_authed/requests/index'
+import { Route as AuthedSeriesIndexRouteImport } from './routes/_authed/series/index'
+import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedSettingsCustomFormatsRouteImport } from './routes/_authed/settings/custom-formats'
+import { Route as AuthedSettingsDownloadClientsRouteImport } from './routes/_authed/settings/download-clients'
+import { Route as AuthedSettingsFormatsRouteImport } from './routes/_authed/settings/formats'
+import { Route as AuthedSettingsGeneralRouteImport } from './routes/_authed/settings/general'
+import { Route as AuthedSettingsImportListsRouteImport } from './routes/_authed/settings/import-lists'
+import { Route as AuthedSettingsImportsRouteImport } from './routes/_authed/settings/imports'
+import { Route as AuthedSettingsIndexersRouteImport } from './routes/_authed/settings/indexers'
+import { Route as AuthedSettingsMediaManagementRouteImport } from './routes/_authed/settings/media-management'
+import { Route as AuthedSettingsMetadataRouteImport } from './routes/_authed/settings/metadata'
+import { Route as AuthedSettingsProfilesRouteImport } from './routes/_authed/settings/profiles'
+import { Route as AuthedSettingsUsersRouteImport } from './routes/_authed/settings/users'
+import { Route as AuthedSystemIndexRouteImport } from './routes/_authed/system/index'
+import { Route as AuthedSystemEventsRouteImport } from './routes/_authed/system/events'
+import { Route as AuthedSystemStatusRouteImport } from './routes/_authed/system/status'
+import { Route as AuthedSystemTasksRouteImport } from './routes/_authed/system/tasks'
+import { Route as AuthedTvIndexRouteImport } from './routes/_authed/tv/index'
+import { Route as AuthedTvAddRouteImport } from './routes/_authed/tv/add'
+import { Route as AuthedTvCalendarRouteImport } from './routes/_authed/tv/calendar'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiImagesSplatRouteImport } from './routes/api/images/$'
 import { Route as AuthedTvSeriesShowIdRouteImport } from './routes/_authed/tv/series/$showId'
+import { Route as ApiV1IndexerIndexRouteImport } from './routes/api/v1/indexer/index'
+import { Route as ApiV1IndexerIdRouteImport } from './routes/api/v1/indexer/$id'
+import { Route as ApiV1IndexerSchemaRouteImport } from './routes/api/v1/indexer/schema'
+import { Route as ApiV1IndexerTestRouteImport } from './routes/api/v1/indexer/test'
+import { Route as ApiV1SystemStatusRouteImport } from './routes/api/v1/system/status'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -69,8 +63,14 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedRoute = AuthedRouteImport.update({
-  id: '/_authed',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
@@ -78,54 +78,34 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const ApiEventsRoute = ApiEventsRouteImport.update({
-  id: '/api/events',
-  path: '/api/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Api_testResetRoute = Api_testResetRouteImport.update({
-  id: '/api/__test-reset',
-  path: '/api',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedUnmappedFilesRoute = AuthedUnmappedFilesRouteImport.update({
   id: '/unmapped-files',
   path: '/unmapped-files',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedTvIndexRoute = AuthedTvIndexRouteImport.update({
-  id: '/tv/',
-  path: '/tv/',
+const Api_testResetRoute = Api_testResetRouteImport.update({
+  id: '/api/__test-reset',
+  path: '/api/__test-reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedActivityIndexRoute = AuthedActivityIndexRouteImport.update({
+  id: '/activity/',
+  path: '/activity/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
-  id: '/system/',
-  path: '/system/',
+const AuthedActivityBlocklistRoute = AuthedActivityBlocklistRouteImport.update({
+  id: '/activity/blocklist',
+  path: '/activity/blocklist',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSeriesIndexRoute = AuthedSeriesIndexRouteImport.update({
-  id: '/series/',
-  path: '/series/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedRequestsIndexRoute = AuthedRequestsIndexRouteImport.update({
-  id: '/requests/',
-  path: '/requests/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
-  id: '/movies/',
-  path: '/movies/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedBooksIndexRoute = AuthedBooksIndexRouteImport.update({
-  id: '/books/',
-  path: '/books/',
+const AuthedActivityHistoryRoute = AuthedActivityHistoryRouteImport.update({
+  id: '/activity/history',
+  path: '/activity/history',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAuthorsIndexRoute = AuthedAuthorsIndexRouteImport.update({
@@ -133,75 +113,86 @@ const AuthedAuthorsIndexRoute = AuthedAuthorsIndexRouteImport.update({
   path: '/authors/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedActivityIndexRoute = AuthedActivityIndexRouteImport.update({
-  id: '/activity/',
-  path: '/activity/',
+const AuthedAuthorsAuthorIdRoute = AuthedAuthorsAuthorIdRouteImport.update({
+  id: '/authors/$authorId',
+  path: '/authors/$authorId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const ApiImagesSplatRoute = ApiImagesSplatRouteImport.update({
-  id: '/api/images/$',
-  path: '/api/images/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedTvCalendarRoute = AuthedTvCalendarRouteImport.update({
-  id: '/tv/calendar',
-  path: '/tv/calendar',
+const AuthedBooksIndexRoute = AuthedBooksIndexRouteImport.update({
+  id: '/books/',
+  path: '/books/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedTvAddRoute = AuthedTvAddRouteImport.update({
-  id: '/tv/add',
-  path: '/tv/add',
+const AuthedBooksBookIdRoute = AuthedBooksBookIdRouteImport.update({
+  id: '/books/$bookId',
+  path: '/books/$bookId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSystemTasksRoute = AuthedSystemTasksRouteImport.update({
-  id: '/system/tasks',
-  path: '/system/tasks',
+const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
+  id: '/books/add',
+  path: '/books/add',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
-  id: '/system/status',
-  path: '/system/status',
+const AuthedMoviesIndexRoute = AuthedMoviesIndexRouteImport.update({
+  id: '/movies/',
+  path: '/movies/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSystemEventsRoute = AuthedSystemEventsRouteImport.update({
-  id: '/system/events',
-  path: '/system/events',
+const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
+  id: '/movies/$movieId',
+  path: '/movies/$movieId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsUsersRoute = AuthedSettingsUsersRouteImport.update({
-  id: '/settings/users',
-  path: '/settings/users',
+const AuthedMoviesAddRoute = AuthedMoviesAddRouteImport.update({
+  id: '/movies/add',
+  path: '/movies/add',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
-  id: '/settings/profiles',
-  path: '/settings/profiles',
+const AuthedMoviesCalendarRoute = AuthedMoviesCalendarRouteImport.update({
+  id: '/movies/calendar',
+  path: '/movies/calendar',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsMetadataRoute = AuthedSettingsMetadataRouteImport.update({
-  id: '/settings/metadata',
-  path: '/settings/metadata',
+const AuthedMoviesCollectionsRoute = AuthedMoviesCollectionsRouteImport.update({
+  id: '/movies/collections',
+  path: '/movies/collections',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsMediaManagementRoute =
-  AuthedSettingsMediaManagementRouteImport.update({
-    id: '/settings/media-management',
-    path: '/settings/media-management',
+const AuthedRequestsIndexRoute = AuthedRequestsIndexRouteImport.update({
+  id: '/requests/',
+  path: '/requests/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSeriesIndexRoute = AuthedSeriesIndexRouteImport.update({
+  id: '/series/',
+  path: '/series/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsCustomFormatsRoute =
+  AuthedSettingsCustomFormatsRouteImport.update({
+    id: '/settings/custom-formats',
+    path: '/settings/custom-formats',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
-  id: '/settings/indexers',
-  path: '/settings/indexers',
+const AuthedSettingsDownloadClientsRoute =
+  AuthedSettingsDownloadClientsRouteImport.update({
+    id: '/settings/download-clients',
+    path: '/settings/download-clients',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedSettingsFormatsRoute = AuthedSettingsFormatsRouteImport.update({
+  id: '/settings/formats',
+  path: '/settings/formats',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsImportsRoute = AuthedSettingsImportsRouteImport.update({
-  id: '/settings/imports',
-  path: '/settings/imports',
+const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
+  id: '/settings/general',
+  path: '/settings/general',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsImportListsRoute =
@@ -210,71 +201,85 @@ const AuthedSettingsImportListsRoute =
     path: '/settings/import-lists',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedSettingsGeneralRoute = AuthedSettingsGeneralRouteImport.update({
-  id: '/settings/general',
-  path: '/settings/general',
+const AuthedSettingsImportsRoute = AuthedSettingsImportsRouteImport.update({
+  id: '/settings/imports',
+  path: '/settings/imports',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsFormatsRoute = AuthedSettingsFormatsRouteImport.update({
-  id: '/settings/formats',
-  path: '/settings/formats',
+const AuthedSettingsIndexersRoute = AuthedSettingsIndexersRouteImport.update({
+  id: '/settings/indexers',
+  path: '/settings/indexers',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedSettingsDownloadClientsRoute =
-  AuthedSettingsDownloadClientsRouteImport.update({
-    id: '/settings/download-clients',
-    path: '/settings/download-clients',
+const AuthedSettingsMediaManagementRoute =
+  AuthedSettingsMediaManagementRouteImport.update({
+    id: '/settings/media-management',
+    path: '/settings/media-management',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedSettingsCustomFormatsRoute =
-  AuthedSettingsCustomFormatsRouteImport.update({
-    id: '/settings/custom-formats',
-    path: '/settings/custom-formats',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedMoviesCollectionsRoute = AuthedMoviesCollectionsRouteImport.update({
-  id: '/movies/collections',
-  path: '/movies/collections',
+const AuthedSettingsMetadataRoute = AuthedSettingsMetadataRouteImport.update({
+  id: '/settings/metadata',
+  path: '/settings/metadata',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedMoviesCalendarRoute = AuthedMoviesCalendarRouteImport.update({
-  id: '/movies/calendar',
-  path: '/movies/calendar',
+const AuthedSettingsProfilesRoute = AuthedSettingsProfilesRouteImport.update({
+  id: '/settings/profiles',
+  path: '/settings/profiles',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedMoviesAddRoute = AuthedMoviesAddRouteImport.update({
-  id: '/movies/add',
-  path: '/movies/add',
+const AuthedSettingsUsersRoute = AuthedSettingsUsersRouteImport.update({
+  id: '/settings/users',
+  path: '/settings/users',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedMoviesMovieIdRoute = AuthedMoviesMovieIdRouteImport.update({
-  id: '/movies/$movieId',
-  path: '/movies/$movieId',
+const AuthedSystemIndexRoute = AuthedSystemIndexRouteImport.update({
+  id: '/system/',
+  path: '/system/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBooksAddRoute = AuthedBooksAddRouteImport.update({
-  id: '/books/add',
-  path: '/books/add',
+const AuthedSystemEventsRoute = AuthedSystemEventsRouteImport.update({
+  id: '/system/events',
+  path: '/system/events',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBooksBookIdRoute = AuthedBooksBookIdRouteImport.update({
-  id: '/books/$bookId',
-  path: '/books/$bookId',
+const AuthedSystemStatusRoute = AuthedSystemStatusRouteImport.update({
+  id: '/system/status',
+  path: '/system/status',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAuthorsAuthorIdRoute = AuthedAuthorsAuthorIdRouteImport.update({
-  id: '/authors/$authorId',
-  path: '/authors/$authorId',
+const AuthedSystemTasksRoute = AuthedSystemTasksRouteImport.update({
+  id: '/system/tasks',
+  path: '/system/tasks',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedActivityHistoryRoute = AuthedActivityHistoryRouteImport.update({
-  id: '/activity/history',
-  path: '/activity/history',
+const AuthedTvIndexRoute = AuthedTvIndexRouteImport.update({
+  id: '/tv/',
+  path: '/tv/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedActivityBlocklistRoute = AuthedActivityBlocklistRouteImport.update({
-  id: '/activity/blocklist',
-  path: '/activity/blocklist',
+const AuthedTvAddRoute = AuthedTvAddRouteImport.update({
+  id: '/tv/add',
+  path: '/tv/add',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedTvCalendarRoute = AuthedTvCalendarRouteImport.update({
+  id: '/tv/calendar',
+  path: '/tv/calendar',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImagesSplatRoute = ApiImagesSplatRouteImport.update({
+  id: '/api/images/$',
+  path: '/api/images/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedTvSeriesShowIdRoute = AuthedTvSeriesShowIdRouteImport.update({
+  id: '/tv/series/$showId',
+  path: '/tv/series/$showId',
   getParentRoute: () => AuthedRoute,
 } as any)
 const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
@@ -282,14 +287,9 @@ const ApiV1IndexerIndexRoute = ApiV1IndexerIndexRouteImport.update({
   path: '/api/v1/indexer/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1SystemStatusRoute = ApiV1SystemStatusRouteImport.update({
-  id: '/api/v1/system/status',
-  path: '/api/v1/system/status',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1IndexerTestRoute = ApiV1IndexerTestRouteImport.update({
-  id: '/api/v1/indexer/test',
-  path: '/api/v1/indexer/test',
+const ApiV1IndexerIdRoute = ApiV1IndexerIdRouteImport.update({
+  id: '/api/v1/indexer/$id',
+  path: '/api/v1/indexer/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1IndexerSchemaRoute = ApiV1IndexerSchemaRouteImport.update({
@@ -297,15 +297,15 @@ const ApiV1IndexerSchemaRoute = ApiV1IndexerSchemaRouteImport.update({
   path: '/api/v1/indexer/schema',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1IndexerIdRoute = ApiV1IndexerIdRouteImport.update({
-  id: '/api/v1/indexer/$id',
-  path: '/api/v1/indexer/$id',
+const ApiV1IndexerTestRoute = ApiV1IndexerTestRouteImport.update({
+  id: '/api/v1/indexer/test',
+  path: '/api/v1/indexer/test',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedTvSeriesShowIdRoute = AuthedTvSeriesShowIdRouteImport.update({
-  id: '/tv/series/$showId',
-  path: '/tv/series/$showId',
-  getParentRoute: () => AuthedRoute,
+const ApiV1SystemStatusRoute = ApiV1SystemStatusRouteImport.update({
+  id: '/api/v1/system/status',
+  path: '/api/v1/system/status',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -314,7 +314,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/unmapped-files': typeof AuthedUnmappedFilesRoute
-  '/api': typeof Api_testResetRoute
+  '/api/__test-reset': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
   '/activity/history': typeof AuthedActivityHistoryRoute
@@ -364,7 +364,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/unmapped-files': typeof AuthedUnmappedFilesRoute
-  '/api': typeof Api_testResetRoute
+  '/api/__test-reset': typeof Api_testResetRoute
   '/api/events': typeof ApiEventsRoute
   '/': typeof AuthedIndexRoute
   '/activity/blocklist': typeof AuthedActivityBlocklistRoute
@@ -471,7 +471,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/unmapped-files'
-    | '/api'
+    | '/api/__test-reset'
     | '/api/events'
     | '/activity/blocklist'
     | '/activity/history'
@@ -521,7 +521,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/unmapped-files'
-    | '/api'
+    | '/api/__test-reset'
     | '/api/events'
     | '/'
     | '/activity/blocklist'
@@ -638,18 +638,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -659,11 +652,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed': {
-      id: '/_authed'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthedRouteImport
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/': {
@@ -673,20 +673,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/api/events': {
-      id: '/api/events'
-      path: '/api/events'
-      fullPath: '/api/events'
-      preLoaderRoute: typeof ApiEventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/__test-reset': {
-      id: '/api/__test-reset'
-      path: '/api'
-      fullPath: '/api'
-      preLoaderRoute: typeof Api_testResetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed/unmapped-files': {
       id: '/_authed/unmapped-files'
       path: '/unmapped-files'
@@ -694,249 +680,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedUnmappedFilesRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/tv/': {
-      id: '/_authed/tv/'
-      path: '/tv'
-      fullPath: '/tv/'
-      preLoaderRoute: typeof AuthedTvIndexRouteImport
-      parentRoute: typeof AuthedRoute
+    '/api/__test-reset': {
+      id: '/api/__test-reset'
+      path: '/api/__test-reset'
+      fullPath: '/api/__test-reset'
+      preLoaderRoute: typeof Api_testResetRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authed/system/': {
-      id: '/_authed/system/'
-      path: '/system'
-      fullPath: '/system/'
-      preLoaderRoute: typeof AuthedSystemIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/': {
-      id: '/_authed/settings/'
-      path: '/settings'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AuthedSettingsIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/series/': {
-      id: '/_authed/series/'
-      path: '/series'
-      fullPath: '/series/'
-      preLoaderRoute: typeof AuthedSeriesIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/requests/': {
-      id: '/_authed/requests/'
-      path: '/requests'
-      fullPath: '/requests/'
-      preLoaderRoute: typeof AuthedRequestsIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/movies/': {
-      id: '/_authed/movies/'
-      path: '/movies'
-      fullPath: '/movies/'
-      preLoaderRoute: typeof AuthedMoviesIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/books/': {
-      id: '/_authed/books/'
-      path: '/books'
-      fullPath: '/books/'
-      preLoaderRoute: typeof AuthedBooksIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/authors/': {
-      id: '/_authed/authors/'
-      path: '/authors'
-      fullPath: '/authors/'
-      preLoaderRoute: typeof AuthedAuthorsIndexRouteImport
-      parentRoute: typeof AuthedRoute
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/activity/': {
       id: '/_authed/activity/'
       path: '/activity'
       fullPath: '/activity/'
       preLoaderRoute: typeof AuthedActivityIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/api/images/$': {
-      id: '/api/images/$'
-      path: '/api/images/$'
-      fullPath: '/api/images/$'
-      preLoaderRoute: typeof ApiImagesSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authed/tv/calendar': {
-      id: '/_authed/tv/calendar'
-      path: '/tv/calendar'
-      fullPath: '/tv/calendar'
-      preLoaderRoute: typeof AuthedTvCalendarRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/tv/add': {
-      id: '/_authed/tv/add'
-      path: '/tv/add'
-      fullPath: '/tv/add'
-      preLoaderRoute: typeof AuthedTvAddRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/system/tasks': {
-      id: '/_authed/system/tasks'
-      path: '/system/tasks'
-      fullPath: '/system/tasks'
-      preLoaderRoute: typeof AuthedSystemTasksRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/system/status': {
-      id: '/_authed/system/status'
-      path: '/system/status'
-      fullPath: '/system/status'
-      preLoaderRoute: typeof AuthedSystemStatusRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/system/events': {
-      id: '/_authed/system/events'
-      path: '/system/events'
-      fullPath: '/system/events'
-      preLoaderRoute: typeof AuthedSystemEventsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/users': {
-      id: '/_authed/settings/users'
-      path: '/settings/users'
-      fullPath: '/settings/users'
-      preLoaderRoute: typeof AuthedSettingsUsersRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/profiles': {
-      id: '/_authed/settings/profiles'
-      path: '/settings/profiles'
-      fullPath: '/settings/profiles'
-      preLoaderRoute: typeof AuthedSettingsProfilesRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/metadata': {
-      id: '/_authed/settings/metadata'
-      path: '/settings/metadata'
-      fullPath: '/settings/metadata'
-      preLoaderRoute: typeof AuthedSettingsMetadataRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/media-management': {
-      id: '/_authed/settings/media-management'
-      path: '/settings/media-management'
-      fullPath: '/settings/media-management'
-      preLoaderRoute: typeof AuthedSettingsMediaManagementRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/indexers': {
-      id: '/_authed/settings/indexers'
-      path: '/settings/indexers'
-      fullPath: '/settings/indexers'
-      preLoaderRoute: typeof AuthedSettingsIndexersRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/imports': {
-      id: '/_authed/settings/imports'
-      path: '/settings/imports'
-      fullPath: '/settings/imports'
-      preLoaderRoute: typeof AuthedSettingsImportsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/import-lists': {
-      id: '/_authed/settings/import-lists'
-      path: '/settings/import-lists'
-      fullPath: '/settings/import-lists'
-      preLoaderRoute: typeof AuthedSettingsImportListsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/general': {
-      id: '/_authed/settings/general'
-      path: '/settings/general'
-      fullPath: '/settings/general'
-      preLoaderRoute: typeof AuthedSettingsGeneralRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/formats': {
-      id: '/_authed/settings/formats'
-      path: '/settings/formats'
-      fullPath: '/settings/formats'
-      preLoaderRoute: typeof AuthedSettingsFormatsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/download-clients': {
-      id: '/_authed/settings/download-clients'
-      path: '/settings/download-clients'
-      fullPath: '/settings/download-clients'
-      preLoaderRoute: typeof AuthedSettingsDownloadClientsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/custom-formats': {
-      id: '/_authed/settings/custom-formats'
-      path: '/settings/custom-formats'
-      fullPath: '/settings/custom-formats'
-      preLoaderRoute: typeof AuthedSettingsCustomFormatsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/movies/collections': {
-      id: '/_authed/movies/collections'
-      path: '/movies/collections'
-      fullPath: '/movies/collections'
-      preLoaderRoute: typeof AuthedMoviesCollectionsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/movies/calendar': {
-      id: '/_authed/movies/calendar'
-      path: '/movies/calendar'
-      fullPath: '/movies/calendar'
-      preLoaderRoute: typeof AuthedMoviesCalendarRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/movies/add': {
-      id: '/_authed/movies/add'
-      path: '/movies/add'
-      fullPath: '/movies/add'
-      preLoaderRoute: typeof AuthedMoviesAddRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/movies/$movieId': {
-      id: '/_authed/movies/$movieId'
-      path: '/movies/$movieId'
-      fullPath: '/movies/$movieId'
-      preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/books/add': {
-      id: '/_authed/books/add'
-      path: '/books/add'
-      fullPath: '/books/add'
-      preLoaderRoute: typeof AuthedBooksAddRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/books/$bookId': {
-      id: '/_authed/books/$bookId'
-      path: '/books/$bookId'
-      fullPath: '/books/$bookId'
-      preLoaderRoute: typeof AuthedBooksBookIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/authors/$authorId': {
-      id: '/_authed/authors/$authorId'
-      path: '/authors/$authorId'
-      fullPath: '/authors/$authorId'
-      preLoaderRoute: typeof AuthedAuthorsAuthorIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/activity/history': {
-      id: '/_authed/activity/history'
-      path: '/activity/history'
-      fullPath: '/activity/history'
-      preLoaderRoute: typeof AuthedActivityHistoryRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/activity/blocklist': {
@@ -946,32 +708,256 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedActivityBlocklistRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/activity/history': {
+      id: '/_authed/activity/history'
+      path: '/activity/history'
+      fullPath: '/activity/history'
+      preLoaderRoute: typeof AuthedActivityHistoryRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/authors/': {
+      id: '/_authed/authors/'
+      path: '/authors'
+      fullPath: '/authors/'
+      preLoaderRoute: typeof AuthedAuthorsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/authors/$authorId': {
+      id: '/_authed/authors/$authorId'
+      path: '/authors/$authorId'
+      fullPath: '/authors/$authorId'
+      preLoaderRoute: typeof AuthedAuthorsAuthorIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/books/': {
+      id: '/_authed/books/'
+      path: '/books'
+      fullPath: '/books/'
+      preLoaderRoute: typeof AuthedBooksIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/books/$bookId': {
+      id: '/_authed/books/$bookId'
+      path: '/books/$bookId'
+      fullPath: '/books/$bookId'
+      preLoaderRoute: typeof AuthedBooksBookIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/books/add': {
+      id: '/_authed/books/add'
+      path: '/books/add'
+      fullPath: '/books/add'
+      preLoaderRoute: typeof AuthedBooksAddRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/': {
+      id: '/_authed/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof AuthedMoviesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/$movieId': {
+      id: '/_authed/movies/$movieId'
+      path: '/movies/$movieId'
+      fullPath: '/movies/$movieId'
+      preLoaderRoute: typeof AuthedMoviesMovieIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/add': {
+      id: '/_authed/movies/add'
+      path: '/movies/add'
+      fullPath: '/movies/add'
+      preLoaderRoute: typeof AuthedMoviesAddRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/calendar': {
+      id: '/_authed/movies/calendar'
+      path: '/movies/calendar'
+      fullPath: '/movies/calendar'
+      preLoaderRoute: typeof AuthedMoviesCalendarRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/movies/collections': {
+      id: '/_authed/movies/collections'
+      path: '/movies/collections'
+      fullPath: '/movies/collections'
+      preLoaderRoute: typeof AuthedMoviesCollectionsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/requests/': {
+      id: '/_authed/requests/'
+      path: '/requests'
+      fullPath: '/requests/'
+      preLoaderRoute: typeof AuthedRequestsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/series/': {
+      id: '/_authed/series/'
+      path: '/series'
+      fullPath: '/series/'
+      preLoaderRoute: typeof AuthedSeriesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/': {
+      id: '/_authed/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/custom-formats': {
+      id: '/_authed/settings/custom-formats'
+      path: '/settings/custom-formats'
+      fullPath: '/settings/custom-formats'
+      preLoaderRoute: typeof AuthedSettingsCustomFormatsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/download-clients': {
+      id: '/_authed/settings/download-clients'
+      path: '/settings/download-clients'
+      fullPath: '/settings/download-clients'
+      preLoaderRoute: typeof AuthedSettingsDownloadClientsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/formats': {
+      id: '/_authed/settings/formats'
+      path: '/settings/formats'
+      fullPath: '/settings/formats'
+      preLoaderRoute: typeof AuthedSettingsFormatsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/general': {
+      id: '/_authed/settings/general'
+      path: '/settings/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthedSettingsGeneralRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/import-lists': {
+      id: '/_authed/settings/import-lists'
+      path: '/settings/import-lists'
+      fullPath: '/settings/import-lists'
+      preLoaderRoute: typeof AuthedSettingsImportListsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/imports': {
+      id: '/_authed/settings/imports'
+      path: '/settings/imports'
+      fullPath: '/settings/imports'
+      preLoaderRoute: typeof AuthedSettingsImportsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/indexers': {
+      id: '/_authed/settings/indexers'
+      path: '/settings/indexers'
+      fullPath: '/settings/indexers'
+      preLoaderRoute: typeof AuthedSettingsIndexersRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/media-management': {
+      id: '/_authed/settings/media-management'
+      path: '/settings/media-management'
+      fullPath: '/settings/media-management'
+      preLoaderRoute: typeof AuthedSettingsMediaManagementRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/metadata': {
+      id: '/_authed/settings/metadata'
+      path: '/settings/metadata'
+      fullPath: '/settings/metadata'
+      preLoaderRoute: typeof AuthedSettingsMetadataRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/profiles': {
+      id: '/_authed/settings/profiles'
+      path: '/settings/profiles'
+      fullPath: '/settings/profiles'
+      preLoaderRoute: typeof AuthedSettingsProfilesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings/users': {
+      id: '/_authed/settings/users'
+      path: '/settings/users'
+      fullPath: '/settings/users'
+      preLoaderRoute: typeof AuthedSettingsUsersRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system/': {
+      id: '/_authed/system/'
+      path: '/system'
+      fullPath: '/system/'
+      preLoaderRoute: typeof AuthedSystemIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system/events': {
+      id: '/_authed/system/events'
+      path: '/system/events'
+      fullPath: '/system/events'
+      preLoaderRoute: typeof AuthedSystemEventsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system/status': {
+      id: '/_authed/system/status'
+      path: '/system/status'
+      fullPath: '/system/status'
+      preLoaderRoute: typeof AuthedSystemStatusRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system/tasks': {
+      id: '/_authed/system/tasks'
+      path: '/system/tasks'
+      fullPath: '/system/tasks'
+      preLoaderRoute: typeof AuthedSystemTasksRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/tv/': {
+      id: '/_authed/tv/'
+      path: '/tv'
+      fullPath: '/tv/'
+      preLoaderRoute: typeof AuthedTvIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/tv/add': {
+      id: '/_authed/tv/add'
+      path: '/tv/add'
+      fullPath: '/tv/add'
+      preLoaderRoute: typeof AuthedTvAddRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/tv/calendar': {
+      id: '/_authed/tv/calendar'
+      path: '/tv/calendar'
+      fullPath: '/tv/calendar'
+      preLoaderRoute: typeof AuthedTvCalendarRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/images/$': {
+      id: '/api/images/$'
+      path: '/api/images/$'
+      fullPath: '/api/images/$'
+      preLoaderRoute: typeof ApiImagesSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/tv/series/$showId': {
+      id: '/_authed/tv/series/$showId'
+      path: '/tv/series/$showId'
+      fullPath: '/tv/series/$showId'
+      preLoaderRoute: typeof AuthedTvSeriesShowIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/v1/indexer/': {
       id: '/api/v1/indexer/'
       path: '/api/v1/indexer'
       fullPath: '/api/v1/indexer/'
       preLoaderRoute: typeof ApiV1IndexerIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/system/status': {
-      id: '/api/v1/system/status'
-      path: '/api/v1/system/status'
-      fullPath: '/api/v1/system/status'
-      preLoaderRoute: typeof ApiV1SystemStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/indexer/test': {
-      id: '/api/v1/indexer/test'
-      path: '/api/v1/indexer/test'
-      fullPath: '/api/v1/indexer/test'
-      preLoaderRoute: typeof ApiV1IndexerTestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/indexer/schema': {
-      id: '/api/v1/indexer/schema'
-      path: '/api/v1/indexer/schema'
-      fullPath: '/api/v1/indexer/schema'
-      preLoaderRoute: typeof ApiV1IndexerSchemaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/indexer/$id': {
@@ -981,12 +967,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1IndexerIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/tv/series/$showId': {
-      id: '/_authed/tv/series/$showId'
-      path: '/tv/series/$showId'
-      fullPath: '/tv/series/$showId'
-      preLoaderRoute: typeof AuthedTvSeriesShowIdRouteImport
-      parentRoute: typeof AuthedRoute
+    '/api/v1/indexer/schema': {
+      id: '/api/v1/indexer/schema'
+      path: '/api/v1/indexer/schema'
+      fullPath: '/api/v1/indexer/schema'
+      preLoaderRoute: typeof ApiV1IndexerSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/indexer/test': {
+      id: '/api/v1/indexer/test'
+      path: '/api/v1/indexer/test'
+      fullPath: '/api/v1/indexer/test'
+      preLoaderRoute: typeof ApiV1IndexerTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/system/status': {
+      id: '/api/v1/system/status'
+      path: '/api/v1/system/status'
+      fullPath: '/api/v1/system/status'
+      preLoaderRoute: typeof ApiV1SystemStatusRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }

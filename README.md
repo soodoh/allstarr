@@ -18,7 +18,7 @@ Useful commands:
 - `bun run lint`
 - `bun run db:migrate`
 
-Testing guidance: see [`docs/testing.md`](docs/testing.md) for which layer should own new regression coverage.
+`bun run test:e2e` installs Chromium and builds a fresh production app before running Playwright. Install FFmpeg (including `ffprobe`) first: `brew install ffmpeg` on macOS or `sudo apt-get install ffmpeg` on Debian/Ubuntu. The health tests require these tools, just like CI.
 
 ## Authentication Configuration
 

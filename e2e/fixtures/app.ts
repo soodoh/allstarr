@@ -2,7 +2,6 @@
 // oxlint-disable no-empty-pattern -- Playwright requires empty destructuring for fixtures without dependencies
 
 import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +14,7 @@ import {
 	formatDiagnosticLine,
 	timeDiagnosticOperation,
 } from "../helpers/diagnostics";
+import { startAppServer, stopAppServer } from "./app-process";
 import { createAppServerSpawnConfig } from "./app-runtime";
 import {
 	ALL_REQUIRED_SERVICES,
@@ -82,44 +82,6 @@ function recordProcessOutput(stream: "stderr" | "stdout", chunk: Buffer): void {
 	}
 }
 
-async function waitForServer(url: string, timeoutMs: number): Promise<void> {
-	const start = Date.now();
-	const endpoint = "/login";
-	let attempts = 0;
-	let lastError = "not ready";
-	while (Date.now() - start < timeoutMs) {
-		attempts += 1;
-		try {
-			const res = await fetch(`${url}/login`);
-			if (res.ok) {
-				recordDiagnostic({
-					scope: "app",
-					event: "ready",
-					status: "ok",
-					elapsedMs: Date.now() - start,
-					fields: { url, endpoint, attempts },
-				});
-				return;
-			}
-			lastError = `${res.status} ${res.statusText}`;
-		} catch (error) {
-			lastError = error instanceof Error ? error.message : String(error);
-		}
-		await new Promise<void>((resolve) => {
-			setTimeout(resolve, 500);
-		});
-	}
-	const elapsedMs = Date.now() - start;
-	recordDiagnostic({
-		scope: "app",
-		event: "ready",
-		status: "error",
-		elapsedMs,
-		fields: { url, endpoint, attempts, error: lastError },
-	});
-	throw new Error(`Server at ${url} did not start within ${timeoutMs}ms`);
-}
-
 export const test = base.extend<AppFixtures, WorkerFixtures>({
 	requiredServices: [ALL_REQUIRED_SERVICES, { option: true, scope: "worker" }],
 	fakeServerScenario: [null, { option: true, scope: "worker" }],
@@ -129,9 +91,12 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 			const manager = createFakeServerManager(requiredServices, {
 				...(fakeServerScenario ? { scenarioName: fakeServerScenario } : {}),
 			});
-			await manager.start();
-			await use(manager);
-			await manager.stop();
+			try {
+				await manager.start();
+				await use(manager);
+			} finally {
+				await manager.stop();
+			}
 		},
 		{ scope: "worker" },
 	],
@@ -165,20 +130,9 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 				},
 			});
 
-			const proc = spawn(spawnConfig.command, spawnConfig.args, {
-				env: spawnConfig.env,
-				cwd: spawnConfig.cwd,
-				stdio: "pipe",
-			});
-			proc.stdout?.on("data", (chunk: Buffer) =>
-				recordProcessOutput("stdout", chunk),
-			);
-			proc.stderr?.on("data", (chunk: Buffer) =>
-				recordProcessOutput("stderr", chunk),
-			);
-
+			let proc: ChildProcess | undefined;
 			try {
-				await timeDiagnosticOperation(
+				proc = await timeDiagnosticOperation(
 					{
 						scope: "app",
 						event: "startup",
@@ -187,17 +141,14 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 							url: spawnConfig.url,
 						},
 					},
-					async () => waitForServer(spawnConfig.url, 60_000),
-					{
-						log: (line) => {
-							console.info(line);
-						},
-					},
+					() =>
+						startAppServer(spawnConfig, {
+							onOutput: recordProcessOutput,
+							onDiagnostic: recordDiagnostic,
+						}),
 				);
 				await use({ url: spawnConfig.url, dbHandle, proc });
 			} catch (error) {
-				proc.kill();
-				dbHandle.cleanup();
 				const diagnostics = diagnosticBuffer.toText();
 				throw new Error(
 					[
@@ -207,10 +158,14 @@ export const test = base.extend<AppFixtures, WorkerFixtures>({
 					]
 						.filter(Boolean)
 						.join("\n"),
+					{ cause: error },
 				);
+			} finally {
+				if (proc) {
+					await stopAppServer(proc);
+				}
+				dbHandle.cleanup();
 			}
-			proc.kill();
-			dbHandle.cleanup();
 		},
 		{ scope: "worker", timeout: 120_000 },
 	],
@@ -270,7 +225,7 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 		recordDiagnostic({
 			scope: "app",
 			event: "test-reset",
-			status: resetResponse.ok ? "ok" : "info",
+			status: resetResponse.ok ? "ok" : "error",
 			elapsedMs: Date.now() - resetStartedAt,
 			fields: {
 				testTitle: testInfo.title,
@@ -280,6 +235,11 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 				statusText: resetResponse.statusText,
 			},
 		});
+		if (!resetResponse.ok) {
+			throw new Error(
+				`App test reset failed: ${resetResponse.status} ${resetResponse.statusText}`,
+			);
+		}
 	} catch (error) {
 		recordDiagnostic({
 			scope: "app",
@@ -293,6 +253,7 @@ test.beforeEach(async ({ appServer, serviceManager }, testInfo) => {
 				error: error instanceof Error ? error.message : String(error),
 			},
 		});
+		throw error;
 	}
 
 	const fakeResetStartedAt = Date.now();

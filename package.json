@@ -19,7 +19,7 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e:install": "bunx playwright install chromium",
-		"test:e2e": "bun run test:e2e:install && bunx playwright test --config e2e/playwright.config.ts",
+		"test:e2e": "bun run test:e2e:install && bun run build && bunx playwright test --config e2e/playwright.config.ts",
 		"fixtures:capture": "bun scripts/capture-golden-fixtures.ts",
 		"fixtures:capture:compose-live": "bun scripts/capture-compose-live-fixtures.ts",
 		"fixtures:promote:compose-live": "bun scripts/promote-compose-live-fixtures.ts"

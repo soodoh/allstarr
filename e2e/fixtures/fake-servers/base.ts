@@ -15,6 +15,7 @@ export type FakeServerOptions<TState extends object> = {
 
 export type FakeServer<TState extends object> = {
 	server: Server;
+	ready: Promise<void>;
 	url: string;
 	reset: () => void;
 	seed: (nextState: TState) => void;
@@ -74,11 +75,23 @@ export function createFakeServer<TState extends object>(
 		},
 	);
 
-	server.listen(opts.port);
+	const ready = new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(opts.port, () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
 
 	return {
 		server,
-		url: `http://localhost:${opts.port}`,
+		ready,
+		get url() {
+			const address = server.address();
+			const port =
+				address && typeof address !== "string" ? address.port : opts.port;
+			return `http://localhost:${port}`;
+		},
 		reset: () => {
 			state = structuredClone(seedState);
 		},

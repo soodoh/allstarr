@@ -22,7 +22,7 @@ vi.mock("src/server/tmdb/client", () => ({
 	clearTmdbCache: resetRouteMocks.clearTmdbCache,
 }));
 
-import { Route as TestResetRoute } from "./__test-reset";
+import { Route as TestResetRoute } from "./[_][_]test-reset";
 
 describe("test reset api route", () => {
 	const originalMode = process.env.E2E_TEST_MODE;
