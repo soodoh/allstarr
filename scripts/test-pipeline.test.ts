@@ -18,6 +18,16 @@ describe("E2E test pipeline", () => {
 		);
 	});
 
+	it("identifies the repository for dispatched PR title checks without a checkout", () => {
+		const workflow = readFileSync(
+			resolve(root, ".github/workflows/pr-title.yml"),
+			"utf8",
+		);
+		expect(workflow).toContain(
+			'gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"',
+		);
+	});
+
 	it("uses the self-contained E2E command in CI", () => {
 		const workflow = readFileSync(
 			resolve(root, ".github/workflows/ci.yml"),
