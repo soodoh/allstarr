@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	requireAdmin: vi.fn(),
@@ -97,6 +97,10 @@ function createDeleteChain() {
 }
 
 describe("download-clients", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.requireAdmin.mockResolvedValue(undefined);
@@ -148,7 +152,11 @@ describe("download-clients", () => {
 			const chain = createInsertChain({ get: created });
 			mocks.insert.mockReturnValueOnce(chain);
 
-			const now = Date.now();
+			const now = 1_700_000_000_000;
+			// Separate clock reads must not produce different timestamps for one creation.
+			vi.spyOn(Date, "now")
+				.mockReturnValueOnce(now)
+				.mockReturnValue(now + 1);
 			const result = await createDownloadClientFn({ data: input });
 
 			expect(mocks.requireAdmin).toHaveBeenCalledTimes(1);
@@ -158,8 +166,8 @@ describe("download-clients", () => {
 				string,
 				unknown
 			>;
-			expect(insertedValues.createdAt).toBeGreaterThanOrEqual(now);
-			expect(insertedValues.updatedAt).toBeGreaterThanOrEqual(now);
+			expect(insertedValues.createdAt).toBe(now);
+			expect(insertedValues.updatedAt).toBe(now);
 			expect(insertedValues.createdAt).toBe(insertedValues.updatedAt);
 			expect(insertedValues.name).toBe("qBit");
 			expect(insertedValues.settings).toBeNull();
