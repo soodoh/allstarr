@@ -22,13 +22,14 @@ export const createDownloadClientFn = createServerFn({ method: "POST" })
 	.inputValidator((d: unknown) => createDownloadClientSchema.parse(d))
 	.handler(async ({ data }) => {
 		await requireAdmin();
+		const now = Date.now();
 		return db
 			.insert(downloadClients)
 			.values({
 				...data,
 				settings: data.settings as DownloadClientSettings | null,
-				createdAt: Date.now(),
-				updatedAt: Date.now(),
+				createdAt: now,
+				updatedAt: now,
 			})
 			.returning()
 			.get();
